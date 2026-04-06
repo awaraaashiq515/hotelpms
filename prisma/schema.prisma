@@ -1,0 +1,1274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id                  String         @id @default(cuid())
+  name                String
+  legalName           String?
+  gstNumber           String?
+  phone               String?
+  email               String?        @unique
+  address             String?
+  businessType        String?
+  businessPreferences String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  packageId           String?
+  packageEndDate      DateTime?
+  packageStartDate    DateTime?
+  accounts            Account[]
+  accountGroups       AccountGroup[]
+  guests              Guest[]
+  package             Package?       @relation(fields: [packageId], references: [id])
+  properties          Property[]
+  users               User[]
+  vendors             Vendor[]
+}
+
+model Property {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  name               String
+  code               String              @unique
+  type               String?
+  city               String?
+  state              String?
+  country            String?
+  checkInTime        String?
+  checkOutTime       String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  brandName          String?
+  logoUrl            String?
+  address            String?
+  phone              String?
+  pinCode            String?
+  taxDetails         String?
+  stateCode          String?
+  accounts           Account[]
+  auditLogs          AuditLog[]
+  cashTopUps         CashTopUp[]
+  cashWithdrawals    CashWithdrawal[]
+  categories         Category[]
+  dayClosings        DayClosing[]
+  drivers            Driver[]
+  driverGiftRules    DriverGiftRule[]
+  expenses           Expense[]
+  expenseCategories  ExpenseCategory[]
+  floors             Floor[]
+  gstFilings         GstFiling[]
+  housekeepingTasks  HousekeepingTask[]
+  invoices           Invoice[]
+  kotTickets         KotTicket[]
+  maintenanceTickets MaintenanceTicket[]
+  offers             Offer[]
+  outlets            Outlet[]
+  payments           Payment[]
+  paymentModes       PaymentMode[]
+  posOrders          PosOrder[]
+  products           Product[]
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  purchaseInvoices   PurchaseInvoice[]
+  purchaseOrders     PurchaseOrder[]
+  receipts           Receipt[]
+  reservations       Reservation[]
+  rooms              Room[]
+  roomTypes          RoomType[]
+  settlements        Settlement[]
+  shifts             Shift[]
+  staffMembers       StaffMember[]
+  stockAdjustments   StockAdjustment[]
+  stockItems         StockItem[]
+  stockMovements     StockMovement[]
+  tables             Table[]
+  tableReservations  TableReservation[]
+  tablets            Tablet[]
+  users              User[]
+  vouchers           Voucher[]
+  warehouses         Warehouse[]
+
+  @@index([organizationId])
+}
+
+model User {
+  id                  String       @id @default(cuid())
+  organizationId      String
+  propertyId          String?
+  roleId              String
+  fullName            String
+  email               String       @unique
+  phone               String?
+  passwordHash        String
+  isActive            Boolean      @default(true)
+  onboardingCompleted Boolean      @default(false)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  lastLoginAt         DateTime?
+  designation         String?
+  auditLogs           AuditLog[]
+  servedOrders        PosOrder[]   @relation("ServedOrders")
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  property            Property?    @relation(fields: [propertyId], references: [id])
+  role                Role         @relation(fields: [roleId], references: [id])
+
+  @@index([organizationId])
+  @@index([propertyId])
+}
+
+model Role {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  description     String?
+  rolePermissions RolePermission[]
+  users           User[]
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  module          String
+  action          String
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
+}
+
+model Guest {
+  id             String          @id @default(cuid())
+  organizationId String
+  firstName      String
+  lastName       String?
+  mobile         String?
+  email          String?
+  gender         String?
+  nationality    String?
+  idType         String?
+  idNumber       String?
+  address        String?
+  loyaltyPoints  Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  driverId       String?
+  checkIns       CheckIn[]
+  folios         Folio[]
+  driver         Driver?         @relation("GuestDriver", fields: [driverId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  documents      GuestDocument[]
+  invoices       Invoice[]
+  reservations   Reservation[]
+}
+
+model GuestDocument {
+  id           String   @id @default(cuid())
+  guestId      String
+  documentType String
+  documentUrl  String
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  guest        Guest    @relation(fields: [guestId], references: [id])
+}
+
+model RoomType {
+  id           String        @id @default(cuid())
+  propertyId   String
+  name         String
+  code         String
+  baseRate     Float
+  maxOccupancy Int
+  reservations Reservation[]
+  rooms        Room[]
+  property     Property      @relation(fields: [propertyId], references: [id])
+}
+
+model Room {
+  id                 String              @id @default(cuid())
+  propertyId         String
+  roomTypeId         String
+  roomNumber         String
+  floor              String?
+  status             String
+  housekeepingStatus String
+  maintenanceStatus  String?
+  checkIns           CheckIn[]
+  housekeepingTasks  HousekeepingTask[]
+  maintenanceTickets MaintenanceTicket[]
+  reservationRooms   ReservationRoom[]
+  roomType           RoomType            @relation(fields: [roomTypeId], references: [id])
+  property           Property            @relation(fields: [propertyId], references: [id])
+}
+
+model Reservation {
+  id             String            @id @default(cuid())
+  propertyId     String
+  guestId        String
+  bookingNo      String            @unique
+  arrivalDate    DateTime
+  departureDate  DateTime
+  adults         Int
+  children       Int
+  roomTypeId     String
+  assignedRoomId String?
+  status         String
+  totalAmount    Float
+  advanceAmount  Float             @default(0)
+  dueAmount      Float             @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  checkIns       CheckIn[]
+  folios         Folio[]
+  roomType       RoomType          @relation(fields: [roomTypeId], references: [id])
+  guest          Guest             @relation(fields: [guestId], references: [id])
+  property       Property          @relation(fields: [propertyId], references: [id])
+  rooms          ReservationRoom[]
+}
+
+model ReservationRoom {
+  id            String      @id @default(cuid())
+  reservationId String
+  roomId        String?
+  ratePerNight  Float
+  adults        Int
+  children      Int
+  room          Room?       @relation(fields: [roomId], references: [id])
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+}
+
+model CheckIn {
+  id                 String      @id @default(cuid())
+  reservationId      String
+  guestId            String
+  roomId             String
+  checkedInAt        DateTime    @default(now())
+  expectedCheckoutAt DateTime
+  status             String
+  room               Room        @relation(fields: [roomId], references: [id])
+  guest              Guest       @relation(fields: [guestId], references: [id])
+  reservation        Reservation @relation(fields: [reservationId], references: [id])
+  checkOuts          CheckOut[]
+}
+
+model CheckOut {
+  id               String   @id @default(cuid())
+  checkInId        String
+  checkedOutAt     DateTime @default(now())
+  finalBillAmount  Float
+  settlementStatus String
+  checkIn          CheckIn  @relation(fields: [checkInId], references: [id])
+}
+
+model Folio {
+  id             String             @id @default(cuid())
+  reservationId  String
+  guestId        String
+  folioNo        String             @unique
+  openingBalance Float              @default(0)
+  totalCharges   Float              @default(0)
+  totalPayments  Float              @default(0)
+  closingBalance Float              @default(0)
+  status         String
+  guest          Guest              @relation(fields: [guestId], references: [id])
+  reservation    Reservation        @relation(fields: [reservationId], references: [id])
+  transactions   FolioTransaction[]
+  invoices       Invoice[]
+  posOrders      PosOrder[]
+}
+
+model FolioTransaction {
+  id           String   @id @default(cuid())
+  folioId      String
+  txnDate      DateTime @default(now())
+  txnType      String
+  sourceModule String
+  sourceRefId  String?
+  description  String?
+  debitAmount  Float    @default(0)
+  creditAmount Float    @default(0)
+  taxAmount    Float    @default(0)
+  netAmount    Float
+  folio        Folio    @relation(fields: [folioId], references: [id])
+}
+
+model Outlet {
+  id         String      @id @default(cuid())
+  propertyId String
+  name       String
+  type       String
+  floors     Floor[]
+  kotTickets KotTicket[]
+  property   Property    @relation(fields: [propertyId], references: [id])
+  posOrders  PosOrder[]
+  products   Product[]
+
+  @@index([propertyId])
+}
+
+model Category {
+  id           String    @id @default(cuid())
+  propertyId   String
+  name         String
+  description  String?
+  isActive     Boolean   @default(true)
+  parentId     String?
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  property     Property  @relation(fields: [propertyId], references: [id])
+  products     Product[]
+
+  @@index([propertyId])
+}
+
+model Product {
+  id                 String         @id @default(cuid())
+  propertyId         String
+  categoryId         String
+  outletId           String?
+  stockItemId        String?
+  name               String
+  sku                String?
+  barcode            String?
+  productType        String
+  costPrice          Float          @default(0)
+  sellingPrice       Float
+  taxRuleId          String?
+  trackInventory     Boolean        @default(false)
+  isActive           Boolean        @default(true)
+  hsnCode            String?
+  description        String?
+  image              String?
+  taxRate            Float?
+  unit               String?
+  availabilityStatus Boolean        @default(true)
+  kitchenMapping     String?
+  variantSize        String?
+  invoiceItems       InvoiceItem[]
+  kotItems           KotItem[]
+  posOrderItems      PosOrderItem[]
+  stockItem          StockItem?     @relation(fields: [stockItemId], references: [id])
+  property           Property       @relation(fields: [propertyId], references: [id])
+  category           Category       @relation(fields: [categoryId], references: [id])
+  outlet             Outlet?        @relation(fields: [outletId], references: [id])
+
+  @@index([propertyId])
+  @@index([categoryId])
+}
+
+model PosOrder {
+  id                String         @id @default(cuid())
+  propertyId        String
+  outletId          String
+  orderNo           String         @unique
+  orderType         String
+  tableNo           String?
+  roomId            String?
+  folioId           String?
+  status            String
+  subtotal          Float          @default(0)
+  discountAmount    Float          @default(0)
+  taxAmount         Float          @default(0)
+  grandTotal        Float          @default(0)
+  createdAt         DateTime       @default(now())
+  restaurantTableId String?
+  driverId          String?
+  servedById        String?
+  staffMemberId     String?
+  kotTickets        KotTicket[]
+  rating            OrderRating?
+  property          Property       @relation(fields: [propertyId], references: [id])
+  outlet            Outlet         @relation(fields: [outletId], references: [id])
+  folio             Folio?         @relation(fields: [folioId], references: [id])
+  table             Table?         @relation(fields: [restaurantTableId], references: [id])
+  driver            Driver?        @relation(fields: [driverId], references: [id])
+  servedBy          User?          @relation("ServedOrders", fields: [servedById], references: [id])
+  staffMember       StaffMember?   @relation(fields: [staffMemberId], references: [id])
+  items             PosOrderItem[]
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model PosOrderItem {
+  id             String    @id @default(cuid())
+  posOrderId     String
+  productId      String
+  quantity       Int
+  unitPrice      Float
+  discountAmount Float     @default(0)
+  taxAmount      Float     @default(0)
+  totalAmount    Float
+  kotItems       KotItem[]
+  product        Product   @relation(fields: [productId], references: [id])
+  posOrder       PosOrder  @relation(fields: [posOrderId], references: [id])
+}
+
+model KotTicket {
+  id                String         @id @default(cuid())
+  kotNo             String         @unique
+  orderId           String
+  propertyId        String
+  outletId          String
+  restaurantTableId String?
+  tableNo           String?
+  roomId            String?
+  status            String         @default("NEW")
+  kitchenStation    String?
+  createdBy         String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  items             KotItem[]
+  statusLogs        KotStatusLog[]
+  outlet            Outlet         @relation(fields: [outletId], references: [id])
+  property          Property       @relation(fields: [propertyId], references: [id])
+  order             PosOrder       @relation(fields: [orderId], references: [id])
+  table             Table?         @relation(fields: [restaurantTableId], references: [id])
+
+  @@index([propertyId])
+  @@index([orderId])
+}
+
+model KotItem {
+  id           String       @id @default(cuid())
+  kotId        String
+  orderItemId  String
+  productId    String
+  itemName     String
+  quantity     Int
+  notes        String?
+  status       String       @default("NEW")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  posOrderItem PosOrderItem @relation(fields: [orderItemId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id])
+  kot          KotTicket    @relation(fields: [kotId], references: [id])
+}
+
+model KotStatusLog {
+  id        String    @id @default(cuid())
+  kotId     String
+  oldStatus String
+  newStatus String
+  changedBy String?
+  changedAt DateTime  @default(now())
+  remarks   String?
+  kot       KotTicket @relation(fields: [kotId], references: [id])
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  propertyId     String
+  invoiceNo      String        @unique
+  guestId        String?
+  folioId        String?
+  subtotal       Float         @default(0)
+  discountAmount Float         @default(0)
+  taxAmount      Float         @default(0)
+  totalAmount    Float
+  paymentStatus  String
+  invoiceStatus  String
+  cancelReason   String?
+  invoiceDate    DateTime      @default(now())
+  folio          Folio?        @relation(fields: [folioId], references: [id])
+  guest          Guest?        @relation(fields: [guestId], references: [id])
+  property       Property      @relation(fields: [propertyId], references: [id])
+  items          InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  productId   String?
+  description String?
+  qty         Float
+  unitPrice   Float
+  taxAmount   Float    @default(0)
+  totalAmount Float
+  hsnCode     String?
+  product     Product? @relation(fields: [productId], references: [id])
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+}
+
+model Warehouse {
+  id               String            @id @default(cuid())
+  propertyId       String
+  name             String
+  code             String
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  property         Property          @relation(fields: [propertyId], references: [id])
+}
+
+model StockItem {
+  id                 String              @id @default(cuid())
+  propertyId         String
+  name               String
+  sku                String?
+  unit               String?
+  openingStock       Float               @default(0)
+  minimumStock       Float               @default(0)
+  reorderLevel       Float               @default(0)
+  costPrice          Float               @default(0)
+  isActive           Boolean             @default(true)
+  products           Product[]
+  purchaseOrderItems PurchaseOrderItem[]
+  property           Property            @relation(fields: [propertyId], references: [id])
+  stockMovements     StockMovement[]
+}
+
+model StockMovement {
+  id              String    @id @default(cuid())
+  propertyId      String
+  warehouseId     String
+  stockItemId     String
+  movementType    String
+  referenceModule String?
+  referenceId     String?
+  qtyIn           Float     @default(0)
+  qtyOut          Float     @default(0)
+  balanceQty      Float
+  unitCost        Float     @default(0)
+  movementDate    DateTime  @default(now())
+  stockItem       StockItem @relation(fields: [stockItemId], references: [id])
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
+  property        Property  @relation(fields: [propertyId], references: [id])
+}
+
+model StockAdjustment {
+  id             String    @id @default(cuid())
+  propertyId     String
+  warehouseId    String
+  adjustmentNo   String    @unique
+  adjustmentDate DateTime  @default(now())
+  reason         String?
+  status         String
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id])
+  property       Property  @relation(fields: [propertyId], references: [id])
+}
+
+model Vendor {
+  id               String            @id @default(cuid())
+  organizationId   String
+  name             String
+  mobile           String?
+  email            String?
+  gstNumber        String?
+  address          String?
+  openingBalance   Float             @default(0)
+  creditLimit      Float             @default(0)
+  purchaseInvoices PurchaseInvoice[]
+  purchaseOrders   PurchaseOrder[]
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  propertyId   String
+  vendorId     String
+  poNo         String              @unique
+  orderDate    DateTime            @default(now())
+  expectedDate DateTime?
+  subtotal     Float               @default(0)
+  taxAmount    Float               @default(0)
+  totalAmount  Float
+  status       String
+  vendor       Vendor              @relation(fields: [vendorId], references: [id])
+  property     Property            @relation(fields: [propertyId], references: [id])
+  items        PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  stockItemId     String
+  qty             Float
+  rate            Float
+  taxAmount       Float         @default(0)
+  totalAmount     Float
+  stockItem       StockItem     @relation(fields: [stockItemId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+}
+
+model PurchaseInvoice {
+  id          String    @id @default(cuid())
+  propertyId  String
+  vendorId    String
+  invoiceNo   String    @unique
+  invoiceDate DateTime  @default(now())
+  dueDate     DateTime?
+  subtotal    Float     @default(0)
+  taxAmount   Float     @default(0)
+  totalAmount Float
+  paidAmount  Float     @default(0)
+  dueAmount   Float     @default(0)
+  status      String
+  vendor      Vendor    @relation(fields: [vendorId], references: [id])
+  property    Property  @relation(fields: [propertyId], references: [id])
+}
+
+model AccountGroup {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  nature         String
+  accounts       Account[]
+  organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model Account {
+  id                 String         @id @default(cuid())
+  organizationId     String
+  propertyId         String?
+  accountGroupId     String
+  name               String
+  accountType        String
+  openingBalance     Float          @default(0)
+  openingBalanceType String
+  accountGroup       AccountGroup   @relation(fields: [accountGroupId], references: [id])
+  property           Property?      @relation(fields: [propertyId], references: [id])
+  organization       Organization   @relation(fields: [organizationId], references: [id])
+  payments           Payment[]      @relation("PaidToAccount")
+  receipts           Receipt[]      @relation("ReceivedFromAccount")
+  voucherEntries     VoucherEntry[]
+}
+
+model Voucher {
+  id          String         @id @default(cuid())
+  propertyId  String
+  voucherNo   String         @unique
+  voucherType String
+  voucherDate DateTime       @default(now())
+  referenceNo String?
+  narration   String?
+  totalDebit  Float          @default(0)
+  totalCredit Float          @default(0)
+  status      String
+  property    Property       @relation(fields: [propertyId], references: [id])
+  entries     VoucherEntry[]
+}
+
+model VoucherEntry {
+  id           String  @id @default(cuid())
+  voucherId    String
+  accountId    String
+  debitAmount  Float   @default(0)
+  creditAmount Float   @default(0)
+  description  String?
+  account      Account @relation(fields: [accountId], references: [id])
+  voucher      Voucher @relation(fields: [voucherId], references: [id])
+}
+
+model ExpenseCategory {
+  id         String    @id @default(cuid())
+  propertyId String
+  name       String
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  expenses   Expense[]
+  property   Property  @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, name])
+}
+
+model Expense {
+  id            String           @id @default(cuid())
+  propertyId    String
+  expenseNo     String           @unique
+  categoryId    String?
+  expenseDate   DateTime         @default(now())
+  amount        Float
+  paymentMode   String
+  paidTo        String?
+  createdBy     String?
+  description   String?
+  attachmentUrl String?
+  status        String           @default("ACTIVE")
+  voucherId     String?
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  property      Property         @relation(fields: [propertyId], references: [id])
+}
+
+model DayClosing {
+  id               String   @id @default(cuid())
+  propertyId       String
+  shiftId          String?
+  closingDate      DateTime @default(now())
+  openingCash      Float    @default(0)
+  cashSales        Float    @default(0)
+  cardSales        Float    @default(0)
+  upiSales         Float    @default(0)
+  otherSales       Float    @default(0)
+  totalSales       Float    @default(0)
+  cashReceived     Float    @default(0)
+  cashPaid         Float    @default(0)
+  refundAmount     Float    @default(0)
+  withdrawalAmount Float    @default(0)
+  topUpAmount      Float    @default(0)
+  expectedCash     Float    @default(0)
+  actualCash       Float    @default(0)
+  varianceAmount   Float    @default(0)
+  invoiceCount     Int      @default(0)
+  notes            String?
+  closedBy         String?
+  status           String   @default("CLOSED")
+  shift            Shift?   @relation(fields: [shiftId], references: [id])
+  property         Property @relation(fields: [propertyId], references: [id])
+}
+
+model Shift {
+  id          String           @id @default(cuid())
+  propertyId  String
+  cashierId   String?
+  cashierName String?
+  shiftNo     String           @unique
+  openedAt    DateTime         @default(now())
+  closedAt    DateTime?
+  openingCash Float            @default(0)
+  status      String           @default("OPEN")
+  notes       String?
+  topUps      CashTopUp[]
+  withdrawals CashWithdrawal[]
+  dayClosings DayClosing[]
+  property    Property         @relation(fields: [propertyId], references: [id])
+}
+
+model CashWithdrawal {
+  id          String   @id @default(cuid())
+  propertyId  String
+  shiftId     String
+  amount      Float
+  reason      String?
+  approvedBy  String?
+  withdrawnAt DateTime @default(now())
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+}
+
+model CashTopUp {
+  id         String   @id @default(cuid())
+  propertyId String
+  shiftId    String
+  amount     Float
+  reason     String?
+  source     String?
+  addedBy    String?
+  addedAt    DateTime @default(now())
+  shift      Shift    @relation(fields: [shiftId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+}
+
+model PaymentMode {
+  id         String    @id @default(cuid())
+  propertyId String
+  name       String
+  type       String
+  isActive   Boolean   @default(true)
+  payments   Payment[]
+  property   Property  @relation(fields: [propertyId], references: [id])
+  receipts   Receipt[]
+
+  @@unique([propertyId, name])
+}
+
+model Receipt {
+  id                    String      @id @default(cuid())
+  propertyId            String
+  receiptNo             String      @unique
+  receiptDate           DateTime    @default(now())
+  receivedFromAccountId String
+  amount                Float
+  paymentModeId         String
+  referenceNo           String?
+  sourceModule          String?
+  sourceRefId           String?
+  paymentMode           PaymentMode @relation(fields: [paymentModeId], references: [id])
+  receivedFromAccount   Account     @relation("ReceivedFromAccount", fields: [receivedFromAccountId], references: [id])
+  property              Property    @relation(fields: [propertyId], references: [id])
+}
+
+model Payment {
+  id              String      @id @default(cuid())
+  propertyId      String
+  paymentNo       String      @unique
+  paymentDate     DateTime    @default(now())
+  paidToAccountId String
+  amount          Float
+  paymentModeId   String
+  referenceNo     String?
+  sourceModule    String?
+  sourceRefId     String?
+  paymentMode     PaymentMode @relation(fields: [paymentModeId], references: [id])
+  paidToAccount   Account     @relation("PaidToAccount", fields: [paidToAccountId], references: [id])
+  property        Property    @relation(fields: [propertyId], references: [id])
+}
+
+model Settlement {
+  id             String   @id @default(cuid())
+  propertyId     String
+  settlementNo   String   @unique
+  settlementDate DateTime @default(now())
+  sourceType     String
+  sourceId       String
+  grossAmount    Float
+  paidAmount     Float
+  balanceAmount  Float
+  status         String
+  property       Property @relation(fields: [propertyId], references: [id])
+}
+
+model HousekeepingTask {
+  id          String    @id @default(cuid())
+  propertyId  String
+  roomId      String
+  taskType    String
+  assignedTo  String?
+  priority    String?
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  status      String
+  remarks     String?
+  room        Room      @relation(fields: [roomId], references: [id])
+  property    Property  @relation(fields: [propertyId], references: [id])
+}
+
+model MaintenanceTicket {
+  id          String    @id @default(cuid())
+  propertyId  String
+  roomId      String?
+  ticketNo    String    @unique
+  issueType   String
+  priority    String
+  description String?
+  raisedBy    String?
+  assignedTo  String?
+  status      String
+  openedAt    DateTime  @default(now())
+  resolvedAt  DateTime?
+  room        Room?     @relation(fields: [roomId], references: [id])
+  property    Property  @relation(fields: [propertyId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  propertyId String
+  userId     String?
+  moduleName String
+  actionType String
+  recordId   String
+  oldData    String?
+  newData    String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+}
+
+model WebsiteSlider {
+  id        String   @id @default(cuid())
+  section   String   @default("HERO")
+  type      String   @default("IMAGE")
+  url       String
+  title     String?
+  subtitle  String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WebsiteExperience {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  imageUrl    String
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WebsiteRoom {
+  id          String               @id @default(cuid())
+  name        String
+  slug        String               @unique
+  description String
+  price       Float
+  capacity    Int
+  type        String
+  isActive    Boolean              @default(true)
+  order       Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  images      WebsiteRoomImage[]
+  amenities   WebsiteRoomAmenity[] @relation("WebsiteRoomToWebsiteRoomAmenity")
+}
+
+model WebsiteRoomImage {
+  id     String      @id @default(cuid())
+  roomId String
+  url    String
+  order  Int         @default(0)
+  room   WebsiteRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model WebsiteRoomAmenity {
+  id    String        @id @default(cuid())
+  name  String        @unique
+  rooms WebsiteRoom[] @relation("WebsiteRoomToWebsiteRoomAmenity")
+}
+
+model WebsiteSettings {
+  id                       String   @id @default(cuid())
+  hotelName                String   @default("Avasa Hotels")
+  logoUrl                  String?
+  address                  String?
+  email                    String?
+  phone                    String?
+  storyTitle               String?  @default("Our Story – The Story of Avasa Hotels")
+  storyContent             String?
+  storyImage1              String?
+  storyImage2              String?
+  mapIframe                String?
+  facebookUrl              String?
+  instagramUrl             String?
+  twitterUrl               String?
+  galleryHeroVideoUrl      String?
+  galleryHeroImageUrl      String?
+  bookingRedirectToContact Boolean  @default(true)
+  updatedAt                DateTime @updatedAt
+}
+
+model WebsiteGalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  category  String   @default("General")
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Enquiry {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String
+  subject   String
+  message   String
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WebsiteBlog {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  excerpt     String?
+  content     String
+  imageUrl    String?
+  author      String?  @default("Avasa Hotels")
+  category    String?  @default("Local Attractions")
+  isActive    Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Floor {
+  id         String   @id @default(cuid())
+  propertyId String
+  outletId   String?
+  name       String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id])
+  outlet     Outlet?  @relation(fields: [outletId], references: [id])
+  tables     Table[]
+
+  @@index([propertyId])
+}
+
+model Table {
+  id                String             @id @default(cuid())
+  floorId           String
+  propertyId        String
+  name              String
+  capacity          Int                @default(4)
+  status            String             @default("VACANT")
+  x                 Float              @default(0)
+  y                 Float              @default(0)
+  width             Int?               @default(256)
+  height            Int?               @default(176)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  kotTickets        KotTicket[]
+  posOrders         PosOrder[]
+  floor             Floor              @relation(fields: [floorId], references: [id])
+  property          Property           @relation(fields: [propertyId], references: [id])
+  tableReservations TableReservation[]
+
+  @@index([propertyId])
+  @@index([floorId])
+}
+
+model Driver {
+  id                String                @id @default(cuid())
+  propertyId        String
+  name              String
+  phone             String?
+  vehicleNumber     String?
+  vehicleType       String                @default("CAR")
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  property          Property              @relation(fields: [propertyId], references: [id])
+  driverGifts       DriverGift[]
+  offerHistories    DriverOfferHistory[]
+  offerProgresses   DriverOfferProgress[]
+  guests            Guest[]               @relation("GuestDriver")
+  offerAuditLogs    OfferAuditLog[]
+  posOrders         PosOrder[]
+  rewardPayouts     RewardPayout[]
+  tableReservations TableReservation[]
+}
+
+model TableReservation {
+  id             String   @id @default(cuid())
+  propertyId     String
+  customerName   String
+  customerPhone  String?
+  date           DateTime
+  time           String
+  numberOfTables Int      @default(1)
+  guestCount     Int      @default(1)
+  status         String   @default("PENDING")
+  driverId       String?
+  tableId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  property       Property @relation(fields: [propertyId], references: [id])
+  driver         Driver?  @relation(fields: [driverId], references: [id])
+  table          Table?   @relation(fields: [tableId], references: [id])
+}
+
+model DriverGiftRule {
+  id                String       @id @default(cuid())
+  propertyId        String
+  customersRequired Int          @default(1)
+  giftName          String
+  description       String?
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  gifts             DriverGift[]
+  property          Property     @relation(fields: [propertyId], references: [id])
+}
+
+model DriverGift {
+  id       String          @id @default(cuid())
+  driverId String
+  ruleId   String?
+  giftName String
+  issuedAt DateTime        @default(now())
+  status   String          @default("CLAIMED")
+  remarks  String?
+  driver   Driver          @relation(fields: [driverId], references: [id])
+  rule     DriverGiftRule? @relation(fields: [ruleId], references: [id])
+}
+
+model StaffMember {
+  id               String     @id @default(cuid())
+  propertyId       String
+  name             String
+  phone            String?
+  designation      String?    @default("Waiter")
+  salary           Float?     @default(0)
+  address          String?
+  emergencyContact String?
+  joiningDate      DateTime?  @default(now())
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  posOrders        PosOrder[]
+  property         Property   @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId])
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model Tablet {
+  id         String   @id @default(cuid())
+  propertyId String
+  name       String
+  mode       String   @default("WAITER")
+  tableId    String?
+  waiterId   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id])
+}
+
+model OrderRating {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  rating    Int
+  comments  String?
+  createdAt DateTime @default(now())
+  order     PosOrder @relation(fields: [orderId], references: [id])
+}
+
+model GstFiling {
+  id           String    @id @default(cuid())
+  propertyId   String
+  filingMonth  String
+  returnType   String    @default("GSTR-1")
+  status       String    @default("DRAFT")
+  jsonData     String
+  totalTaxable Float     @default(0)
+  totalCgst    Float     @default(0)
+  totalSgst    Float     @default(0)
+  totalIgst    Float     @default(0)
+  totalAmount  Float     @default(0)
+  invoiceCount Int       @default(0)
+  generatedAt  DateTime  @default(now())
+  submittedAt  DateTime?
+  notes        String?
+  property     Property  @relation(fields: [propertyId], references: [id])
+}
+
+model Offer {
+  id              String                @id @default(cuid())
+  propertyId      String
+  title           String
+  offerType       String                @default("RIDES")
+  targetRides     Int                   @default(0)
+  targetReferrals Int                   @default(0)
+  rewardType      String                @default("CASH")
+  rewardValue     Float                 @default(0)
+  resetType       String                @default("SAME_OFFER")
+  nextOfferId     String?
+  isActive        Boolean               @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  priority        Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  rewardItem      String?
+  histories       DriverOfferHistory[]
+  progresses      DriverOfferProgress[]
+  nextOffer       Offer?                @relation("NextOffer", fields: [nextOfferId], references: [id])
+  previousOffers  Offer[]               @relation("NextOffer")
+  property        Property              @relation(fields: [propertyId], references: [id])
+  rewardPayouts   RewardPayout[]
+}
+
+model DriverOfferProgress {
+  id                 String    @id @default(cuid())
+  driverId           String
+  offerId            String
+  completedRides     Int       @default(0)
+  completedReferrals Int       @default(0)
+  progressPercent    Float     @default(0)
+  status             String    @default("ACTIVE")
+  startedAt          DateTime  @default(now())
+  completedAt        DateTime?
+  resetCount         Int       @default(0)
+  updatedAt          DateTime  @updatedAt
+  offer              Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  driver             Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, offerId])
+}
+
+model DriverOfferHistory {
+  id                    String    @id @default(cuid())
+  driverId              String
+  offerId               String
+  ridesAtCompletion     Int
+  referralsAtCompletion Int
+  rewardEarned          Float
+  completedAt           DateTime  @default(now())
+  resetTriggeredAt      DateTime?
+  rewardItemEarned      String?
+  offer                 Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  driver                Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
+model RewardPayout {
+  id           String    @id @default(cuid())
+  driverId     String
+  offerId      String
+  amount       Float
+  payoutStatus String    @default("PENDING")
+  payoutMode   String?
+  approvedBy   String?
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  itemName     String?
+  offer        Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  driver       Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
+model OfferAuditLog {
+  id         String   @id @default(cuid())
+  driverId   String
+  actionType String
+  oldValue   String?
+  newValue   String?
+  note       String?
+  createdBy  String
+  createdAt  DateTime @default(now())
+  driver     Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
+model Package {
+  id              String              @id @default(cuid())
+  name            String              @unique
+  description     String?
+  discountPercent Float               @default(0)
+  isActive        Boolean             @default(true)
+  color           String?             @default("#6366f1")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  organizations   Organization[]
+  features        PackageFeature[]
+  permissions     PackagePermission[]
+}
+
+model PackageFeature {
+  id        String  @id @default(cuid())
+  packageId String
+  feature   String
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, feature])
+}
+
+model PackagePermission {
+  id        String  @id @default(cuid())
+  packageId String
+  module    String
+  action    String
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, module, action])
+}

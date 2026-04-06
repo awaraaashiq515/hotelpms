@@ -1,0 +1,46 @@
+import { apiClient } from './client';
+
+export interface Product {
+  id: string;
+  categoryId: string;
+  outletId?: string;
+  name: string;
+  sku?: string;
+  barcode?: string;
+  hsnCode?: string;
+  productType: string;
+  costPrice: number;
+  sellingPrice: number;
+  taxRate?: number | null;
+  trackInventory: boolean;
+  isActive: boolean;
+  image?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+}
+
+export const productsApi = {
+  async list(): Promise<Product[]> {
+    return apiClient.get('/api/products');
+  },
+
+  async get(id: string): Promise<Product> {
+    return apiClient.get(`/api/products/${id}`);
+  },
+
+  async create(data: Partial<Product>): Promise<Product> {
+    return apiClient.post('/api/products', data);
+  },
+
+  async update(id: string, data: Partial<Product>): Promise<Product> {
+    return apiClient.put(`/api/products/${id}`, data);
+  },
+
+  async delete(id: string): Promise<void> {
+    return apiClient.delete(`/api/products/${id}`);
+  },
+};

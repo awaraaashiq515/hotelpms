@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #fdf8f8;
+  --foreground: #2d1515;
+  
+  /* OrderMint Logo Color Palette */
+  --pos-primary: #e8a0a0;           /* Logo Rose Pink - main brand color */
+  --pos-primary-light: #f0c8c8;     /* Lighter pink for hover/tints */
+  --pos-primary-dark: #c47878;      /* Slightly deeper pink for active states */
+  --pos-primary-glow: hsla(0, 55%, 77%, 0.4);
+  --pos-accent: #7a2e2e;            /* Logo Maroon - used for dark accents */
+  --pos-accent-soft: #f5dada;       /* Very soft pink - background tints */
+  --pos-sidebar: #2d1515;           /* Deep maroon sidebar */
+  --pos-sidebar-hover: #7a2e2e;
+  --pos-sidebar-text: #fdf8f8;
+  --pos-header: #ffffff;
+  --pos-border: #f0c8c8;
+
+  /* Glassmorphism Tokens */
+  --glass-bg: rgba(255, 248, 248, 0.75);
+  --glass-border: rgba(232, 160, 160, 0.35);
+}
+
+.dark {
+  --background: #1a0a0a;
+  --foreground: #fdf8f8;
+  --pos-sidebar: #1a0a0a;
+  --pos-sidebar-hover: #2d1515;
+  --pos-header: #2d1515;
+  --pos-border: #4a2020;
+  
+  --glass-bg: rgba(45, 21, 21, 0.6);
+  --glass-border: rgba(232, 160, 160, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-pos-primary: var(--pos-primary);
+  --color-pos-primary-light: var(--pos-primary-light);
+  --color-pos-primary-dark: var(--pos-primary-dark);
+  --color-pos-primary-glow: var(--pos-primary-glow);
+  --color-pos-accent: var(--pos-accent);
+  --color-pos-accent-soft: var(--pos-accent-soft);
+  --color-pos-sidebar: var(--pos-sidebar);
+  --color-pos-sidebar-hover: var(--pos-sidebar-hover);
+  --color-pos-sidebar-text: var(--pos-sidebar-text);
+  --color-pos-header: var(--pos-header);
+  --color-pos-border: var(--pos-border);
+}
+
+/* Premium Utility Classes */
+@layer utilities {
+  .glass-morphism {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  
+  .glass-card {
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px var(--pos-primary-glow);
+  }
+
+  .premium-shadow {
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1),
+                0 4px 20px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .hover-lift {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px) scale(1.02) translateZ(0);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Simple Operational Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

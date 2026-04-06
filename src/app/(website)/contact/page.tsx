@@ -1,0 +1,241 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Mail, Phone, MapPin, Send, MessageSquare, Clock, CheckCircle } from 'lucide-react';
+import { MapSection } from '@/components/website/MapSection';
+
+export default function ContactPage() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: 'General Inquiry',
+    message: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    try {
+      const res = await fetch('/api/website/enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const json = await res.json();
+      
+      if (json.success) {
+        setSuccess(true);
+        setFormData({ name: '', email: '', phone: '', subject: 'General Inquiry', message: '' });
+      } else {
+        setError(json.error || 'Failed to send message');
+      }
+    } catch (err) {
+      setError('An unexpected error occurrred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <main className="bg-white">
+      {/* Hero Section */}
+      <section className="relative pt-48 pb-32 bg-slate-900 overflow-hidden group border-b border-white/5 text-center">
+        <div className="absolute inset-0 bg-cover bg-center opacity-30 group-hover:scale-105 transition-transform duration-[5000ms]" 
+             style={{ backgroundImage: "url('/images/website/contact-team.png')" }} />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent z-10" />
+        
+        <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-20">
+          <div className="space-y-6">
+            <span className="text-pos-primary font-bold tracking-[0.4em] uppercase text-xs block">
+              Connect With Us
+            </span>
+            <h1 className="text-4xl lg:text-7xl font-bold text-white tracking-tight leading-none uppercase">
+              Start Your <span className="text-pos-primary font-black">Transformation</span>
+            </h1>
+            <p className="text-slate-300 max-w-2xl mx-auto font-medium text-lg leading-relaxed">
+              Based in Himachal, Serving the World. Our Mandi-based team is ready to help you build a smarter operation with OrderMint.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Grid */}
+      <section className="py-24 max-w-7xl mx-auto px-6 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+          
+          {/* Left Column: Details */}
+          <div className="space-y-12">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase mb-8">
+                Business Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                    <MapPin size={24} />
+                  </div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Headquarters</h4>
+                  <p className="text-sm font-bold text-slate-900 leading-relaxed uppercase tracking-tight">
+                    Mandi, Himachal Pradesh <br />175001, India
+                  </p>
+                </div>
+
+                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                    <Phone size={24} />
+                  </div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Sales Support</h4>
+                  <p className="text-sm font-bold text-slate-900 tracking-tight">
+                    +91 82190-76305
+                  </p>
+                </div>
+
+                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                    <Mail size={24} />
+                  </div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Email</h4>
+                  <p className="text-sm font-bold text-slate-900 lowercase tracking-tight">
+                    support@ordermint.com
+                  </p>
+                </div>
+
+                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                    <Clock size={24} />
+                  </div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Support Hours</h4>
+                  <p className="text-sm font-bold text-slate-900 uppercase tracking-tight">
+                    24/7 Priority Assistance
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-10 bg-slate-900 rounded-[40px] text-white">
+              <h3 className="text-lg font-bold uppercase tracking-tight mb-4">Request a Personal Demo</h3>
+              <p className="text-slate-400 text-sm mb-8 leading-relaxed font-medium">
+                Want to see OrderMint in action? Schedule a one-on-one session with our product experts to explore how we can optimize your workflow.
+              </p>
+              <button 
+                onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}
+                className="inline-flex items-center gap-4 text-pos-primary font-bold text-xl hover:text-white transition-colors"
+              >
+                <MessageSquare size={24} /> Schedule Demo
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Form */}
+          <div id="contact-form" className="bg-white border border-slate-100 rounded-[50px] p-10 lg:p-16 shadow-2xl shadow-slate-200">
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase mb-4 text-center">
+              Send a Message
+            </h2>
+            <p className="text-slate-400 text-sm mb-12 text-center font-medium">
+              Fill out the form below and we'll get back to you within 24 business hours.
+            </p>
+            
+            {success ? (
+              <div className="bg-green-50 text-green-700 p-8 rounded-3xl flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-500">
+                <CheckCircle size={48} className="mb-4 text-green-500" />
+                <h3 className="text-xl font-bold uppercase tracking-tight mb-2">Enquiry Received!</h3>
+                <p className="font-medium text-green-600/80">Thank you for your interest in OrderMint. Our sales team will contact you shortly.</p>
+                <button 
+                  onClick={() => setSuccess(false)}
+                  className="mt-6 px-6 py-2 bg-green-100 font-bold uppercase tracking-widest text-xs rounded-full hover:bg-green-200 transition-colors"
+                >
+                  Send Another
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-8">
+                {error && (
+                  <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold text-center">
+                    {error}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Full Name *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none"
+                      placeholder="Enter name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Email Address *</label>
+                    <input 
+                      type="email" 
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none"
+                      placeholder="email@company.com"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Phone Number *</label>
+                    <input 
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none"
+                      placeholder="Business phone"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Subject</label>
+                  <select 
+                    value={formData.subject}
+                    onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    <option>Get a Personal Demo</option>
+                    <option>Sales Enquiry / Pricing</option>
+                    <option>Technical Support</option>
+                    <option>Business Partnership</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Business Requirements *</label>
+                  <textarea 
+                    rows={5}
+                    required
+                    value={formData.message}
+                    onChange={(e) => setFormData({...formData, message: e.target.value})}
+                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none resize-none"
+                    placeholder="Tell us about your business and needs..."
+                  ></textarea>
+                </div>
+
+                <button 
+                  disabled={loading}
+                  type="submit"
+                  className="w-full py-6 rounded-2xl bg-pos-primary text-white font-bold uppercase tracking-widest shadow-xl shadow-pos-primary/30 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Sending...' : <><Send size={18} /> Connect With Us</>}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Map Section */}
+      <MapSection />
+    </main>
+  );
+}

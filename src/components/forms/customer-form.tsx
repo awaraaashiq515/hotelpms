@@ -1,0 +1,149 @@
+'use client';
+
+import React, { useState } from 'react';
+import { z } from 'zod';
+import { Button } from '@/components/ui/Button';
+import { Customer } from '@/lib/api/customers';
+
+const customerSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').max(50),
+  lastName: z.string().max(50).optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  mobile: z.string().min(10, 'Mobile must be at least 10 digits').max(15).optional().or(z.literal('')),
+  address: z.string().max(200).optional(),
+  gender: z.string().optional(),
+});
+
+interface CustomerFormProps {
+  initialData?: Customer;
+  onSubmit: (data: Partial<Customer>) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export const CustomerForm: React.FC<CustomerFormProps> = ({
+  initialData,
+  onSubmit,
+  onCancel,
+  loading
+}) => {
+  const [formData, setFormData] = useState({
+    firstName: initialData?.firstName || '',
+    lastName: initialData?.lastName || '',
+    email: initialData?.email || '',
+    mobile: initialData?.mobile || '',
+    address: initialData?.address || '',
+    gender: initialData?.gender || 'not_specified',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    
+    try {
+      const validated = customerSchema.parse(formData);
+      await onSubmit(validated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        const fieldErrors: Record<string, string> = {};
+        err.issues.forEach((issue) => {
+          if (issue.path[0]) fieldErrors[issue.path[0] as string] = issue.message;
+        });
+        setErrors(fieldErrors);
+      }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+            First Name
+          </label>
+          <input
+            type="text"
+            placeholder="John"
+            value={formData.firstName}
+            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+            className={`w-full px-4 py-3 bg-gray-50 border ${errors.firstName ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+          />
+          {errors.firstName && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.firstName}</p>}
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+            Last Name
+          </label>
+          <input
+            type="text"
+            placeholder="Doe"
+            value={formData.lastName}
+            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+            className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+            Mobile Number
+          </label>
+          <input
+            type="tel"
+            placeholder="9876543210"
+            value={formData.mobile}
+            onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+            className={`w-full px-4 py-3 bg-gray-50 border ${errors.mobile ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+          />
+          {errors.mobile && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.mobile}</p>}
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+            Email Address
+          </label>
+          <input
+            type="email"
+            placeholder="john@example.com"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className={`w-full px-4 py-3 bg-gray-50 border ${errors.email ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+          />
+          {errors.email && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.email}</p>}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          Address
+        </label>
+        <textarea
+          placeholder="Complete address"
+          rows={2}
+          value={formData.address}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+          className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all resize-none"
+        />
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white border border-gray-200"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          loading={loading}
+          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-pos-primary hover:bg-red-700 text-white shadow-lg shadow-red-100"
+        >
+          {initialData ? 'Update Customer' : 'Add Customer'}
+        </Button>
+      </div>
+    </form>
+  );
+};
