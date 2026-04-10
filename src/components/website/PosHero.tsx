@@ -147,7 +147,7 @@ export const PosHero = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Daily Revenue</p>
-                    <p className="text-2xl font-black text-slate-800">$12,450.00</p>
+                    <p className="text-2xl font-black text-slate-800">₹12,450.00</p>
                   </div>
                 </div>
               </CardItem>

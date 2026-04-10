@@ -22,7 +22,7 @@ export const PosBenefits = () => {
     },
     {
       title: "Increase Revenue",
-      description: "Boost your sales by $24,000+ per month with our intelligent upselling tools and automated marketing features.",
+      description: "Boost your sales by ₹24,000+ per month with our intelligent upselling tools and automated marketing features.",
       icon: <TrendingUp size={28} />,
       color: "from-emerald-400 to-teal-500"
     },
