@@ -55,7 +55,7 @@ export const PosHero = () => {
           <motion.div variants={itemVariants}>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-morphism border border-pos-primary/20 text-pos-primary text-xs font-bold uppercase tracking-widest">
               <Sparkles size={14} className="text-pos-primary animate-pulse" />
-              The Future of Restaurant Management
+              Best POS System in India
             </div>
           </motion.div>
           
