@@ -40,7 +40,7 @@ export const PosBenefits = () => {
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-pos-accent/15 rounded-full blur-[120px] mix-blend-screen" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[60%] bg-pos-primary/20 rounded-full blur-[100px] mix-blend-screen" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.05] contrast-150" />
+        <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.05] contrast-150" />
       </div>
       
       <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">

@@ -1235,7 +1235,7 @@ export default function AdminSetupWizard({ onDismiss }: AdminSetupWizardProps) {
         <div className="absolute inset-0 z-0">
           <div className="absolute -left-1/4 -top-1/4 w-1/2 h-1/2 bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" />
           <div className="absolute -right-1/4 -bottom-1/4 w-1/2 h-1/2 bg-emerald-600/10 rounded-full blur-[120px] animate-pulse delay-1000" />
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 mix-blend-overlay" />
         </div>
 
         <div className="relative z-10 flex items-start justify-between mb-8">

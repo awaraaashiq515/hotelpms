@@ -13,10 +13,10 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
-    const propertyId = session.propertyId || (await (async () => {
+    const propertyId = (session.propertyId as string | null) || (await (async () => {
       console.log('No propertyId in session, picking first for org:', session.organizationId);
       const first: any[] = await (prisma as any).$queryRawUnsafe(
-        `SELECT id FROM "Property" WHERE "organizationId" = ? ORDER BY "createdAt" ASC LIMIT 1`,
+        'SELECT id FROM "Property" WHERE "organizationId" = $1 ORDER BY "createdAt" ASC LIMIT 1',
         session.organizationId
       );
       return first.length > 0 ? first[0].id : null;
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Using Raw SQL to fetch the full property record to bypass stale Prisma client field filtering
     const properties: any[] = await (prisma as any).$queryRawUnsafe(
-      `SELECT * FROM "Property" WHERE "id" = ? LIMIT 1`,
+      'SELECT * FROM "Property" WHERE "id" = $1 LIMIT 1',
       propertyId
     );
 
@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     console.log('Property found via Raw SQL:', property.name);
     return apiResponse(property);
   } catch (error) {
+    console.error('[API Error]:', error);
     return apiError(error);
   }
 }

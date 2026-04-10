@@ -33,14 +33,15 @@ export async function PUT(
 
     console.log('Processed Update Data:', updateData);
 
-    // Using Raw SQL as a robust fallback because of Next.js/Turbopack Prisma client caching issues
-    // We confirmed via sqlite3 that these columns exist.
     const fields = Object.keys(updateData);
     const values = Object.values(updateData);
     
     if (fields.length > 0) {
-      const setClause = fields.map((f, i) => `"${f}" = ?`).join(', ');
-      const sql = `UPDATE "Property" SET ${setClause}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?`;
+      // PostgreSQL uses $1, $2... instead of ?
+      const setClause = fields.map((f, i) => `"${f}" = $${i + 1}`).join(', ');
+      const sql = `UPDATE "Property" SET ${setClause}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $${fields.length + 1}`;
+      console.log('Executing Raw SQL:', sql);
+      console.log('With Values:', [...values, id]);
       await (prisma as any).$executeRawUnsafe(sql, ...values, id);
     }
 
@@ -49,12 +50,6 @@ export async function PUT(
     return apiResponse(property, 'Branding settings updated successfully');
   } catch (error: any) {
     console.error('Property update error [ID:', id, ']:', error);
-    // Log the actual error stack if available
-    if (error.stack) {
-      console.log('Error Name:', error.name);
-      console.log('Error Message:', error.message);
-      console.log('Full Stack:', error.stack);
-    }
     return apiError(error);
   }
 }

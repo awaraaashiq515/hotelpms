@@ -56,8 +56,8 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
                 <img
                   src={logoUrl}
                   alt="OrderMint Logo"
-                  className="h-14 md:h-16 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
-                  style={{ mixBlendMode: 'multiply', maxWidth: '260px' }}
+                  className="h-30 md:h-48 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
+                  style={{ mixBlendMode: 'normal', maxWidth: '350px' }}
                 />
               ) : (
                 <div className="flex items-center gap-3">

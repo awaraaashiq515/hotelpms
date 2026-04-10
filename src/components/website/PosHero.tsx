@@ -37,7 +37,7 @@ export const PosHero = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[60%] bg-gradient-to-tr from-pos-accent/20 via-pos-primary/10 to-transparent rounded-full blur-[100px] animate-pulse duration-[10s]" />
         
         {/* Subtle Grid Pattern */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150" />
+        <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] contrast-150" />
         <div 
           className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" 
           style={{ maskImage: 'radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 100%)' }}
@@ -134,21 +134,6 @@ export const PosHero = () => {
                 </div>
               </CardItem>
 
-              {/* Floating 3D Stat Card 1 */}
-              <CardItem
-                translateZ="100"
-                translateX={40}
-                translateY={-30}
-                className="absolute -top-10 -right-6 lg:-right-12 z-20 group-hover/card:shadow-pos-primary/10 transition-all"
-              >
-                <div className="bg-white/90 backdrop-blur-2xl p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/50 flex items-center gap-4 min-w-[220px]">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                    <BarChart3 size={28} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Daily Revenue</p>
-                    <p className="text-2xl font-black text-slate-800">₹13,450.00</p>
-                  </div>
                 </div>
               </CardItem>
 
