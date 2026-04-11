@@ -238,7 +238,7 @@ export default function BillingPage() {
       // Fetch drivers reliably on load
       fetchDrivers();
     } catch (err) {
-      addToast('Error loading POS data', 'error');
+      addToast('error', 'Error loading POS data');
     } finally {
       setLoading(false);
     }
@@ -310,12 +310,12 @@ export default function BillingPage() {
       });
       const result = await response.json();
       if (result.success) {
-        addToast('Order saved successfully', 'success');
+        addToast('success', 'Order saved successfully');
         setKotData(result.data);
         setIsKotOpen(true);
       }
     } catch (err) {
-      addToast('Failed to save order', 'error');
+      addToast('error', 'Failed to save order');
     } finally {
       setSaveLoading(false);
     }
@@ -344,7 +344,7 @@ export default function BillingPage() {
       });
       const result = await response.json();
       if (result.success) {
-        addToast('Order settled successfully', 'success');
+        addToast('success', 'Order settled successfully');
         setBillData(result.data);
         setIsBillOpen(true);
         setCart([]);
@@ -352,7 +352,7 @@ export default function BillingPage() {
         setIsSettleOpen(false);
       }
     } catch (err) {
-      addToast('Failed to settle order', 'error');
+      addToast('error', 'Failed to settle order');
     } finally {
       setSettleLoading(false);
     }
@@ -371,9 +371,9 @@ export default function BillingPage() {
       setCustomers(prev => [...prev, result]);
       setSelectedGuestId(result.id);
       setIsCustomerModalOpen(false);
-      addToast('Customer added', 'success');
+      addToast('success', 'Customer added');
     } catch (err) {
-      addToast('Failed to add customer', 'error');
+      addToast('error', 'Failed to add customer');
     } finally {
       setCustomerMutationLoading(false);
     }
@@ -401,13 +401,13 @@ export default function BillingPage() {
       });
       const result = await response.json();
       if (result.success) {
-        addToast('Order marked as Due successfully', 'success');
+        addToast('success', 'Order marked as Due successfully');
         setCart([]);
         setActiveOrder(null);
         setIsSettleOpen(false);
       }
     } catch (err) {
-      addToast('Failed to mark as due', 'error');
+      addToast('error', 'Failed to mark as due');
     } finally {
       setSettleLoading(false);
     }
