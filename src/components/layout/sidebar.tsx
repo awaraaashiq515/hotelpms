@@ -107,10 +107,10 @@ export const Sidebar: React.FC = () => {
       bg-pos-sidebar text-pos-sidebar-text flex flex-col sticky top-16 left-0 z-40 shadow-xl
       transition-all duration-500 ease-in-out overflow-hidden shrink-0
       dark:bg-slate-950 dark:border-r dark:border-slate-800
-      ${isOpen ? 'w-[260px]' : 'w-0'}
+      ${isOpen ? 'w-[260px]' : 'w-20'}
     `}>
       {/* Inner wrapper — fixed width so content doesn't squeeze during animation */}
-      <div className="w-[260px] flex flex-col h-full">
+      <div className={`${isOpen ? 'w-[260px]' : 'w-20'} flex flex-col h-full transition-all duration-500`}>
         {/* Nav items */}
         <div className="flex-1 overflow-y-auto no-scrollbar py-4 scroll-smooth">
           {loading ? (
@@ -131,14 +131,14 @@ export const Sidebar: React.FC = () => {
                         : 'hover:bg-pos-sidebar-hover text-gray-400'
                     }`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className={`flex items-center ${isOpen ? 'gap-4' : 'justify-center w-full'}`}>
                       <item.icon
                         size={20}
                         className={isGroupActive ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
                       />
-                      <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>
+                      {isOpen && <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>}
                     </div>
-                    {isGroupOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {isOpen && (isGroupOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                   </Link>
 
                   {isGroupOpen && (
@@ -175,11 +175,13 @@ export const Sidebar: React.FC = () => {
                       : 'hover:bg-pos-sidebar-hover text-gray-400 hover:text-white'
                   }`}
                 >
-                  <item.icon
-                    size={20}
-                    className={pathname === item.path ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
-                  />
-                  <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>
+                  <div className={`flex items-center ${isOpen ? 'gap-4' : 'justify-center w-full'}`}>
+                    <item.icon
+                      size={20}
+                      className={pathname === item.path ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
+                    />
+                    {isOpen && <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>}
+                  </div>
                 </Link>
               </div>
             );
@@ -187,24 +189,28 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-black/20">
-          <div className="space-y-2 opacity-50 border-b border-white/5 pb-4 mb-4">
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-              <span className="text-gray-500">Ref ID</span>
-              <span>#45920-A</span>
+        <div className={`p-4 bg-black/20 ${!isOpen && 'flex items-center justify-center'}`}>
+          {isOpen && (
+            <div className="space-y-2 opacity-50 border-b border-white/5 pb-4 mb-4">
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-gray-500">Ref ID</span>
+                <span>#45920-A</span>
+              </div>
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-pos-primary">
+                <span className="text-gray-500">Biller</span>
+                <span>Ritchie POS</span>
+              </div>
             </div>
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-pos-primary">
-              <span className="text-gray-500">Biller</span>
-              <span>Ritchie POS</span>
-            </div>
-          </div>
+          )}
 
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-pos-primary text-gray-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group"
           >
-            <LogOut size={18} className="group-hover:rotate-12 transition-transform" />
-            <span>Logout System</span>
+            <div className={`flex items-center ${isOpen ? 'gap-3' : 'justify-center w-full'}`}>
+              <LogOut size={18} className="group-hover:rotate-12 transition-transform" />
+              {isOpen && <span>Logout System</span>}
+            </div>
           </button>
         </div>
       </div>

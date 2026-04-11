@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, restaurantTableId, orderType = 'DINE_IN', staffMemberId } = body;
+    const { items, restaurantTableId, orderType = 'DINE_IN', staffMemberId, driverId } = body;
 
     if (!restaurantTableId && orderType === 'DINE_IN') {
       return apiError(new Error('Table ID is required for Dine-In orders'), 400);
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
             restaurantTableId: restaurantTableId,
             tableNo: table?.name || null,
             staffMemberId: staffMemberId || null,
+            driverId: driverId || null,
           },
           include: { items: true }
         });
@@ -96,7 +97,13 @@ export async function POST(request: NextRequest) {
 
       await tx.posOrder.update({
         where: { id: order!.id },
-        data: { subtotal, taxAmount, grandTotal, ...(staffMemberId && { staffMemberId }) }
+        data: { 
+          subtotal, 
+          taxAmount, 
+          grandTotal, 
+          ...(staffMemberId && { staffMemberId }),
+          ...(driverId && { driverId }) 
+        }
       });
 
       // 4. Generate KOT for the DIFFERENCE

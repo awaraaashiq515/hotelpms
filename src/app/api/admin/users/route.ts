@@ -79,14 +79,26 @@ export async function POST(request: NextRequest) {
     // Otherwise, they stay in the creator's organization.
     let targetOrgId = session.organizationId;
     
-    if (session.role === 'SUPER_ADMIN' && roleName === 'RESTAURANTS_ADMIN') {
-      const newOrg = await prisma.organization.create({
-        data: {
-          name: `${fullName}'s Business`,
+    if (session.role === 'SUPER_ADMIN') {
+      if (roleName === 'RESTAURANTS_ADMIN') {
+        const newOrg = await prisma.organization.create({
+          data: {
+            name: `${fullName}'s Business`,
+          }
+        });
+        targetOrgId = newOrg.id;
+      } else if (propertyId) {
+        // Automatically link user to the correct tenant organization when assigning an existing property
+        const targetProperty = await prisma.property.findUnique({
+          where: { id: propertyId }
+        });
+        if (targetProperty) {
+          targetOrgId = targetProperty.organizationId;
         }
-      });
-      targetOrgId = newOrg.id;
+      }
     }
+
+    const autoRefinedPropertyId = (roleName === 'SUPER_ADMIN' || roleName === 'RESTAURANTS_ADMIN') ? null : (propertyId || null);
 
     const newUser = await prisma.user.create({
       data: {
@@ -94,7 +106,7 @@ export async function POST(request: NextRequest) {
         email,
         passwordHash,
         organizationId: targetOrgId as string,
-        propertyId: propertyId || null,
+        propertyId: autoRefinedPropertyId,
         roleId: role.id,
         isActive: true,
         onboardingCompleted: true, // Bypass onboarding for provisioned users
@@ -177,8 +189,18 @@ export async function PUT(request: NextRequest) {
       fullName,
       email,
       roleId: role.id,
-      propertyId: propertyId || null,
+      propertyId: (roleName === 'SUPER_ADMIN' || roleName === 'RESTAURANTS_ADMIN') ? null : (propertyId || null),
     };
+
+    if (session.role === 'SUPER_ADMIN' && dataToUpdate.propertyId) {
+      // Sync the user's tenant organization to perfectly match their property
+      const targetProperty = await prisma.property.findUnique({
+        where: { id: dataToUpdate.propertyId }
+      });
+      if (targetProperty) {
+        dataToUpdate.organizationId = targetProperty.organizationId;
+      }
+    }
 
     if (password) {
       dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
