@@ -794,7 +794,7 @@ export default function BillingPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                   <input 
                     type="text" 
-                    placeholder={selectedGuestId ? customers.find(c => c.id === selectedGuestId)?.name || 'Select customer...' : 'Select customer...'}
+                    placeholder={selectedGuestId ? customers.find(c => c.id === selectedGuestId)?.firstName || 'Select customer...' : 'Select customer...'}
                     value={customerSearch}
                     onChange={(e) => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); }}
                     onFocus={() => setShowCustomerDropdown(true)}
@@ -831,8 +831,8 @@ export default function BillingPage() {
                  {customers
                    .filter(c =>
                      !customerSearch ||
-                     c.name?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                     (c.phone || '').includes(customerSearch)
+                     c.firstName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                     (c.mobile || '').includes(customerSearch)
                    )
                    .map((customer) => (
                      <button
@@ -845,22 +845,22 @@ export default function BillingPage() {
                        }}
                      >
                        <div className="w-8 h-8 rounded-xl bg-pos-primary/10 flex items-center justify-center flex-shrink-0 text-pos-primary font-black text-[10px]">
-                         {customer.name?.charAt(0).toUpperCase() || 'C'}
+                         {customer.firstName?.charAt(0).toUpperCase() || 'C'}
                        </div>
                        <div>
                          <p className="text-[12px] font-bold" style={{ color: theme === 'dark' ? '#f1f5f9' : '#1e293b' }}>
-                           {customer.name}
+                           {customer.firstName} {customer.lastName || ''}
                          </p>
                          <p className="text-[10px]" style={{ color: theme === 'dark' ? '#64748b' : '#94a3b8' }}>
-                           {customer.phone || 'No phone'}
+                           {customer.mobile || 'No phone'}
                          </p>
                        </div>
                      </button>
                    ))}
                    {customers.filter(c => 
                      !customerSearch || 
-                     c.name?.toLowerCase().includes(customerSearch.toLowerCase()) || 
-                     (c.phone || '').includes(customerSearch)
+                     c.firstName?.toLowerCase().includes(customerSearch.toLowerCase()) || 
+                     (c.mobile || '').includes(customerSearch)
                    ).length === 0 && (
                      <div className="p-4 text-center text-[10px] uppercase font-black" style={{ color: theme === 'dark' ? '#64748b' : '#94a3b8' }}>
                        No customers found
