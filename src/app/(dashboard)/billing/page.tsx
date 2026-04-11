@@ -555,9 +555,9 @@ export default function BillingPage() {
                           flexShrink: 0,
                         }}
                       >
-                        {product.imageUrl ? (
+                        {product.image ? (
                           <img
-                            src={product.imageUrl}
+                            src={product.image}
                             alt={product.name}
                             style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 8 }}
                           />
@@ -632,7 +632,7 @@ export default function BillingPage() {
                   className={`w-full flex items-center gap-4 p-3 rounded-[1.25rem] transition-all text-left ${theme === 'dark' ? 'bg-[#1c1c1c] border-white/5 hover:bg-[#252525]' : 'bg-white border-slate-200 hover:bg-slate-50'} border ${isInCart ? 'ring-2 ring-pos-primary shadow-lg shadow-pos-primary/10' : 'hover:shadow-md'}`}
                 >
                   <div className={`w-14 h-14 md:w-16 md:h-16 rounded-[0.85rem] overflow-hidden border flex flex-shrink-0 items-center justify-center ${theme === 'dark' ? 'bg-[#252525] border-white/5' : 'bg-slate-100 border-slate-200'}`}>
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" /> : <Utensils className={`${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`} size={24} />}
+                    {product.image ? <img src={product.image} alt={product.name} className="w-full h-full object-cover" /> : <Utensils className={`${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`} size={24} />}
                   </div>
                   <div className="flex-1">
                     <h3 className={`font-black text-[13px] md:text-sm ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{product.name}</h3>
@@ -1049,7 +1049,7 @@ export default function BillingPage() {
                {cart.map(item => (
                 <div key={item.id} className={`group ${theme === 'dark' ? 'bg-[#111111] border-white/5' : 'bg-white border-pos-primary/10'} rounded-3xl p-4 border hover:border-pos-primary/20 transition-all flex items-center justify-between gap-4`}>
                   <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/5 overflow-hidden flex-shrink-0">
-                     {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={18} /></div>}
+                     {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={18} /></div>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-[12px] font-black text-slate-200 truncate">{item.name}</h4>
