@@ -52,8 +52,8 @@ export const DashboardAdminTopNavbar: React.FC = () => {
           </button>
           <div className="flex items-center gap-3">
              <div className="font-bold text-xl tracking-tighter text-slate-800 dark:text-white uppercase flex items-center gap-2 transition-colors">
-               <ShieldCheck className="text-blue-600" size={24} />
-               <span>Restaurants Admin<span className="text-blue-600 font-light">HUB</span></span>
+               <ShieldCheck className="text-pos-primary" size={24} />
+               <span>Restaurants Admin<span className="text-pos-primary font-light">HUB</span></span>
              </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export const DashboardAdminTopNavbar: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleGlobalSearch}
-              className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm w-64 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 text-slate-700 dark:text-slate-200"
+              className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm w-64 font-medium focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary transition-all placeholder:text-slate-400 text-slate-700 dark:text-slate-200"
             />
           </div>
         </div>
@@ -82,7 +82,7 @@ export const DashboardAdminTopNavbar: React.FC = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={toggleTheme}
-            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-pos-primary dark:hover:text-pos-primary transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
             title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           >
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
@@ -92,7 +92,7 @@ export const DashboardAdminTopNavbar: React.FC = () => {
              <span className="text-[11px] font-bold text-slate-800 dark:text-white uppercase tracking-wide transition-colors">
                {session?.fullName || 'Administrator'}
              </span>
-             <span className="text-[10px] text-blue-600 font-bold uppercase">
+             <span className="text-[10px] text-pos-primary font-bold uppercase">
                {session?.role?.replace('_', ' ') || 'Online'}
              </span>
           </div>
@@ -112,7 +112,7 @@ export const DashboardAdminTopNavbar: React.FC = () => {
 
 const NavbarAction = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
   <button onClick={onClick} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-slate-100 transition-colors group min-w-[68px]">
-    <span className="text-slate-500 group-hover:text-blue-600 mb-1 transition-colors">{icon}</span>
+    <span className="text-slate-500 group-hover:text-pos-primary mb-1 transition-colors">{icon}</span>
     <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-800 uppercase tracking-tighter text-center">{label}</span>
   </button>
 );

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Settings,
   Image as ImageIcon,
@@ -27,7 +27,17 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 
 export const AdminSidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
+    router.push('/login');
+  };
 
   const menuItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
@@ -52,7 +62,7 @@ export const AdminSidebar = () => {
       <div className="p-8">
         <div className="flex flex-col">
           <span className="text-xl font-bold text-white tracking-tight uppercase">OrderMint Admin</span>
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">System Manager</span>
+          <span className="text-[10px] font-bold tracking-widest mt-0.5" style={{color:'#e8a0a0'}}>POS · by Ritchie</span>
         </div>
       </div>
 
@@ -96,7 +106,10 @@ export const AdminSidebar = () => {
           <span className="font-medium">View Website</span>
         </Link>
         
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-500/10 text-rose-400 transition-all text-sm group">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-500/10 text-rose-400 transition-all text-sm group"
+        >
           <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
           <span className="font-medium">Logout</span>
         </button>

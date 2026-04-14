@@ -70,7 +70,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       icon: Map,
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'],
     },
-    { name: 'POS Terminal', path: '/billing', icon: CreditCard, feature: 'POS' },
+    { name: 'POS Terminal', path: '/billing', icon: CreditCard, feature: 'POS', roles: ['POSSYSTEM'] },
     { name: 'All Bills',    path: '/all-bills', icon: Receipt,   feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'HMS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Payments',    path: '/payments',  icon: PaymentIcon, feature: 'ACCOUNTING', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },

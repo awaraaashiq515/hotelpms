@@ -159,8 +159,12 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom label */}
-        <div className="absolute bottom-8 text-[#7f1d1d]/50 text-[10px] tracking-[0.25em] font-bold uppercase">
-          Precision Engineering by Ritchie POS
+        <div className="absolute bottom-8 flex flex-col items-center gap-1.5">
+          <div className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full border border-white/30">
+            <span className="text-[#7f1d1d] font-black text-[11px] tracking-[0.15em] uppercase">OrderMint POS</span>
+            <span className="w-1 h-1 rounded-full bg-[#7f1d1d]/50" />
+            <span className="text-[#7f1d1d]/70 text-[10px] font-semibold tracking-widest uppercase">by Ritchie</span>
+          </div>
         </div>
       </div>
 
@@ -356,10 +360,11 @@ export default function LoginPage() {
 
         {/* Mobile footer */}
         <div className="lg:hidden mt-10 text-center">
-          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.2em]">
-            Precision Engineering by{' '}
-            <span className="text-red-700">Ritchie POS</span>
-          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full border border-red-100">
+            <span className="text-red-700 font-black text-[11px] tracking-widest uppercase">OrderMint POS</span>
+            <span className="w-1 h-1 rounded-full bg-red-300" />
+            <span className="text-red-400 text-[10px] font-bold tracking-widest uppercase">by Ritchie</span>
+          </div>
         </div>
       </div>
 

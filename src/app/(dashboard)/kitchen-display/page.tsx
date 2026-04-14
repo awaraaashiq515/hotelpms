@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Utensils, Clock, RefreshCw, Wifi, Bell, ChefHat,
   Layers, CheckCircle, Play, Send, AlertTriangle,
-  User, Hash, ArrowRight, Flame
+  User, ArrowRight, Flame, EyeOff
 } from 'lucide-react';
 import { kotsApi, KotTicket } from '@/lib/api/kots';
 import { useToast } from '@/components/ui/Toast';
@@ -81,7 +81,6 @@ const COLUMNS: {
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
-// ─── UTILS ────────────────────────────────────────────────────────────────────
 function getAgeSeconds(createdAt: string) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
 }
@@ -119,6 +118,17 @@ const AUTO_ACCEPT_OPTIONS = [
   { label: '5m', value: 300 },
 ];
 
+// ─── SERVED HIDE OPTIONS ──────────────────────────────────────────────────────
+// value = minutes after which served order is hidden; 0 = keep all day; -1 = today only (no timer)
+const SERVED_HIDE_OPTIONS = [
+  { label: 'All Day', value: 0 },       // show served all day, next day hide
+  { label: '15 min', value: 15 },
+  { label: '30 min', value: 30 },
+  { label: '1 hour', value: 60 },
+  { label: '2 hours', value: 120 },
+  { label: '4 hours', value: 240 },
+];
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function KitchenDisplayPage() {
   const { showToast } = useToast();
@@ -132,13 +142,17 @@ export default function KitchenDisplayPage() {
 
   // Auto-Accept Settings
   const [autoAcceptTime, setAutoAcceptTime] = useState<number>(0); // 0 = Manual
+  // Served-Hide Settings (minutes; 0 = show all day, hide next day only)
+  const [servedHideMinutes, setServedHideMinutes] = useState<number>(0);
 
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load settings from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('kds_auto_accept_time');
-    if (saved) setAutoAcceptTime(parseInt(saved, 10));
+    const savedAccept = localStorage.getItem('kds_auto_accept_time');
+    if (savedAccept) setAutoAcceptTime(parseInt(savedAccept, 10));
+    const savedHide = localStorage.getItem('kds_served_hide_minutes');
+    if (savedHide) setServedHideMinutes(parseInt(savedHide, 10));
   }, []);
 
   const handleAutoAcceptChange = (val: number) => {
@@ -147,14 +161,44 @@ export default function KitchenDisplayPage() {
     showToast(`Auto-Accept: ${val === 0 ? 'Disabled' : `${val}s`}`, 'success');
   };
 
+  const handleServedHideChange = (val: number) => {
+    setServedHideMinutes(val);
+    localStorage.setItem('kds_served_hide_minutes', val.toString());
+    const label = SERVED_HIDE_OPTIONS.find(o => o.value === val)?.label || 'All Day';
+    showToast(`Served Hide: ${label}`, 'success');
+  };
+
+  // ─── Filter helper for SERVED orders ──────────────────────────────────────
+  // - Always hide SERVED orders from previous days (today only on KDS)
+  // - If servedHideMinutes > 0, also hide after that many minutes post-serving
+  const filterServedOrders = useCallback((data: KotTicket[]): KotTicket[] => {
+    const hideMinutes = parseInt(localStorage.getItem('kds_served_hide_minutes') || '0', 10);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    return data.filter((k) => {
+      if (!['NEW', 'PREPARING', 'READY', 'SERVED'].includes(k.status)) return false;
+      if (k.status !== 'SERVED') return true;
+
+      // Must be from today
+      const servedAt = new Date(k.updatedAt || k.createdAt);
+      if (servedAt < todayStart) return false;
+
+      // If a hide timer is set, check elapsed time since updatedAt
+      if (hideMinutes > 0) {
+        const minutesElapsed = (Date.now() - servedAt.getTime()) / 60000;
+        if (minutesElapsed >= hideMinutes) return false;
+      }
+
+      return true;
+    });
+  }, []);
+
   const fetchKots = useCallback(async (silent = true) => {
     if (!silent) setRefreshing(true);
     try {
       const data = await kotsApi.list();
-      // Show last 4 statuses — exclude CANCELLED/DISPATCHED
-      const active = (data || []).filter(
-        (k) => ['NEW', 'PREPARING', 'READY', 'SERVED'].includes(k.status)
-      );
+      const active = filterServedOrders(data || []);
       setKots(active);
       setLastRefresh(new Date());
     } catch {
@@ -165,7 +209,7 @@ export default function KitchenDisplayPage() {
       }
       setLoading(false);
     }
-  }, []);
+  }, [filterServedOrders]);
 
   const handleStatusUpdate = async (kotId: string, nextStatus: KotTicket['status']) => {
     // Prevent double updates
@@ -190,7 +234,7 @@ export default function KitchenDisplayPage() {
   const startCountdown = useCallback(() => {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setCountdown(POLL_INTERVAL);
-    
+
     countdownRef.current = setInterval(() => {
       // 1. Update countdown
       setCountdown((prev) => {
@@ -215,8 +259,11 @@ export default function KitchenDisplayPage() {
         }
         return currentKots;
       });
+
+      // 3. Re-apply served hide filter every tick (so cards disappear on schedule)
+      setKots(currentKots => filterServedOrders(currentKots));
     }, 1000);
-  }, [fetchKots]);
+  }, [fetchKots, filterServedOrders]);
 
   useEffect(() => {
     setMounted(true);
@@ -243,6 +290,21 @@ export default function KitchenDisplayPage() {
 
   const totalActive = kots.filter((k) => k.status !== 'SERVED').length;
 
+  // ─── Column sort ───────────────────────────────────────────────────────────
+  // NEW column: newest first (so new order appears at top)
+  // All other columns: oldest first (kitchen works top-to-bottom)
+  function getSortedColKots(status: KotTicket['status'], allKots: KotTicket[]) {
+    const filtered = allKots.filter((k) => k.status === status);
+    if (status === 'NEW') {
+      return [...filtered].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+    return [...filtered].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }
+
   return (
     <div className="-m-6 lg:-m-8 min-h-[calc(100vh-64px)] bg-[#080d1a] text-white flex flex-col overflow-hidden">
 
@@ -262,12 +324,13 @@ export default function KitchenDisplayPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+
           {/* Auto Accept Settings */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-pos-primary/10 rounded-xl border border-pos-primary/20">
             <div className="flex flex-col">
               <span className="text-[8px] font-black uppercase tracking-widest text-pos-primary">Auto Accept</span>
-              <select 
+              <select
                 value={autoAcceptTime}
                 onChange={(e) => handleAutoAcceptChange(parseInt(e.target.value, 10))}
                 className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-pos-primary"
@@ -279,6 +342,26 @@ export default function KitchenDisplayPage() {
             </div>
             {autoAcceptTime > 0 && (
               <div className="w-1.5 h-1.5 rounded-full bg-pos-primary animate-pulse mt-3" />
+            )}
+          </div>
+
+          {/* Served Hide Settings */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/30 rounded-xl border border-slate-600/30">
+            <EyeOff size={11} className="text-slate-400 shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Served Hide</span>
+              <select
+                value={servedHideMinutes}
+                onChange={(e) => handleServedHideChange(parseInt(e.target.value, 10))}
+                className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-slate-300"
+              >
+                {SERVED_HIDE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            {servedHideMinutes > 0 && (
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse mt-3" />
             )}
           </div>
 
@@ -338,7 +421,7 @@ export default function KitchenDisplayPage() {
         <div className="flex-1 grid grid-cols-2 xl:grid-cols-4 gap-0 min-h-0 overflow-hidden">
           {COLUMNS.map((col) => {
             const ColIcon = col.icon;
-            const colKots = kots.filter((k) => k.status === col.status);
+            const colKots = getSortedColKots(col.status, kots);
 
             return (
               <div key={col.status} className={`flex flex-col border-r border-slate-800 last:border-r-0 ${col.bgCls}`}>
@@ -350,6 +433,11 @@ export default function KitchenDisplayPage() {
                     <span className="text-sm font-black uppercase tracking-wider text-white">
                       {col.label}
                     </span>
+                    {col.status === 'NEW' && colKots.length > 0 && (
+                      <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-white/20 text-white rounded-full animate-pulse">
+                        NEW↑
+                      </span>
+                    )}
                   </div>
                   <span className="text-2xl font-black text-white/90 tabular-nums">
                     {colKots.length}

@@ -149,6 +149,18 @@ export default function BillingPage() {
   const { setOpen } = useSidebar();
 
   useEffect(() => {
+    // Role guard — RESTAURANTS_ADMIN should not access POS Terminal
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(data => {
+        if (data.authenticated && data.user?.role === 'RESTAURANTS_ADMIN') {
+          router.replace('/dashboard');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     // Automatically collapse the sidebar when on the billing page
     setOpen(false);
     return () => setOpen(true);

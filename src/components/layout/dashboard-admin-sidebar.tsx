@@ -133,26 +133,30 @@ export const DashboardAdminSidebar: React.FC = () => {
       bg-slate-900 text-slate-300 flex flex-col sticky top-16 left-0 z-40 shadow-xl
       transition-all duration-500 ease-in-out overflow-hidden shrink-0
       border-r border-slate-800 dark:bg-slate-950 dark:border-slate-800/50
-      ${isOpen ? 'w-[260px]' : 'w-0'}
+      ${isOpen ? 'w-[260px]' : 'w-20'}
     `}>
-      <div className="w-[260px] flex flex-col h-full">
+      <div className={`${isOpen ? 'w-[260px]' : 'w-20'} flex flex-col h-full transition-all duration-500`}>
         {/* Admin Branding Area */}
-        <div className="px-6 py-5 border-b border-slate-800/60 bg-slate-950/30">
+        <div className={`px-6 py-5 border-b border-slate-800/60 bg-slate-950/30 ${!isOpen && 'flex justify-center px-0'}`}>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <ShieldCheck className="text-blue-400" size={24} />
+            <div className={`p-2 bg-pos-primary/10 rounded-lg ${!isOpen && 'p-1.5'}`}>
+              <ShieldCheck className="text-pos-primary" size={isOpen ? 24 : 20} />
             </div>
-            <div>
-              <p className="text-sm font-bold text-white tracking-wide uppercase">Admin Hub</p>
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{session?.role?.replace('_', ' ') || 'Manager'}</p>
-            </div>
+            {isOpen && (
+              <div>
+                <p className="text-sm font-bold text-white tracking-wide uppercase">Admin Hub</p>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{session?.role?.replace('_', ' ') || 'Manager'}</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Nav items */}
         <div className="flex-1 overflow-y-auto no-scrollbar py-4 scroll-smooth">
           {loading ? (
-            <div className="flex justify-center py-8 text-slate-500 text-xs text-center px-4">Loading Admin Navigation...</div>
+            <div className="flex justify-center py-8 text-slate-500 text-xs text-center px-4">
+              {isOpen ? 'Loading Admin Navigation...' : '...'}
+            </div>
           ) : filteredMenu.map((item) => {
             const isGroupActive = pathname === item.path || pathname.startsWith(item.path + '/');
 
@@ -165,21 +169,21 @@ export const DashboardAdminSidebar: React.FC = () => {
                     onClick={() => toggleGroup(item.name)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
                       isGroupActive
-                        ? 'bg-blue-600/10 text-blue-400 shadow-sm'
+                        ? 'bg-pos-primary/10 text-pos-primary shadow-sm'
                         : 'hover:bg-slate-800/60 text-slate-400'
-                    }`}
+                    } ${!isOpen && 'px-0 justify-center'}`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className={`flex items-center ${isOpen ? 'gap-4' : 'w-full justify-center'}`}>
                       <item.icon
                         size={20}
-                        className={isGroupActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400 transition-colors'}
+                        className={isGroupActive ? 'text-pos-primary' : 'text-slate-500 group-hover:text-pos-primary transition-colors'}
                       />
-                      <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>
+                      {isOpen && <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>}
                     </div>
-                    {isGroupOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-600" />}
+                    {isOpen && (isGroupOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-600" />)}
                   </Link>
 
-                  {isGroupOpen && (
+                  {isOpen && isGroupOpen && (
                     <div className="mt-1 space-y-0.5 ml-9 border-l border-slate-800/80">
                       {item.subItems.map((sub) => {
                         const isSubActive = pathname === sub.path;
@@ -189,7 +193,7 @@ export const DashboardAdminSidebar: React.FC = () => {
                             href={sub.path}
                             className={`flex items-center px-4 py-2.5 text-[11px] font-bold uppercase tracking-tight transition-all rounded-r-md ${
                               isSubActive
-                                ? 'text-blue-400 bg-blue-500/5 border-l border-blue-500 -ml-[1px]'
+                                ? 'text-pos-primary bg-pos-primary/5 border-l border-pos-primary -ml-[1px]'
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
                             }`}
                           >
@@ -209,15 +213,17 @@ export const DashboardAdminSidebar: React.FC = () => {
                   href={item.path}
                   className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                     pathname === item.path
-                      ? 'bg-blue-600/10 text-blue-400 shadow-sm'
+                      ? 'bg-pos-primary/10 text-pos-primary shadow-sm'
                       : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-300'
-                  }`}
+                  } ${!isOpen && 'px-0 justify-center'}`}
                 >
-                  <item.icon
-                    size={20}
-                    className={pathname === item.path ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400 transition-colors'}
-                  />
-                  <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>
+                  <div className={`flex items-center ${isOpen ? 'gap-4' : 'w-full justify-center'}`}>
+                    <item.icon
+                      size={20}
+                      className={pathname === item.path ? 'text-pos-primary' : 'text-slate-500 group-hover:text-pos-primary transition-colors'}
+                    />
+                    {isOpen && <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>}
+                  </div>
                 </Link>
               </div>
             );
@@ -225,24 +231,28 @@ export const DashboardAdminSidebar: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-slate-950/50 mt-auto">
-          <div className="space-y-2 opacity-60 border-b border-slate-800 pb-4 mb-4">
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-              <span className="text-slate-500">Workspace</span>
-              <span className="text-slate-300">Admin Area</span>
+        <div className={`p-6 bg-slate-950/50 mt-auto ${!isOpen && 'px-2 py-4'}`}>
+          {isOpen && (
+            <div className="space-y-2 opacity-60 border-b border-slate-800 pb-4 mb-4">
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-slate-500">Workspace</span>
+                <span className="text-slate-300">Admin Area</span>
+              </div>
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-slate-500">Session ID</span>
+                <span className="text-pos-primary">#AD-409</span>
+              </div>
             </div>
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-              <span className="text-slate-500">Session ID</span>
-              <span className="text-blue-400">#AD-409</span>
-            </div>
-          </div>
+          )}
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group border border-slate-700/50"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group border border-slate-700/50 ${!isOpen && 'px-0 justify-center border-none hover:bg-transparent'}`}
           >
-            <LogOut size={18} className="group-hover:rotate-12 transition-transform text-red-400" />
-            <span className="text-red-400">End Session</span>
+            <div className={`flex items-center ${isOpen ? 'gap-3' : 'justify-center w-full'}`}>
+               <LogOut size={isOpen ? 18 : 20} className="group-hover:rotate-12 transition-transform text-red-400" />
+               {isOpen && <span className="text-red-400">End Session</span>}
+            </div>
           </button>
         </div>
       </div>

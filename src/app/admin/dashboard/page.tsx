@@ -105,6 +105,14 @@ export default function SuperAdminDashboard() {
           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-2 max-w-md leading-relaxed">
             Manage global operations, track system-wide revenue, and monitor network health across all organizations.
           </p>
+          {/* Branding tag */}
+          <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border" style={{backgroundColor:'#e8a0a0' + '15', borderColor:'#e8a0a0' + '40'}}>
+              <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{color:'#e8a0a0'}}>OrderMint POS</span>
+              <span className="w-1 h-1 rounded-full" style={{backgroundColor:'#e8a0a0'}} />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">by Ritchie</span>
+            </div>
+          </div>
         </div>
         <div className="group px-6 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-3xl flex flex-col items-end transition-all hover:shadow-md">
           <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
