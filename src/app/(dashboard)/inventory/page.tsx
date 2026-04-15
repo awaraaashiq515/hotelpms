@@ -271,8 +271,8 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Inventory Control</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <h1 className="text-2xl font-black section-heading uppercase tracking-tight">Inventory Control</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest mt-0.5">
             Stock management & movement tracking
           </p>
         </div>
@@ -286,26 +286,26 @@ export default function InventoryPage() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Items</p>
-          <p className="text-3xl font-black text-gray-900 mt-1">{stockItems.length}</p>
+        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Total Items</p>
+          <p className="text-3xl font-black section-heading mt-1">{stockItems.length}</p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Low Stock</p>
+        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Low Stock</p>
           <p className="text-3xl font-black text-red-500 mt-1">{stockItems.filter(i => i.isLow).length}</p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">In Stock</p>
+        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">In Stock</p>
           <p className="text-3xl font-black text-emerald-500 mt-1">{stockItems.filter(i => !i.isLow).length}</p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Movements</p>
-          <p className="text-3xl font-black text-gray-900 mt-1">{movTotal || '—'}</p>
+        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Total Movements</p>
+          <p className="text-3xl font-black section-heading mt-1">{movTotal || '—'}</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-100 pb-0 overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 border-b border-gray-100 dark:border-slate-700 pb-0 overflow-x-auto no-scrollbar">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -313,7 +313,7 @@ export default function InventoryPage() {
             className={`flex items-center gap-2 px-5 py-3 text-[11px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${
               tab === id
                 ? 'border-pos-primary text-pos-primary'
-                : 'border-transparent text-gray-400 hover:text-gray-700'
+                : 'border-transparent text-gray-400 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white'
             }`}
           >
             <Icon size={14} />
@@ -326,28 +326,28 @@ export default function InventoryPage() {
 
       {/* STOCK ITEMS TAB */}
       {tab === 'items' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-gray-50 flex items-center gap-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={15} />
               <input
                 type="text"
                 placeholder="Search stock items..."
                 value={itemSearch}
                 onChange={(e) => setItemSearch(e.target.value)}
-                className="pl-9 pr-4 py-2.5 bg-gray-50 border border-transparent rounded-xl text-xs w-full max-w-sm focus:bg-white focus:border-emerald-200 transition-all font-medium"
+                className="pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent rounded-xl text-xs w-full max-w-sm focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-200 transition-all font-medium"
               />
             </div>
-            <button onClick={fetchStockItems} className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors">
+            <button onClick={fetchStockItems} className="p-2.5 text-gray-400 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-xl transition-colors">
               <RefreshCw size={16} />
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-50 bg-gray-50/50">
+                <tr className="border-b border-gray-50 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                   {['Item Name', 'SKU', 'Unit', 'Opening', 'Current Stock', 'Reorder Level', 'Cost Price', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">
+                    <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.15em]">
                       {h}
                     </th>
                   ))}
@@ -355,36 +355,36 @@ export default function InventoryPage() {
               </thead>
               <tbody>
                 {loadingItems ? (
-                  <tr><td colSpan={9} className="py-16 text-center text-xs font-bold text-gray-300 uppercase tracking-widest">Loading...</td></tr>
+                  <tr><td colSpan={9} className="py-16 text-center text-xs font-bold text-gray-300 dark:text-slate-500 uppercase tracking-widest">Loading...</td></tr>
                 ) : stockItems.length === 0 ? (
-                  <tr><td colSpan={9} className="py-16 text-center text-xs font-bold text-gray-300 uppercase tracking-widest">No stock items found. Add your first item.</td></tr>
+                  <tr><td colSpan={9} className="py-16 text-center text-xs font-bold text-gray-300 dark:text-slate-500 uppercase tracking-widest">No stock items found. Add your first item.</td></tr>
                 ) : stockItems.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/30 transition-colors">
+                  <tr key={item.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-gray-50/30 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-5 py-4">
-                      <div className="font-bold text-sm text-gray-900">{item.name}</div>
+                      <div className="font-bold text-sm text-gray-900 dark:text-white">{item.name}</div>
                       {item.products && item.products.length > 0 && (
                         <div className="text-[9px] text-emerald-600 font-bold mt-0.5">
                           {item.products.length} product{item.products.length > 1 ? 's' : ''} linked
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-4 text-xs text-gray-500 font-medium">{item.sku || '—'}</td>
-                    <td className="px-5 py-4 text-xs text-gray-500 font-medium">{item.unit || '—'}</td>
-                    <td className="px-5 py-4 text-xs font-bold text-gray-700">{item.openingStock}</td>
+                    <td className="px-5 py-4 text-xs text-gray-500 dark:text-slate-400 font-medium">{item.sku || '—'}</td>
+                    <td className="px-5 py-4 text-xs text-gray-500 dark:text-slate-400 font-medium">{item.unit || '—'}</td>
+                    <td className="px-5 py-4 text-xs font-bold text-gray-700 dark:text-slate-300">{item.openingStock}</td>
                     <td className="px-5 py-4">
                       <span className={`text-sm font-black ${item.isLow ? 'text-red-500' : 'text-emerald-600'}`}>
                         {item.currentStock !== undefined ? item.currentStock : '—'}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-xs font-bold text-gray-500">{item.reorderLevel}</td>
-                    <td className="px-5 py-4 text-xs font-bold text-gray-700">₹{item.costPrice.toFixed(2)}</td>
+                    <td className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-slate-400">{item.reorderLevel}</td>
+                    <td className="px-5 py-4 text-xs font-bold text-gray-700 dark:text-slate-300">₹{item.costPrice.toFixed(2)}</td>
                     <td className="px-5 py-4">
                       {item.isLow ? (
-                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase bg-red-50 text-red-600 border border-red-100">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase bg-red-50 dark:bg-red-950 text-red-600 border border-red-100 dark:border-red-900">
                           <AlertTriangle size={10} /> Low
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-100 dark:border-emerald-900">
                           <CheckCircle size={10} /> OK
                         </span>
                       )}
@@ -392,7 +392,7 @@ export default function InventoryPage() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => openEditItem(item)}
-                        className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-2 text-gray-400 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-lg transition-colors"
                       >
                         <Edit2 size={14} />
                       </button>
@@ -407,11 +407,11 @@ export default function InventoryPage() {
 
       {/* MOVEMENT LEDGER TAB */}
       {tab === 'movements' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-gray-50 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center justify-between">
             <div>
-              <h3 className="font-black text-sm text-gray-900 uppercase">Movement Ledger</h3>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{movTotal} total entries</p>
+              <h3 className="font-black text-sm section-heading uppercase">Movement Ledger</h3>
+              <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest">{movTotal} total entries</p>
             </div>
             <button onClick={fetchMovements} className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors">
               <RefreshCw size={16} />
@@ -420,9 +420,9 @@ export default function InventoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-50 bg-gray-50/50">
+                <tr className="border-b border-gray-50 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                   {['Date', 'Item', 'Warehouse', 'Type', 'Qty In', 'Qty Out', 'Balance', 'Reference'].map((h) => (
-                    <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">
+                    <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.15em]">
                       {h}
                     </th>
                   ))}
@@ -436,15 +436,15 @@ export default function InventoryPage() {
                 ) : movements.map((m) => {
                   const meta = MOVEMENT_LABELS[m.movementType] || { label: m.movementType, color: 'text-gray-600 bg-gray-50' };
                   return (
-                    <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50/30">
-                      <td className="px-5 py-3.5 text-xs text-gray-600 font-bold">
+                    <tr key={m.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-gray-50/30 dark:hover:bg-slate-800/30">
+                      <td className="px-5 py-3.5 text-xs text-gray-600 dark:text-slate-400 font-bold">
                         {new Date(m.movementDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
                       </td>
                       <td className="px-5 py-3.5">
-                        <div className="text-xs font-bold text-gray-900">{m.stockItem?.name || '—'}</div>
-                        <div className="text-[9px] text-gray-400">{m.stockItem?.unit || ''}</div>
+                        <div className="text-xs font-bold text-gray-900 dark:text-white">{m.stockItem?.name || '—'}</div>
+                        <div className="text-[9px] text-gray-400 dark:text-slate-500">{m.stockItem?.unit || ''}</div>
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-gray-500">{m.warehouse?.name || '—'}</td>
+                      <td className="px-5 py-3.5 text-xs text-gray-500 dark:text-slate-400">{m.warehouse?.name || '—'}</td>
                       <td className="px-5 py-3.5">
                         <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${meta.color}`}>
                           {meta.label}
@@ -464,8 +464,8 @@ export default function InventoryPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-sm font-black text-gray-900">{m.balanceQty}</td>
-                      <td className="px-5 py-3.5 text-[10px] text-gray-400 font-medium">
+                      <td className="px-5 py-3.5 text-sm font-black text-gray-900 dark:text-white">{m.balanceQty}</td>
+                      <td className="px-5 py-3.5 text-[10px] text-gray-400 dark:text-slate-500 font-medium">
                         {m.referenceModule || '—'}
                       </td>
                     </tr>
@@ -480,10 +480,10 @@ export default function InventoryPage() {
       {/* STOCK IN TAB */}
       {tab === 'stock-in' && (
         <div className="max-w-xl">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-8 space-y-5">
             <div>
-              <h3 className="font-black text-lg text-gray-900 uppercase tracking-tight">Stock In / Purchase Entry</h3>
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Record stock received from supplier or manual opening stock entry</p>
+              <h3 className="font-black text-lg section-heading uppercase tracking-tight">Stock In / Purchase Entry</h3>
+              <p className="text-xs text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">Record stock received from supplier or manual opening stock entry</p>
             </div>
 
             {stockInSuccess && (
@@ -565,10 +565,10 @@ export default function InventoryPage() {
       {/* ADJUSTMENTS TAB */}
       {tab === 'adjustments' && (
         <div className="max-w-xl">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-8 space-y-5">
             <div>
-              <h3 className="font-black text-lg text-gray-900 uppercase tracking-tight">Physical Stock Adjustment</h3>
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Enter physical count to auto-calculate shortage or excess</p>
+              <h3 className="font-black text-lg section-heading uppercase tracking-tight">Physical Stock Adjustment</h3>
+              <p className="text-xs text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">Enter physical count to auto-calculate shortage or excess</p>
             </div>
 
             {adjResult && (
@@ -701,10 +701,10 @@ export default function InventoryPage() {
 
       {/* PRODUCT MAPPING TAB */}
       {tab === 'mapping' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-gray-50">
-            <h3 className="font-black text-sm text-gray-900 uppercase">Product → Stock Item Mapping</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-50 dark:border-slate-700">
+            <h3 className="font-black text-sm section-heading uppercase">Product → Stock Item Mapping</h3>
+            <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">
               Link products to stock items for automatic deduction when sold
             </p>
           </div>

@@ -141,7 +141,7 @@ export default function OperationsPage() {
         <section className="space-y-8 animate-in slide-in-from-left-4 duration-500">
           <div className="flex items-center gap-4">
             <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
-            <h2 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em]">Business & Team Management</h2>
+            <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Business & Team Management</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {visibleManagement.map((action) => (
@@ -161,7 +161,7 @@ export default function OperationsPage() {
         <section className="space-y-8 animate-in slide-in-from-left-4 duration-500 delay-75">
           <div className="flex items-center gap-4">
             <div className="h-6 w-1 bg-emerald-600 rounded-full"></div>
-            <h2 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em]">Financial Operations & Revenue</h2>
+            <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Financial Operations & Revenue</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {visibleFinancial.map((action) => (
@@ -180,7 +180,7 @@ export default function OperationsPage() {
       <section className="space-y-8 animate-in slide-in-from-left-4 duration-500 delay-150">
         <div className="flex items-center gap-4">
           <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
-          <h2 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em]">{isAdmin ? 'Terminal & POS Controls' : 'Quick Actions'}</h2>
+          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">{isAdmin ? 'Terminal & POS Controls' : 'Quick Actions'}</h2>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {visibleOperational.map((action) => (
@@ -199,15 +199,15 @@ export default function OperationsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="h-6 w-1 bg-gray-300 rounded-full"></div>
-            <h2 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em]">System Configuration</h2>
+            <h2 className="text-sm font-black section-heading-muted uppercase tracking-[0.2em]">System Configuration</h2>
           </div>
-          <div className="bg-gray-100 px-4 py-1.5 rounded-full text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+          <div className="bg-gray-100 dark:bg-slate-800 px-4 py-1.5 rounded-full text-[10px] font-black text-gray-400 dark:text-slate-300 uppercase tracking-[0.2em]">
             Restaurant Setup
           </div>
         </div>
 
-        <div className="bg-white border-2 border-dashed border-gray-100 rounded-[32px] p-10 shadow-sm relative overflow-hidden group hover:border-pos-primary/10 transition-colors">
-          <p className="text-sm font-bold text-gray-900 uppercase tracking-widest text-center mb-10">
+        <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-gray-100 dark:border-slate-700 rounded-[32px] p-10 shadow-sm relative overflow-hidden group hover:border-pos-primary/10 transition-colors">
+          <p className="text-sm font-bold section-heading uppercase tracking-widest text-center mb-10">
             {isAdmin ? 'Master System Configuration' : 'Local Terminal Settings'}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">

@@ -153,6 +153,19 @@
   .text-heading-allcaps {
     @apply uppercase tracking-[-0.02em] font-black leading-[0.9] text-slate-900;
   }
+
+  .section-heading {
+    color: #111827; /* gray-900 */
+  }
+  .dark .section-heading {
+    color: #ffffff !important;
+  }
+  .section-heading-muted {
+    color: #9ca3af; /* gray-400 */
+  }
+  .dark .section-heading-muted {
+    color: #cbd5e1 !important; /* slate-300 */
+  }
 }
 
 

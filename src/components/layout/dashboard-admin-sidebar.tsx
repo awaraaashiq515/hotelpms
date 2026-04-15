@@ -28,7 +28,7 @@ export const DashboardAdminSidebar: React.FC = () => {
 
   // Filter menu based on role and dynamic paths
   const menu = session ? getSidebarMenu(session.role) : [];
-  
+
   const filteredMenu = menu.filter(item => {
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;
@@ -55,7 +55,7 @@ export const DashboardAdminSidebar: React.FC = () => {
     if (session.permissions) {
       const requiredPerm = (item.perm || item.name).toLowerCase();
       const hasPerm = session.permissions.some((p: string) => p.toLowerCase() === requiredPerm);
-      
+
       if (hasPerm) return true;
       if (!isRoleListed) return false;
       if (session.role !== 'RESTAURANTS_ADMIN') return false;
@@ -69,7 +69,7 @@ export const DashboardAdminSidebar: React.FC = () => {
         ...item,
         subItems: item.subItems.filter(sub => {
           if (session.role === 'SUPER_ADMIN') return true;
-          
+
           // Sub-item feature gating
           if (sub.feature) {
             const hasFeature = session.packageFeatures?.includes(sub.feature);
@@ -167,11 +167,10 @@ export const DashboardAdminSidebar: React.FC = () => {
                   <Link
                     href={item.path}
                     onClick={() => toggleGroup(item.name)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
-                      isGroupActive
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${isGroupActive
                         ? 'bg-pos-primary/10 text-pos-primary shadow-sm'
                         : 'hover:bg-slate-800/60 text-slate-400'
-                    } ${!isOpen && 'px-0 justify-center'}`}
+                      } ${!isOpen && 'px-0 justify-center'}`}
                   >
                     <div className={`flex items-center ${isOpen ? 'gap-4' : 'w-full justify-center'}`}>
                       <item.icon
@@ -191,11 +190,10 @@ export const DashboardAdminSidebar: React.FC = () => {
                           <Link
                             key={sub.path}
                             href={sub.path}
-                            className={`flex items-center px-4 py-2.5 text-[11px] font-bold uppercase tracking-tight transition-all rounded-r-md ${
-                              isSubActive
+                            className={`flex items-center px-4 py-2.5 text-[11px] font-bold uppercase tracking-tight transition-all rounded-r-md ${isSubActive
                                 ? 'text-pos-primary bg-pos-primary/5 border-l border-pos-primary -ml-[1px]'
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
-                            }`}
+                              }`}
                           >
                             {sub.name}
                           </Link>
@@ -211,11 +209,10 @@ export const DashboardAdminSidebar: React.FC = () => {
               <div key={item.name} className="px-3 mb-1">
                 <Link
                   href={item.path}
-                  className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                    pathname === item.path
+                  className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${pathname === item.path
                       ? 'bg-pos-primary/10 text-pos-primary shadow-sm'
                       : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-300'
-                  } ${!isOpen && 'px-0 justify-center'}`}
+                    } ${!isOpen && 'px-0 justify-center'}`}
                 >
                   <div className={`flex items-center ${isOpen ? 'gap-4' : 'w-full justify-center'}`}>
                     <item.icon
@@ -250,8 +247,8 @@ export const DashboardAdminSidebar: React.FC = () => {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group border border-slate-700/50 ${!isOpen && 'px-0 justify-center border-none hover:bg-transparent'}`}
           >
             <div className={`flex items-center ${isOpen ? 'gap-3' : 'justify-center w-full'}`}>
-               <LogOut size={isOpen ? 18 : 20} className="group-hover:rotate-12 transition-transform text-red-400" />
-               {isOpen && <span className="text-red-400">End Session</span>}
+              <LogOut size={isOpen ? 18 : 20} className="group-hover:rotate-12 transition-transform text-red-400" />
+              {isOpen && <span className="text-red-400">End Session</span>}
             </div>
           </button>
         </div>

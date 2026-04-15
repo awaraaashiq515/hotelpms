@@ -29,7 +29,9 @@ const currentDate = new Date();
 const currentYear = currentDate.getFullYear().toString();
 const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
 // Filing is for previous month
-const prevMonth = String(currentDate.getMonth()).padStart(2, '0') || '12';
+const prevMonth = currentDate.getMonth() === 0 
+  ? '12' 
+  : String(currentDate.getMonth()).padStart(2, '0');
 const prevYear = currentDate.getMonth() === 0
   ? String(currentDate.getFullYear() - 1)
   : currentYear;
@@ -39,10 +41,12 @@ function fmt(n: number) {
 }
 
 function formatPeriod(fp: string) {
+  if (!fp || fp.length < 6) return fp;
   const m = fp.slice(0, 2);
   const y = fp.slice(2);
   const mo = MONTHS.find(x => x.val === m);
-  return `${mo?.label.split('—')[0].trim()} ${y}`;
+  if (!mo) return `${m}/${y}`;
+  return `${mo.label.split('—')[0].trim()} ${y}`;
 }
 
 export default function GstFilingPage() {
@@ -261,7 +265,7 @@ export default function GstFilingPage() {
               <div>
                 <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Sales Summary Preview</h2>
                 <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight">
-                  {MONTHS.find(m => m.val === month)?.label.split('—')[0].trim()} {year} — {summary.totalInvoices} Orders
+                  {(MONTHS.find(m => m.val === month)?.label || 'Selected Period')?.split('—')[0].trim()} {year} — {summary.totalInvoices} Orders
                 </p>
               </div>
             </div>

@@ -147,8 +147,8 @@ export default function TabletSettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Tablet Configuration</h1>
-          <p className="text-gray-500 text-sm font-medium">Manage ordering devices and their operational modes</p>
+          <h1 className="text-2xl font-black section-heading tracking-tight">Tablet Configuration</h1>
+          <p className="text-gray-500 dark:text-slate-400 text-sm font-medium">Manage ordering devices and their operational modes</p>
         </div>
         <Button onClick={() => handleOpenModal()} className="rounded-2xl shadow-lg shadow-pos-primary/10 py-3 bg-pos-primary hover:bg-pos-primary-dark">
           <Plus className="mr-2" size={18} /> Add New Tablet
@@ -162,24 +162,24 @@ export default function TabletSettingsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tablets.map(tablet => (
-            <Card key={tablet.id} className="p-6 hover:shadow-xl transition-all border border-gray-100 rounded-3xl relative overflow-hidden group">
+            <Card key={tablet.id} className="p-6 hover:shadow-xl transition-all border border-gray-100 dark:border-slate-700 rounded-3xl relative overflow-hidden group dark:bg-slate-900">
               <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="flex gap-2">
-                  <button onClick={() => handleOpenModal(tablet)} className="p-2 bg-white shadow-md rounded-xl text-gray-400 hover:text-pos-primary">
+                  <button onClick={() => handleOpenModal(tablet)} className="p-2 bg-white dark:bg-slate-800 shadow-md rounded-xl text-gray-400 dark:text-slate-400 hover:text-pos-primary">
                     <Edit2 size={16} />
                   </button>
-                  <button onClick={() => handleDelete(tablet.id)} className="p-2 bg-white shadow-md rounded-xl text-gray-400 hover:text-red-500">
+                  <button onClick={() => handleDelete(tablet.id)} className="p-2 bg-white dark:bg-slate-800 shadow-md rounded-xl text-gray-400 dark:text-slate-400 hover:text-red-500">
                     <Trash2 size={16} />
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center gap-4 mb-6">
-                <div className={`p-4 rounded-2xl ${tablet.mode === 'TABLE' ? 'bg-emerald-50 text-emerald-600' : 'bg-pos-primary/10 text-pos-primary'}`}>
+                <div className={`p-4 rounded-2xl ${tablet.mode === 'TABLE' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600' : 'bg-pos-primary/10 text-pos-primary'}`}>
                   <Tablet size={24} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">{tablet.name}</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white">{tablet.name}</h3>
                   <div className="flex gap-2 mt-1">
                     <Badge variant={tablet.mode === 'TABLE' ? 'success' : 'indigo'} className="text-[10px] uppercase font-black tracking-widest px-2">
                       {tablet.mode} Mode
@@ -188,17 +188,17 @@ export default function TabletSettingsPage() {
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-gray-50">
+              <div className="space-y-4 pt-4 border-t border-gray-50 dark:border-slate-700">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Linked To</span>
-                  <span className="text-gray-900 font-black">
+                  <span className="text-gray-400 dark:text-slate-500 font-bold uppercase text-[10px] tracking-widest">Linked To</span>
+                  <span className="text-gray-900 dark:text-white font-black">
                     {tablet.mode === 'TABLE' 
                       ? (tables.find(t => t.id === tablet.tableId)?.name || 'Not Linked') 
                       : 'Assigned to Staff'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Device Status</span>
+                  <span className="text-gray-400 dark:text-slate-500 font-bold uppercase text-[10px] tracking-widest">Device Status</span>
                   <Badge variant={tablet.isActive ? 'success' : 'neutral'} className="rounded-full h-2 w-2 p-0 animate-pulse">{''}</Badge>
                 </div>
               </div>

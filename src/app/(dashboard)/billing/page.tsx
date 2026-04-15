@@ -306,13 +306,14 @@ export default function BillingPage() {
     try {
       const payload = {
         restaurantTableId: tableId,
+        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
         items: cart.map(item => ({
           productId: item.id,
           quantity: item.quantity,
           unitPrice: item.sellingPrice
         })),
-        guestId: selectedGuestId || null,
-        driverId: selectedDriver?.id || null
+        guestId: selectedGuestId || undefined,
+        driverId: selectedDriver?.id || undefined
       };
 
       const response = await fetch('/api/pos-orders', {
@@ -339,9 +340,10 @@ export default function BillingPage() {
     try {
       const payload = {
         restaurantTableId: tableId,
+        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
         paymentModeId: selectedPaymentMode,
-        guestId: selectedGuestId || null,
-        driverId: selectedDriver?.id || null,
+        guestId: selectedGuestId || undefined,
+        driverId: selectedDriver?.id || undefined,
         items: cart.map(item => ({
           productId: item.id,
           quantity: item.quantity,
@@ -397,6 +399,7 @@ export default function BillingPage() {
     try {
       const payload = {
         restaurantTableId: tableId,
+        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
         guestId: selectedGuestId,
         items: cart.map(item => ({
           productId: item.id,

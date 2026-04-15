@@ -59,7 +59,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          <label className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest ml-1">
             First Name
           </label>
           <input
@@ -67,12 +67,12 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
             placeholder="John"
             value={formData.firstName}
             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 border ${errors.firstName ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border ${errors.firstName ? 'border-red-400' : 'border-transparent dark:border-slate-600'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
           />
           {errors.firstName && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.firstName}</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          <label className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest ml-1">
             Last Name
           </label>
           <input
@@ -80,14 +80,14 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
             placeholder="Doe"
             value={formData.lastName}
             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-            className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-slate-600 rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          <label className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest ml-1">
             Mobile Number
           </label>
           <input
@@ -95,12 +95,12 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
             placeholder="9876543210"
             value={formData.mobile}
             onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 border ${errors.mobile ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border ${errors.mobile ? 'border-red-400' : 'border-transparent dark:border-slate-600'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
           />
           {errors.mobile && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.mobile}</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          <label className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest ml-1">
             Email Address
           </label>
           <input
@@ -108,7 +108,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
             placeholder="john@example.com"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 border ${errors.email ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border ${errors.email ? 'border-red-400' : 'border-transparent dark:border-slate-600'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
           />
           {errors.email && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.email}</p>}
         </div>
@@ -123,7 +123,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
           rows={2}
           value={formData.address}
           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all resize-none"
+          className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-slate-600 rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all resize-none"
         />
       </div>
 
@@ -132,7 +132,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
           type="button"
           variant="secondary"
           onClick={onCancel}
-          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white border border-gray-200"
+          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 dark:text-slate-300"
         >
           Cancel
         </Button>

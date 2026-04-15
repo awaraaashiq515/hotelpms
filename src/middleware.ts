@@ -26,6 +26,7 @@ export async function middleware(request: NextRequest) {
                            pathname.startsWith('/manage-users') ||
                            pathname.startsWith('/manage-roles') ||
                            pathname.startsWith('/gst-filing') ||
+                           pathname.startsWith('/gst-settings') ||
                            pathname.startsWith('/vouchers') ||
                            pathname.startsWith('/orders') ||
                            pathname.startsWith('/all-bills') ||
@@ -145,6 +146,8 @@ export async function middleware(request: NextRequest) {
           '/operations/occupancy': 'live occupancy',
           '/table-reservations': 'table bookings',
           '/drivers': 'drivers',
+          '/gst-filing': 'gst filing',
+          '/gst-settings': 'gst filing',
         };
 
         // Find if the current path requires a permission
@@ -182,6 +185,7 @@ export async function middleware(request: NextRequest) {
         '/vouchers': 'ACCOUNTING',
         '/reports': 'REPORTS',
         '/gst-filing': 'GST',
+        '/gst-settings': 'GST',
         '/drivers': 'DRIVERS',
         '/pos-staff': 'STAFF',
         '/operations/tables': 'TABLES',

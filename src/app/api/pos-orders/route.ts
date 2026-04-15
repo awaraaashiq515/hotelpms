@@ -13,21 +13,50 @@ const orderItemSchema = z.object({
 })
 
 const posOrderSchema = z.object({
-  propertyId: z.string().min(1, 'Property ID is required'),
-  outletId: z.string().min(1, 'Outlet ID is required'),
-  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY']),
+  propertyId: z.string().optional(),
+  outletId: z.string().optional(),
+  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY']).optional().default('DINE_IN'),
   tableNo: z.string().optional(),
   restaurantTableId: z.string().optional(),
   roomId: z.string().optional(),
   folioId: z.string().optional(),
-  driverId: z.string().optional(),
+  driverId: z.string().nullable().optional(),
+  guestId: z.string().nullable().optional(),
   items: z.array(orderItemSchema).min(1, 'Order must contain at least 1 item'),
 })
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) return apiError(new Error('Unauthorized'), 401);
+
     const body = await request.json()
-    const { items, ...orderData } = posOrderSchema.parse(body)
+    // Map PICKUP to TAKEAWAY for compatibility with the billing page
+    if (body.orderType === 'PICKUP') body.orderType = 'TAKEAWAY';
+    const parsed = posOrderSchema.parse(body)
+    const { items, ...parsedData } = parsed;
+
+    // Auto-fill propertyId from session if not provided
+    const propertyId = parsedData.propertyId || session.propertyId;
+    if (!propertyId) return apiError(new Error('Property ID could not be determined'), 400);
+
+    // Auto-fill outletId from DB if not provided
+    let outletId = parsedData.outletId;
+    if (!outletId) {
+      const outlet = await prisma.outlet.findFirst({ where: { propertyId } });
+      if (!outlet) return apiError(new Error('POS Outlet not found for this property'), 400);
+      outletId = outlet.id;
+    }
+
+    // Clean up driverId — treat null as undefined
+    const driverId = parsedData.driverId || undefined;
+
+    const orderData = {
+      ...parsedData,
+      propertyId,
+      outletId,
+      driverId,
+    };
 
     // Calculate Totals ensuring no manipulation
     let computedSubtotal = 0

@@ -20,15 +20,15 @@ export const ActionTile: React.FC<ActionTileProps> = ({
   variant = 'default' 
 }) => {
   const content = (
-    <div className="group flex flex-col items-center justify-center gap-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md hover:border-pos-primary/40 transition-all active:scale-95 text-center min-h-[120px] w-full">
+    <div className="group flex flex-col items-center justify-center gap-3 p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md hover:border-pos-primary/40 dark:hover:border-pos-primary/40 transition-all active:scale-95 text-center min-h-[120px] w-full">
       <div className={`p-3 rounded-xl transition-all duration-300 ${
         variant === 'config' 
-          ? 'bg-gray-50 text-gray-400 group-hover:bg-pos-primary group-hover:text-white' 
-          : 'bg-indigo-50 text-indigo-600 group-hover:bg-pos-primary group-hover:text-white'
+          ? 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500 group-hover:bg-pos-primary group-hover:text-white' 
+          : 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 group-hover:bg-pos-primary group-hover:text-white'
       }`}>
         <Icon size={24} strokeWidth={1.5} />
       </div>
-      <span className="text-[12px] font-semibold text-gray-700 group-hover:text-pos-primary leading-tight px-1 uppercase tracking-tight">
+      <span className="text-[12px] font-semibold text-gray-700 dark:text-white group-hover:text-pos-primary leading-tight px-1 uppercase tracking-tight">
         {label}
       </span>
     </div>

@@ -80,10 +80,10 @@ export default function CategoriesPage() {
       header: 'Category Name',
       cell: (row: Category) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
+          <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950 flex items-center justify-center text-orange-600">
             <Grid size={14} />
           </div>
-          <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">
+          <span className="text-sm font-bold section-heading uppercase tracking-tight">
             {row.name}
           </span>
         </div>
@@ -93,14 +93,14 @@ export default function CategoriesPage() {
     {
       header: 'Description',
       cell: (row: Category) => (
-        <span className="text-xs text-gray-500 line-clamp-1">{row.description || 'No description'}</span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 line-clamp-1">{row.description || 'No description'}</span>
       ),
       width: '300px'
     },
     {
       header: 'Status',
       cell: (row: Category) => (
-        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${row.isActive !== false ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'
+        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${row.isActive !== false ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500'
           }`}>
           {row.isActive !== false ? 'Active' : 'Inactive'}
         </span>
@@ -116,7 +116,7 @@ export default function CategoriesPage() {
               setSelectedCategory(row);
               setIsFormOpen(true);
             }}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-pos-primary transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-gray-400 dark:text-slate-400 hover:text-pos-primary transition-colors"
           >
             <Edit size={16} />
           </button>
@@ -125,7 +125,7 @@ export default function CategoriesPage() {
               setSelectedCategory(row);
               setIsDeleteOpen(true);
             }}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-gray-400 dark:text-slate-400 hover:text-red-600 transition-colors"
           >
             <Trash2 size={16} />
           </button>
