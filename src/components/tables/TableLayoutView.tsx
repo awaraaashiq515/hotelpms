@@ -12,6 +12,7 @@ interface TableLayoutViewProps {
   onEditTable?: (table: Table) => void;
   onDeleteTable?: (id: string) => void;
   onSwitchTable?: (table: Table) => void;
+  onResetTable?: (table: Table) => void;
 }
 
 export const TableLayoutView: React.FC<TableLayoutViewProps> = ({ 
@@ -24,7 +25,8 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
   onPrintBill,
   onEditTable,
   onDeleteTable,
-  onSwitchTable
+  onSwitchTable,
+  onResetTable
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingTable, setDraggingTable] = useState<string | null>(null);
@@ -231,6 +233,7 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
                  onPrintKOT={isEditMode ? undefined : onPrintKOT}
                  onPrintBill={isEditMode ? undefined : onPrintBill}
                  onSwitchTable={isEditMode ? undefined : onSwitchTable}
+                 onResetTable={isEditMode ? undefined : onResetTable}
                />
                
                {isEditMode && (

@@ -1,21 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-
-// Helper: Admin ke liye property auto-resolve karo
-async function resolvePropertyId(session: any): Promise<string | null> {
-  if (session.propertyId) return session.propertyId;
-  if (session.organizationId) {
-    const prop = await prisma.property.findFirst({
-      where: { organizationId: session.organizationId },
-      select: { id: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    return prop?.id ?? null;
-  }
-  return null;
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // GSTN JSON Builder — GSTR-1 / GSTR-3B
@@ -37,7 +23,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Month and Year are required'), 400);
     }
 
-    const propertyId = await resolvePropertyId(session);
+    const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiError(new Error('No property found'), 404);
 
     // ── 1. Fetch Property GST config ─────────────────────────────────────────
@@ -117,9 +103,15 @@ export async function POST(request: NextRequest) {
     let firstOrderNo = '';
     let lastOrderNo = '';
 
+    const detailedInvoices: any[] = [];
+
     orders.forEach((order, idx) => {
       if (idx === 0) firstOrderNo = order.orderNo;
       lastOrderNo = order.orderNo;
+
+      let orderTaxable = 0;
+      let orderCgst = 0;
+      let orderSgst = 0;
 
       // For each item in the order
       order.items.forEach((item) => {
@@ -143,6 +135,10 @@ export async function POST(request: NextRequest) {
         totalCgst += cgst;
         totalSgst += sgst;
         totalGrand += totalAmt;
+        
+        orderTaxable += taxable;
+        orderCgst += cgst;
+        orderSgst += sgst;
 
         // ── B2CS aggregation ────────────────────────────────────────────────
         const b2csKey = `${taxRate}|${stateCode}`;
@@ -169,6 +165,16 @@ export async function POST(request: NextRequest) {
         hsnMap[hsnKey].txval = round2(hsnMap[hsnKey].txval + taxable);
         hsnMap[hsnKey].camt = round2(hsnMap[hsnKey].camt + cgst);
         hsnMap[hsnKey].samt = round2(hsnMap[hsnKey].samt + sgst);
+      });
+
+      detailedInvoices.push({
+        orderNo: order.orderNo,
+        date: order.createdAt,
+        taxable: round2(orderTaxable),
+        cgst: round2(orderCgst),
+        sgst: round2(orderSgst),
+        total: order.grandTotal,
+        status: order.status
       });
     });
 
@@ -288,6 +294,7 @@ export async function POST(request: NextRequest) {
     return apiResponse({
       filingId,
       json: gstJson,
+      detailedInvoices,
       summary: {
         totalInvoices: orders.length,
         totalTaxableValue: totalTaxable,

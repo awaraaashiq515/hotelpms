@@ -1,21 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-
-// Helper: Admin ke liye property auto-resolve
-async function resolvePropertyId(session: any): Promise<string | null> {
-  if (session.propertyId) return session.propertyId;
-  if (session.organizationId) {
-    const prop = await prisma.property.findFirst({
-      where: { organizationId: session.organizationId },
-      select: { id: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    return prop?.id ?? null;
-  }
-  return null;
-}
 
 // GET — All past filings for this property
 export async function GET(request: NextRequest) {
@@ -23,7 +9,7 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
-    const propertyId = await resolvePropertyId(session);
+    const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiResponse([], 'No filings found');
 
     const filings = await prisma.gstFiling.findMany({
@@ -64,7 +50,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return apiError(new Error('Filing ID is required'), 400);
 
-    const propertyId = await resolvePropertyId(session);
+    const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiError(new Error('No property found'), 404);
 
     const filing = await prisma.gstFiling.findFirst({
@@ -91,7 +77,7 @@ export async function PATCH(request: NextRequest) {
     const { id, notes } = body;
     if (!id) return apiError(new Error('Filing ID is required'), 400);
 
-    const propertyId = await resolvePropertyId(session);
+    const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiError(new Error('No property found'), 404);
 
     const filing = await prisma.gstFiling.findFirst({

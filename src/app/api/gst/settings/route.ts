@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-
-// Helper: Admin ke liye auto-resolve property (first property of their org)
-async function resolvePropertyId(session: any): Promise<string | null> {
-  if (session.propertyId) return session.propertyId;
-  // ADMIN / SUPER_ADMIN — pick first property from their organization
-  if (session.organizationId) {
-    const prop = await prisma.property.findFirst({
-      where: { organizationId: session.organizationId },
-      select: { id: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    return prop?.id ?? null;
-  }
-  return null;
-}
 
 // GET — Property ki current GST settings fetch karo
 export async function GET(request: NextRequest) {
@@ -24,7 +9,7 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
-    const propertyId = await resolvePropertyId(session);
+    const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiError(new Error('No property found for this account'), 404);
 
     const property = await prisma.property.findFirst({
@@ -78,7 +63,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { gstin, legalName, stateCode, hsnDefaults } = body;
 
-    const propertyId = await resolvePropertyId(session);
+    const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiError(new Error('No property found'), 404);
 
     const property = await prisma.property.findFirst({

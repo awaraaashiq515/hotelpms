@@ -158,15 +158,15 @@ export default function GstSettingsPage() {
             <Building2 className="text-orange-500" size={22} />
           </div>
           <div>
-            <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Business GST Details</h2>
-            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight">Information registered on the GSTN portal</p>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Business GST Details</h2>
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">Information registered on the GSTN portal</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* GSTIN */}
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
               GSTIN Number *
             </label>
             <div className="relative">
@@ -180,8 +180,8 @@ export default function GstSettingsPage() {
                 onChange={e => setGstin(e.target.value.toUpperCase())}
                 className={`w-full pl-8 pr-4 py-3 rounded-xl border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary transition-all ${
                   gstin && !validateGstin(gstin)
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-200 bg-white'
+                    ? 'border-red-300 bg-red-50 dark:bg-red-950/20'
+                    : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 dark:text-slate-100'
                 }`}
               />
             </div>
@@ -199,7 +199,7 @@ export default function GstSettingsPage() {
 
           {/* Legal Name */}
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
               Legal Business Name
             </label>
             <input
@@ -208,13 +208,13 @@ export default function GstSettingsPage() {
               placeholder="Registered business name"
               value={legalName}
               onChange={e => setLegalName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100"
             />
           </div>
 
           {/* State Code */}
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
               State / UT Code *
             </label>
             <div className="relative">
@@ -223,7 +223,7 @@ export default function GstSettingsPage() {
                 id="state-code-select"
                 value={stateCode}
                 onChange={e => setStateCode(e.target.value)}
-                className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary appearance-none"
+                className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary appearance-none dark:text-slate-100"
               >
                 <option value="">-- Select State --</option>
                 {STATE_CODES.map(s => (
@@ -253,8 +253,8 @@ export default function GstSettingsPage() {
             <FileText className="text-purple-500" size={22} />
           </div>
           <div>
-            <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Default HSN / SAC Code</h2>
-            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight">
+            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Default HSN / SAC Code</h2>
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">
               This default HSN code will be used when a product has no HSN assigned
             </p>
           </div>
@@ -271,7 +271,7 @@ export default function GstSettingsPage() {
               className={`text-left px-4 py-3 rounded-xl border text-[11px] font-bold uppercase tracking-tight transition-all ${
                 defaultHsn === p.hsn && defaultRate === p.rate.toString()
                   ? 'border-pos-primary bg-pos-primary/5 text-pos-primary'
-                  : 'border-gray-200 hover:border-pos-primary/40 text-gray-500 hover:text-gray-800'
+                  : 'border-gray-200 dark:border-slate-800 hover:border-pos-primary/40 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200'
               }`}
             >
               <span className="font-mono text-xs mr-2">{p.hsn}</span>
@@ -283,7 +283,7 @@ export default function GstSettingsPage() {
         {/* Manual Input */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
               Default HSN/SAC Code
             </label>
             <input
@@ -291,19 +291,19 @@ export default function GstSettingsPage() {
               type="text"
               value={defaultHsn}
               onChange={e => setDefaultHsn(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100"
               placeholder="996331"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
               Default Tax Rate (%)
             </label>
             <select
               id="default-rate-select"
               value={defaultRate}
               onChange={e => setDefaultRate(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100"
             >
               <option value="0">0% (Exempt)</option>
               <option value="5">5% (Restaurant)</option>

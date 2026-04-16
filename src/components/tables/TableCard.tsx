@@ -29,9 +29,10 @@ interface TableCardProps {
   onPrintKOT?: (table: Table) => void;
   onPrintBill?: (table: Table) => void;
   onSwitchTable?: (table: Table) => void;
+  onResetTable?: (table: Table) => void;
 }
 
-export const TableCard: React.FC<TableCardProps> = ({ table, onClick, onPrintKOT, onPrintBill, onSwitchTable }) => {
+export const TableCard: React.FC<TableCardProps> = ({ table, onClick, onPrintKOT, onPrintBill, onSwitchTable, onResetTable }) => {
   const getStatusColor = (status: TableStatus) => {
     switch (status) {
       case 'VACANT': return 'bg-emerald-500 text-white border-emerald-600 shadow-lg shadow-emerald-100';
@@ -56,7 +57,7 @@ export const TableCard: React.FC<TableCardProps> = ({ table, onClick, onPrintKOT
     }
   };
 
-  const isActive = !!table.activeOrder || (table.status !== 'VACANT' && table.status !== 'CLEANING');
+  const isActive = !!table.activeOrder;
 
   return (
     <div 
@@ -154,6 +155,12 @@ export const TableCard: React.FC<TableCardProps> = ({ table, onClick, onPrintKOT
               onClick={(e) => { e.stopPropagation(); onSwitchTable?.(table); }}
             >
               Switch Table
+            </button>
+            <button 
+              className="bg-gray-800 hover:bg-black text-white w-3/4 py-2 rounded font-black text-[10px] uppercase tracking-widest transition-colors border border-white/10"
+              onClick={(e) => { e.stopPropagation(); onResetTable?.(table); }}
+            >
+              Reset Status
             </button>
             <button 
               className="mt-2 text-white/70 hover:text-white text-[9px] uppercase tracking-widest font-black"

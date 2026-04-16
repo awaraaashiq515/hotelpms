@@ -62,8 +62,10 @@ export async function GET(request: NextRequest) {
         .filter((t: any) => t.floorId === floor.id)
         .map((table: any) => {
           let activeOrder = null;
-          // Link the open order for this table if it exists
-          const openOrder = openOrders.find((o: any) => o.restaurantTableId === table.id);
+          // Link the open order for this table if it exists AND the table is not vacant
+          const openOrder = table.status !== 'VACANT' 
+            ? openOrders.find((o: any) => o.restaurantTableId === table.id)
+            : null;
           
           if (openOrder) {
             const elapsedTime = Math.round((Date.now() - new Date((openOrder as any).createdAt).getTime()) / 60000);

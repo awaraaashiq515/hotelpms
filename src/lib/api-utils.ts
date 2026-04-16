@@ -74,7 +74,7 @@ export function getMultiTenantWhere(session: any, propertyIdParam?: string | nul
 
   // 1. SUPER_ADMIN: Global visibility, but can filter by property if requested
   if (role === 'SUPER_ADMIN') {
-    if (propertyIdParam && propertyIdParam !== 'all' && propertyIdParam !== 'null') {
+    if (propertyIdParam && propertyIdParam !== 'all' && propertyIdParam !== 'null' && propertyIdParam !== 'undefined') {
       return { propertyId: propertyIdParam };
     }
     return {};
@@ -84,7 +84,12 @@ export function getMultiTenantWhere(session: any, propertyIdParam?: string | nul
   if (role === 'RESTAURANTS_ADMIN') {
     if (!organizationId) {
       console.warn('[Security] Admin session missing organizationId. Restricted to home property.');
-      return sessionPropId ? { propertyId: sessionPropId } : { propertyId: 'none' };
+      // If we don't have organizationId, we can't search "all properties", 
+      // but we can at least return their home property.
+      const fallbackId = (propertyIdParam && propertyIdParam !== 'all' && propertyIdParam !== 'null' && propertyIdParam !== 'undefined') 
+                        ? propertyIdParam 
+                        : sessionPropId;
+      return { propertyId: fallbackId || 'none' };
     }
     
     // Explicit property selection takes priority
@@ -99,5 +104,29 @@ export function getMultiTenantWhere(session: any, propertyIdParam?: string | nul
   // 3. POSSYSTEM / STAFF: Strictly restricted to their home property
   const finalPropId = (propertyIdParam && propertyIdParam !== 'null' && propertyIdParam !== 'undefined') ? propertyIdParam : sessionPropId;
   return { propertyId: finalPropId || 'none' };
+}
+
+/**
+ * Standardized Property Resolver for APIs that work with a single property context.
+ * Useful for GST Filing, Settings, and other non-list APIs.
+ */
+export async function resolveAdminProperty(session: any, prisma: any): Promise<string | null> {
+  const { role, organizationId, propertyId: sessionPropId } = session;
+
+  // 1. If session has a fixed propertyId (POS systems), use it
+  if (sessionPropId) return sessionPropId;
+
+  // 2. For Admins/Super Admins, if they don't have a specific property selected in session,
+  // pick the first one from their organization to provide a default context.
+  if (organizationId && (role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN')) {
+    const prop = await prisma.property.findFirst({
+      where: { organizationId },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return prop?.id ?? null;
+  }
+
+  return null;
 }
 

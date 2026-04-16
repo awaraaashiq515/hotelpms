@@ -33,8 +33,8 @@ export const DashboardAdminSidebar: React.FC = () => {
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;
 
-    // 2. Package Feature Gating (Strict Enforcement)
-    if (item.feature) {
+    // 2. Package Feature Gating (Admins see all for now)
+    if (item.feature && session.role !== 'RESTAURANTS_ADMIN') {
       const hasFeature = session.packageFeatures?.includes(item.feature);
       if (!hasFeature) return false;
     }
@@ -70,8 +70,8 @@ export const DashboardAdminSidebar: React.FC = () => {
         subItems: item.subItems.filter(sub => {
           if (session.role === 'SUPER_ADMIN') return true;
 
-          // Sub-item feature gating
-          if (sub.feature) {
+          // Sub-item feature gating (Admins see all for now)
+          if (sub.feature && session.role !== 'RESTAURANTS_ADMIN') {
             const hasFeature = session.packageFeatures?.includes(sub.feature);
             if (!hasFeature) return false;
           }

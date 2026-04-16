@@ -347,7 +347,9 @@ export default function TableManagementPage() {
   };
 
   const handleTableClick = async (table: Table) => {
-    if (table.status === 'VACANT') {
+    // If table has no active order, we should be able to open a new one
+    // regardless of whether the status is stuck at 'BILL_PRINTED' etc.
+    if (!table.activeOrder) {
       try {
         const res = await fetch('/api/orders/open', {
           method: 'POST',
@@ -358,18 +360,37 @@ export default function TableManagementPage() {
         if (data.success) {
           router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
         } else {
-          alert(data.error || 'Failed to open order');
+          // If it failed because of status but we think it's vacant, try to force it
+          router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
         }
       } catch (error) {
         console.error('Failed to open order:', error);
-        alert('An error occurred while opening the order.');
+        router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
       }
-    } else if (table.activeOrder) {
-      // Navigate to billing with table pre-selected
-      router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
     } else {
-      // It's Vacant but somehow no active order
+      // Navigate to billing with existing active order
       router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
+    }
+  };
+
+  const handleResetTable = async (table: Table) => {
+    if (!confirm(`Are you sure you want to reset ${table.name} to VACANT? Use this only if the table is physically free but stuck in the system.`)) return;
+    
+    try {
+      const res = await fetch(`/api/tables/${table.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'VACANT' })
+      });
+      const result = await res.json();
+      if (result.success) {
+        fetchData();
+      } else {
+        alert(result.message || 'Failed to reset table');
+      }
+    } catch (err) {
+      console.error('Failed to reset table:', err);
+      alert('An error occurred');
     }
   };
 
@@ -556,6 +577,7 @@ export default function TableManagementPage() {
               }}
               onDeleteTable={handleDeleteTable}
               onSwitchTable={handleTableSwitch}
+              onResetTable={handleResetTable}
             />
           )}
         </div>

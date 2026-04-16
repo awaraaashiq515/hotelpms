@@ -18,13 +18,29 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Table ID is required'), 400);
     }
 
-    // Update table status to BILL_PRINTED
-    const table = await (prisma as any).table.update({
-      where: { id: restaurantTableId },
-      data: { status: 'BILL_PRINTED' }
+    // 1. Find the active order for this table
+    const activeOrder = await (prisma as any).posOrder.findFirst({
+      where: { 
+        restaurantTableId, 
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY'] } 
+      }
     });
 
-    return apiResponse(table, 'Draft bill status updated successfully');
+    // 2. Update order status to BILL_PRINTED if it exists
+    if (activeOrder) {
+      await (prisma as any).posOrder.update({
+        where: { id: activeOrder.id },
+        data: { status: 'BILL_PRINTED' }
+      });
+    }
+
+    // 3. Update table status to VACANT (as requested)
+    const table = await (prisma as any).table.update({
+      where: { id: restaurantTableId },
+      data: { status: 'VACANT' }
+    });
+
+    return apiResponse(table, 'Bill printed and table cleared successfully');
   } catch (error) {
     console.error('Bill Print Error:', error);
     return apiError(error);

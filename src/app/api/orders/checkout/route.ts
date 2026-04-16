@@ -108,7 +108,9 @@ export async function POST(request: NextRequest) {
       const count = await tx.invoice.count({
         where: { propertyId: session.propertyId! }
       });
-      const invoiceNo = `PJ/${fy}/${(count + 1).toString().padStart(4, '0')}`;
+      // Use a more robust unique invoice number to avoid 409 Conflicts in concurrent requests
+      const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+      const invoiceNo = `PJ/${fy}/${(count + 1).toString().padStart(4, '0')}-${randomSuffix}`;
 
       // 3. Create Invoice linked to the order
       const invoice = await tx.invoice.create({
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
       await tx.settlement.create({
         data: {
           propertyId: session.propertyId!,
-          settlementNo: `SET-${Date.now()}`,
+          settlementNo: `SET-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           sourceId: invoice.id,
           sourceType: 'INVOICE',
           grossAmount: grandTotal,
@@ -166,7 +168,7 @@ export async function POST(request: NextRequest) {
 
       await tx.payment.create({
         data: {
-          paymentNo: `PAY-${Date.now()}`,
+          paymentNo: `PAY-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           propertyId: session.propertyId!,
           amount: grandTotal,
           paymentModeId: paymentModeId,

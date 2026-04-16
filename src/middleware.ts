@@ -171,7 +171,7 @@ export async function middleware(request: NextRequest) {
     const role = payload.role as string
     const packageFeatures = (payload.packageFeatures as string[] || [])
 
-    if (role !== 'SUPER_ADMIN') {
+    if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN') {
       const pathToFeatureMap: Record<string, string> = {
         '/billing': 'POS',
         '/all-bills': 'POS',
