@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { 
   LayoutGrid, RefreshCcw, Plus, 
   Search, Filter, ChevronRight, 
-  Map, Monitor, Utensils
+  Map, Monitor, Utensils,
+  Edit2, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -14,6 +15,7 @@ import { customersApi } from '@/lib/api/customers';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { TableForm } from '@/components/forms/table-form';
+import { FloorForm } from '@/components/forms/floor-form';
 import { TableLayoutView } from '@/components/tables/TableLayoutView';
 import { Table } from '@/components/tables/TableCard';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
@@ -62,6 +64,12 @@ export default function TableManagementPage() {
   const [isTableFormOpen, setIsTableFormOpen] = useState(false);
   const [tableFormLoading, setTableFormLoading] = useState(false);
   const [editingTable, setEditingTable] = useState<any | null>(null);
+
+  // New Floor Form Modal
+  const [isFloorFormOpen, setIsFloorFormOpen] = useState(false);
+  const [isFloorEditModalOpen, setIsFloorEditModalOpen] = useState(false);
+  const [floorFormLoading, setFloorFormLoading] = useState(false);
+  const [editingFloor, setEditingFloor] = useState<any | null>(null);
 
   // Switch Table Modal
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
@@ -252,16 +260,97 @@ export default function TableManagementPage() {
     fetchData();
   };
 
-  const handleNewTable = async () => {
-    if (!activeFloorId) {
-      alert('Please select a floor first.');
-      return;
+  const handleNewFloor = () => {
+    setIsFloorFormOpen(true);
+  };
+
+  const handleCreateFloorSubmit = async (data: { name: string; order: number }) => {
+    setFloorFormLoading(true);
+    try {
+      if (editingFloor) {
+        // Update Floor
+        const res = await fetch(`/api/floors/${editingFloor.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.name.trim(),
+            order: data.order,
+          }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          setIsFloorEditModalOpen(false);
+          setEditingFloor(null);
+          await fetchData();
+        } else {
+          alert(result.message || 'Failed to update floor');
+        }
+      } else {
+        // Create Floor
+        const res = await fetch('/api/floors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.name.trim(),
+            order: data.order,
+          }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          setIsFloorFormOpen(false);
+          // Refresh data and select the new floor
+          await fetchData();
+          if (result.data?.id) {
+            setActiveFloorId(result.data.id);
+            localStorage.setItem('pos_active_floor_id', result.data.id);
+          }
+        } else {
+          alert(result.message || 'Failed to create floor');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save floor:', err);
+      alert('An error occurred');
+    } finally {
+      setFloorFormLoading(false);
     }
+  };
+
+  const handleDeleteFloor = async (floor: any) => {
+    if (!confirm(`Are you sure you want to delete "${floor.name}"? This will delete ALL tables on this floor. This action cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/floors/${floor.id}`, {
+        method: 'DELETE',
+      });
+      const result = await res.json();
+      if (result.success) {
+        await fetchData();
+        // Switch to any available floor
+        if (floors.length > 0) {
+           const nextFloor = floors.find(f => f.id !== floor.id) || floors[0];
+           if (nextFloor) {
+             setActiveFloorId(nextFloor.id);
+             localStorage.setItem('pos_active_floor_id', nextFloor.id);
+           }
+        } else {
+           setActiveFloorId(null);
+        }
+      } else {
+        alert(result.message || 'Failed to delete floor');
+      }
+    } catch (err) {
+      console.error('Failed to delete floor:', err);
+      alert('An error occurred');
+    }
+  };
+
+  const handleNewTable = async () => {
     setEditingTable(null);
     setIsTableFormOpen(true);
   };
 
-  const handleCreateTableSubmit = async (data: { name: string; capacity: number }) => {
+  const handleCreateTableSubmit = async (data: { name: string; capacity: number; floorId: string }) => {
     setTableFormLoading(true);
     try {
       if (editingTable) {
@@ -271,33 +360,44 @@ export default function TableManagementPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: data.name.trim(),
-            capacity: data.capacity
+            capacity: data.capacity,
+            floorId: data.floorId
           }),
         });
         const result = await res.json();
         if (result.success) {
           setIsTableFormOpen(false);
           setEditingTable(null);
+          // If the floor was changed, we might want to switch to it
+          if (data.floorId !== activeFloorId) {
+            setActiveFloorId(data.floorId);
+            localStorage.setItem('pos_active_floor_id', data.floorId);
+          }
           fetchFloors();
         } else {
           alert(result.message || 'Failed to update table');
         }
       } else {
         // Create Table
-        const activeFlr = floors.find(f => f.id === activeFloorId);
+        const targetFloor = floors.find(f => f.id === data.floorId);
         const res = await fetch('/api/tables', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: data.name.trim(),
-            floorId: activeFloorId,
-            propertyId: activeFlr?.propertyId || 'default-property-id',
+            floorId: data.floorId,
+            propertyId: targetFloor?.propertyId || 'default-property-id',
             capacity: data.capacity
           }),
         });
         const result = await res.json();
         if (result.success) {
           setIsTableFormOpen(false);
+          // Switch to the floor where the table was added
+          if (data.floorId !== activeFloorId) {
+            setActiveFloorId(data.floorId);
+            localStorage.setItem('pos_active_floor_id', data.floorId);
+          }
           fetchFloors();
         } else {
           alert(result.error || result.message || 'Failed to create table');
@@ -514,7 +614,16 @@ export default function TableManagementPage() {
             </Button>
             
             <Button 
-                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark"
+                variant="secondary"
+                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-emerald-100 border-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                onClick={handleNewFloor}
+            >
+                <Plus size={16} />
+                New Floor
+            </Button>
+
+            <Button 
+                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark text-white"
                 onClick={handleNewTable}
             >
                 <Plus size={16} />
@@ -531,20 +640,49 @@ export default function TableManagementPage() {
             <Skeleton className="h-10 w-32 rounded-xl" count={3} />
           ) : (
             floors.map(floor => (
-              <button
-                key={floor.id}
-                onClick={() => {
-                   setActiveFloorId(floor.id);
-                   localStorage.setItem('pos_active_floor_id', floor.id);
-                }}
-                className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border-2 whitespace-nowrap ${
-                  activeFloorId === floor.id
-                    ? 'bg-pos-primary text-white border-pos-primary shadow-lg shadow-pos-primary/20'
-                    : 'bg-white text-gray-400 border-gray-50 hover:border-pos-primary/30 hover:text-gray-600'
-                }`}
+              <div 
+                key={floor.id} 
+                className="group relative flex items-center transition-all"
               >
-                {floor.name}
-              </button>
+                <button
+                  onClick={() => {
+                     setActiveFloorId(floor.id);
+                     localStorage.setItem('pos_active_floor_id', floor.id);
+                  }}
+                  className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border-2 whitespace-nowrap flex items-center gap-2 ${
+                    activeFloorId === floor.id
+                      ? 'bg-pos-primary text-white border-pos-primary shadow-lg shadow-pos-primary/20'
+                      : 'bg-white text-gray-400 border-gray-50 hover:border-pos-primary/30 hover:text-gray-600'
+                  }`}
+                >
+                  {floor.name}
+                  {activeFloorId === floor.id && (
+                    <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-white/20">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingFloor(floor);
+                          setIsFloorEditModalOpen(true);
+                        }}
+                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        title="Edit Floor"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteFloor(floor);
+                        }}
+                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        title="Delete Floor"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )}
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -631,16 +769,54 @@ export default function TableManagementPage() {
           setIsTableFormOpen(false);
           setEditingTable(null);
         }}
-        title={`${editingTable ? "Edit Table" : "Add New Table"} ${!editingTable && activeFloor ? `(to ${activeFloor.name})` : ''}`}
+        title={editingTable ? "Edit Table" : "Add New Table"}
       >
         <TableForm
-          initialData={editingTable ? { name: editingTable.name, capacity: editingTable.capacity } : undefined}
+          initialData={editingTable ? { 
+            name: editingTable.name, 
+            capacity: editingTable.capacity,
+            floorId: editingTable.floorId
+          } : {
+            floorId: activeFloorId || undefined
+          }}
+          floors={floors}
           onSubmit={handleCreateTableSubmit}
           onCancel={() => {
             setIsTableFormOpen(false);
             setEditingTable(null);
           }}
           loading={tableFormLoading}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={isFloorFormOpen}
+        onClose={() => setIsFloorFormOpen(false)}
+        title="Add New Floor"
+      >
+        <FloorForm
+          onSubmit={handleCreateFloorSubmit}
+          onCancel={() => setIsFloorFormOpen(false)}
+          loading={floorFormLoading}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={isFloorEditModalOpen}
+        onClose={() => {
+          setIsFloorEditModalOpen(false);
+          setEditingFloor(null);
+        }}
+        title="Edit Floor"
+      >
+        <FloorForm
+          initialData={editingFloor ? { name: editingFloor.name, order: editingFloor.order } : undefined}
+          onSubmit={handleCreateFloorSubmit}
+          onCancel={() => {
+            setIsFloorEditModalOpen(false);
+            setEditingFloor(null);
+          }}
+          loading={floorFormLoading}
         />
       </Modal>
     </div>

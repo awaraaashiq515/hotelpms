@@ -7,28 +7,18 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session || !session.propertyId) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
-
     const { id } = await params;
-    const body = await request.json();
-    const { name, order, outletId } = body;
+    const session = await getSession();
+    if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-    const existing = await (prisma as any).floor.findFirst({
-      where: { id, propertyId: session.propertyId },
-    });
-    if (!existing) {
-      return NextResponse.json({ success: false, message: 'Floor not found' }, { status: 404 });
-    }
+    const body = await request.json();
+    const { name, order } = body;
 
     const floor = await (prisma as any).floor.update({
-      where: { id },
+      where: { id: id },
       data: {
         ...(name && { name }),
         ...(order !== undefined && { order }),
-        ...(outletId !== undefined && { outletId }),
       },
     });
 
@@ -44,32 +34,22 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session || !session.propertyId) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
-
     const { id } = await params;
+    const session = await getSession();
+    if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-    const existing = await (prisma as any).floor.findFirst({
-      where: { id, propertyId: session.propertyId },
+    // Note: Tables have a relation with Floor. 
+    // We should delete tables first if we want to cascade, or use Prisma cascade.
+    // Let's manually delete tables first to be safe if no cascade is defined in schema.
+    await (prisma as any).table.deleteMany({
+      where: { floorId: id }
     });
-    if (!existing) {
-      return NextResponse.json({ success: false, message: 'Floor not found' }, { status: 404 });
-    }
 
-    // Check for tables
-    const tableCount = await (prisma as any).table.count({ where: { floorId: id } });
-    if (tableCount > 0) {
-      return NextResponse.json(
-        { success: false, message: `Cannot delete space with ${tableCount} table(s). Remove tables first.` },
-        { status: 400 }
-      );
-    }
+    await (prisma as any).floor.delete({
+      where: { id: id },
+    });
 
-    await (prisma as any).floor.delete({ where: { id } });
-
-    return NextResponse.json({ success: true, message: 'Space deleted successfully' });
+    return NextResponse.json({ success: true, message: 'Floor deleted successfully' });
   } catch (error) {
     console.error('Error deleting floor:', error);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
