@@ -77,7 +77,7 @@ export const TableCard: React.FC<TableCardProps> = ({ table, onClick, onPrintKOT
             </h3>
             <div className="flex items-center gap-1 opacity-60">
               <Users size={12} />
-              <span className="text-[10px] font-bold">{table.capacity} Chairs</span>
+              <span className="text-[10px] font-bold">{table.capacity} {table.capacity === 1 ? 'Chair' : 'Chairs'}</span>
             </div>
           </div>
           <Badge 

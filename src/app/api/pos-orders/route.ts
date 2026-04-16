@@ -22,6 +22,7 @@ const posOrderSchema = z.object({
   folioId: z.string().optional(),
   driverId: z.string().nullable().optional(),
   guestId: z.string().nullable().optional(),
+  guestCount: z.number().int().optional().default(1),
   items: z.array(orderItemSchema).min(1, 'Order must contain at least 1 item'),
 })
 
@@ -84,14 +85,17 @@ export async function POST(request: NextRequest) {
     // wrapping in a transaction to ensure Order, Items and KOT succeed or fail together
     const newOrder = await prisma.$transaction(async (tx) => {
       // 1. Find or create the PosOrder
-      let order = await (tx as any).posOrder.findFirst({
-        where: { 
-          restaurantTableId: orderData.restaurantTableId,
-          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY'] },
-          orderType: 'DINE_IN'
-        },
-        include: { items: true }
-      });
+      let order = null;
+      if (orderData.restaurantTableId) {
+        order = await (tx as any).posOrder.findFirst({
+          where: { 
+            restaurantTableId: orderData.restaurantTableId,
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY'] },
+            orderType: 'DINE_IN'
+          },
+          include: { items: true }
+        });
+      }
 
       if (!order) {
         // Create new order
@@ -139,7 +143,14 @@ export async function POST(request: NextRequest) {
 
       await tx.posOrder.update({
         where: { id: order.id },
-        data: { subtotal, taxAmount, grandTotal }
+        data: { 
+          subtotal, 
+          taxAmount, 
+          grandTotal,
+          guestId: orderData.guestId || undefined,
+          guestCount: orderData.guestCount,
+          driverId: orderData.driverId || undefined
+        }
       })
 
       // 4. Update Table Status
@@ -192,7 +203,13 @@ export async function POST(request: NextRequest) {
         where: { id: order.id },
         include: { 
           items: { include: { product: true } },
-          kotTickets: { include: { items: true } }
+          kotTickets: { 
+            include: { 
+              items: {
+                include: { product: true }
+              } 
+            } 
+          }
         }
       })
     })
@@ -201,7 +218,7 @@ export async function POST(request: NextRequest) {
     if (orderData.driverId) {
       try {
         const { recordDriverActivity } = await import('@/lib/incentive-utils');
-        await recordDriverActivity(orderData.driverId, 'RIDE');
+        await recordDriverActivity(orderData.driverId, 'RIDE', orderData.guestCount || 1);
       } catch (incError) {
         console.error('[POS Order] Incentive recording error:', incError);
       }

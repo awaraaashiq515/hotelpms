@@ -115,9 +115,6 @@ export async function middleware(request: NextRequest) {
         if (pathname === '/all-bills' || pathname.startsWith('/all-bills/')) {
            return NextResponse.redirect(new URL('/operations', request.url));
         }
-        if (pathname === '/invoices' || pathname.startsWith('/invoices/')) {
-           return NextResponse.redirect(new URL('/operations', request.url));
-        }
         if (pathname === '/payments' || pathname.startsWith('/payments/')) {
            return NextResponse.redirect(new URL('/operations', request.url));
         }
@@ -178,7 +175,7 @@ export async function middleware(request: NextRequest) {
         '/products': 'POS',
         '/categories': 'POS',
         '/inventory': 'INVENTORY',
-        '/invoices': 'HMS',
+        '/invoices': 'POS',
         '/payments': 'ACCOUNTING',
         '/expenses': 'ACCOUNTING',
         '/accounts': 'ACCOUNTING',

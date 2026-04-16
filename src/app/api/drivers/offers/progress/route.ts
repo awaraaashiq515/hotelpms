@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
         offerLevel: activeProgress ? `Level ${activeProgress.resetCount + 1}` : 'N/A',
         completedRides: activeProgress ? activeProgress.completedRides : 0,
         referredCustomers: activeProgress ? activeProgress.completedReferrals : 0,
+        targetRides: activeProgress ? activeProgress.offer.targetRides : 0,
+        targetReferrals: activeProgress ? activeProgress.offer.targetReferrals : 0,
         progressPercent: activeProgress ? activeProgress.progressPercent : 0,
         completedOffersCount,
       };

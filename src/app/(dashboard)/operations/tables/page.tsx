@@ -19,6 +19,7 @@ import { Table } from '@/components/tables/TableCard';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
 import { BillModal, BillData } from '@/components/billing/BillModal';
 import { SwitchTableModal } from '@/components/tables/SwitchTableModal';
+import { useSidebar } from '@/context/sidebar-context';
 
 interface Floor {
   id: string;
@@ -36,6 +37,8 @@ interface PaymentMode {
 
 export default function TableManagementPage() {
   const router = useRouter();
+  const { setOpen } = useSidebar();
+
   const [floors, setFloors] = useState<Floor[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -190,7 +193,7 @@ export default function TableManagementPage() {
     }
   };
 
-  const handleSettleOrder = async (paymentModeId: string, guestId?: string) => {
+  const handleSettleOrder = async (paymentModeId: string, guestId?: string, driverId?: string) => {
     if (!billData?.tableId) return;
 
     try {
@@ -202,6 +205,7 @@ export default function TableManagementPage() {
           restaurantTableId: billData.tableId,
           paymentModeId: paymentModeId,
           guestId: guestId,
+          driverId: driverId,
           totalAmount: billData.subtotal,
           items: billData.items.map(item => ({
              id: item.id,
@@ -230,6 +234,11 @@ export default function TableManagementPage() {
     // Redirecting to fetchData to keep state unified
     return fetchData();
   };
+
+  // Close sidebar only once when this page mounts
+  useEffect(() => {
+    setOpen(false);
+  }, []);
 
   useEffect(() => {
     fetchData();

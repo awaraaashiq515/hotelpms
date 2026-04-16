@@ -62,7 +62,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
       <div className="w-12 h-12 border-4 border-pos-primary border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-slate-400 font-bold tracking-widest text-[10px] uppercase">Retrieving Journey Data...</p>
+      <p className="text-slate-400 font-bold tracking-widest text-[10px] uppercase">Loading...</p>
     </div>
   );
 
@@ -75,8 +75,8 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-700">
       <PageHeader 
-        title={`${data.name}'s Driver Journey`}
-        subtitle="Detailed offer progression, reward history, and real-time tracking"
+        title={`${data.name}'s Progress`}
+        subtitle="See driver progress, rewards, and tracking info"
         showBack
         backUrl="/drivers/offers"
       />
@@ -93,7 +93,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
             
             <div className="mt-6 w-full space-y-3">
               <div className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between border border-slate-100">
-                 <span className="text-[10px] font-black uppercase text-slate-400">Total Rides</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400">Total People Brought</span>
                  <span className="text-sm font-black text-pos-primary">{totalRides}</span>
               </div>
               <div className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between border border-slate-100">
@@ -119,8 +119,8 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
                      <Target size={20} />
                   </div>
                   <div>
-                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Active Campaign Progress</h4>
-                     <h2 className="text-xl font-black text-slate-800 tracking-tight">{activeProgress ? activeProgress.offer.title : 'No Active Offer'}</h2>
+                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Current Target</h4>
+                     <h2 className="text-xl font-black text-slate-800 tracking-tight">{activeProgress ? activeProgress.offer.title : 'No Active Reward'}</h2>
                   </div>
                </div>
                {activeProgress && (
@@ -140,7 +140,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
                       <TrendingUp size={24} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rides Tracker</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">People Brought</p>
                       <p className="text-2xl font-black text-pos-primary-dark tracking-tighter mt-1">
                          {activeProgress.completedRides} <span className="text-slate-300 text-lg">/ {activeProgress.offer.targetRides}</span>
                       </p>
@@ -151,7 +151,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
                       <MapPin size={24} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Referrals Tracker</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Referrals</p>
                       <p className="text-2xl font-black text-emerald-700 tracking-tighter mt-1">
                          {activeProgress.completedReferrals} <span className="text-slate-300 text-lg">/ {activeProgress.offer.targetReferrals}</span>
                       </p>
@@ -162,7 +162,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
                 <div className="bg-slate-100/50 p-6 rounded-[24px] border border-slate-200/50">
                    <div className="flex justify-between items-center mb-6">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Clock size={12} /> Target Journey Started {format(new Date(activeProgress.startedAt), 'PP')}
+                        <Clock size={12} /> Target Started on {format(new Date(activeProgress.startedAt), 'PP')}
                       </p>
                       <span className="text-[10px] bg-white px-3 py-1 rounded-full text-slate-800 font-black border border-slate-200 shadow-sm">
                          Reward: {activeProgress.offer.rewardType === 'GIFT' ? activeProgress.offer.rewardItem : `₹${activeProgress.offer.rewardValue}`}
@@ -197,8 +197,8 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
                  <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
                     <Target size={32} />
                  </div>
-                 <p className="font-black text-slate-400 uppercase tracking-widest text-xs">No active offer targets currently assigned</p>
-                 <Link href="/drivers/offers" className="mt-4 text-[10px] font-black text-pos-primary hover:underline tracking-widest">ASSIGN NEW SLAB NOW <ChevronRight size={12} className="inline" /></Link>
+                 <p className="font-black text-slate-400 uppercase tracking-widest text-xs">No active rewards assigned</p>
+                 <Link href="/drivers/offers" className="mt-4 text-[10px] font-black text-pos-primary hover:underline tracking-widest">ADD NEW REWARD NOW <ChevronRight size={12} className="inline" /></Link>
               </div>
             )}
           </div>
@@ -210,7 +210,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
         <div className="space-y-4">
            <div className="flex items-center gap-3 ml-2">
               <History size={18} className="text-slate-400" />
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Reward Completion History</h3>
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Reward History</h3>
            </div>
            
            <div className="bg-white rounded-[32px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.03)] overflow-hidden">
@@ -234,11 +234,11 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
                                <p className="text-sm font-black text-emerald-600">
                                   {history.offer.rewardType === 'GIFT' ? history.rewardItemEarned : `₹${history.rewardEarned}`}
                                </p>
-                               <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Payout Generated</span>
+                               <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Paid Out</span>
                             </div>
                          </div>
                          <div className="flex gap-2 pl-13">
-                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">RIDES: {history.ridesAtCompletion}</span>
+                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">PEOPLE: {history.ridesAtCompletion}</span>
                             <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">REF: {history.referralsAtCompletion}</span>
                          </div>
                       </div>
@@ -252,7 +252,7 @@ export default function DriverJourneyClient({ params: paramsPromise }: { params:
         <div className="space-y-4">
            <div className="flex items-center gap-3 ml-2">
               <ShieldCheck size={18} className="text-slate-400" />
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Security & Integrity Logs</h3>
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">System Logs</h3>
            </div>
            
            <div className="bg-slate-900 rounded-[32px] p-8 shadow-2xl relative overflow-hidden">

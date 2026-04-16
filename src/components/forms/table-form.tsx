@@ -55,7 +55,7 @@ export const TableForm: React.FC<TableFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+        <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-1">
           Table Name / Number
         </label>
         <input
@@ -63,14 +63,14 @@ export const TableForm: React.FC<TableFormProps> = ({
           placeholder="e.g. Table 1, VIP A, T-5"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className={`w-full px-4 py-3 bg-gray-50 border ${errors.name ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+          className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.name ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 transition-all placeholder:text-gray-300 dark:placeholder:text-slate-600`}
           autoFocus
         />
         {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.name}</p>}
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+        <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-1">
           Seating Capacity
         </label>
         <input
@@ -79,7 +79,7 @@ export const TableForm: React.FC<TableFormProps> = ({
           max="50"
           value={formData.capacity}
           onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
-          className={`w-full px-4 py-3 bg-gray-50 border ${errors.capacity ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+          className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.capacity ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 transition-all`}
         />
         {errors.capacity && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.capacity}</p>}
       </div>

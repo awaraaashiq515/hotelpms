@@ -167,10 +167,12 @@ export const DashboardAdminSidebar: React.FC = () => {
                   <Link
                     href={item.path}
                     onClick={() => toggleGroup(item.name)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${isGroupActive
+                    className={`w-full flex items-center justify-between py-3 rounded-xl transition-all duration-200 group ${
+                      isOpen ? 'px-4' : 'px-0 justify-center'
+                    } ${isGroupActive
                         ? 'bg-pos-primary/10 text-pos-primary shadow-sm'
                         : 'hover:bg-slate-800/60 text-slate-400'
-                      } ${!isOpen && 'px-0 justify-center'}`}
+                      }`}
                   >
                     <div className={`flex items-center ${isOpen ? 'gap-4' : 'w-full justify-center'}`}>
                       <item.icon
@@ -209,10 +211,12 @@ export const DashboardAdminSidebar: React.FC = () => {
               <div key={item.name} className="px-3 mb-1">
                 <Link
                   href={item.path}
-                  className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${pathname === item.path
+                  className={`w-full flex items-center justify-between py-3 rounded-xl transition-all duration-200 group ${
+                    isOpen ? 'px-4' : 'px-0 justify-center'
+                  } ${pathname === item.path
                       ? 'bg-pos-primary/10 text-pos-primary shadow-sm'
                       : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-300'
-                    } ${!isOpen && 'px-0 justify-center'}`}
+                    }`}
                 >
                   <div className={`flex items-center ${isOpen ? 'gap-4' : 'w-full justify-center'}`}>
                     <item.icon
@@ -228,7 +232,7 @@ export const DashboardAdminSidebar: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className={`p-6 bg-slate-950/50 mt-auto ${!isOpen && 'px-2 py-4'}`}>
+        <div className={`p-6 bg-slate-950/50 mt-auto ${!isOpen && 'px-2 py-4 flex justify-center'}`}>
           {isOpen && (
             <div className="space-y-2 opacity-60 border-b border-slate-800 pb-4 mb-4">
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
@@ -244,7 +248,9 @@ export const DashboardAdminSidebar: React.FC = () => {
 
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group border border-slate-700/50 ${!isOpen && 'px-0 justify-center border-none hover:bg-transparent'}`}
+            className={`w-full flex items-center gap-3 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group border border-slate-700/50 ${
+              isOpen ? 'px-4' : 'px-0 justify-center border-none hover:bg-transparent'
+            }`}
           >
             <div className={`flex items-center ${isOpen ? 'gap-3' : 'justify-center w-full'}`}>
               <LogOut size={isOpen ? 18 : 20} className="group-hover:rotate-12 transition-transform text-red-400" />

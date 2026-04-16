@@ -32,14 +32,15 @@ export interface BillData {
 interface BillModalProps {
   bill: BillData | null;
   onClose: () => void;
-  onSettle?: (paymentModeId: string, guestId?: string) => Promise<void>;
+  onSettle?: (paymentModeId: string, guestId?: string, driverId?: string) => Promise<void>;
   paymentModes?: any[];
   customers?: any[];
   onAddCustomer?: (data: { firstName: string; lastName: string; mobile: string }) => Promise<any>;
   isProforma?: boolean;
+  autoPrint?: boolean;
 }
 
-export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer }) => {
+export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer, autoPrint = false }) => {
   const [isSettling, setIsSettling] = React.useState(false);
   const [selectedModeId, setSelectedModeId] = React.useState<string | null>(null);
   // Search and Select Customer State
@@ -67,6 +68,14 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
       .catch(err => console.error('Failed to fetch property branding:', err));
   }, []);
 
+  // Auto-print logic
+  React.useEffect(() => {
+    if (autoPrint && property && bill) {
+      handlePrint();
+      onClose();
+    }
+  }, [autoPrint, property, bill]);
+
   const filteredCustomers = React.useMemo(() => {
     if (!customerSearch) return customers.slice(0, 5);
     const s = customerSearch.toLowerCase();
@@ -82,7 +91,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!onSettle || !selectedModeId) return;
     setIsSettling(true);
     try {
-      await onSettle(selectedModeId, selectedGuestId || undefined);
+      await onSettle(selectedModeId, selectedGuestId || undefined, (bill as any).driverId || undefined);
       // Brief delay for the UI to update to the "Final Invoice" view before printing
       setTimeout(() => {
         handlePrint();

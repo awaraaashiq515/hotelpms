@@ -167,6 +167,8 @@ model Guest {
   documents      GuestDocument[]
   invoices       Invoice[]
   reservations   Reservation[]
+  posOrders      PosOrder[]
+  settlements    Settlement[]
 }
 
 model GuestDocument {
@@ -381,6 +383,8 @@ model PosOrder {
   createdAt         DateTime       @default(now())
   restaurantTableId String?
   driverId          String?
+  guestId           String?
+  guestCount        Int            @default(1)
   servedById        String?
   staffMemberId     String?
   kotTickets        KotTicket[]
@@ -388,6 +392,7 @@ model PosOrder {
   property          Property       @relation(fields: [propertyId], references: [id])
   outlet            Outlet         @relation(fields: [outletId], references: [id])
   folio             Folio?         @relation(fields: [folioId], references: [id])
+  guest             Guest?         @relation(fields: [guestId], references: [id])
   table             Table?         @relation(fields: [restaurantTableId], references: [id])
   driver            Driver?        @relation(fields: [driverId], references: [id])
   servedBy          User?          @relation("ServedOrders", fields: [servedById], references: [id])
@@ -819,12 +824,17 @@ model Settlement {
   settlementDate DateTime @default(now())
   sourceType     String
   sourceId       String
+  orderId        String?  // Added for POS integration
+  paymentModeId  String?  // Added to track payment method from POS
+  guestId        String?  // Added to track guest spend
   grossAmount    Float
   paidAmount     Float
   balanceAmount  Float
   status         String
   property       Property @relation(fields: [propertyId], references: [id])
+  guest          Guest?   @relation(fields: [guestId], references: [id])
 }
+
 
 model HousekeepingTask {
   id          String    @id @default(cuid())

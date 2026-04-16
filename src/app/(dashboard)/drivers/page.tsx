@@ -58,8 +58,8 @@ export default function DriverHubPage() {
 
   const hubCards = [
     {
-      title: 'Driver Directory',
-      description: 'Register and manage your driver workforce. Tracking contacts and vehicle details.',
+      title: 'Driver List',
+      description: 'Add and manage your drivers. See their phone numbers and vehicle details.',
       icon: UsersRound,
       path: '/drivers/list',
       color: 'bg-pos-primary',
@@ -68,8 +68,8 @@ export default function DriverHubPage() {
       stat: `${stats.totalDrivers} Drivers`
     },
     {
-      title: 'Incentive Engine',
-      description: 'Real-time tracking of ride progress and referral milestones for active drivers.',
+      title: 'Driver Progress',
+      description: 'Track how many customers your drivers bring and their progress in real-time.',
       icon: Zap,
       path: '/drivers/offers',
       color: 'bg-pos-primary-dark',
@@ -78,23 +78,23 @@ export default function DriverHubPage() {
       stat: `Track Progress`
     },
     {
-      title: 'Incentive Slabs',
-      description: 'Define reward payout rules (Rides vs Cash/Gift) and managing the rules catalog.',
+      title: 'Reward Rules',
+      description: 'Set rules for giving rewards (like cash or gifts) after reaching ride targets.',
       icon: Gift,
       path: '/drivers/offers', // Will link to the Slabs tab in the offers page
       query: { tab: 'slabs' },
       color: 'bg-amber-500',
       lightColor: 'bg-amber-50',
       textColor: 'text-amber-600',
-      stat: `${stats.activeOffers} Rules Active`
+      stat: `${stats.activeOffers} Active Rules`
     }
   ];
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <PageHeader 
-        title="Driver Management Hub" 
-        subtitle="Consolidated control center for your driver ecosystem and incentive programs"
+        title="Drivers Hub" 
+        subtitle="Manage all your drivers and their rewards in one place"
       />
 
       {/* Hero Stats Row */}
@@ -107,7 +107,7 @@ export default function DriverHubPage() {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 font-mono">DRV-00</span>
            </div>
            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Workforce</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Drivers</p>
               <div className="flex items-baseline gap-2">
                  <p className="text-3xl font-black text-slate-800 tracking-tighter">{stats.totalDrivers}</p>
                  <span className="text-[10px] font-bold text-emerald-500 flex items-center bg-emerald-50 px-1.5 py-0.5 rounded-md">
@@ -125,10 +125,10 @@ export default function DriverHubPage() {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 font-mono">WINS-00</span>
            </div>
            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Awarded</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Rewards Given</p>
               <div className="flex items-baseline gap-2">
                  <p className="text-3xl font-black text-white tracking-tighter">{stats.totalWins}</p>
-                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest ml-1">Wins</span>
+                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest ml-1">Rewards</span>
               </div>
            </div>
         </div>
@@ -157,10 +157,10 @@ export default function DriverHubPage() {
               </div>
            </div>
            <div className="relative z-10">
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/60">System State</p>
-              <p className="text-xl font-black text-white tracking-tighter mt-1 uppercase">Active Engine</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/60">System Status</p>
+              <p className="text-xl font-black text-white tracking-tighter mt-1 uppercase">Running Smoothly</p>
               <p className="text-[9px] font-bold text-white/40 mt-1 uppercase tracking-widest flex items-center">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span> ALL SYSTEMS NOMINAL
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span> ALL SYSTEMS OK
               </p>
            </div>
         </div>
@@ -205,8 +205,8 @@ export default function DriverHubPage() {
               <Zap size={24} />
            </div>
            <div>
-              <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Need a quick setup?</p>
-              <p className="text-xs text-slate-500 font-medium tracking-wide">Register a driver or define a slab level immediately.</p>
+              <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Want to add something?</p>
+              <p className="text-xs text-slate-500 font-medium tracking-wide">Add a new driver or set a reward rule now.</p>
            </div>
         </div>
         
@@ -218,7 +218,7 @@ export default function DriverHubPage() {
            </Link>
            <Link href="/drivers/offers?action=new-slab">
              <Button className="bg-slate-900 hover:bg-black text-white font-black text-[10px] tracking-widest h-12 px-8 rounded-2xl shadow-xl shadow-slate-200 transition-all active:scale-95 uppercase">
-                <Plus size={14} className="mr-2" /> Define Slab
+                <Plus size={14} className="mr-2" /> Add Reward Rule
              </Button>
            </Link>
         </div>

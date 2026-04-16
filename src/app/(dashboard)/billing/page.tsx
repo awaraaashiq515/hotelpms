@@ -32,7 +32,7 @@ import { customersApi, Customer } from '@/lib/api/customers';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { KotSlipModal } from '@/components/kots/KotSlipModal';
-import { PrintBillModal } from '@/components/modals/print-bill-modal';
+import { BillModal, BillData } from '@/components/billing/BillModal';
 import { CustomerForm } from '@/components/forms/customer-form';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -121,12 +121,12 @@ export default function BillingPage() {
   const [colorOffset, setColorOffset] = useState(0);
   
   const [activeOrder, setActiveOrder] = useState<any>(null);
-  const [isSettleOpen, setIsSettleOpen] = useState(false);
-  const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>('');
   const [isKotOpen, setIsKotOpen] = useState(false);
   const [kotData, setKotData] = useState<any>(null);
   const [isBillOpen, setIsBillOpen] = useState(false);
-  const [billData, setBillData] = useState<any>(null);
+  const [billData, setBillData] = useState<BillData | null>(null);
+  const [isProforma, setIsProforma] = useState(true);
+  const [autoPrint, setAutoPrint] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedGuestId, setSelectedGuestId] = useState<string>('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -135,6 +135,8 @@ export default function BillingPage() {
   const [customerMutationLoading, setCustomerMutationLoading] = useState(false);
   // Order type toggle
   const [orderType, setOrderType] = useState<'DINE_IN' | 'DELIVERY' | 'PICKUP'>('DINE_IN');
+  // Number of guests/customers at the table
+  const [guestCount, setGuestCount] = useState<number>(1);
   // Driver selection for Delivery orders
   const [drivers, setDrivers] = useState<any[]>([]);
   const [driverSearch, setDriverSearch] = useState('');
@@ -300,12 +302,12 @@ export default function BillingPage() {
     }));
   };
 
-  const handleSaveOrder = async () => {
+  const handleSimpleSave = async () => {
     if (cart.length === 0) return;
     setSaveLoading(true);
     try {
       const payload = {
-        restaurantTableId: tableId,
+        restaurantTableId: tableId || undefined,
         orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
         items: cart.map(item => ({
           productId: item.id,
@@ -313,6 +315,7 @@ export default function BillingPage() {
           unitPrice: item.sellingPrice
         })),
         guestId: selectedGuestId || undefined,
+        guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined
       };
 
@@ -324,8 +327,11 @@ export default function BillingPage() {
       const result = await response.json();
       if (result.success) {
         addToast('success', 'Order saved successfully');
-        setKotData(result.data);
-        setIsKotOpen(true);
+        // Refresh active order to sync (get core IDs, items properly linked)
+        fetchActiveOrder();
+        fetchAllActiveOrders();
+        // Redirect to operations/tables as requested
+        router.push('/operations/tables');
       }
     } catch (err) {
       addToast('error', 'Failed to save order');
@@ -334,24 +340,133 @@ export default function BillingPage() {
     }
   };
 
-  const handleSettle = async () => {
-    if (!selectedPaymentMode) return;
+  const handlePrintKOT = async () => {
+    if (cart.length === 0) return;
+    setSaveLoading(true);
+    try {
+      const payload = {
+        restaurantTableId: tableId || undefined,
+        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
+        items: cart.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          unitPrice: item.sellingPrice
+        })),
+        guestId: selectedGuestId || undefined,
+        guestCount: orderType === 'DINE_IN' ? guestCount : 1,
+        driverId: selectedDriver?.id || undefined
+      };
+
+      const response = await fetch('/api/pos-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (result.success) {
+        addToast('success', 'Order saved & KOT Generated');
+        
+        // Correctly format KOT data for the modal, matching the operations/tables logic
+        const orderData = result.data;
+        const latestKot = orderData.kotTickets?.[orderData.kotTickets.length - 1];
+        
+        if (latestKot) {
+          setKotData({
+            kotNo: latestKot.kotNo,
+            orderNo: orderData.orderNo,
+            tableNo: tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
+            orderType: orderData.orderType,
+            createdAt: latestKot.createdAt,
+            items: latestKot.items.map((item: any) => ({
+              name: item.itemName || item.name || item.product?.name || "Item",
+              quantity: item.quantity,
+              notes: item.notes
+            }))
+          });
+          setIsKotOpen(true);
+        } else {
+          addToast('warning', 'Order saved but KOT details could not be generated');
+        }
+
+        // Refresh to ensure any UI components update with the latest DB state
+        fetchActiveOrder();
+        fetchAllActiveOrders();
+      }
+    } catch (err) {
+      addToast('error', 'Failed to generate KOT');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handlePrintBill = async () => {
+    // Priority: If cart has items, use cart data. Otherwise fallback to activeOrder.
+    const hasCartItems = cart.length > 0;
+    
+    const orderToPrint = hasCartItems ? {
+      orderNo: activeOrder?.orderNo || `POS-${Date.now()}`,
+      tableNo: tableName || activeOrder?.tableNo || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Take Away' : 'Walk-in'),
+      items: cart.map(item => ({
+        product: item,
+        quantity: item.quantity,
+        unitPrice: item.sellingPrice,
+        productId: item.id
+      })),
+      subtotal: subtotal,
+      taxAmount: tax,
+      grandTotal: grandTotal,
+      createdAt: activeOrder?.createdAt || new Date().toISOString()
+    } : activeOrder;
+
+    if (!orderToPrint) return;
+
+    const mappedBill: BillData = {
+      orderNo: orderToPrint.orderNo,
+      tableNo: tableName || orderToPrint.tableNo || (orderToPrint.orderType === 'DELIVERY' ? 'Delivery' : (orderToPrint.orderType === 'TAKEAWAY' || orderToPrint.orderType === 'PICKUP') ? 'Take Away' : 'Walk-in'),
+      items: orderToPrint.items.map((i: any) => ({
+        id: i.productId || i.id,
+        name: i.product?.name || i.itemName || 'Item',
+        quantity: i.quantity,
+        price: i.unitPrice || i.product?.sellingPrice || 0,
+        hsnCode: i.product?.hsnCode
+      })),
+      subtotal: orderToPrint.subtotal,
+      tax: orderToPrint.taxAmount || (orderToPrint.subtotal * 0.05),
+      grandTotal: orderToPrint.grandTotal,
+      createdAt: orderToPrint.createdAt,
+      orderId: orderToPrint.id,
+      tableId: tableId || undefined,
+      driverId: selectedDriver?.id || activeOrder?.driverId
+    } as any;
+    
+    setBillData(mappedBill);
+    setIsBillOpen(true);
+  };
+
+  const handleOpenSettlement = () => {
+    setIsProforma(true);
+    handlePrintBill();
+  };
+
+  const handleSettleNew = async (paymentModeId: string, guestId?: string, driverId?: string) => {
     setSettleLoading(true);
     try {
       const payload = {
-        restaurantTableId: tableId,
+        restaurantTableId: tableId || undefined,
         orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-        paymentModeId: selectedPaymentMode,
-        guestId: selectedGuestId || undefined,
-        driverId: selectedDriver?.id || undefined,
+        paymentModeId: paymentModeId,
+        guestId: guestId || selectedGuestId || undefined,
+        driverId: driverId || selectedDriver?.id || undefined,
+        totalAmount: grandTotal,
         items: cart.map(item => ({
-          productId: item.id,
+          id: item.id,
+          name: item.name,
           quantity: item.quantity,
           unitPrice: item.sellingPrice
         }))
       };
 
-      const response = await fetch('/api/pos-orders/settle', {
+      const response = await fetch('/api/orders/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -359,11 +474,13 @@ export default function BillingPage() {
       const result = await response.json();
       if (result.success) {
         addToast('success', 'Order settled successfully');
-        setBillData(result.data);
-        setIsBillOpen(true);
         setCart([]);
         setActiveOrder(null);
-        setIsSettleOpen(false);
+        setIsProforma(false);
+        // Data for final print is already in billData, but status is now settled
+        fetchAllActiveOrders();
+      } else {
+        addToast('error', result.message || 'Settlement failed');
       }
     } catch (err) {
       addToast('error', 'Failed to settle order');
@@ -372,10 +489,9 @@ export default function BillingPage() {
     }
   };
 
-  const handlePrintBill = async () => {
-    if (!activeOrder) return;
-    setBillData(activeOrder);
-    setIsBillOpen(true);
+  const handleSettle = async () => {
+    // Legacy handleSettle — keeping for now or mapping it
+    handleOpenSettlement();
   };
 
   const handleCreateCustomer = async (data: any) => {
@@ -393,40 +509,7 @@ export default function BillingPage() {
     }
   };
 
-  const handleMarkAsDue = async () => {
-    if (!selectedGuestId || cart.length === 0) return;
-    setSettleLoading(true);
-    try {
-      const payload = {
-        restaurantTableId: tableId,
-        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-        guestId: selectedGuestId,
-        items: cart.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
-          unitPrice: item.sellingPrice
-        })),
-        isDue: true
-      };
 
-      const response = await fetch('/api/pos-orders/settle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json();
-      if (result.success) {
-        addToast('success', 'Order marked as Due successfully');
-        setCart([]);
-        setActiveOrder(null);
-        setIsSettleOpen(false);
-      }
-    } catch (err) {
-      addToast('error', 'Failed to mark as due');
-    } finally {
-      setSettleLoading(false);
-    }
-  };
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategory === 'all' || p.categoryId === selectedCategory;
@@ -681,6 +764,35 @@ export default function BillingPage() {
               flexShrink: 0,
             }}
           >
+            {/* Total Customers / Tables Badge */}
+            <div
+              className="flex-shrink-0 flex flex-col items-center justify-center rounded-2xl px-4 py-2 mr-2"
+              style={{
+                backgroundColor: theme === 'dark' ? '#1e1e2e' : '#ede9fe',
+                border: `2px solid ${theme === 'dark' ? '#6366f140' : '#8b5cf640'}`,
+                minWidth: 80,
+              }}
+            >
+              <span
+                className="text-2xl font-black leading-none"
+                style={{ color: theme === 'dark' ? '#a78bfa' : '#7c3aed' }}
+              >
+                {activeOrders.length}
+              </span>
+              <span
+                className="text-[9px] font-black uppercase tracking-widest mt-0.5"
+                style={{ color: theme === 'dark' ? '#7c3aed' : '#6d28d9' }}
+              >
+                Customers
+              </span>
+            </div>
+
+            {/* Separator */}
+            <div
+              className="flex-shrink-0 w-px self-stretch"
+              style={{ backgroundColor: theme === 'dark' ? '#2a2a2a' : '#e2e8f0', margin: '6px 0' }}
+            />
+
             {activeOrders.map((order) => {
               const isCurrentTable = order.tableId === tableId;
               const statusColor =
@@ -801,6 +913,66 @@ export default function BillingPage() {
                );
              })}
            </div>
+
+           {/* ── Guests at Table Counter (Dine In only) ── */}
+           {orderType === 'DINE_IN' && (
+             <div
+               className="flex items-center justify-between rounded-2xl px-4 py-3"
+               style={{
+                 backgroundColor: theme === 'dark' ? '#111' : '#f1f5f9',
+                 border: `1.5px solid ${theme === 'dark' ? '#2a2a2a' : '#e2e8f0'}`,
+               }}
+             >
+               <div className="flex items-center gap-2">
+                 <span style={{ fontSize: 18 }}>👥</span>
+                 <div>
+                   <p
+                     className="text-[10px] font-black uppercase tracking-widest"
+                     style={{ color: theme === 'dark' ? '#94a3b8' : '#64748b' }}
+                   >
+                     Guests at Table
+                   </p>
+                   <p
+                     className="text-[11px] font-bold"
+                     style={{ color: theme === 'dark' ? '#64748b' : '#94a3b8' }}
+                   >
+                     {guestCount === 1 ? '1 person' : `${guestCount} people`}
+                   </p>
+                 </div>
+               </div>
+               <div
+                 className="flex items-center gap-2 rounded-xl p-1"
+                 style={{ backgroundColor: theme === 'dark' ? '#1a1a2e' : '#ede9fe' }}
+               >
+                 <button
+                   onClick={() => setGuestCount(g => Math.max(1, g - 1))}
+                   className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg transition-all active:scale-90"
+                   style={{
+                     backgroundColor: guestCount <= 1 ? 'transparent' : (theme === 'dark' ? '#6366f130' : '#a78bfa30'),
+                     color: guestCount <= 1 ? (theme === 'dark' ? '#334155' : '#cbd5e1') : '#7c3aed',
+                   }}
+                 >
+                   −
+                 </button>
+                 <span
+                   className="w-8 text-center font-black text-[18px]"
+                   style={{ color: theme === 'dark' ? '#a78bfa' : '#7c3aed' }}
+                 >
+                   {guestCount}
+                 </span>
+                 <button
+                   onClick={() => setGuestCount(g => Math.min(30, g + 1))}
+                   className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg transition-all active:scale-90"
+                   style={{
+                     backgroundColor: theme === 'dark' ? '#6366f130' : '#a78bfa30',
+                     color: '#7c3aed',
+                   }}
+                 >
+                   +
+                 </button>
+               </div>
+             </div>
+           )}
 
            {/* Customer Search */}
            <div className="relative">
@@ -1109,29 +1281,42 @@ export default function BillingPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <Button 
-               onClick={handleSaveOrder}
+               onClick={handlePrintKOT}
                loading={saveLoading}
                disabled={cart.length === 0}
-               style={theme === 'light' ? { color: '#000000' } : { color: '#e2e8f0' }}
-               className={`py-5 rounded-3xl ${theme === 'dark' ? 'bg-[#1a1a1a] hover:bg-pos-primary hover:text-white' : 'bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100'} border border-white/10 font-black text-[10px] uppercase tracking-[0.2em] transition-all hover:shadow-2xl hover:shadow-pos-primary/20 active:scale-95 disabled:opacity-50`}
+               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 hover:bg-emerald-500 hover:text-white border-emerald-200 text-emerald-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
+            >
+              <Printer size={18} /> KOT
+            </Button>
+            <Button 
+               onClick={handleSimpleSave}
+               loading={saveLoading}
+               disabled={cart.length === 0}
+               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-blue-500/10 hover:bg-blue-500 hover:text-white border-blue-500/20 text-blue-500' : 'bg-blue-50 hover:bg-blue-500 hover:text-white border-blue-200 text-blue-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
             >
               <Save size={18} /> SAVE
             </Button>
             <Button 
-               onClick={handlePrintBill}
-               disabled={!activeOrder}
-               style={theme === 'light' ? { color: '#000000' } : { color: '#f97316' }}
-               className={`py-5 rounded-3xl ${theme === 'dark' ? 'bg-orange-500/10 hover:bg-orange-500 hover:text-white border-orange-500/20' : 'bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/30'} font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50`}
+               onClick={() => {
+                 setIsProforma(true);
+                 setAutoPrint(true);
+                 handlePrintBill();
+               }}
+               disabled={!activeOrder && cart.length === 0}
+               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-amber-500/10 hover:bg-amber-500 hover:text-white border-amber-500/20 text-amber-500' : 'bg-amber-50 hover:bg-amber-500 hover:text-white border-amber-200 text-amber-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
             >
               <Printer size={18} /> BILL
             </Button>
             <Button 
                disabled={cart.length === 0}
-               onClick={() => setIsSettleOpen(true)}
-               style={theme === 'light' ? { color: '#000000' } : { color: '#ffffff' }}
-               className={`col-span-2 py-6 bg-pos-primary hover:bg-pos-primary/90 rounded-[2rem] flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-[0.3em] shadow-[0_20px_40px_-10px_rgba(244,63,94,0.3)] transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50`}
+               onClick={() => {
+                 setIsProforma(true);
+                 setAutoPrint(false); // Settle still needs the modal for payment selection
+                 handlePrintBill();
+               }}
+               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-500' : 'bg-rose-50 hover:bg-rose-500 hover:text-white border-rose-200 text-rose-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
             >
-               <CreditCard size={20} /> SETTLE (F1)
+               <CreditCard size={18} /> SETTLE (F1)
             </Button>
           </div>
         </div>
@@ -1139,78 +1324,9 @@ export default function BillingPage() {
 
       {/* MODALS - DARK THEME */}
       {/* (Settlement Modal, Customer Modal etc. inherit dark theme from globals or need specific overrides) */}
-      <Modal 
-        isOpen={isSettleOpen} 
-        onClose={() => setIsSettleOpen(false)} 
-        title="Final Settlement"
-      >
-       <div className={`space-y-6 p-2 ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} rounded-3xl`}>
-          <div className="grid grid-cols-2 gap-4">
-             {paymentModes.map(mode => (
-               <button
-                 key={mode.id}
-                 onClick={() => setSelectedPaymentMode(mode.id)}
-                 className={`p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 ${
-                   selectedPaymentMode === mode.id 
-                    ? 'border-pos-primary bg-pos-primary/10 text-pos-primary shadow-2xl shadow-pos-primary/20' 
-                    : `${theme === 'dark' ? 'border-white/5 bg-[#111111]' : 'border-pos-primary/10 bg-white'} hover:border-pos-primary/30 text-slate-500`
-                 }`}
-               >
-                 <div className={`p-4 rounded-2xl ${selectedPaymentMode === mode.id ? 'bg-pos-primary text-white' : `${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-slate-100'} text-slate-600`}`}>
-                    <CreditCard size={28} />
-                 </div>
-                 <span className="text-[11px] font-black uppercase tracking-[0.2em]">{mode.name}</span>
-               </button>
-             ))}
-          </div>
 
-          <div className={`${theme === 'dark' ? 'bg-[#111111] border-white/5' : 'bg-slate-50 border-pos-primary/10'} p-10 rounded-[3rem] border relative overflow-hidden group`}>
-             <div className="absolute top-0 right-0 w-48 h-48 bg-pos-primary/20 rounded-full -mr-24 -mt-24 blur-[80px] group-hover:bg-pos-primary/30 transition-all duration-700" />
-             <div className="relative z-10 flex justify-between items-center mb-6">
-                <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Items In Cart</span>
-                <span className="text-slate-200 font-black text-lg">{cart.length}</span>
-             </div>
-             <div className="relative z-10 flex justify-between items-end pt-6 border-t border-white/10">
-                <div>
-                   <span className="text-pos-primary text-[10px] font-black uppercase tracking-[0.3em]">Total Payable</span>
-                   <p className="text-5xl font-black text-white tracking-tighter mt-2">₹{grandTotal.toFixed(2)}</p>
-                </div>
-                <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest bg-emerald-400/10 px-4 py-2 rounded-full border border-emerald-400/20">
-                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
-                   Verified
-                </div>
-             </div>
-          </div>
 
-          <div className="flex gap-4">
-             <Button 
-                variant="secondary" 
-                onClick={() => setIsSettleOpen(false)}
-                className="flex-1 py-5 text-[11px] font-black uppercase tracking-widest bg-transparent border-2 border-white/5 text-slate-400 rounded-2xl hover:bg-white/5"
-             >
-                Cancel
-             </Button>
-             <Button
-                loading={settleLoading}
-                disabled={!selectedPaymentMode}
-                onClick={handleSettle}
-                className="flex-1 py-5 text-[11px] font-black uppercase tracking-widest bg-pos-primary hover:bg-pos-primary/90 text-white rounded-2xl shadow-2xl shadow-pos-primary/20"
-             >
-                Confirm (F2)
-             </Button>
-          </div>
-
-          <button
-            onClick={handleMarkAsDue}
-            disabled={settleLoading || !selectedGuestId}
-            className="w-full py-5 text-center text-orange-400 border border-orange-400/20 bg-orange-400/5 hover:bg-orange-400/10 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.25em] transition-all disabled:opacity-30 active:scale-[0.98]"
-          >
-            {selectedGuestId ? '💳 Mark as Due (Credit Sale)' : '👤 Select Customer to Mark as Due'}
-          </button>
-        </div>
-      </Modal>
-
-      {/* KotSlipModal & PrintBillModal will inherit styles or need manual dark theme updates */}
+      {/* KotSlipModal & BillModal will inherit styles or need manual dark theme updates */}
       {isKotOpen && (
         <KotSlipModal 
           kot={kotData} 
@@ -1221,12 +1337,27 @@ export default function BillingPage() {
         />
       )}
 
-      {isBillOpen && (
-        <PrintBillModal 
-          bill={billData}
-          onClose={() => setIsBillOpen(false)}
-        />
-      )}
+      <BillModal 
+        bill={billData} 
+        onClose={() => {
+            setIsBillOpen(false);
+            setBillData(null);
+            setAutoPrint(false);
+        }} 
+        onSettle={handleSettleNew}
+        paymentModes={paymentModes}
+        customers={customers}
+        onAddCustomer={async (data) => {
+            const newGuest = await customersApi.create(data);
+            if (newGuest) {
+                loadData();
+                return newGuest;
+            }
+            throw new Error('Failed to add customer');
+        }}
+        isProforma={isProforma} 
+        autoPrint={autoPrint}
+      />
 
       <Modal
         isOpen={isCustomerModalOpen}

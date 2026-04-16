@@ -72,7 +72,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
     },
     { name: 'POS Terminal', path: '/billing', icon: CreditCard, feature: 'POS', roles: ['POSSYSTEM'] },
     { name: 'All Bills',    path: '/all-bills', icon: Receipt,   feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'HMS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { name: 'Payments',    path: '/payments',  icon: PaymentIcon, feature: 'ACCOUNTING', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Inventory',   path: '/inventory', icon: Package,   feature: 'INVENTORY', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'], perm: 'Inventory' },
     { name: 'Products',    path: '/products',  icon: Tag,       feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'], perm: 'Inventory' },

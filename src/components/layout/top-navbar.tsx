@@ -94,10 +94,9 @@ export const TopNavbar: React.FC = () => {
 
       <div className="flex items-center gap-2">
         <div className="flex items-center border-r border-gray-100 dark:border-slate-800 pr-3 mr-3 gap-0.5">
-          <NavbarAction icon={<Power size={18} />} label="Item On/Off" />
-          <NavbarAction icon={<Monitor size={18} />} label="Live View" />
-          <NavbarAction icon={<Clock size={18} />} label="Orders" onClick={() => router.push('/orders')} />
-          <NavbarAction icon={<History size={18} />} label="Recent" />
+          <NavbarAction icon={<Power size={18} />} label="Item On/Off" onClick={() => router.push('/day-closing')} />
+          <NavbarAction icon={<Monitor size={18} />} label="Live View" onClick={() => router.push('/kitchen-display')} />
+          <NavbarAction icon={<History size={18} />} label="Recent" onClick={() => router.push('/invoices')} />
           <NavbarAction icon={<Bell size={18} />} label="Alerts" />
         </div>
         

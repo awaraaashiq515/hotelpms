@@ -125,7 +125,9 @@ export const Sidebar: React.FC = () => {
                   <Link
                     href={item.path}
                     onClick={() => toggleGroup(item.name)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
+                    className={`w-full flex items-center justify-between py-3 rounded-xl transition-all duration-200 group ${
+                      isOpen ? 'px-4' : 'px-0 justify-center'
+                    } ${
                       isGroupActive
                         ? 'bg-pos-primary text-white shadow-lg shadow-pos-primary/20'
                         : 'hover:bg-pos-sidebar-hover text-gray-400'
@@ -141,7 +143,7 @@ export const Sidebar: React.FC = () => {
                     {isOpen && (isGroupOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                   </Link>
 
-                  {isGroupOpen && (
+                  {isOpen && isGroupOpen && (
                     <div className="mt-1 space-y-0.5 ml-9 border-l border-gray-800">
                       {item.subItems.map((sub) => {
                         const isSubActive = pathname === sub.path;
@@ -169,7 +171,9 @@ export const Sidebar: React.FC = () => {
               <div key={item.name} className="px-3 mb-1">
                 <Link
                   href={item.path}
-                  className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                  className={`w-full flex items-center justify-between py-3 rounded-xl transition-all duration-200 group ${
+                    isOpen ? 'px-4' : 'px-0 justify-center'
+                  } ${
                     pathname === item.path
                       ? 'bg-pos-primary text-white shadow-lg shadow-pos-primary/20'
                       : 'hover:bg-pos-sidebar-hover text-gray-400 hover:text-white'
@@ -205,7 +209,9 @@ export const Sidebar: React.FC = () => {
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-pos-primary text-gray-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group"
+            className={`w-full flex items-center gap-3 py-3 rounded-xl hover:bg-pos-primary text-gray-400 hover:text-white transition-all text-[13px] font-bold uppercase tracking-tight group ${
+              isOpen ? 'px-4' : 'px-0 justify-center'
+            }`}
           >
             <div className={`flex items-center ${isOpen ? 'gap-3' : 'justify-center w-full'}`}>
               <LogOut size={18} className="group-hover:rotate-12 transition-transform" />

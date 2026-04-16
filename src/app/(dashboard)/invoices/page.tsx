@@ -82,7 +82,7 @@ export default function InvoicesPage() {
           <div className="w-8 h-8 rounded-lg bg-pos-primary/10 flex items-center justify-center text-pos-primary">
              <FileText size={14} />
           </div>
-          <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">{row.invoiceNo}</span>
+          <span className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-tight">{row.invoiceNo}</span>
         </div>
       ),
       width: '200px'
@@ -91,7 +91,7 @@ export default function InvoicesPage() {
       header: 'Customer', 
       cell: (row: Invoice) => (
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-gray-900 capitalize">
+          <span className="text-sm font-bold text-gray-900 dark:text-white capitalize">
             {row.guest ? `${row.guest.firstName} ${row.guest.lastName || ''}` : 'Walk-in Guest'}
           </span>
           <span className="text-[10px] text-gray-400 font-bold">{row.guest?.mobile || 'No Mobile'}</span>
@@ -102,7 +102,7 @@ export default function InvoicesPage() {
     { 
       header: 'Total', 
       cell: (row: Invoice) => (
-        <span className="text-sm font-black text-gray-900">₹{row.totalAmount.toFixed(2)}</span>
+        <span className="text-sm font-black text-gray-900 dark:text-white">₹{row.totalAmount.toFixed(2)}</span>
       ),
       width: '100px'
     },
@@ -116,7 +116,7 @@ export default function InvoicesPage() {
     { 
       header: 'Due', 
       cell: (row: Invoice) => (
-        <span className={`text-sm font-bold ${row.dueAmount && row.dueAmount > 0 ? 'text-orange-500' : 'text-gray-400'}`}>
+        <span className={`text-sm font-bold ${row.dueAmount && row.dueAmount > 0 ? 'text-orange-500' : 'text-gray-400 dark:text-slate-500'}`}>
           ₹{row.dueAmount?.toFixed(2) || '0.00'}
         </span>
       ),
@@ -181,8 +181,8 @@ export default function InvoicesPage() {
         showBack
       />
 
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900/50 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-gray-50 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/50 flex items-center justify-between gap-4">
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -190,20 +190,20 @@ export default function InvoicesPage() {
               placeholder="Search by invoice or guest..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium"
+              className="pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium dark:text-slate-200 placeholder:text-gray-400 dark:placeholder:text-slate-500"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex bg-gray-100 p-1 rounded-xl">
+            <div className="flex bg-gray-100 dark:bg-slate-800/80 p-1 rounded-xl">
               {['ALL', 'PAID', 'UNPAID', 'PARTIAL'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
                   className={`px-4 py-1.5 text-[10px] font-black rounded-lg transition-all ${
                     statusFilter === status
-                      ? 'bg-white text-pos-primary shadow-sm'
-                      : 'text-gray-400 hover:text-gray-600'
+                      ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                      : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300'
                   }`}
                 >
                   {status}
@@ -213,7 +213,7 @@ export default function InvoicesPage() {
             <button 
               onClick={() => setIsFiltersOpen(!isFiltersOpen)}
               className={`p-2 border rounded-xl transition-all ${
-                isFiltersOpen ? 'bg-pos-primary/10 border-pos-primary/30 text-pos-primary shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:text-pos-primary'
+                isFiltersOpen ? 'bg-pos-primary/10 border-pos-primary/30 text-pos-primary shadow-sm dark:bg-pos-primary/20' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-400 dark:text-slate-500 hover:text-pos-primary dark:hover:text-pos-primary'
               }`}
             >
                <Filter size={16} />

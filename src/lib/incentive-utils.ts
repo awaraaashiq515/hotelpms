@@ -6,7 +6,7 @@ export type ActivityType = 'RIDE' | 'REFERRAL';
  * Records an activity for a driver and updates their incentive progression.
  * Automatically handles completion, cycling, and history.
  */
-export async function recordDriverActivity(driverId: string, type: ActivityType) {
+export async function recordDriverActivity(driverId: string, type: ActivityType, amount: number = 1) {
   try {
     // 1. Find the active offer progress for this driver
     let activeProgress = await (prisma as any).driverOfferProgress.findFirst({
@@ -66,19 +66,25 @@ export async function recordDriverActivity(driverId: string, type: ActivityType)
     let newReferrals = activeProgress.completedReferrals;
 
     // 3. Update counts based on activity type
-    if (type === 'RIDE') newRides += 1;
-    if (type === 'REFERRAL') newReferrals += 1;
+    if (type === 'RIDE') newRides += amount;
+    if (type === 'REFERRAL') newReferrals += amount;
 
     // 4. Calculate new progress percentage
     // Logic: If target is set, progress is based on the target. If target is 0, it's considered 100%.
     let rideProg = offer.targetRides > 0 ? (newRides / offer.targetRides) * 100 : 100;
-    let refProg = offer.targetReferrals > 0 ? (newReferrals / offer.targetReferrals) * 100 : 100;
     
-    // Most offers are either 'RIDES' or 'REFERRALS'. We take the minimum of the two targets met.
-    let totalProgress = 0;
-    if (offer.offerType === 'RIDES') totalProgress = Math.min(rideProg, 100);
-    else if (offer.offerType === 'REFERRALS') totalProgress = Math.min(refProg, 100);
-    else totalProgress = Math.min(rideProg, refProg, 100); // COMBINED type
+    // Since we only track Customers (Rides) now, force totalProgress to just rideProg
+    let totalProgress = Math.min(rideProg, 100);
+
+    try {
+      require('fs').appendFileSync('/tmp/poslog.txt', JSON.stringify({
+        driverId,
+        newRides,
+        targetRides: offer.targetRides,
+        rideProg,
+        totalProgress
+      }) + '\n');
+    } catch {}
 
     // 5. Handle Completion (Progress reached 100%)
     if (totalProgress >= 100) {

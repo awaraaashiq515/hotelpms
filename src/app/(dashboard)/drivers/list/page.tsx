@@ -128,7 +128,7 @@ export default function DriversListingPage() {
 
   const columns = [
     { 
-      header: 'Driver Identity', 
+      header: 'Driver Name', 
       cell: (row: Driver) => (
         <div className="flex items-center gap-3 py-2">
           <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shadow-sm">
@@ -143,7 +143,7 @@ export default function DriversListingPage() {
       width: '280px'
     },
     { 
-      header: 'Vehicle Asset', 
+      header: 'Vehicle', 
       cell: (row: Driver) => (
         <div className="flex flex-col items-start gap-1">
           <span className="font-mono font-black text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-[11px] border border-slate-200 dark:border-slate-700">
@@ -157,21 +157,21 @@ export default function DriversListingPage() {
       width: '180px'
     },
     { 
-      header: 'Community Stats', 
+      header: 'Referrals & Sales', 
       cell: (row: Driver) => (
         <div className="flex flex-col">
           <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-md tracking-tighter w-fit">
-            {row.referralCount || 0} REFERENCES
+            {row.referralCount || 0} REFERRALS
           </span>
           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1 ml-1 uppercase tracking-widest">
-            ₹{(row.totalRevenue || 0).toFixed(0)} GEN.
+            ₹{(row.totalRevenue || 0).toFixed(0)} SALES
           </span>
         </div>
       ),
       width: '180px'
     },
     { 
-      header: 'Registry Status', 
+      header: 'Status', 
       cell: (row: Driver) => (
         <span className={`text-[10px] font-black px-2 py-1 rounded-md tracking-tighter ${row.isActive ? 'text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20' : 'text-red-600 dark:text-rose-400 bg-red-50 dark:bg-rose-900/20'}`}>
           {row.isActive ? 'ACTIVE' : 'INACTIVE'}
@@ -204,15 +204,16 @@ export default function DriversListingPage() {
   return (
     <div className="space-y-8 pb-12">
       <PageHeader 
-        title="Driver Directory" 
-        subtitle="Manage registry of verified drivers and vehicle assets"
+        title="Driver List" 
+        subtitle="Manage all your drivers and their vehicles"
         showBack
+        backUrl="/drivers"
         actions={
           <Button 
             onClick={() => { setSelectedDriver(null); setIsFormOpen(true); }}
             className="bg-pos-primary hover:bg-pos-primary-dark text-white font-black text-[10px] tracking-widest h-11 px-8 rounded-2xl shadow-xl shadow-pos-primary/10 transition-all uppercase"
           >
-             Register New Driver
+             Add New Driver
           </Button>
         }
       />
@@ -221,7 +222,7 @@ export default function DriversListingPage() {
          <div className="bg-white dark:bg-slate-900/40 p-6 rounded-3xl shadow-sm border border-slate-100/60 dark:border-slate-800 flex items-center gap-4 transition-all hover:shadow-md">
             <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shadow-inner"><Users size={24} /></div>
             <div>
-               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 leading-tight">Total Registry</p>
+               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 leading-tight">Total Drivers</p>
                <p className="text-2xl font-black text-slate-800 dark:text-white tracking-tighter mt-1">{drivers.length}</p>
             </div>
          </div>
@@ -230,7 +231,7 @@ export default function DriversListingPage() {
       <SearchToolbar  
         value={search}
         onChange={setSearch}
-        placeholder="Search registry by name, phone or vehicle id..."
+        placeholder="Search by name, phone or vehicle number..."
       />
 
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -241,7 +242,7 @@ export default function DriversListingPage() {
         />
       </div>
 
-      <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={selectedDriver ? 'Modify Registry' : 'New Driver Registration'}>
+      <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={selectedDriver ? 'Edit Driver Info' : 'Add New Driver'}>
         <div className="p-1">
           <DriverForm initialData={selectedDriver || undefined} onSubmit={handleCreateOrUpdate} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />
         </div>
@@ -249,7 +250,7 @@ export default function DriversListingPage() {
 
       {isDeleteOpen && (
         <ConfirmDeleteModal 
-          title="Remove from Registry"
+          title="Delete Driver"
           message={`Are you sure you want to remove driver "${selectedDriver?.name}"? This action is permanent.`}
           onConfirm={handleDelete}
           onCancel={() => setIsDeleteOpen(false)}
