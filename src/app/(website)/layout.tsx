@@ -1,6 +1,6 @@
 import React from 'react';
 import { WebsiteHeader } from '@/components/website/Header';
-import { WebsiteFooter } from '@/components/website/Footer';
+import { PremiumFooter } from '@/components/website/PremiumFooter';
 
 export default function WebsiteLayout({
   children,
@@ -9,11 +9,11 @@ export default function WebsiteLayout({
 }) {
   return (
     <div className="flex flex-col min-h-screen">
-      <WebsiteHeader isSimple={true} />
+      <WebsiteHeader />
       <div className="flex-grow">
         {children}
       </div>
-      <WebsiteFooter />
+      <PremiumFooter />
     </div>
   );
 }

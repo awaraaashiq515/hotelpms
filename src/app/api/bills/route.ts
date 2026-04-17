@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date'); // YYYY-MM-DD
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const propertyId = searchParams.get('propertyId');
 
     const multiTenantWhere = getMultiTenantWhere(session);
 
@@ -30,12 +31,19 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    // Build final where clause
+    const where: any = {
+      ...multiTenantWhere,
+      status: { in: ['SETTLED', 'COMPLETED'] },
+      ...dateFilter,
+    };
+
+    if (propertyId && propertyId !== 'all') {
+      where.propertyId = propertyId;
+    }
+
     const orders = await prisma.posOrder.findMany({
-      where: {
-        ...multiTenantWhere,
-        status: 'SETTLED',
-        ...dateFilter,
-      },
+      where,
       include: {
         property: { select: { name: true, city: true } },
         items: {

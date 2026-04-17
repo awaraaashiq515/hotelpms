@@ -29,9 +29,9 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
   }, []);
 
   const navLinks = [
-    { name: 'Features', href: '/features' },
-    { name: 'Pricing', href: '/pricing' },
-    { name: 'Benefits', href: '/benefits' },
+    { name: 'Features', href: '/#features' },
+    { name: 'About', href: '/about' },
+    { name: 'Blog', href: '/blog' },
     { name: 'Contact', href: '/contact' },
   ];
 
@@ -82,7 +82,7 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-pos-primary transition-colors duration-200"
+                  className="text-sm font-semibold text-slate-600 hover:text-pos-primary transition-colors duration-200"
                 >
                   {link.name}
                 </Link>
@@ -137,7 +137,7 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
                   key={link.name}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-xl font-bold text-gray-900 uppercase tracking-tighter hover:text-pos-primary"
+                  className="text-xl font-semibold text-slate-900 tracking-tight hover:text-pos-primary"
                 >
                   {link.name}
                 </Link>

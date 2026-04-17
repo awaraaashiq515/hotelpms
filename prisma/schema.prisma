@@ -955,6 +955,14 @@ model WebsiteSettings {
   galleryHeroVideoUrl      String?
   galleryHeroImageUrl      String?
   bookingRedirectToContact Boolean  @default(true)
+  
+  // SMTP Email Settings
+  smtpHost                 String?  @default("smtp.hostinger.com")
+  smtpPort                 String?  @default("465")
+  smtpEmail                String?
+  smtpPassword             String?
+  contactReceiverEmail     String?
+  
   updatedAt                DateTime @updatedAt
 }
 

@@ -40,7 +40,8 @@ export async function PUT(req: NextRequest) {
         'hotelName', 'logoUrl', 'address', 'email', 'phone', 
         'storyTitle', 'storyContent', 'storyImage1', 'storyImage2',
         'mapIframe', 'facebookUrl', 'instagramUrl', 'twitterUrl',
-        'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact'
+        'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact',
+        'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail'
       ];
       
       fields.forEach(field => {

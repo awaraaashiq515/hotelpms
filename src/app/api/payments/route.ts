@@ -112,6 +112,9 @@ export async function GET(request: NextRequest) {
         ...getMultiTenantWhere(session, propertyIdParam),
         ...(sourceId ? { sourceId } : {})
       },
+      include: {
+        property: { select: { name: true, city: true } }
+      },
       orderBy: { settlementDate: 'desc' },
       take: 100
     })

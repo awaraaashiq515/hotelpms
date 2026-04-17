@@ -34,15 +34,15 @@ export const StorySection = () => {
         <div className="lg:w-1/2 relative flex">
           <div className="w-2/3 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl z-10">
             <img
-              src={settings.storyImage1 || 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=1000'}
-              alt="Hotel Exterior"
+              src={settings.storyImage1 || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=1000'}
+              alt="Restaurant Operations"
               className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-700"
             />
           </div>
           <div className="w-1/2 aspect-square absolute -bottom-10 -right-4 rounded-2xl overflow-hidden shadow-2xl border-8 border-white z-20">
             <img
-              src={settings.storyImage2 || 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&q=80&w=1000'}
-              alt="Hotel Lobby"
+              src={settings.storyImage2 || 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=1000'}
+              alt="OrderMint in Action"
               className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-700"
             />
           </div>
@@ -50,16 +50,16 @@ export const StorySection = () => {
 
         {/* Content */}
         <div className="lg:w-1/2">
-          <span className="text-pos-primary font-bold tracking-[0.4em] uppercase text-xs mb-4 block">
-            Discover Our Heritage
+          <span className="text-pos-primary font-bold tracking-widest uppercase text-xs mb-4 block">
+            The OrderMint Story
           </span>
-          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-8 tracking-tighter uppercase leading-tight">
-            {settings.storyTitle}
+          <h2 className="text-4xl lg:text-5xl font-semibold text-slate-900 mb-6 tracking-tight leading-tight">
+            {settings.storyTitle || 'Built for modern hospitality. Engineered for speed.'}
           </h2>
-          <div className="space-y-6 text-gray-600 leading-relaxed text-lg font-light">
-            <p>{settings.storyContent}</p>
+          <div className="space-y-6 text-slate-600 leading-relaxed text-lg font-medium">
+            {settings.storyContent ? <p>{settings.storyContent}</p> : null}
             <p>
-              Born out of a need for smarter, faster business operations, OrderMint has been a game-changer for restaurant owners seeking efficiency and modern management tools. Our journey is one of innovation and dedication to retail excellence.
+              Born out of a need for smarter, faster business operations, OrderMint has been a game-changer for restaurant owners seeking efficiency and modern management tools. Our journey is one of innovation, cutting through the noise to provide a truly seamless retail experience.
             </p>
           </div>
           <button className="mt-12 group flex items-center gap-4 text-pos-primary font-bold uppercase tracking-widest text-sm">

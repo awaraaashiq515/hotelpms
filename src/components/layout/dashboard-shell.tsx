@@ -1,0 +1,42 @@
+'use client';
+
+import React from 'react';
+import { usePathname } from 'next/navigation';
+import { Sidebar } from '@/components/layout/sidebar';
+import { TopNavbar } from '@/components/layout/top-navbar';
+import { DashboardAdminSidebar } from '@/components/layout/dashboard-admin-sidebar';
+import { DashboardAdminTopNavbar } from '@/components/layout/dashboard-admin-top-navbar';
+
+interface DashboardShellProps {
+  children: React.ReactNode;
+  session: any;
+}
+
+export const DashboardShell: React.FC<DashboardShellProps> = ({ children, session }) => {
+  const pathname = usePathname();
+  
+  // Normal logic: Admins get Admin Hub, others get POS
+  const isAdminRole = session.role === 'RESTAURANTS_ADMIN' || session.role === 'SUPER_ADMIN';
+  
+  // SPECIAL OVERRIDE: Kitchen Display always uses POS Layout
+  const isKitchenDisplay = pathname.startsWith('/kitchen-display');
+  
+  const showAdminLayout = isAdminRole && !isKitchenDisplay;
+  const isPos = !showAdminLayout;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background dark:bg-slate-950 selection:bg-pos-primary selection:text-white overflow-hidden">
+      {isPos ? <TopNavbar /> : <DashboardAdminTopNavbar />}
+      
+      <div className="flex flex-1 overflow-hidden h-[calc(100vh-64px)]">
+        {isPos ? <Sidebar /> : <DashboardAdminSidebar />}
+        
+        <main className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-slate-900/50 no-scrollbar">
+          <div className="h-full w-full p-6 lg:p-8">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};

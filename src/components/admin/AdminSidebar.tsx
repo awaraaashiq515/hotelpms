@@ -47,13 +47,7 @@ export const AdminSidebar = () => {
     { name: 'Properties / POS', path: '/admin/properties', icon: Home },
     { name: 'Website Settings', path: '/admin/settings', icon: Settings },
     { name: 'Notifications (SMS)', path: '/admin/settings/notifications', icon: MessageSquare },
-    { name: 'Hero Sliders', path: '/admin/sliders', icon: MonitorPlay },
-    { name: 'Story & Map', path: '/admin/story', icon: MapPin },
-    { name: 'Gallery', path: '/admin/gallery', icon: Camera },
-    { name: 'Rooms', path: '/admin/rooms', icon: Bed },
-    { name: 'Experiences', path: '/admin/experiences', icon: MapPin },
-    { name: 'Guest Reviews', path: '/admin/reviews', icon: MessageSquare },
-    { name: 'Manali Blogs', path: '/admin/blogs', icon: MessageSquare },
+    { name: 'Blog', path: '/admin/blogs', icon: MessageSquare },
     { name: 'Contact Enquiries', path: '/admin/enquiries', icon: Mail },
   ];
 

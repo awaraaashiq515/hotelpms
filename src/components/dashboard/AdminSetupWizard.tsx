@@ -62,7 +62,7 @@ function StepIndicator({ current, data }: {
   return (
     <div className="flex items-center justify-between w-full max-w-3xl mx-auto px-4 relative">
       {/* Connecting Line */}
-      <div className="absolute top-1/2 left-0 w-full h-[2px] bg-slate-800 -translate-y-1/2 z-0" />
+      <div className="absolute top-1/2 left-0 w-full h-[2px] bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0 transition-colors" />
       <div 
         className="absolute top-1/2 left-0 h-[2px] bg-pos-primary -translate-y-1/2 z-0 transition-all duration-700 ease-out" 
         style={{ width: `${((current - 1) / (STEPS.length - 1)) * 100}%` }}
@@ -81,7 +81,7 @@ function StepIndicator({ current, data }: {
                 ? 'bg-pos-primary shadow-[0_0_20px_rgba(232,160,160,0.5)] scale-110 border-2 border-pos-primary/50' 
                 : isDone 
                   ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-                  : 'bg-slate-900 border border-slate-700 text-slate-500'}
+                  : 'bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'}
             `}>
               {isDone ? (
                 <Check size={20} className="text-white" />
@@ -98,7 +98,7 @@ function StepIndicator({ current, data }: {
               </span>
               {counts[idx] > 0 && (
                 <span className={`text-[9px] font-bold mt-0.5 px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-white/20 text-white' : isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'
+                  isActive ? 'bg-white/20 text-white' : isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                 }`}>
                   {counts[idx]} {idx === 0 ? 'tables' : idx === 1 ? 'cats' : 'items'}
                 </span>
@@ -190,13 +190,13 @@ function SpacesStep({
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Information Bar */}
-      <div className="flex items-center gap-4 p-5 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl glass-morphism">
-        <div className="w-10 h-10 bg-pos-primary/20 rounded-xl flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-4 p-5 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/10 dark:border-indigo-500/20 rounded-2xl glass-morphism transition-colors">
+        <div className="w-10 h-10 bg-pos-primary/20 rounded-xl flex items-center justify-center shrink-0 transition-colors">
           <Sparkles size={18} className="text-pos-primary" />
         </div>
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-pos-primary leading-none mb-1">Spatial Mapping</p>
-          <p className="text-xs text-slate-400 font-medium">Add your dining floors and map your tables. Everything syncs with the POS floor plan.</p>
+          <p className="text-xs font-black uppercase tracking-widest text-pos-primary leading-none mb-1 transition-colors">Spatial Mapping</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium transition-colors">Add your dining floors and map your tables. Everything syncs with the POS floor plan.</p>
         </div>
       </div>
 
@@ -207,7 +207,7 @@ function SpacesStep({
             <LayoutGrid size={18} />
           </div>
           <input
-            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400"
+            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
             placeholder="New Space Name — e.g. Rooftop, Main Hall, Garden"
             value={newFloorName}
             onChange={e => setNewFloorName(e.target.value)}
@@ -226,24 +226,24 @@ function SpacesStep({
 
       {/* Floors List */}
       {floors.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-[2rem] bg-slate-50/50">
-          <div className="w-20 h-20 bg-white rounded-3xl border border-slate-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <LayoutGrid size={32} className="text-slate-200" />
+        <div className="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/20 transition-colors">
+          <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center justify-center mx-auto mb-4 shadow-sm transition-colors">
+            <LayoutGrid size={32} className="text-slate-200 dark:text-slate-700" />
           </div>
-          <p className="font-black text-slate-300 text-sm uppercase tracking-widest">No spaces added yet</p>
-          <p className="text-slate-400 text-xs mt-1">Start by adding your first dining area above</p>
+          <p className="font-black text-slate-300 dark:text-slate-600 text-sm uppercase tracking-widest transition-colors">No spaces added yet</p>
+          <p className="text-slate-400 dark:text-slate-500 text-xs mt-1 transition-colors">Start by adding your first dining area above</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {floors.map((floor) => (
-            <div key={floor.id} className="bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow group/floor">
+            <div key={floor.id} className="bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all group/floor">
               {/* Floor Header */}
-              <div className="flex items-center justify-between px-6 py-5 bg-slate-50 border-b border-slate-100">
+              <div className="flex items-center justify-between px-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors">
                 {editFloor?.id === floor.id ? (
                   <div className="flex-1 flex items-center gap-3 mr-4">
                     <input
                       autoFocus
-                      className="flex-1 border-2 border-pos-primary rounded-xl px-4 py-2 text-sm font-bold outline-none bg-white"
+                      className="flex-1 border-2 border-pos-primary rounded-xl px-4 py-2 text-sm font-bold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
                       value={editFloor.name}
                       onChange={e => setEditFloor({ ...editFloor, name: e.target.value })}
                       onKeyDown={e => { if (e.key === 'Enter') updateFloor(); if (e.key === 'Escape') setEditFloor(null); }}
@@ -253,11 +253,11 @@ function SpacesStep({
                   </div>
                 ) : (
                   <div>
-                    <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                    <h3 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-2 transition-colors">
                       {floor.name}
                       <span className="text-[10px] bg-pos-primary/10 text-pos-primary px-2 py-0.5 rounded-full uppercase tracking-widest">Active</span>
                     </h3>
-                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{floor.tables.length} mapped tables</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5 transition-colors">{floor.tables.length} mapped tables</p>
                   </div>
                 )}
                 
@@ -277,12 +277,12 @@ function SpacesStep({
                   {floor.tables.map((table, idx) => (
                     <div 
                       key={table.id} 
-                      className="group relative bg-white border border-slate-100 rounded-2xl p-4 hover:border-pos-primary/30 hover:shadow-lg hover:shadow-pos-primary/5 transition-all text-center hover-lift animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
+                      className="group relative bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-2xl p-4 hover:border-pos-primary/30 hover:shadow-lg hover:shadow-pos-primary/5 transition-all text-center hover-lift animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
                       style={{ animationDelay: `${idx * 40}ms` }}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center shrink-0 border border-slate-100">
-                          <Hash size={14} className="text-slate-400" />
+                        <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700 transition-colors">
+                          <Hash size={14} className="text-slate-400 dark:text-slate-500" />
                         </div>
                         <button
                           onClick={() => deleteTable(table.id)}
@@ -292,8 +292,8 @@ function SpacesStep({
                           {deletingId === table.id ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                         </button>
                       </div>
-                      <span className="block font-black text-slate-900 text-sm mb-1">{table.name}</span>
-                      <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase overflow-hidden">
+                      <span className="block font-black text-slate-900 dark:text-white text-sm mb-1 transition-colors">{table.name}</span>
+                      <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase overflow-hidden transition-colors">
                         <Users size={12} className="text-pos-primary" /> {table.capacity} Seats
                       </div>
                     </div>
@@ -301,22 +301,22 @@ function SpacesStep({
 
                   {/* Add Table Component */}
                   {addingTable?.floorId === floor.id ? (
-                    <div className="border-2 border-pos-primary bg-pos-primary/5 rounded-2xl p-4 col-span-2 animate-in zoom-in-95 duration-200">
+                    <div className="border-2 border-pos-primary bg-pos-primary/5 dark:bg-pos-primary/10 rounded-2xl p-4 col-span-2 animate-in zoom-in-95 duration-200">
                       <div className="flex flex-col gap-3">
                         <input
                           autoFocus
-                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:border-pos-primary"
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:border-pos-primary text-slate-900 dark:text-white transition-colors"
                           placeholder="Table # (e.g. T-10)"
                           value={addingTable.name}
                           onChange={e => setAddingTable({ ...addingTable, name: e.target.value })}
                           onKeyDown={e => { if (e.key === 'Enter') addTable(); if (e.key === 'Escape') setAddingTable(null); }}
                         />
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                            <Users size={14} className="text-slate-400" />
+                          <div className="flex-1 flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 transition-colors">
+                            <Users size={14} className="text-slate-400 dark:text-slate-500" />
                             <input
                               type="number" min={1} max={50}
-                              className="flex-1 bg-transparent text-sm font-bold outline-none"
+                              className="flex-1 bg-transparent text-sm font-bold outline-none text-slate-900 dark:text-white"
                               value={addingTable.cap}
                               onChange={e => setAddingTable({ ...addingTable, cap: Number(e.target.value) })}
                             />
@@ -404,13 +404,13 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Information Bar */}
-      <div className="flex items-center gap-4 p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl glass-morphism">
-        <div className="w-10 h-10 bg-pos-primary/20 rounded-xl flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-4 p-5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl glass-morphism transition-colors">
+        <div className="w-10 h-10 bg-pos-primary/20 rounded-xl flex items-center justify-center shrink-0 transition-colors">
           <Tag size={18} className="text-pos-primary" />
         </div>
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-pos-primary leading-none mb-1">Menu Organization</p>
-          <p className="text-xs text-slate-400 font-medium">Group your items into logical sections. These appear as navigation tabs on your POS terminal.</p>
+          <p className="text-xs font-black uppercase tracking-widest text-pos-primary leading-none mb-1 transition-colors">Menu Organization</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium transition-colors">Group your items into logical sections. These appear as navigation tabs on your POS terminal.</p>
         </div>
       </div>
 
@@ -423,7 +423,7 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
               <button 
                 key={s} 
                 onClick={() => setNewName(s)} 
-                className="px-4 py-2 bg-white hover:bg-pos-primary hover:text-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 hover:border-pos-primary transition-all premium-shadow"
+                className="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-pos-primary hover:text-white text-slate-600 dark:text-slate-400 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 hover:border-pos-primary transition-all premium-shadow"
               >
                 {s}
               </button>
@@ -439,7 +439,7 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
             <Tag size={18} />
           </div>
           <input
-            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400"
+            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
             placeholder="New Category Name — e.g. Pizza, Pasta, Soft Drinks"
             value={newName}
             onChange={e => setNewName(e.target.value)}
@@ -458,19 +458,19 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
 
       {/* Categories Grid */}
       {categories.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-[2rem] bg-slate-50/50">
-          <div className="w-20 h-20 bg-white rounded-3xl border border-slate-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Tag size={32} className="text-slate-200" />
+        <div className="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/20 transition-colors">
+          <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center justify-center mx-auto mb-4 shadow-sm transition-colors">
+            <Tag size={32} className="text-slate-200 dark:text-slate-700" />
           </div>
-          <p className="font-black text-slate-300 text-sm uppercase tracking-widest">No categories yet</p>
-          <p className="text-slate-400 text-xs mt-1">Start by adding your first menu section above</p>
+          <p className="font-black text-slate-300 dark:text-slate-600 text-sm uppercase tracking-widest transition-colors">No categories yet</p>
+          <p className="text-slate-400 dark:text-slate-500 text-xs mt-1 transition-colors">Start by adding your first menu section above</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {categories.map((cat, i) => (
             <div 
               key={cat.id} 
-              className="group relative bg-white border border-slate-100 rounded-3xl p-5 hover:border-pos-primary/30 hover:shadow-xl hover:shadow-pos-primary/5 transition-all hover-lift animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
+              className="group relative bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 hover:border-pos-primary/30 hover:shadow-xl hover:shadow-pos-primary/5 transition-all hover-lift animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
               style={{ animationDelay: `${i * 40}ms` }}
             >
               <div className="flex items-center gap-4">
@@ -494,8 +494,8 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
                   </div>
                 ) : (
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-slate-900 text-[15px] truncate leading-tight group-hover:text-pos-primary transition-colors">{cat.name}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-1.5">
+                    <p className="font-black text-slate-900 dark:text-white text-[15px] truncate leading-tight group-hover:text-pos-primary transition-colors">{cat.name}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1 flex items-center gap-1.5 transition-colors">
                       <LayoutGrid size={10} className="text-amber-400" /> {cat._count?.products ?? 0} Items linked
                     </p>
                   </div>
@@ -639,13 +639,13 @@ function MenuStep({ products, categories, reload }: { products: Product[]; categ
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Information Bar */}
-      <div className="flex items-center gap-4 p-5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl glass-morphism">
-        <div className="w-10 h-10 bg-emerald-600/20 rounded-xl flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-4 p-5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 dark:border-emerald-500/20 rounded-2xl glass-morphism transition-colors">
+        <div className="w-10 h-10 bg-emerald-600/20 rounded-xl flex items-center justify-center shrink-0 transition-colors">
           <UtensilsCrossed size={18} className="text-emerald-400" />
         </div>
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-emerald-300 leading-none mb-1">Menu Inventory</p>
-          <p className="text-xs text-slate-400 font-medium">Add dishes with detailed pricing and images. Every addition goes live in your POS system instantly.</p>
+          <p className="text-xs font-black uppercase tracking-widest text-emerald-300 leading-none mb-1 transition-colors">Menu Inventory</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium transition-colors">Add dishes with detailed pricing and images. Every addition goes live in your POS system instantly.</p>
         </div>
       </div>
 
@@ -657,14 +657,14 @@ function MenuStep({ products, categories, reload }: { products: Product[]; categ
       )}
 
       {/* Filter + Add Toolbar */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-white/5 p-4 rounded-3xl border border-slate-100 glass-morphism">
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-white/5 dark:bg-slate-900/40 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 glass-morphism transition-colors">
         <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 w-full lg:w-auto scrollbar-hide">
           <button 
             onClick={() => setFilterCat('all')} 
             className={`px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl border transition-all shrink-0 ${
               filterCat === 'all' 
                 ? 'bg-pos-primary text-white border-pos-primary shadow-lg shadow-pos-primary/20' 
-                : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'
+                : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
             }`}
           >
             All Items ({products.length})
@@ -676,7 +676,7 @@ function MenuStep({ products, categories, reload }: { products: Product[]; categ
               className={`px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl border transition-all shrink-0 ${
                 filterCat === c.id 
                   ? 'bg-pos-primary text-white border-pos-primary shadow-lg shadow-pos-primary/20' 
-                  : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
               }`}
             >
               {c.name}
@@ -694,19 +694,19 @@ function MenuStep({ products, categories, reload }: { products: Product[]; categ
 
       {/* Product Form Editor */}
       {showForm && (
-        <div className="border border-indigo-100 rounded-[2.5rem] p-8 bg-white shadow-2xl space-y-8 animate-in zoom-in-95 duration-300 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pos-primary via-white to-pos-primary" />
+        <div className="border border-indigo-100 dark:border-slate-800 rounded-[2.5rem] p-8 bg-white dark:bg-slate-900 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300 relative overflow-hidden transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pos-primary via-white dark:via-slate-800 to-pos-primary" />
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-pos-primary/10 rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-pos-primary/10 rounded-2xl flex items-center justify-center transition-colors">
                 <Sparkles size={24} className="text-pos-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900 leading-none">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-none transition-colors">
                   {editingId ? 'Edit Product' : 'Create New Menu Item'}
                 </h3>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Product Details & Pricing</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1 transition-colors">Product Details & Pricing</p>
               </div>
             </div>
             <button onClick={() => { setShowForm(false); setEditingId(null); }} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all">
@@ -718,14 +718,14 @@ function MenuStep({ products, categories, reload }: { products: Product[]; categ
             {/* Left: General Info */}
             <div className="lg:col-span-8 space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Product Name *</label>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors">Product Name *</label>
                 <div className="relative group/input">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-pos-primary transition-colors">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 group-focus-within/input:text-pos-primary transition-colors">
                     <UtensilsCrossed size={18} />
                   </div>
                   <input
                     autoFocus
-                    className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all"
+                    className="w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all text-slate-900 dark:text-white"
                     placeholder="e.g. Double Cheese Margherita, Cold Brew..."
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -735,32 +735,32 @@ function MenuStep({ products, categories, reload }: { products: Product[]; categ
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Category *</label>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors">Category *</label>
                   <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 pointer-events-none transition-colors">
                       <Tag size={18} />
                     </div>
                     <select
-                      className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-pos-primary transition-all appearance-none"
+                      className="w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary transition-all appearance-none text-slate-900 dark:text-white"
                       value={form.categoryId}
                       onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
                     >
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {categories.map(c => <option key={c.id} value={c.id} className="dark:bg-slate-900">{c.name}</option>)}
                     </select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Behavior Mode</label>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors">Behavior Mode</label>
                   <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 pointer-events-none transition-colors">
                       <LayoutGrid size={18} />
                     </div>
                     <select
-                      className="w-full pl-14 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-pos-primary transition-all appearance-none"
+                      className="w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary transition-all appearance-none text-slate-900 dark:text-white"
                       value={form.productType}
                       onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
                     >
-                      {TYPE_OPTIONS.map(t => <option key={t.v} value={t.v}>{t.emoji} {t.label}</option>)}
+                      {TYPE_OPTIONS.map(t => <option key={t.v} value={t.v} className="dark:bg-slate-900">{t.emoji} {t.label}</option>)}
                     </select>
                   </div>
                 </div>

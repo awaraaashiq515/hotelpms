@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
       propertiesCount,
       outletsCount,
       usersCount,
-      recentOrders
+      recentOrders,
+      allProperties
     ] = await Promise.all([
       // 1. Total Sales
       prisma.posOrder.aggregate({
@@ -67,15 +68,48 @@ export async function GET(request: NextRequest) {
             }
           }
         }
+      }),
+
+      // 6. Properties Breakdown
+      prisma.property.findMany({
+        where: filter,
+        include: {
+          _count: {
+            select: {
+              outlets: true,
+              users: true,
+              posOrders: {
+                where: { status: 'COMPLETED' }
+              }
+            }
+          },
+          posOrders: {
+            where: { status: 'COMPLETED' },
+            select: { grandTotal: true }
+          }
+        }
       })
     ]);
+
+    // Format breakdown
+    const propertiesBreakdown = allProperties.map(p => ({
+      id: p.id,
+      name: p.name,
+      type: p.type,
+      city: p.city,
+      totalSales: p.posOrders.reduce((sum, order) => sum + order.grandTotal, 0),
+      orderCount: p._count.posOrders,
+      outletCount: p._count.outlets,
+      userCount: p._count.users
+    }));
 
     return apiResponse({
       totalSales: sales._sum.grandTotal || 0,
       totalBusinesses: propertiesCount,
       totalOutlets: outletsCount,
       totalUsers: usersCount,
-      recentOrders: recentOrders
+      recentOrders: recentOrders,
+      propertiesBreakdown: propertiesBreakdown
     }, 'Dashboard stats fetched successfully');
   } catch (error) {
     console.error('Dashboard Stats Error:', error);

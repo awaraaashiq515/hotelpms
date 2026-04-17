@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, User, ArrowRight, Loader2, Search } from 'lucide-react';
+import { WebsiteHeader } from '@/components/website/Header';
+import { PremiumFooter } from '@/components/website/PremiumFooter';
 
 interface Blog {
   id: string;
@@ -41,25 +43,21 @@ export default function BlogListingPage() {
   );
 
   return (
-    <main className="bg-white min-h-screen">
+    <main className="bg-slate-50 min-h-screen flex flex-col">
       {/* Hero Header */}
-      <section className="relative h-[40vh] flex items-center justify-center overflow-hidden bg-slate-900 pt-20">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&q=80&w=2000" 
-            alt="Manali Blog"
-            className="w-full h-full object-cover opacity-50"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-white" />
-        </div>
+      <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-24 flex items-center justify-center overflow-hidden bg-white border-b border-slate-100">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#fae5e8]/30 rounded-full blur-[100px] pointer-events-none z-0" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-6 text-center space-y-4">
-          <span className="text-pos-primary font-bold tracking-[0.4em] uppercase text-xs block">
-            The OrderMint Journal
+          <span className="text-pos-primary font-bold tracking-widest uppercase text-xs block">
+            Insights & Updates
           </span>
-          <h1 className="text-4xl lg:text-6xl font-bold text-white tracking-tight uppercase leading-tight">
-            Our Stories from <span className="text-pos-primary">Manali</span>
+          <h1 className="text-5xl lg:text-7xl font-semibold text-slate-900 tracking-tight leading-tight">
+            The OrderMint <span className="text-pos-primary">Blog</span>
           </h1>
+          <p className="text-lg text-slate-600 font-medium max-w-2xl mx-auto mt-4">
+            Discover the latest product updates, industry insights, and strategies to scale your restaurant.
+          </p>
         </div>
       </section>
 
@@ -67,15 +65,15 @@ export default function BlogListingPage() {
       <section className="py-20 max-w-7xl mx-auto px-6 lg:px-12">
         {/* Search & Filter */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 pb-12 border-b border-gray-100">
-          <div className="flex gap-4">
-            {['All', 'Local Attractions', 'Resort News', 'Travel Guide'].map(cat => (
+          <div className="flex flex-wrap gap-3">
+            {['All', 'Product Updates', 'Industry Insights', 'Customer Stories', 'Guides'].map(cat => (
               <button 
                 key={cat}
                 onClick={() => setSearchTerm(cat === 'All' ? '' : cat)}
-                className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                className={`px-6 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-all ${
                   (searchTerm === cat || (cat === 'All' && searchTerm === '')) 
-                    ? 'bg-pos-primary text-white' 
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {cat}
@@ -130,12 +128,12 @@ export default function BlogListingPage() {
                     <span className="flex items-center gap-1.5"><User size={14} className="text-pos-primary" /> {blog.author}</span>
                   </div>
                   
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight leading-tight group-hover:text-pos-primary transition-colors">
+                  <h3 className="text-2xl font-semibold text-slate-900 mb-4 tracking-tight leading-tight group-hover:text-pos-primary transition-colors">
                     {blog.title}
                   </h3>
                   
-                  <p className="text-gray-500 text-sm font-normal leading-relaxed line-clamp-3 mb-8 opacity-80">
-                    {blog.excerpt || 'Discover more about this wonderful story from the hills...'}
+                  <p className="text-slate-600 text-sm font-medium leading-relaxed line-clamp-3 mb-8">
+                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with OrderMint.'}
                   </p>
                   
                   <div className="mt-auto pt-8 border-t border-gray-100 flex items-center justify-between group-hover:border-pos-primary/20 transition-colors">

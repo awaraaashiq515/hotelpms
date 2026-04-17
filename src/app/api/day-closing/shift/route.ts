@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
 // GET: fetch current open shift for this property
@@ -10,8 +10,11 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
+    const where = getMultiTenantWhere(session);
+    (where as any).status = 'OPEN';
+
     const shift = await prisma.shift.findFirst({
-      where: { propertyId: session.propertyId!, status: 'OPEN' },
+      where,
       include: {
         withdrawals: { orderBy: { withdrawnAt: 'desc' } },
         topUps: { orderBy: { addedAt: 'desc' } },

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
 export async function GET(
@@ -12,8 +12,11 @@ export async function GET(
     if (!session) return apiError(new Error('Unauthorized'), 401);
     const { id } = await params;
 
+    const where = getMultiTenantWhere(session);
+    (where as any).id = id;
+
     const item = await prisma.stockItem.findFirst({
-      where: { id, propertyId: session.propertyId! },
+      where,
       include: {
         products: { select: { id: true, name: true, sku: true } },
         stockMovements: {

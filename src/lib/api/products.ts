@@ -24,8 +24,9 @@ export interface Product {
 }
 
 export const productsApi = {
-  async list(): Promise<Product[]> {
-    return apiClient.get('/api/products');
+  async list(propertyId?: string): Promise<Product[]> {
+    const url = propertyId ? `/api/products?propertyId=${propertyId}` : '/api/products';
+    return apiClient.get(url);
   },
 
   async get(id: string): Promise<Product> {

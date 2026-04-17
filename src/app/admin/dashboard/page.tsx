@@ -107,10 +107,10 @@ export default function SuperAdminDashboard() {
           </p>
           {/* Branding tag */}
           <div className="flex items-center gap-2 mt-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border" style={{backgroundColor:'#e8a0a0' + '15', borderColor:'#e8a0a0' + '40'}}>
-              <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{color:'#e8a0a0'}}>OrderMint POS</span>
-              <span className="w-1 h-1 rounded-full" style={{backgroundColor:'#e8a0a0'}} />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">by Ritchie</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-pos-primary/40 dark:border-pos-primary/20 bg-pos-primary/10 dark:bg-pos-primary/5">
+              <span className="text-[11px] font-black uppercase tracking-[0.18em] text-pos-primary">OrderMint POS</span>
+              <span className="w-1 h-1 rounded-full bg-pos-primary" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">by Ritchie</span>
             </div>
           </div>
         </div>
@@ -173,7 +173,7 @@ export default function SuperAdminDashboard() {
                 <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700" />
                 <span className="text-[9px] font-black text-slate-400 uppercase">Baseline</span>
               </div>
-              <button className="ml-4 px-4 py-2 border border-rose-100 dark:border-rose-800 rounded-xl text-[10px] font-bold hover:bg-rose-50 dark:hover:bg-rose-900/20 uppercase tracking-widest transition-colors" style={{color:'#e8a0a0'}}>
+              <button className="ml-4 px-4 py-2 border border-rose-100 dark:border-rose-800 rounded-xl text-[10px] font-bold hover:bg-rose-50 dark:hover:bg-rose-900/20 uppercase tracking-widest transition-colors text-pos-primary">
                 Deep Diagnostics
               </button>
             </div>
@@ -232,8 +232,8 @@ export default function SuperAdminDashboard() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs font-black ">₹{order.grandTotal}</p>
-                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-400/10 px-2 py-0.5 rounded-full">Captured</span>
+                  <p className="text-xs font-black text-slate-900 dark:text-white transition-colors">₹{order.grandTotal}</p>
+                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/30">Captured</span>
                 </div>
               </div>
             ))}

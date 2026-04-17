@@ -32,6 +32,16 @@ import {
   ClipboardList
 } from 'lucide-react';
 
+interface DashboardAction {
+  label: string;
+  path?: string;
+  icon: any;
+  perm?: string;
+  feature?: string;
+  roles?: string[];
+  variant?: 'config' | 'default';
+}
+
 export default function OperationsPage() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -70,45 +80,45 @@ export default function OperationsPage() {
     return session?.packageFeatures?.includes(feature);
   };
 
-  const managementActions = [
-    { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties' },
-    { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: '/manage-users' },
+  const managementActions: DashboardAction[] = [
+    { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: '/manage-users', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: '/pos-staff', feature: 'STAFF' },
-    { label: 'Inventory', perm: 'Inventory', icon: Package, path: '/inventory', feature: 'INVENTORY' },
-    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS' },
-    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS' },
-    { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES' },
+    { label: 'Inventory', perm: 'Inventory', icon: Package, path: '/inventory', feature: 'INVENTORY', roles: ['POSSYSTEM'] },
+    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM'] },
+    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM'] },
+    { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM'] },
   ];
 
-  const financialActions = [
-    { label: 'Invoices', perm: 'Invoices', icon: FileText, path: '/invoices', feature: 'HMS' },
-    { label: 'Payments', perm: 'Payments', icon: CreditCard, path: '/payments', feature: 'ACCOUNTING' },
-    { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: '/expenses', feature: 'ACCOUNTING' },
+  const financialActions: DashboardAction[] = [
+    { label: 'Invoices', perm: 'Invoices', icon: FileText, path: '/invoices', feature: 'HMS', roles: ['POSSYSTEM'] },
+    { label: 'Payments', perm: 'Payments', icon: CreditCard, path: '/payments', feature: 'ACCOUNTING', roles: ['POSSYSTEM'] },
+    { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: '/expenses', feature: 'ACCOUNTING', roles: ['POSSYSTEM'] },
     { label: 'Accounting', perm: 'Accounting', icon: BookOpen, path: '/accounts', feature: 'ACCOUNTING' },
     { label: 'Reports', perm: 'Reports', icon: PieChart, path: '/reports', feature: 'REPORTS' },
     { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: '/day-closing', feature: 'POS' },
   ];
 
-  const operationalActions = [
+  const operationalActions: DashboardAction[] = [
     { label: 'POS Terminal', perm: 'POS Terminal', icon: Monitor, path: '/billing', feature: 'POS' },
-    { label: 'Orders Control', perm: 'Orders Control', icon: ShoppingBag, path: '/orders', feature: 'POS' },
+    { label: 'Orders Control', perm: 'Orders Control', icon: ShoppingBag, path: '/orders', feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Kitchen Display', perm: 'Kitchen Display', icon: Eye, path: '/kitchen-display', feature: 'POS' },
     { label: 'KOTs List', perm: 'KOTs', icon: ClipboardList, path: '/kots', feature: 'POS' },
-    { label: 'Table Bookings', perm: 'Table Bookings', icon: CalendarDays, path: '/table-reservations', feature: 'TABLES' },
+    { label: 'Table Bookings', perm: 'Table Bookings', icon: CalendarDays, path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Drivers', perm: 'Drivers', icon: CarFront, path: '/drivers', feature: 'DRIVERS' },
   ];
 
   // Configs only for Admins
-  const masterConfigs = [
-    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS' },
-    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS' },
+  const masterConfigs: DashboardAction[] = [
+    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM'] },
+    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM'] },
     { label: 'Tax Setup', perm: 'Settings', icon: ShieldCheck, path: '/settings' },
     { label: 'Discounts', perm: 'Settings', icon: Percent, path: '/settings' },
     { label: 'System Settings', perm: 'Settings', icon: Settings, path: '/settings' },
   ];
 
   // Configs for Everyone (Support/Utilities)
-  const operatorUtilities = [
+  const operatorUtilities: DashboardAction[] = [
     { label: 'Print Settings', perm: 'Settings', icon: Printer, path: '/settings' },
     { label: 'Inventory Sync', icon: RefreshCw },
     { label: 'Support Help', icon: RefreshCw },
@@ -116,18 +126,18 @@ export default function OperationsPage() {
 
   if (loading) return null;
   // 1. Administrative Section
-  const visibleManagement = managementActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature));
+  const visibleManagement = managementActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
   const showManagement = isAdmin || (visibleManagement.length > 0);
 
   // 2. Financial Section
-  const visibleFinancial = financialActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature));
+  const visibleFinancial = financialActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
   const showFinancial = isAdmin || (visibleFinancial.length > 0);
 
   // 3. Operational Section
-  const visibleOperational = operationalActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature));
+  const visibleOperational = operationalActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
 
   // 4. Config Section
-  const visibleConfigs = masterConfigs.filter(a => hasPermission(a.perm) && hasFeature(a.feature));
+  const visibleConfigs = masterConfigs.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
 
   return (
     <div className="space-y-12 pb-20">

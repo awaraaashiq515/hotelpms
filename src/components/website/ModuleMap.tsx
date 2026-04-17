@@ -19,8 +19,8 @@ export const ModuleMap = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-pos-primary/10 blur-[140px] rounded-full" />
       
       <div className="max-w-7xl mx-auto px-6 relative z-10 text-center mb-20">
-        <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-6">Complete OS Ecosystem</h2>
-        <p className="text-lg font-bold text-slate-400">Everything a high-performance hospitality enterprise needs.</p>
+        <h2 className="text-4xl lg:text-5xl font-semibold text-white tracking-tight mb-6">Complete OS Ecosystem</h2>
+        <p className="text-lg font-medium text-slate-400">Everything a high-performance hospitality enterprise needs.</p>
       </div>
 
       <div className="flex flex-col gap-6 w-full group">

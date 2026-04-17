@@ -12,6 +12,7 @@ export const DashboardAdminTopNavbar: React.FC = () => {
   const { toggle } = useSidebar();
   const { theme, toggleTheme } = useTheme();
   const [session, setSession] = useState<any>(null);
+  const [property, setProperty] = useState<any>(null);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -22,6 +23,15 @@ export const DashboardAdminTopNavbar: React.FC = () => {
         }
       })
       .catch(err => console.error('Failed to fetch session', err));
+
+    fetch('/api/setup/properties/current')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setProperty(data.data);
+        }
+      })
+      .catch(err => console.error('Failed to fetch property branding', err));
   }, []);
 
   const handleLogout = async () => {
@@ -44,17 +54,27 @@ export const DashboardAdminTopNavbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm transition-colors duration-200">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
             <Menu size={20} className="text-gray-500 dark:text-slate-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
           </button>
           <div className="flex items-center gap-3">
-             <div className="font-bold text-xl tracking-tighter text-slate-800 dark:text-white uppercase flex items-center gap-2 transition-colors">
-               <ShieldCheck className="text-pos-primary" size={24} />
-               <span>Restaurants Admin<span className="text-pos-primary font-light">HUB</span></span>
-             </div>
+             {property?.logoUrl ? (
+               <div className="flex items-center gap-4 relative z-[60]">
+                 <img src={property.logoUrl} alt="Logo" className="h-28 w-auto object-contain drop-shadow-2xl transition-all duration-300" />
+                 <div className="hidden sm:flex flex-col leading-none">
+                    <span className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tighter">Admin<span className="text-pos-primary font-light">HUB</span></span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{property.name}</span>
+                 </div>
+               </div>
+             ) : (
+               <div className="font-bold text-xl tracking-tighter text-slate-800 dark:text-white uppercase flex items-center gap-2 transition-colors">
+                 <ShieldCheck className="text-pos-primary" size={24} />
+                 <span>Restaurants Admin<span className="text-pos-primary font-light">HUB</span></span>
+               </div>
+             )}
           </div>
         </div>
         

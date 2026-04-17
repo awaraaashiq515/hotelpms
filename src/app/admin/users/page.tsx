@@ -156,38 +156,38 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">User Management</h1>
-          <p className="text-sm text-slate-500">Create and manage POS and System Administrators.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">User Management</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Create and manage POS and System Administrators.</p>
         </div>
         <Button onClick={openCreateModal} icon={<UserPlus size={16} />} className="bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl shadow-lg shadow-pos-primary/10 transition-all font-black uppercase text-[10px] tracking-widest px-6 h-11">
           Add User
         </Button>
       </div>
 
-      <Card className="p-0 overflow-hidden border-slate-200/60 shadow-md">
+      <Card className="p-0 overflow-hidden border-slate-200/60 dark:border-slate-800 shadow-md dark:shadow-none bg-white dark:bg-slate-900/50">
         {loading ? (
           <div className="p-8 text-center text-slate-500">Loading users...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200/50">
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Email</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Business Owner</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Role</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Assigned Property</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Total Sales</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Actions</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200/50 dark:border-slate-800">
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Name</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Email</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Business Owner</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Role</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Assigned Property</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Total Sales</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-slate-800">{user.fullName}</td>
-                    <td className="px-6 py-4 text-slate-600">{user.email}</td>
-                    <td className="px-6 py-4 text-xs font-black text-slate-500 uppercase">
+                  <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-6 py-4 font-semibold text-slate-800 dark:text-slate-200">{user.fullName}</td>
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{user.email}</td>
+                    <td className="px-6 py-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase">
                       {user.organization?.name || 'SYSTEM CORE'}
                     </td>
                     <td className="px-6 py-4">
@@ -195,17 +195,17 @@ export default function UsersPage() {
                         {user.role?.name}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-slate-500">
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                       {user.property?.name || <span className="text-slate-400 italic">None (Global)</span>}
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-800">
+                    <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
                       ₹{user.totalSales?.toFixed(2) || '0.00'}
                     </td>
                     <td className="px-6 py-4">
                       <button 
                         onClick={() => handleToggleStatus(user.id, user.isActive)}
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${
-                          user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          user.isActive ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                         }`}
                       >
                         {user.isActive ? 'Active' : 'Blocked'}
@@ -281,9 +281,9 @@ export default function UsersPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700">Role</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">Role</label>
             <select
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white text-sm"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
               value={formData.roleName}
               onChange={(e) => setFormData({ ...formData, roleName: e.target.value })}
               required
@@ -299,9 +299,9 @@ export default function UsersPage() {
 
           {formData.roleName === 'POSSYSTEM' && (
             <div className="space-y-1">
-              <label className="block text-sm font-semibold text-gray-700">Assign Property</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">Assign Property</label>
               <select
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
                 value={formData.propertyId}
                 onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
                 required={formData.roleName === 'POSSYSTEM'}

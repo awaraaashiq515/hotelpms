@@ -18,12 +18,12 @@ import { BackgroundStickers } from './BackgroundStickers';
 
 export const BentoFeatures = () => {
   return (
-    <section id="bento-features" className="py-32 bg-white relative overflow-hidden">
+    <section id="bento-features" className="py-24 bg-slate-50 relative overflow-hidden">
       <BackgroundStickers />
       <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
-        <div className="text-center mb-24">
-          <h2 className="text-5xl lg:text-8xl font-black text-slate-950 tracking-tighter mb-6">Designed for Depth.</h2>
-          <p className="text-xl lg:text-3xl text-slate-500 font-bold max-w-2xl mx-auto">One system. Infinite control. Explore the bento-suite of our core operational modules.</p>
+        <div className="text-center mb-20">
+          <h2 className="text-4xl lg:text-6xl font-semibold text-slate-900 tracking-tight mb-6">Designed for Depth.</h2>
+          <p className="text-lg lg:text-xl text-slate-600 font-medium max-w-2xl mx-auto">One system. Infinite control. Explore the core operational modules that power high-volume restaurants.</p>
         </div>
 
         <div className="bento-grid">
@@ -33,7 +33,7 @@ export const BentoFeatures = () => {
               <div className="w-16 h-16 rounded-2xl bg-pos-primary text-white flex items-center justify-center mb-8 shadow-xl shadow-pos-primary/20">
                 <LayoutGrid size={32} />
               </div>
-              <h3 className="text-4xl font-black text-slate-950 mb-6 tracking-tight">Enterprise Billing Engine</h3>
+              <h3 className="text-3xl font-semibold text-slate-900 mb-4 tracking-tight">Enterprise Billing Engine</h3>
               <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-md mb-12">
                 Speed through checkout with GST-ready invoicing, support for multiple payment modes, and complex split-bill logic built for crowds.
               </p>
@@ -56,8 +56,8 @@ export const BentoFeatures = () => {
               <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-pos-primary mb-8 border border-white/10">
                 <BarChart3 size={28} />
               </div>
-              <h3 className="text-2xl font-black mb-4 tracking-tight">Live Pulse Analytics</h3>
-              <p className="text-slate-400 font-medium text-sm leading-relaxed mb-10">
+              <h3 className="text-2xl font-semibold mb-3 tracking-tight">Live Pulse Analytics</h3>
+              <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8">
                 Real-time visibility into sales, peak hours, and staff performance. Data turned into decisions.
               </p>
               
@@ -81,14 +81,14 @@ export const BentoFeatures = () => {
              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-6">
                 <Database size={28} />
              </div>
-             <h3 className="text-2xl font-black text-slate-950 mb-3 tracking-tight">Inventory Mastery</h3>
+             <h3 className="text-2xl font-semibold text-slate-900 mb-3 tracking-tight">Inventory Mastery</h3>
              <p className="text-slate-500 font-medium text-sm leading-relaxed">
                Track recipes, manage wastage, and set auto-low stock alerts. Real precision for your back-of-house.
              </p>
              <div className="mt-10 pt-10 border-t border-slate-200">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-black uppercase text-slate-400">Stock Status: Healthy</span>
+                  <span className="text-[11px] font-bold tracking-wide uppercase text-slate-500">Stock Status: Healthy</span>
                 </div>
              </div>
           </div>
@@ -100,8 +100,8 @@ export const BentoFeatures = () => {
                    <Zap size={24} />
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-950 tracking-tight">Tablet KOTs</h4>
-                  <p className="text-xs text-slate-500 font-bold">Zero-latency orders.</p>
+                  <h4 className="font-semibold text-slate-900 tracking-tight">Tablet KOTs</h4>
+                  <p className="text-xs text-slate-500 font-medium">Zero-latency orders.</p>
                 </div>
              </div>
           </div>
@@ -113,8 +113,8 @@ export const BentoFeatures = () => {
                    <ShieldCheck size={24} />
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-950 tracking-tight">GST Ready</h4>
-                  <p className="text-xs text-slate-500 font-bold">Govt. compliant filing.</p>
+                  <h4 className="font-semibold text-slate-900 tracking-tight">GST Ready</h4>
+                  <p className="text-xs text-slate-500 font-medium">Govt. compliant filing.</p>
                 </div>
              </div>
           </div>
@@ -125,8 +125,8 @@ export const BentoFeatures = () => {
                 <div className="w-16 h-16 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-8">
                   <Globe size={32} />
                 </div>
-                <h3 className="text-4xl font-black text-slate-950 mb-6 tracking-tight">Logistics & Driver Engine</h3>
-                <p className="text-lg text-slate-600 font-bold leading-relaxed max-w-md">
+                <h3 className="text-3xl font-semibold text-slate-900 mb-4 tracking-tight">Logistics & Driver Engine</h3>
+                <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-md">
                    Dedicated driver tracking, incentive management, and full-stack delivery logistics dashboard built for modern speed.
                 </p>
              </div>
@@ -137,9 +137,9 @@ export const BentoFeatures = () => {
                      <div key={i} className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
                         <div className="flex items-center gap-4">
                            <div className="w-10 h-10 rounded-full bg-slate-100" />
-                           <span className="font-bold text-slate-800 text-sm">Driver #{i*42}</span>
+                           <span className="font-semibold text-slate-800 text-sm">Driver #{i*42}</span>
                         </div>
-                        <span className="text-[10px] font-black text-emerald-500 uppercase">On Delivery</span>
+                        <span className="text-[11px] font-bold tracking-wide text-emerald-500 uppercase">On Delivery</span>
                      </div>
                    ))}
                 </div>

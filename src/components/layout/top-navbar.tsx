@@ -52,15 +52,19 @@ export const TopNavbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm transition-colors duration-200">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
             <Menu size={20} className="text-gray-500 dark:text-slate-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative z-[60]">
              {property?.logoUrl ? (
-               <img src={property.logoUrl} alt="Logo" className="h-10 w-auto object-contain" />
+               <img 
+                 src={property.logoUrl} 
+                 alt="Logo" 
+                 className="h-32 w-auto object-contain drop-shadow-2xl transition-all duration-300" 
+               />
              ) : (
                <div className="font-bold text-2xl tracking-tighter text-gray-900 dark:text-white uppercase transition-colors">
                  POS<span className="text-pos-primary">MASTER</span>
@@ -70,7 +74,7 @@ export const TopNavbar: React.FC = () => {
         </div>
         
         <Button 
-          className="bg-pos-primary hover:bg-red-700 text-white font-bold h-10 px-5 rounded-lg shadow-lg shadow-red-200 dark:shadow-none transition-all uppercase tracking-tighter text-sm"
+          className="bg-pos-primary hover:bg-red-700 text-white font-bold h-10 px-5 rounded-lg shadow-lg shadow-red-200 dark:shadow-none transition-all uppercase tracking-tighter text-sm ml-4"
           onClick={() => router.push('/operations/tables')}
         >
           <Plus size={18} className="mr-2" />

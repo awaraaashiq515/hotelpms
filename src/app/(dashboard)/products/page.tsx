@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Filter, Package, Tag, Edit, Trash2, Plus } from 'lucide-react';
+import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
 import { DataTable } from '@/components/shared/data-table';
 import { Button } from '@/components/ui/Button';
 import { productsApi, Product } from '@/lib/api/products';
+import { Building2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { ProductForm } from '@/components/forms/product-form';
 import { ConfirmDeleteModal } from '@/components/modals/confirm-delete-modal';
@@ -21,11 +22,13 @@ export default function ProductsPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [mutationLoading, setMutationLoading] = useState(false);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await productsApi.list();
+      const data = await productsApi.list(selectedPropertyId === 'all' ? undefined : selectedPropertyId);
       setProducts(data || []);
     } catch (error) {
       console.error('Failed to fetch products:', error);
@@ -34,9 +37,23 @@ export default function ProductsPage() {
     }
   };
 
+  const fetchProperties = async () => {
+    try {
+      const res = await fetch('/api/admin/properties');
+      const data = await res.json();
+      if (data.success) setProperties(data.data);
+    } catch (err) {
+      console.error('Failed to fetch properties:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [selectedPropertyId]);
 
   const handleCreateOrUpdate = async (data: Partial<Product>) => {
     setMutationLoading(true);
@@ -124,6 +141,18 @@ export default function ProductsPage() {
         </div>
       ),
       width: '350px'
+    },
+    {
+      header: 'Property',
+      cell: (row: any) => (
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
+            {row.property?.name || 'Main Branch'}
+          </span>
+          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase mt-1">{row.property?.city}</span>
+        </div>
+      ),
+      width: '180px'
     },
     { 
       header: 'Pricing', 
@@ -270,10 +299,28 @@ export default function ProductsPage() {
         onChange={setSearch}
         placeholder="Search by name, SKU or category..."
         actions={
-           <Button variant="secondary" className="font-bold text-xs tracking-widest gap-2 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 px-4">
-            <Filter size={16} />
-            FILTERS
-          </Button>
+          <div className="flex gap-2">
+            {properties.length > 0 && (
+              <div className="relative group">
+                <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-pos-primary transition-colors z-10" />
+                <select
+                  value={selectedPropertyId}
+                  onChange={(e) => setSelectedPropertyId(e.target.value)}
+                  className="pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary transition-all appearance-none cursor-pointer min-w-[200px]"
+                >
+                  <option value="all">All Properties</option>
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform group-hover:translate-y-[-40%]" />
+              </div>
+            )}
+            <Button variant="secondary" className="font-bold text-xs tracking-widest gap-2 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 px-4 rounded-xl">
+              <Filter size={16} />
+              FILTERS
+            </Button>
+          </div>
         }
       />
 

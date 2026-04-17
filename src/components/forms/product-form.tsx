@@ -126,7 +126,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             placeholder="e.g. Classic Burger"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className={`w-full pl-11 pr-4 py-3 bg-gray-50 border ${errors.name ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.name ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
           />
         </div>
         {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.name}</p>}
@@ -137,8 +137,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
           Product Image
         </label>
-        <div className="flex items-center gap-6 p-4 bg-gray-50/50 border-2 border-dashed border-gray-200 rounded-[24px] hover:border-pos-primary/30 transition-colors">
-          <div className="relative w-24 h-24 bg-white rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
+        <div className="flex items-center gap-6 p-4 bg-gray-50/50 dark:bg-slate-800/50 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-[24px] hover:border-pos-primary/30 transition-colors">
+          <div className="relative w-24 h-24 bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-sm">
             {formData.image ? (
               <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
             ) : (
@@ -162,7 +162,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               JPG, PNG or WEBP. Max 2MB.
             </p>
             <div className="flex items-center gap-2">
-              <label className="cursor-pointer px-4 py-2 bg-white border border-gray-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors shadow-sm">
+              <label className="cursor-pointer px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors shadow-sm dark:text-slate-200">
                 {uploading ? 'Uploading...' : formData.image ? 'Change Image' : 'Select File'}
                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
               </label>
@@ -192,7 +192,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <select
               value={formData.categoryId}
               onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-              className={`w-full pl-11 pr-4 py-3 bg-gray-50 border ${errors.categoryId ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all appearance-none`}
+              className={`w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.categoryId ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all appearance-none`}
             >
               <option value="">Select Category</option>
               {categories.map((cat) => (
@@ -213,7 +213,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <select
               value={formData.productType}
               onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
-              className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all appearance-none"
+              className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all appearance-none"
             >
               <option value="REVENUE">Revenue Item</option>
               <option value="COMPLIMENTARY">Complimentary</option>
@@ -238,7 +238,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               step="0.01"
               value={formData.sellingPrice}
               onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
-              className={`w-full pl-11 pr-4 py-3 bg-gray-50 border ${errors.sellingPrice ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+              className={`w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.sellingPrice ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
             />
           </div>
         </div>
@@ -255,7 +255,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               step="0.01"
               value={formData.costPrice}
               onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-              className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all"
             />
           </div>
         </div>
@@ -276,7 +276,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               placeholder="e.g. FD-BK-01"
               value={formData.sku}
               onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-              className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all"
             />
           </div>
         </div>
@@ -293,7 +293,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               placeholder="Scanner ID"
               value={formData.barcode}
               onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all"
             />
           </div>
         </div>
@@ -314,7 +314,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               placeholder="e.g. 8517"
               value={formData.hsnCode}
               onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
-              className={`w-full pl-11 pr-4 py-3 bg-gray-50 border ${errors.hsnCode ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+              className={`w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.hsnCode ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
             />
           </div>
           {errors.hsnCode && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.hsnCode}</p>}
@@ -333,7 +333,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               placeholder="e.g. 5"
               value={formData.taxRate !== null && formData.taxRate !== undefined ? formData.taxRate : ''}
               onChange={(e) => setFormData({ ...formData, taxRate: e.target.value ? parseFloat(e.target.value) : null })}
-              className={`w-full pl-11 pr-4 py-3 bg-gray-50 border ${errors.taxRate ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+              className={`w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.taxRate ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all`}
             />
           </div>
           {errors.taxRate && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.taxRate}</p>}
@@ -342,28 +342,28 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
       {/* Toggles */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800 rounded-2xl">
           <div>
-            <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest leading-none">Inventory</h4>
+            <h4 className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest leading-none">Inventory</h4>
             <p className="text-[9px] text-gray-400 font-medium">Track stock</p>
           </div>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, trackInventory: !formData.trackInventory })}
-            className={`w-10 h-5 rounded-full p-1 transition-colors ${formData.trackInventory ? 'bg-emerald-500' : 'bg-gray-300'}`}
+            className={`w-10 h-5 rounded-full p-1 transition-colors ${formData.trackInventory ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-slate-700'}`}
           >
             <div className={`w-3 h-3 bg-white rounded-full transition-transform ${formData.trackInventory ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800 rounded-2xl">
           <div>
-            <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest leading-none">Active</h4>
+            <h4 className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest leading-none">Active</h4>
             <p className="text-[9px] text-gray-400 font-medium">Show in menu</p>
           </div>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-            className={`w-10 h-5 rounded-full p-1 transition-colors ${formData.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}
+            className={`w-10 h-5 rounded-full p-1 transition-colors ${formData.isActive ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-slate-700'}`}
           >
             <div className={`w-3 h-3 bg-white rounded-full transition-transform ${formData.isActive ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
@@ -375,7 +375,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           type="button"
           variant="secondary"
           onClick={onCancel}
-          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white border border-gray-200"
+          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 dark:text-slate-300"
         >
           Cancel
         </Button>

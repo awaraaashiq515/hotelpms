@@ -6,7 +6,7 @@ import { getSession } from '@/lib/session';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPER_ADMIN' && session.role !== 'RESTAURANTS_ADMIN')) {
+    if (!session) {
       return apiError(new Error('Unauthorized'), 401);
     }
 

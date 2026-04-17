@@ -59,7 +59,7 @@ export interface Invoice {
 }
 
 export const invoicesApi = {
-  async list(params?: { guestId?: string, status?: string }): Promise<Invoice[]> {
+  async list(params?: { guestId?: string, status?: string, propertyId?: string }): Promise<Invoice[]> {
     return apiClient.get('/api/invoices', { params: params as any });
   },
 

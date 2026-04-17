@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
@@ -12,12 +12,14 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const lowStockOnly = searchParams.get('lowStock') === 'true';
 
+    const where = getMultiTenantWhere(session);
+    if (search) {
+      (where as any).name = { contains: search };
+    }
+    (where as any).isActive = true;
+
     const stockItems = await prisma.stockItem.findMany({
-      where: {
-        propertyId: session.propertyId!,
-        isActive: true,
-        ...(search ? { name: { contains: search } } : {}),
-      },
+      where,
       include: {
         products: { select: { id: true, name: true } },
         stockMovements: {

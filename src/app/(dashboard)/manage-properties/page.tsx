@@ -238,7 +238,7 @@ export default function PropertiesPage() {
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <Input
             label="Branch / Property Name"
-            placeholder="e.g. Manali Premium Resort"
+            placeholder="e.g. Seaside Premium Resort"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
@@ -271,7 +271,7 @@ export default function PropertiesPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="City"
-              placeholder="e.g. Manali"
+              placeholder="e.g. New York"
               value={formData.city || ''}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               className="rounded-xl"

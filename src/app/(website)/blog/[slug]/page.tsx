@@ -109,7 +109,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
              {/* Tags/Categories */}
              <div className="mt-20 pt-10 border-t border-gray-100 flex flex-wrap gap-3">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Tagged with:</span>
-                {['Manali', 'Travel', 'Adventure', blog.category].map(tag => (
+                {['Travel', 'Adventure', blog.category].map(tag => (
                    <span key={tag} className="px-4 py-1.5 bg-gray-50 text-gray-500 rounded-full text-[9px] font-bold uppercase tracking-widest">#{tag}</span>
                 ))}
              </div>
@@ -138,7 +138,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                 <div className="relative aspect-[4/5] rounded-[40px] overflow-hidden">
                    <img src="https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&q=80&w=1000" alt="Book Now" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
                    <div className="absolute inset-0 bg-pos-primary/60 flex flex-col items-center justify-center p-8 text-center text-white">
-                      <h4 className="text-2xl font-bold uppercase tracking-tighter mb-4">Escape to Manali</h4>
+                      <h4 className="text-2xl font-bold uppercase tracking-tighter mb-4">Experience Luxury</h4>
                       <p className="text-[10px] font-bold uppercase tracking-widest mb-8 opacity-80">Book your luxury stay today</p>
                       <Link href="/contact" className="px-6 py-3 bg-white text-gray-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Enquire Now</Link>
                    </div>

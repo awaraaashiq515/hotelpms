@@ -68,11 +68,11 @@ export default function EnquiriesPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'NEW':
-        return <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> New</span>;
+        return <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> New</span>;
       case 'READ':
-        return <span className="px-3 py-1 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><Eye size={10} /> Read</span>;
+        return <span className="px-3 py-1 rounded-full bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><Eye size={10} /> Read</span>;
       case 'RESPONDED':
-        return <span className="px-3 py-1 rounded-full bg-green-50 text-green-600 border border-green-200 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><CheckCircle size={10} /> Responded</span>;
+        return <span className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><CheckCircle size={10} /> Responded</span>;
       default:
         return null;
     }
@@ -81,24 +81,24 @@ export default function EnquiriesPage() {
   return (
     <div className="p-10 max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-end bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm">
+      <div className="flex justify-between items-end bg-white dark:bg-slate-900/50 p-8 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <div>
           <span className="text-pos-primary font-bold tracking-[0.3em] uppercase text-[10px] block mb-2">Guest Relations</span>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase flex items-center gap-3">
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase flex items-center gap-3 transition-colors">
             <Mail className="text-pos-primary" size={32} />
             Contact Enquiries
           </h1>
-          <p className="text-gray-400 font-medium text-sm mt-2 max-w-xl">
+          <p className="text-gray-400 dark:text-slate-500 font-medium text-sm mt-2 max-w-xl transition-colors">
             Manage messages submitted through the website contact form.
           </p>
         </div>
         <div className="flex gap-4">
-          <div className="bg-gray-50 rounded-2xl flex items-center px-4 py-2 border border-gray-100 focus-within:ring-2 focus-within:ring-pos-primary/20 transition-all">
-            <Search className="text-gray-400" size={18} />
+          <div className="bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center px-4 py-2 border border-gray-100 dark:border-slate-700 focus-within:ring-2 focus-within:ring-pos-primary/20 transition-all">
+            <Search className="text-gray-400 dark:text-slate-500" size={18} />
             <input 
               type="text" 
               placeholder="Search by name or email..." 
-              className="bg-transparent border-none focus:outline-none text-sm font-semibold ml-3 w-64"
+              className="bg-transparent border-none focus:outline-none text-sm font-semibold ml-3 w-64 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
             />
           </div>
         </div>
@@ -107,9 +107,9 @@ export default function EnquiriesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Enquiry List */}
-        <div className="lg:col-span-1 bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col h-[700px]">
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+        <div className="lg:col-span-1 bg-white dark:bg-slate-900/40 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[700px] transition-colors">
+          <div className="p-6 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 transition-colors">
+            <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
               <Inbox size={16} className="text-pos-primary" /> Inbox
               <span className="ml-auto bg-pos-primary text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
                 {enquiries.filter(e => e.status === 'NEW').length}
@@ -132,14 +132,14 @@ export default function EnquiriesPage() {
                   }}
                   className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
                     selectedEnquiry?.id === enq.id 
-                      ? 'bg-pos-primary/5 border-pos-primary shadow-sm' 
+                      ? 'bg-pos-primary/5 dark:bg-pos-primary/10 border-pos-primary shadow-sm' 
                       : enq.status === 'NEW'
-                        ? 'bg-white border-blue-100 hover:border-blue-300 shadow-sm'
-                        : 'bg-white border-gray-100 hover:border-gray-300 shadow-sm'
+                        ? 'bg-white dark:bg-slate-900/60 border-blue-100 dark:border-blue-900/30 hover:border-blue-300 shadow-sm'
+                        : 'bg-white dark:bg-slate-900/60 border-gray-100 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-600 shadow-sm'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className={`font-bold capitalize ${selectedEnquiry?.id === enq.id ? 'text-pos-primary' : 'text-gray-900'}`}>
+                    <h3 className={`font-bold capitalize transition-colors ${selectedEnquiry?.id === enq.id ? 'text-pos-primary' : 'text-gray-900 dark:text-white'}`}>
                       {enq.name}
                     </h3>
                     <span className="text-[10px] font-bold text-gray-400 uppercase">
@@ -163,30 +163,30 @@ export default function EnquiriesPage() {
         </div>
 
         {/* Selected Enquiry Details */}
-        <div className="lg:col-span-2 bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col h-[700px]">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900/40 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[700px] transition-colors">
           {selectedEnquiry ? (
             <>
-              <div className="p-8 border-b border-gray-100">
+              <div className="p-8 border-b border-gray-100 dark:border-slate-800">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-black text-gray-900 tracking-tight capitalize mb-2">{selectedEnquiry.subject}</h2>
-                    <div className="flex items-center gap-4 text-xs font-bold text-gray-500 uppercase tracking-widest">
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight capitalize mb-2">{selectedEnquiry.subject}</h2>
+                    <div className="flex items-center gap-4 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest transition-colors">
                       <span>{new Date(selectedEnquiry.createdAt).toLocaleString()}</span>
-                      <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                      <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-slate-700"></span>
                       <span>From: {selectedEnquiry.name}</span>
                     </div>
                   </div>
                   <div className="flex gap-2">
                      <button
                         onClick={() => updateStatus(selectedEnquiry.id, 'READ')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedEnquiry.status === 'READ' ? 'bg-gray-100 text-gray-400' : 'bg-gray-50 text-gray-600 hover:bg-gray-200 border border-gray-200'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedEnquiry.status === 'READ' ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700'}`}
                         disabled={selectedEnquiry.status === 'READ'}
                       >
                         Mark Read
                       </button>
                       <button
                         onClick={() => updateStatus(selectedEnquiry.id, 'RESPONDED')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedEnquiry.status === 'RESPONDED' ? 'bg-green-100 text-green-600' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-500 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedEnquiry.status === 'RESPONDED' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800/30 hover:bg-green-500 hover:text-white'}`}
                         disabled={selectedEnquiry.status === 'RESPONDED'}
                       >
                         Mark Responded
@@ -194,29 +194,29 @@ export default function EnquiriesPage() {
                   </div>
                 </div>
                 
-                <div className="flex gap-6 pt-4 border-t border-gray-100">
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-2xl w-full">
-                    <Mail size={16} className="text-gray-400" />
+                <div className="flex gap-6 pt-4 border-t border-gray-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800/50 px-4 py-3 rounded-2xl w-full">
+                    <Mail size={16} className="text-gray-400 dark:text-slate-500" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</span>
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">Email</span>
                       <a href={`mailto:${selectedEnquiry.email}`} className="text-sm font-bold text-pos-primary">{selectedEnquiry.email}</a>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-2xl w-full">
-                    <Phone size={16} className="text-gray-400" />
+                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800/50 px-4 py-3 rounded-2xl w-full">
+                    <Phone size={16} className="text-gray-400 dark:text-slate-500" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</span>
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">Phone</span>
                       <a href={`tel:${selectedEnquiry.phone}`} className="text-sm font-bold text-pos-primary">{selectedEnquiry.phone}</a>
                     </div>
                   </div>
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-10 bg-gray-50/30">
-                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 block">Message Content</span>
-                  <div className="prose prose-sm max-w-none">
-                    <p className="whitespace-pre-wrap text-gray-700 leading-relaxed font-medium">
+              <div className="flex-1 overflow-y-auto p-10 bg-gray-50/30 dark:bg-slate-900/20">
+                <div className="bg-white dark:bg-slate-800/40 p-8 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4 block">Message Content</span>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <p className="whitespace-pre-wrap text-gray-700 dark:text-slate-300 leading-relaxed font-medium transition-colors">
                       {selectedEnquiry.message}
                     </p>
                   </div>
@@ -225,11 +225,11 @@ export default function EnquiriesPage() {
             </>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-10">
-              <div className="w-32 h-32 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                <Mail size={48} className="text-gray-300" />
+              <div className="w-32 h-32 bg-gray-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6">
+                <Mail size={48} className="text-gray-300 dark:text-slate-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight mb-2">Select an Enquiry</h3>
-              <p className="text-sm font-medium text-gray-400 max-w-sm">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white uppercase tracking-tight mb-2 transition-colors">Select an Enquiry</h3>
+              <p className="text-sm font-medium text-gray-400 dark:text-slate-500 max-w-sm transition-colors">
                 Choose a message from the inbox on the left to read its full contents and reply to the guest.
               </p>
             </div>

@@ -120,6 +120,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         guest: { select: { firstName: true, lastName: true, mobile: true } },
+        property: { select: { name: true, city: true } },
         _count: { select: { items: true } }
       },
       orderBy: { invoiceDate: 'desc' },

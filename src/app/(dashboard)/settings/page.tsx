@@ -68,49 +68,49 @@ const BusinessProfileForm = () => {
           <Printer size={24} />
         </div>
         <div>
-          <h2 className="text-base font-black text-gray-900 uppercase tracking-widest">Bill Header Details</h2>
-          <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-tighter">This info appears on your printed bills & invoices</p>
+          <h2 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-widest">Bill Header Details</h2>
+          <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">This info appears on your printed bills & invoices</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div className="sm:col-span-2">
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Restaurant / Display Name</label>
+          <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">Restaurant / Display Name</label>
           <input 
             type="text" 
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 font-black text-sm uppercase tracking-tight transition-all"
+            className="w-full px-5 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 dark:bg-slate-800/50 font-black text-sm dark:text-white uppercase tracking-tight transition-all"
           />
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Physical Address</label>
+          <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">Physical Address</label>
           <textarea 
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             rows={3}
-            className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 font-bold text-sm tracking-tight transition-all"
+            className="w-full px-5 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 dark:bg-slate-800/50 font-bold text-sm dark:text-white tracking-tight transition-all"
           />
         </div>
 
         <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Contact Number</label>
+          <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">Contact Number</label>
           <input 
             type="text" 
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 font-bold text-sm transition-all"
+            className="w-full px-5 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 dark:bg-slate-800/50 font-bold text-sm dark:text-white transition-all"
           />
         </div>
 
         <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">GSTIN / TAX No</label>
+          <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">GSTIN / TAX No</label>
           <input 
             type="text" 
             value={gstNumber}
             onChange={(e) => setGstNumber(e.target.value)}
-            className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 font-black text-sm transition-all"
+            className="w-full px-5 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 dark:bg-slate-800/50 font-black text-sm dark:text-white transition-all"
           />
         </div>
 
@@ -187,21 +187,21 @@ const BrandingForm = () => {
           <ImageIcon size={24} />
         </div>
         <div>
-          <h2 className="text-base font-black text-gray-900 uppercase tracking-widest">Logo & Identity</h2>
-          <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-tighter">Your logo will be printed on KOTs and Bills</p>
+          <h2 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-widest">Logo & Identity</h2>
+          <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">Your logo will be printed on KOTs and Bills</p>
         </div>
       </div>
 
       <div className="space-y-8 text-center sm:text-left">
         <div className="flex flex-col sm:flex-row items-center gap-10">
-          <div className="w-56 h-56 rounded-[3rem] bg-gray-50 border-4 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group shadow-inner transition-all hover:border-pos-primary/30">
+          <div className="w-56 h-56 rounded-[3rem] bg-gray-50 dark:bg-slate-800 border-4 border-dashed border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden relative group shadow-inner transition-all hover:border-pos-primary/30">
             {logoUrl ? (
               <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500" />
             ) : (
-              <ImageIcon className="text-gray-200" size={80} />
+              <ImageIcon className="text-gray-200 dark:text-slate-600" size={80} />
             )}
             {uploading && (
-              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center">
+              <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm flex items-center justify-center">
                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pos-primary"></div>
               </div>
             )}
@@ -280,8 +280,8 @@ const AiConfigForm = () => {
             <ShieldCheck size={20} />
           </div>
           <div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Gemini AI API Key</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Technical sync & prompt intelligence</p>
+            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Gemini AI API Key</h3>
+            <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-tight">Technical sync & prompt intelligence</p>
           </div>
         </div>
         
@@ -291,7 +291,7 @@ const AiConfigForm = () => {
              placeholder="AIzaSy..."
              value={geminiApiKey}
              onChange={(e) => setGeminiApiKey(e.target.value)}
-             className="w-full px-5 py-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-900 bg-white text-sm font-mono tracking-widest"
+             className="w-full px-5 py-4 rounded-xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-100 dark:focus:ring-slate-800 focus:border-slate-900 bg-white dark:bg-slate-800 dark:text-white text-sm font-mono tracking-widest"
            />
            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tight px-1"> This key is used for secure extraction of scanned menu photos.</p>
         </div>
@@ -316,8 +316,8 @@ const TabletSetupCard = () => {
           <Tablet size={32} />
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">Tablet Ordering System</h3>
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight leading-relaxed mb-6">
+          <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-1">Tablet Ordering System</h3>
+          <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-tight leading-relaxed mb-6">
             Configure Waiter and Table modes for your Android/iOS devices. Manage device assignments and real-time tracking.
           </p>
           <Link href="/settings/tablets">
@@ -402,52 +402,52 @@ const WebsiteBrandingForm = () => {
             <Globe size={24} className="animate-spin-slow" />
           </div>
           <div>
-            <h2 className="text-base font-black text-gray-900 uppercase tracking-widest">Platform Identity</h2>
-            <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-tighter">Your global website name and primary logo</p>
+            <h2 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-widest">Platform Identity</h2>
+            <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">Your global website name and primary logo</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-6">
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Platform Name (e.g. OrderMint Solutions)</label>
+              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-3">Platform Name (e.g. OrderMint Solutions)</label>
               <input 
                 type="text" 
                 value={settings.hotelName}
                 onChange={(e) => setSettings({ ...settings, hotelName: e.target.value })}
                 placeholder="OrderMint Solutions"
-                className="w-full px-6 py-5 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/50 font-black text-sm uppercase tracking-tight transition-all shadow-sm"
+                className="w-full px-6 py-5 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/50 dark:bg-slate-800/50 font-black text-sm dark:text-white uppercase tracking-tight transition-all shadow-sm"
               />
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 text-pos-primary">Support Email</label>
+                  <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2 text-pos-primary">Support Email</label>
                   <input 
                     type="email" 
                     value={settings.email || ''}
                     onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 bg-white shadow-sm font-bold text-xs"
+                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white shadow-sm font-bold text-xs"
                   />
                </div>
                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 text-pos-primary">Contact Number</label>
+                  <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2 text-pos-primary">Contact Number</label>
                   <input 
                     type="text" 
                     value={settings.phone || ''}
                     onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 bg-white shadow-sm font-bold text-xs"
+                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white shadow-sm font-bold text-xs"
                   />
                </div>
             </div>
           </div>
 
           <div className="flex flex-col items-center justify-center p-8 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-gray-200 group relative transition-all hover:border-pos-primary/40">
-             <div className="w-48 h-48 mb-6 bg-white rounded-[2rem] shadow-2xl shadow-gray-200 flex items-center justify-center overflow-hidden border border-gray-100 relative">
+             <div className="w-48 h-48 mb-6 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl shadow-gray-200 dark:shadow-none flex items-center justify-center overflow-hidden border border-gray-100 dark:border-slate-700 relative">
                 {settings.logoUrl ? (
                   <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500" />
                 ) : (
-                  <ImageIcon className="text-gray-100" size={64} />
+                  <ImageIcon className="text-gray-100 dark:text-slate-700" size={64} />
                 )}
              </div>
              <input type="file" id="website-logo-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} />
@@ -470,26 +470,26 @@ const WebsiteBrandingForm = () => {
               <div className="p-2 bg-pos-primary/10 rounded-xl text-pos-primary">
                  <MapPin size={20} />
               </div>
-              <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Our Story Section</h3>
+              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Our Story Section</h3>
            </div>
            
            <div className="space-y-4">
               <div>
-                 <label className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Section Heading</label>
+                 <label className="block text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-2">Section Heading</label>
                  <input 
                     type="text" 
                     value={settings.storyTitle || ''}
                     onChange={(e) => setSettings({ ...settings, storyTitle: e.target.value })}
-                    className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white transition-all text-xs font-bold"
+                    className="w-full px-5 py-4 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 transition-all text-xs font-bold dark:text-white"
                  />
               </div>
               <div>
-                 <label className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Description / Content</label>
+                 <label className="block text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-2">Description / Content</label>
                  <textarea 
                     rows={6}
                     value={settings.storyContent || ''}
                     onChange={(e) => setSettings({ ...settings, storyContent: e.target.value })}
-                    className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white transition-all text-xs font-medium leading-relaxed"
+                    className="w-full px-5 py-4 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 transition-all text-xs font-medium leading-relaxed dark:text-slate-300"
                  />
               </div>
               
@@ -517,10 +517,10 @@ const WebsiteBrandingForm = () => {
            {/* Hero Image Section */}
            <Card className="p-8 border-l-4 border-l-orange-500 shadow-xl">
               <div className="flex items-center gap-3 mb-6">
-                 <div className="p-2 bg-orange-50 rounded-xl text-orange-600">
+                 <div className="p-2 bg-orange-50 dark:bg-orange-950/30 rounded-xl text-orange-600 dark:text-orange-400">
                     <MonitorPlay size={20} />
                  </div>
-                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Main Hero Banner</h3>
+                 <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Main Hero Banner</h3>
               </div>
               
               <div className="space-y-4 text-center">
@@ -542,10 +542,10 @@ const WebsiteBrandingForm = () => {
            {/* Social Media Links */}
            <Card className="p-8 border-l-4 border-l-emerald-500 shadow-xl">
               <div className="flex items-center gap-3 mb-6">
-                 <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600">
+                 <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl text-emerald-600 dark:text-emerald-400">
                     <Facebook size={20} />
                  </div>
-                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Social Footprint</h3>
+                 <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Social Footprint</h3>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -555,7 +555,7 @@ const WebsiteBrandingForm = () => {
                        type="text" 
                        value={settings.facebookUrl || ''}
                        onChange={(e) => setSettings({ ...settings, facebookUrl: e.target.value })}
-                       className="w-full px-4 py-3 rounded-xl bg-slate-50 text-[10px] font-bold"
+                       className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-bold dark:text-white"
                        placeholder="https://facebook.com/..."
                     />
                  </div>
@@ -565,7 +565,7 @@ const WebsiteBrandingForm = () => {
                        type="text" 
                        value={settings.instagramUrl || ''}
                        onChange={(e) => setSettings({ ...settings, instagramUrl: e.target.value })}
-                       className="w-full px-4 py-3 rounded-xl bg-slate-50 text-[10px] font-bold"
+                       className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-bold dark:text-white"
                        placeholder="https://instagram.com/..."
                     />
                  </div>
@@ -575,7 +575,7 @@ const WebsiteBrandingForm = () => {
                        type="text" 
                        value={settings.twitterUrl || ''}
                        onChange={(e) => setSettings({ ...settings, twitterUrl: e.target.value })}
-                       className="w-full px-4 py-3 rounded-xl bg-slate-50 text-[10px] font-bold"
+                       className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-bold dark:text-white"
                        placeholder="https://twitter.com/..."
                     />
                  </div>
@@ -640,7 +640,7 @@ export default function SettingsPage() {
       />
 
       {/* Modern Tab Navigation */}
-      <div className="flex flex-wrap items-center gap-3 bg-gray-100/50 p-1.5 rounded-[2rem] w-fit border border-gray-200/50 backdrop-blur-sm">
+      <div className="flex flex-wrap items-center gap-3 bg-gray-100/50 dark:bg-slate-800/50 p-1.5 rounded-[2rem] w-fit border border-gray-200/50 dark:border-slate-700/50 backdrop-blur-sm">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;

@@ -137,17 +137,17 @@ function PackageCard({
 
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center">
-            <p className="text-2xl font-black text-slate-900 dark:text-white">{pkg.discountPercent}%</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Discount</p>
+          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center transition-colors">
+            <p className="text-2xl font-black text-slate-900 dark:text-white transition-colors">{pkg.discountPercent}%</p>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 transition-colors">Discount</p>
           </div>
-          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center">
-            <p className="text-2xl font-black text-slate-900 dark:text-white">{featureKeys.length}</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Features</p>
+          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center transition-colors">
+            <p className="text-2xl font-black text-slate-900 dark:text-white transition-colors">{featureKeys.length}</p>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 transition-colors">Features</p>
           </div>
-          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center">
-            <p className="text-2xl font-black text-slate-900 dark:text-white">{pkg._count.organizations}</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Orgs</p>
+          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center transition-colors">
+            <p className="text-2xl font-black text-slate-900 dark:text-white transition-colors">{pkg._count.organizations}</p>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 transition-colors">Orgs</p>
           </div>
         </div>
 
@@ -379,9 +379,9 @@ function PackageFormModal({
 
           {/* Features */}
           <section>
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 transition-colors">
               <LayoutGrid size={12} /> Module Access
-              <span className="ml-auto normal-case font-bold" style={{color:'#e8a0a0'}}>{form.features.length} / {ALL_FEATURES.length} selected</span>
+              <span className="ml-auto normal-case font-bold text-pos-primary">{form.features.length} / {ALL_FEATURES.length} selected</span>
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {ALL_FEATURES.map((feat) => {
@@ -393,19 +393,18 @@ function PackageFormModal({
                     onClick={() => toggleFeature(feat.key)}
                     className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all duration-200 ${
                       checked
-                        ? 'dark:bg-rose-900/30 border-rose-300'
+                        ? 'bg-pos-primary/10 border-pos-primary dark:bg-pos-primary/20 dark:border-pos-primary/60'
                         : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800/50'
                     }`}
-                    style={checked ? {backgroundColor:'#e8a0a010', borderColor:'#e8a0a0'} : {}}
                   >
                     <span className="text-xl leading-none">{feat.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold truncate ${checked ? 'dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'}`} style={checked ? {color:'#c97878'} : {}}>
+                      <p className={`text-xs font-bold truncate ${checked ? 'text-pos-primary dark:text-pos-primary-light' : 'text-slate-700 dark:text-slate-300'}`}>
                         {feat.label}
                       </p>
                       <p className="text-[10px] text-slate-400 truncate">{feat.description}</p>
                     </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${checked ? 'border-rose-300' : 'border-slate-300 dark:border-slate-600'}`} style={checked ? {backgroundColor:'#e8a0a0', borderColor:'#e8a0a0'} : {}}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${checked ? 'bg-pos-primary border-pos-primary' : 'border-slate-300 dark:border-slate-600'}`}>
                       {checked && <div className="w-2 h-2 rounded-full bg-white" />}
                     </div>
                   </button>
@@ -416,9 +415,9 @@ function PackageFormModal({
 
           {/* Permissions */}
           <section>
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 transition-colors">
               <ShieldCheck size={12} /> Granular Permissions
-              <span className="ml-auto normal-case font-bold" style={{color:'#e8a0a0'}}>{form.permissions.length} granted</span>
+              <span className="ml-auto normal-case font-bold text-pos-primary">{form.permissions.length} granted</span>
             </h3>
             <div className="space-y-2">
               {ALL_MODULES.map((mod) => {
@@ -449,7 +448,7 @@ function PackageFormModal({
                           }`}
                         >
                           {allChecked && <div className="w-2.5 h-0.5 bg-white rounded" />}
-                          {!allChecked && modPerms.length > 0 && <div className="w-2 h-0.5 rounded" style={{backgroundColor:'#c97878'}} />}
+                          {!allChecked && modPerms.length > 0 && <div className="w-2 h-0.5 rounded bg-pos-primary" />}
                         </div>
                         <span className="text-sm font-bold text-slate-700 dark:text-slate-300 capitalize">{mod.module}</span>
                         {modPerms.length > 0 && (
@@ -471,10 +470,9 @@ function PackageFormModal({
                               onClick={() => togglePermission(mod.module, action)}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-all ${
                                 checked
-                                  ? 'text-white border-rose-300'
-                                  : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-rose-200'
+                                  ? 'text-white bg-pos-primary border-pos-primary'
+                                  : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-pos-primary/40'
                               }`}
-                              style={checked ? {backgroundColor:'#e8a0a0', borderColor:'#e8a0a0'} : {}}
                             >
                               {action}
                             </button>
@@ -500,8 +498,7 @@ function PackageFormModal({
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-              style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a030'}}
+              className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark transition-all flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {saving ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

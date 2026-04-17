@@ -33,11 +33,11 @@ export const ExperiencesSection = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 tracking-tighter uppercase">
-            Manali Experiences
+            Experiences
           </h2>
           <div className="w-24 h-1 bg-pos-primary mx-auto mb-6" />
           <p className="text-gray-500 max-w-2xl mx-auto font-light italic">
-            Find your bliss among the hills of Manali, where every moment is a chance to make memories.
+            Discover the best local attractions and activities, where every moment is a chance to make memories.
           </p>
         </div>
 

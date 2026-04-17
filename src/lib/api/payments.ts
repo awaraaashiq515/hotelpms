@@ -14,7 +14,7 @@ export interface Settlement {
 }
 
 export const paymentsApi = {
-  async list(params?: { sourceId?: string }): Promise<Settlement[]> {
+  async list(params?: { sourceId?: string, propertyId?: string }): Promise<Settlement[]> {
     return apiClient.get('/api/payments', { params: params as any });
   },
 

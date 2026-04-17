@@ -132,8 +132,8 @@ export default function GlobalPropertyManagement() {
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Global Business Hub</h1>
-          <p className="text-slate-500 text-sm font-medium mt-1 uppercase tracking-widest flex items-center gap-2">
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase transition-colors">Global Business Hub</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 uppercase tracking-widest flex items-center gap-2 transition-colors">
             <ShieldCheck size={14} style={{color:'#e8a0a0'}} />
             System-Wide Asset Management
           </p>
@@ -146,7 +146,7 @@ export default function GlobalPropertyManagement() {
               placeholder="Filter businesses..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all w-64 shadow-sm" style={{}} onFocus={e => e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a040'} onBlur={e => e.currentTarget.style.boxShadow=''}/>
+              className="pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all w-64 shadow-sm text-slate-900 dark:text-white" style={{}} onFocus={e => e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a040'} onBlur={e => e.currentTarget.style.boxShadow=''}/>
           </div>
           <Button onClick={() => handleOpenModal()} className="text-white rounded-xl py-4 px-6 font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2" style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a040'}}>
             <Plus size={16} />
@@ -157,43 +157,43 @@ export default function GlobalPropertyManagement() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((property) => (
-          <Card key={property.id} className="p-0 border-none shadow-sm hover:shadow-xl transition-all group overflow-hidden bg-white">
+          <Card key={property.id} className="p-0 border-none shadow-sm hover:shadow-xl transition-all group overflow-hidden bg-white dark:bg-slate-900/40">
             <div className="p-6">
               <div className="flex justify-between items-start mb-6">
-                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-500 group-hover:text-white transition-all duration-300" style={{}} onMouseEnter={e => (e.currentTarget.style.backgroundColor='#e8a0a0')} onMouseLeave={e => (e.currentTarget.style.backgroundColor='')}>
+                <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:text-white transition-all duration-300" style={{}} onMouseEnter={e => (e.currentTarget.style.backgroundColor='#e8a0a0')} onMouseLeave={e => (e.currentTarget.style.backgroundColor='')}>
                   <Building2 size={28} />
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex gap-1">
-                    <button onClick={() => handleOpenModal(property)} className="p-2 bg-slate-50 text-slate-400 rounded-lg transition-colors" style={{}} onMouseEnter={e => (e.currentTarget.style.color='#e8a0a0')} onMouseLeave={e => (e.currentTarget.style.color='')}><Edit2 size={14} /></button>
-                    <button onClick={() => handleDelete(property.id, property.name)} className="p-2 bg-slate-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                    <button onClick={() => handleOpenModal(property)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-lg transition-colors" style={{}} onMouseEnter={e => (e.currentTarget.style.color='#e8a0a0')} onMouseLeave={e => (e.currentTarget.style.color='')}><Edit2 size={14} /></button>
+                    <button onClick={() => handleDelete(property.id, property.name)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={14} /></button>
                   </div>
-                  <span className="px-2 py-1 bg-green-50 text-green-600 text-[9px] font-black rounded-lg uppercase">System Checked</span>
+                  <span className="px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-[9px] font-black rounded-lg uppercase">System Checked</span>
                 </div>
               </div>
 
               <div className="space-y-1 mb-6">
-                <h3 className="text-xl font-black text-slate-900 truncate uppercase tracking-tight">{property.name}</h3>
-                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-                  <div className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-mono">{property.uniqueCode}</div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white truncate uppercase tracking-tight">{property.name}</h3>
+                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                  <div className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500 dark:text-slate-400 font-mono">{property.uniqueCode}</div>
                   <span>•</span>
                   <span>{property.type}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Users</p>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Total Users</p>
                   <div className="flex items-center gap-2">
-                    <Users size={14} className="text-slate-500" />
-                    <span className="text-sm font-black text-slate-800">{property._count?.users || 0}</span>
+                    <Users size={14} className="text-slate-500 dark:text-slate-400" />
+                    <span className="text-sm font-black text-slate-800 dark:text-slate-200">{property._count?.users || 0}</span>
                   </div>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl text-right">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Region</p>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-right">
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Region</p>
                   <div className="flex items-center gap-2 justify-end">
-                    <span className="text-sm font-black text-slate-800 truncate">{property.city || 'Standard'}</span>
-                    <MapPin size={14} className="text-slate-500" />
+                    <span className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">{property.city || 'Standard'}</span>
+                    <MapPin size={14} className="text-slate-500 dark:text-slate-400" />
                   </div>
                 </div>
               </div>
@@ -204,7 +204,7 @@ export default function GlobalPropertyManagement() {
               </Button>
             </div>
             
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
               <span>Sync ID: {property.id.slice(0, 8)}...</span>
               <span className="text-pos-primary">Live Global Access</span>
             </div>
@@ -237,9 +237,9 @@ export default function GlobalPropertyManagement() {
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Entity Type</label>
+              <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Entity Type</label>
               <select
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none bg-white text-sm font-bold text-slate-700 transition-all cursor-pointer" style={{}} onFocus={e => {e.currentTarget.style.borderColor='#e8a0a0'; e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a020';}} onBlur={e => {e.currentTarget.style.borderColor=''; e.currentTarget.style.boxShadow='';}}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer" style={{}} onFocus={e => {e.currentTarget.style.borderColor='#e8a0a0'; e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a020';}} onBlur={e => {e.currentTarget.style.borderColor=''; e.currentTarget.style.boxShadow='';}}
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 required
@@ -252,9 +252,9 @@ export default function GlobalPropertyManagement() {
             </div>
             
             <div className="space-y-1">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Assign To Owner</label>
+              <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Assign To Owner</label>
               <select
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none bg-white text-sm font-bold text-slate-700 transition-all cursor-pointer" style={{}} onFocus={e => {e.currentTarget.style.borderColor='#e8a0a0'; e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a020';}} onBlur={e => {e.currentTarget.style.borderColor=''; e.currentTarget.style.boxShadow='';}}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer" style={{}} onFocus={e => {e.currentTarget.style.borderColor='#e8a0a0'; e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a020';}} onBlur={e => {e.currentTarget.style.borderColor=''; e.currentTarget.style.boxShadow='';}}
                 value={formData.organizationId}
                 onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
                 required
@@ -286,7 +286,7 @@ export default function GlobalPropertyManagement() {
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-6">
+          <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)} type="button" className="rounded-xl font-black text-xs uppercase tracking-widest px-6">
               Cancel
             </Button>

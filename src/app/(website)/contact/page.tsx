@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, MessageSquare, Clock, CheckCircle } from 'lucide-react';
 import { MapSection } from '@/components/website/MapSection';
+import { WebsiteHeader } from '@/components/website/Header';
+import { PremiumFooter } from '@/components/website/PremiumFooter';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -42,23 +44,21 @@ export default function ContactPage() {
     }
   };
   return (
-    <main className="bg-white">
+    <main className="bg-slate-50 min-h-screen flex flex-col">
       {/* Hero Section */}
-      <section className="relative pt-48 pb-32 bg-slate-900 overflow-hidden group border-b border-white/5 text-center">
-        <div className="absolute inset-0 bg-cover bg-center opacity-30 group-hover:scale-105 transition-transform duration-[5000ms]" 
-             style={{ backgroundImage: "url('/images/website/contact-team.png')" }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent z-10" />
+      <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-24 bg-white overflow-hidden border-b border-slate-100 text-center">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#fae5e8]/30 rounded-full blur-[100px] pointer-events-none z-0" />
         
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-20">
+        <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
           <div className="space-y-6">
-            <span className="text-pos-primary font-bold tracking-[0.4em] uppercase text-xs block">
-              Connect With Us
+            <span className="text-pos-primary font-bold tracking-widest uppercase text-xs block">
+              Get in Touch
             </span>
-            <h1 className="text-4xl lg:text-7xl font-bold text-white tracking-tight leading-none uppercase">
-              Start Your <span className="text-pos-primary font-black">Transformation</span>
+            <h1 className="text-5xl lg:text-7xl font-semibold text-slate-900 tracking-tight leading-tight">
+              Let's Talk <span className="text-pos-primary">Scale</span>
             </h1>
-            <p className="text-slate-300 max-w-2xl mx-auto font-medium text-lg leading-relaxed">
-              Based in Himachal, Serving the World. Our Mandi-based team is ready to help you build a smarter operation with OrderMint.
+            <p className="text-slate-600 max-w-2xl mx-auto font-medium text-lg leading-relaxed">
+              Based in Himachal, Serving the World. Our team is ready to help you build a smarter operation with OrderMint.
             </p>
           </div>
         </div>
@@ -71,46 +71,46 @@ export default function ContactPage() {
           {/* Left Column: Details */}
           <div className="space-y-12">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase mb-8">
+              <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-8">
                 Business Details
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-pos-primary/30 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
                     <MapPin size={24} />
                   </div>
-                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Headquarters</h4>
-                  <p className="text-sm font-bold text-slate-900 leading-relaxed uppercase tracking-tight">
+                  <h4 className="text-sm font-medium text-slate-500 mb-1">Headquarters</h4>
+                  <p className="text-base font-semibold text-slate-900 leading-relaxed">
                     Mandi, Himachal Pradesh <br />175001, India
                   </p>
                 </div>
 
-                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-pos-primary/30 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
                     <Phone size={24} />
                   </div>
-                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Sales Support</h4>
-                  <p className="text-sm font-bold text-slate-900 tracking-tight">
-                    +91 82190-76305
+                  <h4 className="text-sm font-medium text-slate-500 mb-1">Sales Support</h4>
+                  <p className="text-base font-semibold text-slate-900">
+                    +91 8679800074
                   </p>
                 </div>
 
-                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-pos-primary/30 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
                     <Mail size={24} />
                   </div>
-                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Email</h4>
-                  <p className="text-sm font-bold text-slate-900 lowercase tracking-tight">
+                  <h4 className="text-sm font-medium text-slate-500 mb-1">Email</h4>
+                  <p className="text-base font-semibold text-slate-900">
                     support@ordermint.com
                   </p>
                 </div>
 
-                <div className="p-8 bg-slate-50 rounded-[30px] border border-slate-100 group hover:border-pos-primary transition-colors">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-pos-primary/30 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-pos-primary shadow-sm mb-6 group-hover:bg-pos-primary group-hover:text-white transition-all">
                     <Clock size={24} />
                   </div>
-                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Support Hours</h4>
-                  <p className="text-sm font-bold text-slate-900 uppercase tracking-tight">
+                  <h4 className="text-sm font-medium text-slate-500 mb-1">Support Hours</h4>
+                  <p className="text-base font-semibold text-slate-900">
                     24/7 Priority Assistance
                   </p>
                 </div>
@@ -133,10 +133,10 @@ export default function ContactPage() {
 
           {/* Right Column: Form */}
           <div id="contact-form" className="bg-white border border-slate-100 rounded-[50px] p-10 lg:p-16 shadow-2xl shadow-slate-200">
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase mb-4 text-center">
+            <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-4 text-center">
               Send a Message
             </h2>
-            <p className="text-slate-400 text-sm mb-12 text-center font-medium">
+            <p className="text-slate-600 text-sm mb-12 text-center font-medium">
               Fill out the form below and we'll get back to you within 24 business hours.
             </p>
             
@@ -159,48 +159,48 @@ export default function ContactPage() {
                     {error}
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Full Name *</label>
+                    <label className="text-sm font-medium text-slate-600 ml-1">Full Name</label>
                     <input 
                       type="text" 
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none"
-                      placeholder="Enter name"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-pos-primary focus:border-pos-primary transition-all outline-none"
+                      placeholder="e.g. Jane Doe"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Email Address *</label>
+                    <label className="text-sm font-medium text-slate-600 ml-1">Email Address</label>
                     <input 
                       type="email" 
                       required
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none"
-                      placeholder="email@company.com"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-pos-primary focus:border-pos-primary transition-all outline-none"
+                      placeholder="e.g. jane@company.com"
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Phone Number *</label>
+                    <label className="text-sm font-medium text-slate-600 ml-1">Phone Number</label>
                     <input 
                       type="tel"
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none"
-                      placeholder="Business phone"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-pos-primary focus:border-pos-primary transition-all outline-none"
+                      placeholder="e.g. +91 98765 43210"
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Subject</label>
+                  <label className="text-sm font-medium text-slate-600 ml-1">Subject</label>
                   <select 
                     value={formData.subject}
                     onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none appearance-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-base text-slate-900 focus:ring-2 focus:ring-pos-primary focus:border-pos-primary transition-all outline-none appearance-none cursor-pointer"
                   >
                     <option>Get a Personal Demo</option>
                     <option>Sales Enquiry / Pricing</option>
@@ -210,13 +210,13 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-4">Business Requirements *</label>
+                  <label className="text-sm font-medium text-slate-600 ml-1">Message</label>
                   <textarea 
-                    rows={5}
+                    rows={4}
                     required
                     value={formData.message}
                     onChange={(e) => setFormData({...formData, message: e.target.value})}
-                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-pos-primary transition-all outline-none resize-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-pos-primary focus:border-pos-primary transition-all outline-none resize-none"
                     placeholder="Tell us about your business and needs..."
                   ></textarea>
                 </div>
@@ -224,9 +224,9 @@ export default function ContactPage() {
                 <button 
                   disabled={loading}
                   type="submit"
-                  className="w-full py-6 rounded-2xl bg-pos-primary text-white font-bold uppercase tracking-widest shadow-xl shadow-pos-primary/30 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-4 rounded-xl bg-pos-primary text-white font-semibold text-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-pos-primary/20"
                 >
-                  {loading ? 'Sending...' : <><Send size={18} /> Connect With Us</>}
+                  {loading ? 'Sending...' : <><Send size={18} /> Send Message</>}
                 </button>
               </form>
             )}

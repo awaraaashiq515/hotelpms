@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { paymentsApi, Settlement } from '@/lib/api/payments';
 import { DataTable } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { Plus, Search, Receipt } from 'lucide-react';
+import { Plus, Search, Receipt, Building2, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 
@@ -16,20 +16,38 @@ interface EnhancedSettlement extends Settlement {
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<EnhancedSettlement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPropertyId, setSelectedPropertyId] = useState('all');
+  const [properties, setProperties] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
 
   useEffect(() => {
     fetchPayments();
-  }, []);
+  }, [selectedPropertyId]);
 
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      const data = await paymentsApi.list();
+      const data = await paymentsApi.list({
+        propertyId: selectedPropertyId === 'all' ? undefined : selectedPropertyId
+      });
       setPayments(data as EnhancedSettlement[]);
     } catch (err) {
       console.error('Failed to fetch payments:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProperties = async () => {
+    try {
+      const res = await fetch('/api/admin/properties');
+      const data = await res.json();
+      if (data.success) setProperties(data.data);
+    } catch (err) {
+      console.error('Failed to fetch properties:', err);
     }
   };
 
@@ -47,13 +65,27 @@ export default function PaymentsPage() {
     },
     {
       header: 'Date',
-      cell: (row: EnhancedSettlement) => format(new Date(row.settlementDate), 'dd MMM yyyy HH:mm')
+      cell: (row: EnhancedSettlement) => format(new Date(row.settlementDate), 'dd MMM yyyy HH:mm'),
+      width: '180px'
     },
     {
       header: 'Customer',
       cell: (row: EnhancedSettlement) => (
-        <span className="font-semibold text-gray-900">{row.guestName || 'N/A'}</span>
-      )
+        <span className="font-semibold text-gray-900 dark:text-gray-100">{row.guestName || 'N/A'}</span>
+      ),
+      width: '200px'
+    },
+    {
+      header: 'Property',
+      cell: (row: any) => (
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
+            {row.property?.name || 'Main Branch'}
+          </span>
+          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase mt-1">{row.property?.city}</span>
+        </div>
+      ),
+      width: '180px'
     },
     {
       header: 'Invoice No',
@@ -83,18 +115,37 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Payment History</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Track all revenue settlements</p>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight uppercase">Payment History</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mt-1">Track all revenue settlements</p>
         </div>
         
-        <Link href="/payments/receive">
-          <Button className="bg-pos-primary hover:bg-pos-primary/90 text-white rounded-xl px-6 py-2">
-            <Plus size={18} className="mr-2" />
-            Receive Payment
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          {properties.length > 0 && (
+            <div className="relative group">
+              <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-pos-primary transition-colors z-10" />
+              <select
+                value={selectedPropertyId}
+                onChange={(e) => setSelectedPropertyId(e.target.value)}
+                className="pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[200px]"
+              >
+                <option value="all">ALL PROPERTIES</option>
+                {properties.map(p => (
+                  <option key={p.id} value={p.id}>{p.name.toUpperCase()}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform group-hover:translate-y-[-40%]" />
+            </div>
+          )}
+          
+          <Link href="/payments/receive">
+            <Button className="bg-pos-primary hover:bg-pos-primary/90 text-white rounded-xl px-6 py-2.5 font-bold text-xs uppercase tracking-widest shadow-lg shadow-pos-primary/20">
+              <Plus size={18} className="mr-2" />
+              Receive Payment
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <DataTable 

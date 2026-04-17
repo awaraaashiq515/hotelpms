@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import AdminSetupWizard from '@/components/dashboard/AdminSetupWizard';
-import { BarChart, ShoppingCart, Users, Building2, Store, ReceiptText, Layers, UtensilsCrossed, LayoutGrid, Tag, X } from 'lucide-react';
+import { BarChart, ShoppingCart, Users, Building2, Store, ReceiptText, Layers, UtensilsCrossed, LayoutGrid, Tag, X, ArrowRightCircle, Plus } from 'lucide-react';
 
 export default function DashboardPage() {
   const [session, setSession] = useState<any>(null);
@@ -182,6 +182,71 @@ export default function DashboardPage() {
                   <AddActionButton label="Organization Settings" icon={<Store size={16} />} href="/settings" />
                 </div>
               </Card>
+            </div>
+          </div>
+
+          {/* ── Property Performance Breakdown ── */}
+          <div className="space-y-6 pt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">Property Performance Breakdown</h3>
+              <a href="/manage-properties" className="text-[9px] font-black text-pos-primary uppercase tracking-widest hover:underline">Manage All Branches →</a>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {stats?.propertiesBreakdown?.map((prop: any) => (
+                <Card key={prop.id} className="relative overflow-hidden group border-2 dark:border-slate-800 hover:border-pos-primary/40 transition-all duration-300">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight group-hover:text-pos-primary transition-colors">{prop.name}</h4>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">{prop.city || 'Global Outlet'}</p>
+                    </div>
+                    <div className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      {prop.type || 'RESTAURANT'}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Revenue</p>
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{formatCurrency(prop.totalSales)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order Count</p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white">{prop.orderCount}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Outlets</span>
+                        <span className="text-xs font-black text-slate-700 dark:text-slate-300">{prop.outletCount}</span>
+                      </div>
+                      <div className="w-[1px] h-6 bg-slate-100 dark:bg-slate-800" />
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Users</span>
+                        <span className="text-xs font-black text-slate-700 dark:text-slate-300">{prop.userCount}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => window.location.href = `/manage-properties`}
+                      className="p-2 bg-pos-primary/10 text-pos-primary rounded-lg opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0"
+                    >
+                      <ArrowRightCircle size={16} />
+                    </button>
+                  </div>
+                </Card>
+              ))}
+              
+              <button 
+                onClick={() => window.location.href = '/manage-properties'}
+                className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-slate-300 hover:border-pos-primary hover:text-pos-primary hover:bg-pos-primary/5 transition-all group"
+              >
+                <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Plus size={24} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest">Add New Branch</span>
+              </button>
             </div>
           </div>
         </>

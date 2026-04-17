@@ -563,34 +563,34 @@ export default function TableManagementPage() {
   return (
     <div className="flex flex-col h-full gap-6">
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900/40 p-6 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-pos-primary flex items-center justify-center text-white shadow-lg shadow-pos-primary/20">
+          <div className="w-12 h-12 rounded-2xl bg-pos-primary flex items-center justify-center text-white shadow-lg shadow-pos-primary/20 transition-colors">
             <Map size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Floor Operations</h1>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">Real-time Table Management</p>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight transition-colors">Floor Operations</h1>
+            <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 transition-colors">Real-time Table Management</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-            <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100">
-                <div className="px-4 py-2 text-center border-r border-gray-200">
-                    <p className="text-[10px] font-black text-gray-400 uppercase">Total</p>
-                    <p className="text-sm font-black text-gray-900">{stats.total}</p>
+            <div className="flex bg-gray-50 dark:bg-slate-800/50 p-1 rounded-2xl border border-gray-100 dark:border-slate-700 transition-colors">
+                <div className="px-4 py-2 text-center border-r border-gray-200 dark:border-slate-700">
+                    <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase transition-colors">Total</p>
+                    <p className="text-sm font-black text-gray-900 dark:text-white transition-colors">{stats.total}</p>
                 </div>
-                <div className="px-4 py-2 text-center border-r border-gray-200">
-                    <p className="text-[10px] font-black text-emerald-500 uppercase">Free</p>
-                    <p className="text-sm font-black text-emerald-600">{stats.vacant}</p>
+                <div className="px-4 py-2 text-center border-r border-gray-200 dark:border-slate-700">
+                    <p className="text-[10px] font-black text-emerald-500 uppercase transition-colors">Free</p>
+                    <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 transition-colors">{stats.vacant}</p>
                 </div>
-                <div className="px-4 py-2 text-center border-r border-gray-200">
-                    <p className="text-[10px] font-black text-red-500 uppercase">Live</p>
-                    <p className="text-sm font-black text-red-600">{stats.occupied}</p>
+                <div className="px-4 py-2 text-center border-r border-gray-200 dark:border-slate-700">
+                    <p className="text-[10px] font-black text-red-500 uppercase transition-colors">Live</p>
+                    <p className="text-sm font-black text-red-600 dark:text-red-400 transition-colors">{stats.occupied}</p>
                 </div>
                 <div className="px-4 py-2 text-center">
-                    <p className="text-[10px] font-black text-pos-primary uppercase">Billed</p>
-                    <p className="text-sm font-black text-pos-primary">{stats.billed}</p>
+                    <p className="text-[10px] font-black text-pos-primary uppercase transition-colors">Billed</p>
+                    <p className="text-sm font-black text-pos-primary transition-colors">{stats.billed}</p>
                 </div>
             </div>
             
@@ -608,14 +608,14 @@ export default function TableManagementPage() {
                 size="sm" 
                 onClick={handleRefresh}
                 loading={refreshing}
-                className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center"
+                className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 transition-colors"
             >
                 <RefreshCcw size={18} className={refreshing ? 'animate-spin' : ''} />
             </Button>
             
             <Button 
                 variant="secondary"
-                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-emerald-100 border-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-emerald-100 dark:shadow-emerald-900/10 border-2 border-emerald-200 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors bg-white dark:bg-slate-800"
                 onClick={handleNewFloor}
             >
                 <Plus size={16} />
@@ -623,7 +623,7 @@ export default function TableManagementPage() {
             </Button>
 
             <Button 
-                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark text-white"
+                className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center shadow-lg shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark text-white transition-all"
                 onClick={handleNewTable}
             >
                 <Plus size={16} />
@@ -633,9 +633,9 @@ export default function TableManagementPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-slate-900/40 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
         {/* Floor Tabs */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-50 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-50 dark:border-slate-800 overflow-x-auto no-scrollbar transition-colors">
           {loading ? (
             <Skeleton className="h-10 w-32 rounded-xl" count={3} />
           ) : (
@@ -652,7 +652,7 @@ export default function TableManagementPage() {
                   className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border-2 whitespace-nowrap flex items-center gap-2 ${
                     activeFloorId === floor.id
                       ? 'bg-pos-primary text-white border-pos-primary shadow-lg shadow-pos-primary/20'
-                      : 'bg-white text-gray-400 border-gray-50 hover:border-pos-primary/30 hover:text-gray-600'
+                      : 'bg-white dark:bg-slate-800 text-gray-400 dark:text-slate-500 border-gray-50 dark:border-slate-700 hover:border-pos-primary/30 hover:text-gray-600 dark:hover:text-slate-300'
                   }`}
                 >
                   {floor.name}
@@ -688,7 +688,7 @@ export default function TableManagementPage() {
         </div>
 
         {/* Legend */}
-        <div className="px-6 py-3 bg-gray-50/50 flex flex-wrap gap-6 border-b border-gray-50">
+        <div className="px-6 py-3 bg-gray-50/50 dark:bg-slate-800/30 flex flex-wrap gap-6 border-b border-gray-50 dark:border-slate-800 transition-colors">
             {[
                 { label: 'Vacant', color: 'bg-emerald-500' },
                 { label: 'Occupied', color: 'bg-red-500' },
@@ -697,8 +697,8 @@ export default function TableManagementPage() {
                 { label: 'Cleaning', color: 'bg-gray-400' },
             ].map(item => (
                 <div key={item.label} className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${item.color} ${item.label === 'Vacant' ? 'border' : ''}`}></div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{item.label}</span>
+                    <div className={`w-3 h-3 rounded-full ${item.color} ${item.label === 'Vacant' ? 'border dark:border-slate-700' : ''} transition-colors`}></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-slate-400 transition-colors">{item.label}</span>
                 </div>
             ))}
         </div>

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
@@ -25,11 +25,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !session.propertyId) {
-      return apiError(new Error('Unauthorized or no property selected'), 401);
+    if (!session) return apiError(new Error('Unauthorized'), 401);
+    
+    const body = await request.json();
+    const propertyId = body.propertyId || await resolveAdminProperty(session, prisma);
+    
+    if (!propertyId) {
+      return apiError(new Error('No property context found. Please select a property.'), 400);
     }
 
-    const body = await request.json();
     const { name, description, isActive } = body;
 
     const category = await prisma.category.create({
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
         name,
         description,
         isActive: isActive !== undefined ? isActive : true,
-        propertyId: session.propertyId,
+        propertyId: propertyId,
       },
     });
 

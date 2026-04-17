@@ -37,15 +37,15 @@ export const BlogSection = () => {
   if (!loading && blogs.length === 0) return null;
 
   return (
-    <section className="py-24 px-6 lg:px-12 bg-white">
+    <section className="py-24 px-6 lg:px-12 bg-slate-50">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
           <div className="space-y-4">
-            <span className="text-pos-primary font-bold tracking-[0.3em] uppercase text-xs block">
-              Our Journal
+            <span className="text-pos-primary font-bold tracking-widest uppercase text-xs block">
+              Latest Insights
             </span>
-            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 tracking-tight uppercase leading-tight">
-              Latest from <span className="text-pos-primary">Manali</span>
+            <h2 className="text-4xl lg:text-5xl font-semibold text-slate-900 tracking-tight leading-tight">
+              Product Updates & <span className="text-pos-primary">News</span>
             </h2>
           </div>
           <Link 
@@ -89,12 +89,12 @@ export const BlogSection = () => {
                     <span className="flex items-center gap-1.5"><User size={14} className="text-pos-primary" /> {blog.author}</span>
                   </div>
                   
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight leading-tight group-hover:text-pos-primary transition-colors">
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-4 tracking-tight leading-tight group-hover:text-pos-primary transition-colors">
                     {blog.title}
                   </h3>
                   
-                  <p className="text-gray-500 text-sm font-medium leading-relaxed line-clamp-3 mb-8 opacity-80 italic">
-                    {blog.excerpt || 'Discover more about this wonderful story from the hills...'}
+                  <p className="text-gray-500 text-sm font-medium leading-relaxed line-clamp-3 mb-8 opacity-80">
+                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with OrderMint.'}
                   </p>
                   
                   <div className="mt-auto pt-8 border-t border-gray-100 flex items-center justify-between group-hover:border-pos-primary/20 transition-colors">

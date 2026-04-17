@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Search, Printer, Trash2, Eye, Filter } from 'lucide-react';
+import { FileText, Search, Printer, Trash2, Eye, Filter, Building2, ChevronDown } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { DataTable } from '@/components/shared/data-table';
 import { StatusButton } from '@/components/shared/status-button';
@@ -20,6 +20,8 @@ export default function InvoicesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedPropertyId, setSelectedPropertyId] = useState('all');
+  const [properties, setProperties] = useState<any[]>([]);
 
   // Modals
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -39,6 +41,7 @@ export default function InvoicesPage() {
     try {
       const data = await invoicesApi.list({
         status: statusFilter === 'ALL' ? undefined : statusFilter,
+        propertyId: selectedPropertyId === 'all' ? undefined : selectedPropertyId,
         ...filters
       });
       setInvoices(data || []);
@@ -50,9 +53,23 @@ export default function InvoicesPage() {
     }
   };
 
+  const fetchProperties = async () => {
+    try {
+      const res = await fetch('/api/admin/properties');
+      const data = await res.json();
+      if (data.success) setProperties(data.data);
+    } catch (err) {
+      console.error('Failed to fetch properties:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
   useEffect(() => {
     fetchInvoices();
-  }, [statusFilter]);
+  }, [statusFilter, selectedPropertyId]);
 
   const handleCancel = async (reason: string) => {
     if (!selectedInvoice) return;
@@ -98,6 +115,20 @@ export default function InvoicesPage() {
         </div>
       ),
       width: '250px'
+    },
+    {
+      header: 'Property',
+      cell: (row: any) => (
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
+            {row.property?.name || 'Main Branch'}
+          </span>
+          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase mt-1 transition-colors">
+            {row.property?.city || 'Default'}
+          </span>
+        </div>
+      ),
+      width: '180px'
     },
     { 
       header: 'Total', 
@@ -195,6 +226,22 @@ export default function InvoicesPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {properties.length > 0 && (
+              <div className="relative group">
+                <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-pos-primary transition-colors z-10" />
+                <select
+                  value={selectedPropertyId}
+                  onChange={(e) => setSelectedPropertyId(e.target.value)}
+                  className="pl-10 pr-8 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[180px]"
+                >
+                  <option value="all">ALL PROPERTIES</option>
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id}>{p.name.toUpperCase()}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform group-hover:translate-y-[-40%]" />
+              </div>
+            )}
             <div className="flex bg-gray-100 dark:bg-slate-800/80 p-1 rounded-xl">
               {['ALL', 'PAID', 'UNPAID', 'PARTIAL'].map((status) => (
                 <button
