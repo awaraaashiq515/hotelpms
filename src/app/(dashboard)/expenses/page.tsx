@@ -97,14 +97,14 @@ export default function ExpensesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black section-heading uppercase tracking-tight">Expenses</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest mt-0.5">
+          <h1 className="text-2xl font-bold section-heading tracking-tight text-gray-900 dark:text-white">Expenses</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 tracking-widest mt-0.5">
             All recorded expenses · Auto-linked to accounting
           </p>
         </div>
         <Link
           href="/expenses/new"
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-violet-100 transition-all"
+          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
         >
           <Plus size={16} /> New Expense
         </Link>
@@ -119,8 +119,8 @@ export default function ExpensesPage() {
           { label: 'Pages', value: data?.pages ?? 1, color: 'text-gray-500 dark:text-slate-400', bg: 'bg-white dark:bg-slate-900' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`${bg} rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-5`}>
-            <p className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">{label}</p>
-            <p className={`text-2xl font-black mt-1 ${color}`}>{value}</p>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest">{label}</p>
+            <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -129,7 +129,7 @@ export default function ExpensesPage() {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-4">
           <Filter size={14} className="text-gray-400 dark:text-slate-500" />
-          <span className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Filters</span>
+          <span className="text-[10px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest">Filters</span>
         </div>
         <div className="grid grid-cols-3 gap-4 lg:grid-cols-6">
           <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }}
@@ -158,7 +158,7 @@ export default function ExpensesPage() {
             <option value="ACTIVE">Active</option>
             <option value="VOID">Void</option>
           </select>
-          <button onClick={fetchExpenses} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl text-xs font-black text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+          <button onClick={fetchExpenses} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl text-xs font-bold text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
             <RefreshCw size={12} /> Refresh
           </button>
         </div>
@@ -169,8 +169,8 @@ export default function ExpensesPage() {
         <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center gap-3">
           <div className="p-2 bg-violet-50 dark:bg-violet-950 rounded-xl"><TrendingDown size={18} className="text-violet-500" /></div>
           <div>
-            <h3 className="font-black text-sm section-heading">Expense Records</h3>
-            <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest">{data?.total ?? 0} total · Page {data?.page ?? 1} of {data?.pages ?? 1}</p>
+            <h3 className="font-bold text-sm section-heading text-gray-900 dark:text-white">Expense Records</h3>
+            <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold tracking-widest">{data?.total ?? 0} total · Page {data?.page ?? 1} of {data?.pages ?? 1}</p>
           </div>
         </div>
 
@@ -179,7 +179,7 @@ export default function ExpensesPage() {
             <thead>
               <tr className="border-b border-gray-50 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                 {['Date', 'Exp #', 'Category', 'Paid To', 'Mode', 'Amount', 'Created By', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.12em] whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[9px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-[0.12em] whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -205,12 +205,12 @@ export default function ExpensesPage() {
                       {paymentIcon(exp.paymentMode)} {exp.paymentMode}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-sm font-black text-gray-900 dark:text-white">
+                  <td className="px-4 py-3.5 text-sm font-bold text-gray-900 dark:text-white">
                     ₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-slate-400">{exp.createdBy || '—'}</td>
                   <td className="px-4 py-3.5">
-                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
                       exp.status === 'VOID' ? 'bg-red-50 dark:bg-red-950 text-red-500' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400'
                     }`}>
                       {exp.status}
@@ -244,12 +244,12 @@ export default function ExpensesPage() {
         {(data?.pages ?? 0) > 1 && (
           <div className="p-4 border-t border-gray-50 dark:border-slate-700 flex items-center justify-between">
             <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-              className="px-4 py-2 text-xs font-black uppercase disabled:opacity-30 hover:text-violet-600 dark:text-slate-300 transition-colors">
+              className="px-4 py-2 text-xs font-bold uppercase disabled:opacity-30 hover:text-violet-600 dark:text-slate-300 transition-colors">
               ← Previous
             </button>
-            <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase">Page {page} of {data?.pages}</span>
+            <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500">Page {page} of {data?.pages}</span>
             <button disabled={page >= (data?.pages ?? 1)} onClick={() => setPage(p => p + 1)}
-              className="px-4 py-2 text-xs font-black uppercase disabled:opacity-30 hover:text-violet-600 dark:text-slate-300 transition-colors">
+              className="px-4 py-2 text-xs font-bold uppercase disabled:opacity-30 hover:text-violet-600 dark:text-slate-300 transition-colors">
               Next →
             </button>
           </div>
@@ -258,10 +258,10 @@ export default function ExpensesPage() {
 
       {/* Quick Links */}
       <div className="flex gap-3">
-        <Link href="/expenses/categories" className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
+        <Link href="/expenses/categories" className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 rounded-xl text-xs font-bold tracking-widest transition-all">
           Manage Categories →
         </Link>
-        <Link href="/vouchers" className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
+        <Link href="/vouchers" className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 rounded-xl text-xs font-bold tracking-widest transition-all">
           View Vouchers →
         </Link>
       </div>

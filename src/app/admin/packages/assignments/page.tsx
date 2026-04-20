@@ -132,13 +132,13 @@ export default function PackageAssignmentsPage() {
             <div className="h-1 w-8 bg-pos-primary rounded-full" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-pos-primary">Enterprise Registry</span>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
             Package Assignments
             <div className="p-1.5 rounded-xl bg-pos-primary/10 text-pos-primary">
               <Sparkles size={20} className="fill-current" />
             </div>
           </h1>
-          <p className="text-slate-500 text-sm mt-1 max-w-lg">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 max-w-lg">
             Track user distribution across subscription tiers and organizations.
           </p>
         </div>
@@ -153,7 +153,7 @@ export default function PackageAssignmentsPage() {
             placeholder="Search Packages, Orgs or Users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary transition-all font-medium text-sm"
+            className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary transition-all font-medium text-sm text-slate-900 dark:text-white"
           />
           {search && (
             <button 
@@ -169,7 +169,7 @@ export default function PackageAssignmentsPage() {
       {/* Package Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {data.slice(0, 4).map(pkg => (
-          <div key={pkg.id} className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
+          <div key={pkg.id} className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
             <div 
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform shadow-lg"
               style={{ background: pkg.color || '#6366f1' }}
@@ -177,8 +177,8 @@ export default function PackageAssignmentsPage() {
               <Package size={22} />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{pkg.name}</p>
-              <p className="text-xl font-black text-slate-900 line-clamp-1">{pkg.organizations.length} Organizations</p>
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{pkg.name}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white line-clamp-1">{pkg.organizations.length} Organizations</p>
             </div>
           </div>
         ))}
@@ -187,12 +187,12 @@ export default function PackageAssignmentsPage() {
       {/* Main List */}
       <div className="space-y-6">
         {filteredData.length === 0 ? (
-          <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
+          <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="text-slate-300" size={32} />
             </div>
-            <h3 className="text-lg font-black text-slate-900">No Assignments Found</h3>
-            <p className="text-slate-400 text-sm">Try widening your search or check if any packages are assigned.</p>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Assignments Found</h3>
+            <p className="text-slate-400 dark:text-slate-500 text-sm mt-2">Try widening your search or check if any packages are assigned.</p>
           </div>
         ) : (
           filteredData.map((pkg) => (
@@ -207,14 +207,14 @@ export default function PackageAssignmentsPage() {
                 >
                   {expandedPackages[pkg.id] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
                 </div>
-                <div className="flex-1 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between pr-6">
+                <div className="flex-1 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex items-center justify-between pr-6">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{pkg.name}</h2>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">{pkg.name}</h2>
                     <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                    <span className="text-xs font-bold text-slate-500">{pkg.organizations.length} Organizations Assigned</span>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{pkg.organizations.length} Organizations Assigned</span>
                   </div>
                   {pkg.description && (
-                    <p className="hidden md:block text-xs text-slate-400 italic">"{pkg.description}"</p>
+                    <p className="hidden md:block text-xs text-slate-400 dark:text-slate-500 italic">"{pkg.description}"</p>
                   )}
                 </div>
               </div>
@@ -227,10 +227,10 @@ export default function PackageAssignmentsPage() {
                     pkg.organizations.map((org) => {
                       const status = packageStatus(org.packageEndDate);
                       return (
-                        <div key={org.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden overflow-x-auto">
+                        <div key={org.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
                           {/* Org Header */}
                           <div 
-                            className="p-5 flex items-center justify-between gap-6 cursor-pointer hover:bg-slate-50/50 transition-all border-b border-slate-50"
+                            className="p-5 flex items-center justify-between gap-6 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all border-b border-slate-50 dark:border-slate-800/50"
                             onClick={() => toggleOrg(org.id)}
                           >
                             <div className="flex items-center gap-4">
@@ -238,9 +238,9 @@ export default function PackageAssignmentsPage() {
                                 <Building2 size={20} />
                               </div>
                               <div>
-                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">{org.name}</h3>
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{org.name}</h3>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${status.color}`}>
+                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${status.color} dark:bg-opacity-20`}>
                                     {status.label}
                                   </span>
                                   <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
@@ -268,7 +268,7 @@ export default function PackageAssignmentsPage() {
                           {(!expandedOrgs || expandedOrgs[org.id] !== false) && (
                             <div className="p-0 animate-in fade-in slide-in-from-top-2 duration-300">
                               <table className="w-full text-left">
-                                <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-100">
+                                <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-100 dark:border-slate-800/50">
                                   <tr>
                                     <th className="px-6 py-3 pl-20">Full Name</th>
                                     <th className="px-6 py-3">Email Address</th>
@@ -285,13 +285,13 @@ export default function PackageAssignmentsPage() {
                                     </tr>
                                   ) : (
                                     org.users.map((user) => (
-                                      <tr key={user.id} className="hover:bg-pos-primary/5 group/user transition-colors">
+                                      <tr key={user.id} className="hover:bg-pos-primary/5 dark:hover:bg-pos-primary/10 group/user transition-colors">
                                         <td className="px-6 py-4 pl-20">
                                           <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover/user:bg-pos-primary/10 flex items-center justify-center text-xs font-bold text-slate-500 group-hover/user:text-pos-primary transition-colors">
                                               {user.fullName.charAt(0)}
                                             </div>
-                                            <span className="text-sm font-bold text-slate-700">{user.fullName}</span>
+                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{user.fullName}</span>
                                           </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -323,7 +323,7 @@ export default function PackageAssignmentsPage() {
                                 </tbody>
                               </table>
                               {/* Footer action */}
-                              <div className="px-6 py-3 bg-slate-50/30 flex justify-end">
+                              <div className="px-6 py-3 bg-slate-50/30 dark:bg-slate-800/30 flex justify-end">
                                 <a 
                                   href={`/admin/users?search=${org.name}`}
                                   className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all"

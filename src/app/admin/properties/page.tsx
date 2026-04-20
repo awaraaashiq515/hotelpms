@@ -132,8 +132,8 @@ export default function GlobalPropertyManagement() {
     <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase transition-colors">Global Business Hub</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm font-medium mt-1 uppercase tracking-widest flex items-center gap-2 transition-colors">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight transition-colors">Global Business Hub</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm font-medium mt-1 tracking-wide flex items-center gap-2 transition-colors">
             <ShieldCheck size={14} style={{color:'#e8a0a0'}} />
             System-Wide Asset Management
           </p>
@@ -148,7 +148,7 @@ export default function GlobalPropertyManagement() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all shadow-sm text-slate-900 dark:text-white" style={{}} onFocus={e => e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a040'} onBlur={e => e.currentTarget.style.boxShadow=''}/>
           </div>
-          <Button onClick={() => handleOpenModal()} className="w-full sm:w-auto text-white rounded-xl py-4 px-6 font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center justify-center gap-2" style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a040'}}>
+          <Button onClick={() => handleOpenModal()} className="w-full sm:w-auto text-white rounded-xl py-4 px-6 font-bold text-[11px] tracking-widest shadow-lg flex items-center justify-center gap-2" style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a040'}}>
             <Plus size={16} />
             Register Enterprise
           </Button>
@@ -174,7 +174,7 @@ export default function GlobalPropertyManagement() {
               </div>
 
               <div className="space-y-1 mb-6">
-                <h3 className="text-xl font-black text-slate-900 dark:text-white truncate uppercase tracking-tight">{property.name}</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate tracking-tight">{property.name}</h3>
                 <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
                   <div className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500 dark:text-slate-400 font-mono">{property.uniqueCode}</div>
                   <span>•</span>
@@ -184,22 +184,22 @@ export default function GlobalPropertyManagement() {
 
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Total Users</p>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-1">Total Users</p>
                   <div className="flex items-center gap-2">
                     <Users size={14} className="text-slate-500 dark:text-slate-400" />
-                    <span className="text-sm font-black text-slate-800 dark:text-slate-200">{property._count?.users || 0}</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{property._count?.users || 0}</span>
                   </div>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-right">
-                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Region</p>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-1">Region</p>
                   <div className="flex items-center gap-2 justify-end">
-                    <span className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">{property.city || 'Standard'}</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{property.city || 'Standard'}</span>
                     <MapPin size={14} className="text-slate-500 dark:text-slate-400" />
                   </div>
                 </div>
               </div>
 
-              <Button className="w-full bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl py-6 font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 group-hover:translate-y-[-2px] transition-transform shadow-lg shadow-pos-primary/10">
+              <Button className="w-full bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl py-6 font-bold text-[12px] tracking-widest flex items-center justify-center gap-2 group-hover:translate-y-[-2px] transition-transform shadow-lg shadow-pos-primary/10">
                 System Oversight
                 <ArrowRight size={16} />
               </Button>

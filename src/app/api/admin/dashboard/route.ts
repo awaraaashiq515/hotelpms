@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       prisma.posOrder.aggregate({
         where: {
           property: filter,
-          status: 'COMPLETED'
+          status: { in: ['COMPLETED', 'SETTLED'] }
         },
         _sum: {
           grandTotal: true
@@ -79,12 +79,12 @@ export async function GET(request: NextRequest) {
               outlets: true,
               users: true,
               posOrders: {
-                where: { status: 'COMPLETED' }
+                where: { status: { in: ['COMPLETED', 'SETTLED'] } }
               }
             }
           },
           posOrders: {
-            where: { status: 'COMPLETED' },
+            where: { status: { in: ['COMPLETED', 'SETTLED'] } },
             select: { grandTotal: true }
           }
         }

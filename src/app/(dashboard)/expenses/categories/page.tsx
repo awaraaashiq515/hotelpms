@@ -12,8 +12,8 @@ interface ExpenseCategory {
   _count: { expenses: number };
 }
 
-const inputCls = 'w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-violet-400 focus:bg-white outline-none transition-all';
-const labelCls = 'block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5';
+const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-bold text-gray-900 dark:text-white focus:border-violet-400 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600';
+const labelCls = 'block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-1.5';
 
 export default function ExpenseCategoriesPage() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -96,14 +96,14 @@ export default function ExpenseCategoriesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Expense Categories</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Expense Categories</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
             Manage expense types for classification
           </p>
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-violet-100 transition-all"
+          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
         >
           <Plus size={16} /> Add Category
         </button>
@@ -118,9 +118,9 @@ export default function ExpenseCategoriesPage() {
 
       {/* Inline Form */}
       {showForm && (
-        <div className="bg-white rounded-2xl border border-violet-100 shadow-lg shadow-violet-50 p-6 space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-violet-100 dark:border-slate-800 shadow-lg shadow-violet-50 dark:shadow-none p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-black text-sm text-gray-900 uppercase tracking-tight">
+            <h3 className="font-bold text-sm text-gray-900 dark:text-white uppercase tracking-tight">
               {editId ? 'Edit Category' : 'New Category'}
             </h3>
             <button onClick={resetForm} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
@@ -145,14 +145,14 @@ export default function ExpenseCategoriesPage() {
           <div className="flex gap-3">
             <button
               onClick={resetForm}
-              className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-all"
+              className="flex-1 py-3 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400 rounded-xl text-xs font-bold tracking-widest hover:bg-gray-50 dark:hover:bg-slate-800 transition-all"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 transition-all"
+              className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold tracking-widest disabled:opacity-50 transition-all"
             >
               {saving ? 'Saving...' : editId ? 'Update' : 'Create'}
             </button>
@@ -163,24 +163,24 @@ export default function ExpenseCategoriesPage() {
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Categories', value: categories.length, color: 'text-gray-900' },
+          { label: 'Total Categories', value: categories.length, color: 'text-gray-900 dark:text-white' },
           { label: 'Active', value: active.length, color: 'text-green-600' },
-          { label: 'Inactive', value: inactive.length, color: 'text-gray-400' },
+          { label: 'Inactive', value: inactive.length, color: 'text-gray-400 dark:text-slate-500' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
-            <p className={`text-3xl font-black mt-1 ${color}`}>{value}</p>
+          <div key={label} className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-5">
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest">{label}</p>
+            <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-50 flex items-center gap-3">
-          <div className="p-2 bg-violet-50 rounded-xl"><Tag size={18} className="text-violet-500" /></div>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center gap-3">
+          <div className="p-2 bg-violet-50 dark:bg-violet-950 rounded-xl"><Tag size={18} className="text-violet-500" /></div>
           <div>
-            <h3 className="font-black text-sm text-gray-900">All Categories</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{categories.length} total</p>
+            <h3 className="font-bold text-sm text-gray-900 dark:text-white">All Categories</h3>
+            <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold tracking-widest">{categories.length} total</p>
           </div>
         </div>
         {loading ? (
@@ -194,27 +194,27 @@ export default function ExpenseCategoriesPage() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-50 bg-gray-50/50">
+              <tr className="border-b border-gray-50 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                 {['Category Name', 'Expenses Used', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.12em]">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[9px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-[0.12em]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {categories.map(cat => (
-                <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50/30 transition-colors group">
+                <tr key={cat.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-gray-50/30 dark:hover:bg-slate-800/30 transition-colors group">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full ${cat.isActive ? 'bg-green-400' : 'bg-gray-200'}`} />
-                      <span className="text-sm font-black text-gray-900">{cat.name}</span>
+                      <div className={`w-2.5 h-2.5 rounded-full ${cat.isActive ? 'bg-green-400' : 'bg-gray-200 dark:bg-slate-700'}`} />
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">{cat.name}</span>
                     </div>
                   </td>
                   <td className="px-5 py-4 text-xs font-bold text-gray-600">
                     {cat._count.expenses} expense{cat._count.expenses !== 1 ? 's' : ''}
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                      cat.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                      cat.isActive ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'
                     }`}>
                       {cat.isActive ? 'Active' : 'Inactive'}
                     </span>

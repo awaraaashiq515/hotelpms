@@ -202,11 +202,11 @@ export default function AllBillsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 transition-colors">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3 transition-colors">
             <ReceiptText className="text-pos-primary" size={32} />
             All Bills Archive
           </h1>
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1 uppercase tracking-widest transition-colors">
+          <p className="text-[11px] lg:text-xs font-medium text-gray-500 dark:text-slate-400 mt-1 tracking-widest transition-colors">
             Comprehensive overview of all generated receipts
           </p>
         </div>
@@ -225,8 +225,8 @@ export default function AllBillsPage() {
                 <card.icon size={22} />
               </div>
             </div>
-            <p className="text-3xl font-black text-gray-900 dark:text-white tracking-tight relative z-10 mb-1 transition-colors">{card.value}</p>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-slate-400 relative z-10 transition-colors">{card.label}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight relative z-10 mb-1 transition-colors">{card.value}</p>
+            <p className="text-[10px] font-bold tracking-widest text-gray-500 dark:text-slate-400 relative z-10 transition-colors uppercase">{card.label}</p>
           </div>
         ))}
       </div>
@@ -268,7 +268,7 @@ export default function AllBillsPage() {
                 <button
                   key={dp.key}
                   onClick={() => setDatePreset(dp.key)}
-                  className={`px-4 py-2 text-xs font-black rounded-xl transition-all whitespace-nowrap ${
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
                     datePreset === dp.key
                       ? 'bg-pos-primary text-white shadow-md shadow-pos-primary/20'
                       : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-700'
@@ -283,7 +283,7 @@ export default function AllBillsPage() {
                 type="date"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
-                className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-black text-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-pos-primary/20 shadow-sm transition-colors"
+                className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-bold text-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-pos-primary/20 shadow-sm transition-colors"
               />
             )}
           </div>
@@ -294,13 +294,13 @@ export default function AllBillsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-800 transition-colors">
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500 w-12"></th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500">Bill Details</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500">Property</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500">Order Info</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500">Staff/Table</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500 text-right">Totals</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500 text-right w-24">Actions</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 w-12"></th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500">Bill Details</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500">Property</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500">Order Info</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500">Staff/Table</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Totals</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
@@ -323,7 +323,7 @@ export default function AllBillsPage() {
                         <ReceiptText size={48} className="text-gray-300 dark:text-slate-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-black uppercase tracking-widest text-gray-400 dark:text-slate-500">No bills found</p>
+                        <p className="text-sm font-bold tracking-widest text-gray-400 dark:text-slate-500 uppercase">No bills found</p>
                         <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 mt-1">Adjust your filters to see results</p>
                       </div>
                     </div>
@@ -349,7 +349,7 @@ export default function AllBillsPage() {
                             <Hash size={16} />
                           </div>
                           <div>
-                            <p className="text-sm font-black text-gray-900 dark:text-white tracking-tight transition-colors">{bill.orderNo}</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white tracking-tight transition-colors">{bill.orderNo}</p>
                             <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest transition-colors">
                               <Clock size={10} />
                               {new Date(bill.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
@@ -359,14 +359,14 @@ export default function AllBillsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit transition-colors">
+                          <span className="text-[10px] font-bold text-pos-primary tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit transition-colors uppercase">
                             {bill.property?.name || 'Main Branch'}
                           </span>
                           <span className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase mt-1 transition-colors">{bill.property?.city}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
                           bill.orderType === 'DINE_IN' ? 'bg-pos-primary/10 text-pos-primary border border-pos-primary/20'
                             : bill.orderType === 'DELIVERY' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-800'
                             : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800'
@@ -378,7 +378,7 @@ export default function AllBillsPage() {
                       <td className="px-6 py-4">
                         <div className="space-y-1">
                           {bill.tableNo && (
-                            <p className="text-xs font-black text-gray-800 dark:text-slate-200 transition-colors">Table: {bill.tableNo}</p>
+                            <p className="text-xs font-bold text-gray-800 dark:text-slate-200 transition-colors">Table: {bill.tableNo}</p>
                           )}
                           <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase transition-colors">
                             {bill.staffMember ? (
@@ -393,7 +393,7 @@ export default function AllBillsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex flex-col items-end">
-                          <span className="text-lg font-black text-gray-900 dark:text-white tracking-tight transition-colors">₹{bill.grandTotal.toFixed(2)}</span>
+                          <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight transition-colors">₹{bill.grandTotal.toFixed(2)}</span>
                           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mt-0.5 transition-colors">
                             Tax: ₹{bill.taxAmount.toFixed(2)}
                           </span>
@@ -415,7 +415,7 @@ export default function AllBillsPage() {
                       <tr className="bg-gray-50/50 dark:bg-slate-800/20 transition-colors">
                         <td colSpan={6} className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 shadow-inner">
                           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 ml-14 max-w-3xl shadow-sm transition-colors">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500 mb-3 flex items-center gap-2">
+                            <h4 className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-slate-500 mb-3 flex items-center gap-2 uppercase">
                               <Package size={12} /> Order Items
                             </h4>
                             <div className="space-y-2">
@@ -427,7 +427,7 @@ export default function AllBillsPage() {
                                   </div>
                                   <div className="flex items-center gap-8">
                                     <span className="text-gray-500 dark:text-slate-400 font-medium">{item.quantity} x ₹{item.unitPrice.toFixed(2)}</span>
-                                    <span className="font-black text-gray-900 dark:text-white w-16 text-right">₹{item.totalAmount.toFixed(2)}</span>
+                                    <span className="font-bold text-gray-900 dark:text-white w-16 text-right">₹{item.totalAmount.toFixed(2)}</span>
                                   </div>
                                 </div>
                               ))}
@@ -435,7 +435,7 @@ export default function AllBillsPage() {
                             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800 flex justify-end transition-colors">
                               <button
                                 onClick={() => setPrintingBill(bill)}
-                                className="px-4 py-2 bg-pos-primary/10 text-pos-primary hover:bg-pos-primary hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2"
+                                className="px-4 py-2 bg-pos-primary/10 text-pos-primary hover:bg-pos-primary hover:text-white rounded-xl text-xs font-bold tracking-wider transition-all flex items-center gap-2 uppercase"
                               >
                                 <Printer size={14} /> Full Print
                               </button>
@@ -458,7 +458,7 @@ export default function AllBillsPage() {
                         <Calculator size={18} className="text-white" />
                       </div>
                       <div>
-                        <p className="text-sm font-black text-white uppercase tracking-widest">Consolidated Totals</p>
+                        <p className="text-sm font-bold text-white tracking-widest uppercase">Consolidated Totals</p>
                         <p className="text-[11px] font-medium text-gray-400">Total {filteredBills.length} matched bills</p>
                       </div>
                     </div>
@@ -466,7 +466,7 @@ export default function AllBillsPage() {
                   <td colSpan={2} className="px-6 py-5 text-right">
                     <div className="flex flex-col items-end">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-pos-primary/70 mb-1">Total Found Revenue</p>
-                      <span className="text-2xl font-black text-white">₹{filteredTotal.toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-white">₹{filteredTotal.toFixed(2)}</span>
                     </div>
                   </td>
                 </tr>

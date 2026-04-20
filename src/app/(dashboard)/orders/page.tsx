@@ -188,45 +188,45 @@ export default function OrdersPage() {
         {summaryCards.map((card) => (
           <div
             key={card.label}
-            className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-all group"
           >
             <div className="flex items-center justify-between mb-3">
-              <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center ${card.text} group-hover:scale-110 transition-transform`}>
+              <div className={`w-10 h-10 rounded-xl ${card.bg} dark:bg-slate-800 flex items-center justify-center ${card.text} group-hover:scale-110 transition-transform`}>
                 <card.icon size={18} />
               </div>
             </div>
-            <p className="text-2xl font-black text-gray-900 tracking-tight">{card.value}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-1">{card.label}</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">{card.value}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mt-1">{card.label}</p>
           </div>
         ))}
       </div>
 
       {/* ── Filters Bar ────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-50 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/30 flex flex-wrap items-center justify-between gap-3">
           {/* Search */}
           <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={16} />
             <input
               type="text"
               placeholder="Search by order no, table, staff..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium outline-none"
+              className="pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium text-gray-900 dark:text-white outline-none"
             />
           </div>
 
           {/* Date Presets */}
           <div className="flex items-center gap-2">
-            <div className="flex bg-gray-100 p-1 rounded-xl">
+            <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
               {datePresets.map((dp) => (
                 <button
                   key={dp.key}
                   onClick={() => setDatePreset(dp.key)}
-                  className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
                     datePreset === dp.key
-                    ? 'bg-white text-pos-primary shadow-sm'
-                      : 'text-gray-400 hover:text-gray-600'
+                    ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                      : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300'
                   }`}
                 >
                   {dp.label}
@@ -238,7 +238,7 @@ export default function OrdersPage() {
                 type="date"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-xs font-medium bg-white outline-none focus:ring-2 focus:ring-pos-primary/20"
+                className="px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-medium bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-pos-primary/20"
               />
             )}
           </div>
@@ -248,17 +248,17 @@ export default function OrdersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-100">
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 w-8"></th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">Bill No</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">Date & Time</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">Type</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">Table</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">Items</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">Staff</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 text-right">Subtotal</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 text-right">Tax</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 text-right">Grand Total</th>
+              <tr className="bg-gray-50/80 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-800">
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 w-8"></th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Bill No</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Date & Time</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Type</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Table</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Items</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Staff</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 text-right">Subtotal</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 text-right">Tax</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400 text-right">Grand Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -267,7 +267,7 @@ export default function OrdersPage() {
                   <tr key={i} className="animate-pulse">
                     {Array.from({ length: 10 }).map((_, j) => (
                       <td key={j} className="px-5 py-5">
-                        <div className="h-4 bg-gray-100 rounded w-full"></div>
+                        <div className="h-4 bg-gray-100 dark:bg-slate-800 rounded w-full"></div>
                       </td>
                     ))}
                   </tr>
@@ -275,10 +275,10 @@ export default function OrdersPage() {
               ) : filteredBills.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center gap-3 text-gray-300">
+                    <div className="flex flex-col items-center gap-3 text-gray-300 dark:text-slate-700">
                       <ReceiptText size={48} />
-                      <p className="text-xs font-black uppercase tracking-widest">No bills found</p>
-                      <p className="text-[10px] font-medium text-gray-400">Try changing the date filter or search term</p>
+                      <p className="text-xs font-bold uppercase tracking-widest">No bills found</p>
+                      <p className="text-[10px] font-medium text-gray-400 dark:text-slate-600">Try changing the date filter or search term</p>
                     </div>
                   </td>
                 </tr>
@@ -287,11 +287,11 @@ export default function OrdersPage() {
                   <React.Fragment key={bill.id}>
                     {/* Main Row */}
                     <tr
-                      className="hover:bg-pos-primary/5 transition-colors cursor-pointer group"
+                      className="hover:bg-pos-primary/5 dark:hover:bg-pos-primary/10 transition-colors cursor-pointer group"
                       onClick={() => setExpandedId(expandedId === bill.id ? null : bill.id)}
                     >
                       <td className="px-5 py-4">
-                        <button className="w-6 h-6 rounded-lg bg-gray-100 group-hover:bg-pos-primary/10 flex items-center justify-center text-gray-400 group-hover:text-pos-primary transition-all">
+                        <button className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-slate-800 group-hover:bg-pos-primary/10 flex items-center justify-center text-gray-400 group-hover:text-pos-primary transition-all">
                           {expandedId === bill.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </button>
                       </td>
@@ -300,34 +300,34 @@ export default function OrdersPage() {
                           <div className="w-8 h-8 rounded-lg bg-pos-primary/10 flex items-center justify-center text-pos-primary">
                             <Hash size={13} />
                           </div>
-                          <span className="text-xs font-black text-gray-900 uppercase tracking-tight">{bill.orderNo}</span>
+                          <span className="text-xs font-bold text-gray-900 dark:text-white tracking-tight">{bill.orderNo}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-gray-800">
+                          <span className="text-xs font-bold text-gray-800 dark:text-slate-200">
                             {new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
-                          <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-0.5">
+                          <span className="text-[10px] text-gray-400 dark:text-slate-500 font-medium flex items-center gap-1 mt-0.5">
                             <Clock size={9} />
                             {new Date(bill.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md ${
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
                           bill.orderType === 'DINE_IN' ? 'bg-pos-primary/10 text-pos-primary'
-                            : bill.orderType === 'DELIVERY' ? 'bg-orange-50 text-orange-600'
-                            : 'bg-emerald-50 text-emerald-600'
+                            : bill.orderType === 'DELIVERY' ? 'bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400'
+                            : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400'
                         }`}>
                           {bill.orderType.replace('_', ' ')}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-xs font-bold text-gray-700">{bill.tableNo || '—'}</span>
+                        <span className="text-xs font-bold text-gray-700 dark:text-slate-300">{bill.tableNo || '—'}</span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-xs font-black text-gray-800 bg-gray-100 px-2 py-1 rounded-md">
+                        <span className="text-xs font-bold text-gray-800 dark:text-slate-200 bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded-md">
                           {bill.items?.length || 0}
                         </span>
                       </td>
@@ -335,27 +335,27 @@ export default function OrdersPage() {
                         <div className="flex items-center gap-1.5">
                           {bill.staffMember ? (
                             <>
-                              <User size={11} className="text-gray-400" />
-                              <span className="text-xs font-bold text-gray-600 capitalize">{bill.staffMember.name}</span>
+                              <User size={11} className="text-gray-400 dark:text-slate-500" />
+                              <span className="text-xs font-bold text-gray-600 dark:text-slate-400 capitalize">{bill.staffMember.name}</span>
                             </>
                           ) : bill.driver ? (
                             <>
-                              <Truck size={11} className="text-gray-400" />
-                              <span className="text-xs font-bold text-gray-600 capitalize">{bill.driver.name}</span>
+                              <Truck size={11} className="text-gray-400 dark:text-slate-500" />
+                              <span className="text-xs font-bold text-gray-600 dark:text-slate-400 capitalize">{bill.driver.name}</span>
                             </>
                           ) : (
-                            <span className="text-xs text-gray-300 font-medium">—</span>
+                            <span className="text-xs text-gray-300 dark:text-slate-700 font-medium">—</span>
                           )}
                         </div>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <span className="text-xs font-bold text-gray-700">₹{bill.subtotal.toFixed(2)}</span>
+                        <span className="text-xs font-bold text-gray-700 dark:text-slate-300">₹{bill.subtotal.toFixed(2)}</span>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <span className="text-xs font-bold text-amber-600">₹{bill.taxAmount.toFixed(2)}</span>
+                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400">₹{bill.taxAmount.toFixed(2)}</span>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <span className="text-sm font-black text-gray-900">₹{bill.grandTotal.toFixed(2)}</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">₹{bill.grandTotal.toFixed(2)}</span>
                       </td>
                     </tr>
 
@@ -363,31 +363,31 @@ export default function OrdersPage() {
                     {expandedId === bill.id && (
                       <tr className="bg-gray-50/60">
                         <td colSpan={10} className="px-8 py-4">
-                          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-4 py-2.5 bg-pos-primary/5 border-b border-pos-primary/10 flex items-center gap-2">
+                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
+                            <div className="px-4 py-2.5 bg-pos-primary/5 dark:bg-pos-primary/10 border-b border-pos-primary/10 dark:border-pos-primary/20 flex items-center gap-2">
                               <Package size={12} className="text-pos-primary" />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-pos-primary">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-pos-primary">
                                 Order Items — {bill.orderNo}
                               </span>
                             </div>
                             <table className="w-full">
                               <thead>
-                                <tr className="border-b border-gray-100">
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 text-left">#</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 text-left">Item Name</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 text-center">Qty</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 text-right">Rate</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 text-right">Amount</th>
+                                <tr className="border-b border-gray-100 dark:border-slate-800">
+                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-left">#</th>
+                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-left">Item Name</th>
+                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-center">Qty</th>
+                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Rate</th>
+                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Amount</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-50">
+                              <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
                                 {bill.items?.map((item, idx) => (
-                                  <tr key={item.id} className="hover:bg-gray-50/50">
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-400">{idx + 1}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-800">{item.product?.name || 'Unknown'}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-black text-gray-900 text-center">{item.quantity}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-600 text-right">₹{item.unitPrice.toFixed(2)}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-black text-gray-900 text-right">₹{item.totalAmount.toFixed(2)}</td>
+                                  <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
+                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-400 dark:text-slate-500">{idx + 1}</td>
+                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-800 dark:text-slate-200">{item.product?.name || 'Unknown'}</td>
+                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-900 dark:text-white text-center">{item.quantity}</td>
+                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-600 dark:text-slate-400 text-right">₹{item.unitPrice.toFixed(2)}</td>
+                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-900 dark:text-white text-right">₹{item.totalAmount.toFixed(2)}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -404,14 +404,14 @@ export default function OrdersPage() {
             {/* ── Grand Total Footer ──────────────────────────── */}
             {!loading && filteredBills.length > 0 && (
               <tfoot>
-                <tr className="bg-gray-900 text-white">
+                <tr className="bg-gray-900 dark:bg-black text-white">
                   <td colSpan={7} className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
                         <Calculator size={14} />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Grand Total</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Grand Total</p>
                         <p className="text-[10px] font-medium text-gray-500">{filteredBills.length} bill(s)</p>
                       </div>
                     </div>
@@ -427,7 +427,7 @@ export default function OrdersPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <span className="text-lg font-black text-white">
+                    <span className="text-lg font-bold text-white">
                       ₹{filteredTotal.toFixed(2)}
                     </span>
                   </td>

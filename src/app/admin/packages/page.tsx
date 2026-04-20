@@ -800,9 +800,9 @@ export default function PackagesPage() {
             <div className="h-1 w-8 rounded-full" style={{backgroundColor:'#e8a0a0'}} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{color:'#e8a0a0'}}>Subscription Control</span>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Packages
-            <span className="ml-3 text-sm font-bold bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-full uppercase tracking-widest border border-rose-100 dark:border-rose-800" style={{color:'#e8a0a0'}}>
+            <span className="ml-3 text-xs font-bold bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-full tracking-widest border border-rose-100 dark:border-rose-800" style={{color:'#e8a0a0'}}>
               {packages.length} total
             </span>
           </h1>
@@ -844,8 +844,8 @@ export default function PackagesPage() {
               <s.icon size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{s.value}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{s.value}</p>
+              <p className="text-[10px] font-bold text-slate-400 tracking-wider">{s.label}</p>
             </div>
           </div>
         ))}

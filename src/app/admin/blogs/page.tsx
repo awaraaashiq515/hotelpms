@@ -105,7 +105,7 @@ export default function BlogAdminPage() {
     <div className="space-y-8 pb-24">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight transition-colors">Blog Management</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight transition-colors">Blog Management</h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium transition-colors">Create and manage professional blog posts for your website.</p>
         </div>
         <button
@@ -113,7 +113,7 @@ export default function BlogAdminPage() {
             setCurrentBlog({ title: '', slug: '', excerpt: '', content: '', imageUrl: '', author: 'OrderMint Solutions', category: 'Local Attractions', isActive: true });
             setShowModal(true);
           }}
-          className="bg-pos-primary text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-pos-primary/20"
+          className="bg-pos-primary text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-pos-primary/20"
         >
           <Plus size={18} />
           New Blog Post
@@ -173,7 +173,7 @@ export default function BlogAdminPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="bg-white dark:bg-slate-900 rounded-[40px] w-full max-w-4xl p-10 animate-in zoom-in-95 duration-300 shadow-2xl overflow-y-auto max-h-[90vh] border border-slate-100 dark:border-slate-800">
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-3xl font-bold uppercase tracking-tighter dark:text-white">{currentBlog.id ? 'Edit' : 'Create'} Blog Post</h2>
+              <h2 className="text-xl font-bold dark:text-white">{currentBlog.id ? 'Edit' : 'Create'} Blog Post</h2>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"><X size={24} /></button>
             </div>
             
@@ -284,7 +284,7 @@ export default function BlogAdminPage() {
               <button 
                 onClick={handleSave} 
                 disabled={modalLoading}
-                className="px-10 py-3 rounded-full bg-pos-primary text-white font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-pos-primary/20"
+                className="px-10 py-3 rounded-full bg-pos-primary text-white font-bold text-sm hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-pos-primary/20"
               >
                 {modalLoading ? 'Processing...' : (currentBlog.id ? 'Save Changes' : 'Publish Blog')}
               </button>

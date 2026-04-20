@@ -65,13 +65,13 @@ export default function NotificationSettingsPage() {
     <div className="space-y-8 pb-24">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Global Service Settings</h1>
-          <p className="text-slate-500">Global SMS, WhatsApp and AI API Settings</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Global Service Settings</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-1">Global SMS, WhatsApp and AI API Settings</p>
         </div>
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="bg-pos-primary text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"
+          className="bg-pos-primary text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-black transition-all flex items-center gap-2"
         >
           <Save size={18} />
           {loading ? 'Saving...' : 'Save Settings'}
@@ -81,19 +81,19 @@ export default function NotificationSettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Provider Config */}
-        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
             <Settings2 size={24} className="text-pos-primary" />
-            <h2 className="text-xl font-bold text-slate-900">API Provider Configuration</h2>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">API Provider Configuration</h2>
           </div>
 
           <div className="space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">SMS Provider</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">SMS Provider</label>
               <select
                 value={settings.SMS_PROVIDER}
                 onChange={e => setSettings({ ...settings, SMS_PROVIDER: e.target.value })}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all dark:text-white"
               >
                 <option value="FAST2SMS">Fast2SMS (Recommended for India)</option>
                 <option value="TWILIO">Twilio (Global SMS)</option>
@@ -101,7 +101,7 @@ export default function NotificationSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex flex-row items-center gap-2">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 flex flex-row items-center gap-2">
                 <Key size={14} /> API Key / Authorization Token
               </label>
               <input
@@ -114,14 +114,14 @@ export default function NotificationSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex flex-row items-center gap-2">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 flex flex-row items-center gap-2">
                 <Phone size={14} /> Sender ID (Approved by DLT if applicable)
               </label>
               <input
                 type="text"
                 value={settings.SMS_SENDER_ID}
                 onChange={e => setSettings({ ...settings, SMS_SENDER_ID: e.target.value })}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all font-mono text-sm uppercase"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all font-mono text-sm uppercase dark:text-white"
                 placeholder="e.g. TXTIND or OrderMint"
                 maxLength={6}
               />
@@ -130,49 +130,49 @@ export default function NotificationSettingsPage() {
         </div>
 
         {/* Message Templates */}
-        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
             <MessageSquare size={24} className="text-pos-primary" />
-            <h2 className="text-xl font-bold text-slate-900">SMS Templates</h2>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">SMS Templates</h2>
           </div>
 
-          <p className="text-xs text-slate-500 bg-slate-50 p-4 rounded-xl leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl leading-relaxed">
             Use variables like <strong>{'{NAME}'}</strong>, <strong>{'{AMOUNT}'}</strong>, <strong>{'{HOTEL}'}</strong>, <strong>{'{ORDER_NO}'}</strong> inside your templates. They will be auto-replaced when sending.
           </p>
 
           <div className="space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
                 Kitchen Order (KOT) Template
               </label>
               <textarea
                 value={settings.TEMPLATE_KOT}
                 onChange={e => setSettings({ ...settings, TEMPLATE_KOT: e.target.value })}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all h-24 text-sm text-slate-700 leading-relaxed"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all h-24 text-sm text-slate-700 dark:text-slate-300 leading-relaxed"
                 placeholder="ORDER {ORDER_NO} | TABLE {TABLE_NO} | ITEMS: {ITEMS}"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
                 POS Bill generated / Paid Template
               </label>
               <textarea
                 value={settings.TEMPLATE_BILL_PAID}
                 onChange={e => setSettings({ ...settings, TEMPLATE_BILL_PAID: e.target.value })}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all h-24 text-sm text-slate-700 leading-relaxed"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all h-24 text-sm text-slate-700 dark:text-slate-300 leading-relaxed"
                 placeholder="Dear {NAME}, your bill for Rs.{AMOUNT} is paid. Order Ref: {ORDER_NO}. Thank you for visiting {HOTEL}."
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
                 Welcome / Check-In Template
               </label>
               <textarea
                 value={settings.TEMPLATE_WELCOME}
                 onChange={e => setSettings({ ...settings, TEMPLATE_WELCOME: e.target.value })}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all h-24 text-sm text-slate-700 leading-relaxed"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all h-24 text-sm text-slate-700 dark:text-slate-300 leading-relaxed"
                 placeholder="Welcome to {HOTEL}, {NAME}! We are pleased to host you. Have a great stay!"
               />
             </div>
@@ -180,28 +180,28 @@ export default function NotificationSettingsPage() {
         </div>
 
         {/* AI Configurations */}
-        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 space-y-6 lg:col-span-2">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 space-y-6 lg:col-span-2">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
             <svg className="w-6 h-6 text-pos-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
             </svg>
-            <h2 className="text-xl font-bold text-slate-900">AI & Machine Learning Configurations</h2>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">AI & Machine Learning Configurations</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="space-y-4">
-              <p className="text-sm text-slate-500 leading-relaxed">
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                 Configure your Mint AI credentials here. This enables the <strong>AI Menu Scan</strong> feature in the Products dashboard.
               </p>
-              <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
-                <p className="text-xs text-amber-700 leading-relaxed font-medium">
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 p-4 rounded-2xl">
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
                   <strong>Tip:</strong> You can get a free API key from the <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold">Google AI Studio</a>.
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex flex-row items-center gap-2">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 flex flex-row items-center gap-2">
                 <Key size={14} /> Mint AI API Key
               </label>
               <input

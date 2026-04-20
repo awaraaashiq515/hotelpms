@@ -82,13 +82,13 @@ export default function WebsiteSettingsPage() {
     <div className="space-y-8 pb-24">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Website Settings</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Website Settings</h1>
           <p className="text-slate-500 dark:text-slate-400">Manage your website logo, booking behavior, and email delivery settings.</p>
         </div>
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="bg-pos-primary text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"
+          className="bg-pos-primary text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-black transition-all flex items-center gap-2"
         >
           <Save size={18} />
           {loading ? 'Saving...' : 'Save Changes'}
@@ -101,21 +101,21 @@ export default function WebsiteSettingsPage() {
           <h2 className="font-bold text-lg mb-1 text-pos-primary dark:text-pos-primary-light">SMS & WhatsApp Configurations</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Manage API Keys and templates for automated bill printing notifications.</p>
         </div>
-        <a href="/admin/settings/notifications" className="text-white px-6 py-2 rounded-full font-bold uppercase tracking-widest text-xs transition-all shadow-md shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark">
+        <a href="/admin/settings/notifications" className="text-white px-6 py-2 rounded-full font-bold text-xs transition-all shadow-md shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark">
           Go to Notification Settings →
         </a>
       </div>
 
       {/* Logo Upload Section */}
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white border-b dark:border-slate-800 pb-4 mb-6">Website Logo</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white border-b dark:border-slate-800 pb-4 mb-6">Website Logo</h2>
         <div className="flex items-center gap-8">
           <div className="relative w-40 h-40 bg-slate-50 dark:bg-slate-800 rounded-[32px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
             {settings.logoUrl ? (
               <img src={settings.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-4" />
             ) : (
               <div className="text-center p-4">
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-tight">No Logo<br/>Uploaded</p>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest leading-tight">No Logo<br/>Uploaded</p>
               </div>
             )}
             {loading && (
@@ -171,7 +171,7 @@ export default function WebsiteSettingsPage() {
               />
               <label
                 htmlFor="logo-upload"
-                className="bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-pos-primary transition-all"
+                className="bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-bold cursor-pointer hover:bg-pos-primary transition-all"
               >
                 Upload New Logo
               </label>
@@ -189,7 +189,7 @@ export default function WebsiteSettingsPage() {
                     
                     alert('Logo removed and saved successfully!');
                   }}
-                  className="text-red-500 text-xs font-bold uppercase tracking-widest hover:underline"
+                  className="text-red-500 text-xs font-bold hover:underline"
                 >
                   Remove
                 </button>
@@ -206,15 +206,15 @@ export default function WebsiteSettingsPage() {
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Booking Behavior</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Booking Behavior</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Configure where the "Book Now" button takes your guests.</p>
             </div>
             <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-3xl">
               <div className="flex flex-col items-end mr-4">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${settings.bookingRedirectToContact ? 'text-pos-primary' : 'text-slate-400 dark:text-slate-500'}`}>
+                <span className={`text-[10px] font-bold tracking-widest ${settings.bookingRedirectToContact ? 'text-pos-primary' : 'text-slate-400 dark:text-slate-500'}`}>
                   {settings.bookingRedirectToContact ? 'Redirect to Contact' : 'Booking System'}
                 </span>
-                <span className="text-[8px] text-slate-400 dark:text-slate-500 uppercase font-medium">Current Setting</span>
+                <span className="text-[8px] text-slate-400 dark:text-slate-500 font-medium">Current Setting</span>
               </div>
               <button 
                 onClick={() => setSettings({ ...settings, bookingRedirectToContact: !settings.bookingRedirectToContact })}
@@ -226,11 +226,11 @@ export default function WebsiteSettingsPage() {
           </div>
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className={`p-6 rounded-[30px] border-2 transition-all ${settings.bookingRedirectToContact ? 'border-pos-primary bg-pos-primary/5' : 'border-slate-50 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 opacity-40'}`}>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-2 dark:text-slate-300">Option A: Simple Redirect (ON)</h4>
+              <h4 className="text-xs font-bold tracking-widest mb-2 dark:text-slate-300">Option A: Simple Redirect (ON)</h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Guests will be taken to your Contact Page to make inquiries. Best for personalized service.</p>
             </div>
             <div className={`p-6 rounded-[30px] border-2 transition-all ${!settings.bookingRedirectToContact ? 'border-pos-primary bg-pos-primary/5' : 'border-slate-50 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 opacity-40'}`}>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-2 dark:text-slate-300">Option B: Booking System (OFF)</h4>
+              <h4 className="text-xs font-bold tracking-widest mb-2 dark:text-slate-300">Option B: Booking System (OFF)</h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Directs guests to the internal booking engine. Best for automated reservations.</p>
             </div>
           </div>
@@ -239,13 +239,13 @@ export default function WebsiteSettingsPage() {
         {/* Email / SMTP Configuration */}
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 lg:col-span-2">
           <div className="flex items-center justify-between border-b dark:border-slate-800 pb-4 mb-6">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Email Delivery (SMTP) Settings</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Email Delivery (SMTP) Settings</h2>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Configure your Hostinger or custom email settings here so the contact form can send emails directly to your inbox.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">SMTP Host</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">SMTP Host</label>
               <input
                 type="text"
                 value={settings.smtpHost}
@@ -255,7 +255,7 @@ export default function WebsiteSettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">SMTP Port</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">SMTP Port</label>
               <input
                 type="text"
                 value={settings.smtpPort}
@@ -265,7 +265,7 @@ export default function WebsiteSettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">SMTP Email (Username)</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">SMTP Email (Username)</label>
               <input
                 type="email"
                 value={settings.smtpEmail}
@@ -275,7 +275,7 @@ export default function WebsiteSettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">SMTP Password</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">SMTP Password</label>
               <input
                 type="password"
                 value={settings.smtpPassword}
@@ -285,7 +285,7 @@ export default function WebsiteSettingsPage() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Receiver Email (Where you want messages sent)</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Receiver Email (Where you want messages sent)</label>
               <input
                 type="email"
                 value={settings.contactReceiverEmail}

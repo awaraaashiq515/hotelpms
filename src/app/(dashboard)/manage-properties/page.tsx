@@ -131,8 +131,8 @@ export default function PropertiesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">Property Management</h1>
-          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">Manage branches and POS locations.</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white transition-colors">Property Management</h1>
+          <p className="text-[11px] lg:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 transition-colors">Manage branches and POS locations.</p>
         </div>
         <Button onClick={() => handleOpenModal()} icon={<Plus size={16} />} className="rounded-xl shadow-lg shadow-pos-primary/20">
           Add New Branch
@@ -152,12 +152,12 @@ export default function PropertiesPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-900/50 border-b-2 border-slate-100 dark:border-slate-800">
-                    <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">Branch Name</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">Code</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">Type</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">Location</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">Users</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em] text-right">Actions</th>
+                    <th className="px-6 py-5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-widest">Branch Name</th>
+                    <th className="px-6 py-5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-widest">Code</th>
+                    <th className="px-6 py-5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-widest">Type</th>
+                    <th className="px-6 py-5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-widest">Location</th>
+                    <th className="px-6 py-5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-widest">Users</th>
+                    <th className="px-6 py-5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -172,12 +172,12 @@ export default function PropertiesPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-mono text-[10px] font-black text-pos-primary dark:text-pos-primary/80 bg-pos-primary/10 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/20 dark:border-pos-primary/30 uppercase tracking-wider">
+                        <span className="font-mono text-[10px] font-bold text-pos-primary dark:text-pos-primary/80 bg-pos-primary/10 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/20 dark:border-pos-primary/30 tracking-wider">
                           {prop.code}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                           {prop.type || 'RESTAURANT'}
                         </span>
                       </td>
@@ -192,7 +192,7 @@ export default function PropertiesPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleSwitchProperty(prop.id, prop.name)} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md">Enter</button>
+                          <button onClick={() => handleSwitchProperty(prop.id, prop.name)} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] font-bold tracking-widest hover:bg-emerald-600 transition-all shadow-md">Enter</button>
                           <button onClick={() => handleOpenModal(prop)} className="p-2 text-slate-400 hover:text-pos-primary transition-colors"><Edit2 size={16} /></button>
                           <button onClick={() => handleDelete(prop.id, prop.name)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={16} /></button>
                         </div>

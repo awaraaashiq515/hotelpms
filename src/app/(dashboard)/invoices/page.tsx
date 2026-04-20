@@ -123,7 +123,7 @@ export default function InvoicesPage() {
           <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-slate-800/50 flex items-center justify-center text-gray-400 group-hover:text-pos-primary transition-colors">
             <ReceiptText size={16} />
           </div>
-          <span className="text-sm font-black text-gray-900 dark:text-white group-hover:text-pos-primary transition-colors tracking-tighter uppercase">{row.invoiceNo}</span>
+          <span className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-pos-primary transition-colors tracking-tight uppercase">{row.invoiceNo}</span>
         </div>
       ),
       width: '250px'
@@ -132,7 +132,7 @@ export default function InvoicesPage() {
       header: 'Customer', 
       cell: (row: Invoice) => (
         <div className="flex flex-col">
-          <span className="text-sm font-black text-gray-900 dark:text-white capitalize">
+          <span className="text-sm font-bold text-gray-900 dark:text-white capitalize">
             {row.guest ? `${row.guest.firstName} ${row.guest.lastName || ''}` : (
               <span className="text-indigo-600 dark:text-indigo-400">
                 {row.tableNo ? `Table ${row.tableNo}` : (row.orderType || 'Walk-In Guest')}
@@ -150,7 +150,7 @@ export default function InvoicesPage() {
       header: 'Property',
       cell: (row: any) => (
         <div className="flex flex-col">
-          <span className="text-[10px] font-black text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
+          <span className="text-[10px] font-bold text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
             {row.property?.name || 'Main Branch'}
           </span>
           <span className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase mt-1 transition-colors">
@@ -163,7 +163,7 @@ export default function InvoicesPage() {
     { 
       header: 'Total', 
       cell: (row: Invoice) => (
-        <span className="text-sm font-black text-gray-900 dark:text-white">₹{row.totalAmount.toFixed(2)}</span>
+        <span className="text-sm font-bold text-gray-900 dark:text-white">₹{row.totalAmount.toFixed(2)}</span>
       ),
       width: '100px'
     },
@@ -199,7 +199,7 @@ export default function InvoicesPage() {
                  showToast('Update failed', 'error');
                }
              }}
-             className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all ${
+             className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all ${
                row.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-600 focus:ring-emerald-200' : 
                row.paymentStatus === 'UNPAID' ? 'bg-orange-50 text-orange-600 focus:ring-orange-200' :
                row.paymentStatus === 'REFUNDED' ? 'bg-amber-50 text-amber-600 focus:ring-amber-200' :
@@ -213,12 +213,12 @@ export default function InvoicesPage() {
            </select>
            
            {row.invoiceStatus === 'CANCELLED' && (
-             <span className="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-full font-black uppercase tracking-widest">Cancelled</span>
+             <span className="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-full font-bold uppercase tracking-widest">Cancelled</span>
            )}
            {row.rating && (
              <div className="flex items-center gap-1 ml-2 text-amber-400">
                <Star size={10} fill="currentColor" />
-               <span className="text-[10px] font-black">{row.rating}</span>
+               <span className="text-[10px] font-bold">{row.rating}</span>
              </div>
            )}
         </div>
@@ -228,7 +228,7 @@ export default function InvoicesPage() {
     { 
       header: 'Date', 
       cell: (row: Invoice) => (
-        <span className="text-xs text-gray-500 font-medium">
+        <span className="text-xs text-gray-500 dark:text-slate-400 font-bold">
           {new Date(row.invoiceDate).toLocaleDateString()}
         </span>
       ),
@@ -306,7 +306,7 @@ export default function InvoicesPage() {
                 <select
                   value={selectedPropertyId}
                   onChange={(e) => setSelectedPropertyId(e.target.value)}
-                  className="pl-10 pr-8 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[180px]"
+                  className="pl-10 pr-8 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[180px]"
                 >
                   <option value="all">ALL PROPERTIES</option>
                   {properties.map(p => (
@@ -321,7 +321,7 @@ export default function InvoicesPage() {
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
-                  className={`px-4 py-1.5 text-[10px] font-black rounded-lg transition-all ${
+                  className={`px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
                     statusFilter === status
                       ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
                       : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300'

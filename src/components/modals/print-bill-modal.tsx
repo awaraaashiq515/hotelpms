@@ -10,9 +10,18 @@ export interface PrintBillModalProps {
 }
 
 export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose }) => {
-  const getSubtotal = () => bill.subtotal || bill.items?.reduce((s: number, i: any) => s + (i.totalAmount || (i.quantity * i.unitPrice)), 0) || 0;
-  const getTax = () => bill.taxAmount || (getSubtotal() * 0.05);
-  const getGrandTotal = () => bill.grandTotal || (getSubtotal() + getTax());
+  const getSubtotal = () => {
+    if (typeof bill.subtotal === 'number') return bill.subtotal;
+    return (bill.items || []).reduce((s: number, i: any) => s + (Number(i.totalAmount) || (Number(i.quantity) * Number(i.unitPrice)) || 0), 0);
+  };
+  const getTax = () => {
+    if (typeof bill.taxAmount === 'number') return bill.taxAmount;
+    return getSubtotal() * 0.05;
+  };
+  const getGrandTotal = () => {
+    if (typeof bill.grandTotal === 'number') return bill.grandTotal;
+    return getSubtotal() + getTax();
+  };
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank', 'width=450,height=700');
@@ -79,14 +88,14 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
               </tr>
             </thead>
             <tbody>
-              ${bill.items?.map((item: any) => `
+              ${(bill.items || []).map((item: any) => `
                 <tr>
-                  <td>${item.quantity}</td>
+                  <td>${item.quantity || 0}</td>
                   <td class="uppercase">
-                    ${item.product?.name || item.itemName}
+                    ${item.product?.name || item.itemName || 'Unknown Item'}
                     ${item.product?.hsnCode ? `<br/><span style="font-size: 8px; font-weight: normal;">HSN: ${item.product.hsnCode}</span>` : ''}
                   </td>
-                  <td class="text-right">₹${(item.totalAmount || (item.quantity * item.unitPrice))?.toFixed(2)}</td>
+                  <td class="text-right">₹${(Number(item.totalAmount) || (Number(item.quantity) * Number(item.unitPrice)) || 0).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -130,8 +139,8 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
                 <Printer size={28} />
              </div>
              <div>
-                <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest leading-none">Bill Terminal</h3>
-                <p className="text-[10px] text-gray-400 font-bold uppercase mt-2 tracking-tighter">80mm Professional Layout Preview</p>
+                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest leading-none">Bill Terminal</h3>
+                <p className="text-[10px] text-gray-400 font-medium uppercase mt-2 tracking-tighter">80mm Professional Layout Preview</p>
              </div>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-full transition-all text-gray-400 hover:text-red-500 active:scale-90">
@@ -143,27 +152,27 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
           <div className="bg-white p-12 shadow-[0_10px_40px_rgba(0,0,0,0.05)] w-[80mm] min-h-[140mm] font-mono text-[11px] text-black border border-gray-100 relative">
              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-b from-gray-50 to-transparent" />
              
-             <div className="text-center font-black space-y-2 mb-8">
-                <h1 className="text-2xl tracking-tighter leading-none">{bill.property?.name || 'POS RESTAURANT'}</h1>
-                <p className="text-[9px] opacity-60 uppercase font-bold">{bill.property?.address || 'Premium Dining Experience'}</p>
+             <div className="text-center font-bold space-y-2 mb-8">
+                <h1 className="text-xl tracking-tight leading-none uppercase">{bill.property?.name || 'POS RESTAURANT'}</h1>
+                <p className="text-[9px] opacity-60 font-medium uppercase">{bill.property?.address || 'Premium Dining Experience'}</p>
                 {bill.property?.taxDetails && (
-                  <p className="text-[10px] font-black border border-black inline-block px-2 py-0.5 mt-2">GSTIN: {bill.property.taxDetails}</p>
+                  <p className="text-[10px] font-bold border border-black inline-block px-2 py-0.5 mt-2 uppercase">GSTIN: {bill.property.taxDetails}</p>
                 )}
                 <div className="h-[2px] w-full bg-black mt-6 mb-2" />
-                <p className="text-[14px] font-black tracking-[0.5em] py-1 border-y border-black">TAX INVOICE</p>
+                <p className="text-[13px] font-bold tracking-[0.4em] py-1 border-y border-black uppercase">TAX INVOICE</p>
                 <div className="h-[2px] w-full bg-black mb-6 mt-2" />
              </div>
 
-             <div className="space-y-1.5 text-[11px] font-black uppercase mb-8">
+             <div className="space-y-1.5 text-[11px] font-bold uppercase mb-8">
                 <div className="flex justify-between"><span>Bill No:</span> <span>{bill.orderNo}</span></div>
                 <div className="flex justify-between"><span>Date:</span> <span>{new Date(bill.createdAt || Date.now()).toLocaleDateString('en-IN')}</span></div>
                 <div className="flex justify-between items-center bg-black text-white px-2 py-1 mt-2">
                   <span>Table No:</span> 
-                  <span className="text-lg font-black">{bill.tableNo || 'WALK-IN'}</span>
+                  <span className="text-base font-bold">{bill.tableNo || 'WALK-IN'}</span>
                 </div>
              </div>
 
-             <table className="w-full text-left font-black text-[11px] mb-8">
+             <table className="w-full text-left font-bold text-[11px] mb-8">
                 <thead className="border-b-2 border-black">
                    <tr>
                       <th className="py-2">QTY</th>
@@ -172,35 +181,35 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
-                   {bill.items?.map((item: any) => (
+                   {(bill.items || []).map((item: any) => (
                       <tr key={item.id}>
                          <td className="py-4">{item.quantity}</td>
-                         <td className="py-4 px-2 uppercase leading-tight font-black">{item.product?.name}</td>
-                         <td className="py-4 text-right font-black">₹{(item.totalAmount || (item.quantity * item.unitPrice))?.toFixed(2)}</td>
+                         <td className="py-4 px-2 uppercase leading-tight font-bold">{item.product?.name || item.itemName || 'Unknown Item'}</td>
+                         <td className="py-4 text-right font-bold">₹{(Number(item.totalAmount) || (Number(item.quantity) * Number(item.unitPrice)) || 0).toFixed(2)}</td>
                       </tr>
                    ))}
                 </tbody>
              </table>
 
-             <div className="space-y-2 text-right font-black text-[11px] uppercase pt-6 border-t-2 border-dashed border-black/20">
+             <div className="space-y-2 text-right font-bold text-[11px] uppercase pt-6 border-t-2 border-dashed border-black/20">
                 <div className="flex justify-between"><span>Sub-Total</span> <span>₹{getSubtotal().toFixed(2)}</span></div>
                 <div className="flex justify-between"><span>GST (5%)</span> <span>₹{getTax().toFixed(2)}</span></div>
-                <div className="flex justify-between text-lg pt-6 border-t-4 border-double border-black mt-6">
+                <div className="flex justify-between text-base pt-6 border-t-4 border-double border-black mt-6">
                   <span>Net Payable</span>
-                  <span className="text-xl">₹{getGrandTotal().toFixed(2)}</span>
+                  <span className="text-lg">₹{getGrandTotal().toFixed(2)}</span>
                 </div>
              </div>
 
-             <div className="text-center font-black mt-16 pt-8 border-t border-dotted border-black/20">
-                <p className="text-lg tracking-widest mb-2">THANK YOU!</p>
-                <p className="text-[8px] opacity-40">VISIT AGAIN • HAVE A NICE DAY</p>
+             <div className="text-center font-bold mt-16 pt-8 border-t border-dotted border-black/20">
+                <p className="text-base tracking-widest mb-2 uppercase">Thank You!</p>
+                <p className="text-[8px] opacity-40 uppercase">Visit Again • Have a nice day</p>
              </div>
           </div>
         </div>
 
         <div className="p-8 bg-white border-t border-gray-100 flex gap-6">
           <Button variant="secondary" onClick={onClose} className="flex-1 py-6 rounded-3xl border-gray-200 text-gray-500 font-bold uppercase tracking-widest hover:bg-gray-50 text-[10px]">Back</Button>
-          <Button onClick={handlePrint} className="flex-[2] py-6 bg-pos-primary hover:bg-red-700 text-white rounded-3xl font-black uppercase tracking-[0.2em] gap-3 shadow-2xl shadow-pos-primary/40 active:scale-95 transition-all text-xs">
+          <Button onClick={handlePrint} className="flex-[2] py-6 bg-pos-primary hover:bg-red-700 text-white rounded-3xl font-bold uppercase tracking-widest gap-3 shadow-2xl shadow-pos-primary/40 active:scale-95 transition-all text-xs">
             <Printer size={20} /> Confirm Print
           </Button>
         </div>

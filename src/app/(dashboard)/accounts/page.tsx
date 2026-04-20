@@ -52,8 +52,8 @@ export default function AccountsDashboard() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Accounting Hub</h1>
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Financial reporting and management</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Accounting Hub</h1>
+          <p className="text-xs font-bold text-slate-400 tracking-widest mt-0.5">Financial reporting and management</p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
           <Calendar size={16} className="text-pos-primary" />
@@ -77,12 +77,12 @@ export default function AccountsDashboard() {
                    <div className="p-3 bg-slate-50 dark:bg-slate-700 rounded-2xl text-slate-400 group-hover:text-pos-primary transition-colors">
                       <stat.icon size={20} />
                    </div>
-                   <span className={`text-xs font-black px-2 py-1 rounded-full bg-slate-50 dark:bg-slate-700 ${stat.color}`}>
-                      {stat.change}
-                   </span>
-                </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</p>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full bg-slate-50 dark:bg-slate-700 ${stat.color}`}>
+                       {stat.change}
+                    </span>
+                 </div>
+                 <p className="text-xs font-bold text-slate-400 tracking-widest">{stat.label}</p>
+                 <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{stat.value}</p>
              </div>
           </div>
         ))}
@@ -100,7 +100,7 @@ export default function AccountsDashboard() {
 
               {/* Text Section */}
               <div className="flex-1">
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight mb-1.5">
                   {card.title}
                 </h3>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -109,7 +109,7 @@ export default function AccountsDashboard() {
               </div>
 
               {/* Footer Section */}
-              <div className="flex items-center gap-2 text-pos-primary font-black text-xs uppercase tracking-[0.2em] group-hover:gap-4 transition-all">
+              <div className="flex items-center gap-2 text-pos-primary font-bold text-xs tracking-widest group-hover:gap-4 transition-all">
                 Access Module
                 <ChevronRight size={18} />
               </div>
@@ -128,21 +128,21 @@ export default function AccountsDashboard() {
          <div className="absolute inset-0 bg-pos-primary/10 animate-pulse" />
          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex-1">
-               <h2 className="text-3xl font-black text-white tracking-tight mb-3">Professional Restaurant Accounting</h2>
-               <p className="text-slate-400 font-medium max-w-xl">
-                  Automated voucher posting from POS orders, expense tracking, and real-time ledger management built for Ashoka Dhaba efficiency.
+               <h2 className="text-xl font-bold text-white tracking-tight mb-2">Professional Restaurant Accounting</h2>
+               <p className="text-slate-400 text-sm font-medium max-w-xl">
+                  Automated voucher posting from POS orders, expense tracking, and real-time ledger management.
                </p>
             </div>
             <div className="flex items-center gap-6">
                <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</p>
-                  <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-1">Status</p>
+                  <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold uppercase tracking-widest">
                      Live & Synced
                   </span>
                </div>
                <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Reports</p>
-                  <span className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-1">Reports</p>
+                  <span className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-[10px] font-bold uppercase tracking-widest">
                      Automated
                   </span>
                </div>

@@ -26,14 +26,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, show
             className="flex items-center gap-1 group py-2"
           >
             <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            BACK
+            Back
           </Button>
         )}
         <div className="space-y-0.5">
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 uppercase transition-colors">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3 transition-colors">
             {title}
           </h1>
-          {description && <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-wide uppercase transition-colors">{description}</p>}
+          {description && <p className="text-[11px] lg:text-xs font-medium text-gray-500 dark:text-slate-400 tracking-wide transition-colors">{description}</p>}
         </div>
       </div>
       

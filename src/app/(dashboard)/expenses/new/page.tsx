@@ -11,8 +11,8 @@ interface Category {
   isActive: boolean;
 }
 
-const inputCls = 'w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-violet-400 focus:bg-white outline-none transition-all';
-const labelCls = 'block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5';
+const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-bold text-gray-900 dark:text-white focus:border-violet-400 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600';
+const labelCls = 'block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-1.5';
 
 const PAYMENT_MODES = ['CASH', 'CARD', 'UPI', 'BANK', 'ONLINE'];
 
@@ -78,13 +78,13 @@ export default function NewExpensePage() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push('/expenses')}
-          className="p-2.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+          className="p-2.5 text-gray-400 dark:text-slate-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-all"
         >
           <ChevronLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">New Expense</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">New Expense</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
             Record an expense · Auto-posts accounting voucher
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function NewExpensePage() {
       )}
 
       {/* Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
         {/* Top accent */}
         <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500 rounded-t-2xl" />
 
@@ -159,7 +159,7 @@ export default function NewExpensePage() {
                 ))}
               </select>
               {categories.length === 0 && (
-                <p className="text-[10px] text-violet-500 font-bold mt-1.5">
+                <p className="text-[10px] text-violet-500 dark:text-violet-400 font-bold mt-1.5">
                   <a href="/expenses/categories" className="underline">Add categories</a> to classify expenses
                 </p>
               )}
@@ -223,21 +223,21 @@ export default function NewExpensePage() {
           </div>
 
           {/* Payment Mode Info Box */}
-          <div className="bg-violet-50 border border-violet-100 rounded-xl px-5 py-3">
-            <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Auto Accounting Rule</p>
-            <p className="text-xs text-violet-700 font-bold mt-1">
+          <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/30 rounded-xl px-5 py-3">
+            <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-widest">Auto Accounting Rule</p>
+            <p className="text-xs text-violet-700 dark:text-violet-300 font-bold mt-1">
               {['CARD', 'UPI', 'BANK', 'ONLINE'].includes(paymentMode)
                 ? '📊 DR: Expense Account  →  CR: Bank Account'
                 : '📊 DR: Expense Account  →  CR: Cash Account'}
             </p>
-            <p className="text-[10px] text-violet-500 mt-0.5">A balanced Payment Voucher will be auto-posted to the ledger</p>
+            <p className="text-[10px] text-violet-500 dark:text-violet-400/60 mt-0.5">A balanced Payment Voucher will be auto-posted to the ledger</p>
           </div>
 
           {/* Submit */}
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-violet-100 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+            className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg shadow-violet-100 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
           >
             {saving ? (
               <span className="animate-pulse">Saving & Posting Voucher...</span>

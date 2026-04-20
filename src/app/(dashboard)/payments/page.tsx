@@ -66,7 +66,7 @@ export default function PaymentsPage() {
           <div className="p-2 bg-pos-primary/10 text-pos-primary rounded-lg">
             <Receipt size={14} />
           </div>
-          <span className="font-bold">{row.settlementNo}</span>
+          <span className="font-bold text-gray-900 dark:text-white uppercase tracking-tight">{row.settlementNo}</span>
         </div>
       )
     },
@@ -78,7 +78,7 @@ export default function PaymentsPage() {
     {
       header: 'Customer',
       cell: (row: EnhancedSettlement) => (
-        <span className="font-semibold text-gray-900 dark:text-gray-100">{row.guestName || 'N/A'}</span>
+        <span className="font-bold text-gray-900 dark:text-gray-100">{row.guestName || 'N/A'}</span>
       ),
       width: '200px'
     },
@@ -86,7 +86,7 @@ export default function PaymentsPage() {
       header: 'Property',
       cell: (row: any) => (
         <div className="flex flex-col">
-          <span className="text-[10px] font-black text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
+          <span className="text-[10px] font-bold text-pos-primary uppercase tracking-widest bg-pos-primary/5 dark:bg-pos-primary/20 px-2 py-1 rounded-md border border-pos-primary/10 dark:border-pos-primary/30 inline-block w-fit">
             {row.property?.name || 'Main Branch'}
           </span>
           <span className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase mt-1">{row.property?.city}</span>
@@ -105,13 +105,13 @@ export default function PaymentsPage() {
     {
       header: 'Amount',
       cell: (row: EnhancedSettlement) => (
-        <span className="font-black text-emerald-600">₹{row.paidAmount.toLocaleString()}</span>
+        <span className="font-bold text-emerald-600">₹{row.paidAmount.toLocaleString()}</span>
       )
     },
     {
       header: 'Status',
       cell: (row: EnhancedSettlement) => (
-        <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+        <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
           row.status === 'SETTLED' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
         }`}>
           {row.status}
@@ -124,8 +124,8 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight uppercase">Payment History</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mt-1">Track all revenue settlements</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Payment History</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-1">Track all revenue settlements</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function PaymentsPage() {
               <select
                 value={selectedPropertyId}
                 onChange={(e) => setSelectedPropertyId(e.target.value)}
-                className="pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[200px]"
+                className="pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[200px]"
               >
                 <option value="all">ALL PROPERTIES</option>
                 {properties.map(p => (

@@ -98,7 +98,7 @@ export default function SuperAdminDashboard() {
             <div className="h-1 w-8 rounded-full" style={{backgroundColor:'#e8a0a0'}} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{color:'#e8a0a0'}}>{getGreeting()}</span>
           </div>
-          <h1 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex flex-wrap items-baseline gap-2 md:gap-3 transition-colors">
+          <h1 className="text-2xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex flex-wrap items-baseline gap-2 md:gap-3 transition-colors">
             System Dashboard
             <span className="text-[10px] md:text-sm font-bold bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-full uppercase tracking-widest border border-rose-100 dark:border-rose-800" style={{color:'#e8a0a0'}}>Live</span>
           </h1>

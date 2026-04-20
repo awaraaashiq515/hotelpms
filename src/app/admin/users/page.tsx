@@ -159,7 +159,7 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">User Management</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Create and manage POS and System Administrators.</p>
         </div>
-        <Button onClick={openCreateModal} icon={<UserPlus size={16} />} className="w-full sm:w-auto bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl shadow-lg shadow-pos-primary/10 transition-all font-black uppercase text-[10px] tracking-widest px-6 h-11">
+        <Button onClick={openCreateModal} icon={<UserPlus size={16} />} className="w-full sm:w-auto bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl shadow-lg shadow-pos-primary/10 transition-all font-bold text-[11px] tracking-widest px-6 h-11">
           Add User
         </Button>
       </div>

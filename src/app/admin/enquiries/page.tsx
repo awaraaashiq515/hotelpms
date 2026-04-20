@@ -84,7 +84,7 @@ export default function EnquiriesPage() {
       <div className="flex justify-between items-end bg-white dark:bg-slate-900/50 p-8 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <div>
           <span className="text-pos-primary font-bold tracking-[0.3em] uppercase text-[10px] block mb-2">Guest Relations</span>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase flex items-center gap-3 transition-colors">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3 transition-colors">
             <Mail className="text-pos-primary" size={32} />
             Contact Enquiries
           </h1>
@@ -109,7 +109,7 @@ export default function EnquiriesPage() {
         {/* Enquiry List */}
         <div className="lg:col-span-1 bg-white dark:bg-slate-900/40 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[700px] transition-colors">
           <div className="p-6 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 transition-colors">
-            <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white tracking-widest flex items-center gap-2">
               <Inbox size={16} className="text-pos-primary" /> Inbox
               <span className="ml-auto bg-pos-primary text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
                 {enquiries.filter(e => e.status === 'NEW').length}
@@ -169,7 +169,7 @@ export default function EnquiriesPage() {
               <div className="p-8 border-b border-gray-100 dark:border-slate-800">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight capitalize mb-2">{selectedEnquiry.subject}</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight capitalize mb-2">{selectedEnquiry.subject}</h2>
                     <div className="flex items-center gap-4 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest transition-colors">
                       <span>{new Date(selectedEnquiry.createdAt).toLocaleString()}</span>
                       <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-slate-700"></span>
@@ -179,14 +179,14 @@ export default function EnquiriesPage() {
                   <div className="flex gap-2">
                      <button
                         onClick={() => updateStatus(selectedEnquiry.id, 'READ')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedEnquiry.status === 'READ' ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold tracking-widest transition-all ${selectedEnquiry.status === 'READ' ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700'}`}
                         disabled={selectedEnquiry.status === 'READ'}
                       >
                         Mark Read
                       </button>
                       <button
                         onClick={() => updateStatus(selectedEnquiry.id, 'RESPONDED')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedEnquiry.status === 'RESPONDED' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800/30 hover:bg-green-500 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold tracking-widest transition-all ${selectedEnquiry.status === 'RESPONDED' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800/30 hover:bg-green-500 hover:text-white'}`}
                         disabled={selectedEnquiry.status === 'RESPONDED'}
                       >
                         Mark Responded
@@ -214,7 +214,7 @@ export default function EnquiriesPage() {
               
               <div className="flex-1 overflow-y-auto p-10 bg-gray-50/30 dark:bg-slate-900/20">
                 <div className="bg-white dark:bg-slate-800/40 p-8 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
-                  <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4 block">Message Content</span>
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 tracking-widest mb-4 block">Message Content</span>
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <p className="whitespace-pre-wrap text-gray-700 dark:text-slate-300 leading-relaxed font-medium transition-colors">
                       {selectedEnquiry.message}

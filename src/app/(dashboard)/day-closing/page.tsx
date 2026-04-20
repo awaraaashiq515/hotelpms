@@ -250,22 +250,22 @@ export default function DayClosingPage() {
   ] as const;
 
   const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl text-sm font-bold dark:text-white focus:border-pos-primary/40 focus:bg-white dark:focus:bg-slate-700 outline-none transition-all';
-  const labelCls = 'block text-[10px] font-black text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-1.5';
+  const labelCls = 'block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-1.5';
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black section-heading uppercase tracking-tight">Day Closing</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest mt-0.5">
+          <h1 className="text-2xl font-bold section-heading tracking-tight">Day Closing</h1>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 tracking-widest mt-0.5">
             Cash control · Shift management · Closing reports
           </p>
         </div>
         {!shift && !loading && (
           <Button
             onClick={() => setIsOpenShiftOpen(true)}
-            className="flex items-center gap-2 bg-pos-primary hover:bg-pos-primary-dark text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-pos-primary/10"
+            className="flex items-center gap-2 bg-pos-primary hover:bg-pos-primary-dark text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-pos-primary/10"
           >
             <Unlock size={16} />
             Open New Shift
@@ -279,7 +279,7 @@ export default function DayClosingPage() {
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle size={24} className="text-green-600" />
             <div>
-              <h3 className="font-black text-green-800 uppercase tracking-tight">Shift Closed Successfully</h3>
+              <h3 className="font-bold text-green-800 tracking-tight">Shift Closed Successfully</h3>
               <p className="text-xs text-green-600 font-bold mt-0.5">{new Date(closeResult.closingDate).toLocaleString('en-IN')}</p>
             </div>
             <button onClick={() => setCloseResult(null)} className="ml-auto text-green-400 hover:text-green-600"><X size={18} /></button>
@@ -292,8 +292,8 @@ export default function DayClosingPage() {
               { label: 'Variance', value: `${closeResult.varianceAmount >= 0 ? '+' : ''}₹${closeResult.varianceAmount.toFixed(2)}`, color: closeResult.varianceAmount === 0 ? 'text-green-600' : closeResult.varianceAmount > 0 ? 'text-pos-primary' : 'text-red-600' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-white rounded-xl p-4 shadow-sm">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
-                <p className={`text-xl font-black mt-1 ${color}`}>{value}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
+                <p className={`text-xl font-bold mt-1 ${color}`}>{value}</p>
               </div>
             ))}
           </div>
@@ -311,8 +311,8 @@ export default function DayClosingPage() {
                 <Unlock size={22} />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Active Shift</p>
-                <h2 className="text-xl font-black">{shift.shiftNo}</h2>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Active Shift</p>
+                <h2 className="text-xl font-bold">{shift.shiftNo}</h2>
                 <p className="text-xs font-bold opacity-60 mt-0.5">
                   {shift.cashierName} · Opened {new Date(shift.openedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -320,20 +320,20 @@ export default function DayClosingPage() {
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Opening Cash</p>
-                <p className="text-2xl font-black">₹{shift.openingCash.toLocaleString('en-IN')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Opening Cash</p>
+                <p className="text-2xl font-bold">₹{shift.openingCash.toLocaleString('en-IN')}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Withdrawals</p>
-                <p className="text-xl font-black text-red-300">-₹{totalWithdrawals.toLocaleString('en-IN')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Withdrawals</p>
+                <p className="text-xl font-bold text-red-300">-₹{totalWithdrawals.toLocaleString('en-IN')}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Top-Ups</p>
-                <p className="text-xl font-black text-green-300">+₹{totalTopUps.toLocaleString('en-IN')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Top-Ups</p>
+                <p className="text-xl font-bold text-green-300">+₹{totalTopUps.toLocaleString('en-IN')}</p>
               </div>
               <Button
                 onClick={() => setIsCloseShiftOpen(true)}
-                className="bg-white text-pos-primary hover:bg-pos-primary/10 px-5 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg"
+                className="bg-white text-pos-primary hover:bg-pos-primary/10 px-5 py-3 rounded-xl font-bold text-xs tracking-widest flex items-center gap-2 shadow-lg"
               >
                 <Lock size={14} />
                 Close Shift
@@ -345,12 +345,12 @@ export default function DayClosingPage() {
         <div className="bg-gray-50 dark:bg-slate-900 border border-dashed border-gray-200 dark:border-slate-700 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 text-gray-400 dark:text-slate-500">
           <Lock size={40} className="opacity-30" />
           <div className="text-center">
-            <p className="font-black text-sm uppercase tracking-widest">No Active Shift</p>
+            <p className="font-bold text-sm uppercase tracking-widest">No Active Shift</p>
             <p className="text-xs font-bold mt-1 opacity-60">Open a shift to start tracking cash and sales</p>
           </div>
           <Button
             onClick={() => setIsOpenShiftOpen(true)}
-            className="bg-pos-primary hover:bg-pos-primary-dark text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-pos-primary/10"
+            className="bg-pos-primary hover:bg-pos-primary-dark text-white px-6 py-3 rounded-xl font-bold text-xs tracking-widest flex items-center gap-2 shadow-lg shadow-pos-primary/10"
           >
             <Unlock size={14} />
             Open Shift
@@ -364,7 +364,7 @@ export default function DayClosingPage() {
           <button
             key={id}
             onClick={() => setTab(id as Tab)}
-            className={`flex items-center gap-2 px-5 py-3 text-[11px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-5 py-3 text-[11px] font-bold uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${
               tab === id ? 'border-pos-primary text-pos-primary' : 'border-transparent text-gray-400 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white'
             }`}
           >
@@ -388,7 +388,7 @@ export default function DayClosingPage() {
                   <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center gap-3">
                     <div className="p-2 bg-red-50 dark:bg-red-950 rounded-xl"><ArrowDownCircle size={18} className="text-red-500" /></div>
                     <div>
-                      <h3 className="font-black text-sm section-heading">Cash Withdrawals</h3>
+                      <h3 className="font-bold text-sm section-heading">Cash Withdrawals</h3>
                       <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest">
                         Total: <span className="text-red-500">-₹{totalWithdrawals.toLocaleString('en-IN')}</span>
                       </p>
@@ -418,7 +418,7 @@ export default function DayClosingPage() {
                   <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center gap-3">
                     <div className="p-2 bg-green-50 dark:bg-green-950 rounded-xl"><ArrowUpCircle size={18} className="text-green-500" /></div>
                     <div>
-                      <h3 className="font-black text-sm section-heading">Cash Top-Ups</h3>
+                      <h3 className="font-bold text-sm section-heading">Cash Top-Ups</h3>
                       <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest">
                         Total: <span className="text-green-600">+₹{totalTopUps.toLocaleString('en-IN')}</span>
                       </p>
@@ -448,13 +448,13 @@ export default function DayClosingPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setTab('withdrawal')}
-                  className="flex items-center gap-2 px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-black uppercase tracking-widest transition-colors border border-red-100"
+                  className="flex items-center gap-2 px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold tracking-widest transition-colors border border-red-100"
                 >
                   <ArrowDownCircle size={16} /> Record Withdrawal
                 </button>
                 <button
                   onClick={() => setTab('topup')}
-                  className="flex items-center gap-2 px-5 py-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl text-xs font-black uppercase tracking-widest transition-colors border border-green-100"
+                  className="flex items-center gap-2 px-5 py-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl text-xs font-bold tracking-widest transition-colors border border-green-100"
                 >
                   <ArrowUpCircle size={16} /> Add Top-Up
                 </button>
@@ -469,7 +469,7 @@ export default function DayClosingPage() {
         <div className="max-w-md">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-8 space-y-5">
             <div>
-              <h3 className="font-black text-lg section-heading uppercase tracking-tight">Cash Withdrawal</h3>
+              <h3 className="font-bold text-lg section-heading tracking-tight">Cash Withdrawal</h3>
               <p className="text-xs text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">Record cash taken out of the till</p>
             </div>
             {!shift && (
@@ -499,7 +499,7 @@ export default function DayClosingPage() {
                 loading={wdLoading}
                 disabled={!shift || !wdAmount}
                 onClick={handleWithdrawal}
-                className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-xs tracking-widest shadow-lg shadow-red-100 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <ArrowDownCircle size={16} /> Record Withdrawal
               </Button>
@@ -513,7 +513,7 @@ export default function DayClosingPage() {
         <div className="max-w-md">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-8 space-y-5">
             <div>
-              <h3 className="font-black text-lg section-heading uppercase tracking-tight">Cash Top-Up</h3>
+              <h3 className="font-bold text-lg section-heading tracking-tight">Cash Top-Up</h3>
               <p className="text-xs text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">Add extra cash to the till</p>
             </div>
             {!shift && (
@@ -543,7 +543,7 @@ export default function DayClosingPage() {
                 loading={tuLoading}
                 disabled={!shift || !tuAmount}
                 onClick={handleTopUp}
-                className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs tracking-widest shadow-lg shadow-green-100 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <ArrowUpCircle size={16} /> Add Top-Up
               </Button>
@@ -557,7 +557,7 @@ export default function DayClosingPage() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex items-center justify-between">
             <div>
-              <h3 className="font-black text-sm section-heading uppercase">Closing History</h3>
+              <h3 className="font-bold text-sm section-heading">Closing History</h3>
               <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest">Last 30 day closings</p>
             </div>
             <button onClick={fetchHistory} className="p-2.5 text-gray-400 dark:text-slate-400 hover:text-pos-primary hover:bg-pos-primary/10 rounded-xl transition-colors">
@@ -568,9 +568,9 @@ export default function DayClosingPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-50 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                  {['Date', 'Shift', 'Cashier', 'Invoices', 'Total Sales', 'Cash', 'Card', 'UPI', 'Expected', 'Actual', 'Variance'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.12em] whitespace-nowrap">{h}</th>
-                  ))}
+                    {['Date', 'Shift', 'Cashier', 'Invoices', 'Total Sales', 'Cash', 'Card', 'UPI', 'Expected', 'Actual', 'Variance'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-[9px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-[0.12em] whitespace-nowrap">{h}</th>
+                    ))}
                 </tr>
               </thead>
               <tbody>
@@ -586,14 +586,14 @@ export default function DayClosingPage() {
                     <td className="px-4 py-3.5 text-xs text-gray-600 dark:text-slate-400 font-bold">{c.shift?.shiftNo || '—'}</td>
                     <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-slate-400">{c.shift?.cashierName || c.closedBy || '—'}</td>
                     <td className="px-4 py-3.5 text-xs font-bold text-gray-700 dark:text-slate-300">{c.invoiceCount}</td>
-                    <td className="px-4 py-3.5 text-sm font-black text-gray-900 dark:text-white">₹{c.totalSales.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3.5 text-sm font-bold text-gray-900 dark:text-white">₹{c.totalSales.toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3.5 text-xs font-bold text-gray-700 dark:text-slate-300 flex items-center gap-1"><Banknote size={11} className="text-emerald-500" />₹{c.cashSales.toFixed(0)}</td>
                     <td className="px-4 py-3.5 text-xs font-bold text-gray-700 dark:text-slate-300"><CreditCard size={11} className="inline text-blue-500 mr-1" />₹{c.cardSales.toFixed(0)}</td>
                     <td className="px-4 py-3.5 text-xs font-bold text-gray-700 dark:text-slate-300"><Smartphone size={11} className="inline text-purple-500 mr-1" />₹{c.upiSales.toFixed(0)}</td>
                     <td className="px-4 py-3.5 text-xs font-bold text-blue-700 dark:text-blue-400">₹{c.expectedCash.toFixed(2)}</td>
                     <td className="px-4 py-3.5 text-xs font-bold text-gray-900 dark:text-white">₹{c.actualCash.toFixed(2)}</td>
                     <td className="px-4 py-3.5">
-                      <span className={`text-xs font-black ${c.varianceAmount === 0 ? 'text-gray-400 dark:text-slate-500' : c.varianceAmount > 0 ? 'text-pos-primary' : 'text-red-500'}`}>
+                      <span className={`text-xs font-bold ${c.varianceAmount === 0 ? 'text-gray-400 dark:text-slate-500' : c.varianceAmount > 0 ? 'text-pos-primary' : 'text-red-500'}`}>
                         {c.varianceAmount >= 0 ? '+' : ''}₹{c.varianceAmount.toFixed(2)}
                       </span>
                     </td>

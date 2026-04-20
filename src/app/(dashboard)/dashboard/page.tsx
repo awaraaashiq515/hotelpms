@@ -57,7 +57,7 @@ export default function DashboardPage() {
       <div className="h-[80vh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-4 border-pos-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500">Loading Dashboard...</p>
+          <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500">Loading Dashboard...</p>
         </div>
       </div>
     );
@@ -89,7 +89,7 @@ export default function DashboardPage() {
               {showWizard ? 'Hide Setup' : 'Setup'}
             </button>
           )}
-          <span className="flex-1 md:flex-none text-center px-3 py-2.5 lg:py-1.5 bg-pos-primary/10 dark:bg-pos-primary/20 text-pos-primary dark:text-pos-primary rounded-xl text-[9px] lg:text-[10px] font-black uppercase tracking-widest border border-pos-primary/20 dark:border-pos-primary/30 shadow-sm truncate">
+          <span className="flex-1 md:flex-none text-center px-4 py-2 lg:py-1.5 bg-pos-primary/10 dark:bg-pos-primary/20 text-pos-primary dark:text-pos-primary rounded-xl text-[10px] lg:text-xs font-bold border border-pos-primary/20 dark:border-pos-primary/30 shadow-sm truncate">
             {session?.organizationName || 'System Access'}
           </span>
         </div>
@@ -110,8 +110,8 @@ export default function DashboardPage() {
               <Card key={i} className="hover:border-pos-primary/20 transition-shadow duration-200 group border-2 dark:border-slate-800 dark:bg-slate-900/40 p-4 lg:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[9px] lg:text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                    <p className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white tracking-tight">{stat.value}</p>
+                    <p className="text-[10px] lg:text-xs font-bold text-gray-400 dark:text-slate-500 mb-1">{stat.label}</p>
+                    <p className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">{stat.value}</p>
                   </div>
                   <div className={`p-2.5 lg:p-3 rounded-xl bg-gray-50 dark:bg-slate-800 ${stat.color}`}>
                     <stat.icon size={20} className="lg:w-6 lg:h-6" />
@@ -125,26 +125,26 @@ export default function DashboardPage() {
             <Card className="lg:col-span-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-2 dark:border-slate-800 p-5 lg:p-8 min-h-[350px] flex flex-col justify-between overflow-hidden relative shadow-xl transition-colors duration-500">
               <div className="absolute inset-0 bg-gradient-to-br from-pos-primary/5 to-slate-50/10 dark:from-pos-primary/10 dark:to-slate-950/10 -z-0 pointer-events-none" />
               <div className="relative z-10">
-                <h3 className="text-xl lg:text-2xl font-black tracking-tight uppercase mb-2">Organization Pulse</h3>
-                <p className="text-[10px] lg:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest max-w-md">
+                <h3 className="text-xl lg:text-2xl font-bold tracking-tight mb-2">Organization Pulse</h3>
+                <p className="text-[10px] lg:text-xs font-medium text-slate-500 dark:text-slate-400 tracking-wide max-w-md">
                   Monitoring {stats?.totalBusinesses || 0} businesses in your portfolio.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 relative z-10 mt-6 lg:mt-8">
                 <div className="space-y-1">
-                  <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Recent Activity</p>
-                  <p className="text-lg lg:text-xl font-bold">Live Monitoring</p>
+                  <p className="text-[9px] lg:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Recent Activity</p>
+                  <p className="text-lg lg:text-xl font-bold text-slate-800 dark:text-slate-100">Live Monitoring</p>
                 </div>
                 <div className="space-y-1 md:border-l border-slate-200 dark:border-slate-800 md:pl-6">
-                  <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Users</p>
-                  <p className="text-lg lg:text-xl font-bold">{stats?.totalUsers || 0} Members</p>
+                  <p className="text-[9px] lg:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Users</p>
+                  <p className="text-lg lg:text-xl font-bold text-slate-800 dark:text-slate-100">{stats?.totalUsers || 0} Members</p>
                 </div>
                 <div className="space-y-1 md:border-l border-slate-200 dark:border-slate-800 md:pl-6">
-                  <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">System Health</p>
+                  <p className="text-[9px] lg:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">System Health</p>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-lg lg:text-xl font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-tighter">Stable</span>
+                    <span className="text-lg lg:text-xl font-bold text-emerald-500 dark:text-emerald-400 tracking-tight">Stable</span>
                   </div>
                 </div>
               </div>
@@ -158,7 +158,7 @@ export default function DashboardPage() {
                         <span className="font-bold text-slate-600 dark:text-slate-300 shrink-0">#{order.orderNo}</span>
                         <span className="text-[9px] lg:text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-white/10 rounded uppercase font-bold text-slate-500 dark:text-slate-400 truncate">{order.property?.name}</span>
                       </div>
-                      <span className="font-black text-emerald-600 dark:text-emerald-400 tracking-tighter ml-2">{formatCurrency(order.grandTotal)}</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 tracking-tight ml-2">{formatCurrency(order.grandTotal)}</span>
                     </div>
                   )) : (
                     <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold italic uppercase">No recent activity found.</p>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
 
             <div className="space-y-6">
               <Card className="p-5 lg:p-6 border-2 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg">
-                <h3 className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-[0.2em] mb-6 border-b border-gray-100 dark:border-slate-800 pb-4">Quick Actions</h3>
+                <h3 className="text-xs font-bold text-gray-900 dark:text-white tracking-widest mb-6 border-b border-gray-100 dark:border-slate-800 pb-4 uppercase">Quick Actions</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
                   {isAdmin && <AddActionButton label="Setup Wizard" icon={<Layers size={14} />} onClick={() => setShowWizard(true)} />}
                   <AddActionButton label="Businesses" icon={<Building2 size={14} />} href="/manage-properties" />
@@ -184,8 +184,8 @@ export default function DashboardPage() {
           {/* ── Property Performance Breakdown ── */}
           <div className="space-y-6 pt-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">Portfolio Breakdown</h3>
-              <a href="/manage-properties" className="text-[9px] font-black text-pos-primary uppercase tracking-widest hover:underline">View All →</a>
+              <h3 className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-[0.2em] uppercase">Portfolio Breakdown</h3>
+              <a href="/manage-properties" className="text-[10px] font-bold text-pos-primary uppercase tracking-widest hover:underline">View All →</a>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -193,35 +193,35 @@ export default function DashboardPage() {
                 <Card key={prop.id} className="relative overflow-hidden group border-2 dark:border-slate-800 hover:border-pos-primary/40 transition-all duration-300 p-5">
                   <div className="flex justify-between items-start mb-4">
                     <div className="min-w-0">
-                      <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight group-hover:text-pos-primary transition-colors truncate">{prop.name}</h4>
-                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1 truncate">{prop.city || 'Global Outlet'}</p>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-base tracking-tight group-hover:text-pos-primary transition-colors truncate">{prop.name}</h4>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold tracking-widest mt-1 truncate">{prop.city || 'Global Outlet'}</p>
                     </div>
-                    <div className="shrink-0 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                    <div className="shrink-0 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase">
                       {prop.type || 'RESTAURANT'}
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <p className="text-[8px] lg:text-[9px] font-black text-slate-400 uppercase tracking-widest">Revenue</p>
-                      <p className="text-base lg:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{formatCurrency(prop.totalSales)}</p>
+                      <p className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Revenue</p>
+                      <p className="text-lg lg:text-xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{formatCurrency(prop.totalSales)}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[8px] lg:text-[9px] font-black text-slate-400 uppercase tracking-widest">Orders</p>
-                      <p className="text-base lg:text-lg font-black text-slate-900 dark:text-white">{prop.orderCount}</p>
+                      <p className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Orders</p>
+                      <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-white">{prop.orderCount}</p>
                     </div>
                   </div>
                   
                   <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col">
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Outlets</span>
-                        <span className="text-xs font-black text-slate-700 dark:text-slate-300">{prop.outletCount}</span>
+                        <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Outlets</span>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{prop.outletCount}</span>
                       </div>
                       <div className="w-[1px] h-6 bg-slate-100 dark:bg-slate-800" />
                       <div className="flex flex-col">
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Users</span>
-                        <span className="text-xs font-black text-slate-700 dark:text-slate-300">{prop.userCount}</span>
+                        <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Users</span>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{prop.userCount}</span>
                       </div>
                     </div>
                     <button 
@@ -241,7 +241,7 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 lg:w-12 lg:h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Plus size={20} />
                 </div>
-                <span className="text-[9px] lg:text-[10px] font-black uppercase tracking-widest">Add New Branch</span>
+                <span className="text-[10px] font-bold tracking-widest uppercase">Add New Branch</span>
               </button>
             </div>
           </div>
@@ -264,7 +264,7 @@ export default function DashboardPage() {
 const AddActionButton = ({ label, icon, href, onClick }: { label: string; icon: React.ReactNode; href?: string; onClick?: () => void }) => (
   <button
     onClick={onClick || (() => href && (window.location.href = href))}
-    className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-pos-primary hover:text-white transform-gpu transition-colors duration-200 rounded-xl font-bold text-[11px] uppercase tracking-widest text-gray-600 dark:text-slate-300 flex items-center justify-between group border border-slate-100 dark:border-slate-700 hover:border-pos-primary/20"
+    className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-pos-primary hover:text-white transform-gpu transition-colors duration-200 rounded-xl font-bold text-[11px] tracking-widest text-gray-600 dark:text-slate-300 flex items-center justify-between group border border-slate-100 dark:border-slate-700 hover:border-pos-primary/20"
   >
     {label}
     <span className="opacity-40 group-hover:opacity-100 transition-opacity">{icon}</span>

@@ -29,7 +29,7 @@ const VOUCHER_TYPES: { type: VoucherType; label: string; desc: string; color: st
 ];
 
 const inputCls = 'w-full px-3 py-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:border-violet-400 focus:bg-white dark:focus:bg-slate-700 outline-none transition-all';
-const labelCls = 'block text-[10px] font-black text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-1.5';
+const labelCls = 'block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-1.5';
 
 const makeEntry = (): EntryLine => ({
   id: Math.random().toString(36).slice(2),
@@ -111,8 +111,8 @@ export default function NewVoucherPage() {
           <ChevronLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">New Voucher</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">New Voucher</h1>
+          <p className="text-xs font-bold text-gray-400 tracking-widest mt-0.5">
             Double-entry · Debit must = Credit
           </p>
         </div>
@@ -141,7 +141,7 @@ export default function NewVoucherPage() {
               voucherType === type ? color + ' shadow-md dark:shadow-none bg-opacity-100' : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-gray-200 dark:hover:border-slate-600 text-slate-900 dark:text-slate-100'
             }`}
           >
-            <p className="text-xs font-black uppercase tracking-widest">{label}</p>
+            <p className="text-[11px] font-bold uppercase tracking-widest">{label}</p>
             <p className="text-[10px] font-bold mt-1 opacity-70">{desc}</p>
           </button>
         ))}
@@ -172,11 +172,11 @@ export default function NewVoucherPage() {
           <div className="flex items-center gap-3">
             <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-xl"><BookOpen size={18} className="text-violet-500" /></div>
             <div>
-              <h3 className="font-black text-sm text-gray-900 dark:text-white">Debit / Credit Entries</h3>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Every rupee out = every rupee in</p>
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white">Debit / Credit Entries</h3>
+              <p className="text-[10px] text-gray-400 font-bold tracking-widest">Every rupee out = every rupee in</p>
             </div>
           </div>
-          <button onClick={addRow} className="flex items-center gap-2 px-4 py-2 bg-violet-50 dark:bg-violet-900/30 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-600 dark:text-violet-400 rounded-xl text-xs font-black uppercase tracking-widest transition-colors">
+          <button onClick={addRow} className="flex items-center gap-2 px-4 py-2 bg-violet-50 dark:bg-violet-900/30 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-600 dark:text-violet-400 rounded-xl text-xs font-bold tracking-widest transition-colors">
             <Plus size={14} /> Add Row
           </button>
         </div>
@@ -185,10 +185,10 @@ export default function NewVoucherPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50/80 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-700">
-                <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest w-[35%]">Account</th>
-                <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Description</th>
-                <th className="px-4 py-3 text-right text-[9px] font-black text-green-600 uppercase tracking-widest w-28">Debit (DR)</th>
-                <th className="px-4 py-3 text-right text-[9px] font-black text-red-500 uppercase tracking-widest w-28">Credit (CR)</th>
+                <th className="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase tracking-widest w-[35%]">Account</th>
+                <th className="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase tracking-widest">Description</th>
+                <th className="px-4 py-3 text-right text-[9px] font-bold text-green-600 uppercase tracking-widest w-28">Debit (DR)</th>
+                <th className="px-4 py-3 text-right text-[9px] font-bold text-red-500 uppercase tracking-widest w-28">Credit (CR)</th>
                 <th className="w-10" />
               </tr>
             </thead>
@@ -227,11 +227,11 @@ export default function NewVoucherPage() {
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 dark:bg-slate-900/50 border-t-2 border-gray-100 dark:border-slate-700">
-                <td colSpan={2} className="px-5 py-4 text-xs font-black text-gray-600 dark:text-slate-400 uppercase">Total</td>
-                <td className="px-4 py-4 text-right font-black text-sm text-green-700">
+                <td colSpan={2} className="px-5 py-4 text-xs font-bold text-gray-600 dark:text-slate-400 uppercase">Total</td>
+                <td className="px-4 py-4 text-right font-bold text-xs text-green-700">
                   ₹{totalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </td>
-                <td className="px-4 py-4 text-right font-black text-sm text-red-600">
+                <td className="px-4 py-4 text-right font-bold text-xs text-red-600">
                   ₹{totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </td>
                 <td />
@@ -243,11 +243,11 @@ export default function NewVoucherPage() {
         {/* Balance Indicator */}
         <div className={`mx-5 mb-5 mt-3 px-5 py-3 rounded-xl border ${isBalanced ? 'bg-green-50 dark:bg-emerald-900/20 border-green-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'}`}>
           <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isBalanced ? 'text-green-600' : 'text-amber-600'}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${isBalanced ? 'text-green-600' : 'text-amber-600'}`}>
               {isBalanced ? '✓ Voucher is Balanced' : '⚠ Difference:'}
             </span>
             {!isBalanced && (
-              <span className="text-sm font-black text-amber-700">
+              <span className="text-xs font-bold text-amber-700">
                 ₹{Math.abs(totalDebit - totalCredit).toFixed(2)}
               </span>
             )}
@@ -260,7 +260,7 @@ export default function NewVoucherPage() {
           <button
             onClick={handleSubmit}
             disabled={saving || !isBalanced}
-            className="w-full py-4 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-violet-100 flex items-center justify-center gap-2 transition-all"
+            className="w-full py-4 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-violet-100 dark:shadow-none flex items-center justify-center gap-2 transition-all"
           >
             {saving ? <span className="animate-pulse">Posting...</span> : <><Send size={16} /> Post Voucher ({voucherType})</>}
           </button>

@@ -49,6 +49,20 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [showAddCustomer, setShowAddCustomer] = React.useState(false);
   const [selectedGuestId, setSelectedGuestId] = React.useState<string>(guestId || '');
 
+  const [showRating, setShowRating] = React.useState(false);
+  const [rating, setRating] = React.useState(0);
+  const [ratingComments, setRatingComments] = React.useState('');
+  const [settledInvoiceId, setSettledInvoiceId] = React.useState<string | null>(null);
+
+  // Quick Add Customer State
+  const [newCustFirst, setNewCustFirst] = React.useState('');
+  const [newCustLast, setNewCustLast] = React.useState('');
+  const [newCustMobile, setNewCustMobile] = React.useState('');
+  const [isAddingCustomer, setIsAddingCustomer] = React.useState(false);
+
+  // Property Branding State
+  const [property, setProperty] = React.useState<any>(null);
+
   // Update selectedGuestId if prop changes
   React.useEffect(() => {
     if (guestId) {
@@ -59,15 +73,6 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
       }
     }
   }, [guestId, customers]);
-  
-  // Quick Add Customer State
-  const [newCustFirst, setNewCustFirst] = React.useState('');
-  const [newCustLast, setNewCustLast] = React.useState('');
-  const [newCustMobile, setNewCustMobile] = React.useState('');
-  const [isAddingCustomer, setIsAddingCustomer] = React.useState(false);
-
-  // Property Branding State
-  const [property, setProperty] = React.useState<any>(null);
 
   React.useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -86,7 +91,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
       handlePrint();
       onClose();
     }
-  }, [autoPrint, property, bill]);
+  }, [autoPrint, property, !!bill]);
 
   const filteredCustomers = React.useMemo(() => {
     if (!customerSearch) return customers.slice(0, 5);
@@ -98,11 +103,6 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   }, [customers, customerSearch]);
 
   if (!bill) return null;
-
-  const [showRating, setShowRating] = React.useState(false);
-  const [rating, setRating] = React.useState(0);
-  const [ratingComments, setRatingComments] = React.useState('');
-  const [settledInvoiceId, setSettledInvoiceId] = React.useState<string | null>(null);
 
   const handleSettle = async () => {
     if (!onSettle || !selectedModeId) return;
