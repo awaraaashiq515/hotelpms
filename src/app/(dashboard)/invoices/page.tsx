@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Search, Printer, Trash2, Eye, Filter, Building2, ChevronDown } from 'lucide-react';
+import { FileText, Search, Printer, Trash2, Eye, Filter, Building2, ChevronDown, ReceiptText, RotateCcw, Star } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { DataTable } from '@/components/shared/data-table';
 import { StatusButton } from '@/components/shared/status-button';
@@ -22,6 +22,7 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedPropertyId, setSelectedPropertyId] = useState('all');
   const [properties, setProperties] = useState<any[]>([]);
+  const [session, setSession] = useState<any>(null);
 
   // Modals
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -53,6 +54,16 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleRefund = async (id: string) => {
+    try {
+      await invoicesApi.refund(id);
+      showToast('Invoice refunded successfully', 'success');
+      fetchInvoices();
+    } catch (err) {
+      showToast('Failed to refund invoice', 'error');
+    }
+  };
+
   const fetchProperties = async () => {
     try {
       const res = await fetch('/api/admin/properties');
@@ -65,6 +76,12 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchProperties();
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) setSession(data.user);
+      })
+      .catch(err => console.error('Failed to fetch session', err));
   }, []);
 
   useEffect(() => {
@@ -86,32 +103,45 @@ export default function InvoicesPage() {
     }
   };
 
-  const filteredInvoices = invoices.filter(inv =>
-    inv.invoiceNo.toLowerCase().includes(search.toLowerCase()) ||
-    inv.guest?.firstName?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredInvoices = invoices.filter(inv => {
+    const s = search.toLowerCase();
+    return (
+      inv.invoiceNo.toLowerCase().includes(s) ||
+      inv.guest?.firstName?.toLowerCase().includes(s) ||
+      inv.guest?.lastName?.toLowerCase().includes(s) ||
+      inv.guest?.mobile?.includes(s) ||
+      inv.tableNo?.toLowerCase().includes(s) ||
+      inv.orderType?.toLowerCase().includes(s)
+    );
+  });
 
   const columns = [
     { 
       header: 'Invoice No', 
       cell: (row: Invoice) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-pos-primary/10 flex items-center justify-center text-pos-primary">
-             <FileText size={14} />
+        <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-slate-800/50 flex items-center justify-center text-gray-400 group-hover:text-pos-primary transition-colors">
+            <ReceiptText size={16} />
           </div>
-          <span className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-tight">{row.invoiceNo}</span>
+          <span className="text-sm font-black text-gray-900 dark:text-white group-hover:text-pos-primary transition-colors tracking-tighter uppercase">{row.invoiceNo}</span>
         </div>
       ),
-      width: '200px'
+      width: '250px'
     },
     { 
       header: 'Customer', 
       cell: (row: Invoice) => (
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-gray-900 dark:text-white capitalize">
-            {row.guest ? `${row.guest.firstName} ${row.guest.lastName || ''}` : 'Walk-in Guest'}
+          <span className="text-sm font-black text-gray-900 dark:text-white capitalize">
+            {row.guest ? `${row.guest.firstName} ${row.guest.lastName || ''}` : (
+              <span className="text-indigo-600 dark:text-indigo-400">
+                {row.tableNo ? `Table ${row.tableNo}` : (row.orderType || 'Walk-In Guest')}
+              </span>
+            )}
           </span>
-          <span className="text-[10px] text-gray-400 font-bold">{row.guest?.mobile || 'No Mobile'}</span>
+          <span className="text-[10px] text-gray-400 font-bold">
+            {row.guest?.mobile ? row.guest.mobile : (row.orderType ? row.orderType : 'No Mobile')}
+          </span>
         </div>
       ),
       width: '250px'
@@ -157,13 +187,43 @@ export default function InvoicesPage() {
       header: 'Status', 
       cell: (row: Invoice) => (
         <div className="flex items-center gap-2">
-           <StatusButton status={row.paymentStatus.toLowerCase() as any} />
+           <select
+             value={row.paymentStatus}
+             onChange={async (e) => {
+               const newStatus = e.target.value as any;
+               try {
+                 await invoicesApi.update(row.id, { paymentStatus: newStatus });
+                 showToast('Status updated', 'success');
+                 fetchInvoices();
+               } catch (err) {
+                 showToast('Update failed', 'error');
+               }
+             }}
+             className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all ${
+               row.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-600 focus:ring-emerald-200' : 
+               row.paymentStatus === 'UNPAID' ? 'bg-orange-50 text-orange-600 focus:ring-orange-200' :
+               row.paymentStatus === 'REFUNDED' ? 'bg-amber-50 text-amber-600 focus:ring-amber-200' :
+               'bg-gray-50 text-gray-600'
+             }`}
+           >
+             <option value="PAID">Paid</option>
+             <option value="UNPAID">Unpaid</option>
+             <option value="REFUNDED">Refunded</option>
+             <option value="PARTIAL">Partial</option>
+           </select>
+           
            {row.invoiceStatus === 'CANCELLED' && (
              <span className="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-full font-black uppercase tracking-widest">Cancelled</span>
            )}
+           {row.rating && (
+             <div className="flex items-center gap-1 ml-2 text-amber-400">
+               <Star size={10} fill="currentColor" />
+               <span className="text-[10px] font-black">{row.rating}</span>
+             </div>
+           )}
         </div>
       ),
-      width: '150px'
+      width: '180px'
     },
     { 
       header: 'Date', 
@@ -190,13 +250,27 @@ export default function InvoicesPage() {
           >
             <Printer size={16} />
           </button>
-          {row.invoiceStatus !== 'CANCELLED' && (
-            <button
-              onClick={() => { setSelectedInvoice(row); setIsCancelOpen(true); }}
-              className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
-            >
-              <Trash2 size={16} />
-            </button>
+          {row.invoiceStatus !== 'CANCELLED' && row.invoiceStatus !== 'REFUNDED' && (
+            <>
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to refund this invoice?')) {
+                    handleRefund(row.id);
+                  }
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-amber-600 transition-colors"
+                title="Refund Invoice"
+              >
+                <RotateCcw size={16} />
+              </button>
+              <button
+                onClick={() => { setSelectedInvoice(row); setIsCancelOpen(true); }}
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
+                title="Cancel Invoice"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
           )}
         </div>
       ),
@@ -226,7 +300,7 @@ export default function InvoicesPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {properties.length > 0 && (
+            {['SUPER_ADMIN', 'RESTAURANTS_ADMIN'].includes(session?.role) && properties.length > 0 && (
               <div className="relative group">
                 <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-pos-primary transition-colors z-10" />
                 <select
@@ -312,6 +386,13 @@ export default function InvoicesPage() {
           onConfirm={handleCancel}
           onCancel={() => setIsCancelOpen(false)}
           loading={isSubmitting}
+        />
+      )}
+
+      {isPrintOpen && selectedInvoice && (
+        <PrintInvoiceModal
+          invoice={selectedInvoice}
+          onClose={() => setIsPrintOpen(false)}
         />
       )}
     </div>

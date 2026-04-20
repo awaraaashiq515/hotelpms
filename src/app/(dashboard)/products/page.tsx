@@ -24,6 +24,7 @@ export default function ProductsPage() {
   const [mutationLoading, setMutationLoading] = useState(false);
   const [properties, setProperties] = useState<any[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
+  const [session, setSession] = useState<any>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -49,6 +50,12 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProperties();
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) setSession(data.user);
+      })
+      .catch(err => console.error('Failed to fetch session', err));
   }, []);
 
   useEffect(() => {
@@ -210,6 +217,8 @@ export default function ProductsPage() {
   const [scanning, setScanning] = useState(false);
   const [scannedData, setScannedData] = useState<any>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [includeTax, setIncludeTax] = useState(true);
+  const [includeHsn, setIncludeHsn] = useState(true);
 
   const handleAiScan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,6 +228,8 @@ export default function ProductsPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('includeTax', String(includeTax));
+      formData.append('includeHsn', String(includeHsn));
 
       const res = await fetch('/api/ai/scan-menu', {
         method: 'POST',
@@ -278,7 +289,7 @@ export default function ProductsPage() {
               variant="secondary"
               className="font-bold text-xs tracking-widest px-4 py-3 rounded-lg border border-gray-200"
             >
-               AI SCAN MENU
+               MINT AI SCAN
             </Button>
             <Button 
               onClick={() => {
@@ -300,7 +311,7 @@ export default function ProductsPage() {
         placeholder="Search by name, SKU or category..."
         actions={
           <div className="flex gap-2">
-            {properties.length > 0 && (
+            {['SUPER_ADMIN', 'RESTAURANTS_ADMIN'].includes(session?.role) && properties.length > 0 && (
               <div className="relative group">
                 <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-pos-primary transition-colors z-10" />
                 <select
@@ -335,7 +346,7 @@ export default function ProductsPage() {
         <Modal 
           isOpen={isAiModalOpen} 
           onClose={() => { if(!mutationLoading) setIsAiModalOpen(false); }} 
-          title="Scan Menu using Gemini AI"
+          title="Scan Menu using Mint AI"
         >
           {!scannedData ? (
              <form onSubmit={handleAiScan} className="space-y-4 p-2">
@@ -354,7 +365,41 @@ export default function ProductsPage() {
                     <span className="text-xs text-gray-400 mt-1">Supports JPEG, PNG</span>
                  </label>
                </div>
-               <div className="flex justify-end gap-3 pt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-800/80 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest mb-0.5">Extract GST</p>
+                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">Auto-apply rates</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer scale-75">
+                      <input 
+                        type="checkbox" 
+                        checked={includeTax} 
+                        onChange={(e) => setIncludeTax(e.target.checked)}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pos-primary"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-800/80 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest mb-0.5">Extract HSN</p>
+                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">Auto-apply codes</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer scale-75">
+                      <input 
+                        type="checkbox" 
+                        checked={includeHsn} 
+                        onChange={(e) => setIncludeHsn(e.target.checked)}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pos-primary"></div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
                   <Button variant="secondary" onClick={() => setIsAiModalOpen(false)} type="button">Cancel</Button>
                   <Button type="submit" isLoading={scanning} disabled={!file}>Start AI Scan</Button>
                </div>

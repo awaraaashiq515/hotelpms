@@ -1,16 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon } from 'lucide-react';
+import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useState, useEffect } from 'react';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import { usePOSSecurity } from '@/components/providers/POSSecurityProvider';
 
 export const TopNavbar: React.FC = () => {
   const router = useRouter();
   const { toggle } = useSidebar();
   const { theme, toggleTheme } = useTheme();
+  const { manuallyLock } = usePOSSecurity();
   const [property, setProperty] = useState<any>(null);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export const TopNavbar: React.FC = () => {
           <NavbarAction icon={<Power size={18} />} label="Item On/Off" onClick={() => router.push('/day-closing')} />
           <NavbarAction icon={<Monitor size={18} />} label="Live View" onClick={() => router.push('/kitchen-display')} />
           <NavbarAction icon={<History size={18} />} label="Recent" onClick={() => router.push('/invoices')} />
+          <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
           <NavbarAction icon={<Bell size={18} />} label="Alerts" />
         </div>
         

@@ -30,9 +30,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-0">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-6">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
-      <div className={`relative bg-white dark:bg-slate-900 rounded-[32px] w-full ${maxWidthMap[maxWidth]} p-8 shadow-2xl dark:shadow-none animate-in zoom-in-95 duration-200`}>
+      <div className={`relative bg-white dark:bg-slate-900 rounded-3xl lg:rounded-[32px] w-full ${maxWidthMap[maxWidth]} p-6 lg:p-8 shadow-2xl dark:shadow-none animate-in zoom-in-95 duration-200`}>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">
             {title.split(' ')[0]} <span className="text-pos-primary">{title.split(' ').slice(1).join(' ')}</span>

@@ -12,9 +12,20 @@ export async function GET(request: NextRequest) {
     const customers = await prisma.guest.findMany({
       where: { organizationId: session.organizationId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        settlements: {
+          where: { status: 'PENDING' },
+          select: { balanceAmount: true }
+        }
+      }
     });
 
-    return apiResponse(customers);
+    const result = customers.map(c => ({
+      ...c,
+      pendingBalance: (c as any).settlements.reduce((acc: number, s: any) => acc + (s.balanceAmount || 0), 0)
+    }));
+
+    return apiResponse(result);
   } catch (error) {
     return apiError(error);
   }

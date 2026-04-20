@@ -129,31 +129,32 @@ export default function GlobalPropertyManagement() {
   if (loading) return <div className="p-20 text-center animate-pulse text-slate-400 font-black uppercase tracking-widest text-xs">Global Console Loading...</div>;
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase transition-colors">Global Business Hub</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 uppercase tracking-widest flex items-center gap-2 transition-colors">
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase transition-colors">Global Business Hub</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm font-medium mt-1 uppercase tracking-widest flex items-center gap-2 transition-colors">
             <ShieldCheck size={14} style={{color:'#e8a0a0'}} />
             System-Wide Asset Management
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+          <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
               placeholder="Filter businesses..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all w-64 shadow-sm text-slate-900 dark:text-white" style={{}} onFocus={e => e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a040'} onBlur={e => e.currentTarget.style.boxShadow=''}/>
+              className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all shadow-sm text-slate-900 dark:text-white" style={{}} onFocus={e => e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a040'} onBlur={e => e.currentTarget.style.boxShadow=''}/>
           </div>
-          <Button onClick={() => handleOpenModal()} className="text-white rounded-xl py-4 px-6 font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2" style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a040'}}>
+          <Button onClick={() => handleOpenModal()} className="w-full sm:w-auto text-white rounded-xl py-4 px-6 font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center justify-center gap-2" style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a040'}}>
             <Plus size={16} />
-            Register New Enterprise
+            Register Enterprise
           </Button>
         </div>
       </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((property) => (

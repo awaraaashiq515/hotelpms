@@ -9,6 +9,7 @@ export interface Customer {
   address?: string;
   gender?: string;
   loyaltyPoints: number;
+  pendingBalance?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -34,5 +35,9 @@ export const customersApi = {
 
   async delete(id: string): Promise<void> {
     return apiClient.delete(`/api/customers/${id}`);
+  },
+
+  async settleBalance(id: string, data: { paymentModeId: string; amount: number }): Promise<any> {
+    return apiClient.post(`/api/customers/${id}/settle`, data);
   },
 };

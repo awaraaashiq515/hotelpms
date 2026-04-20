@@ -18,9 +18,16 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPropertyId, setSelectedPropertyId] = useState('all');
   const [properties, setProperties] = useState<any[]>([]);
+  const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
     fetchProperties();
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) setSession(data.user);
+      })
+      .catch(err => console.error('Failed to fetch session', err));
   }, []);
 
   useEffect(() => {
@@ -122,7 +129,7 @@ export default function PaymentsPage() {
         </div>
         
         <div className="flex items-center gap-3">
-          {properties.length > 0 && (
+          {['SUPER_ADMIN', 'RESTAURANTS_ADMIN'].includes(session?.role) && properties.length > 0 && (
             <div className="relative group">
               <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-pos-primary transition-colors z-10" />
               <select

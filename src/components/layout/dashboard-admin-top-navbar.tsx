@@ -1,16 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Search, Power, Bell, Menu, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Search, Power, Bell, Menu, ShieldCheck, Sun, Moon, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useState, useEffect } from 'react';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import { usePOSSecurity } from '@/components/providers/POSSecurityProvider';
 
 export const DashboardAdminTopNavbar: React.FC = () => {
   const router = useRouter();
   const { toggle } = useSidebar();
   const { theme, toggleTheme } = useTheme();
+  const { manuallyLock } = usePOSSecurity();
   const [session, setSession] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
 
@@ -54,31 +56,41 @@ export const DashboardAdminTopNavbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-4">
-          <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
-            <Menu size={20} className="text-gray-500 dark:text-slate-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
+    <header className="h-16 lg:h-20 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-[60] shadow-sm transition-all duration-200">
+      <div className="flex items-center gap-2 lg:gap-6">
+        <div className="flex items-center gap-2 lg:gap-4">
+          <button 
+            onClick={toggle} 
+            className="p-2 lg:p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" 
+            title="Toggle Sidebar"
+          >
+            <Menu size={22} className="text-gray-500 dark:text-slate-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
           </button>
+          
           <div className="flex items-center gap-3">
              {property?.logoUrl ? (
-               <div className="flex items-center gap-4 relative z-[60]">
-                 <img src={property.logoUrl} alt="Logo" className="h-28 w-auto object-contain drop-shadow-2xl transition-all duration-300" />
+               <div className="flex items-center gap-3 lg:gap-4 relative">
+                 <img 
+                    src={property.logoUrl} 
+                    alt="Logo" 
+                    className="h-10 lg:h-16 w-auto object-contain transition-all duration-300" 
+                 />
                  <div className="hidden sm:flex flex-col leading-none">
-                    <span className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tighter">Admin<span className="text-pos-primary font-light">HUB</span></span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{property.name}</span>
+                    <span className="text-sm lg:text-base font-black text-slate-800 dark:text-white uppercase tracking-tighter">Admin<span className="text-pos-primary font-light">HUB</span></span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate max-w-[100px]">{property.name}</span>
                  </div>
                </div>
              ) : (
-               <div className="font-bold text-xl tracking-tighter text-slate-800 dark:text-white uppercase flex items-center gap-2 transition-colors">
+               <div className="font-bold text-lg lg:text-xl tracking-tighter text-slate-800 dark:text-white uppercase flex items-center gap-2 transition-colors">
                  <ShieldCheck className="text-pos-primary" size={24} />
-                 <span>Restaurants Admin<span className="text-pos-primary font-light">HUB</span></span>
+                 <span className="hidden xs:inline">Restaurants Admin<span className="text-pos-primary font-light">HUB</span></span>
+                 <span className="xs:hidden">Admin<span className="text-pos-primary font-light">HUB</span></span>
                </div>
              )}
           </div>
         </div>
         
-        <div className="hidden lg:flex items-center gap-3 ml-8">
+        <div className="hidden xl:flex items-center gap-3 ml-8">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
@@ -93,13 +105,16 @@ export const DashboardAdminTopNavbar: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center border-r border-gray-200 dark:border-slate-800 pr-4 mr-1 gap-1">
-          <NavbarAction icon={<Bell size={18} />} label="Notifications" />
-          <NavbarAction icon={<ShieldCheck size={18} />} label="Security" onClick={() => router.push('/settings/security')} />
+      <div className="flex items-center gap-2 lg:gap-4">
+        <div className="flex items-center border-r border-gray-200 dark:border-slate-800 pr-2 lg:pr-4 mr-1 gap-1">
+          <NavbarAction icon={<Bell size={18} />} label="Alerts" />
+          <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
+          <div className="hidden md:flex">
+            <NavbarAction icon={<ShieldCheck size={18} />} label="Security" onClick={() => router.push('/settings/security')} />
+          </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 lg:gap-4">
           <button
             onClick={toggleTheme}
             className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-pos-primary dark:hover:text-pos-primary transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
@@ -131,8 +146,8 @@ export const DashboardAdminTopNavbar: React.FC = () => {
 };
 
 const NavbarAction = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
-  <button onClick={onClick} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-slate-100 transition-colors group min-w-[68px]">
-    <span className="text-slate-500 group-hover:text-pos-primary mb-1 transition-colors">{icon}</span>
-    <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-800 uppercase tracking-tighter text-center">{label}</span>
+  <button onClick={onClick} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group min-w-[40px] lg:min-w-[68px]">
+    <span className="text-slate-500 group-hover:text-pos-primary mb-0.5 lg:mb-1 transition-colors">{icon}</span>
+    <span className="hidden lg:block text-[9px] font-bold text-slate-500 group-hover:text-slate-800 dark:group-hover:text-white uppercase tracking-tighter text-center">{label}</span>
   </button>
 );

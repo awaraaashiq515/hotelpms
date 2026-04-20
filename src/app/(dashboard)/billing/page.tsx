@@ -1347,6 +1347,7 @@ export default function BillingPage() {
         onSettle={handleSettleNew}
         paymentModes={paymentModes}
         customers={customers}
+        guestId={selectedGuestId}
         onAddCustomer={async (data) => {
             const newGuest = await customersApi.create(data);
             if (newGuest) {

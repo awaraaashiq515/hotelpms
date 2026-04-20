@@ -71,25 +71,25 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-8 h-full">
-      <div className="flex justify-between items-end">
+    <div className="space-y-6 lg:space-y-8 h-full pb-10 lg:pb-0">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <PageHeader
           title={`${session?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Restaurants Admin'} Dashboard`}
           description={session?.role === 'SUPER_ADMIN'
-            ? "Global oversight of all organizations and systems."
-            : "Manage your restaurant setup and view performance."}
+            ? "Global oversight of all organizations."
+            : "Manage your restaurant portfolio."}
         />
-        <div className="pb-1 hidden md:flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {isAdmin && (
             <button
               onClick={() => setShowWizard(v => !v)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${showWizard ? 'bg-pos-primary text-white border-pos-primary shadow-md' : 'bg-white dark:bg-slate-900 text-pos-primary dark:text-pos-primary border-pos-primary/30 dark:border-pos-primary/20 hover:border-pos-primary dark:hover:border-pos-primary/50'}`}
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 lg:py-2 rounded-xl text-[10px] lg:text-xs font-black uppercase tracking-widest border transition-all ${showWizard ? 'bg-pos-primary text-white border-pos-primary shadow-md' : 'bg-white dark:bg-slate-900 text-pos-primary dark:text-pos-primary border-pos-primary/30 dark:border-pos-primary/20 hover:border-pos-primary dark:hover:border-pos-primary/50'}`}
             >
               <Layers size={14} />
-              {showWizard ? 'Hide Setup' : 'Restaurant Setup'}
+              {showWizard ? 'Hide Setup' : 'Setup'}
             </button>
           )}
-          <span className="px-3 py-1.5 bg-pos-primary/10 dark:bg-pos-primary/20 text-pos-primary dark:text-pos-primary rounded-xl text-[10px] font-black uppercase tracking-widest border border-pos-primary/20 dark:border-pos-primary/30 shadow-sm">
+          <span className="flex-1 md:flex-none text-center px-3 py-2.5 lg:py-1.5 bg-pos-primary/10 dark:bg-pos-primary/20 text-pos-primary dark:text-pos-primary rounded-xl text-[9px] lg:text-[10px] font-black uppercase tracking-widest border border-pos-primary/20 dark:border-pos-primary/30 shadow-sm truncate">
             {session?.organizationName || 'System Access'}
           </span>
         </div>
@@ -105,81 +105,77 @@ export default function DashboardPage() {
       {/* ── Stats Row ── */}
       {!showWizard && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {statCards.map((stat, i) => (
-              <Card key={i} className="hover:border-pos-primary/20 transition-shadow,transform duration-200 transform-gpu group border-2 dark:border-slate-800 dark:bg-slate-900/40">
+              <Card key={i} className="hover:border-pos-primary/20 transition-shadow duration-200 group border-2 dark:border-slate-800 dark:bg-slate-900/40 p-4 lg:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1 transition-colors">{stat.label}</p>
-                    <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tight transition-colors">{stat.value}</p>
+                    <p className="text-[9px] lg:text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
+                    <p className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white tracking-tight">{stat.value}</p>
                   </div>
-                  <div className={`p-3 rounded-xl bg-gray-50 dark:bg-slate-800 transition-colors duration-200 ${stat.color}`}>
-                    <stat.icon size={24} />
+                  <div className={`p-2.5 lg:p-3 rounded-xl bg-gray-50 dark:bg-slate-800 ${stat.color}`}>
+                    <stat.icon size={20} className="lg:w-6 lg:h-6" />
                   </div>
                 </div>
               </Card>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="lg:col-span-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-2 dark:border-slate-800 p-8 min-h-[350px] flex flex-col justify-between overflow-hidden relative shadow-2xl transition-colors duration-500">
-              <div className="absolute inset-0 bg-gradient-to-br from-pos-primary/10 to-slate-50/20 dark:from-pos-primary/20 dark:to-slate-950/20 -z-0 pointer-events-none" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+            <Card className="lg:col-span-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-2 dark:border-slate-800 p-5 lg:p-8 min-h-[350px] flex flex-col justify-between overflow-hidden relative shadow-xl transition-colors duration-500">
+              <div className="absolute inset-0 bg-gradient-to-br from-pos-primary/5 to-slate-50/10 dark:from-pos-primary/10 dark:to-slate-950/10 -z-0 pointer-events-none" />
               <div className="relative z-10">
-                <h3 className="text-2xl font-black tracking-tight uppercase mb-2">Organization Pulse</h3>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest max-w-md">
-                  Real-time monitoring across all {stats?.totalBusinesses || 0} businesses in your portfolio.
+                <h3 className="text-xl lg:text-2xl font-black tracking-tight uppercase mb-2">Organization Pulse</h3>
+                <p className="text-[10px] lg:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest max-w-md">
+                  Monitoring {stats?.totalBusinesses || 0} businesses in your portfolio.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 relative z-10 mt-6 lg:mt-8">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Recent Activity</p>
-                  <p className="text-xl font-bold">Live Monitoring</p>
+                  <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Recent Activity</p>
+                  <p className="text-lg lg:text-xl font-bold">Live Monitoring</p>
                 </div>
-                <div className="space-y-1 border-l border-slate-200 dark:border-slate-800 pl-6">
-                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Users</p>
-                  <p className="text-xl font-bold">{stats?.totalUsers || 0} Team Members</p>
+                <div className="space-y-1 md:border-l border-slate-200 dark:border-slate-800 md:pl-6">
+                  <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Users</p>
+                  <p className="text-lg lg:text-xl font-bold">{stats?.totalUsers || 0} Members</p>
                 </div>
-                <div className="space-y-1 border-l border-slate-200 dark:border-slate-800 pl-6">
-                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">System Health</p>
+                <div className="space-y-1 md:border-l border-slate-200 dark:border-slate-800 md:pl-6">
+                  <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">System Health</p>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-xl font-bold text-emerald-400 uppercase tracking-tighter">Stable</span>
+                    <span className="text-lg lg:text-xl font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-tighter">Stable</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-800/50 relative z-10">
-                <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Latest Orders (Across Portfolio)</p>
+              <div className="mt-6 lg:mt-8 pt-6 lg:pt-8 border-t border-slate-200 dark:border-slate-800/50 relative z-10">
+                <p className="text-[9px] lg:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Latest Portfolio Activity</p>
                 <div className="space-y-3">
                   {stats?.recentOrders?.length > 0 ? stats.recentOrders.map((order: any) => (
-                    <div key={order.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-white/5 last:border-0 pb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-600 dark:text-slate-300">#{order.orderNo}</span>
-                        <span className="text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-white/10 rounded uppercase font-bold text-slate-500 dark:text-slate-400">{order.property?.name}</span>
+                    <div key={order.id} className="flex items-center justify-between text-[11px] lg:text-xs py-2 border-b border-slate-100 dark:border-white/5 last:border-0">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <span className="font-bold text-slate-600 dark:text-slate-300 shrink-0">#{order.orderNo}</span>
+                        <span className="text-[9px] lg:text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-white/10 rounded uppercase font-bold text-slate-500 dark:text-slate-400 truncate">{order.property?.name}</span>
                       </div>
-                      <span className="font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{formatCurrency(order.grandTotal)}</span>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 tracking-tighter ml-2">{formatCurrency(order.grandTotal)}</span>
                     </div>
                   )) : (
-                    <p className="text-xs text-slate-600 dark:text-slate-400 font-bold italic uppercase">No recent activity found.</p>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold italic uppercase">No recent activity found.</p>
                   )}
                 </div>
               </div>
-
-              <div className="absolute -right-20 -top-20 w-64 h-64 bg-pos-primary/10 rounded-full blur-3xl invisible md:visible"></div>
-              <div className="absolute right-1/4 bottom-0 w-32 h-32 bg-pos-primary/10 rounded-full blur-3xl invisible md:visible"></div>
             </Card>
 
             <div className="space-y-6">
-              <Card className="p-6 border-2 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl transition-colors duration-300">
-                <h3 className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-[0.2em] mb-8 border-b border-gray-100 dark:border-slate-800 pb-4 transition-colors">Quick Admin Actions</h3>
-                <div className="space-y-4">
-                  {isAdmin && <AddActionButton label="Restaurant Setup" icon={<Layers size={16} />} onClick={() => setShowWizard(true)} />}
-                  {hasFeature('POS') && <AddActionButton label="View All Bills" icon={<ReceiptText size={16} />} href="/all-bills" />}
-                  <AddActionButton label="Add New Business" icon={<Building2 size={16} />} href="/manage-properties" />
-                  <AddActionButton label="Create System User" icon={<Users size={16} />} href="/manage-users" />
-                  {hasFeature('REPORTS') && <AddActionButton label="Global Reports" icon={<BarChart size={16} />} href="/reports/sales-summary" />}
-                  <AddActionButton label="Organization Settings" icon={<Store size={16} />} href="/settings" />
+              <Card className="p-5 lg:p-6 border-2 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg">
+                <h3 className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-[0.2em] mb-6 border-b border-gray-100 dark:border-slate-800 pb-4">Quick Actions</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                  {isAdmin && <AddActionButton label="Setup Wizard" icon={<Layers size={14} />} onClick={() => setShowWizard(true)} />}
+                  <AddActionButton label="Businesses" icon={<Building2 size={14} />} href="/manage-properties" />
+                  <AddActionButton label="System Users" icon={<Users size={14} />} href="/manage-users" />
+                  {hasFeature('REPORTS') && <AddActionButton label="Reports" icon={<BarChart size={14} />} href="/reports/sales-summary" />}
+                  <AddActionButton label="Settings" icon={<Store size={14} />} href="/settings" />
                 </div>
               </Card>
             </div>
@@ -187,36 +183,36 @@ export default function DashboardPage() {
 
           {/* ── Property Performance Breakdown ── */}
           <div className="space-y-6 pt-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">Property Performance Breakdown</h3>
-              <a href="/manage-properties" className="text-[9px] font-black text-pos-primary uppercase tracking-widest hover:underline">Manage All Branches →</a>
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">Portfolio Breakdown</h3>
+              <a href="/manage-properties" className="text-[9px] font-black text-pos-primary uppercase tracking-widest hover:underline">View All →</a>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
               {stats?.propertiesBreakdown?.map((prop: any) => (
-                <Card key={prop.id} className="relative overflow-hidden group border-2 dark:border-slate-800 hover:border-pos-primary/40 transition-all duration-300">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight group-hover:text-pos-primary transition-colors">{prop.name}</h4>
-                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">{prop.city || 'Global Outlet'}</p>
+                <Card key={prop.id} className="relative overflow-hidden group border-2 dark:border-slate-800 hover:border-pos-primary/40 transition-all duration-300 p-5">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="min-w-0">
+                      <h4 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight group-hover:text-pos-primary transition-colors truncate">{prop.name}</h4>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1 truncate">{prop.city || 'Global Outlet'}</p>
                     </div>
-                    <div className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                    <div className="shrink-0 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                       {prop.type || 'RESTAURANT'}
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Revenue</p>
-                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{formatCurrency(prop.totalSales)}</p>
+                      <p className="text-[8px] lg:text-[9px] font-black text-slate-400 uppercase tracking-widest">Revenue</p>
+                      <p className="text-base lg:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{formatCurrency(prop.totalSales)}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order Count</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-white">{prop.orderCount}</p>
+                      <p className="text-[8px] lg:text-[9px] font-black text-slate-400 uppercase tracking-widest">Orders</p>
+                      <p className="text-base lg:text-lg font-black text-slate-900 dark:text-white">{prop.orderCount}</p>
                     </div>
                   </div>
                   
-                  <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between">
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Outlets</span>
@@ -230,7 +226,7 @@ export default function DashboardPage() {
                     </div>
                     <button 
                       onClick={() => window.location.href = `/manage-properties`}
-                      className="p-2 bg-pos-primary/10 text-pos-primary rounded-lg opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0"
+                      className="p-2 bg-pos-primary/10 text-pos-primary rounded-lg lg:opacity-0 lg:group-hover:opacity-100 transition-all transform translate-x-2 lg:group-hover:translate-x-0"
                     >
                       <ArrowRightCircle size={16} />
                     </button>
@@ -240,12 +236,12 @@ export default function DashboardPage() {
               
               <button 
                 onClick={() => window.location.href = '/manage-properties'}
-                className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-slate-300 hover:border-pos-primary hover:text-pos-primary hover:bg-pos-primary/5 transition-all group"
+                className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 lg:p-8 text-slate-300 hover:border-pos-primary hover:text-pos-primary hover:bg-pos-primary/5 transition-all group min-h-[160px]"
               >
-                <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Plus size={24} />
+                <div className="w-10 h-10 lg:w-12 lg:h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Plus size={20} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Add New Branch</span>
+                <span className="text-[9px] lg:text-[10px] font-black uppercase tracking-widest">Add New Branch</span>
               </button>
             </div>
           </div>
@@ -254,9 +250,9 @@ export default function DashboardPage() {
 
       {/* When wizard is open, show a compact quick-actions bar below */}
       {isAdmin && showWizard && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-          {hasFeature('POS') && <QuickLink label="All Bills" icon={<ReceiptText size={14} />} href="/all-bills" />}
-          <QuickLink label="Manage Users" icon={<Users size={14} />} href="/manage-users" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3 mt-4">
+          {hasFeature('POS') && <QuickLink label="Bills" icon={<ReceiptText size={14} />} href="/all-bills" />}
+          <QuickLink label="Users" icon={<Users size={14} />} href="/manage-users" />
           {hasFeature('REPORTS') && <QuickLink label="Reports" icon={<BarChart size={14} />} href="/reports/sales-summary" />}
           <QuickLink label="Settings" icon={<Store size={14} />} href="/settings" />
         </div>

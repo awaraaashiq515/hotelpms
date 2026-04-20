@@ -16,8 +16,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
+
     fetch('/api/website/settings')
       .then(res => res.json())
       .then(json => {
@@ -59,6 +62,29 @@ export default function LoginPage() {
       } else {
         setError('An unexpected error occurred. Please check your connection.');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResetSent(true);
+      } else {
+        setError(data.error || 'Failed to request password reset');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -188,13 +214,15 @@ export default function LoginPage() {
           {/* Header text */}
           <div className="mb-8">
             <p className="text-[11px] font-bold text-red-700 uppercase tracking-[0.25em] mb-2">
-              Welcome back
+              {isForgotPassword ? 'Secure Access' : 'Welcome back'}
             </p>
             <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-              Sign in to your account
+              {isForgotPassword ? (resetSent ? 'Check your email' : 'Reset your password') : 'Sign in to your account'}
             </h1>
             <p className="text-gray-400 text-sm mt-2 font-medium">
-              Enter your credentials to access the dashboard
+              {isForgotPassword 
+                ? (resetSent ? `We've sent a recovery link to ${email}` : 'Enter your email to receive a password reset link')
+                : 'Enter your credentials to access the dashboard'}
             </p>
           </div>
 
@@ -212,140 +240,189 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email Field */}
-            <div>
-              <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1.5 ml-1">
-                Email Address
-              </label>
-              <div
-                className="relative group"
-                style={{ transition: 'all 0.2s' }}
-              >
+          {!resetSent ? (
+            <form onSubmit={isForgotPassword ? handleForgotPassword : handleLogin} className="space-y-4">
+              {/* Email Field */}
+              <div>
+                <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1.5 ml-1">
+                  Email Address
+                </label>
                 <div
-                  className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200"
-                  style={{ color: focusedField === 'email' ? '#b91c1c' : '#9ca3af' }}
+                  className="relative group"
+                  style={{ transition: 'all 0.2s' }}
                 >
-                  <Mail size={17} />
+                  <div
+                    className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200"
+                    style={{ color: focusedField === 'email' ? '#b91c1c' : '#9ca3af' }}
+                  >
+                    <Mail size={17} />
+                  </div>
+                  <input
+                    id="login-email"
+                    type="email"
+                    placeholder="admin@example.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full pl-11 pr-4 py-4 bg-white border-2 rounded-2xl text-sm font-semibold text-gray-800 placeholder-gray-300 outline-none transition-all duration-200"
+                    style={{
+                      borderColor: focusedField === 'email' ? '#b91c1c' : '#e5e7eb',
+                      boxShadow: focusedField === 'email' ? '0 0 0 4px rgba(185,28,28,0.08)' : 'none',
+                    }}
+                  />
                 </div>
-                <input
-                  id="login-email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
-                  className="w-full pl-11 pr-4 py-4 bg-white border-2 rounded-2xl text-sm font-semibold text-gray-800 placeholder-gray-300 outline-none transition-all duration-200"
-                  style={{
-                    borderColor: focusedField === 'email' ? '#b91c1c' : '#e5e7eb',
-                    boxShadow: focusedField === 'email' ? '0 0 0 4px rgba(185,28,28,0.08)' : 'none',
-                  }}
-                />
               </div>
-            </div>
 
-            {/* Password Field */}
-            <div>
-              <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1.5 ml-1">
-                Password
-              </label>
-              <div className="relative group">
-                <div
-                  className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200"
-                  style={{ color: focusedField === 'password' ? '#b91c1c' : '#9ca3af' }}
-                >
-                  <Lock size={17} />
+              {/* Password Field - Only for Login */}
+              {!isForgotPassword && (
+                <div>
+                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1.5 ml-1">
+                    Password
+                  </label>
+                  <div className="relative group">
+                    <div
+                      className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200"
+                      style={{ color: focusedField === 'password' ? '#b91c1c' : '#9ca3af' }}
+                    >
+                      <Lock size={17} />
+                    </div>
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••••••"
+                      required={!isForgotPassword}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
+                      className="w-full pl-11 pr-12 py-4 bg-white border-2 rounded-2xl text-sm font-semibold text-gray-800 placeholder-gray-300 outline-none transition-all duration-200"
+                      style={{
+                        borderColor: focusedField === 'password' ? '#b91c1c' : '#e5e7eb',
+                        boxShadow: focusedField === 'password' ? '0 0 0 4px rgba(185,28,28,0.08)' : 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
                 </div>
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••••••"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  className="w-full pl-11 pr-12 py-4 bg-white border-2 rounded-2xl text-sm font-semibold text-gray-800 placeholder-gray-300 outline-none transition-all duration-200"
-                  style={{
-                    borderColor: focusedField === 'password' ? '#b91c1c' : '#e5e7eb',
-                    boxShadow: focusedField === 'password' ? '0 0 0 4px rgba(185,28,28,0.08)' : 'none',
-                  }}
-                />
+              )}
+
+              {/* Remember + Forgot */}
+              <div className="flex items-center justify-between px-1 py-2">
+                {!isForgotPassword ? (
+                  <>
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer group"
+                      onClick={() => document.getElementById('remember-device')?.click()}
+                    >
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          id="remember-device"
+                        />
+                        <div className="w-4 h-4 border-2 border-gray-300 rounded peer-checked:bg-red-700 peer-checked:border-red-700 transition-all" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-400 group-hover:text-gray-600 uppercase tracking-tight">
+                        Remember me
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsForgotPassword(true);
+                        setError(null);
+                      }}
+                      className="text-xs font-bold text-gray-500 hover:text-red-700 transition-colors uppercase tracking-tight cursor-pointer py-1"
+                    >
+                      Forgot password?
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsForgotPassword(false);
+                      setError(null);
+                      setResetSent(false);
+                    }}
+                    className="text-xs font-bold text-gray-500 hover:text-red-700 transition-colors uppercase tracking-tight flex items-center gap-1 cursor-pointer py-1"
+                  >
+                    ← Back to Sign In
+                  </button>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full relative flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all duration-300 overflow-hidden group"
+                  style={{
+                    background: loading
+                      ? '#9f1239'
+                      : 'linear-gradient(135deg, #991b1b 0%, #b91c1c 50%, #c2410c 100%)',
+                    boxShadow: loading
+                      ? 'none'
+                      : '0 8px 24px rgba(185,28,28,0.35), 0 2px 8px rgba(185,28,28,0.2)',
+                  }}
                 >
-                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  <div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #9a3412 100%)',
+                    }}
+                  />
+                  <span className="relative z-10 flex items-center gap-2">
+                    {loading ? (
+                      <>
+                        <div
+                          className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full"
+                          style={{ animation: 'spin 0.8s linear infinite' }}
+                        />
+                        {isForgotPassword ? 'Sending...' : 'Signing in...'}
+                      </>
+                    ) : (
+                      <>
+                        {isForgotPassword ? 'Send Reset Link' : 'Sign In'}
+                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </span>
                 </button>
               </div>
-            </div>
-
-            {/* Remember + Forgot */}
-            <div className="flex items-center justify-between px-1">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    id="remember-device"
-                  />
-                  <div className="w-4 h-4 border-2 border-gray-300 rounded peer-checked:bg-red-700 peer-checked:border-red-700 transition-all" />
+            </form>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
+                  <Mail size={24} className="text-green-600" />
                 </div>
-                <span className="text-[11px] font-semibold text-gray-400 group-hover:text-gray-600 uppercase tracking-tight">
-                  Remember me
-                </span>
-              </label>
+              </div>
               <button
-                type="button"
-                className="text-[11px] font-bold text-gray-400 hover:text-red-700 transition-colors uppercase tracking-tight"
-              >
-                Forgot password?
-              </button>
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full relative flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all duration-300 overflow-hidden group"
-                style={{
-                  background: loading
-                    ? '#9f1239'
-                    : 'linear-gradient(135deg, #991b1b 0%, #b91c1c 50%, #c2410c 100%)',
-                  boxShadow: loading
-                    ? 'none'
-                    : '0 8px 24px rgba(185,28,28,0.35), 0 2px 8px rgba(185,28,28,0.2)',
+                onClick={() => {
+                  setResetSent(false);
+                  setIsForgotPassword(false);
+                  setError(null);
                 }}
+                className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest border-2 border-gray-100 text-gray-500 hover:bg-gray-50 transition-all"
               >
-                <div
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{
-                    background: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #9a3412 100%)',
-                  }}
-                />
-                <span className="relative z-10 flex items-center gap-2">
-                  {loading ? (
-                    <>
-                      <div
-                        className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full"
-                        style={{ animation: 'spin 0.8s linear infinite' }}
-                      />
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      Sign In
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </span>
+                Return to Sign In
               </button>
             </div>
-          </form>
+          )}
 
           {/* Divider */}
           <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-center gap-2">

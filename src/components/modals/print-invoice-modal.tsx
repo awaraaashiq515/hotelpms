@@ -64,7 +64,8 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
           <div class="font-bold uppercase" style="font-size: 11px;">
             <div class="total-row"><span>INVOICE NO:</span> <span>${invoice.invoiceNo}</span></div>
             <div class="total-row"><span>DATE:</span> <span>${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</span></div>
-            <div class="total-row"><span>CUSTOMER:</span> <span>${invoice.guest ? invoice.guest.firstName : 'WALK-IN'}</span></div>
+            <div class="total-row"><span>CUSTOMER:</span> <span>${invoice.guest ? `${invoice.guest.firstName} ${invoice.guest.lastName || ''}` : 'WALK-IN'}</span></div>
+            ${invoice.guest?.mobile ? `<div class="total-row"><span>MOBILE:</span> <span>${invoice.guest.mobile}</span></div>` : ''}
           </div>
 
           <div class="dashed-line" style="margin: 5mm 0;"></div>
@@ -158,8 +159,14 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
                 <div className="flex justify-between"><span>Date:</span> <span>{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</span></div>
                 <div className="flex justify-between items-center bg-black text-white px-2 py-1 mt-2">
                   <span>Guest:</span> 
-                  <span className="text-sm font-black truncate max-w-[150px]">{invoice.guest ? invoice.guest.firstName : 'WALK-IN'}</span>
+                  <span className="text-sm font-black truncate max-w-[150px]">{invoice.guest ? `${invoice.guest.firstName} ${invoice.guest.lastName || ''}` : 'WALK-IN'}</span>
                 </div>
+                {invoice.guest?.mobile && (
+                  <div className="flex justify-between items-center border-b border-black/10 py-1">
+                    <span className="text-[9px]">Mobile:</span>
+                    <span className="text-[10px] font-black">{invoice.guest.mobile}</span>
+                  </div>
+                )}
              </div>
 
              <table className="w-full text-left font-black text-[11px] mb-8">

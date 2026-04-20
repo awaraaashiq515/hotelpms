@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 
 export interface InvoiceItem {
-  id?: string;
+  id: string;
   productId?: string;
   description?: string;
   qty: number;
@@ -9,6 +9,7 @@ export interface InvoiceItem {
   unitPrice: number;
   taxAmount: number;
   totalAmount: number;
+  status: 'NORMAL' | 'RETURNED' | 'REPLACED';
   product?: {
     name: string;
   };
@@ -53,10 +54,17 @@ export interface Invoice {
   paidAmount?: number;
   dueAmount?: number;
   cancelReason?: string;
+  tableNo?: string;
+  orderType?: string;
+  posOrderId?: string;
+  rating?: number;
+  ratingComments?: string;
   _count?: {
     items: number;
   };
 }
+
+
 
 export const invoicesApi = {
   async list(params?: { guestId?: string, status?: string, propertyId?: string }): Promise<Invoice[]> {
@@ -67,7 +75,23 @@ export const invoicesApi = {
     return apiClient.get(`/api/invoices/${id}`);
   },
 
+  async update(id: string, data: Partial<Invoice>): Promise<Invoice> {
+    return apiClient.patch(`/api/invoices/${id}`, data);
+  },
+
   async delete(id: string, reason?: string): Promise<void> {
     return apiClient.delete(`/api/invoices/${id}`, { body: { reason } } as any);
+  },
+
+  async refund(id: string, reason?: string): Promise<Invoice> {
+    return apiClient.post(`/api/invoices/${id}/refund`, { reason });
+  },
+
+  async rate(id: string, rating: number, comments?: string): Promise<Invoice> {
+    return apiClient.post(`/api/invoices/${id}/rate`, { rating, comments });
+  },
+
+  async replaceItem(itemId: string, data: { reason?: string, replacementProductId?: string, replacementQty?: number }): Promise<any> {
+    return apiClient.post(`/api/invoices/items/${itemId}/replace`, data);
   },
 };

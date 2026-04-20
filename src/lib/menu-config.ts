@@ -117,6 +117,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
         { name: 'Live Occupancy',  path: '/operations/occupancy', feature: 'HMS' },
         { name: 'Table Bookings',  path: '/table-reservations',   feature: 'TABLES', roles: ['POSSYSTEM'] },
         { name: 'Drivers Hub',     path: '/drivers',              feature: 'DRIVERS' },
+        { name: 'Customers',       path: '/customers',            feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
         { name: 'POS Staff',       path: '/pos-staff',            feature: 'STAFF',  roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
       ],
     },
@@ -166,6 +167,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       subItems: [
         { name: 'General Settings', path: '/settings' },
         { name: 'Tablet Setup',     path: '/settings/tablets', feature: 'TABLETS' },
+        { name: 'Data Backup',      path: '/settings/backup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
       ]
     },
   ];

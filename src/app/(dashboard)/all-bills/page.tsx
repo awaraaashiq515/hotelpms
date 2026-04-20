@@ -60,6 +60,7 @@ export default function AllBillsPage() {
   
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
   const [properties, setProperties] = useState<any[]>([]);
+  const [session, setSession] = useState<any>(null);
 
   // Print Modal State
   const [printingBill, setPrintingBill] = useState<Bill | null>(null);
@@ -70,6 +71,12 @@ export default function AllBillsPage() {
       setDatePreset('all');
     }
     fetchProperties();
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) setSession(data.user);
+      })
+      .catch(err => console.error('Failed to fetch session', err));
   }, [initialSearch]);
 
   const fetchProperties = async () => {
@@ -239,7 +246,7 @@ export default function AllBillsPage() {
             />
           </div>
 
-          {properties.length > 0 && (
+          {['SUPER_ADMIN', 'RESTAURANTS_ADMIN'].includes(session?.role) && properties.length > 0 && (
             <div className="relative w-full md:w-64">
               <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={18} />
               <select

@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const includeTax = formData.get('includeTax') === 'true';
+    const includeHsn = formData.get('includeHsn') === 'true';
 
     if (!file) {
       return apiError(new Error('No image file uploaded'), 400);
@@ -42,8 +44,8 @@ export async function POST(request: NextRequest) {
       - 'name': Item Name
       - 'sellingPrice': Selling Price (number)
       - 'costPrice': Estimated Cost Price (number, typically 40% of selling price if not visible)
-      - 'hsnCode': Standard 4-digit code (e.g., '2106' for food, '2202' for beverages)
-      - 'taxRate': Plausible GST percentage (5, 12, or 18) based on typical restaurant norms for that item.
+      - 'hsnCode': ${includeHsn ? "Standard 4-digit code (e.g., '2106' for food, '2202' for beverages)" : "Set to '---'"}
+      - 'taxRate': ${includeTax ? "Plausible GST percentage (5, 12, or 18) based on typical restaurant norms for that item" : "Set to 0"}
       - 'sku': High-fidelity SKU string (e.g., 'BVG-COKE-500' for Beverages > Coke). Try to make it unique within the menu.
       - 'barcode': Product barcode string (if visible, otherwise generate a unique 8-digit random string).
       - 'productType': Set to 'REVENUE_ITEM' for all menu items.

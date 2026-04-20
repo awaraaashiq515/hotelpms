@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId } = body;
+    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType } = body;
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 0. Find target account (Cash Account)
@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
       const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
       const invoiceNo = `PJ/${fy}/${(count + 1).toString().padStart(4, '0')}-${randomSuffix}`;
 
+      const isPayLater = paymentModeId === 'PAY_LATER';
+
       // 3. Create Invoice linked to the order
       const invoice = await tx.invoice.create({
         data: {
@@ -121,8 +123,11 @@ export async function POST(request: NextRequest) {
           subtotal: totalAmount,
           taxAmount: taxAmount,
           totalAmount: grandTotal,
-          paymentStatus: 'PAID',
-          invoiceStatus: 'SETTLED',
+          paymentStatus: isPayLater ? 'UNPAID' : 'PAID',
+          invoiceStatus: isPayLater ? 'PENDING' : 'SETTLED',
+          tableNo: posOrder?.tableNo || null,
+          orderType: orderType || posOrder?.orderType || 'DINE_IN',
+          posOrderId: posOrder?.id || null,
         },
       });
 
@@ -158,23 +163,26 @@ export async function POST(request: NextRequest) {
           settlementNo: `SET-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           sourceId: invoice.id,
           sourceType: 'INVOICE',
+          guestId: guestId || null,
           grossAmount: grandTotal,
-          paidAmount: grandTotal,
-          balanceAmount: 0,
-          status: 'COMPLETED',
+          paidAmount: isPayLater ? 0 : grandTotal,
+          balanceAmount: isPayLater ? grandTotal : 0,
+          status: isPayLater ? 'PENDING' : 'COMPLETED',
           settlementDate: new Date(),
         }
       });
 
-      await tx.payment.create({
-        data: {
-          paymentNo: `PAY-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-          propertyId: session.propertyId!,
-          amount: grandTotal,
-          paymentModeId: paymentModeId,
-          paidToAccountId: cashAccount.id,
-        },
-      });
+      if (!isPayLater) {
+        await tx.payment.create({
+          data: {
+            paymentNo: `PAY-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+            propertyId: session.propertyId!,
+            amount: grandTotal,
+            paymentModeId: paymentModeId,
+            paidToAccountId: cashAccount.id,
+          },
+        });
+      }
 
       // 6. Update Table Status to VACANT
       if (restaurantTableId) {

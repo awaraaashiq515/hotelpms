@@ -102,3 +102,72 @@ export async function DELETE(
     return apiError(error);
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const session = await getSession();
+    if (!session || !session.propertyId) return apiError(new Error('Unauthorized'), 401);
+
+    const body = await request.json();
+    const { paymentStatus, invoiceStatus } = body;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findUnique({
+        where: { id, propertyId: session.propertyId! }
+      });
+      if (!invoice) throw new Error('Invoice not found');
+
+      // 1. Update Invoice
+      const updatedInvoice = await tx.invoice.update({
+        where: { id },
+        data: {
+          ...(paymentStatus && { paymentStatus }),
+          ...(invoiceStatus && { invoiceStatus }),
+        }
+      });
+
+      // 2. If paymentStatus changed, sync settlements
+      if (paymentStatus === 'PAID') {
+          // Mark all settlements as PAID and ensure total matches
+          await tx.settlement.deleteMany({ where: { sourceId: id, sourceType: 'INVOICE' } });
+          
+          const cashMode = await tx.paymentMode.findFirst({
+            where: { propertyId: session.propertyId!, name: { contains: 'Cash' } }
+          });
+
+          await tx.settlement.create({
+            data: {
+              settlementNo: `SET-${Date.now()}`,
+              propertyId: session.propertyId!,
+              sourceId: id,
+              sourceType: 'INVOICE',
+              paymentModeId: cashMode?.id,
+              grossAmount: invoice.totalAmount,
+              paidAmount: invoice.totalAmount,
+              balanceAmount: 0,
+              status: 'PAID'
+            }
+          });
+      } else if (paymentStatus === 'UNPAID') {
+          // Remove all payment records
+          await tx.settlement.deleteMany({ where: { sourceId: id, sourceType: 'INVOICE' } });
+          await tx.payment.deleteMany({ where: { sourceRefId: id, sourceModule: 'INVOICE_REFUND' } });
+      } else if (paymentStatus === 'REFUNDED') {
+          await tx.settlement.updateMany({
+            where: { sourceId: id, sourceType: 'INVOICE' },
+            data: { status: 'REFUNDED' }
+          });
+      }
+
+      return updatedInvoice;
+    });
+
+    return apiResponse(result, 'Invoice updated successfully');
+  } catch (error) {
+    return apiError(error);
+  }
+}

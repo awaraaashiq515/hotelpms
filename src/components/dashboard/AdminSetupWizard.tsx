@@ -60,11 +60,11 @@ function StepIndicator({ current, data }: {
   ];
 
   return (
-    <div className="flex items-center justify-between w-full max-w-3xl mx-auto px-4 relative">
+    <div className="flex items-center justify-between w-full max-w-3xl mx-auto px-2 lg:px-4 relative">
       {/* Connecting Line */}
-      <div className="absolute top-1/2 left-0 w-full h-[2px] bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0 transition-colors" />
+      <div className="absolute top-6 lg:top-1/2 left-0 w-full h-[2px] bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0 transition-colors" />
       <div 
-        className="absolute top-1/2 left-0 h-[2px] bg-pos-primary -translate-y-1/2 z-0 transition-all duration-700 ease-out" 
+        className="absolute top-6 lg:top-1/2 left-0 h-[2px] bg-pos-primary -translate-y-1/2 z-0 transition-all duration-700 ease-out" 
         style={{ width: `${((current - 1) / (STEPS.length - 1)) * 100}%` }}
       />
       
@@ -76,29 +76,29 @@ function StepIndicator({ current, data }: {
         return (
           <div key={step.id} className="relative z-10 flex flex-col items-center">
             <div className={`
-              w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500
+              w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl flex items-center justify-center transition-all duration-500
               ${isActive 
-                ? 'bg-pos-primary shadow-[0_0_20px_rgba(232,160,160,0.5)] scale-110 border-2 border-pos-primary/50' 
+                ? 'bg-pos-primary shadow-lg scale-110 border-2 border-pos-primary/50' 
                 : isDone 
-                  ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
+                  ? 'bg-emerald-500 shadow-md' 
                   : 'bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'}
             `}>
               {isDone ? (
-                <Check size={20} className="text-white" />
+                <Check size={18} className="text-white" />
               ) : (
-                <Icon size={20} className={isActive ? 'text-white' : 'text-slate-500'} />
+                <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
               )}
             </div>
             
-            <div className="absolute top-14 flex flex-col items-center whitespace-nowrap">
-              <span className={`text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${
-                isActive ? 'text-white' : isDone ? 'text-emerald-400' : 'text-slate-500'
+            <div className="mt-2 flex flex-col items-center">
+              <span className={`text-[8px] lg:text-[10px] font-black uppercase tracking-widest transition-colors duration-300 text-center ${
+                isActive ? 'text-pos-primary font-black' : isDone ? 'text-emerald-500' : 'text-slate-500'
               }`}>
                 {step.label}
               </span>
               {counts[idx] > 0 && (
-                <span className={`text-[9px] font-bold mt-0.5 px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-white/20 text-white' : isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                <span className={`hidden md:inline-block text-[9px] font-bold mt-0.5 px-2 py-0.5 rounded-full ${
+                  isActive ? 'bg-pos-primary/10 text-pos-primary' : isDone ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                 }`}>
                   {counts[idx]} {idx === 0 ? 'tables' : idx === 1 ? 'cats' : 'items'}
                 </span>
@@ -201,14 +201,14 @@ function SpacesStep({
       </div>
 
       {/* Add Space Input */}
-      <div className="flex items-stretch gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch gap-3">
         <div className="flex-1 relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pos-primary transition-colors">
             <LayoutGrid size={18} />
           </div>
           <input
-            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
-            placeholder="New Space Name — e.g. Rooftop, Main Hall, Garden"
+            className="w-full pl-12 pr-4 py-3 lg:py-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+            placeholder="New Space Name — e.g. Rooftop"
             value={newFloorName}
             onChange={e => setNewFloorName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addFloor()}
@@ -217,7 +217,7 @@ function SpacesStep({
         <button
           onClick={addFloor}
           disabled={savingFloor || !newFloorName.trim()}
-          className="px-8 py-4 bg-pos-primary hover:bg-pos-primary-dark disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-pos-primary/20 active:scale-95 flex items-center gap-2"
+          className="px-8 py-3 lg:py-4 bg-pos-primary hover:bg-pos-primary-dark disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-pos-primary/20 active:scale-95 flex items-center justify-center gap-2"
         >
           {savingFloor ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
           Add Space
@@ -433,14 +433,14 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
       )}
 
       {/* Add Category Input */}
-      <div className="flex items-stretch gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch gap-3">
         <div className="flex-1 relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pos-primary transition-colors">
             <Tag size={18} />
           </div>
           <input
-            className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
-            placeholder="New Category Name — e.g. Pizza, Pasta, Soft Drinks"
+            className="w-full pl-12 pr-4 py-3 lg:py-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/5 transition-all shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+            placeholder="New Category — e.g. Pizza"
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && add()}
@@ -449,7 +449,7 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
         <button
           onClick={add}
           disabled={saving || !newName.trim()}
-          className="px-8 py-4 bg-pos-primary hover:bg-pos-primary-dark disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-pos-primary/10 active:scale-95 flex items-center gap-2"
+          className="px-8 py-3 lg:py-4 bg-pos-primary hover:bg-pos-primary-dark disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-pos-primary/10 active:scale-95 flex items-center justify-center gap-2"
         >
           {saving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
           Add Category

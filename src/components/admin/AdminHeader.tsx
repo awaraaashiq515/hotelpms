@@ -10,9 +10,11 @@ import {
   Command
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useSidebar } from '@/context/sidebar-context';
 
 export const AdminHeader = () => {
   const pathname = usePathname();
+  const { toggle } = useSidebar();
   
   // Simple breadcrumb logic
   const pathSegments = pathname.split('/').filter(Boolean);
@@ -23,13 +25,17 @@ export const AdminHeader = () => {
 
   return (
     <header className="h-16 border-b border-slate-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 transition-colors duration-500">
-      <div className="h-full px-8 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <button className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+      <div className="h-full px-4 md:px-8 flex items-center justify-between">
+        <div className="flex items-center gap-2 md:gap-6">
+          <button 
+            onClick={toggle}
+            className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          >
             <Menu size={20} className="text-slate-600 dark:text-slate-400" />
           </button>
           
-          <nav className="hidden md:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+          <nav className="hidden lg:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+
             <span className="cursor-pointer transition-colors hover:opacity-70" style={{color:'inherit'}}>Home</span>
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={crumb.path}>

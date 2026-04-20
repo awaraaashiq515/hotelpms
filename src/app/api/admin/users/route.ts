@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
         propertyId: autoRefinedPropertyId,
         roleId: role.id,
         isActive: true,
+        posPin: body.posPin || null,
         onboardingCompleted: true, // Bypass onboarding for provisioned users
       },
     });
@@ -204,6 +205,10 @@ export async function PUT(request: NextRequest) {
 
     if (password) {
       dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    if (body.posPin !== undefined) {
+      dataToUpdate.posPin = body.posPin;
     }
 
     const existing = await prisma.user.findUnique({ where: { id } });

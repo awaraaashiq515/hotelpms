@@ -51,6 +51,10 @@ model Property {
   pinCode            String?
   taxDetails         String?
   stateCode          String?
+  posAutoLockTimeout Int                 @default(0) // In minutes, 0 means disabled
+  posLockScreenMessage String?           // Custom message on lock screen
+  posLockScreenBgUrl   String?           // Custom background for lock screen
+  posTerminalPin       String?           // Global PIN to unlock this property terminal
   accounts           Account[]
   auditLogs          AuditLog[]
   cashTopUps         CashTopUp[]
@@ -107,6 +111,7 @@ model User {
   passwordHash        String
   isActive            Boolean      @default(true)
   onboardingCompleted Boolean      @default(false)
+  posPin              String?      // 4-6 digit pin for quick POS access
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   lastLoginAt         DateTime?
@@ -482,6 +487,11 @@ model Invoice {
   paymentStatus  String
   invoiceStatus  String
   cancelReason   String?
+  tableNo        String?
+  orderType      String?
+  posOrderId     String?
+  rating         Int?
+  ratingComments String?
   invoiceDate    DateTime      @default(now())
   folio          Folio?        @relation(fields: [folioId], references: [id])
   guest          Guest?        @relation(fields: [guestId], references: [id])
@@ -499,6 +509,7 @@ model InvoiceItem {
   taxAmount   Float    @default(0)
   totalAmount Float
   hsnCode     String?
+  status      String   @default("NORMAL") // NORMAL, RETURNED, REPLACED
   product     Product? @relation(fields: [productId], references: [id])
   invoice     Invoice  @relation(fields: [invoiceId], references: [id])
 }
@@ -1290,3 +1301,14 @@ model PackagePermission {
 
   @@unique([packageId, module, action])
 }
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+

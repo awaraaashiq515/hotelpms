@@ -191,7 +191,7 @@ export default function NotificationSettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="space-y-4">
               <p className="text-sm text-slate-500 leading-relaxed">
-                Configure your Google Gemini AI credentials here. This enables the <strong>AI Menu Scan</strong> feature in the Products dashboard.
+                Configure your Mint AI credentials here. This enables the <strong>AI Menu Scan</strong> feature in the Products dashboard.
               </p>
               <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
                 <p className="text-xs text-amber-700 leading-relaxed font-medium">
@@ -202,14 +202,14 @@ export default function NotificationSettingsPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex flex-row items-center gap-2">
-                <Key size={14} /> Gemini API Key
+                <Key size={14} /> Mint AI API Key
               </label>
               <input
                 type="password"
                 value={settings.GEMINI_API_KEY}
                 onChange={e => setSettings({ ...settings, GEMINI_API_KEY: e.target.value })}
                 className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all font-mono text-sm"
-                placeholder="Paste your Gemini API key here..."
+                placeholder="Paste your Mint AI API key here..."
               />
               <p className="mt-2 text-[10px] text-slate-400 italic">This key is used globally for all property menu scanning tasks.</p>
             </div>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { 
   X, Search, User, ReceiptText, 
   Printer, CreditCard, CheckCircle2,
-  Banknote, QrCode, Smartphone
+  Banknote, QrCode, Smartphone, Star
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -38,15 +38,27 @@ interface BillModalProps {
   onAddCustomer?: (data: { firstName: string; lastName: string; mobile: string }) => Promise<any>;
   isProforma?: boolean;
   autoPrint?: boolean;
+  guestId?: string;
 }
 
-export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer, autoPrint = false }) => {
+export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer, autoPrint = false, guestId }) => {
   const [isSettling, setIsSettling] = React.useState(false);
   const [selectedModeId, setSelectedModeId] = React.useState<string | null>(null);
   // Search and Select Customer State
   const [customerSearch, setCustomerSearch] = React.useState('');
   const [showAddCustomer, setShowAddCustomer] = React.useState(false);
-  const [selectedGuestId, setSelectedGuestId] = React.useState<string>('');
+  const [selectedGuestId, setSelectedGuestId] = React.useState<string>(guestId || '');
+
+  // Update selectedGuestId if prop changes
+  React.useEffect(() => {
+    if (guestId) {
+      setSelectedGuestId(guestId);
+      const guest = customers.find(c => c.id === guestId);
+      if (guest) {
+        setCustomerSearch(`${guest.firstName} ${guest.lastName || ''}`);
+      }
+    }
+  }, [guestId, customers]);
   
   // Quick Add Customer State
   const [newCustFirst, setNewCustFirst] = React.useState('');
@@ -87,20 +99,57 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
 
   if (!bill) return null;
 
+  const [showRating, setShowRating] = React.useState(false);
+  const [rating, setRating] = React.useState(0);
+  const [ratingComments, setRatingComments] = React.useState('');
+  const [settledInvoiceId, setSettledInvoiceId] = React.useState<string | null>(null);
+
   const handleSettle = async () => {
     if (!onSettle || !selectedModeId) return;
     setIsSettling(true);
     try {
-      await onSettle(selectedModeId, selectedGuestId || undefined, (bill as any).driverId || undefined);
-      // Brief delay for the UI to update to the "Final Invoice" view before printing
-      setTimeout(() => {
-        handlePrint();
-        onClose();
-      }, 150);
+      // Capture the result which contains the invoice
+      const response = await fetch('/api/orders/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              restaurantTableId: (bill as any).tableId,
+              orderType: (bill as any).orderType || 'DINE_IN',
+              paymentModeId: selectedModeId,
+              guestId: selectedGuestId || undefined,
+              totalAmount: bill.grandTotal,
+              items: bill.items.map(i => ({ id: i.id, quantity: i.quantity, sellingPrice: i.price }))
+          })
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+          setSettledInvoiceId(result.data.invoice.id);
+          setShowRating(true);
+      } else {
+          alert(result.message || 'Settlement failed');
+      }
     } catch (err) {
       console.error('Settlement failed', err);
     } finally {
       setIsSettling(false);
+    }
+  };
+
+  const submitRating = async () => {
+    if (!settledInvoiceId) return;
+    try {
+        await fetch(`/api/invoices/${settledInvoiceId}/rate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating, comments: ratingComments })
+        });
+        handlePrint();
+        onClose();
+    } catch (err) {
+        console.error('Rating failed', err);
+        handlePrint();
+        onClose();
     }
   };
 
@@ -481,6 +530,24 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                       </button>
                     );
                   })}
+
+                  {/* Add Pay Later Custom Button */}
+                  <button 
+                    type="button"
+                    onClick={() => setSelectedModeId(selectedModeId === 'PAY_LATER' ? null : 'PAY_LATER')}
+                    className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${
+                      selectedModeId === 'PAY_LATER'
+                      ? 'border-orange-500 bg-white shadow-lg ring-2 ring-orange-50' 
+                      : 'border-transparent bg-gray-50 hover:bg-white hover:border-orange-200 text-gray-400'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedModeId === 'PAY_LATER' ? 'bg-orange-500 text-white' : 'bg-white text-gray-300 border border-gray-100'}`}>
+                      <span className="font-black text-lg">⏳</span>
+                    </div>
+                    <span className={`text-[8px] font-black uppercase tracking-widest text-center leading-none ${selectedModeId === 'PAY_LATER' ? 'text-orange-600' : 'text-gray-400'}`}>
+                      Pay Later
+                    </span>
+                  </button>
                 </div>
 
                 <div className="mt-auto">
@@ -520,6 +587,54 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
           </div>
         </div>
       </div>
+
+      {showRating && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-6">
+              <CheckCircle2 size={40} />
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter mb-2">Order Settled!</h3>
+            <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-8">How was the customer's experience?</p>
+            
+            <div className="flex gap-2 mb-8">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button 
+                  key={star} 
+                  onClick={() => setRating(star)}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                    rating >= star ? 'bg-amber-400 text-white shadow-lg shadow-amber-200' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  <Star size={24} fill={rating >= star ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+
+            <textarea 
+              placeholder="Any feedback or comments? (Optional)"
+              value={ratingComments}
+              onChange={e => setRatingComments(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all min-h-[100px] mb-8"
+            />
+
+            <div className="flex flex-col gap-3 w-full">
+              <Button 
+                onClick={submitRating}
+                className="w-full h-14 bg-indigo-600 text-white font-black uppercase rounded-2xl shadow-xl shadow-indigo-100"
+              >
+                Submit & Print Bill
+              </Button>
+              <button 
+                onClick={() => { handlePrint(); onClose(); }}
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300 hover:text-gray-900 transition-colors py-2"
+              >
+                Skip Rating
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };

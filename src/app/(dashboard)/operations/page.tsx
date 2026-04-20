@@ -29,7 +29,8 @@ import {
   Eye,
   PieChart,
   History,
-  ClipboardList
+  ClipboardList,
+  Contact
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -88,6 +89,7 @@ export default function OperationsPage() {
     { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM'] },
     { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM'] },
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM'] },
+    { label: 'Customers', icon: Contact, path: '/customers' },
   ];
 
   const financialActions: DashboardAction[] = [
@@ -106,6 +108,7 @@ export default function OperationsPage() {
     { label: 'KOTs List', perm: 'KOTs', icon: ClipboardList, path: '/kots', feature: 'POS' },
     { label: 'Table Bookings', perm: 'Table Bookings', icon: CalendarDays, path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Drivers', perm: 'Drivers', icon: CarFront, path: '/drivers', feature: 'DRIVERS' },
+    { label: 'Customers', icon: Contact, path: '/customers' },
   ];
 
   // Configs only for Admins
