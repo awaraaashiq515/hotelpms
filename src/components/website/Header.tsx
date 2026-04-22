@@ -52,28 +52,19 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
 
             {/* ── LOGO ── */}
             <Link href="/" className="flex-shrink-0 group">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt="OrderMint Logo"
-                  className="h-30 md:h-48 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
-                  style={{ mixBlendMode: 'normal', maxWidth: '350px' }}
-                />
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/30">
-                    <span className="text-white font-black text-lg">O</span>
-                  </div>
-                  <div className="flex flex-col leading-none">
-                    <span className="text-2xl font-black tracking-tight text-pos-primary">
-                      OrderMint
-                    </span>
-                    <span className="text-[10px] tracking-[0.3em] font-semibold uppercase text-slate-400 mt-0.5">
-                      POS Solutions
-                    </span>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/30">
+                  <span className="text-white font-black text-lg italic">O</span>
                 </div>
-              )}
+                <div className="flex flex-col leading-none">
+                  <span className="text-2xl font-black tracking-tight text-pos-primary">
+                    OrderMint
+                  </span>
+                  <span className="text-[10px] tracking-[0.3em] font-semibold uppercase text-slate-400 mt-0.5">
+                    POS Solutions
+                  </span>
+                </div>
+              </div>
             </Link>
 
             {/* ── DESKTOP NAV ── */}
@@ -114,19 +105,12 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
         {mobileMenuOpen && (
           <div className="lg:hidden fixed inset-0 bg-white z-[60] flex flex-col p-8">
             <div className="flex justify-between items-center mb-12">
-              {logoUrl ? (
-                <div
-                  className="w-14 h-14 rounded-full overflow-hidden"
-                  style={{
-                    backgroundImage: `url(${logoUrl})`,
-                    backgroundSize: '300%',
-                    backgroundPosition: 'center center',
-                    backgroundRepeat: 'no-repeat',
-                  }}
-                />
-              ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-black text-lg italic">O</span>
+                </div>
                 <span className="text-2xl font-black text-pos-primary">OrderMint</span>
-              )}
+              </div>
               <button onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
                 <X size={32} className="text-gray-900" />
               </button>

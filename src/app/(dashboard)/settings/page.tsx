@@ -129,113 +129,7 @@ const BusinessProfileForm = () => {
   );
 };
 
-const BrandingForm = () => {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [property, setProperty] = useState<any>(null);
-  const [logoUrl, setLogoUrl] = useState('');
-  const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/setup/properties/current')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setProperty(data.data);
-          setLogoUrl(data.data.logoUrl || '');
-        }
-        setLoading(false);
-      });
-  }, []);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.success) setLogoUrl(data.url);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!property) return;
-    setSaving(true);
-    try {
-      await fetch(`/api/setup/properties/${property.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...property, logoUrl })
-      });
-      alert('Branding updated!');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return null;
-
-  return (
-    <Card className="p-5 lg:p-8 border-t-4 border-t-pos-primary shadow-2xl shadow-pos-primary/10">
-      <div className="flex items-center gap-4 mb-8 pb-6 border-b border-gray-100">
-        <div className="w-12 h-12 bg-pos-primary/10 text-pos-primary rounded-2xl flex items-center justify-center">
-          <ImageIcon size={24} />
-        </div>
-        <div>
-          <h2 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-widest">Logo & Identity</h2>
-          <p className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">Your logo will be printed on KOTs and Bills</p>
-        </div>
-      </div>
-
-      <div className="space-y-8 text-center sm:text-left">
-        <div className="flex flex-col sm:flex-row items-center gap-10">
-          <div className="w-56 h-56 rounded-[3rem] bg-gray-50 dark:bg-slate-800 border-4 border-dashed border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden relative group shadow-inner transition-all hover:border-pos-primary/30">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500" />
-            ) : (
-              <ImageIcon className="text-gray-200 dark:text-slate-600" size={80} />
-            )}
-            {uploading && (
-              <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm flex items-center justify-center">
-                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pos-primary"></div>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 space-y-4">
-            <div>
-              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" id="logo-upload-branding" />
-              <label 
-                htmlFor="logo-upload-branding" 
-                className="inline-flex items-center px-8 py-4 bg-pos-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest cursor-pointer hover:bg-pos-primary-dark transition-all shadow-xl shadow-pos-primary/10 active:scale-95"
-              >
-                <Upload size={16} className="mr-3" />
-                Change Logo
-              </label>
-            </div>
-            <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-widest">
-              Recommended: Square PNG <br/> with transparency (min 512x512px)
-            </p>
-          </div>
-        </div>
-
-        <div className="pt-4">
-          <Button 
-            onClick={handleSave} 
-            disabled={saving || uploading}
-            className="w-full bg-slate-900 hover:bg-black text-white font-black tracking-widest py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-          >
-            {saving ? 'SAVING BRANDING...' : 'UPDATE BRANDING SETTINGS'}
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-};
 
 const AiConfigForm = () => {
   const [loading, setLoading] = useState(true);
@@ -676,20 +570,12 @@ const WebsiteBrandingForm = () => {
 
           <div className="flex flex-col items-center justify-center p-8 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-gray-200 group relative transition-all hover:border-pos-primary/40">
              <div className="w-48 h-48 mb-6 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl shadow-gray-200 dark:shadow-none flex items-center justify-center overflow-hidden border border-gray-100 dark:border-slate-700 relative">
-                {settings.logoUrl ? (
-                  <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500" />
-                ) : (
-                  <ImageIcon className="text-gray-100 dark:text-slate-700" size={64} />
-                )}
+                 <div className="w-16 h-16 bg-pos-primary rounded-2xl flex items-center justify-center shadow-lg">
+                    <span className="text-white font-black text-3xl italic">O</span>
+                 </div>
              </div>
-             <input type="file" id="website-logo-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} />
-             <label 
-                htmlFor="website-logo-upload" 
-                className="px-6 py-3 bg-pos-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-black transition-all shadow-lg active:scale-95"
-              >
-                Change Platform Logo
-             </label>
-             <p className="mt-3 text-[9px] text-gray-400 font-bold uppercase tracking-widest">Square PNG / SVG recommended</p>
+             <p className="mt-3 text-[10px] text-pos-primary font-black uppercase tracking-[0.2em]">OrderMint Identity</p>
+             <p className="mt-1 text-[9px] text-gray-400 font-bold uppercase tracking-widest">Global Platform Brand</p>
           </div>
         </div>
       </Card>
@@ -857,7 +743,6 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile', label: 'Print Settings', icon: Printer, color: 'text-pos-primary', bg: 'bg-pos-primary/10' },
-    { id: 'branding', label: 'Branding', icon: ImageIcon, color: 'text-pos-primary', bg: 'bg-pos-primary/10' },
     { id: 'admin', label: 'Admin', icon: ShieldCheck, color: 'text-slate-900', bg: 'bg-slate-100' },
     ...(session?.role === 'SUPER_ADMIN' ? [{ id: 'website', label: 'Website (OrderMint)', icon: Globe, color: 'text-pos-primary', bg: 'bg-pos-primary/10' }] : []),
   ];
@@ -904,11 +789,7 @@ export default function SettingsPage() {
           </div>
         )}
         
-        {activeTab === 'branding' && (
-          <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-4xl">
-            <BrandingForm />
-          </div>
-        )}
+
 
         {activeTab === 'admin' && (
           <div className="flex flex-col gap-8 items-stretch animate-in slide-in-from-bottom-4 duration-500 w-full max-w-6xl">

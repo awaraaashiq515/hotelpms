@@ -67,26 +67,24 @@ export const DashboardAdminTopNavbar: React.FC = () => {
             <Menu size={22} className="text-gray-500 dark:text-slate-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
           </button>
           
-          <div className="flex items-center gap-3">
-             {property?.logoUrl ? (
-               <div className="flex items-center gap-3 lg:gap-4 relative">
-                 <img 
-                    src={property.logoUrl} 
-                    alt="Logo" 
-                    className="h-10 lg:h-16 w-auto object-contain transition-all duration-300" 
-                 />
-                 <div className="hidden sm:flex flex-col leading-none">
-                    <span className="text-sm lg:text-base font-black text-slate-800 dark:text-white uppercase tracking-tighter">Admin<span className="text-pos-primary font-light">HUB</span></span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate max-w-[100px]">{property.name}</span>
-                 </div>
-               </div>
-             ) : (
-               <div className="font-bold text-lg lg:text-xl tracking-tighter text-slate-800 dark:text-white uppercase flex items-center gap-2 transition-colors">
-                 <ShieldCheck className="text-pos-primary" size={24} />
-                 <span className="hidden xs:inline">Restaurants Admin<span className="text-pos-primary font-light">HUB</span></span>
-                 <span className="xs:hidden">Admin<span className="text-pos-primary font-light">HUB</span></span>
-               </div>
-             )}
+          <div 
+            className="flex items-center gap-2.5 group cursor-pointer" 
+            onClick={() => router.push('/dashboard')}
+          >
+            <div className="relative">
+              <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
+                <span className="text-white font-black text-xl italic">O</span>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
+                 <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
+              </div>
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
+                Order<span className="text-pos-primary font-light">Mint</span>
+              </span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">Management Hub</span>
+            </div>
           </div>
         </div>
         

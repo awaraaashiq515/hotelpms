@@ -1,5 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Table, TableCard } from './TableCard';
+'use client';
+
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { Table } from './TableCard';
 
 interface TableLayoutViewProps {
   tables: Table[];
@@ -13,182 +15,323 @@ interface TableLayoutViewProps {
   onDeleteTable?: (id: string) => void;
   onSwitchTable?: (table: Table) => void;
   onResetTable?: (table: Table) => void;
+  selectedTableId?: string | null;
 }
 
-// ─────────────────────────────────────────────
-//  Chair SVG – a simple pill shape
-// ─────────────────────────────────────────────
-const ChairIcon: React.FC<{
-  style?: React.CSSProperties;
-  occupied: boolean;
-  rotate?: boolean;
-}> = ({ style, occupied, rotate }) => (
-  <div
-    style={{
-      position: 'absolute',
-      ...style,
-    }}
-  >
-    {/* Seat */}
-    <div style={{
-      width: '100%',
-      height: '70%',
-      borderRadius: rotate ? '5px 5px 8px 8px' : '8px 8px 5px 5px',
-      background: occupied
-        ? 'linear-gradient(160deg, #c9a87c 0%, #8a6035 100%)'
-        : 'linear-gradient(160deg, #e8ddd0 0%, #c8b89a 100%)',
-      border: `2px solid ${occupied ? '#7a5030' : '#b0a088'}`,
-      boxShadow: occupied
-        ? '0 3px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2)'
-        : '0 3px 6px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.4)',
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-    }} />
-    {/* Backrest */}
-    <div style={{
-      width: '75%',
-      height: '35%',
-      borderRadius: rotate ? '3px 3px 6px 6px' : '6px 6px 3px 3px',
-      background: occupied
-        ? 'linear-gradient(160deg, #a07040 0%, #6a4020 100%)'
-        : 'linear-gradient(160deg, #d8ccc0 0%, #b8a890 100%)',
-      border: `2px solid ${occupied ? '#6a4020' : '#a09080'}`,
-      boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
-      position: 'absolute',
-      top: 0,
-      left: '12.5%',
-    }} />
-  </div>
-);
+// ─── Status config ────────────────────────────────────────────
+const STATUS_CFG: Record<string, {
+  surface: string;
+  rim: string;
+  glow: string;
+  label: string;
+  accent: string;
+  gradient: string;
+  shadow: string;
+}> = {
+  VACANT: {
+    surface: 'rgba(16, 40, 26, 0.75)',
+    rim: 'rgba(34, 197, 94, 0.5)',
+    glow: 'rgba(34, 197, 94, 0.4)',
+    label: 'Free',
+    accent: '#34d399',
+    gradient: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(6,30,16,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(34,197,94,0.15), 0 0 20px rgba(34,197,94,0.1)'
+  },
+  OCCUPIED: {
+    surface: 'rgba(60, 16, 20, 0.75)',
+    rim: 'rgba(239, 68, 68, 0.5)',
+    glow: 'rgba(239, 68, 68, 0.4)',
+    label: 'Busy',
+    accent: '#f87171',
+    gradient: 'linear-gradient(145deg, rgba(239,68,68,0.15) 0%, rgba(40,10,10,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(239,68,68,0.2), 0 0 20px rgba(239,68,68,0.15)'
+  },
+  KOT_RUNNING: {
+    surface: 'rgba(60, 35, 10, 0.75)',
+    rim: 'rgba(245, 158, 11, 0.5)',
+    glow: 'rgba(245, 158, 11, 0.4)',
+    label: 'Cooking',
+    accent: '#fbbf24',
+    gradient: 'linear-gradient(145deg, rgba(245,158,11,0.15) 0%, rgba(40,20,5,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(245,158,11,0.2), 0 0 20px rgba(245,158,11,0.15)'
+  },
+  BILL_PRINTED: {
+    surface: 'rgba(15, 25, 55, 0.75)',
+    rim: 'rgba(59, 130, 246, 0.5)',
+    glow: 'rgba(59, 130, 246, 0.4)',
+    label: 'Billed',
+    accent: '#60a5fa',
+    gradient: 'linear-gradient(145deg, rgba(59,130,246,0.15) 0%, rgba(10,15,40,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.15)'
+  },
+  BILLING_PENDING: {
+    surface: 'rgba(35, 15, 55, 0.75)',
+    rim: 'rgba(139, 92, 246, 0.5)',
+    glow: 'rgba(139, 92, 246, 0.4)',
+    label: 'Pending',
+    accent: '#a78bfa',
+    gradient: 'linear-gradient(145deg, rgba(139,92,246,0.15) 0%, rgba(20,10,40,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(139,92,246,0.2), 0 0 20px rgba(139,92,246,0.15)'
+  },
+  CLEANING: {
+    surface: 'rgba(30, 35, 45, 0.75)',
+    rim: 'rgba(148, 163, 184, 0.4)',
+    glow: 'rgba(148, 163, 184, 0.2)',
+    label: 'Cleaning',
+    accent: '#94a3b8',
+    gradient: 'linear-gradient(145deg, rgba(148,163,184,0.1) 0%, rgba(15,20,30,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)'
+  },
+};
 
-// ─────────────────────────────────────────────
-//  Distribute chairs per side based on capacity
-// ─────────────────────────────────────────────
-function distributeChairs(capacity: number) {
-  const n = Math.min(Math.max(capacity, 1), 12);
-  if (n === 1) return { top: 1,  bottom: 0,  left: 0, right: 0 };
-  if (n === 2) return { top: 1,  bottom: 1,  left: 0, right: 0 };
-  if (n === 3) return { top: 1,  bottom: 1,  left: 1, right: 0 };
-  if (n === 4) return { top: 1,  bottom: 1,  left: 1, right: 1 };
-  if (n === 5) return { top: 2,  bottom: 2,  left: 1, right: 0 };
-  if (n === 6) return { top: 2,  bottom: 2,  left: 1, right: 1 };
-  if (n === 7) return { top: 2,  bottom: 2,  left: 2, right: 1 };
-  if (n === 8) return { top: 2,  bottom: 2,  left: 2, right: 2 };
-  if (n === 9) return { top: 3,  bottom: 3,  left: 2, right: 1 };
-  if (n === 10) return { top: 3, bottom: 3,  left: 2, right: 2 };
-  if (n === 11) return { top: 3, bottom: 3,  left: 3, right: 2 };
-  return            { top: 3,  bottom: 3,  left: 3, right: 3 };
+// ─── Distribute chairs ────────────────────────────────────────
+function distributeChairs(cap: number) {
+  const n = Math.min(Math.max(cap, 1), 12);
+  if (n === 1) return { top: 1, bottom: 0, left: 0, right: 0 };
+  if (n === 2) return { top: 1, bottom: 1, left: 0, right: 0 };
+  if (n === 3) return { top: 1, bottom: 1, left: 1, right: 0 };
+  if (n === 4) return { top: 1, bottom: 1, left: 1, right: 1 };
+  if (n === 5) return { top: 2, bottom: 2, left: 1, right: 0 };
+  if (n === 6) return { top: 2, bottom: 2, left: 1, right: 1 };
+  if (n === 7) return { top: 3, bottom: 2, left: 1, right: 1 };
+  if (n === 8) return { top: 3, bottom: 3, left: 1, right: 1 };
+  if (n === 9) return { top: 3, bottom: 3, left: 2, right: 1 };
+  if (n === 10) return { top: 3, bottom: 3, left: 2, right: 2 };
+  if (n === 11) return { top: 4, bottom: 3, left: 2, right: 2 };
+  return { top: 4, bottom: 4, left: 2, right: 2 };
 }
 
-// ─────────────────────────────────────────────
-//  Chairs rendered AROUND a card of given size
-// ─────────────────────────────────────────────
-const ChairsAround: React.FC<{
-  capacity: number;
-  cardW: number;
-  cardH: number;
-  occupied: boolean;
-}> = ({ capacity, cardW, cardH, occupied }) => {
-  const dist = distributeChairs(capacity);
-  const CHAIR_W = 36;  // wider seat
-  const CHAIR_H = 20;  // taller with backrest
-  const GAP = 8;       // gap between card edge and chair
+// ─── 2.5D Premium Table Card ─────────────────────────────────────────
+const TableVisualPremium: React.FC<{
+  table: Table;
+  w: number;
+  h: number;
+  isSelected: boolean;
+  isEditMode: boolean;
+}> = ({ table, w, h, isSelected, isEditMode }) => {
+  const cfg = STATUS_CFG[table.status] || STATUS_CFG.VACANT;
+  const occupied = !!table.activeOrder && table.status !== 'VACANT' && table.status !== 'CLEANING';
+  const dist = distributeChairs(table.capacity);
+
+  // Dynamic Chair Sizes
+  const CW = Math.max(24, Math.min(32, w * 0.2));
+  const CH = Math.max(12, Math.min(16, h * 0.15));
+  const GAP = 12;
+
+  const padX = CW + GAP;
+  const padY = CH + GAP;
+
+  const chairBase = isSelected ? '#4f46e5' : '#1e202e';
+  const chairTop = isSelected ? '#6366f1' : '#2a2d3d';
 
   const chairs: React.ReactNode[] = [];
+  let k = 0;
 
-  // TOP chairs — backrest faces UP (away from table)
+  const renderChair = (x: number, y: number, w: number, h: number, pos: 'top'|'bottom'|'left'|'right') => {
+    const seatColor = isSelected ? '#3730a3' : '#1a1d27';
+    const backrestColor = isSelected ? '#4f46e5' : '#2d3142';
+    const highlightColor = isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)';
+    
+    // The thick border represents the wooden/metal backrest wrapping around the seat.
+    // The background represents the plush cushion.
+    const backThickness = '4px';
+
+    let style: React.CSSProperties = {
+      position: 'absolute',
+      left: x, top: y, width: w, height: h,
+      background: seatColor,
+      transition: 'all 0.3s ease',
+      boxShadow: `inset 0 0 8px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.5)`,
+      border: `solid ${backrestColor}`,
+    };
+
+    if (pos === 'top') {
+      style.borderWidth = `${backThickness} ${backThickness} 0 ${backThickness}`;
+      style.borderRadius = '12px 12px 4px 4px';
+      style.borderTopColor = highlightColor; // light catching the top rim
+    } else if (pos === 'bottom') {
+      style.borderWidth = `0 ${backThickness} ${backThickness} ${backThickness}`;
+      style.borderRadius = '4px 4px 12px 12px';
+      style.borderBottomColor = highlightColor;
+    } else if (pos === 'left') {
+      style.borderWidth = `${backThickness} 0 ${backThickness} ${backThickness}`;
+      style.borderRadius = '12px 4px 4px 12px';
+      style.borderLeftColor = highlightColor;
+    } else if (pos === 'right') {
+      style.borderWidth = `${backThickness} ${backThickness} ${backThickness} 0`;
+      style.borderRadius = '4px 12px 12px 4px';
+      style.borderRightColor = highlightColor;
+    }
+
+    return (
+      <div key={k++} style={style} />
+    );
+  };
+
+  // TOP
   for (let i = 0; i < dist.top; i++) {
-    const spacing = cardW / (dist.top + 1);
-    chairs.push(
-      <ChairIcon
-        key={`top-${i}`}
-        occupied={occupied}
-        style={{
-          left: spacing * (i + 1) - CHAIR_W / 2,
-          top: -(CHAIR_H + GAP),
-          width: CHAIR_W,
-          height: CHAIR_H,
-        }}
-      />
-    );
+    const sp = w / (dist.top + 1);
+    chairs.push(renderChair(padX + sp * (i + 1) - CW / 2, padY - GAP - CH, CW, CH, 'top'));
   }
-
-  // BOTTOM chairs — backrest faces DOWN (away from table)
+  // BOTTOM
   for (let i = 0; i < dist.bottom; i++) {
-    const spacing = cardW / (dist.bottom + 1);
-    chairs.push(
-      <ChairIcon
-        key={`bot-${i}`}
-        occupied={occupied}
-        rotate
-        style={{
-          left: spacing * (i + 1) - CHAIR_W / 2,
-          bottom: -(CHAIR_H + GAP),
-          width: CHAIR_W,
-          height: CHAIR_H,
-        }}
-      />
-    );
+    const sp = w / (dist.bottom + 1);
+    chairs.push(renderChair(padX + sp * (i + 1) - CW / 2, padY + h + GAP, CW, CH, 'bottom'));
   }
-
-  // LEFT chairs (tall orientation)
+  // LEFT
   for (let i = 0; i < dist.left; i++) {
-    const spacing = cardH / (dist.left + 1);
-    chairs.push(
-      <ChairIcon
-        key={`lft-${i}`}
-        occupied={occupied}
-        style={{
-          top: spacing * (i + 1) - CHAIR_W / 2,
-          left: -(CHAIR_H + GAP),
-          width: CHAIR_H,
-          height: CHAIR_W,
-        }}
-      />
-    );
+    const sp = h / (dist.left + 1);
+    chairs.push(renderChair(padX - GAP - CH, padY + sp * (i + 1) - CW / 2, CH, CW, 'left'));
   }
-
-  // RIGHT chairs (tall orientation)
+  // RIGHT
   for (let i = 0; i < dist.right; i++) {
-    const spacing = cardH / (dist.right + 1);
-    chairs.push(
-      <ChairIcon
-        key={`rgt-${i}`}
-        occupied={occupied}
-        rotate
-        style={{
-          top: spacing * (i + 1) - CHAIR_W / 2,
-          right: -(CHAIR_H + GAP),
-          width: CHAIR_H,
-          height: CHAIR_W,
-        }}
-      />
-    );
+    const sp = h / (dist.right + 1);
+    chairs.push(renderChair(padX + w + GAP, padY + sp * (i + 1) - CW / 2, CH, CW, 'right'));
   }
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: cardW,
-        height: cardH,
-        pointerEvents: 'none',
-        zIndex: 0,
-      }}
-    >
+    <div style={{ position: 'relative', width: w + padX * 2, height: h + padY * 2 }}>
+      
+      {/* Chairs */}
       {chairs}
+
+      {/* Main Table Body (Extruded 3D Base) */}
+      <div style={{
+        position: 'absolute',
+        left: padX, top: padY, width: w, height: h,
+        background: '#0a0c10', // Dark base color for the extrusion
+        borderRadius: '16px',
+        boxShadow: cfg.shadow, // Massive floor shadow
+        transition: 'all 0.3s ease'
+      }}>
+        {/* Table Top Surface */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: cfg.surface,
+          backgroundImage: cfg.gradient,
+          borderRadius: '16px',
+          border: `1.5px solid ${cfg.rim}`,
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          transform: isEditMode ? 'translateY(0)' : 'translateY(-6px)', // Lifts up when not editing
+          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          overflow: 'hidden',
+          boxShadow: isSelected 
+            ? `0 0 0 3px ${cfg.accent}, inset 0 0 30px ${cfg.glow}` 
+            : `inset 0 1px 1px rgba(255,255,255,0.15)`
+        }}>
+          
+          {/* Subtle Top Inner Glow */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: '40%',
+            background: 'linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)',
+            pointerEvents: 'none'
+          }} />
+
+          {/* Status Badge */}
+          <div style={{
+            position: 'absolute',
+            top: '8px', left: '10px',
+            background: 'rgba(0,0,0,0.4)',
+            border: `1px solid ${cfg.rim}`,
+            borderRadius: '20px',
+            padding: '3px 8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '9px',
+            fontWeight: 800,
+            letterSpacing: '0.05em',
+            color: cfg.accent,
+            textTransform: 'uppercase',
+            boxShadow: `0 2px 10px rgba(0,0,0,0.5)`
+          }}>
+            <div style={{ 
+              width: '6px', height: '6px', borderRadius: '50%', background: cfg.accent, 
+              boxShadow: `0 0 8px ${cfg.accent}` 
+            }} />
+            {cfg.label}
+          </div>
+
+          {/* Table Name */}
+          <h3 style={{
+            fontSize: occupied ? Math.max(14, Math.min(18, w * 0.1)) : Math.max(16, Math.min(22, w * 0.12)),
+            fontWeight: 800,
+            margin: 0,
+            marginTop: occupied ? '-12px' : '0',
+            textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+            color: 'rgba(255,255,255,0.95)',
+            letterSpacing: '0.5px'
+          }}>
+            {table.name}
+          </h3>
+
+          {/* Seats */}
+          <div style={{
+            fontSize: '10px',
+            fontWeight: 800,
+            color: 'rgba(255,255,255,0.4)',
+            letterSpacing: '1.5px',
+            marginTop: '4px'
+          }}>
+            {table.capacity} SEATS
+          </div>
+
+          {/* Active Order Info */}
+          {occupied && table.activeOrder && (
+            <div style={{
+              position: 'absolute',
+              bottom: '10px',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '2px'
+            }}>
+              <div style={{
+                fontSize: Math.max(13, Math.min(16, w * 0.1)),
+                fontWeight: 900,
+                color: 'white',
+                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+              }}>
+                ₹{table.activeOrder.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+              <div style={{
+                fontSize: '8px',
+                fontWeight: 700,
+                color: 'rgba(255,255,255,0.8)',
+                background: 'rgba(0,0,0,0.4)',
+                padding: '2px 6px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}>
+                {table.activeOrder.itemCount} items · {table.activeOrder.elapsedTime}m
+              </div>
+            </div>
+          )}
+
+          {/* Edit mode hint */}
+          {isEditMode && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.05)', border: '2px dashed rgba(99,102,241,0.6)', pointerEvents: 'none' }} />
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────
-//  Main Component
-// ─────────────────────────────────────────────
-const CHAIR_PADDING = 30; // extra px on each side for chairs
+// ─── Main TableLayoutView ─────────────────────────────────────
+const MIN_W = 120;
+const MIN_H = 90;
+const DEFAULT_W = 160;
+const DEFAULT_H = 110;
+const SNAP = 10;
 
 export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
   tables,
@@ -196,289 +339,298 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
   isEditMode = false,
   onTablePositionChange,
   onTableResize,
-  onPrintKOT,
-  onPrintBill,
   onEditTable,
   onDeleteTable,
-  onSwitchTable,
-  onResetTable,
+  selectedTableId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [draggingTable, setDraggingTable] = useState<string | null>(null);
-  const [resizingTable, setResizingTable] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const [localPositions, setLocalPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [localDimensions, setLocalDimensions] = useState<Record<string, { w: number; h: number }>>({});
 
-  // Sync local positions map with incoming tables
+  // Local state: positions & sizes
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+
+  // Interaction state
+  const dragRef = useRef<{
+    id: string;
+    startX: number; startY: number;
+    origX: number; origY: number;
+  } | null>(null);
+  const resizeRef = useRef<{
+    id: string;
+    startX: number; startY: number;
+    origW: number; origH: number;
+  } | null>(null);
+
+  // Init positions from DB or auto-grid
   useEffect(() => {
-    const pos: Record<string, { x: number; y: number }> = {};
-    const dims: Record<string, { w: number; h: number }> = {};
-    tables.forEach((t, idx) => {
-      let x = t.x || 0;
-      let y = t.y || 0;
-      if (!t.x && !t.y) {
-        const cols = 4;
-        x = (idx % cols) * 260 + 20;
-        y = Math.floor(idx / cols) * 200 + 20;
-      }
-      pos[t.id] = { x, y };
-      dims[t.id] = { w: t.width || 256, h: t.height || 176 };
+    setPositions(prev => {
+      const next = { ...prev };
+      tables.forEach((t, idx) => {
+        if (!next[t.id]) {
+          const cols = 4;
+          next[t.id] = {
+            x: t.x ?? (idx % cols) * 250 + 80,
+            y: t.y ?? Math.floor(idx / cols) * 220 + 80,
+          };
+        }
+      });
+      return next;
     });
-    setLocalPositions(pos);
-    setLocalDimensions(dims);
+    setSizes(prev => {
+      const next = { ...prev };
+      tables.forEach(t => {
+        if (!next[t.id]) {
+          next[t.id] = { w: t.width ?? DEFAULT_W, h: t.height ?? DEFAULT_H };
+        }
+      });
+      return next;
+    });
   }, [tables]);
+
+  // ── Pointer handlers attached to the container ─────────────
+  const onContainerPointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragRef.current) {
+      const { id, startX, startY, origX, origY } = dragRef.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const newX = Math.max(0, Math.round((origX + dx) / SNAP) * SNAP);
+      const newY = Math.max(0, Math.round((origY + dy) / SNAP) * SNAP);
+      setPositions(prev => ({ ...prev, [id]: { x: newX, y: newY } }));
+    }
+    if (resizeRef.current) {
+      const { id, startX, startY, origW, origH } = resizeRef.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const newW = Math.max(MIN_W, Math.round((origW + dx) / SNAP) * SNAP);
+      const newH = Math.max(MIN_H, Math.round((origH + dy) / SNAP) * SNAP);
+      setSizes(prev => ({ ...prev, [id]: { w: newW, h: newH } }));
+    }
+  }, []);
+
+  const onContainerPointerUp = useCallback((e: React.PointerEvent) => {
+    if (dragRef.current) {
+      const { id } = dragRef.current;
+      const pos = positions[id];
+      if (pos) onTablePositionChange?.(id, pos.x, pos.y);
+      dragRef.current = null;
+    }
+    if (resizeRef.current) {
+      const { id } = resizeRef.current;
+      const sz = sizes[id];
+      if (sz) onTableResize?.(id, sz.w, sz.h);
+      resizeRef.current = null;
+    }
+  }, [positions, sizes, onTablePositionChange, onTableResize]);
+
+  const startDrag = useCallback((e: React.PointerEvent, id: string) => {
+    if (!isEditMode) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const pos = positions[id] ?? { x: 0, y: 0 };
+    dragRef.current = { id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+  }, [isEditMode, positions]);
+
+  const startResize = useCallback((e: React.PointerEvent, id: string) => {
+    if (!isEditMode) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const sz = sizes[id] ?? { w: DEFAULT_W, h: DEFAULT_H };
+    resizeRef.current = { id, startX: e.clientX, startY: e.clientY, origW: sz.w, origH: sz.h };
+  }, [isEditMode, sizes]);
 
   if (tables.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4 min-h-[400px]">
-        <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
-          <svg className="w-10 h-10 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      <div className="h-full flex flex-col items-center justify-center gap-4 min-h-[500px]">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+          <svg className="w-8 h-8 opacity-20 text-white" fill="none" stroke="white" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 12h16M4 18h7" />
           </svg>
         </div>
-        <p className="text-sm font-black uppercase tracking-widest">No tables defined for this floor</p>
+        <p className="text-sm font-black uppercase tracking-widest text-white/20">No tables on this floor</p>
+        <p className="text-xs text-white/10 uppercase tracking-wider">Click "New Table" to add one</p>
       </div>
     );
   }
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, id: string) => {
-    if (!isEditMode) return;
-    if ((e.target as HTMLElement).closest('button')) return;
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const rect = e.currentTarget.getBoundingClientRect();
-    setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    setDraggingTable(id);
-  };
+  // Find max bounds so we can pad the container
+  const maxRight = Math.max(...tables.map(t => (positions[t.id]?.x || 0) + (sizes[t.id]?.w || 0))) + 200;
+  const maxBottom = Math.max(...tables.map(t => (positions[t.id]?.y || 0) + (sizes[t.id]?.h || 0))) + 200;
 
-  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, id: string) => {
-    if (!isEditMode) return;
-    e.stopPropagation();
-    e.preventDefault();
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setResizingTable(id);
-    const dim = localDimensions[id] || { w: 256, h: 176 };
-    setResizeStart({ x: e.clientX, y: e.clientY, w: dim.w, h: dim.h });
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isEditMode) return;
-    if (resizingTable && resizingTable === e.currentTarget.dataset.id) {
-      const dx = e.clientX - resizeStart.x;
-      const dy = e.clientY - resizeStart.y;
-      const snap = 20;
-      const newW = Math.max(120, Math.round((resizeStart.w + dx) / snap) * snap);
-      const newH = Math.max(100, Math.round((resizeStart.h + dy) / snap) * snap);
-      setLocalDimensions(prev => ({ ...prev, [resizingTable]: { w: newW, h: newH } }));
-      return;
-    }
-    if (draggingTable && draggingTable === e.currentTarget.dataset.id && containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const newX = e.clientX - containerRect.left + containerRef.current.scrollLeft - dragOffset.x;
-      const newY = e.clientY - containerRect.top + containerRef.current.scrollTop - dragOffset.y;
-      setLocalPositions(prev => ({
-        ...prev,
-        [draggingTable]: { x: Math.max(0, newX), y: Math.max(0, newY) },
-      }));
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isEditMode) return;
-    if (resizingTable && resizingTable === e.currentTarget.dataset.id) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      const dim = localDimensions[resizingTable];
-      if (dim && onTableResize) onTableResize(resizingTable, dim.w, dim.h);
-      setResizingTable(null);
-      return;
-    }
-    if (draggingTable && draggingTable === e.currentTarget.dataset.id) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      const pos = localPositions[draggingTable];
-      if (pos && onTablePositionChange) {
-        const snap = 20;
-        const snappedX = Math.round(pos.x / snap) * snap;
-        const snappedY = Math.round(pos.y / snap) * snap;
-        onTablePositionChange(draggingTable, snappedX, snappedY);
-        setLocalPositions(prev => ({ ...prev, [draggingTable]: { x: snappedX, y: snappedY } }));
-      }
-      setDraggingTable(null);
-    }
-  };
-
-  // ── Background style (warm restaurant floor)  ──
-  const floorBg: React.CSSProperties = {
-    background:
-      'repeating-linear-gradient(0deg, transparent, transparent 39px, #e2d5c3 39px, #e2d5c3 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, #e2d5c3 39px, #e2d5c3 40px)',
-    backgroundColor: '#ede8e0',
-  };
-
-  // ── GRID layout (no saved positions) ──
-  const allAtZero = tables.every(t => !t.x && !t.y);
-  const useGridLayout = allAtZero && !isEditMode;
-
-  if (useGridLayout) {
-    return (
-      <div
-        className="h-full overflow-auto"
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full h-full overflow-auto no-scrollbar"
+      style={{
+        background: 'transparent',
+        cursor: isEditMode ? 'crosshair' : 'default',
+        touchAction: 'none',
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+        backgroundSize: '40px 40px',
+        backgroundPosition: '0 0',
+        perspective: 'none'
+      }}
+      onPointerMove={onContainerPointerMove}
+      onPointerUp={onContainerPointerUp}
+      onPointerLeave={onContainerPointerUp}
+    >
+      <div 
+        key="fresh-canvas-v2"
         style={{
-          ...floorBg,
-          padding: `${CHAIR_PADDING + 28}px ${CHAIR_PADDING + 20}px`,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: `${CHAIR_PADDING * 3}px ${CHAIR_PADDING * 2.5}px`,
-          alignContent: 'flex-start',
+          position: 'relative',
+          width: Math.max(1200, maxRight),
+          height: Math.max(800, maxBottom),
+          transform: 'none', // Explicitly override any lingering transform
+          perspective: 'none'
         }}
       >
         {tables.map(table => {
-          const occupied = !!table.activeOrder && table.status !== 'VACANT' && table.status !== 'CLEANING';
-          // Default card dimensions used in grid mode
-          const cardW = 200;
-          const cardH = 150;
+          const pos = positions[table.id] ?? { x: 60, y: 60 };
+          const sz = sizes[table.id] ?? { w: DEFAULT_W, h: DEFAULT_H };
+          const isSelected = table.id === selectedTableId;
+          const isDragging = dragRef.current?.id === table.id;
+          const isResizing = resizeRef.current?.id === table.id;
+
+          const CW = Math.max(24, Math.min(32, sz.w * 0.2));
+          const CH = Math.max(12, Math.min(16, sz.h * 0.15));
+          const padX = CW + 12;
+          const padY = CH + 12;
 
           return (
             <div
               key={table.id}
               style={{
-                position: 'relative',
-                width: cardW,
-                height: cardH,
-                // Expand the hit-area so chairs don't clip
-                padding: CHAIR_PADDING,
-                margin: -CHAIR_PADDING,
+                position: 'absolute',
+                left: pos.x - padX,
+                top: pos.y - padY,
+                width: sz.w + padX * 2,
+                height: sz.h + padY * 2,
+                zIndex: isSelected || isDragging || isResizing ? 50 : 10,
+                transition: isDragging || isResizing ? 'none' : 'all 0.2s ease',
               }}
             >
-              {/* Chairs behind card */}
-              <ChairsAround
-                capacity={table.capacity}
-                cardW={cardW}
-                cardH={cardH}
-                occupied={occupied}
-              />
-              {/* Original Card on top */}
-              <div style={{ position: 'relative', zIndex: 1, width: cardW, height: cardH }}>
-                <TableCard
+              {/* Drag handle */}
+              <div
+                onPointerDown={e => startDrag(e, table.id)}
+                onClick={() => { if (!isEditMode) onTableClick(table); }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  cursor: isEditMode ? 'grab' : 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <TableVisualPremium
                   table={table}
-                  onClick={onTableClick}
-                  onPrintKOT={onPrintKOT}
-                  onPrintBill={onPrintBill}
-                  onSwitchTable={onSwitchTable}
-                  onResetTable={onResetTable}
+                  w={sz.w}
+                  h={sz.h}
+                  isSelected={isSelected}
+                  isEditMode={isEditMode}
                 />
               </div>
+
+              {/* ── Resize handle ── */}
+              {isEditMode && (
+                <div
+                  onPointerDown={e => startResize(e, table.id)}
+                  style={{
+                    position: 'absolute',
+                    right: padX - 8,
+                    bottom: padY - 8,
+                    width: 24,
+                    height: 24,
+                    cursor: 'nwse-resize',
+                    zIndex: 60,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <div style={{
+                    width: 14,
+                    height: 14,
+                    background: 'rgba(99,102,241,1)',
+                    borderRadius: '50%',
+                    border: '2px solid white',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.5)'
+                  }} />
+                </div>
+              )}
+
+              {/* ── Edit/Delete buttons ── */}
+              {isEditMode && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: padY - 14,
+                    right: padX - 10,
+                    display: 'flex',
+                    gap: 6,
+                    zIndex: 60,
+                    pointerEvents: 'auto',
+                  }}
+                >
+                  <button
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onEditTable?.(table); }}
+                    style={{
+                      width: 28, height: 28,
+                      background: '#4f46e5', borderRadius: 8,
+                      border: 'none', color: 'white',
+                      fontSize: 14, fontWeight: 900,
+                      cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 4px 12px rgba(99,102,241,0.4)',
+                    }}
+                    title="Edit Table"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onDeleteTable?.(table.id); }}
+                    style={{
+                      width: 28, height: 28,
+                      background: '#dc2626', borderRadius: 8,
+                      border: 'none', color: 'white',
+                      fontSize: 12, fontWeight: 900,
+                      cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 4px 12px rgba(220,38,38,0.4)',
+                    }}
+                    title="Delete Table"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-    );
-  }
 
-  // ── FREE-FORM absolute layout ──
-  return (
-    <div
-      ref={containerRef}
-      className={`relative w-full h-[800px] overflow-auto ${isEditMode ? 'cursor-crosshair' : ''}`}
-      style={{ ...floorBg, touchAction: isEditMode ? 'none' : 'auto' }}
-    >
-      {tables.map(table => {
-        const pos = localPositions[table.id] || { x: 0, y: 0 };
-        const dim = localDimensions[table.id] || { w: 256, h: 176 };
-        const isDragging = draggingTable === table.id;
-        const isResizing = resizingTable === table.id;
-        const occupied =
-          !!table.activeOrder && table.status !== 'VACANT' && table.status !== 'CLEANING';
-
-        return (
-          <div
-            key={table.id}
-            data-id={table.id}
-            onPointerDown={e => handlePointerDown(e, table.id)}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            className={`absolute ${
-              isEditMode
-                ? 'cursor-grab active:cursor-grabbing hover:ring-4 hover:ring-indigo-400 rounded-2xl z-20 shadow-2xl'
-                : 'z-10'
-            } transition-transform ${
-              isDragging || isResizing
-                ? 'opacity-90 z-50 ring-4 ring-indigo-500 shadow-indigo-200 duration-0'
-                : 'opacity-100 duration-200'
-            }`}
-            style={{
-              width: `${dim.w}px`,
-              height: `${dim.h}px`,
-              transform: `translate(${pos.x}px, ${pos.y}px)`,
-              pointerEvents: 'auto',
-              userSelect: 'none',
-            }}
-          >
-            {/* Chairs (rendered absolutely relative to card, outside it) */}
-            <ChairsAround
-              capacity={table.capacity}
-              cardW={dim.w}
-              cardH={dim.h}
-              occupied={occupied}
-            />
-
-            <div className={`w-full h-full ${isEditMode ? 'pointer-events-none' : ''}`} style={{ position: 'relative', zIndex: 1 }}>
-              <TableCard
-                table={table}
-                onClick={isEditMode ? () => {} : onTableClick}
-                onPrintKOT={isEditMode ? undefined : onPrintKOT}
-                onPrintBill={isEditMode ? undefined : onPrintBill}
-                onSwitchTable={isEditMode ? undefined : onSwitchTable}
-                onResetTable={isEditMode ? undefined : onResetTable}
-              />
-
-              {isEditMode && (
-                <div className="absolute top-2 right-2 flex gap-1.5 z-30 pointer-events-auto">
-                  <button
-                    className="p-1.5 bg-white rounded-xl text-indigo-600 hover:bg-indigo-50 shadow-md border border-gray-100 transition-all active:scale-95"
-                    onClick={e => { e.stopPropagation(); onEditTable?.(table); }}
-                    title="Edit Table"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M16.243 3.757a3.03 3.03 0 114.286 4.286L12 16h-4v-4l8.243-8.243z" />
-                    </svg>
-                  </button>
-                  <button
-                    className="p-1.5 bg-white rounded-xl text-red-600 hover:bg-red-50 shadow-md border border-gray-100 transition-all active:scale-95"
-                    onClick={e => { 
-                      e.preventDefault();
-                      e.stopPropagation(); 
-                      onDeleteTable?.(table.id); 
-                    }}
-                    title="Delete Table"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6M1 7h22M4 7l1-4h14l1 4" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-
-              {/* Resize Handle */}
-              {isEditMode && (
-                <div
-                  className="absolute right-0 bottom-0 w-8 h-8 cursor-nwse-resize z-30 flex items-end justify-end p-1 pointer-events-auto"
-                  data-id={table.id}
-                  onPointerDown={e => handleResizePointerDown(e, table.id)}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
-                >
-                  <div className="w-3 h-3 border-r-2 border-b-2 border-indigo-600 rounded-br-sm opacity-50 bg-white/20" />
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {/* Edit mode helper tip */}
+      {isEditMode && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(99,102,241,0.9)',
+          backdropFilter: 'blur(12px)',
+          color: 'white',
+          padding: '10px 24px',
+          borderRadius: 30,
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          zIndex: 100,
+          boxShadow: '0 8px 32px rgba(99,102,241,0.4)',
+          pointerEvents: 'none',
+        }}>
+          🖱 Drag to move · ↘ Corner handle to resize
+        </div>
+      )}
     </div>
   );
 };

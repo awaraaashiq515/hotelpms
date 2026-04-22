@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         floor: true,
+        property: true,
         posOrders: {
           where: { status: { notIn: ['SETTLED', 'CANCELLED'] } },
           include: {

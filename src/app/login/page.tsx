@@ -136,27 +136,17 @@ export default function LoginPage() {
         <div className="relative z-10 text-center max-w-md">
           {/* Logo area */}
           <div className="mb-10 flex items-center justify-center">
-            {logoUrl ? (
-              <div className="p-5 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/60 shadow-2xl">
-                <img
-                  src={logoUrl}
-                  alt="Brand Logo"
-                  className="h-16 md:h-20 w-auto object-contain"
-                />
-              </div>
-            ) : (
-              <div className="p-5 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/60 shadow-2xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#b91c1c] rounded-2xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-black text-xl">O</span>
-                  </div>
-                  <div className="text-left">
-                    <div className="text-[#7f1d1d] font-black text-2xl tracking-tight">OrderMint</div>
-                    <div className="text-[#b91c1c] text-[10px] tracking-[0.3em] font-semibold uppercase">POS Solutions</div>
-                  </div>
+            <div className="p-5 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/60 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-[#b91c1c] rounded-2xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-black text-xl italic">O</span>
+                </div>
+                <div className="text-left">
+                  <div className="text-[#7f1d1d] font-black text-2xl tracking-tight">OrderMint</div>
+                  <div className="text-[#b91c1c] text-[10px] tracking-[0.3em] font-semibold uppercase">POS Solutions</div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           <h2 className="text-[#7f1d1d] text-4xl font-black leading-tight mb-4 tracking-tight">
@@ -198,16 +188,12 @@ export default function LoginPage() {
       <div className="w-full lg:w-1/2 xl:w-[45%] flex flex-col items-center justify-center min-h-screen bg-[#fafafa] p-6 sm:p-10 relative">
         {/* Mobile logo at top */}
         <div className="lg:hidden mb-8 flex flex-col items-center gap-3">
-          {logoUrl ? (
-            <img src={logoUrl} alt="Brand Logo" className="h-14 w-auto object-contain" />
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-red-700 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-black text-base">O</span>
-              </div>
-              <span className="text-red-700 font-black text-xl tracking-tight">OrderMint</span>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-red-700 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-black text-base italic">O</span>
             </div>
-          )}
+            <span className="text-red-700 font-black text-xl tracking-tight">OrderMint</span>
+          </div>
         </div>
 
         <div className="w-full max-w-[400px]">

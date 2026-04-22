@@ -60,28 +60,43 @@ export const TopNavbar: React.FC = () => {
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
             <Menu size={20} className="text-gray-500 dark:text-slate-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
           </button>
-          <div className="flex items-center gap-3 relative z-[60]">
-             {property?.logoUrl ? (
-               <img 
-                 src={property.logoUrl} 
-                 alt="Logo" 
-                 className="h-32 w-auto object-contain drop-shadow-2xl transition-all duration-300" 
-               />
-             ) : (
-               <div className="font-bold text-2xl tracking-tighter text-gray-900 dark:text-white uppercase transition-colors">
-                 POS<span className="text-pos-primary">MASTER</span>
-               </div>
-             )}
+          <div 
+            className="flex items-center gap-2.5 group cursor-pointer" 
+            onClick={() => router.push('/operations')}
+          >
+            <div className="relative">
+              <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
+                <span className="text-white font-black text-xl italic">O</span>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
+                 <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
+              </div>
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
+                Order<span className="text-pos-primary font-light">Mint</span>
+              </span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">POS Terminal</span>
+            </div>
           </div>
         </div>
         
-        <Button 
-          className="bg-pos-primary hover:bg-red-700 text-white font-bold h-10 px-5 rounded-lg shadow-lg shadow-red-200 dark:shadow-none transition-all uppercase tracking-tighter text-sm ml-4"
-          onClick={() => router.push('/operations/tables')}
-        >
-          <Plus size={18} className="mr-2" />
-          New Order
-        </Button>
+        <div className="flex items-center gap-2 ml-4">
+          <Button 
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px]"
+            onClick={() => router.push('/operations/tables')}
+          >
+            <Monitor size={16} className="mr-2" />
+            Dine In
+          </Button>
+          <Button 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px]"
+            onClick={() => router.push('/billing')}
+          >
+            <Plus size={16} className="mr-2" />
+            Take Away
+          </Button>
+        </div>
 
         <div className="hidden lg:flex items-center gap-3 ml-4">
           <div className="relative">

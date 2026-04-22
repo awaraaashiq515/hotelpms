@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
+import { QRCodeSVG } from 'qrcode.react';
+import { QrCode, Smartphone, Zap } from 'lucide-react';
 
 // --- Types ---
 interface TabletConfig {
@@ -22,6 +24,15 @@ interface TabletConfig {
   mode: 'WAITER' | 'TABLE';
   tableId?: string | null;
   propertyId: string;
+  property: {
+    name: string;
+    code: string;
+  };
+  table?: {
+    id: string;
+    name: string;
+    qrToken: string | null;
+  } | null;
 }
 
 interface Product {
@@ -81,6 +92,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isStatusVisible, setIsStatusVisible] = useState(false);
   const [showTableSelector, setShowTableSelector] = useState(false);
+  const [showQRStand, setShowQRStand] = useState(false);
   
   // Professional Waiter Workflow State
   const [pax, setPax] = useState<number>(1);
@@ -486,6 +498,22 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                 })()}
               </span>
             </div>
+          )}
+
+          <div className="w-[1px] h-8 bg-white/5" />
+
+          {/* QR Display Toggle */}
+          {tablet.mode === 'TABLE' && (
+            <button 
+              onClick={() => setShowQRStand(true)}
+              className="flex items-center gap-3 bg-white/5 hover:bg-white/10 text-white px-5 py-3.5 rounded-2xl border border-white/10 transition-all active:scale-95 group/qr"
+            >
+              <QrCode size={18} className="text-emerald-400 group-hover/qr:scale-110 transition-transform" />
+              <div className="flex flex-col items-start leading-none">
+                <span className="text-[10px] font-black uppercase tracking-widest">Share QR</span>
+                <span className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-tight">Scan & Order</span>
+              </div>
+            </button>
           )}
 
           <div className="w-[1px] h-8 bg-white/5" />
@@ -1017,6 +1045,69 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   <Button onClick={submitRating} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-[0.3em] bg-indigo-600 shadow-[0_15px_40px_rgba(79,70,229,0.3)] hover:bg-indigo-500 transition-all">Submit</Button>
                 </div>
               </div>
+           </div>
+        </div>
+      )}
+      {/* --- QR STAND OVERLAY: Full Screen QR for Customers --- */}
+      {showQRStand && (
+        <div className="fixed inset-0 z-[300] bg-[#0A0C10] flex flex-col items-center justify-center p-8 animate-in fade-in duration-700">
+           {/* Dynamic Background */}
+           <div className="absolute inset-0 overflow-hidden">
+             <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-gradient-to-br from-indigo-500/10 via-slate-950 to-emerald-500/10 opacity-50" />
+             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-600/5 rounded-full blur-[150px] animate-pulse" />
+             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-emerald-600/5 rounded-full blur-[120px]" />
+           </div>
+
+           <div className="relative z-10 flex flex-col items-center max-w-2xl w-full text-center">
+              <div className="mb-12 flex flex-col items-center">
+                 <div className="w-20 h-20 bg-gradient-to-tr from-emerald-400 to-indigo-600 rounded-[30px] flex items-center justify-center shadow-2xl mb-6">
+                    <ChefHat className="text-white w-10 h-10" />
+                 </div>
+                 <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-4">Scan & Order</h2>
+                 <p className="text-slate-400 font-bold uppercase tracking-[0.4em] text-sm">Experience the menu on your own phone</p>
+              </div>
+
+              <div className="bg-white p-12 rounded-[60px] shadow-[0_40px_100px_rgba(0,0,0,0.6)] mb-12 border-8 border-white/10 group transition-transform duration-700 hover:scale-[1.02]">
+                 <QRCodeSVG 
+                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/menu/${tablet.property.code}/${tablet.table?.qrToken || tablet.table?.id || 'unknown'}`} 
+                    size={320}
+                    level="H"
+                    includeMargin={false}
+                 />
+                 <div className="mt-8 flex flex-col items-center">
+                    <div className="px-6 py-2 bg-slate-900 rounded-full border border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      Table Station: <span className="text-white ml-2">{tablet.table?.name || 'N/A'}</span>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-8 w-full">
+                 <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-indigo-400 border border-white/5">
+                       <Smartphone size={24} />
+                    </div>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Scan QR</span>
+                 </div>
+                 <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-emerald-400 border border-white/5">
+                       <Zap size={24} />
+                    </div>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Order Instantly</span>
+                 </div>
+                 <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-amber-400 border border-white/5">
+                       <Star size={24} />
+                    </div>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enjoy Meal</span>
+                 </div>
+              </div>
+
+              <button 
+                onClick={() => setShowQRStand(false)}
+                className="mt-16 px-12 py-5 bg-white text-slate-900 rounded-[24px] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-indigo-50 transition-all active:scale-95"
+              >
+                 Return to Tablet Menu
+              </button>
            </div>
         </div>
       )}

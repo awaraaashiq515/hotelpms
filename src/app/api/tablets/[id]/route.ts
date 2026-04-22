@@ -17,7 +17,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const tablet = await prisma.tablet.findUnique({
       where: { id: id },
-      include: { property: true }
+      include: { 
+        property: true,
+        table: true
+      }
     })
 
     if (!tablet) return apiError(new Error('Tablet not found'), 404)
