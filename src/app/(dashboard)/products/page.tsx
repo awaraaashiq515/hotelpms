@@ -475,6 +475,7 @@ export default function ProductsPage() {
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
         title={selectedProduct ? 'Edit Product' : 'New Product'}
+        maxWidth="2xl"
       >
         <ProductForm 
           initialData={selectedProduct || undefined}

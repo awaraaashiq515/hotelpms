@@ -32,14 +32,62 @@ export async function POST(request: NextRequest) {
         posOrder = await (tx as any).posOrder.findFirst({
           where: { 
             restaurantTableId, 
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'BILL_PRINTED'] } 
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] } 
           }
         });
       }
 
-      const grandTotal = Number(totalAmount) || 0;
-      const taxAmount = (grandTotal / 1.05) * 0.05;
-      const subtotal = grandTotal - taxAmount;
+      // Calculate true totals from items
+      const productDetails = await tx.product.findMany({
+        where: { id: { in: items.map((i: any) => i.id) } },
+        select: { id: true, hsnCode: true, taxRate: true, taxType: true }
+      });
+
+      let subtotal = 0;
+      let taxAmount = 0;
+      let grandTotal = 0;
+
+      const itemsWithTax = items.map((item: any) => {
+        const detail = productDetails.find((p: any) => p.id === item.id);
+        const unitPrice = item.sellingPrice || item.unitPrice || item.basePrice || 0;
+        const qty = item.quantity || item.qty || 1;
+        const lineTotalRaw = unitPrice * qty;
+
+        const taxRate = detail?.taxRate ?? 5;
+        const taxType = detail?.taxType || 'EXCLUSIVE';
+
+        let lineSubtotal = 0;
+        let lineTax = 0;
+        let lineGrandTotal = 0;
+
+        if (taxType === 'EXEMPT') {
+          lineSubtotal = lineTotalRaw;
+          lineTax = 0;
+          lineGrandTotal = lineTotalRaw;
+        } else if (taxType === 'INCLUSIVE') {
+          lineSubtotal = lineTotalRaw / (1 + (taxRate / 100));
+          lineTax = lineTotalRaw - lineSubtotal;
+          lineGrandTotal = lineTotalRaw;
+        } else { // EXCLUSIVE
+          lineSubtotal = lineTotalRaw;
+          lineTax = lineTotalRaw * (taxRate / 100);
+          lineGrandTotal = lineTotalRaw + lineTax;
+        }
+
+        subtotal += lineSubtotal;
+        taxAmount += lineTax;
+        grandTotal += lineGrandTotal;
+
+        return {
+          ...item,
+          qty,
+          unitPrice,
+          lineSubtotal,
+          lineTax,
+          lineGrandTotal,
+          hsnCode: detail?.hsnCode
+        };
+      });
 
       if (posOrder) {
         // Update existing order
@@ -80,16 +128,13 @@ export async function POST(request: NextRequest) {
               staffMemberId: staffMemberId || null,
               items: {
                 create: items.map((item: any) => {
-                  const unitPrice = item.sellingPrice || item.unitPrice || item.basePrice || 0;
-                  const qty = item.quantity || item.qty || 1;
-                  const lineSubtotal = unitPrice * qty;
-                  const lineTax = lineSubtotal * 0.05;
+                  const mappedItem = itemsWithTax.find((i: any) => i.id === item.id);
                   return {
                     productId: item.id,
-                    quantity: qty,
-                    unitPrice: unitPrice,
-                    taxAmount: lineTax,
-                    totalAmount: lineSubtotal + lineTax,
+                    quantity: mappedItem.qty,
+                    unitPrice: mappedItem.unitPrice,
+                    taxAmount: mappedItem.lineTax,
+                    totalAmount: mappedItem.qty * mappedItem.unitPrice,
                     discountAmount: 0
                   };
                 })
@@ -132,26 +177,16 @@ export async function POST(request: NextRequest) {
       });
 
       // 4. Create Invoice Items
-      const productDetails = await tx.product.findMany({
-        where: { id: { in: items.map((i: any) => i.id) } },
-        select: { id: true, hsnCode: true }
-      });
-
       await tx.invoiceItem.createMany({
-        data: items.map((item: any) => {
-          const detail = productDetails.find((p: any) => p.id === item.id);
-          const unitPrice = item.sellingPrice || item.unitPrice || item.basePrice || 0;
-          const qty = item.quantity || item.qty || 1;
-          const lineSubtotal = unitPrice * qty;
-          const lineTax = lineSubtotal * 0.05;
+        data: itemsWithTax.map((item: any) => {
           return {
             invoiceId: invoice.id,
             productId: item.id,
-            hsnCode: detail?.hsnCode || null,
-            qty: qty,
-            unitPrice: unitPrice,
-            taxAmount: lineTax,
-            totalAmount: lineSubtotal + lineTax,
+            hsnCode: item.hsnCode || null,
+            qty: item.qty,
+            unitPrice: item.unitPrice,
+            taxAmount: item.lineTax,
+            totalAmount: item.qty * item.unitPrice,
           };
         }),
       });

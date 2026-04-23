@@ -50,7 +50,7 @@ export const BlogSection = () => {
           </div>
           <Link 
             href="/blog" 
-            className="group flex items-center gap-2 text-gray-900 font-bold uppercase tracking-widest text-xs border-b-2 border-pos-primary pb-2 overflow-hidden"
+            className="relative group flex items-center gap-2 text-gray-900 font-bold uppercase tracking-widest text-xs border-b-2 border-pos-primary pb-2 overflow-hidden"
           >
             <span className="relative z-10 transition-transform group-hover:-translate-y-full inline-block">View All Stories</span>
             <span className="absolute left-0 top-0 transition-transform translate-y-full group-hover:translate-y-0 text-pos-primary font-bold uppercase tracking-widest text-xs">Explore More</span>

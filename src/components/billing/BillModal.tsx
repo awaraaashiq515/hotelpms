@@ -9,6 +9,7 @@ import {
   Banknote, QrCode, Smartphone, Star
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { printerService } from '@/lib/printer-service';
 
 export interface BillData {
   orderNo: string;
@@ -153,7 +154,19 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    // Try Direct Thermal Printing via QZ Tray first
+    if (property?.enableDirectPrinting) {
+      try {
+        const billPrintData = printerService.formatBill(bill, property);
+        await printerService.printRaw(property?.thermalPrinterName || "MPT-II", billPrintData);
+        console.log(`Bill printed successfully to ${property?.thermalPrinterName || "MPT-II"}`);
+        return; 
+      } catch (e) {
+        console.warn("Direct thermal print failed, falling back to browser print:", e);
+      }
+    }
+
     const printWindow = window.open('', '_blank', 'width=450,height=700');
     if (!printWindow) return;
 
@@ -297,7 +310,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           
           {/* LEFT: THE BILL (Visual) - 4 Cols */}
-          <div className="lg:col-span-12 xl:col-span-5 bg-white p-6 border border-gray-100 shadow-xl rounded-[2rem] overflow-hidden relative flex flex-col" id="printable-bill">
+          <div className="lg:col-span-12 xl:col-span-5 bg-white p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden relative flex flex-col" id="printable-bill">
             <button 
               onClick={() => handlePrint()} 
               className="absolute top-4 right-4 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-900 print:hidden z-20"
@@ -307,51 +320,51 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
             </button>
             {/* Header */}
             <div className="text-center mb-10 relative z-10">
-              <h2 className="text-2xl font-black uppercase tracking-tighter text-gray-900 leading-none">
+              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none">
                 {property?.name || 'POS RESTAURANT'}
               </h2>
               {property?.address && (
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight mt-2 max-w-[200px] mx-auto">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-2 max-w-[220px] mx-auto leading-relaxed">
                     {property.address}
                 </p>
               )}
-              <div className="w-12 h-1 bg-indigo-600 mx-auto mt-6 rounded-full opacity-20"></div>
+              <div className="w-16 h-1.5 bg-indigo-600 mx-auto mt-8 rounded-full shadow-[0_0_15px_rgba(79,70,229,0.3)]"></div>
             </div>
 
             {/* Info Grid */}
             <div className="grid grid-cols-1 gap-4 mb-10 relative z-10">
-              <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                <span className="text-gray-400 font-black uppercase text-[9px] tracking-widest">Order ID</span>
-                <span className="font-black text-gray-900 text-xs">{bill.orderNo}</span>
+              <div className="flex justify-between items-end border-b border-slate-100 pb-3">
+                <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Order ID</span>
+                <span className="font-black text-slate-900 text-sm tracking-tight">{bill.orderNo}</span>
               </div>
-              <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                <span className="text-gray-400 font-black uppercase text-[9px] tracking-widest">Table Name</span>
-                <span className="font-black text-indigo-600 text-xs">Table {bill.tableNo}</span>
+              <div className="flex justify-between items-end border-b border-slate-100 pb-3">
+                <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Table Name</span>
+                <span className="font-black text-indigo-600 text-sm uppercase">Table {bill.tableNo}</span>
               </div>
-              <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                <span className="text-gray-400 font-black uppercase text-[9px] tracking-widest">Timestamp</span>
-                <span className="font-black text-gray-900 text-[10px]">{format(new Date(bill.createdAt), 'dd/MM/yyyy HH:mm')}</span>
+              <div className="flex justify-between items-end border-b border-slate-100 pb-3">
+                <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Timestamp</span>
+                <span className="font-black text-slate-900 text-xs">{format(new Date(bill.createdAt), 'dd/MM/yyyy HH:mm')}</span>
               </div>
             </div>
 
             {/* Items Table - Strict Column Alignment */}
             <div className="mb-4 relative z-10 flex-1 flex flex-col min-h-[220px]">
-              <div className="grid grid-cols-[1fr_75px_65px] gap-2 text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b-2 border-gray-100 pb-2 px-1">
+              <div className="grid grid-cols-[1fr_85px_75px] gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-3 border-b-2 border-slate-100 pb-3 px-1">
                 <span>Description</span>
                 <span className="text-center">Qty × Price</span>
                 <span className="text-right">Total</span>
               </div>
-              <div className="space-y-3 overflow-y-auto no-scrollbar max-h-[350px] px-1">
+              <div className="space-y-4 overflow-y-auto no-scrollbar max-h-[350px] px-1">
                 {bill.items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_75px_65px] gap-2 items-start py-0.5 group">
+                  <div key={idx} className="grid grid-cols-[1fr_85px_75px] gap-2 items-start py-0.5 group">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black text-gray-900 leading-tight uppercase group-hover:text-indigo-600 transition-colors">{item.name}</p>
+                      <p className="text-[12px] font-black text-slate-900 leading-tight uppercase group-hover:text-indigo-600 transition-colors">{item.name}</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-[9px] font-bold text-gray-400 tabular-nums">{item.quantity} × {item.price.toFixed(0)}</p>
+                        <p className="text-[10px] font-bold text-slate-400 tabular-nums">{item.quantity} × {item.price.toFixed(0)}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-[11px] font-black text-gray-900 tabular-nums tracking-tighter">₹{(item.quantity * item.price).toFixed(0)}</p>
+                        <p className="text-[12px] font-black text-slate-900 tabular-nums tracking-tighter">₹{(item.quantity * item.price).toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
@@ -359,16 +372,16 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
             </div>
 
             {/* Totals Section */}
-            <div className="border-t border-dashed border-gray-200 pt-4 space-y-1 relative z-10 mt-auto">
-              <div className="flex justify-between text-[9px] font-black text-gray-400 uppercase tracking-widest">
+            <div className="border-t border-dashed border-slate-200 pt-6 space-y-2 relative z-10 mt-auto">
+              <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
                 <span>Subtotal</span>
-                <span className="text-gray-900 font-bold">₹{bill.subtotal.toFixed(0)}</span>
+                <span className="text-slate-900 font-black">₹{bill.subtotal.toFixed(0)}</span>
               </div>
-              <div className="flex justify-between text-[9px] font-black text-gray-400 uppercase tracking-widest pb-2 border-b border-gray-50">
+              <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest pb-3 border-b border-slate-100">
                 <span>Tax (5%)</span>
-                <span className="text-gray-900 font-bold">₹{bill.tax.toFixed(0)}</span>
+                <span className="text-slate-900 font-black">₹{bill.tax.toFixed(0)}</span>
               </div>
-              <div className="flex justify-between items-center bg-gray-900 text-white p-4 rounded-xl mt-3 shadow-lg print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">
+              <div className="flex justify-between items-center bg-slate-900 text-white p-5 rounded-2xl mt-4 shadow-xl print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">
                 <div>
                     <span className="text-[7px] font-black uppercase tracking-[0.3em] opacity-40 block mb-0.5 print:text-[8px] print:font-bold">Payable</span>
                     <span className="text-2xl font-black text-white leading-none print:text-black">₹{bill.grandTotal.toFixed(0)}</span>
@@ -615,7 +628,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               placeholder="Any feedback or comments? (Optional)"
               value={ratingComments}
               onChange={e => setRatingComments(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all min-h-[100px] mb-8"
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold text-gray-900 outline-none focus:border-indigo-500 focus:bg-white transition-all min-h-[100px] mb-8"
             />
 
             <div className="flex flex-col gap-3 w-full">
@@ -627,7 +640,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               </Button>
               <button 
                 onClick={() => { handlePrint(); onClose(); }}
-                className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300 hover:text-gray-900 transition-colors py-2"
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-indigo-600 transition-colors py-2"
               >
                 Skip Rating
               </button>

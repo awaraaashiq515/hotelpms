@@ -105,8 +105,8 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
 
           <div class="font-bold uppercase" style="font-size: 11px;">
             <div class="total-row"><span>SUB-TOTAL:</span> <span>₹${getSubtotal().toFixed(2)}</span></div>
-            <div class="total-row"><span>CGST (2.5%):</span> <span>₹${(getTax()/2).toFixed(2)}</span></div>
-            <div class="total-row"><span>SGST (2.5%):</span> <span>₹${(getTax()/2).toFixed(2)}</span></div>
+            <div class="total-row"><span>CGST:</span> <span>₹${(getTax()/2).toFixed(2)}</span></div>
+            <div class="total-row"><span>SGST:</span> <span>₹${(getTax()/2).toFixed(2)}</span></div>
             ${bill.discountAmount > 0 ? `<div class="total-row"><span>DISCOUNT:</span> <span>-₹${bill.discountAmount?.toFixed(2)}</span></div>` : ''}
           </div>
 
@@ -118,6 +118,7 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
           <div class="double-line"></div>
 
           <div class="text-center font-bold footer">
+            <p style="font-size: 8px; margin-bottom: 2mm;">(Prices are inclusive of taxes where applicable)</p>
             <p style="font-size: 16px; margin-bottom: 2mm; letter-spacing: 2px;">THANK YOU!</p>
             <p uppercase>VISIT AGAIN • HAVE A NICE DAY</p>
             <div style="border-top: 1px dotted #000; margin-top: 6mm; padding-top: 3mm; opacity: 0.5;">
@@ -193,7 +194,8 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
 
              <div className="space-y-2 text-right font-bold text-[11px] uppercase pt-6 border-t-2 border-dashed border-black/20">
                 <div className="flex justify-between"><span>Sub-Total</span> <span>₹{getSubtotal().toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>GST (5%)</span> <span>₹{getTax().toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>CGST</span> <span>₹{(getTax()/2).toFixed(2)}</span></div>
+               <div className="flex justify-between"><span>SGST</span> <span>₹{(getTax()/2).toFixed(2)}</span></div>
                 <div className="flex justify-between text-base pt-6 border-t-4 border-double border-black mt-6">
                   <span>Net Payable</span>
                   <span className="text-lg">₹{getGrandTotal().toFixed(2)}</span>
@@ -201,6 +203,7 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
              </div>
 
              <div className="text-center font-bold mt-16 pt-8 border-t border-dotted border-black/20">
+                <p className="text-[9px] opacity-70 mb-4 uppercase">(Prices are inclusive of taxes where applicable)</p>
                 <p className="text-base tracking-widest mb-2 uppercase">Thank You!</p>
                 <p className="text-[8px] opacity-40 uppercase">Visit Again • Have a nice day</p>
              </div>

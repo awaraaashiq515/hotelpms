@@ -3,9 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+
 
 model Organization {
   id                  String         @id @default(cuid())
@@ -55,6 +57,8 @@ model Property {
   posLockScreenMessage String?           // Custom message on lock screen
   posLockScreenBgUrl   String?           // Custom background for lock screen
   posTerminalPin       String?           // Global PIN to unlock this property terminal
+  thermalPrinterName   String?           @default("MPT-II")
+  enableDirectPrinting Boolean           @default(true)
   accounts           Account[]
   auditLogs          AuditLog[]
   cashTopUps         CashTopUp[]
@@ -359,6 +363,7 @@ model Product {
   availabilityStatus Boolean        @default(true)
   kitchenMapping     String?
   variantSize        String?
+  taxType            String         @default("EXCLUSIVE")
   invoiceItems       InvoiceItem[]
   kotItems           KotItem[]
   posOrderItems      PosOrderItem[]

@@ -12,12 +12,18 @@ import Link from 'next/link';
 const BusinessProfileForm = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testingSimple, setTestingSimple] = useState(false);
   const [property, setProperty] = useState<any>(null);
   
   const [displayName, setDisplayName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [gstNumber, setGstNumber] = useState('');
+  const [thermalPrinterName, setThermalPrinterName] = useState('MPT-II');
+  const [enableDirectPrinting, setEnableDirectPrinting] = useState(true);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
 
   useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -30,6 +36,8 @@ const BusinessProfileForm = () => {
           setAddress(prop.address || '');
           setPhone(prop.phone || '');
           setGstNumber(prop.taxDetails || '');
+          setThermalPrinterName(prop.thermalPrinterName || 'MPT-II');
+          setEnableDirectPrinting(prop.enableDirectPrinting ?? true);
         }
         setLoading(false);
       })
@@ -48,6 +56,8 @@ const BusinessProfileForm = () => {
           address,
           phone,
           taxDetails: gstNumber,
+          thermalPrinterName,
+          enableDirectPrinting,
           logoUrl: property.logoUrl // Keep existing logo
         })
       });
@@ -56,6 +66,49 @@ const BusinessProfileForm = () => {
       alert('Failed to save profile.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestPrint = async () => {
+    setTesting(true);
+    try {
+      const { printerService } = await import('@/lib/printer-service');
+      await printerService.testPrint(thermalPrinterName);
+      alert('Test print sent!');
+    } catch (err: any) {
+      alert(`Test print failed: ${err.message}`);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleTestPrintSimple = async () => {
+    setTestingSimple(true);
+    try {
+      const { printerService } = await import('@/lib/printer-service');
+      await printerService.testPrintSimple(thermalPrinterName);
+      alert('Simple test print sent!');
+    } catch (err: any) {
+      alert(`Simple test print failed: ${err.message}`);
+    } finally {
+      setTestingSimple(false);
+    }
+  };
+
+  const handleFetchPrinters = async () => {
+    setLoadingPrinters(true);
+    try {
+      const { printerService } = await import('@/lib/printer-service');
+      const list = await printerService.findPrinters();
+      const printerArray = Array.isArray(list) ? list : [list];
+      setAvailablePrinters(printerArray);
+      if (printerArray.length > 0 && !printerArray.includes(thermalPrinterName)) {
+        // Optional: don't auto-set if already set to something valid
+      }
+    } catch (err) {
+      console.error('Failed to fetch printers', err);
+    } finally {
+      setLoadingPrinters(false);
     }
   };
 
@@ -112,6 +165,81 @@ const BusinessProfileForm = () => {
             onChange={(e) => setGstNumber(e.target.value)}
             className="w-full px-5 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/30 dark:bg-slate-800/50 font-black text-sm dark:text-white transition-all"
           />
+        </div>
+
+        <div className="sm:col-span-2 border-t border-gray-100 pt-6 mt-2">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+              <Printer size={20} />
+            </div>
+            <div>
+              <h3 className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Thermal Printer (QZ Tray)</h3>
+              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter mt-0.5">Direct ESC/POS Printing Settings</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+             <div>
+                <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">Printer Name (e.g. MPT-II)</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input 
+                      type="text" 
+                      value={thermalPrinterName}
+                      onChange={(e) => setThermalPrinterName(e.target.value)}
+                      placeholder="MPT-II"
+                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 bg-white dark:bg-slate-800 font-black text-sm dark:text-white transition-all"
+                    />
+                    {availablePrinters.length > 0 && (
+                      <select
+                        onChange={(e) => setThermalPrinterName(e.target.value)}
+                        value={thermalPrinterName}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-100 border-none rounded-lg text-[10px] font-bold py-1 px-2 outline-none"
+                      >
+                        <option value="">Select Printer</option>
+                        {availablePrinters.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  <button 
+                    onClick={handleFetchPrinters}
+                    disabled={loadingPrinters}
+                    className="p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 text-indigo-600 transition-all"
+                    title="Refresh Printer List"
+                  >
+                    <RefreshCcw size={20} className={loadingPrinters ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-3 mt-3">
+                  <button 
+                    onClick={handleTestPrint}
+                    disabled={testing}
+                    className="text-[9px] font-black uppercase text-indigo-600 hover:text-indigo-800 bg-indigo-50/50 px-3 py-1.5 rounded-lg tracking-widest flex items-center gap-1 active:scale-95 transition-all"
+                  >
+                    {testing ? 'Sending...' : '➜ Test ESC/POS (Normal)'}
+                  </button>
+                  <button 
+                    onClick={handleTestPrintSimple}
+                    disabled={testingSimple}
+                    className="text-[9px] font-black uppercase text-teal-600 hover:text-teal-800 bg-teal-50/50 px-3 py-1.5 rounded-lg tracking-widest flex items-center gap-1 active:scale-95 transition-all"
+                  >
+                    {testingSimple ? 'Sending...' : '➜ Test Plain Text'}
+                  </button>
+                </div>
+             </div>
+             <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setEnableDirectPrinting(!enableDirectPrinting)}
+                  className={`w-14 h-8 rounded-full transition-all relative ${enableDirectPrinting ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                >
+                  <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${enableDirectPrinting ? 'left-7' : 'left-1 shadow-sm'}`} />
+                </button>
+                <div>
+                   <p className="text-[10px] font-black text-gray-700 dark:text-slate-200 uppercase tracking-widest">Enable Direct Print</p>
+                   <p className="text-[8px] text-gray-400 font-bold uppercase">Skip browser dialog</p>
+                </div>
+             </div>
+          </div>
         </div>
 
         <div className="sm:col-span-2 pt-4">
@@ -568,14 +696,59 @@ const WebsiteBrandingForm = () => {
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-8 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-gray-200 group relative transition-all hover:border-pos-primary/40">
-             <div className="w-48 h-48 mb-6 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl shadow-gray-200 dark:shadow-none flex items-center justify-center overflow-hidden border border-gray-100 dark:border-slate-700 relative">
-                 <div className="w-16 h-16 bg-pos-primary rounded-2xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-black text-3xl italic">O</span>
-                 </div>
-             </div>
-             <p className="mt-3 text-[10px] text-pos-primary font-black uppercase tracking-[0.2em]">OrderMint Identity</p>
-             <p className="mt-1 text-[9px] text-gray-400 font-bold uppercase tracking-widest">Global Platform Brand</p>
+          <div className="flex flex-col gap-5">
+            <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Website Logo</h3>
+            <div className="flex items-center gap-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-pos-primary/40 transition-colors">
+              {/* Logo Preview */}
+              <div className="w-28 h-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-lg flex-shrink-0 relative">
+                {settings.logoUrl ? (
+                  <>
+                    <img 
+                      src={settings.logoUrl} 
+                      alt=""
+                      className="w-full h-full object-contain p-2"
+                      onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = '1'; }}
+                      onError={(e) => { 
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                        const fallback = img.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                      style={{ opacity: 1 }}
+                    />
+                    <div className="w-14 h-14 bg-pos-primary rounded-2xl items-center justify-center shadow-lg" style={{ display: 'none' }}>
+                      <span className="text-white font-black text-2xl italic">O</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-14 h-14 bg-pos-primary rounded-2xl flex items-center justify-center shadow-lg">
+                    <span className="text-white font-black text-2xl italic">O</span>
+                  </div>
+                )}
+              </div>
+              {/* Upload Controls */}
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-bold text-gray-700 dark:text-slate-200">
+                  {settings.logoUrl ? 'Change your logo' : 'Upload a high-quality logo for your website.'}
+                </p>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Recommended format is transparent PNG/SVG.</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <label className="cursor-pointer px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pos-primary transition-all shadow-md">
+                    Upload New Logo
+                    <input type="file" className="hidden" accept="image/*,image/svg+xml" onChange={(e) => handleFileUpload(e, 'logoUrl')} />
+                  </label>
+                  {settings.logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSettings({ ...settings, logoUrl: '' })}
+                      className="text-[10px] font-black uppercase text-red-500 hover:text-red-700 tracking-widest transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </Card>

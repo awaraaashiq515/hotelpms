@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const openOrders = await (prisma as any).posOrder.findMany({
       where: { 
         ...where,
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'BILL_PRINTED'] }
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] }
       },
       include: {
         items: true,

@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
       // 4. Create Order Items and prepare for KOT
       const newItemsForKot: any[] = [];
       let subtotalIncrease = 0;
+      let taxAmountIncrease = 0;
+      let grandTotalIncrease = 0;
 
       for (const item of items) {
         const product = await tx.product.findUnique({
@@ -82,8 +84,32 @@ export async function POST(request: NextRequest) {
         if (!product) continue;
 
         const unitPrice = product.sellingPrice;
-        const totalAmount = unitPrice * item.quantity;
-        subtotalIncrease += totalAmount;
+        const totalAmountRaw = unitPrice * item.quantity;
+        
+        const taxRate = product.taxRate ?? 5;
+        const taxType = product.taxType || 'EXCLUSIVE';
+
+        let lineSubtotal = 0;
+        let lineTax = 0;
+        let lineGrandTotal = 0;
+
+        if (taxType === 'EXEMPT') {
+          lineSubtotal = totalAmountRaw;
+          lineTax = 0;
+          lineGrandTotal = totalAmountRaw;
+        } else if (taxType === 'INCLUSIVE') {
+          lineSubtotal = totalAmountRaw / (1 + (taxRate / 100));
+          lineTax = totalAmountRaw - lineSubtotal;
+          lineGrandTotal = totalAmountRaw;
+        } else { // EXCLUSIVE
+          lineSubtotal = totalAmountRaw;
+          lineTax = totalAmountRaw * (taxRate / 100);
+          lineGrandTotal = totalAmountRaw + lineTax;
+        }
+
+        subtotalIncrease += lineSubtotal;
+        taxAmountIncrease += lineTax;
+        grandTotalIncrease += lineGrandTotal;
 
         // Create the order item
         const orderItem = await tx.posOrderItem.create({
@@ -92,7 +118,8 @@ export async function POST(request: NextRequest) {
             productId: product.id,
             quantity: item.quantity,
             unitPrice: unitPrice,
-            totalAmount: totalAmount,
+            taxAmount: lineTax,
+            totalAmount: totalAmountRaw,
           },
         });
 
@@ -109,8 +136,8 @@ export async function POST(request: NextRequest) {
         where: { id: order.id },
         data: {
           subtotal: { increment: subtotalIncrease },
-          taxAmount: { increment: subtotalIncrease * 0.05 }, // Assuming 5% tax for now, should ideally fetch from settings
-          grandTotal: { increment: subtotalIncrease * 1.05 },
+          taxAmount: { increment: taxAmountIncrease }, 
+          grandTotal: { increment: grandTotalIncrease },
         },
       });
 

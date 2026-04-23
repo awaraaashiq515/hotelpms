@@ -332,8 +332,9 @@ export default function DayClosingPage() {
                 <p className="text-xl font-bold text-green-300">+₹{totalTopUps.toLocaleString('en-IN')}</p>
               </div>
               <Button
+                variant="secondary"
                 onClick={() => setIsCloseShiftOpen(true)}
-                className="bg-white text-pos-primary hover:bg-pos-primary/10 px-5 py-3 rounded-xl font-bold text-xs tracking-widest flex items-center gap-2 shadow-lg"
+                className="bg-white text-pos-accent hover:bg-pos-accent-soft px-5 py-3 rounded-xl font-bold text-xs tracking-widest flex items-center gap-2 shadow-lg border-none"
               >
                 <Lock size={14} />
                 Close Shift

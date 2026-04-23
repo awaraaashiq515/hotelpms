@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             restaurantTableId: orderData.restaurantTableId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
             orderType: 'DINE_IN'
           },
           include: { items: true }
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
     // Handle status filtering
     let statusFilter = undefined;
     if (status === 'in_progress') {
-      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY'] };
+      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] };
     } else if (status?.includes(',')) {
       statusFilter = { in: status.split(',') };
     } else if (status) {

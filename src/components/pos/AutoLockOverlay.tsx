@@ -19,11 +19,33 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
   forceLock = false,
   onUnlock
 }) => {
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos_is_locked');
+      return saved === 'true';
+    }
+    return false;
+  });
   const [pin, setPin] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
+
+  useEffect(() => {
+    if (isLocked) {
+      localStorage.setItem('pos_is_locked', 'true');
+    } else {
+      localStorage.removeItem('pos_is_locked');
+    }
+  }, [isLocked]);
+
+  useEffect(() => {
+    // If timeout is explicitly disabled (0), force unlock
+    // We ignore -1 because that means settings are still loading
+    if (timeoutMinutes === 0 && isLocked) {
+      setIsLocked(false);
+    }
+  }, [timeoutMinutes, isLocked]);
 
   useEffect(() => {
     if (forceLock) {
@@ -65,19 +87,22 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
     };
   }, [timeoutMinutes, lastActivity, isLocked, resetTimer]);
 
-  const handleKeyPress = (num: string) => {
-    if (pin.length < 6) {
-      setPin(prev => prev + num);
-      setError(false);
-    }
-  };
+  const handleKeyPress = useCallback((num: string) => {
+    setPin(prev => {
+      if (prev.length < 6) {
+        setError(false);
+        return prev + num;
+      }
+      return prev;
+    });
+  }, []);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     setPin(prev => prev.slice(0, -1));
     setError(false);
-  };
+  }, []);
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     if (pin.length < 4) return;
     setVerifying(true);
     try {
@@ -101,8 +126,33 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
     } finally {
       setVerifying(false);
     }
-  };
+  }, [pin, onUnlock]);
 
+  useEffect(() => {
+    if (!isLocked) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Numbers 0-9
+      if (e.key >= '0' && e.key <= '9') {
+        handleKeyPress(e.key);
+      } 
+      // Backspace to delete
+      else if (e.key === 'Backspace') {
+        handleDelete();
+      } 
+      // Enter to submit
+      else if (e.key === 'Enter') {
+        handleVerify();
+      } 
+      // Escape or 'C' to clear
+      else if (e.key === 'Escape' || e.key.toLowerCase() === 'c') {
+        setPin('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLocked, handleKeyPress, handleDelete, handleVerify]);
 
   if (!isLocked) return null;
 

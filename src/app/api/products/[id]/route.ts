@@ -45,15 +45,18 @@ export async function PUT(
       barcode, 
       hsnCode,
       taxRate,
+      taxType,
       trackInventory, 
       isActive,
-      image
+      image,
+      description
     } = body;
 
     const product = await prisma.product.update({
       where: { id },
       data: {
         name,
+        description: description !== undefined ? (description || null) : undefined,
         sellingPrice: Number(sellingPrice),
         costPrice: Number(costPrice || 0),
         productType,
@@ -61,6 +64,7 @@ export async function PUT(
         barcode,
         hsnCode,
         taxRate: taxRate !== undefined ? (taxRate === null ? null : Number(taxRate)) : undefined,
+        taxType: taxType !== undefined ? taxType : undefined,
         image,
         trackInventory: trackInventory === true,
         isActive: isActive !== false,

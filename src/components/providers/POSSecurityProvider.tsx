@@ -24,7 +24,7 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [session, setSession] = useState<any>(null);
   const [settings, setSettings] = useState({
-    timeout: 0,
+    timeout: -1, // -1 means loading
     message: 'Station Locked',
     bgUrl: ''
   });
@@ -48,31 +48,57 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
             message: data.data.posLockScreenMessage || 'Station Locked',
             bgUrl: data.data.posLockScreenBgUrl || ''
           });
+        } else {
+          // If fetch fails but we need to stop loading
+          setSettings(s => ({ ...s, timeout: 0 }));
         }
       })
-      .catch(err => console.error('Failed to fetch POS security settings', err));
+      .catch(err => {
+        console.error('Failed to fetch POS security settings', err);
+        setSettings(s => ({ ...s, timeout: 0 }));
+      });
   }, []);
 
   const manuallyLock = () => {
     setTriggerLock(true);
   };
 
-  // Logic: Disable lock if in Admin Hub
-  // Admin Hub paths usually don't include POS operations
-  const isAdminPage = pathname.startsWith('/settings') || 
-                      pathname.startsWith('/reports') || 
-                      pathname.startsWith('/role-management') ||
-                      pathname.startsWith('/pos-access') ||
-                      pathname.startsWith('/manage-users') ||
-                      pathname.startsWith('/businesses') ||
-                      pathname.startsWith('/accounting') ||
-                      pathname.startsWith('/expenses');
+  // Define Terminal vs Management pages
+  // Management pages ("Inside") should not lock for Admin roles
+  const managementPaths = [
+    '/dashboard',
+    '/manage-properties',
+    '/manage-users',
+    '/manage-roles',
+    '/pos-staff',
+    '/inventory',
+    '/products',
+    '/categories',
+    '/settings',
+    '/reports',
+    '/invoices',
+    '/payments',
+    '/expenses',
+    '/accounts',
+    '/drivers',
+    '/customers',
+    '/day-closing',
+    '/vouchers',
+    '/gst-filing',
+    '/gst-settings'
+  ];
 
-  // If role is admin and on admin page, disable auto-lock
-  const disableLockForAdmin = (session?.role === 'RESTAURANTS_ADMIN' || session?.role === 'SUPER_ADMIN') && isAdminPage;
+  const isManagementPage = managementPaths.some(path => pathname.startsWith(path)) || pathname === '/operations';
   
-  // Effective timeout (0 if disabled for admin)
-  const effectiveTimeout = disableLockForAdmin ? 0 : settings.timeout;
+  // Pages that should NEVER lock for anyone (e.g. Kitchen Display)
+  const isExemptPage = pathname.startsWith('/kitchen-display');
+
+  // Logic: Disable lock for Administrative roles on Management pages
+  // Or for everyone on exempt pages like Kitchen Display
+  const disableLock = ((session?.role === 'RESTAURANTS_ADMIN' || session?.role === 'SUPER_ADMIN') && isManagementPage) || isExemptPage;
+  
+  // Effective timeout (0 if disabled)
+  const effectiveTimeout = disableLock ? 0 : settings.timeout;
 
   return (
     <POSSecurityContext.Provider value={{ ...settings, manuallyLock }}>

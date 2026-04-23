@@ -96,11 +96,47 @@ export async function POST(request: NextRequest) {
 
       // Recalculate PosOrder
       const remainingItems = await (tx as any).posOrderItem.findMany({
-        where: { posOrderId: orderItem.posOrderId }
+        where: { posOrderId: orderItem.posOrderId },
+        include: { product: true }
       });
-      const subtotal = remainingItems.reduce((sum: number, i: any) => sum + i.totalAmount, 0);
-      const taxAmount = subtotal * 0.05;
-      const grandTotal = subtotal + taxAmount;
+      
+      let subtotal = 0;
+      let taxAmount = 0;
+      let grandTotal = 0;
+
+      for (const i of remainingItems) {
+        const itemTotal = i.totalAmount;
+        const taxRate = i.product.taxRate ?? 5;
+        const taxType = i.product.taxType || 'EXCLUSIVE';
+
+        let itemSub = 0;
+        let itemTax = 0;
+        let itemGrand = 0;
+
+        if (taxType === 'EXEMPT') {
+          itemSub = itemTotal;
+          itemTax = 0;
+          itemGrand = itemTotal;
+        } else if (taxType === 'INCLUSIVE') {
+          itemSub = itemTotal / (1 + (taxRate / 100));
+          itemTax = itemTotal - itemSub;
+          itemGrand = itemTotal;
+        } else { // EXCLUSIVE
+          itemSub = itemTotal;
+          itemTax = itemTotal * (taxRate / 100);
+          itemGrand = itemTotal + itemTax;
+        }
+
+        // Update item level tax in db
+        await (tx as any).posOrderItem.update({
+          where: { id: i.id },
+          data: { taxAmount: itemTax }
+        });
+
+        subtotal += itemSub;
+        taxAmount += itemTax;
+        grandTotal += itemGrand;
+      }
 
       await (tx as any).posOrder.update({
         where: { id: orderItem.posOrderId },

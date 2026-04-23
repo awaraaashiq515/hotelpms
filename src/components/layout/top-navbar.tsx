@@ -54,7 +54,7 @@ export const TopNavbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6 sticky top-0 z-50 shadow-sm transition-all duration-200 overflow-hidden">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
@@ -65,8 +65,17 @@ export const TopNavbar: React.FC = () => {
             onClick={() => router.push('/operations')}
           >
             <div className="relative">
-              <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
-                <span className="text-white font-black text-xl italic">O</span>
+              <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
+                {property?.logoUrl ? (
+                  <img 
+                    src={property.logoUrl} 
+                    alt={property?.name || 'Logo'} 
+                    className="w-full h-full object-contain p-0.5"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <span className="text-white font-black text-xl italic">O</span>
+                )}
               </div>
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
                  <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
@@ -74,27 +83,33 @@ export const TopNavbar: React.FC = () => {
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
-                Order<span className="text-pos-primary font-light">Mint</span>
+                {property?.name ? (
+                  <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
+                ) : (
+                  <>Order<span className="text-pos-primary font-light">Mint</span></>
+                )}
               </span>
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">POS Terminal</span>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 ml-4">
+        <div className="flex items-center gap-1.5 md:gap-2 ml-2 md:ml-4">
           <Button 
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px]"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
             onClick={() => router.push('/operations/tables')}
+            title="Dine In"
           >
-            <Monitor size={16} className="mr-2" />
-            Dine In
+            <Monitor size={16} className="md:mr-2" />
+            <span className="hidden md:inline">Dine In</span>
           </Button>
           <Button 
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px]"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
             onClick={() => router.push('/billing')}
+            title="Take Away"
           >
-            <Plus size={16} className="mr-2" />
-            Take Away
+            <Plus size={16} className="md:mr-2" />
+            <span className="hidden md:inline">Take Away</span>
           </Button>
         </div>
 
@@ -113,8 +128,8 @@ export const TopNavbar: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="flex items-center border-r border-gray-100 dark:border-slate-800 pr-3 mr-3 gap-0.5">
+      <div className="flex items-center gap-1 md:gap-2">
+        <div className="flex items-center border-r border-gray-100 dark:border-slate-800 pr-2 md:pr-3 mr-2 md:mr-3 gap-0">
           <NavbarAction icon={<Power size={18} />} label="Item On/Off" onClick={() => router.push('/day-closing')} />
           <NavbarAction icon={<Monitor size={18} />} label="Live View" onClick={() => router.push('/kitchen-display')} />
           <NavbarAction icon={<History size={18} />} label="Recent" onClick={() => router.push('/invoices')} />
@@ -155,8 +170,8 @@ export const TopNavbar: React.FC = () => {
 };
 
 const NavbarAction = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
-  <button onClick={onClick} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-gray-50 transition-colors group min-w-[68px]">
-    <span className="text-gray-400 group-hover:text-pos-primary mb-1 transition-colors">{icon}</span>
-    <span className="text-[9px] font-bold text-gray-400 group-hover:text-gray-900 uppercase tracking-tighter text-center">{label}</span>
+  <button onClick={onClick} title={label} className="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl hover:bg-gray-50 transition-colors group min-w-[36px] md:min-w-[60px]">
+    <span className="text-gray-400 group-hover:text-pos-primary md:mb-1 transition-colors">{icon}</span>
+    <span className="hidden md:block text-[9px] font-bold text-gray-400 group-hover:text-gray-900 uppercase tracking-tighter text-center">{label}</span>
   </button>
 );

@@ -37,6 +37,7 @@ import { CustomerForm } from '@/components/forms/customer-form';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
+import { printerService } from '@/lib/printer-service';
 
 interface CartItem extends Product {
   quantity: number;
@@ -146,6 +147,7 @@ export default function BillingPage() {
   const [currentPropertyId, setCurrentPropertyId] = useState<string | null>(null);
   // Active orders from all tables — for bottom bar
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
+  const [property, setProperty] = useState<any>(null);
 
   const { addToast } = useToast();
   const { setOpen } = useSidebar();
@@ -238,16 +240,18 @@ export default function BillingPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [pData, cData, pmData, custData] = await Promise.all([
+      const [pData, cData, pmData, custData, propData] = await Promise.all([
         productsApi.list(),
         categoriesApi.list(),
         paymentModesApi.list(),
-        customersApi.list()
+        customersApi.list(),
+        fetch('/api/setup/properties/current').then(r => r.json())
       ]);
       setProducts(pData);
       setCategories(cData);
       setPaymentModes(pmData);
       setCustomers(custData);
+      if (propData.success) setProperty(propData.data);
       
       // Fetch drivers reliably on load
       fetchDrivers();
@@ -384,6 +388,27 @@ export default function BillingPage() {
             }))
           });
           setIsKotOpen(true);
+
+          // Direct thermal printing via QZ Tray
+          if (property?.enableDirectPrinting) {
+            try {
+              const kotPrintData = printerService.formatKOT({
+                kotNo: latestKot.kotNo,
+                orderNo: orderData.orderNo,
+                tableNo: tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
+                items: latestKot.items.map((item: any) => ({
+                  name: item.itemName || item.name || item.product?.name || "Item",
+                  quantity: item.quantity,
+                  notes: item.notes
+                }))
+              });
+              await printerService.printRaw(property?.thermalPrinterName || "MPT-II", kotPrintData);
+              addToast('success', `KOT Printed to ${property?.thermalPrinterName || "MPT-II"}`);
+            } catch (printErr: any) {
+              console.error('Thermal printing failed:', printErr);
+              addToast('warning', 'Direct print failed, using browser print');
+            }
+          }
         } else {
           addToast('warning', 'Order saved but KOT details could not be generated');
         }
@@ -584,7 +609,7 @@ export default function BillingPage() {
                 <button
                    key={cat.id}
                    onClick={() => setSelectedCategory(cat.id)}
-                   className={`flex-none min-w-[140px] p-5 rounded-[2rem] transition-all duration-300 hover:scale-105 active:scale-95 ${colorClass} flex flex-col gap-3 ${selectedCategory === cat.id ? 'ring-4 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+                   className={`flex-none min-w-[140px] p-5 rounded-[1.5rem] transition-all duration-300 hover:scale-105 active:scale-95 ${colorClass} flex flex-col gap-3 ${selectedCategory === cat.id ? 'ring-4 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
                  >
                    <div className="w-10 h-10 bg-black/10 rounded-xl flex items-center justify-center"><Utensils size={20}/></div>
                    <div>
@@ -631,11 +656,11 @@ export default function BillingPage() {
                         outline: isInCart && isColored ? `3px solid ${cardColor.border}` : 'none',
                         outlineOffset: '2px',
                       }}
-                      className={`group relative rounded-[1.75rem] p-5 flex flex-col gap-4 text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] ${isInCart ? 'shadow-2xl' : 'hover:shadow-xl'}`}
+                      className={`group relative rounded-[1.5rem] p-4 flex flex-col gap-2.5 text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] ${isInCart ? 'shadow-2xl' : 'hover:shadow-xl'}`}
                     >
                       {/* Hover glow */}
                       <div
-                        className="absolute inset-0 rounded-[1.75rem] opacity-0 group-hover:opacity-100"
+                        className="absolute inset-0 rounded-[1.5rem] opacity-0 group-hover:opacity-100"
                         style={{
                           background: `radial-gradient(ellipse at top left, ${isColored ? cardColor.border : '#fff'}20 0%, transparent 60%)`,
                           transition: 'opacity 0.3s ease',
@@ -647,7 +672,7 @@ export default function BillingPage() {
                         style={{
                           backgroundColor: isColored ? `${cardColor.border}30` : darkIconBg,
                           transition: transitionStr('background-color'),
-                          width: 48, height: 48,
+                          width: 40, height: 40,
                           borderRadius: '0.85rem',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           flexShrink: 0,
@@ -657,11 +682,11 @@ export default function BillingPage() {
                           <img
                             src={product.image}
                             alt={product.name}
-                            style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 8 }}
+                            style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 8 }}
                           />
                         ) : (
                           <Utensils
-                            size={22}
+                            size={18}
                             style={{
                               color: isColored ? cardColor.text : darkText,
                               transition: transitionStr('color'),
@@ -671,21 +696,21 @@ export default function BillingPage() {
                       </div>
 
                       {/* Name + Price */}
-                      <div className="space-y-1 relative">
+                      <div className="space-y-0.5 relative">
                         <h3
-                          className="font-black text-[14px] leading-tight"
+                          className="font-black text-[13px] leading-tight truncate w-full"
                           style={{
                             color: isColored ? cardColor.text : darkText,
                             transition: transitionStr('color'),
                           }}
                         >{product.name}</h3>
                         <p
-                          className="text-[11px] font-bold"
+                          className="text-[10px] font-bold"
                           style={{
                             color: isColored ? `${cardColor.text}bb` : darkText,
                             transition: transitionStr('color'),
                           }}
-                        >₹{product.sellingPrice.toFixed(2)}</p>
+                        >₹{product.sellingPrice.toFixed(0)}</p>
                       </div>
 
                       {/* In Cart badge */}

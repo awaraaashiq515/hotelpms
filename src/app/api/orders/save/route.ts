@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       let order = await tx.posOrder.findFirst({
         where: { 
           restaurantTableId: restaurantTableId,
-          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'BILL_PRINTED'] },
+          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
           orderType: 'DINE_IN'
         },
         include: { items: true }
@@ -89,11 +89,47 @@ export async function POST(request: NextRequest) {
 
       // 3. Update Order Totals
       const allUpdatedItems = await tx.posOrderItem.findMany({
-        where: { posOrderId: order!.id }
+        where: { posOrderId: order!.id },
+        include: { product: true }
       });
-      const subtotal = allUpdatedItems.reduce((sum: number, i: any) => sum + i.totalAmount, 0);
-      const taxAmount = subtotal * 0.05;
-      const grandTotal = subtotal + taxAmount;
+      
+      let subtotal = 0;
+      let taxAmount = 0;
+      let grandTotal = 0;
+
+      for (const i of allUpdatedItems) {
+        const itemTotal = i.totalAmount;
+        const taxRate = i.product.taxRate ?? 5; // Default 5% if not set
+        const taxType = i.product.taxType || 'EXCLUSIVE';
+
+        let itemSub = 0;
+        let itemTax = 0;
+        let itemGrand = 0;
+
+        if (taxType === 'EXEMPT') {
+          itemSub = itemTotal;
+          itemTax = 0;
+          itemGrand = itemTotal;
+        } else if (taxType === 'INCLUSIVE') {
+          itemSub = itemTotal / (1 + (taxRate / 100));
+          itemTax = itemTotal - itemSub;
+          itemGrand = itemTotal;
+        } else { // EXCLUSIVE
+          itemSub = itemTotal;
+          itemTax = itemTotal * (taxRate / 100);
+          itemGrand = itemTotal + itemTax;
+        }
+
+        // Update item level tax in db
+        await tx.posOrderItem.update({
+          where: { id: i.id },
+          data: { taxAmount: itemTax }
+        });
+
+        subtotal += itemSub;
+        taxAmount += itemTax;
+        grandTotal += itemGrand;
+      }
 
       await tx.posOrder.update({
         where: { id: order!.id },

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Utensils, Clock, RefreshCw, Wifi, Bell, ChefHat,
   Layers, CheckCircle, Play, Send, AlertTriangle,
-  User, ArrowRight, Flame, EyeOff
+  User, ArrowRight, Flame, EyeOff, Volume2, VolumeX
 } from 'lucide-react';
 import { kotsApi, KotTicket } from '@/lib/api/kots';
 import { useToast } from '@/components/ui/Toast';
@@ -118,6 +118,15 @@ const AUTO_ACCEPT_OPTIONS = [
   { label: '5m', value: 300 },
 ];
 
+const AUTO_READY_OPTIONS = [
+  { label: 'Manual', value: 0 },
+  { label: '5m', value: 300 },
+  { label: '10m', value: 600 },
+  { label: '15m', value: 900 },
+  { label: '20m', value: 1200 },
+  { label: '30m', value: 1800 },
+];
+
 // ─── SERVED HIDE OPTIONS ──────────────────────────────────────────────────────
 // value = minutes after which served order is hidden; 0 = keep all day; -1 = today only (no timer)
 const SERVED_HIDE_OPTIONS = [
@@ -140,8 +149,15 @@ export default function KitchenDisplayPage() {
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [mounted, setMounted] = useState(false);
 
+  // Voice Settings
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const prevKotsRef = useRef<KotTicket[]>([]);
+  const initialLoadRef = useRef(true);
+
   // Auto-Accept Settings
   const [autoAcceptTime, setAutoAcceptTime] = useState<number>(0); // 0 = Manual
+  // Auto-Ready Settings
+  const [autoReadyTime, setAutoReadyTime] = useState<number>(0); // 0 = Manual
   // Served-Hide Settings (minutes; 0 = show all day, hide next day only)
   const [servedHideMinutes, setServedHideMinutes] = useState<number>(0);
 
@@ -151,8 +167,12 @@ export default function KitchenDisplayPage() {
   useEffect(() => {
     const savedAccept = localStorage.getItem('kds_auto_accept_time');
     if (savedAccept) setAutoAcceptTime(parseInt(savedAccept, 10));
+    const savedReady = localStorage.getItem('kds_auto_ready_time');
+    if (savedReady) setAutoReadyTime(parseInt(savedReady, 10));
     const savedHide = localStorage.getItem('kds_served_hide_minutes');
     if (savedHide) setServedHideMinutes(parseInt(savedHide, 10));
+    const savedVoice = localStorage.getItem('kds_voice_enabled');
+    if (savedVoice === 'true') setVoiceEnabled(true);
   }, []);
 
   const handleAutoAcceptChange = (val: number) => {
@@ -161,12 +181,119 @@ export default function KitchenDisplayPage() {
     showToast(`Auto-Accept: ${val === 0 ? 'Disabled' : `${val}s`}`, 'success');
   };
 
+  const handleAutoReadyChange = (val: number) => {
+    setAutoReadyTime(val);
+    localStorage.setItem('kds_auto_ready_time', val.toString());
+    const label = AUTO_READY_OPTIONS.find(o => o.value === val)?.label || 'Manual';
+    showToast(`Auto-Ready: ${label}`, 'success');
+  };
+
   const handleServedHideChange = (val: number) => {
     setServedHideMinutes(val);
     localStorage.setItem('kds_served_hide_minutes', val.toString());
     const label = SERVED_HIDE_OPTIONS.find(o => o.value === val)?.label || 'All Day';
     showToast(`Served Hide: ${label}`, 'success');
   };
+
+  const playVoice = useCallback((text: string) => {
+    if (!voiceEnabled) return;
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      
+      // Fix for Chrome garbage collection bug that stops speech early
+      const w = window as any;
+      w._utterances = w._utterances || [];
+      w._utterances.push(utterance);
+      utterance.onend = () => {
+        const index = w._utterances.indexOf(utterance);
+        if (index > -1) w._utterances.splice(index, 1);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [voiceEnabled]);
+
+  const toggleVoice = () => {
+    const newVal = !voiceEnabled;
+    setVoiceEnabled(newVal);
+    localStorage.setItem('kds_voice_enabled', String(newVal));
+    if (newVal) {
+      showToast('Voice notifications enabled', 'success');
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance("Voice enabled");
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    } else {
+      showToast('Voice notifications disabled', 'success');
+    }
+  };
+
+  // Effect for voice notifications
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      if (!loading) {
+        prevKotsRef.current = kots;
+        initialLoadRef.current = false;
+      }
+      return;
+    }
+
+    const prevMap = new Map(prevKotsRef.current.map(k => [k.id, k.status]));
+    const newOrdersList: any[] = [];
+    const statusChanges: { kotNo: string, status: string, itemsString: string }[] = [];
+
+    kots.forEach(kot => {
+      const prevStatus = prevMap.get(kot.id);
+      
+      const activeItems = kot.items ? kot.items.filter((i: any) => i.status !== 'CANCELLED') : [];
+      let itemsString = activeItems.map((i: any) => {
+        const name = i.product?.name || i.itemName || 'Unknown Item';
+        const qty = i.quantity || 1;
+        return `${qty} ${name}`;
+      }).join(', and ');
+
+      if (!itemsString) {
+        itemsString = "some items";
+      }
+
+      if (!prevStatus) {
+        if (kot.status === 'NEW') {
+          newOrdersList.push({ ...kot, itemsString });
+        }
+      } else if (prevStatus !== kot.status) {
+        statusChanges.push({ kotNo: kot.kotNo, status: kot.status, itemsString });
+      }
+    });
+
+    if (newOrdersList.length > 0) {
+      if (newOrdersList.length === 1) {
+        const textToSay = `Attention! New order received for ${newOrdersList[0].itemsString}`;
+        console.log('Voice Announcing:', textToSay);
+        playVoice(textToSay);
+      } else {
+        const textToSay = `Attention! ${newOrdersList.length} new orders received`;
+        console.log('Voice Announcing:', textToSay);
+        playVoice(textToSay);
+        newOrdersList.forEach(kot => {
+          playVoice(`Order has ${kot.itemsString}`);
+        });
+      }
+    }
+
+    statusChanges.forEach(change => {
+      const statusText = change.status === 'PREPARING' ? 'In Kitchen' 
+                       : change.status === 'READY' ? 'Ready to Serve' 
+                       : change.status === 'SERVED' ? 'Served' 
+                       : change.status;
+      const textToSay = `Update: ${statusText} for ${change.itemsString}`;
+      console.log('Voice Announcing:', textToSay);
+      playVoice(textToSay);
+    });
+
+    prevKotsRef.current = kots;
+  }, [kots, loading, playVoice]);
 
   // ─── Filter helper for SERVED orders ──────────────────────────────────────
   // - Always hide SERVED orders from previous days (today only on KDS)
@@ -245,18 +372,26 @@ export default function KitchenDisplayPage() {
         return prev - 1;
       });
 
-      // 2. Check for auto-accept (Only if configured)
+      // 2. Check for auto-accept and auto-ready
       setKots(currentKots => {
-        const settingsTime = parseInt(localStorage.getItem('kds_auto_accept_time') || '0', 10);
-        if (settingsTime > 0) {
-          const newKots = currentKots.filter(k => k.status === 'NEW');
-          newKots.forEach(kot => {
-            const age = getAgeSeconds(kot.createdAt);
-            if (age >= settingsTime) {
+        const acceptSettingsTime = parseInt(localStorage.getItem('kds_auto_accept_time') || '0', 10);
+        const readySettingsTime = parseInt(localStorage.getItem('kds_auto_ready_time') || '0', 10);
+
+        currentKots.forEach(kot => {
+          // Auto Accept
+          if (acceptSettingsTime > 0 && kot.status === 'NEW') {
+            if (getAgeSeconds(kot.createdAt) >= acceptSettingsTime) {
               handleStatusUpdate(kot.id, 'PREPARING');
             }
-          });
-        }
+          }
+          // Auto Ready
+          if (readySettingsTime > 0 && kot.status === 'PREPARING') {
+            // Use updatedAt for ready timer if available, otherwise createdAt
+            if (getAgeSeconds(kot.updatedAt || kot.createdAt) >= readySettingsTime) {
+              handleStatusUpdate(kot.id, 'READY');
+            }
+          }
+        });
         return currentKots;
       });
 
@@ -345,6 +480,25 @@ export default function KitchenDisplayPage() {
             )}
           </div>
 
+          {/* Auto Ready Settings */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 rounded-xl border border-orange-500/20">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-widest text-orange-500">Auto Ready</span>
+              <select
+                value={autoReadyTime}
+                onChange={(e) => handleAutoReadyChange(parseInt(e.target.value, 10))}
+                className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-orange-500"
+              >
+                {AUTO_READY_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            {autoReadyTime > 0 && (
+              <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse mt-3" />
+            )}
+          </div>
+
           {/* Served Hide Settings */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/30 rounded-xl border border-slate-600/30">
             <EyeOff size={11} className="text-slate-400 shrink-0" />
@@ -394,6 +548,19 @@ export default function KitchenDisplayPage() {
             </div>
             <span className="text-[11px] font-black text-slate-400 tabular-nums w-5">{countdown}s</span>
           </div>
+
+          {/* Voice Toggle button */}
+          <button
+            onClick={toggleVoice}
+            className={`p-2.5 rounded-lg border transition-all ${
+              voiceEnabled 
+                ? 'bg-pos-primary/10 border-pos-primary/30 text-pos-primary' 
+                : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+            }`}
+            title={voiceEnabled ? 'Disable Voice Alerts' : 'Enable Voice Alerts'}
+          >
+            {voiceEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
 
           {/* Refresh button */}
           <button

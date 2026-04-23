@@ -12,6 +12,7 @@ export interface Product {
   costPrice: number;
   sellingPrice: number;
   taxRate?: number | null;
+  taxType?: 'INCLUSIVE' | 'EXCLUSIVE' | 'EXEMPT';
   trackInventory: boolean;
   isActive: boolean;
   image?: string;

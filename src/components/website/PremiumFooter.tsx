@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 
@@ -29,8 +31,23 @@ export function PremiumFooter() {
           
           {/* Brand Col */}
           <div className="lg:col-span-2">
-            <Link href="/" className="inline-block text-2xl font-medium tracking-tight text-slate-900 mb-4 hover:opacity-80 transition-opacity">
-              Order<span className="text-pos-primary">Mint</span>
+            <Link href="/" className="inline-flex flex-col items-start gap-3 mb-6 group">
+               <div className="h-16 md:h-24 lg:h-28 max-w-[280px] md:max-w-[350px]">
+                 <img 
+                   src="/api/website/settings/logo" 
+                   alt="OrderMint" 
+                   className="h-full w-auto object-contain hidden drop-shadow-sm transition-transform duration-300 group-hover:scale-105" 
+                   id="footer-dynamic-logo"
+                   onLoad={(e) => {
+                     (e.target as HTMLImageElement).classList.remove('hidden');
+                     const fallback = document.getElementById('footer-fallback-logo');
+                     if (fallback) fallback.style.display = 'none';
+                   }}
+                 />
+                 <div id="footer-fallback-logo" className="text-2xl font-medium tracking-tight text-slate-900 hover:opacity-80 transition-opacity">
+                   Order<span className="text-pos-primary">Mint</span>
+                 </div>
+               </div>
             </Link>
             <p className="text-slate-500 max-w-sm mb-6 font-light">
               The premier restaurant management platform built to streamline operations and increase revenue.
