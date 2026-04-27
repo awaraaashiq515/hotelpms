@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -999,6 +999,8 @@ model WebsiteSettings {
   smtpHost                 String?  @default("smtp.hostinger.com")
   smtpPassword             String?
   smtpPort                 String?  @default("465")
+  windowsComingSoon        Boolean  @default(false)
+  macComingSoon            Boolean  @default(false)
 }
 
 model WebsiteGalleryImage {

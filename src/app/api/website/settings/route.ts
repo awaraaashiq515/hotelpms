@@ -42,7 +42,8 @@ export async function PUT(req: NextRequest) {
         'mapIframe', 'facebookUrl', 'instagramUrl', 'twitterUrl',
         'heroTitle', 'heroSubtitle', 'heroVideo', 'heroImage',
         'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact',
-        'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail'
+        'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail',
+        'windowsComingSoon', 'macComingSoon'
       ];
       
       fields.forEach(field => {

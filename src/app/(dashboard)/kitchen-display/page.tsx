@@ -162,6 +162,9 @@ export default function KitchenDisplayPage() {
   const [servedHideMinutes, setServedHideMinutes] = useState<number>(0);
 
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
+  const [language, setLanguage] = useState<'en' | 'pa'>('en');
 
   // Load settings from localStorage
   useEffect(() => {
@@ -173,7 +176,30 @@ export default function KitchenDisplayPage() {
     if (savedHide) setServedHideMinutes(parseInt(savedHide, 10));
     const savedVoice = localStorage.getItem('kds_voice_enabled');
     if (savedVoice === 'true') setVoiceEnabled(true);
+    const savedVoiceName = localStorage.getItem('kds_selected_voice');
+    if (savedVoiceName) setSelectedVoiceName(savedVoiceName);
+    const savedLang = localStorage.getItem('kds_language');
+    if (savedLang === 'pa' || savedLang === 'en') setLanguage(savedLang);
   }, []);
+
+  // Load system voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      setVoices(availableVoices);
+      
+      // Default to first English voice if none selected
+      if (!selectedVoiceName && availableVoices.length > 0) {
+        const defaultVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
+        setSelectedVoiceName(defaultVoice.name);
+      }
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, [selectedVoiceName]);
 
   const handleAutoAcceptChange = (val: number) => {
     setAutoAcceptTime(val);
@@ -201,6 +227,20 @@ export default function KitchenDisplayPage() {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
       
+      // Set language for the utterance
+      if (language === 'pa') {
+        utterance.lang = 'hi-IN'; // Most engines use Hindi voice for Punjabi text if pa-IN is missing
+      } else {
+        utterance.lang = 'en-US';
+      }
+      
+      const voice = voices.find(v => v.name === selectedVoiceName);
+      if (voice) {
+        utterance.voice = voice;
+        // If we found a voice, use its specific language
+        utterance.lang = voice.lang;
+      }
+      
       // Fix for Chrome garbage collection bug that stops speech early
       const w = window as any;
       w._utterances = w._utterances || [];
@@ -212,7 +252,39 @@ export default function KitchenDisplayPage() {
 
       window.speechSynthesis.speak(utterance);
     }
-  }, [voiceEnabled]);
+  }, [voiceEnabled, voices, selectedVoiceName, language]);
+
+  const handleVoiceChange = (name: string) => {
+    setSelectedVoiceName(name);
+    localStorage.setItem('kds_selected_voice', name);
+    
+    // Play test sound
+    if ('speechSynthesis' in window) {
+      const voice = voices.find(v => v.name === name);
+      const testText = language === 'pa' ? "ਆਵਾਜ਼ ਸੈੱਟ ਹੋ ਗਈ ਹੈ" : "Voice Selected";
+      const utterance = new SpeechSynthesisUtterance(testText);
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const toggleLanguage = () => {
+    const newLang = language === 'en' ? 'pa' : 'en';
+    setLanguage(newLang);
+    localStorage.setItem('kds_language', newLang);
+    
+    // Auto-select a suitable voice if switching to Punjabi
+    if (newLang === 'pa') {
+      const paVoice = voices.find(v => v.lang.includes('pa') || v.lang.includes('hi'));
+      if (paVoice) {
+        setSelectedVoiceName(paVoice.name);
+        localStorage.setItem('kds_selected_voice', paVoice.name);
+      }
+    }
+    
+    showToast(`Language set to ${newLang === 'pa' ? 'Punjabi' : 'English'}`, 'success');
+  };
 
   const toggleVoice = () => {
     const newVal = !voiceEnabled;
@@ -269,31 +341,51 @@ export default function KitchenDisplayPage() {
 
     if (newOrdersList.length > 0) {
       if (newOrdersList.length === 1) {
-        const textToSay = `Attention! New order received for ${newOrdersList[0].itemsString}`;
+        let textToSay = "";
+        if (language === 'pa') {
+          textToSay = `ਧਿਆਨ ਦਿਓ! ਨਵਾਂ ਆਰਡਰ ਆਇਆ ਹੈ: ${newOrdersList[0].itemsString}`;
+        } else {
+          textToSay = `Attention! New order received for ${newOrdersList[0].itemsString}`;
+        }
         console.log('Voice Announcing:', textToSay);
         playVoice(textToSay);
       } else {
-        const textToSay = `Attention! ${newOrdersList.length} new orders received`;
+        let textToSay = "";
+        if (language === 'pa') {
+          textToSay = `ਧਿਆਨ ਦਿਓ! ${newOrdersList.length} ਨਵੇਂ ਆਰਡਰ ਆਏ ਹਨ।`;
+        } else {
+          textToSay = `Attention! ${newOrdersList.length} new orders received`;
+        }
         console.log('Voice Announcing:', textToSay);
         playVoice(textToSay);
         newOrdersList.forEach(kot => {
-          playVoice(`Order has ${kot.itemsString}`);
+          const itemText = language === 'pa' ? `ਆਰਡਰ ਵਿੱਚ ${kot.itemsString} ਹਨ` : `Order has ${kot.itemsString}`;
+          playVoice(itemText);
         });
       }
     }
 
     statusChanges.forEach(change => {
-      const statusText = change.status === 'PREPARING' ? 'In Kitchen' 
-                       : change.status === 'READY' ? 'Ready to Serve' 
-                       : change.status === 'SERVED' ? 'Served' 
-                       : change.status;
-      const textToSay = `Update: ${statusText} for ${change.itemsString}`;
-      console.log('Voice Announcing:', textToSay);
-      playVoice(textToSay);
+      let statusText = "";
+      if (language === 'pa') {
+        statusText = change.status === 'PREPARING' ? 'ਕਿਚਨ ਵਿੱਚ' 
+                   : change.status === 'READY' ? 'ਤਿਆਰ ਹੈ' 
+                   : change.status === 'SERVED' ? 'ਸਰਵ ਹੋ ਗਿਆ' 
+                   : change.status;
+      } else {
+        statusText = change.status === 'PREPARING' ? 'In Kitchen' 
+                   : change.status === 'READY' ? 'Ready to Serve' 
+                   : change.status === 'SERVED' ? 'Served' 
+                   : change.status;
+      }
+      
+      const updateText = language === 'pa' ? `Update: ${change.itemsString} ${statusText}` : `Update: ${statusText} for ${change.itemsString}`;
+      console.log('Voice Announcing:', updateText);
+      playVoice(updateText);
     });
 
     prevKotsRef.current = kots;
-  }, [kots, loading, playVoice]);
+  }, [kots, loading, playVoice, language]);
 
   // ─── Filter helper for SERVED orders ──────────────────────────────────────
   // - Always hide SERVED orders from previous days (today only on KDS)
@@ -533,6 +625,7 @@ export default function KitchenDisplayPage() {
           </div>
 
           {/* Countdown ring */}
+
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/60 rounded-lg border border-slate-700">
             <div className="relative w-5 h-5">
               <svg viewBox="0 0 24 24" className="w-5 h-5 -rotate-90">
@@ -547,6 +640,25 @@ export default function KitchenDisplayPage() {
               </svg>
             </div>
             <span className="text-[11px] font-black text-slate-400 tabular-nums w-5">{countdown}s</span>
+          </div>
+
+          {/* Voice Settings */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
+            <Volume2 size={11} className="text-indigo-400 shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400">Select Voice</span>
+              <select
+                value={selectedVoiceName}
+                onChange={(e) => handleVoiceChange(e.target.value)}
+                className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-indigo-400 w-24 truncate"
+              >
+                {voices.map((v, i) => (
+                  <option key={i} value={v.name} className="bg-slate-900">
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Voice Toggle button */}

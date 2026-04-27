@@ -36,6 +36,8 @@ export const TopNavbar: React.FC = () => {
       .catch(err => console.error('Failed to fetch property branding', err));
   }, []);
 
+  const [showDisplayMenu, setShowDisplayMenu] = useState(false);
+  
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -63,8 +65,16 @@ export const TopNavbar: React.FC = () => {
     }
   };
 
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!showDisplayMenu) return;
+    const handleClick = () => setShowDisplayMenu(false);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [showDisplayMenu]);
+
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6 sticky top-0 z-50 shadow-sm transition-all duration-200 overflow-hidden">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
@@ -140,8 +150,48 @@ export const TopNavbar: React.FC = () => {
 
       <div className="flex items-center gap-1 md:gap-2">
         <div className="flex items-center border-r border-gray-100 dark:border-slate-800 pr-2 md:pr-3 mr-2 md:mr-3 gap-0">
-          <NavbarAction icon={<Power size={18} />} label="Item On/Off" onClick={() => router.push('/day-closing')} />
-          <NavbarAction icon={<Monitor size={18} />} label="Live View" onClick={() => router.push('/kitchen-display')} />
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setShowDisplayMenu(!showDisplayMenu)}
+              className={`flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl transition-all group min-w-[36px] md:min-w-[60px] ${
+                showDisplayMenu ? 'bg-pos-primary/10 text-pos-primary shadow-inner' : 'hover:bg-gray-50'
+              }`}
+            >
+              <span className={`text-gray-400 group-hover:text-pos-primary md:mb-1 transition-colors flex items-center gap-0.5 ${showDisplayMenu ? 'text-pos-primary' : ''}`}>
+                <Monitor size={18} className={showDisplayMenu ? 'animate-pulse' : ''} />
+              </span>
+              <span className={`hidden md:block text-[9px] font-bold uppercase tracking-tighter text-center ${showDisplayMenu ? 'text-pos-primary' : 'text-gray-400 group-hover:text-gray-900'}`}>Displays</span>
+            </button>
+            
+            {showDisplayMenu && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] py-1.5 z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
+                <button 
+                  onClick={() => {
+                    router.push('/kitchen-display');
+                    setShowDisplayMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors"
+                >
+                  <div className="w-7 h-7 bg-pos-primary/10 rounded-lg flex items-center justify-center text-pos-primary">
+                    <Monitor size={14} />
+                  </div>
+                  Kitchen Display (KDS)
+                </button>
+                <button 
+                  onClick={() => {
+                    window.open('/order-display', '_blank');
+                    setShowDisplayMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
+                >
+                  <div className="w-7 h-7 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-500">
+                    <Monitor size={14} />
+                  </div>
+                  Customer Display
+                </button>
+              </div>
+            )}
+          </div>
           <NavbarAction icon={<History size={18} />} label="Recent" onClick={() => router.push('/invoices')} />
           <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
           <NavbarAction icon={<Bell size={18} />} label="Alerts" />

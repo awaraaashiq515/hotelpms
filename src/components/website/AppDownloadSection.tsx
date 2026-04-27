@@ -7,7 +7,12 @@ import { PWAInstallButton } from './PWAInstallButton';
 import { useState, useEffect } from 'react';
 
 export const AppDownloadSection = () => {
-  const [fileStatus, setFileStatus] = useState({ windows: false, mac: false });
+  const [fileStatus, setFileStatus] = useState({ 
+    windows: false, 
+    mac: false, 
+    windowsComingSoon: false, 
+    macComingSoon: false 
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,7 +88,12 @@ export const AppDownloadSection = () => {
                 <div className="h-10 w-px bg-gray-200 hidden sm:block mx-2" />
                 
                 {/* Mac Download */}
-                {fileStatus.mac ? (
+                {fileStatus.macComingSoon ? (
+                  <div className="flex items-center gap-2 px-6 py-3 bg-orange-50 text-orange-600 border border-orange-100 rounded-xl text-sm font-bold animate-pulse">
+                    <Apple className="w-4 h-4" />
+                    Mac (Coming Soon)
+                  </div>
+                ) : fileStatus.mac ? (
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -101,7 +111,12 @@ export const AppDownloadSection = () => {
                 )}
 
                 {/* Windows EXE */}
-                {fileStatus.windows ? (
+                {fileStatus.windowsComingSoon ? (
+                  <div className="flex items-center gap-2 px-6 py-3 bg-orange-50 text-orange-600 border border-orange-100 rounded-xl text-sm font-bold animate-pulse">
+                    <Download className="w-4 h-4" />
+                    Win EXE (Coming Soon)
+                  </div>
+                ) : fileStatus.windows ? (
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

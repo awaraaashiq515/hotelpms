@@ -3,12 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Monitor, Zap, ArrowRight } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export const PWAInstallBanner = () => {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
 
+  // Only show on POS/Admin related routes
+  const isPosRoute = pathname.startsWith('/admin') || 
+                    pathname.startsWith('/operations') || 
+                    pathname.startsWith('/kitchen-display') || 
+                    pathname.startsWith('/invoices') ||
+                    pathname.startsWith('/kots');
+
   useEffect(() => {
+    if (!isPosRoute) {
+      setShowBanner(false);
+      return;
+    }
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -17,9 +31,8 @@ export const PWAInstallBanner = () => {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
+  }, [isPosRoute]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;

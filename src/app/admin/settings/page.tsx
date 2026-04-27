@@ -25,6 +25,8 @@ export default function WebsiteSettingsPage() {
     smtpEmail: '',
     smtpPassword: '',
     contactReceiverEmail: '',
+    windowsComingSoon: false,
+    macComingSoon: false,
   });
 
   useEffect(() => {
@@ -53,6 +55,8 @@ export default function WebsiteSettingsPage() {
             smtpEmail: fetchedData.smtpEmail || '',
             smtpPassword: fetchedData.smtpPassword || '',
             contactReceiverEmail: fetchedData.contactReceiverEmail || '',
+            windowsComingSoon: fetchedData.windowsComingSoon ?? false,
+            macComingSoon: fetchedData.macComingSoon ?? false,
           });
         }
       });
@@ -201,6 +205,48 @@ export default function WebsiteSettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
+
+        {/* Download Availability Setting */}
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 lg:col-span-2">
+          <div className="space-y-1 mb-8">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Download Availability</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manually mark download options as "Coming Soon".</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-6 rounded-[30px]">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">Windows App</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                  {settings.windowsComingSoon ? 'Coming Soon Mode' : 'Available for Download'}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSettings({ ...settings, windowsComingSoon: !settings.windowsComingSoon })}
+                className={`relative w-14 h-7 rounded-full transition-all duration-300 ${settings.windowsComingSoon ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+              >
+                <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${settings.windowsComingSoon ? 'translate-x-7' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-6 rounded-[30px]">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">macOS App</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                  {settings.macComingSoon ? 'Coming Soon Mode' : 'Available for Download'}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSettings({ ...settings, macComingSoon: !settings.macComingSoon })}
+                className={`relative w-14 h-7 rounded-full transition-all duration-300 ${settings.macComingSoon ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+              >
+                <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${settings.macComingSoon ? 'translate-x-7' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Booking Redirect Setting */}
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800 lg:col-span-2">

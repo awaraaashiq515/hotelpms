@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       let subtotal = 0;
       let taxAmount = 0;
       let grandTotal = 0;
+      const totalRaw = items.reduce((acc: number, item: any) => acc + ((item.sellingPrice || item.unitPrice || 0) * (item.quantity || item.qty || 1)), 0);
 
       const itemsWithTax = items.map((item: any) => {
         const detail = productDetails.find((p: any) => p.id === item.id);
@@ -53,28 +54,27 @@ export async function POST(request: NextRequest) {
         const qty = item.quantity || item.qty || 1;
         const lineTotalRaw = unitPrice * qty;
 
-        const taxRate = detail?.taxRate ?? 5;
+        const lineDiscount = totalRaw > 0 ? (lineTotalRaw / totalRaw) * (membershipDiscount || 0) : 0;
+        const lineNetAfterDiscount = Math.max(0, lineTotalRaw - lineDiscount);
+
+        const taxRate = detail?.taxRate !== null && detail?.taxRate !== undefined ? detail.taxRate : 5;
         const taxType = detail?.taxType || 'EXCLUSIVE';
 
-        let lineSubtotal = 0;
         let lineTax = 0;
         let lineGrandTotal = 0;
 
         if (taxType === 'EXEMPT') {
-          lineSubtotal = lineTotalRaw;
           lineTax = 0;
-          lineGrandTotal = lineTotalRaw;
+          lineGrandTotal = lineNetAfterDiscount;
         } else if (taxType === 'INCLUSIVE') {
-          lineSubtotal = lineTotalRaw / (1 + (taxRate / 100));
-          lineTax = lineTotalRaw - lineSubtotal;
-          lineGrandTotal = lineTotalRaw;
-        } else { // EXCLUSIVE
-          lineSubtotal = lineTotalRaw;
-          lineTax = lineTotalRaw * (taxRate / 100);
-          lineGrandTotal = lineTotalRaw + lineTax;
+          lineTax = lineNetAfterDiscount - (lineNetAfterDiscount / (1 + (taxRate / 100)));
+          lineGrandTotal = lineNetAfterDiscount;
+        } else {
+          lineTax = lineNetAfterDiscount * (taxRate / 100);
+          lineGrandTotal = lineNetAfterDiscount + lineTax;
         }
 
-        subtotal += lineSubtotal;
+        subtotal += lineTotalRaw;
         taxAmount += lineTax;
         grandTotal += lineGrandTotal;
 
@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
           ...item,
           qty,
           unitPrice,
-          lineSubtotal,
           lineTax,
+          lineDiscount,
           lineGrandTotal,
           hsnCode: detail?.hsnCode
         };
@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
             subtotal: subtotal,
             taxAmount: taxAmount,
             grandTotal: grandTotal,
+            discountAmount: membershipDiscount || 0,
             ...(driverId && { driverId }),
             ...(staffMemberId && { staffMemberId }),
             membershipCardId: membershipCardId || null,
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
               status: 'SETTLED',
               subtotal: subtotal,
               taxAmount: taxAmount,
-              discountAmount: 0,
+              discountAmount: membershipDiscount || 0,
               grandTotal: grandTotal,
               restaurantTableId: restaurantTableId || null,
               tableNo: table?.name || null,
@@ -138,8 +139,8 @@ export async function POST(request: NextRequest) {
                     quantity: mappedItem.qty,
                     unitPrice: mappedItem.unitPrice,
                     taxAmount: mappedItem.lineTax,
+                    discountAmount: mappedItem.lineDiscount,
                     totalAmount: mappedItem.qty * mappedItem.unitPrice,
-                    discountAmount: 0
                   };
                 })
               }
@@ -169,7 +170,8 @@ export async function POST(request: NextRequest) {
           invoiceNo,
           propertyId: session.propertyId!,
           guestId: guestId || null,
-          subtotal: totalAmount,
+          subtotal: subtotal,
+          discountAmount: membershipDiscount || 0,
           taxAmount: taxAmount,
           totalAmount: grandTotal,
           paymentStatus: isPayLater ? 'UNPAID' : 'PAID',

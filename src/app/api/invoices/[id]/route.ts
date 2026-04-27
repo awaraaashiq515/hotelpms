@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { renumberInvoices } from '@/lib/invoice-utils';
 
 export async function GET(
   request: NextRequest,
@@ -73,31 +74,41 @@ export async function DELETE(
     const body = await request.json().catch(() => ({}));
     const { reason } = body;
 
-    const updatedInvoice = await prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.update({
-        where: { id: id as string, propertyId: session.propertyId as string },
-        data: { 
-          invoiceStatus: 'CANCELLED',
-          cancelReason: reason || 'No reason provided'
-        }
+    const result = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findUnique({
+        where: { id: id as string, propertyId: session.propertyId as string }
       });
 
-      // Create Audit Log
+      if (!invoice) throw new Error('Invoice not found');
+
+      // 1. Delete dependent records
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
+      await tx.settlement.deleteMany({ where: { sourceId: id, sourceType: 'INVOICE' } });
+      
+      // 2. Delete the invoice itself
+      const deletedInvoice = await tx.invoice.delete({
+        where: { id: id as string }
+      });
+
+      // 3. Create Audit Log
       await tx.auditLog.create({
         data: {
           propertyId: session.propertyId as string,
           userId: session.id,
           moduleName: 'INVOICE',
-          actionType: 'CANCEL',
+          actionType: 'DELETE',
           recordId: id as string,
-          newData: JSON.stringify({ status: 'CANCELLED', reason }),
+          newData: JSON.stringify({ invoiceNo: deletedInvoice.invoiceNo, reason }),
         }
       });
 
-      return invoice;
-    });
+      // 4. AUTOMATICALLY RENUMBER remaining invoices
+      await renumberInvoices(session.propertyId as string, tx);
 
-    return apiResponse(updatedInvoice, 'Invoice cancelled successfully');
+      return deletedInvoice;
+    }, { timeout: 60000 });
+
+    return apiResponse(result, 'Invoice deleted and sequence updated successfully');
   } catch (error) {
     return apiError(error);
   }

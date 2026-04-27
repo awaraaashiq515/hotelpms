@@ -332,6 +332,32 @@ export default function InvoicesPage() {
               ))}
             </div>
             <button 
+              onClick={async () => {
+                if (confirm('This will re-assign sequential numbers to ALL invoices chronologically. This action cannot be undone. Proceed?')) {
+                  setIsSubmitting(true);
+                  try {
+                    const res = await fetch('/api/invoices/renumber', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                      showToast('Invoices renumbered successfully', 'success');
+                      fetchInvoices();
+                    } else {
+                      throw new Error(data.message);
+                    }
+                  } catch (err: any) {
+                    showToast(err.message || 'Failed to renumber', 'error');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }
+              }}
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              title="Fix invoice number sequence"
+            >
+              Fix Sequence
+            </button>
+            <button 
               onClick={() => setIsFiltersOpen(!isFiltersOpen)}
               className={`p-2 border rounded-xl transition-all ${
                 isFiltersOpen ? 'bg-pos-primary/10 border-pos-primary/30 text-pos-primary shadow-sm dark:bg-pos-primary/20' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-400 dark:text-slate-500 hover:text-pos-primary dark:hover:text-pos-primary'

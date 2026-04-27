@@ -33,6 +33,7 @@ export interface BillData {
     cardNumber: string;
     membershipPlan: { name: string };
   };
+  taxLabel?: string;
 }
 
 interface BillModalProps {
@@ -185,7 +186,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
 
     const subtotalAmt = bill.subtotal || 0;
     const discountAmt = bill.membershipDiscount || 0;
-    const taxAmt = bill.tax || ((subtotalAmt - discountAmt) * 0.05);
+    const taxAmt = bill.tax || 0;
     const grandTotalAmt = bill.grandTotal || (subtotalAmt - discountAmt + taxAmt);
 
     printWindow.document.write(`
@@ -268,8 +269,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
           <div class="font-bold uppercase" style="font-size: 10px;">
             <div class="total-row"><span>SUB-TOTAL:</span> <span>₹${subtotalAmt.toFixed(2)}</span></div>
             ${discountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>DISCOUNT:</span> <span>-₹${discountAmt.toFixed(2)}</span></div>` : ''}
-            <div class="total-row"><span>TAX (5%):</span> <span>₹${taxAmt.toFixed(2)}</span></div>
-            <div class="total-row" style="font-size: 8px; opacity: 0.6;"><span>(CGST 2.5% + SGST 2.5%)</span></div>
+            <div class="total-row"><span>${bill.taxLabel || 'TAX'}:</span> <span>₹${taxAmt.toFixed(2)}</span></div>
+            <div class="total-row" style="font-size: 8px; opacity: 0.6;"><span>(GST Breakdown)</span></div>
           </div>
 
           <div class="double-line"></div>
@@ -399,7 +400,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                 </div>
               ) : null}
               <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest pb-3 border-b border-slate-100">
-                <span>Tax (5%)</span>
+                <span>{bill.taxLabel || 'Tax'}</span>
                 <span className="text-slate-900 font-black">₹{bill.tax.toFixed(0)}</span>
               </div>
               <div className="flex justify-between items-center bg-slate-900 text-white p-5 rounded-2xl mt-4 shadow-xl print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">

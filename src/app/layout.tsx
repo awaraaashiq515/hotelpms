@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { PWAInstallBanner } from "@/components/website/PWAInstallBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +19,6 @@ export const metadata: Metadata = {
   title: "OrderMint - Advanced POS & Management System",
   description: "Next-generation cloud-based POS and restaurant management solution.",
   manifest: "/manifest.json",
-  themeColor: "#0a0a0a",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -26,7 +26,9 @@ export const metadata: Metadata = {
   },
 };
 
-import { PWAInstallBanner } from "@/components/website/PWAInstallBanner";
+export const viewport = {
+  themeColor: "#0a0a0a",
+};
 
 export default function RootLayout({
   children,

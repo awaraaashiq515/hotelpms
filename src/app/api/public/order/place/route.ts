@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         if (!guest) {
           guest = await tx.guest.create({
             data: {
-              name: guestName || 'Guest',
+              firstName: guestName || 'Guest',
               mobile: guestPhone,
               organizationId: property.organizationId
             }

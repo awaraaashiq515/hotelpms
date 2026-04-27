@@ -454,7 +454,7 @@ export default function BillingPage() {
         unitPrice: item.sellingPrice,
         productId: item.id
       })),
-      subtotal: subtotal,
+      subtotal: displayedSubtotal,
       taxAmount: tax,
       grandTotal: grandTotal,
       createdAt: activeOrder?.createdAt || new Date().toISOString()
@@ -472,9 +472,10 @@ export default function BillingPage() {
         price: i.unitPrice || i.product?.sellingPrice || 0,
         hsnCode: i.product?.hsnCode
       })),
-      subtotal: orderToPrint.subtotal,
-      tax: orderToPrint.taxAmount || (orderToPrint.subtotal * 0.05),
-      grandTotal: orderToPrint.grandTotal,
+      subtotal: orderToPrint.subtotal || displayedSubtotal,
+      tax: orderToPrint.taxAmount || tax,
+      grandTotal: orderToPrint.grandTotal || grandTotal,
+      taxLabel: taxLabel,
       createdAt: orderToPrint.createdAt,
       orderId: orderToPrint.id,
       tableId: tableId || undefined,
@@ -611,9 +612,49 @@ export default function BillingPage() {
     }
   }
 
-  const taxableAmount = Math.max(0, subtotal - membershipDiscount);
-  const tax = taxableAmount * 0.05;
-  const grandTotal = taxableAmount + tax;
+  // Calculate dynamic subtotal, taxes, and grand total based on product settings
+  const { totalNetSubtotal, totalTax, totalPayable } = cart.reduce((acc, item) => {
+    const itemTotalGross = item.sellingPrice * item.quantity;
+    // Calculate proportional discount for this item based on its share of the total gross subtotal
+    const grossSubtotal = cart.reduce((sum, i) => sum + (i.sellingPrice * i.quantity), 0);
+    const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * membershipDiscount : 0;
+    const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
+    
+    const rate = item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5;
+    const type = item.taxType || 'EXCLUSIVE';
+    
+    let itemTax = 0;
+    let itemPayable = 0;
+    let itemNetOfTax = 0;
+    
+    if (type === 'INCLUSIVE') {
+      itemNetOfTax = itemNetAfterDiscount / (1 + (rate / 100));
+      itemTax = itemNetAfterDiscount - itemNetOfTax;
+      itemPayable = itemNetAfterDiscount;
+    } else if (type === 'EXEMPT') {
+      itemNetOfTax = itemNetAfterDiscount;
+      itemTax = 0;
+      itemPayable = itemNetAfterDiscount;
+    } else { // EXCLUSIVE
+      itemNetOfTax = itemNetAfterDiscount;
+      itemTax = itemNetAfterDiscount * (rate / 100);
+      itemPayable = itemNetAfterDiscount + itemTax;
+    }
+    
+    return {
+      totalNetSubtotal: acc.totalNetSubtotal + itemNetOfTax,
+      totalTax: acc.totalTax + itemTax,
+      totalPayable: acc.totalPayable + itemPayable
+    };
+  }, { totalNetSubtotal: 0, totalTax: 0, totalPayable: 0 });
+
+  const tax = totalTax;
+  const grandTotal = totalPayable;
+  const displayedSubtotal = totalNetSubtotal;
+
+  // Generate dynamic tax label
+  const uniqueRates = Array.from(new Set(cart.map(item => item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5)));
+  const taxLabel = cart.length > 0 && uniqueRates.length === 1 ? `Taxes (${uniqueRates[0]}%)` : 'Taxes';
 
   if (loading) return <div className="h-screen bg-slate-950 flex items-center justify-center text-white">Loading POS...</div>;
 
@@ -1395,10 +1436,10 @@ export default function BillingPage() {
           <div className="space-y-2">
             <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest">
               <span>Sub-Total</span>
-              <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{subtotal.toFixed(2)}</span>
+              <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{displayedSubtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest">
-              <span>Taxes (5%)</span>
+              <span>{taxLabel}</span>
               <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{tax.toFixed(2)}</span>
             </div>
             <div className="h-px bg-white/5 my-2" />
