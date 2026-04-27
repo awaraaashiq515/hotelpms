@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType } = body;
+    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount } = body;
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 0. Find target account (Cash Account)
@@ -99,7 +99,9 @@ export async function POST(request: NextRequest) {
             taxAmount: taxAmount,
             grandTotal: grandTotal,
             ...(driverId && { driverId }),
-            ...(staffMemberId && { staffMemberId })
+            ...(staffMemberId && { staffMemberId }),
+            membershipCardId: membershipCardId || null,
+            membershipDiscount: membershipDiscount || 0
           }
         });
       } else {
@@ -126,6 +128,8 @@ export async function POST(request: NextRequest) {
               tableNo: table?.name || null,
               driverId: driverId || null,
               staffMemberId: staffMemberId || null,
+              membershipCardId: membershipCardId || null,
+              membershipDiscount: membershipDiscount || 0,
               items: {
                 create: items.map((item: any) => {
                   const mappedItem = itemsWithTax.find((i: any) => i.id === item.id);
@@ -173,6 +177,8 @@ export async function POST(request: NextRequest) {
           tableNo: posOrder?.tableNo || null,
           orderType: orderType || posOrder?.orderType || 'DINE_IN',
           posOrderId: posOrder?.id || null,
+          membershipCardId: membershipCardId || null,
+          membershipDiscount: membershipDiscount || 0,
         },
       });
 
@@ -219,12 +225,102 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 6. Update Table Status to VACANT
+      // 6. Record Membership Usage
+      if (membershipCardId) {
+        await tx.membershipUsage.create({
+          data: {
+            membershipCardId,
+            posOrderId: posOrder.id,
+            discountApplied: membershipDiscount || 0,
+          }
+        });
+      }
+
+      // 7. Update Table Status to VACANT
       if (restaurantTableId) {
         await (tx as any).table.update({
           where: { id: restaurantTableId },
           data: { status: 'VACANT' }
         });
+      }
+
+      // 8. Inventory Deduction (Recipes)
+      try {
+        const warehouse = await tx.warehouse.findFirst({
+          where: { propertyId: session.propertyId!, name: { contains: 'Kitchen' } }
+        }) || await tx.warehouse.findFirst({
+          where: { propertyId: session.propertyId! }
+        });
+
+        if (warehouse) {
+          for (const item of itemsWithTax) {
+            const ingredients = await tx.productIngredient.findMany({
+              where: { productId: item.id }
+            });
+
+            for (const ing of ingredients) {
+              const lastMovement = await tx.stockMovement.findFirst({
+                where: { stockItemId: ing.stockItemId, warehouseId: warehouse.id },
+                orderBy: { movementDate: 'desc' }
+              });
+
+              const currentBalance = lastMovement?.balanceQty || 0;
+              const qtyOut = ing.quantity * item.qty;
+
+              await tx.stockMovement.create({
+                data: {
+                  propertyId: session.propertyId!,
+                  warehouseId: warehouse.id,
+                  stockItemId: ing.stockItemId,
+                  movementType: 'SALE_OUT',
+                  referenceModule: 'POS_ORDER',
+                  referenceId: posOrder.id,
+                  qtyIn: 0,
+                  qtyOut: qtyOut,
+                  balanceQty: currentBalance - qtyOut,
+                  movementDate: new Date(),
+                }
+              });
+            }
+            
+            // Also check for legacy 1-to-1 mapping
+            const product = await tx.product.findUnique({
+              where: { id: item.id },
+              select: { stockItemId: true, trackInventory: true }
+            });
+
+            if (product?.trackInventory && product.stockItemId) {
+              // Only deduct if not already handled by ingredients to avoid double deduction
+              const alreadyHandled = ingredients.some((i: any) => i.stockItemId === product.stockItemId);
+              if (!alreadyHandled) {
+                const lastMovement = await tx.stockMovement.findFirst({
+                  where: { stockItemId: product.stockItemId, warehouseId: warehouse.id },
+                  orderBy: { movementDate: 'desc' }
+                });
+
+                const currentBalance = lastMovement?.balanceQty || 0;
+                const qtyOut = item.qty;
+
+                await tx.stockMovement.create({
+                  data: {
+                    propertyId: session.propertyId!,
+                    warehouseId: warehouse.id,
+                    stockItemId: product.stockItemId,
+                    movementType: 'SALE_OUT',
+                    referenceModule: 'POS_ORDER',
+                    referenceId: posOrder.id,
+                    qtyIn: 0,
+                    qtyOut: qtyOut,
+                    balanceQty: currentBalance - qtyOut,
+                    movementDate: new Date(),
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch (invErr) {
+        console.error('Inventory Deduction Error (Non-blocking):', invErr);
       }
 
       return { invoice, orderNo: posOrder.orderNo, grandTotal, driverId: posOrder.driverId || driverId };

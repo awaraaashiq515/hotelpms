@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/Badge';
 import { inventoryApi, StockItem, StockMovement } from '@/lib/api/inventory';
 import { productsApi, Product } from '@/lib/api/products';
 
-type Tab = 'items' | 'movements' | 'stock-in' | 'adjustments' | 'low-stock' | 'mapping';
+type Tab = 'items' | 'movements' | 'stock-in' | 'adjustments' | 'low-stock' | 'mapping' | 'recipes' | 'transfer';
 
 const MOVEMENT_LABELS: Record<string, { label: string; color: string }> = {
   OPENING: { label: 'Opening', color: 'text-pos-primary bg-pos-primary/10' },
@@ -43,6 +43,7 @@ export default function InventoryPage() {
   // Stock Items state
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [itemSearch, setItemSearch] = useState('');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
   const [loadingItems, setLoadingItems] = useState(true);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<StockItem | null>(null);
@@ -90,10 +91,30 @@ export default function InventoryPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [mappingLoading, setMappingLoading] = useState<string>('');
 
+  // Recipe state
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [recipeIngredients, setRecipeIngredients] = useState<{ stockItemId: string; quantity: string }[]>([]);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [savingRecipe, setSavingRecipe] = useState(false);
+
+  // Transfer state
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [transferForm, setTransferForm] = useState({
+    stockItemId: '',
+    fromWarehouseId: '',
+    toWarehouseId: '',
+    qty: '',
+  });
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferSuccess, setTransferSuccess] = useState(false);
+
   const fetchStockItems = useCallback(async () => {
     setLoadingItems(true);
     try {
-      const data = await inventoryApi.listStockItems({ search: itemSearch });
+      const data = await inventoryApi.listStockItems({ 
+        search: itemSearch,
+        warehouseId: selectedWarehouseId || undefined
+      });
       setStockItems(data || []);
     } catch {
       setStockItems([]);
@@ -141,7 +162,10 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchStockItems();
-  }, [fetchStockItems]);
+    if (tab === 'items' || tab === 'transfer') {
+      inventoryApi.listWarehouses().then(setWarehouses).catch(() => {});
+    }
+  }, [fetchStockItems, tab]);
 
   useEffect(() => {
     if (tab === 'movements') fetchMovements();
@@ -149,6 +173,14 @@ export default function InventoryPage() {
     if (tab === 'mapping') {
       fetchProducts();
       fetchStockItems();
+    }
+    if (tab === 'recipes') {
+      fetchProducts();
+      fetchStockItems();
+    }
+    if (tab === 'transfer') {
+      fetchStockItems();
+      inventoryApi.listWarehouses().then(setWarehouses).catch(() => {});
     }
   }, [tab, fetchMovements, fetchLowStock, fetchProducts, fetchStockItems]);
 
@@ -264,6 +296,8 @@ export default function InventoryPage() {
     { id: 'adjustments', label: 'Adjustments', icon: ClipboardList },
     { id: 'low-stock', label: 'Low Stock', icon: AlertTriangle },
     { id: 'mapping', label: 'Product Mapping', icon: Layers },
+    { id: 'recipes', label: 'Recipes (Kitchen)', icon: ClipboardList },
+    { id: 'transfer', label: 'Kitchen Issue', icon: ArrowDownCircle },
   ] as const;
 
   return (
@@ -335,9 +369,19 @@ export default function InventoryPage() {
                 placeholder="Search stock items..."
                 value={itemSearch}
                 onChange={(e) => setItemSearch(e.target.value)}
-                className="pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent rounded-xl text-xs w-full max-w-sm focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-200 transition-all font-medium"
+                className="pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-white/5 rounded-xl text-xs w-full max-w-sm focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-200 transition-all font-medium placeholder:text-gray-400 dark:placeholder:text-slate-500"
               />
             </div>
+            <select
+              value={selectedWarehouseId}
+              onChange={(e) => setSelectedWarehouseId(e.target.value)}
+              className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-white/5 rounded-xl text-xs font-bold outline-none focus:border-emerald-200 transition-all"
+            >
+              <option value="">All Warehouses (Total)</option>
+              {warehouses.map(w => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
             <button onClick={fetchStockItems} className="p-2.5 text-gray-400 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-xl transition-colors">
               <RefreshCw size={16} />
             </button>
@@ -499,11 +543,11 @@ export default function InventoryPage() {
                 <select
                   value={stockInForm.stockItemId}
                   onChange={(e) => setStockInForm(f => ({ ...f, stockItemId: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white dark:focus:bg-slate-750 outline-none transition-all"
                 >
                   <option value="">Select stock item...</option>
                   {stockItems.map(i => (
-                    <option key={i.id} value={i.id}>{i.name} {i.unit ? `(${i.unit})` : ''} — Current: {i.currentStock ?? i.openingStock}</option>
+                    <option key={i.id} value={i.id} className="dark:bg-slate-900">{i.name} {i.unit ? `(${i.unit})` : ''} — Current: {i.currentStock ?? i.openingStock}</option>
                   ))}
                 </select>
               </div>
@@ -513,11 +557,11 @@ export default function InventoryPage() {
                 <select
                   value={stockInForm.movementType}
                   onChange={(e) => setStockInForm(f => ({ ...f, movementType: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white dark:focus:bg-slate-750 outline-none transition-all"
                 >
-                  <option value="PURCHASE_IN">Purchase Entry</option>
-                  <option value="OPENING">Opening Stock (Manual)</option>
-                  <option value="ADJUSTMENT_IN">Adjustment In</option>
+                  <option value="PURCHASE_IN" className="dark:bg-slate-900">Purchase Entry</option>
+                  <option value="OPENING" className="dark:bg-slate-900">Opening Stock (Manual)</option>
+                  <option value="ADJUSTMENT_IN" className="dark:bg-slate-900">Adjustment In</option>
                 </select>
               </div>
 
@@ -543,7 +587,7 @@ export default function InventoryPage() {
                     placeholder="0.00"
                     value={stockInForm.unitCost}
                     onChange={(e) => setStockInForm(f => ({ ...f, unitCost: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white dark:focus:bg-slate-750 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
                   />
                 </div>
               </div>
@@ -589,11 +633,11 @@ export default function InventoryPage() {
                 <select
                   value={adjForm.stockItemId}
                   onChange={(e) => { setAdjForm(f => ({ ...f, stockItemId: e.target.value })); setAdjResult(null); }}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-750 outline-none transition-all"
                 >
                   <option value="">Select stock item...</option>
                   {stockItems.map(i => (
-                    <option key={i.id} value={i.id}>{i.name} — System Stock: {i.currentStock ?? i.openingStock}</option>
+                    <option key={i.id} value={i.id} className="dark:bg-slate-900">{i.name} — System Stock: {i.currentStock ?? i.openingStock}</option>
                   ))}
                 </select>
               </div>
@@ -711,30 +755,30 @@ export default function InventoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-50 bg-gray-50/50">
+                <tr className="border-b border-gray-50 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                   {['Product', 'Category', 'Linked Stock Item', 'Track Inventory', 'Action'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-[9px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.15em]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loadingProducts ? (
-                  <tr><td colSpan={5} className="py-16 text-center text-xs font-bold text-gray-300 uppercase">Loading...</td></tr>
+                  <tr><td colSpan={5} className="py-16 text-center text-xs font-bold text-gray-300 dark:text-slate-500 uppercase">Loading...</td></tr>
                 ) : products.length === 0 ? (
-                  <tr><td colSpan={5} className="py-16 text-center text-xs font-bold text-gray-300 uppercase">No products found.</td></tr>
+                  <tr><td colSpan={5} className="py-16 text-center text-xs font-bold text-gray-300 dark:text-slate-500 uppercase">No products found.</td></tr>
                 ) : products.map(product => (
-                  <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50/30">
+                  <tr key={product.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-gray-50/30 dark:hover:bg-slate-800/30">
                     <td className="px-5 py-4">
-                      <div className="font-bold text-sm text-gray-900">{product.name}</div>
+                      <div className="font-bold text-sm text-gray-900 dark:text-white">{product.name}</div>
                       {product.sku && <div className="text-[9px] text-gray-400 font-bold">{product.sku}</div>}
                     </td>
-                    <td className="px-5 py-4 text-xs text-gray-500">{product.category?.name || '—'}</td>
+                    <td className="px-5 py-4 text-xs text-gray-500 dark:text-slate-400">{product.category?.name || '—'}</td>
                     <td className="px-5 py-4">
                       <select
                         value={(product as any).stockItemId || ''}
                         disabled={mappingLoading === product.id}
                         onChange={(e) => handleMapProduct(product.id, e.target.value || null)}
-                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:border-emerald-400 focus:bg-white outline-none transition-all min-w-[180px]"
+                        className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-lg text-xs font-medium focus:border-emerald-400 dark:focus:bg-slate-700 outline-none transition-all min-w-[180px]"
                       >
                         <option value="">— Not mapped —</option>
                         {stockItems.map(si => (
@@ -744,11 +788,11 @@ export default function InventoryPage() {
                     </td>
                     <td className="px-5 py-4">
                       {product.trackInventory ? (
-                        <span className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                        <span className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-1 rounded-full border border-emerald-100 dark:border-emerald-900">
                           <CheckCircle size={10} /> Yes
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-[9px] font-black uppercase text-gray-400 bg-gray-50 px-2 py-1 rounded-full">
+                        <span className="flex items-center gap-1 text-[9px] font-black uppercase text-gray-400 bg-gray-50 dark:bg-slate-800 px-2 py-1 rounded-full border border-gray-100 dark:border-slate-700">
                           <X size={10} /> No
                         </span>
                       )}
@@ -766,6 +810,252 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* RECIPES TAB */}
+      {tab === 'recipes' && (
+        <div className="grid grid-cols-3 gap-6">
+          {/* Product List */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden h-[600px] flex flex-col">
+            <div className="p-4 border-b border-gray-50 dark:border-slate-700">
+              <h3 className="font-black text-[10px] text-gray-400 uppercase tracking-widest">Select Product</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {products.map(p => (
+                <button
+                  key={p.id}
+                  onClick={async () => {
+                    setSelectedProductId(p.id);
+                    setLoadingRecipe(true);
+                    try {
+                      const data = await inventoryApi.listRecipes(p.id);
+                      setRecipeIngredients(data.map(i => ({ stockItemId: i.stockItemId, quantity: String(i.quantity) })));
+                    } catch {
+                      setRecipeIngredients([]);
+                    } finally {
+                      setLoadingRecipe(false);
+                    }
+                  }}
+                  className={`w-full text-left p-4 border-b border-gray-50 dark:border-slate-800 transition-colors ${
+                    selectedProductId === p.id ? 'bg-pos-primary/5 border-l-4 border-l-pos-primary' : 'hover:bg-gray-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <p className="font-bold text-xs text-gray-900 dark:text-white">{p.name}</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">{p.category?.name || 'Category'}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Recipe Editor */}
+          <div className="col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-8 flex flex-col h-[600px]">
+            {selectedProductId ? (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="font-black text-lg section-heading uppercase tracking-tight">
+                      Recipe: {products.find(p => p.id === selectedProductId)?.name}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
+                      Define ingredients used for 1 unit of this product
+                    </p>
+                  </div>
+                  <Button
+                    loading={savingRecipe}
+                    onClick={async () => {
+                      setSavingRecipe(true);
+                      try {
+                        await inventoryApi.updateRecipe(selectedProductId, recipeIngredients.map(i => ({
+                          stockItemId: i.stockItemId,
+                          quantity: Number(i.quantity)
+                        })));
+                        alert('Recipe saved successfully!');
+                        fetchProducts(); // Refresh to show trackInventory badge
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to save recipe');
+                      } finally {
+                        setSavingRecipe(false);
+                      }
+                    }}
+                    className="bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl px-6 py-2.5 text-xs font-black uppercase tracking-widest"
+                  >
+                    Save Recipe
+                  </Button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                  {loadingRecipe ? (
+                    <div className="py-20 text-center text-xs font-bold text-gray-300 uppercase">Loading recipe...</div>
+                  ) : (
+                    <>
+                      {recipeIngredients.map((ing, idx) => (
+                        <div key={idx} className="flex gap-4 items-end bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-transparent hover:border-pos-primary/20 transition-all">
+                          <div className="flex-1">
+                            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Ingredient (Stock Item)</label>
+                            <select
+                              value={ing.stockItemId}
+                              onChange={(e) => {
+                                const newIngs = [...recipeIngredients];
+                                newIngs[idx].stockItemId = e.target.value;
+                                setRecipeIngredients(newIngs);
+                              }}
+                              className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/5 rounded-lg text-xs font-medium focus:border-pos-primary outline-none"
+                            >
+                              <option value="">Select ingredient...</option>
+                              {stockItems.map(si => (
+                                <option key={si.id} value={si.id}>{si.name} ({si.unit || 'Units'})</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="w-32">
+                            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Quantity</label>
+                            <input
+                              type="number"
+                              step="0.001"
+                              placeholder="0.00"
+                              value={ing.quantity}
+                              onChange={(e) => {
+                                const newIngs = [...recipeIngredients];
+                                newIngs[idx].quantity = e.target.value;
+                                setRecipeIngredients(newIngs);
+                              }}
+                              className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/5 rounded-lg text-xs font-bold focus:border-pos-primary outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              setRecipeIngredients(recipeIngredients.filter((_, i) => i !== idx));
+                            }}
+                            className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors mb-0.5"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => setRecipeIngredients([...recipeIngredients, { stockItemId: '', quantity: '' }])}
+                        className="w-full py-4 border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-xl text-gray-400 hover:text-pos-primary hover:border-pos-primary/30 hover:bg-pos-primary/5 transition-all text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Add Ingredient
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-300 gap-4">
+                <ClipboardList size={64} className="opacity-20" />
+                <p className="font-black text-sm uppercase tracking-widest opacity-40">Select a product to edit its recipe</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TRANSFER TAB */}
+      {tab === 'transfer' && (
+        <div className="max-w-xl">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm p-8 space-y-5">
+            <div>
+              <h3 className="font-black text-lg section-heading uppercase tracking-tight">Issue Stock to Kitchen</h3>
+              <p className="text-xs text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">Move stock from Main Store to Kitchen Store</p>
+            </div>
+
+            {transferSuccess && (
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-emerald-700">
+                <CheckCircle size={18} />
+                <span className="text-xs font-black uppercase tracking-widest">Stock transferred successfully!</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Stock Item *</label>
+                <select
+                  value={transferForm.stockItemId}
+                  onChange={(e) => setTransferForm(f => ({ ...f, stockItemId: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                >
+                  <option value="">Select stock item...</option>
+                  {stockItems.map(i => (
+                    <option key={i.id} value={i.id} className="dark:bg-slate-900">{i.name} — Available: {i.currentStock ?? i.openingStock} {i.unit}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">From Warehouse</label>
+                  <select
+                    value={transferForm.fromWarehouseId}
+                    onChange={(e) => setTransferForm(f => ({ ...f, fromWarehouseId: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                  >
+                    <option value="">Select source...</option>
+                    {warehouses.map(w => (
+                      <option key={w.id} value={w.id} className="dark:bg-slate-900">{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">To Warehouse (Kitchen)</label>
+                  <select
+                    value={transferForm.toWarehouseId}
+                    onChange={(e) => setTransferForm(f => ({ ...f, toWarehouseId: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                  >
+                    <option value="">Select destination...</option>
+                    {warehouses.map(w => (
+                      <option key={w.id} value={w.id} className="dark:bg-slate-900">{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Quantity to Move *</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={transferForm.qty}
+                  onChange={(e) => setTransferForm(f => ({ ...f, qty: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-pos-primary/40 focus:bg-white outline-none transition-all"
+                />
+              </div>
+
+              <Button
+                loading={transferLoading}
+                disabled={!transferForm.stockItemId || !transferForm.fromWarehouseId || !transferForm.toWarehouseId || !transferForm.qty}
+                onClick={async () => {
+                   if (transferForm.fromWarehouseId === transferForm.toWarehouseId) return alert('Source and destination cannot be same');
+                   setTransferLoading(true);
+                   try {
+                     await inventoryApi.transferStock({
+                       stockItemId: transferForm.stockItemId,
+                       fromWarehouseId: transferForm.fromWarehouseId,
+                       toWarehouseId: transferForm.toWarehouseId,
+                       qty: Number(transferForm.qty)
+                     });
+                     setTransferSuccess(true);
+                     setTransferForm({ stockItemId: '', fromWarehouseId: '', toWarehouseId: '', qty: '' });
+                     fetchStockItems();
+                   } catch (err: any) {
+                     alert(err.message || 'Transfer failed');
+                   } finally {
+                     setTransferLoading(false);
+                   }
+                }}
+                className="w-full py-4 bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-pos-primary/10 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <ArrowDownCircle size={16} />
+                Transfer Stock
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add/Edit Stock Item Modal */}
       <Modal
         isOpen={isAddItemOpen}
@@ -775,41 +1065,41 @@ export default function InventoryPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Item Name *</label>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">Item Name *</label>
               <input
                 type="text"
                 placeholder="e.g. Chicken, Maida, Tomato..."
                 value={itemForm.name}
                 onChange={(e) => setItemForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">SKU / Code</label>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">SKU / Code</label>
               <input
                 type="text"
                 placeholder="e.g. CHK-001"
                 value={itemForm.sku}
                 onChange={(e) => setItemForm(f => ({ ...f, sku: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Unit</label>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">Unit</label>
               <select
                 value={itemForm.unit}
                 onChange={(e) => setItemForm(f => ({ ...f, unit: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all"
               >
-                <option value="">Select unit...</option>
+                <option value="" className="dark:bg-slate-900">Select unit...</option>
                 {['KG', 'G', 'L', 'ML', 'PCS', 'BOX', 'PKT', 'DOZEN', 'PLATE', 'BOTTLE'].map(u => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u} className="dark:bg-slate-900">{u}</option>
                 ))}
               </select>
             </div>
             {!editItem && (
               <div>
-                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Opening Stock</label>
+                <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">Opening Stock</label>
                 <input
                   type="number"
                   min="0"
@@ -817,12 +1107,12 @@ export default function InventoryPage() {
                   placeholder="0"
                   value={itemForm.openingStock}
                   onChange={(e) => setItemForm(f => ({ ...f, openingStock: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
                 />
               </div>
             )}
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Cost Price (₹)</label>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">Cost Price (₹)</label>
               <input
                 type="number"
                 min="0"
@@ -830,11 +1120,11 @@ export default function InventoryPage() {
                 placeholder="0.00"
                 value={itemForm.costPrice}
                 onChange={(e) => setItemForm(f => ({ ...f, costPrice: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Reorder Level</label>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">Reorder Level</label>
               <input
                 type="number"
                 min="0"
@@ -842,11 +1132,11 @@ export default function InventoryPage() {
                 placeholder="0"
                 value={itemForm.reorderLevel}
                 onChange={(e) => setItemForm(f => ({ ...f, reorderLevel: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Minimum Stock</label>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-1.5">Minimum Stock</label>
               <input
                 type="number"
                 min="0"
@@ -854,7 +1144,7 @@ export default function InventoryPage() {
                 placeholder="0"
                 value={itemForm.minimumStock}
                 onChange={(e) => setItemForm(f => ({ ...f, minimumStock: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:border-emerald-400 focus:bg-white outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
               />
             </div>
           </div>
@@ -863,7 +1153,7 @@ export default function InventoryPage() {
             <Button
               variant="secondary"
               onClick={() => setIsAddItemOpen(false)}
-              className="flex-1 py-3 border border-gray-200 bg-white text-xs font-bold uppercase tracking-widest"
+              className="flex-1 py-3 border border-gray-200 dark:border-white/5 bg-white dark:bg-slate-900/50 text-gray-700 dark:text-slate-300 text-xs font-bold uppercase tracking-widest"
             >
               Cancel
             </Button>

@@ -23,7 +23,26 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
     return getSubtotal() + getTax();
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    // Try Direct Serial Printing via Backend API first
+    try {
+      const response = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bill, property: bill.property })
+      });
+      const result = await response.json();
+      if (result.success) {
+        console.log(`Bill printed successfully via Serial Port`);
+        onClose();
+        return;
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (e) {
+      console.warn("Direct serial print failed, falling back to browser print:", e);
+    }
+
     const printWindow = window.open('', '_blank', 'width=450,height=700');
     if (!printWindow) return;
 

@@ -1,0 +1,51 @@
+{
+  "name": "OrderMint POS",
+  "short_name": "OrderMint",
+  "description": "Advanced Restaurant Point of Sale & Management System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/website/dashboard.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "OrderMint Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Bill",
+      "short_name": "Billing",
+      "description": "Open the billing interface",
+      "url": "/operations/billing",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Table Management",
+      "short_name": "Tables",
+      "description": "Manage restaurant tables",
+      "url": "/operations/tables",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "productivity", "food"],
+  "orientation": "any",
+  "prefer_related_applications": false
+}

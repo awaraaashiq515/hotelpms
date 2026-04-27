@@ -40,6 +40,7 @@ export async function PUT(req: NextRequest) {
         'hotelName', 'logoUrl', 'address', 'email', 'phone', 
         'storyTitle', 'storyContent', 'storyImage1', 'storyImage2',
         'mapIframe', 'facebookUrl', 'instagramUrl', 'twitterUrl',
+        'heroTitle', 'heroSubtitle', 'heroVideo', 'heroImage',
         'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact',
         'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail'
       ];

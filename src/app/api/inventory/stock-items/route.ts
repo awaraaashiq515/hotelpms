@@ -18,15 +18,12 @@ export async function GET(request: NextRequest) {
     }
     (where as any).isActive = true;
 
+    const warehouseId = searchParams.get('warehouseId');
+
     const stockItems = await prisma.stockItem.findMany({
       where,
       include: {
         products: { select: { id: true, name: true } },
-        stockMovements: {
-          orderBy: { movementDate: 'desc' },
-          take: 1,
-          select: { balanceQty: true },
-        },
       },
       orderBy: { name: 'asc' },
     });
@@ -34,16 +31,24 @@ export async function GET(request: NextRequest) {
     // Calculate current balance from movements
     const enriched = await Promise.all(
       stockItems.map(async (item) => {
+        const movementWhere: any = { stockItemId: item.id };
+        if (warehouseId) {
+          movementWhere.warehouseId = warehouseId;
+        }
+
         const agg = await prisma.stockMovement.aggregate({
-          where: { stockItemId: item.id },
+          where: movementWhere,
           _sum: { qtyIn: true, qtyOut: true },
         });
-        const currentStock =
-          item.openingStock +
-          (agg._sum.qtyIn || 0) -
-          (agg._sum.qtyOut || 0);
-        const isLow = currentStock <= item.reorderLevel;
-        return { ...item, currentStock, isLow };
+
+        // If filtering by warehouse, opening stock usually applies only to the default warehouse
+        // or we treat it as 0 for other warehouses unless there's an OPENING movement there.
+        // For simplicity, if warehouseId is provided, we only use movements in that warehouse.
+        const currentStock = (agg._sum.qtyIn || 0) - (agg._sum.qtyOut || 0);
+        const finalStock = currentStock;
+        
+        const isLow = finalStock <= item.reorderLevel;
+        return { ...item, currentStock: finalStock, isLow };
       })
     );
 

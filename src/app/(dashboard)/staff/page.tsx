@@ -70,8 +70,8 @@ export default function StaffPage() {
              {row.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">{row.fullName}</span>
-            <span className="text-[10px] text-gray-400 font-bold">{row.email}</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-slate-200 uppercase tracking-tight">{row.fullName}</span>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold">{row.email}</span>
           </div>
         </div>
       ),
@@ -102,13 +102,13 @@ export default function StaffPage() {
         <div className="flex items-center gap-2">
            <button 
              onClick={() => { setSelectedStaff(row); setIsFormOpen(true); }}
-             className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-pos-primary transition-colors"
+             className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-gray-400 dark:text-slate-500 hover:text-pos-primary transition-colors"
            >
              <Edit size={16} />
            </button>
            <button 
              onClick={() => { setSelectedStaff(row); setIsDeleteOpen(true); }}
-             className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
+             className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-gray-400 dark:text-slate-500 hover:text-red-600 transition-colors"
            >
              <Trash2 size={16} />
            </button>
@@ -135,16 +135,16 @@ export default function StaffPage() {
         }
       />
 
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/30">
+      <div className="bg-white dark:bg-slate-900/50 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-gray-50 dark:border-white/5 bg-gray-50/30 dark:bg-slate-900/20">
           <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={16} />
             <input 
               type="text" 
               placeholder="Search by name or email..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium"
+              className="pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-gray-200 dark:border-white/10 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-600"
             />
           </div>
         </div>

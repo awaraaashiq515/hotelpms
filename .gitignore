@@ -42,3 +42,5 @@ next-env.d.ts
 *.db
 prisma/dev.db
 public/uploads/
+public/downloads/
+dist/

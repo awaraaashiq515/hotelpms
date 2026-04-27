@@ -11,6 +11,7 @@ import { ModuleMap } from '@/components/website/ModuleMap';
 import { BentoFeatures } from '@/components/website/BentoFeatures';
 import { StorySection } from '@/components/website/StorySection';
 import { BlogSection } from '@/components/website/BlogSection';
+import { AppDownloadSection } from '@/components/website/AppDownloadSection';
 
 export default function RootPage() {
   return (
@@ -38,8 +39,11 @@ export default function RootPage() {
       
       {/* 8. Latest News / Blog */}
       <BlogSection />
+
+      {/* 9. App Download Section */}
+      <AppDownloadSection />
       
-      {/* 9. Premium Footer */}
+      {/* 10. Premium Footer */}
       <PremiumFooter />
     </main>
   );

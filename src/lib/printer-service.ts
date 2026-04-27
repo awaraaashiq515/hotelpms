@@ -49,7 +49,7 @@ class PrinterService {
       
       const config = qz.configs.create(printerName, {
         rasterize: false,
-        encoding: 'UTF-8',
+        encoding: 'ISO-8859-1',
         interpolation: 'nearest-neighbor',
         forceRaw: true
       });
@@ -114,7 +114,9 @@ class PrinterService {
     data.push(esc.feed);
     data.push(esc.feed);
     data.push(esc.feed);
-    data.push(esc.cut);
+    data.push(esc.feed);
+    data.push(esc.feed);
+    // data.push(esc.cut); // Removed for MPT-II compatibility
 
     return data;
   }
@@ -169,6 +171,9 @@ class PrinterService {
     data.push('--------------------------------\n');
     data.push(esc.right);
     data.push(`Subtotal: ₹${billData.subtotal.toFixed(2)}\n`);
+    if (billData.membershipDiscount > 0) {
+      data.push(`Discount: -₹${billData.membershipDiscount.toFixed(2)}\n`);
+    }
     data.push(`Tax (5%): ₹${billData.tax.toFixed(2)}\n`);
     data.push(esc.boldOn);
     data.push(`TOTAL:    ₹${billData.grandTotal.toFixed(2)}\n`);
@@ -180,7 +185,9 @@ class PrinterService {
     data.push(esc.feed);
     data.push(esc.feed);
     data.push(esc.feed);
-    data.push(esc.cut);
+    data.push(esc.feed);
+    data.push(esc.feed);
+    // data.push(esc.cut); // Removed for MPT-II compatibility
 
     return data;
   }
@@ -203,8 +210,8 @@ class PrinterService {
       '--------------------------------\n',
       'If you see this, your printer\n',
       'supports RAW ESC/POS commands.\n',
-      '\x0A\x0A\x0A\x0A',  // Feeds
-      '\x1D\x56\x00'       // Cut
+      '\x0A\x0A\x0A\x0A\x0A\x0A',  // Extra Feeds for manual tearing
+      // '\x1D\x56\x00'       // Cut (Removed for MPT-II)
     ];
     await this.printRaw(printerName, data);
   }

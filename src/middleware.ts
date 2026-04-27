@@ -225,8 +225,10 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
+     * - downloads (application downloads)
+     * - icon-192.png, icon-512.png, manifest.json, etc.
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|downloads|manifest.json|icon-.*\\.png|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|exe|dmg|zip)).*)',
   ],
 }

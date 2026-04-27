@@ -2,12 +2,16 @@
   "name": "petpoojacopy",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma generate && next build",
     "export": "next build && next export",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron-build": "npm run build && electron-builder",
+    "build-win": "npm run build && electron-builder --win --x64"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -27,6 +31,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
+    "serialport": "^13.0.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
@@ -39,12 +44,16 @@
     "@types/qz-tray": "^2.2.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.5"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

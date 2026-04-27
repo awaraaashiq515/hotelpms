@@ -86,7 +86,7 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
   };
 
   const inputClass = (field: string) =>
-    `w-full px-4 py-3 bg-gray-50 border ${errors[field] ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`;
+    `w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border ${errors[field] ? 'border-red-400' : 'border-transparent dark:border-white/5'} rounded-xl text-sm font-semibold text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-pos-primary/20 transition-all`;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -199,7 +199,7 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
           onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
           className="w-4 h-4 text-pos-primary border-gray-300 rounded focus:ring-pos-primary"
         />
-        <label htmlFor="staffIsActive" className="text-sm font-semibold text-gray-700">
+        <label htmlFor="staffIsActive" className="text-sm font-semibold text-gray-700 dark:text-slate-400">
           Active Staff Member
         </label>
       </div>
@@ -209,7 +209,7 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
           type="button"
           variant="secondary"
           onClick={onCancel}
-          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white border border-gray-200"
+          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 text-gray-700 dark:text-slate-300"
         >
           Cancel
         </Button>

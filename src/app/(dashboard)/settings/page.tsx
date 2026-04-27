@@ -72,9 +72,17 @@ const BusinessProfileForm = () => {
   const handleTestPrint = async () => {
     setTesting(true);
     try {
-      const { printerService } = await import('@/lib/printer-service');
-      await printerService.testPrint(thermalPrinterName);
-      alert('Test print sent!');
+      const res = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isTest: true, property })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Test print sent!');
+      } else {
+        throw new Error(data.message);
+      }
     } catch (err: any) {
       alert(`Test print failed: ${err.message}`);
     } finally {
@@ -85,9 +93,17 @@ const BusinessProfileForm = () => {
   const handleTestPrintSimple = async () => {
     setTestingSimple(true);
     try {
-      const { printerService } = await import('@/lib/printer-service');
-      await printerService.testPrintSimple(thermalPrinterName);
-      alert('Simple test print sent!');
+      const res = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isTest: true, property })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Simple test print sent!');
+      } else {
+        throw new Error(data.message);
+      }
     } catch (err: any) {
       alert(`Simple test print failed: ${err.message}`);
     } finally {

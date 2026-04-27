@@ -1,0 +1,54 @@
+{
+  "appId": "com.ordermint.pos",
+  "productName": "OrderMint POS",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "electron/**/*",
+    "public/**/*",
+    "out/**/*"
+  ],
+  "win": {
+    "icon": "public/icon-512.png",
+    "artifactName": "ordermint-pos-windows.exe",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "mac": {
+    "icon": "public/icon-512.png",
+    "artifactName": "ordermint-pos-mac.dmg",
+    "target": [
+      "dmg"
+    ],
+    "category": "public.app-category.business"
+  },
+  "dmg": {
+    "contents": [
+      {
+        "x": 410,
+        "y": 150,
+        "type": "link",
+        "path": "/Applications"
+      },
+      {
+        "x": 130,
+        "y": 150,
+        "type": "file"
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "OrderMint POS"
+  }
+}

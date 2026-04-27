@@ -28,6 +28,11 @@ export interface BillData {
   tax: number;
   grandTotal: number;
   createdAt: string;
+  membershipDiscount?: number;
+  membershipCard?: {
+    cardNumber: string;
+    membershipPlan: { name: string };
+  };
 }
 
 interface BillModalProps {
@@ -155,15 +160,23 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   };
 
   const handlePrint = async () => {
-    // Try Direct Thermal Printing via QZ Tray first
+    // Try Direct Serial Printing via Backend API first
     if (property?.enableDirectPrinting) {
       try {
-        const billPrintData = printerService.formatBill(bill, property);
-        await printerService.printRaw(property?.thermalPrinterName || "MPT-II", billPrintData);
-        console.log(`Bill printed successfully to ${property?.thermalPrinterName || "MPT-II"}`);
-        return; 
+        const response = await fetch('/api/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bill, property })
+        });
+        const result = await response.json();
+        if (result.success) {
+          console.log(`Bill printed successfully via Serial Port`);
+          return;
+        } else {
+          throw new Error(result.message);
+        }
       } catch (e) {
-        console.warn("Direct thermal print failed, falling back to browser print:", e);
+        console.warn("Direct serial print failed, falling back to browser print:", e);
       }
     }
 
@@ -171,8 +184,9 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!printWindow) return;
 
     const subtotalAmt = bill.subtotal || 0;
-    const taxAmt = bill.tax || (subtotalAmt * 0.05);
-    const grandTotalAmt = bill.grandTotal || (subtotalAmt + taxAmt);
+    const discountAmt = bill.membershipDiscount || 0;
+    const taxAmt = bill.tax || ((subtotalAmt - discountAmt) * 0.05);
+    const grandTotalAmt = bill.grandTotal || (subtotalAmt - discountAmt + taxAmt);
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -253,6 +267,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
 
           <div class="font-bold uppercase" style="font-size: 10px;">
             <div class="total-row"><span>SUB-TOTAL:</span> <span>₹${subtotalAmt.toFixed(2)}</span></div>
+            ${discountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>DISCOUNT:</span> <span>-₹${discountAmt.toFixed(2)}</span></div>` : ''}
             <div class="total-row"><span>TAX (5%):</span> <span>₹${taxAmt.toFixed(2)}</span></div>
             <div class="total-row" style="font-size: 8px; opacity: 0.6;"><span>(CGST 2.5% + SGST 2.5%)</span></div>
           </div>
@@ -377,6 +392,12 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                 <span>Subtotal</span>
                 <span className="text-slate-900 font-black">₹{bill.subtotal.toFixed(0)}</span>
               </div>
+              {bill.membershipDiscount && bill.membershipDiscount > 0 ? (
+                <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest pb-1">
+                  <span>Membership Discount</span>
+                  <span className="font-black">-₹{bill.membershipDiscount.toFixed(0)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest pb-3 border-b border-slate-100">
                 <span>Tax (5%)</span>
                 <span className="text-slate-900 font-black">₹{bill.tax.toFixed(0)}</span>

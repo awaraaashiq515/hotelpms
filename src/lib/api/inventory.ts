@@ -43,11 +43,12 @@ export interface StockAdjustment {
 
 export const inventoryApi = {
   // Stock Items
-  async listStockItems(params?: { search?: string; lowStock?: boolean }): Promise<StockItem[]> {
+  async listStockItems(params?: { search?: string; lowStock?: boolean; warehouseId?: string }): Promise<StockItem[]> {
     return apiClient.get('/api/inventory/stock-items', {
       params: {
         ...(params?.search ? { search: params.search } : {}),
         ...(params?.lowStock ? { lowStock: 'true' } : {}),
+        ...(params?.warehouseId ? { warehouseId: params.warehouseId } : {}),
       },
     });
   },
@@ -110,5 +111,23 @@ export const inventoryApi = {
   // Map product to stock item
   async mapProduct(productId: string, stockItemId: string | null): Promise<void> {
     return apiClient.post('/api/inventory/map-product', { productId, stockItemId });
+  },
+
+  // Recipes
+  async listRecipes(productId: string): Promise<any[]> {
+    return apiClient.get('/api/inventory/recipes', { params: { productId } });
+  },
+
+  async updateRecipe(productId: string, ingredients: { stockItemId: string; quantity: number }[]): Promise<void> {
+    return apiClient.post('/api/inventory/recipes', { productId, ingredients });
+  },
+
+  // Warehouses & Transfers
+  async listWarehouses(): Promise<any[]> {
+    return apiClient.get('/api/inventory/transfer');
+  },
+
+  async transferStock(data: { stockItemId: string; fromWarehouseId: string; toWarehouseId: string; qty: number }): Promise<void> {
+    return apiClient.post('/api/inventory/transfer', data);
   },
 };

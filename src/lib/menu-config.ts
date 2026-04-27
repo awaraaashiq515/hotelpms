@@ -122,6 +122,18 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       ],
     },
     {
+      name: 'Memberships',
+      path: '/memberships',
+      icon: Trophy,
+      feature: 'CRM',
+      roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'],
+      subItems: [
+        { name: 'Membership Plans', path: '/memberships/plans', feature: 'CRM' },
+        { name: 'Issue Cards',     path: '/memberships/cards', feature: 'CRM' },
+        { name: 'Usage History',    path: '/memberships/history', feature: 'CRM' },
+      ],
+    },
+    {
       name: 'Reports',
       path: '/reports',
       icon: BarChart2,

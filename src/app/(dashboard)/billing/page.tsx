@@ -21,7 +21,9 @@ import {
   Save, 
   CheckCircle2,
   UserPlus,
-  CarFront
+  CarFront,
+  Trophy,
+  QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { productsApi, Product } from '@/lib/api/products';
@@ -138,6 +140,10 @@ export default function BillingPage() {
   const [orderType, setOrderType] = useState<'DINE_IN' | 'DELIVERY' | 'PICKUP'>('DINE_IN');
   // Number of guests/customers at the table
   const [guestCount, setGuestCount] = useState<number>(1);
+  // Membership Card state
+  const [membershipCard, setMembershipCard] = useState<any>(null);
+  const [membershipSearch, setMembershipSearch] = useState('');
+  const [isValidatingMembership, setIsValidatingMembership] = useState(false);
   // Driver selection for Delivery orders
   const [drivers, setDrivers] = useState<any[]>([]);
   const [driverSearch, setDriverSearch] = useState('');
@@ -389,10 +395,10 @@ export default function BillingPage() {
           });
           setIsKotOpen(true);
 
-          // Direct thermal printing via QZ Tray
+          // Direct thermal printing via Backend API
           if (property?.enableDirectPrinting) {
             try {
-              const kotPrintData = printerService.formatKOT({
+              const kotPrintData = {
                 kotNo: latestKot.kotNo,
                 orderNo: orderData.orderNo,
                 tableNo: tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
@@ -401,11 +407,22 @@ export default function BillingPage() {
                   quantity: item.quantity,
                   notes: item.notes
                 }))
+              };
+              
+              const printRes = await fetch('/api/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kotData: kotPrintData, property })
               });
-              await printerService.printRaw(property?.thermalPrinterName || "MPT-II", kotPrintData);
-              addToast('success', `KOT Printed to ${property?.thermalPrinterName || "MPT-II"}`);
+              const printResult = await printRes.json();
+              
+              if (printResult.success) {
+                addToast('success', `KOT Printed successfully via Serial Port`);
+              } else {
+                throw new Error(printResult.message);
+              }
             } catch (printErr: any) {
-              console.error('Thermal printing failed:', printErr);
+              console.error('Serial printing failed:', printErr);
               addToast('warning', 'Direct print failed, using browser print');
             }
           }
@@ -461,7 +478,9 @@ export default function BillingPage() {
       createdAt: orderToPrint.createdAt,
       orderId: orderToPrint.id,
       tableId: tableId || undefined,
-      driverId: selectedDriver?.id || activeOrder?.driverId
+      driverId: selectedDriver?.id || activeOrder?.driverId,
+      membershipDiscount: membershipDiscount || orderToPrint.membershipDiscount || 0,
+      membershipCard: membershipCard || orderToPrint.membershipCard
     } as any;
     
     setBillData(mappedBill);
@@ -483,6 +502,8 @@ export default function BillingPage() {
         guestId: guestId || selectedGuestId || undefined,
         driverId: driverId || selectedDriver?.id || undefined,
         totalAmount: grandTotal,
+        membershipCardId: membershipCard?.id || null,
+        membershipDiscount: membershipDiscount || 0,
         items: cart.map(item => ({
           id: item.id,
           name: item.name,
@@ -534,6 +555,40 @@ export default function BillingPage() {
     }
   };
 
+  const validateMembership = async (cardNumber: string | null, mobile?: string) => {
+    setIsValidatingMembership(true);
+    try {
+      const res = await fetch('/api/memberships/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardNumber, mobile }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMembershipCard(data.data);
+        addToast('success', `${data.data.membershipPlan.name} membership applied!`);
+        setMembershipSearch('');
+      } else if (cardNumber) {
+        addToast('error', data.message || 'Invalid membership card');
+      }
+    } catch (err) {
+      console.error('Membership validation error:', err);
+    } finally {
+      setIsValidatingMembership(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedGuestId) {
+      const guest = customers.find(c => c.id === selectedGuestId);
+      if (guest && guest.mobile) {
+        validateMembership(null, guest.mobile);
+      }
+    } else {
+      setMembershipCard(null);
+    }
+  }, [selectedGuestId]);
+
 
 
   const filteredProducts = products.filter(p => {
@@ -543,8 +598,22 @@ export default function BillingPage() {
   });
 
   const subtotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
-  const tax = subtotal * 0.05;
-  const grandTotal = subtotal + tax;
+  
+  let membershipDiscount = 0;
+  if (membershipCard) {
+    const { discountType, discountValue, minOrderValue } = membershipCard.membershipPlan;
+    if (subtotal >= minOrderValue) {
+      if (discountType === 'PERCENTAGE') {
+        membershipDiscount = (subtotal * discountValue) / 100;
+      } else {
+        membershipDiscount = discountValue;
+      }
+    }
+  }
+
+  const taxableAmount = Math.max(0, subtotal - membershipDiscount);
+  const tax = taxableAmount * 0.05;
+  const grandTotal = taxableAmount + tax;
 
   if (loading) return <div className="h-screen bg-slate-950 flex items-center justify-center text-white">Loading POS...</div>;
 
@@ -1249,7 +1318,8 @@ export default function BillingPage() {
            )}
         </div>
 
-        {/* Cart Items List */}
+
+         {/* Cart Items List */}
         <div className="flex-1 overflow-y-auto px-6 py-2 no-scrollbar">
           {cart.length === 0 ? (
             <div className={`h-full flex flex-col items-center justify-center text-center gap-4 mt-[-40px] ${theme === 'dark' ? 'opacity-30' : 'opacity-40'}`}>
@@ -1281,8 +1351,48 @@ export default function BillingPage() {
         </div>
 
         {/* Totals & Checkout Button */}
-        <div className={`p-8 ${theme === 'dark' ? 'bg-[#111111] border-white/5' : 'bg-white border-pos-primary/10'} border-t space-y-6`}>
-          <div className="space-y-3">
+        <div className={`p-6 ${theme === 'dark' ? 'bg-[#111111] border-white/5' : 'bg-white border-pos-primary/10'} border-t space-y-4`}>
+          {/* Membership Card Input in Totals */}
+          <div className="space-y-1.5 mb-2">
+            {membershipCard ? (
+              <div 
+                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-all cursor-pointer border border-indigo-500/30"
+                style={{ backgroundColor: theme === 'dark' ? '#6366f110' : '#f5f3ff' }}
+                onClick={() => setMembershipCard(null)}
+              >
+                <div className="flex items-center gap-2">
+                   <Trophy size={14} className="text-indigo-500" />
+                   <span className="text-[11px] font-black uppercase text-indigo-500">{membershipCard.membershipPlan.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                   <span className="text-[11px] font-black text-emerald-500">-{membershipCard.membershipPlan.discountValue}{membershipCard.membershipPlan.discountType === 'PERCENTAGE' ? '%' : ''}</span>
+                   <Trash2 size={12} className="text-slate-400" />
+                </div>
+              </div>
+            ) : (
+              <div className={`relative flex items-center gap-2 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-slate-50 border-slate-200'} px-3 py-2 rounded-xl border group transition-all focus-within:border-indigo-500/40`}>
+                 <QrCode className="text-slate-500" size={14} />
+                 <input 
+                   type="text"
+                   placeholder="Promo / Membership #"
+                   value={membershipSearch}
+                   onChange={(e) => setMembershipSearch(e.target.value)}
+                   onKeyDown={(e) => {
+                      if (e.key === 'Enter' && membershipSearch.trim()) {
+                         validateMembership(membershipSearch.trim());
+                      }
+                   }}
+                   className="w-full bg-transparent text-[10px] font-bold outline-none"
+                   style={{ color: theme === 'dark' ? '#f1f5f9' : '#1e293b' }}
+                 />
+                 {isValidatingMembership && (
+                    <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                 )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest">
               <span>Sub-Total</span>
               <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{subtotal.toFixed(2)}</span>
