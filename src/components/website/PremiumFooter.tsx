@@ -4,6 +4,16 @@ import React from 'react';
 import Link from 'next/link';
 
 export function PremiumFooter() {
+  const [settings, setSettings] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    fetch('/api/website/settings')
+      .then(res => res.json())
+      .then(json => {
+        if (json.success) setSettings(json.data);
+      });
+  }, []);
+
   const footerLinks = {
     Product: [
       { name: "Features", href: "#features" },
@@ -33,24 +43,25 @@ export function PremiumFooter() {
           <div className="lg:col-span-2">
             <Link href="/" className="inline-flex flex-col items-start gap-3 mb-6 group">
                <div className="h-16 md:h-24 lg:h-28 max-w-[280px] md:max-w-[350px]">
-                 <img 
-                   src="/api/website/settings/logo" 
-                   alt="OrderMint" 
-                   className="h-full w-auto object-contain hidden drop-shadow-sm transition-transform duration-300 group-hover:scale-105" 
-                   id="footer-dynamic-logo"
-                   onLoad={(e) => {
-                     (e.target as HTMLImageElement).classList.remove('hidden');
-                     const fallback = document.getElementById('footer-fallback-logo');
-                     if (fallback) fallback.style.display = 'none';
-                   }}
-                 />
-                 <div id="footer-fallback-logo" className="text-2xl font-medium tracking-tight text-slate-900 hover:opacity-80 transition-opacity">
-                   Order<span className="text-pos-primary">Mint</span>
-                 </div>
+                 {settings?.logoUrl ? (
+                   <img 
+                     src={settings.logoUrl} 
+                     alt={settings.hotelName || "OrderMint"} 
+                     className="h-full w-auto object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105" 
+                   />
+                 ) : (
+                   <div id="footer-fallback-logo" className="text-2xl font-medium tracking-tight text-slate-900 hover:opacity-80 transition-opacity">
+                     {settings?.hotelName ? (
+                       settings.hotelName
+                     ) : (
+                       <>Order<span className="text-pos-primary">Mint</span></>
+                     )}
+                   </div>
+                 )}
                </div>
             </Link>
             <p className="text-slate-500 max-w-sm mb-6 font-light">
-              The premier restaurant management platform built to streamline operations and increase revenue.
+              {settings?.tagline || "The premier restaurant management platform built to streamline operations and increase revenue."}
             </p>
             <div className="flex gap-4">
               {[1, 2, 3].map((i) => (
@@ -102,7 +113,7 @@ export function PremiumFooter() {
 
         <div className="border-t border-slate-100 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm font-light text-slate-400">
-            © {new Date().getFullYear()} OrderMint Inc. All rights reserved.
+            © {new Date().getFullYear()} {settings?.hotelName || "OrderMint"} Inc. All rights reserved.
           </p>
           <div className="flex gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 text-xs font-medium">

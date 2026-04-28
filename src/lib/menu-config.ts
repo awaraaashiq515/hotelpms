@@ -140,11 +140,11 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       feature: 'REPORTS',
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'],
       subItems: [
-        { name: 'Category Summary',  path: '/reports/category-summary',        feature: 'REPORTS' },
-        { name: 'Item Summary',      path: '/reports/item-summary',            feature: 'REPORTS' },
-        { name: 'Sales Summary',     path: '/reports/sales-summary',           feature: 'REPORTS' },
-        { name: 'Order Summary',     path: '/reports/order-summary',           feature: 'REPORTS' },
-        { name: 'Executive Sales',   path: '/reports/executive-sales-summary', feature: 'REPORTS' },
+        { name: 'Sales Intelligence', path: '/reports/sales',       feature: 'REPORTS' },
+        { name: 'Settlements',       path: '/reports/settlements', feature: 'REPORTS' },
+        { name: 'Tax Report',        path: '/reports/tax',         feature: 'REPORTS' },
+        { name: 'Inventory Report',  path: '/reports/inventory',   feature: 'REPORTS' },
+        { name: 'Audit Logs',        path: '/reports/audit',       feature: 'REPORTS' },
       ],
     },
     {

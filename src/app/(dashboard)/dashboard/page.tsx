@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import AdminSetupWizard from '@/components/dashboard/AdminSetupWizard';
-import { BarChart, ShoppingCart, Users, Building2, Store, ReceiptText, Layers, UtensilsCrossed, LayoutGrid, Tag, X, ArrowRightCircle, Plus } from 'lucide-react';
+import { BarChart, ShoppingCart, Users, Building2, Store, ReceiptText, Layers, UtensilsCrossed, LayoutGrid, Tag, X, ArrowRightCircle, Plus, Trophy } from 'lucide-react';
 
 export default function DashboardPage() {
   const [session, setSession] = useState<any>(null);
@@ -168,6 +168,44 @@ export default function DashboardPage() {
             </Card>
 
             <div className="space-y-6">
+              {/* Top Selling Products Widget */}
+              <Card className="p-6 border-2 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden relative group">
+                <div className="absolute top-0 right-0 p-6 opacity-[0.05] group-hover:scale-110 transition-transform">
+                  <Trophy size={80} className="text-pos-primary" />
+                </div>
+                <h3 className="text-xs font-black text-gray-900 dark:text-white tracking-[0.2em] mb-6 border-b border-gray-100 dark:border-slate-800 pb-4 uppercase flex items-center gap-2">
+                   <Trophy size={14} className="text-pos-primary" />
+                   Top Performers
+                </h3>
+                <div className="space-y-5 relative z-10">
+                  {stats?.topProducts?.length > 0 ? stats.topProducts.slice(0, 5).map((p: any, i: number) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[11px] font-bold">
+                        <span className="text-slate-600 dark:text-slate-400 uppercase truncate pr-2">{p.name}</span>
+                        <span className="text-pos-primary shrink-0">{p.qty} sold</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-pos-primary shadow-[0_0_8px_rgba(232,160,160,0.4)] transition-all duration-1000" 
+                          style={{ width: `${Math.min(100, (p.qty / (stats.topProducts[0]?.qty || 1)) * 100)}%` }} 
+                        />
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="py-8 text-center opacity-40">
+                      <BarChart size={24} className="mx-auto mb-2 text-slate-400" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest leading-loose">Analyzing Sales<br/>Patterns...</p>
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={() => window.location.href = '/reports/sales'}
+                  className="mt-6 w-full py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-pos-primary hover:bg-pos-primary/10 transition-all border border-transparent hover:border-pos-primary/20"
+                >
+                  View Detailed Analytics →
+                </button>
+              </Card>
+
               <Card className="p-5 lg:p-6 border-2 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg">
                 <h3 className="text-xs font-bold text-gray-900 dark:text-white tracking-widest mb-6 border-b border-gray-100 dark:border-slate-800 pb-4 uppercase">Quick Actions</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">

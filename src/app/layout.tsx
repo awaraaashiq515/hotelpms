@@ -15,16 +15,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "OrderMint - Advanced POS & Management System",
-  description: "Next-generation cloud-based POS and restaurant management solution.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "OrderMint POS",
-  },
-};
+import { prisma } from "@/lib/prisma";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await prisma.websiteSettings.findFirst();
+  const title = settings?.hotelName || "OrderMint";
+  const tagline = settings?.tagline || "Advanced POS & Management System";
+  
+  return {
+    title: `${title} - ${tagline}`,
+    description: settings?.heroSubtitle || "Next-generation cloud-based POS and restaurant management solution.",
+    manifest: "/manifest.json",
+    icons: {
+      icon: settings?.logoUrl || "/favicon.ico",
+      apple: settings?.logoUrl || "/favicon.ico",
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: title,
+    },
+  };
+}
 
 export const viewport = {
   themeColor: "#0a0a0a",

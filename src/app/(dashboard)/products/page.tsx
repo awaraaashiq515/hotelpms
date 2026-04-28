@@ -25,6 +25,8 @@ export default function ProductsPage() {
   const [properties, setProperties] = useState<any[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
   const [session, setSession] = useState<any>(null);
+  const [isBulkTaxOpen, setIsBulkTaxOpen] = useState(false);
+  const [selectedTaxType, setSelectedTaxType] = useState('EXCLUSIVE');
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -94,6 +96,23 @@ export default function ProductsPage() {
     }
   };
 
+  const handleBulkTaxUpdate = async () => {
+    if (!confirm('This will update the tax type for ALL products in this property. This action cannot be undone. Proceed?')) return;
+    
+    setMutationLoading(true);
+    try {
+      await productsApi.bulkUpdateTaxType(selectedTaxType);
+      setIsBulkTaxOpen(false);
+      fetchProducts();
+      alert('All products updated successfully');
+    } catch (error) {
+      console.error('Bulk update failed:', error);
+      alert('Failed to update products');
+    } finally {
+      setMutationLoading(false);
+    }
+  };
+
   const filteredProducts = (products || []).filter((p: Product) => {
     const searchLower = search.toLowerCase();
     return (
@@ -141,6 +160,18 @@ export default function ProductsPage() {
                 <>
                   <span className="mx-1 text-gray-300">•</span>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600">GST: {row.taxRate}%</span>
+                </>
+              )}
+              {row.taxType && (
+                <>
+                  <span className="mx-1 text-gray-300">•</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                    row.taxType === 'INCLUSIVE' ? 'bg-indigo-50 text-indigo-600' : 
+                    row.taxType === 'EXCLUSIVE' ? 'bg-blue-50 text-blue-600' : 
+                    'bg-slate-100 text-slate-500'
+                  }`}>
+                    {row.taxType}
+                  </span>
                 </>
               )}
             </div>
@@ -292,6 +323,13 @@ export default function ProductsPage() {
                MINT AI SCAN
             </Button>
             <Button 
+              onClick={() => setIsBulkTaxOpen(true)}
+              variant="secondary"
+              className="font-bold text-xs tracking-widest px-4 py-3 rounded-lg border border-gray-200 bg-amber-50 text-amber-600 border-amber-100"
+            >
+               TAX SETTINGS
+            </Button>
+            <Button 
               onClick={() => {
                 setSelectedProduct(null);
                 setIsFormOpen(true);
@@ -340,6 +378,62 @@ export default function ProductsPage() {
         data={filteredProducts} 
         loading={loading}
       />
+
+      {/* Bulk Tax Update Modal */}
+      {isBulkTaxOpen && (
+        <Modal
+          isOpen={isBulkTaxOpen}
+          onClose={() => !mutationLoading && setIsBulkTaxOpen(false)}
+          title="Global Tax Settings"
+        >
+          <div className="space-y-6 p-2">
+            <p className="text-sm text-gray-500">
+              Apply a specific tax type to <strong>ALL products</strong> in this property simultaneously.
+            </p>
+            
+            <div className="grid grid-cols-1 gap-4">
+              {[
+                { id: 'EXCLUSIVE', label: 'Exclusive', desc: 'Tax added on top of selling price' },
+                { id: 'INCLUSIVE', label: 'Inclusive', desc: 'Tax included in selling price' },
+                { id: 'EXEMPT', label: 'Exempt (0%)', desc: 'No tax applied' }
+              ].map((type) => (
+                <label 
+                  key={type.id}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                    selectedTaxType === type.id 
+                      ? 'border-pos-primary bg-pos-primary/5 shadow-sm' 
+                      : 'border-gray-100 dark:border-slate-800 hover:border-gray-200'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="taxType"
+                    value={type.id}
+                    checked={selectedTaxType === type.id}
+                    onChange={(e) => setSelectedTaxType(e.target.value)}
+                    className="w-5 h-5 text-pos-primary focus:ring-pos-primary border-gray-300"
+                  />
+                  <div>
+                    <p className="font-bold text-sm text-gray-900 dark:text-white uppercase tracking-tight">{type.label}</p>
+                    <p className="text-[10px] text-gray-500 font-medium">{type.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-slate-800 mt-6">
+              <Button variant="secondary" onClick={() => setIsBulkTaxOpen(false)} disabled={mutationLoading}>Cancel</Button>
+              <Button 
+                onClick={handleBulkTaxUpdate} 
+                isLoading={mutationLoading}
+                className="bg-pos-primary hover:bg-red-700 text-white font-bold"
+              >
+                Apply to All Products
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* AI Scan Modal */}
       {isAiModalOpen && (

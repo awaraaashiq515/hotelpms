@@ -32,7 +32,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
         {isPos ? <Sidebar /> : <DashboardAdminSidebar />}
         
         <main className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-slate-900/50 no-scrollbar relative">
-          <div className="h-full w-full p-4 md:p-6 lg:p-8">
+          <div className={`h-full w-full ${pathname === '/billing' ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
             {children}
           </div>
         </main>

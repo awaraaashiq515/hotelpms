@@ -502,6 +502,11 @@ export default function TableManagementPage() {
     }
   };
 
+  const handleTableDoubleClick = (table: Table) => {
+    // Always navigate to billing on double click
+    router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
+  };
+
   const handleResetTable = async (table: Table) => {
     if (!confirm(`Are you sure you want to reset ${table.name} to VACANT? Use this only if the table is physically free but stuck in the system.`)) return;
 
@@ -817,6 +822,7 @@ export default function TableManagementPage() {
             <TableLayoutView
               tables={activeFloor?.tables || []}
               onTableClick={handleTableClick}
+              onTableDoubleClick={handleTableDoubleClick}
               selectedTableId={selectedTable?.id}
               isEditMode={isEditMode}
               onTablePositionChange={handleTablePositionChange}

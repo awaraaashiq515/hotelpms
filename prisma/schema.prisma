@@ -993,6 +993,7 @@ model WebsiteSettings {
   galleryHeroVideoUrl      String?
   galleryHeroImageUrl      String?
   bookingRedirectToContact Boolean  @default(true)
+  tagline                  String?
   updatedAt                DateTime @updatedAt
   contactReceiverEmail     String?
   smtpEmail                String?
@@ -1001,6 +1002,7 @@ model WebsiteSettings {
   smtpPort                 String?  @default("465")
   windowsComingSoon        Boolean  @default(false)
   macComingSoon            Boolean  @default(false)
+  geminiApiKey             String?
 }
 
 model WebsiteGalleryImage {
@@ -1026,18 +1028,21 @@ model Enquiry {
 }
 
 model WebsiteBlog {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique
-  excerpt     String?
-  content     String
-  imageUrl    String?
-  author      String?  @default("Avasa Hotels")
-  category    String?  @default("Local Attractions")
-  isActive    Boolean  @default(true)
-  publishedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  title           String
+  slug            String   @unique
+  excerpt         String?
+  content         String
+  imageUrl        String?
+  author          String?  @default("Avasa Hotels")
+  category        String?  @default("Local Attractions")
+  metaTitle       String?
+  metaDescription String?
+  keywords        String?
+  isActive        Boolean  @default(true)
+  publishedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Floor {

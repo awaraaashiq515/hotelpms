@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
@@ -11,21 +11,28 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const propertyIdParam = searchParams.get('propertyId');
 
     if (!startDate || !endDate) {
       return apiError(new Error('Start and End dates are required (YYYY-MM-DD)'), 400);
     }
 
-    const dateFilter = {
+    // Standardized tenant filter
+    const tenantWhere = getMultiTenantWhere(session, propertyIdParam);
+
+    // Robust UTC-based date boundaries to avoid server-local timezone issues
+    const dateFilter: any = {
+      ...tenantWhere,
       createdAt: {
-        gte: new Date(startDate + 'T00:00:00'),
-        lte: new Date(endDate + 'T23:59:59.999'),
+        gte: new Date(`${startDate}T00:00:00.000Z`),
+        lte: new Date(`${endDate}T23:59:59.999Z`),
       },
-      status: 'SETTLED',
-      propertyId: session.propertyId!,
+      status: { not: 'CANCELLED' }
     };
 
-    // 1. Fetch all items from settled orders in the date range
+    console.log('[Sales Report API] Querying with filters:', JSON.stringify(dateFilter, null, 2));
+
+    // 1. Fetch all items from matching orders in the date range
     const orderItems = await prisma.posOrderItem.findMany({
       where: {
         posOrder: dateFilter

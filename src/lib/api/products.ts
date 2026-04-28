@@ -45,4 +45,8 @@ export const productsApi = {
   async delete(id: string): Promise<void> {
     return apiClient.delete(`/api/products/${id}`);
   },
+
+  async bulkUpdateTaxType(taxType: string): Promise<void> {
+    return apiClient.post('/api/products/bulk-update-tax', { taxType });
+  },
 };

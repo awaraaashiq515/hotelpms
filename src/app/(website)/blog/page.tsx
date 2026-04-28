@@ -1,49 +1,48 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { Calendar, User, ArrowRight, Loader2, Search } from 'lucide-react';
+import { Calendar, User, ArrowRight, Search } from 'lucide-react';
 import { WebsiteHeader } from '@/components/website/Header';
 import { PremiumFooter } from '@/components/website/PremiumFooter';
+import { prisma } from '@/lib/prisma';
+import { Metadata } from 'next';
 
-interface Blog {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string;
-  imageUrl: string;
-  publishedAt: string;
-  author: string;
-  category: string;
-}
+export const metadata: Metadata = {
+  title: 'OrderMint Blog | Insights & Strategies for Restaurant Success',
+  description: 'Discover the latest product updates, industry insights, and strategies to scale your restaurant business with OrderMint POS.',
+  openGraph: {
+    title: 'OrderMint Blog | Restaurant Management Insights',
+    description: 'Expert advice on POS systems, inventory management, and restaurant growth.',
+    images: ['/hero-pos.png'],
+  },
+};
 
-export default function BlogListingPage() {
-  const [blogs, setBlogs] = useState<Blog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+export default async function BlogListingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const searchTerm = typeof params.search === 'string' ? params.search : '';
+  const category = typeof params.category === 'string' ? params.category : '';
 
-  useEffect(() => {
-    const fetchBlogs = async () => {
-      try {
-        const res = await fetch('/api/website/blog');
-        const json = await res.json();
-        if (json.success) setBlogs(json.data);
-      } catch (err) {
-        console.error('Failed to fetch blogs', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBlogs();
-  }, []);
+  // Fetch blogs from database
+  const blogs = await prisma.websiteBlog.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { title: { contains: searchTerm } },
+        { category: { contains: category === 'All' ? '' : category } },
+      ],
+    },
+    orderBy: { publishedAt: 'desc' },
+  });
 
-  const filteredBlogs = blogs.filter(blog => 
-    blog.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    blog.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const categories = ['All', 'Product Updates', 'Industry Insights', 'Customer Stories', 'Guides'];
 
   return (
     <main className="bg-slate-50 min-h-screen flex flex-col">
+      <WebsiteHeader />
+      
       {/* Hero Header */}
       <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-24 flex items-center justify-center overflow-hidden bg-white border-b border-slate-100">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#fae5e8]/30 rounded-full blur-[100px] pointer-events-none z-0" />
@@ -66,44 +65,42 @@ export default function BlogListingPage() {
         {/* Search & Filter */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 pb-12 border-b border-gray-100">
           <div className="flex flex-wrap gap-3">
-            {['All', 'Product Updates', 'Industry Insights', 'Customer Stories', 'Guides'].map(cat => (
-              <button 
+            {categories.map(cat => (
+              <Link 
                 key={cat}
-                onClick={() => setSearchTerm(cat === 'All' ? '' : cat)}
+                href={`/blog?category=${cat === 'All' ? '' : cat}`}
                 className={`px-6 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-all ${
-                  (searchTerm === cat || (cat === 'All' && searchTerm === '')) 
+                  (category === cat || (cat === 'All' && !category)) 
                     ? 'bg-slate-900 text-white shadow-md' 
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {cat}
-              </button>
+              </Link>
             ))}
           </div>
           <div className="relative w-full md:w-80">
-            <input 
-              type="text" 
-              placeholder="Search stories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-6 py-3 bg-gray-50 rounded-full border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all text-sm font-medium"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <form action="/blog" method="GET">
+              <input 
+                type="text" 
+                name="search"
+                placeholder="Search stories..."
+                defaultValue={searchTerm}
+                className="w-full pl-12 pr-6 py-3 bg-gray-50 rounded-full border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all text-sm font-medium"
+              />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </form>
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-24">
-            <Loader2 className="animate-spin text-pos-primary" size={48} />
-          </div>
-        ) : filteredBlogs.length === 0 ? (
+        {blogs.length === 0 ? (
           <div className="py-32 text-center bg-[#fafafa] rounded-[40px] border border-dashed border-gray-200">
             <h3 className="text-xl font-bold text-gray-400 uppercase tracking-widest">No Stories Found</h3>
             <p className="text-gray-400 text-sm mt-2">Try searching for something else or check back later!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-16">
-            {filteredBlogs.map((blog) => (
+            {blogs.map((blog) => (
               <Link 
                 key={blog.id} 
                 href={`/blog/${blog.slug}`}
@@ -148,6 +145,8 @@ export default function BlogListingPage() {
           </div>
         )}
       </section>
+      <PremiumFooter />
     </main>
   );
 }
+

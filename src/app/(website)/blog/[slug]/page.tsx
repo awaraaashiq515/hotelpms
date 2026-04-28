@@ -1,63 +1,65 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { Calendar, User, ChevronLeft, Loader2, Clock, Share2, Facebook, Instagram, Twitter } from 'lucide-react';
+import React from 'react';
+import { Calendar, User, ChevronLeft, Clock, Share2, Facebook, Instagram, Twitter } from 'lucide-react';
 import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
+import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { PremiumFooter } from '@/components/website/PremiumFooter';
+import { WebsiteHeader } from '@/components/website/Header';
 
-interface Blog {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string;
-  content: string;
-  imageUrl: string;
-  publishedAt: string;
-  author: string;
-  category: string;
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: Promise<{ slug: string }> 
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const blog = await prisma.websiteBlog.findUnique({
+    where: { slug, isActive: true },
+  });
+
+  if (!blog) return { title: 'Post Not Found' };
+
+  return {
+    title: blog.metaTitle || `${blog.title} | OrderMint Blog`,
+    description: blog.metaDescription || blog.excerpt || `Read more about ${blog.title} on the OrderMint blog.`,
+    keywords: blog.keywords || 'POS, Restaurant Management, OrderMint',
+    openGraph: {
+      title: blog.metaTitle || blog.title,
+      description: blog.metaDescription || blog.excerpt || '',
+      images: [blog.imageUrl || '/hero-pos.png'],
+      type: 'article',
+      publishedTime: blog.publishedAt.toISOString(),
+      authors: [blog.author || 'OrderMint Team'],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: blog.metaTitle || blog.title,
+      description: blog.metaDescription || blog.excerpt || '',
+      images: [blog.imageUrl || '/hero-pos.png'],
+    }
+  };
 }
 
-export default function BlogDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = React.use(params);
-  const [blog, setBlog] = useState<Blog | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchBlog = async () => {
-      try {
-        const res = await fetch(`/api/website/blog?slug=${slug}`);
-        const json = await res.json();
-        if (json.success) setBlog(json.data);
-      } catch (err) {
-        console.error('Failed to fetch blog', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (slug) fetchBlog();
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="animate-spin text-pos-primary" size={48} />
-      </div>
-    );
-  }
+export default async function BlogDetailPage({ 
+  params 
+}: { 
+  params: Promise<{ slug: string }> 
+}) {
+  const { slug } = await params;
+  const blog = await prisma.websiteBlog.findUnique({
+    where: { slug, isActive: true },
+  });
 
   if (!blog) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4 uppercase tracking-tighter">Story Not Found</h1>
-        <p className="text-gray-500 mb-8 max-w-md">The story you are looking for might have been moved or deleted.</p>
-        <Link href="/blog" className="px-8 py-3 bg-pos-primary text-white rounded-full font-bold uppercase tracking-widest hover:bg-black transition-all">Back to Blog</Link>
-      </div>
-    );
+    notFound();
   }
 
   return (
-    <main className="bg-white min-h-screen pb-32 pt-20">
+    <main className="bg-white min-h-screen">
+      <WebsiteHeader />
+      
       {/* Hero Header */}
-      <section className="relative h-[60vh] min-h-[500px] flex items-end overflow-hidden">
+      <section className="relative h-[60vh] min-h-[500px] flex items-end overflow-hidden pt-20">
         <div className="absolute inset-0 z-0">
           <img 
             src={blog.imageUrl || 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&q=80&w=2000'} 
@@ -85,14 +87,14 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
              </div>
              <div className="text-left">
                 <span className="block text-white font-bold text-sm tracking-tight">{blog.author}</span>
-                <span className="block text-white/60 text-[10px] uppercase tracking-widest font-bold">Resort Expert</span>
+                <span className="block text-white/60 text-[10px] uppercase tracking-widest font-bold">Industry Expert</span>
              </div>
           </div>
         </div>
       </section>
 
       {/* Content Section */}
-      <div className="max-w-4xl mx-auto px-6 lg:px-0 pt-20">
+      <div className="max-w-4xl mx-auto px-6 lg:px-0 pt-20 pb-32">
         <div className="flex flex-col lg:flex-row gap-16">
           {/* Main Article */}
           <article className="flex-1">
@@ -109,7 +111,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
              {/* Tags/Categories */}
              <div className="mt-20 pt-10 border-t border-gray-100 flex flex-wrap gap-3">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Tagged with:</span>
-                {['Travel', 'Adventure', blog.category].map(tag => (
+                {['Restaurant', 'POS', 'OrderMint', blog.category || ''].filter(Boolean).map(tag => (
                    <span key={tag} className="px-4 py-1.5 bg-gray-50 text-gray-500 rounded-full text-[9px] font-bold uppercase tracking-widest">#{tag}</span>
                 ))}
              </div>
@@ -136,10 +138,10 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
 
              <div className="sticky top-32 group">
                 <div className="relative aspect-[4/5] rounded-[40px] overflow-hidden">
-                   <img src="https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&q=80&w=1000" alt="Book Now" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
+                   <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1000" alt="OrderMint POS" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
                    <div className="absolute inset-0 bg-pos-primary/60 flex flex-col items-center justify-center p-8 text-center text-white">
-                      <h4 className="text-2xl font-bold uppercase tracking-tighter mb-4">Experience Luxury</h4>
-                      <p className="text-[10px] font-bold uppercase tracking-widest mb-8 opacity-80">Book your luxury stay today</p>
+                      <h4 className="text-2xl font-bold uppercase tracking-tighter mb-4">OrderMint POS</h4>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-8 opacity-80">Streamline your restaurant operations</p>
                       <Link href="/contact" className="px-6 py-3 bg-white text-gray-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Enquire Now</Link>
                    </div>
                 </div>
@@ -147,6 +149,8 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
           </aside>
         </div>
       </div>
+      <PremiumFooter />
     </main>
   );
 }
+

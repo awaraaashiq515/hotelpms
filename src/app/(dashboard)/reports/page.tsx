@@ -21,9 +21,9 @@ export default function ReportsHub() {
       title: 'Operational Insights',
       reports: [
         { 
-          name: 'Sales Report', 
+          name: 'Sales Intelligence', 
           icon: <BarChart3 className="text-blue-500" />, 
-          desc: 'Revenue breakdown by product and category.', 
+          desc: 'Comprehensive revenue analytics and product performance tracking.', 
           href: '/reports/sales' 
         },
         { 

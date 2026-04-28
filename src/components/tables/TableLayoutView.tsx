@@ -6,6 +6,7 @@ import { Table } from './TableCard';
 interface TableLayoutViewProps {
   tables: Table[];
   onTableClick: (table: Table) => void;
+  onTableDoubleClick?: (table: Table) => void;
   isEditMode?: boolean;
   onTablePositionChange?: (id: string, x: number, y: number) => void;
   onTableResize?: (id: string, width: number, height: number) => void;
@@ -336,6 +337,7 @@ const SNAP = 10;
 export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
   tables,
   onTableClick,
+  onTableDoubleClick,
   isEditMode = false,
   onTablePositionChange,
   onTableResize,
@@ -512,6 +514,7 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
               <div
                 onPointerDown={e => startDrag(e, table.id)}
                 onClick={() => { if (!isEditMode) onTableClick(table); }}
+                onDoubleClick={() => { if (!isEditMode) onTableDoubleClick?.(table); }}
                 style={{
                   position: 'absolute',
                   inset: 0,

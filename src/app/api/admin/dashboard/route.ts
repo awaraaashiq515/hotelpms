@@ -26,13 +26,14 @@ export async function GET(request: NextRequest) {
       outletsCount,
       usersCount,
       recentOrders,
-      allProperties
+      allProperties,
+      topProductsRaw
     ] = await Promise.all([
       // 1. Total Sales
       prisma.posOrder.aggregate({
         where: {
           property: filter,
-          status: { in: ['COMPLETED', 'SETTLED'] }
+          status: { in: ['COMPLETED', 'SETTLED', 'SERVED'] }
         },
         _sum: {
           grandTotal: true
@@ -79,17 +80,53 @@ export async function GET(request: NextRequest) {
               outlets: true,
               users: true,
               posOrders: {
-                where: { status: { in: ['COMPLETED', 'SETTLED'] } }
+                where: { status: { in: ['COMPLETED', 'SETTLED', 'SERVED'] } }
               }
             }
           },
           posOrders: {
-            where: { status: { in: ['COMPLETED', 'SETTLED'] } },
+            where: { status: { in: ['COMPLETED', 'SETTLED', 'SERVED'] } },
             select: { grandTotal: true }
           }
         }
+      }),
+      // 7. Top Selling Products
+      prisma.posOrderItem.groupBy({
+        by: ['productId'],
+        where: {
+          posOrder: {
+            property: filter,
+            status: { in: ['COMPLETED', 'SETTLED', 'SERVED'] }
+          }
+        },
+        _sum: {
+          quantity: true,
+          totalAmount: true
+        },
+        orderBy: {
+          _sum: {
+            quantity: 'desc'
+          }
+        },
+        take: 5
       })
     ]);
+
+    // Fetch product names for the top products
+    const topProducts = await Promise.all(
+      (topProductsRaw || []).map(async (item: any) => {
+        const product = await prisma.product.findUnique({
+          where: { id: item.productId },
+          select: { name: true }
+        });
+        return {
+          id: item.productId,
+          name: product?.name || 'Unknown',
+          qty: item._sum.quantity,
+          amount: item._sum.totalAmount
+        };
+      })
+    );
 
     // Format breakdown
     const propertiesBreakdown = allProperties.map(p => ({
@@ -109,7 +146,8 @@ export async function GET(request: NextRequest) {
       totalOutlets: outletsCount,
       totalUsers: usersCount,
       recentOrders: recentOrders,
-      propertiesBreakdown: propertiesBreakdown
+      propertiesBreakdown: propertiesBreakdown,
+      topProducts: topProducts
     }, 'Dashboard stats fetched successfully');
   } catch (error) {
     console.error('Dashboard Stats Error:', error);

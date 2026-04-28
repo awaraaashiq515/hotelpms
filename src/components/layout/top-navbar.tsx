@@ -37,6 +37,7 @@ export const TopNavbar: React.FC = () => {
   }, []);
 
   const [showDisplayMenu, setShowDisplayMenu] = useState(false);
+  const [showLiveOrderMenu, setShowLiveOrderMenu] = useState(false);
   
   const handleLogout = async () => {
     try {
@@ -67,11 +68,14 @@ export const TopNavbar: React.FC = () => {
 
   // Close dropdown on click outside
   useEffect(() => {
-    if (!showDisplayMenu) return;
-    const handleClick = () => setShowDisplayMenu(false);
+    if (!showDisplayMenu && !showLiveOrderMenu) return;
+    const handleClick = () => {
+      setShowDisplayMenu(false);
+      setShowLiveOrderMenu(false);
+    };
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
-  }, [showDisplayMenu]);
+  }, [showDisplayMenu, showLiveOrderMenu]);
 
   return (
     <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
@@ -123,6 +127,7 @@ export const TopNavbar: React.FC = () => {
             <Monitor size={16} className="md:mr-2" />
             <span className="hidden md:inline">Dine In</span>
           </Button>
+
           <Button 
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
             onClick={() => router.push('/billing')}
@@ -131,6 +136,47 @@ export const TopNavbar: React.FC = () => {
             <Plus size={16} className="md:mr-2" />
             <span className="hidden md:inline">Take Away</span>
           </Button>
+
+          {/* ── Live Order Dropdown (Delivery / Pick Up) ── */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              className={`font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center gap-2 ${showLiveOrderMenu ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-gray-50'}`}
+              onClick={() => setShowLiveOrderMenu(!showLiveOrderMenu)}
+              title="Live Order"
+            >
+              <Plus size={16} />
+              <span className="hidden md:inline">Live Order</span>
+            </Button>
+
+            {showLiveOrderMenu && (
+              <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-300">
+                <button 
+                  onClick={() => {
+                    router.push('/billing?type=DELIVERY');
+                    setShowLiveOrderMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-500 transition-all"
+                >
+                  <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                    <Plus size={14} />
+                  </div>
+                  🏍️ Delivery
+                </button>
+                <button 
+                  onClick={() => {
+                    router.push('/billing?type=PICKUP');
+                    setShowLiveOrderMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-orange-500 transition-all border-t border-gray-50 dark:border-white/5"
+                >
+                  <div className="w-8 h-8 bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500">
+                    <Plus size={14} />
+                  </div>
+                  🛍️ Pick Up
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="hidden lg:flex items-center gap-3 ml-4">

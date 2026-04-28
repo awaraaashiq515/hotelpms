@@ -8,6 +8,8 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
   const [isSticky, setIsSticky] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [hotelName, setHotelName] = useState<string>('OrderMint');
+  const [tagline, setTagline] = useState<string>('POS Solutions');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,8 +21,10 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
     fetch('/api/website/settings')
       .then(res => res.json())
       .then(json => {
-        if (json.success && json.data.logoUrl) {
-          setLogoUrl(json.data.logoUrl);
+        if (json.success) {
+          if (json.data.logoUrl) setLogoUrl(json.data.logoUrl);
+          if (json.data.hotelName) setHotelName(json.data.hotelName);
+          if (json.data.tagline) setTagline(json.data.tagline);
         }
       })
       .catch(err => console.error('Failed to fetch website settings:', err));
@@ -66,10 +70,10 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
                     </div>
                     <div className="flex flex-col leading-none">
                       <span className="text-2xl font-black tracking-tight text-pos-primary">
-                        OrderMint
+                        {hotelName}
                       </span>
                       <span className="text-[10px] tracking-[0.3em] font-semibold uppercase text-slate-400 mt-0.5">
-                        POS Solutions
+                        {tagline}
                       </span>
                     </div>
                   </>
@@ -124,9 +128,9 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
                 ) : (
                   <>
                     <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg">
-                      <span className="text-white font-black text-lg italic">O</span>
+                      <span className="text-white font-black text-lg italic">{hotelName.charAt(0)}</span>
                     </div>
-                    <span className="text-2xl font-black text-pos-primary">OrderMint</span>
+                    <span className="text-2xl font-black text-pos-primary">{hotelName}</span>
                   </>
                 )}
               </div>

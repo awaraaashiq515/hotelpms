@@ -7,6 +7,7 @@ export default function WebsiteSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState({
     hotelName: '',
+    tagline: '',
     logoUrl: '',
     address: '',
     email: '',
@@ -37,6 +38,7 @@ export default function WebsiteSettingsPage() {
           const fetchedData = json.data;
           setSettings({
             hotelName: fetchedData.hotelName || '',
+            tagline: fetchedData.tagline || '',
             logoUrl: fetchedData.logoUrl || '',
             address: fetchedData.address || '',
             email: fetchedData.email || '',
@@ -110,9 +112,34 @@ export default function WebsiteSettingsPage() {
         </a>
       </div>
 
-      {/* Logo Upload Section */}
+      {/* General Settings Section */}
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white border-b dark:border-slate-800 pb-4 mb-6">Website Logo</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white border-b dark:border-slate-800 pb-4 mb-6">General Information</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">Site Title</label>
+            <input
+              type="text"
+              value={settings.hotelName}
+              onChange={e => setSettings({ ...settings, hotelName: e.target.value })}
+              placeholder="Enter Site Title"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all dark:text-white font-medium"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">Site Tagline</label>
+            <input
+              type="text"
+              value={settings.tagline}
+              onChange={e => setSettings({ ...settings, tagline: e.target.value })}
+              placeholder="Enter Site Tagline"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all dark:text-white font-medium"
+            />
+          </div>
+        </div>
+
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Website Logo / Site Icon</h3>
         <div className="flex items-center gap-8">
           <div className="relative w-40 h-40 bg-slate-50 dark:bg-slate-800 rounded-[32px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
             {settings.logoUrl ? (

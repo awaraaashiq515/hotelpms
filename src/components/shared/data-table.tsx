@@ -3,7 +3,7 @@
 import React from 'react';
 
 interface Column<T> {
-  header: string;
+  header: string | React.ReactNode;
   accessorKey?: keyof T;
   cell?: (row: T) => React.ReactNode;
   width?: string;

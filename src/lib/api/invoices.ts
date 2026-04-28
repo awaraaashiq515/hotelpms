@@ -91,6 +91,10 @@ export const invoicesApi = {
     return apiClient.post(`/api/invoices/${id}/rate`, { rating, comments });
   },
 
+  async bulkDelete(ids: string[]): Promise<void> {
+    return apiClient.post('/api/invoices/bulk-delete', { ids });
+  },
+
   async replaceItem(itemId: string, data: { reason?: string, replacementProductId?: string, replacementQty?: number }): Promise<any> {
     return apiClient.post(`/api/invoices/items/${itemId}/replace`, data);
   },

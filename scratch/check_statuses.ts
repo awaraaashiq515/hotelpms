@@ -3,12 +3,13 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const properties = await prisma.property.findMany({
-    select: { id: true, name: true, code: true }
+  const statuses = await prisma.posOrder.groupBy({
+    by: ['status'],
+    _count: { id: true }
   });
 
-  console.log('Available Properties:');
-  console.log(JSON.stringify(properties, null, 2));
+  console.log('Order status counts:');
+  console.log(JSON.stringify(statuses, null, 2));
 }
 
 main()

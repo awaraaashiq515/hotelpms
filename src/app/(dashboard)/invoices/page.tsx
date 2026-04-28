@@ -29,6 +29,7 @@ export default function InvoicesPage() {
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -103,6 +104,41 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedIds.size} invoices? This action cannot be undone and will renumber the remaining invoices.`)) return;
+
+    setIsSubmitting(true);
+    try {
+      await invoicesApi.bulkDelete(Array.from(selectedIds));
+      showToast(`${selectedIds.size} invoices deleted`, 'success');
+      setSelectedIds(new Set());
+      fetchInvoices();
+    } catch (err) {
+      showToast('Bulk delete failed', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredInvoices.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredInvoices.map(i => i.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
   const filteredInvoices = invoices.filter(inv => {
     const s = search.toLowerCase();
     return (
@@ -116,6 +152,25 @@ export default function InvoicesPage() {
   });
 
   const columns = [
+    {
+      header: (
+        <input 
+          type="checkbox" 
+          checked={filteredInvoices.length > 0 && selectedIds.size === filteredInvoices.length}
+          onChange={toggleSelectAll}
+          className="w-4 h-4 rounded border-gray-300 text-pos-primary focus:ring-pos-primary cursor-pointer"
+        />
+      ),
+      cell: (row: Invoice) => (
+        <input 
+          type="checkbox" 
+          checked={selectedIds.has(row.id)}
+          onChange={() => toggleSelect(row.id)}
+          className="w-4 h-4 rounded border-gray-300 text-pos-primary focus:ring-pos-primary cursor-pointer"
+        />
+      ),
+      width: '40px'
+    },
     { 
       header: 'Invoice No', 
       cell: (row: Invoice) => (
@@ -288,15 +343,39 @@ export default function InvoicesPage() {
 
       <div className="bg-white dark:bg-slate-900/50 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-50 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/50 flex items-center justify-between gap-4">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              placeholder="Search by invoice or guest..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium dark:text-slate-200 placeholder:text-gray-400 dark:placeholder:text-slate-500"
-            />
+          <div className="flex items-center gap-4 flex-grow">
+            {selectedIds.size > 0 ? (
+              <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
+                <span className="text-sm font-bold text-pos-primary bg-pos-primary/10 px-3 py-1.5 rounded-lg border border-pos-primary/20">
+                  {selectedIds.size} Selected
+                </span>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold border border-red-100 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs font-bold text-gray-400 hover:text-gray-600"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Search by invoice or guest..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs w-full focus:ring-2 focus:ring-pos-primary/20 transition-all font-medium dark:text-slate-200 placeholder:text-gray-400 dark:placeholder:text-slate-500"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
