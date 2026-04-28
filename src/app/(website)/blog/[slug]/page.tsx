@@ -13,31 +13,40 @@ export async function generateMetadata({
   params: Promise<{ slug: string }> 
 }): Promise<Metadata> {
   const { slug } = await params;
-  const blog = await prisma.websiteBlog.findUnique({
-    where: { slug, isActive: true },
-  });
+  
+  try {
+    if (process.env.DATABASE_URL || process.env.NODE_ENV !== 'production') {
+      const blog = await prisma.websiteBlog.findUnique({
+        where: { slug, isActive: true },
+      });
 
-  if (!blog) return { title: 'Post Not Found' };
+      if (!blog) return { title: 'Post Not Found' };
 
-  return {
-    title: blog.metaTitle || `${blog.title} | OrderMint Blog`,
-    description: blog.metaDescription || blog.excerpt || `Read more about ${blog.title} on the OrderMint blog.`,
-    keywords: blog.keywords || 'POS, Restaurant Management, OrderMint',
-    openGraph: {
-      title: blog.metaTitle || blog.title,
-      description: blog.metaDescription || blog.excerpt || '',
-      images: [blog.imageUrl || '/hero-pos.png'],
-      type: 'article',
-      publishedTime: blog.publishedAt.toISOString(),
-      authors: [blog.author || 'OrderMint Team'],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: blog.metaTitle || blog.title,
-      description: blog.metaDescription || blog.excerpt || '',
-      images: [blog.imageUrl || '/hero-pos.png'],
+      return {
+        title: blog.metaTitle || `${blog.title} | OrderMint Blog`,
+        description: blog.metaDescription || blog.excerpt || `Read more about ${blog.title} on the OrderMint blog.`,
+        keywords: blog.keywords || 'POS, Restaurant Management, OrderMint',
+        openGraph: {
+          title: blog.metaTitle || blog.title,
+          description: blog.metaDescription || blog.excerpt || '',
+          images: [blog.imageUrl || '/hero-pos.png'],
+          type: 'article',
+          publishedTime: blog.publishedAt?.toISOString(),
+          authors: [blog.author || 'OrderMint Team'],
+        },
+        twitter: {
+          card: 'summary_large_image',
+          title: blog.metaTitle || blog.title,
+          description: blog.metaDescription || blog.excerpt || '',
+          images: [blog.imageUrl || '/hero-pos.png'],
+        }
+      };
     }
-  };
+  } catch (error) {
+    console.warn("Could not fetch blog metadata during build:", error);
+  }
+
+  return { title: 'Blog | OrderMint' };
 }
 
 export default async function BlogDetailPage({ 

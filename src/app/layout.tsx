@@ -18,7 +18,18 @@ const geistMono = Geist_Mono({
 import { prisma } from "@/lib/prisma";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await prisma.websiteSettings.findFirst();
+  let settings = null;
+  
+  try {
+    // Only attempt to fetch if prisma is available and we have a DATABASE_URL
+    // or if we're not in a build environment that lacks it.
+    if (process.env.DATABASE_URL || process.env.NODE_ENV !== 'production') {
+      settings = await prisma.websiteSettings.findFirst().catch(() => null);
+    }
+  } catch (error) {
+    console.warn("Could not fetch website settings for metadata:", error);
+  }
+
   const title = settings?.hotelName || "OrderMint";
   const tagline = settings?.tagline || "Advanced POS & Management System";
   

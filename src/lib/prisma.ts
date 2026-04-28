@@ -6,9 +6,26 @@ const globalForPrisma = globalThis as unknown as {
 
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ['error', 'warn'],
-  });
+  (() => {
+    if (typeof window !== 'undefined') return undefined as any;
+    
+    // Check if we are in a build environment without a database
+    if (!process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+      console.warn('DATABASE_URL is not set. Prisma client will be initialized with a dummy URL for build purposes.');
+      return new PrismaClient({
+        datasources: {
+          db: {
+            url: 'postgresql://dummy:dummy@localhost:5432/dummy'
+          }
+        },
+        log: ['error'],
+      });
+    }
+
+    return new PrismaClient({
+      log: ['error', 'warn'],
+    });
+  })();
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
