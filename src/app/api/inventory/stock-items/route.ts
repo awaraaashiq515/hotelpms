@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate current balance from movements
     const enriched = await Promise.all(
-      stockItems.map(async (item) => {
+      stockItems.map(async (item: any) => {
         const movementWhere: any = { stockItemId: item.id };
         if (warehouseId) {
           movementWhere.warehouseId = warehouseId;

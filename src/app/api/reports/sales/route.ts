@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const categorySales: Record<string, any> = {};
     let totalSales = 0;
 
-    orderItems.forEach((item) => {
+    orderItems.forEach((item: any) => {
       const pId = item.productId;
       const pName = item.product?.name || 'Unknown Item';
       const cId = item.product?.category?.id || 'others';

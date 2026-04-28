@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const result = customers.map(c => ({
+    const result = customers.map((c: any) => ({
       ...c,
       pendingBalance: (c as any).settlements.reduce((acc: number, s: any) => acc + (s.balanceAmount || 0), 0)
     }));

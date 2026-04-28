@@ -13,7 +13,7 @@ export const sendSMS = async (phone: string, templateKey: 'TEMPLATE_BILL_PAID' |
     });
 
     const config = keys.reduce((acc, key) => {
-      acc[key] = settings.find(s => s.key === key)?.value || '';
+      acc[key] = settings.find((s: any) => s.key === key)?.value || '';
       return acc;
     }, {} as Record<string, string>);
 

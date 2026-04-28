@@ -83,7 +83,7 @@ export async function GET(
     });
 
     // Filter out categories with no products
-    const menu = categories.filter((cat) => cat.products.length > 0);
+    const menu = categories.filter((cat: any) => cat.products.length > 0);
 
     return apiResponse({
       property,

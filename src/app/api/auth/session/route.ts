@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const latestPermissions = roleWithPerms?.rolePermissions.map(rp => rp.permission.module) || [];
+    const latestPermissions = roleWithPerms?.rolePermissions.map((rp: any) => rp.permission.module) || [];
 
     // Fetch latest package features live from DB
     let packageFeatures: string[] = [];
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         }
       });
       if (org?.package) {
-        packageFeatures = org.package.features.map((f) => f.feature);
+        packageFeatures = org.package.features.map((f: any) => f.feature);
         discountPercent = org.package.discountPercent;
       }
     }

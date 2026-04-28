@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
     })
 
     // 4. Build permissions list
-    const permissions = user.role.rolePermissions.map(rp => rp.permission.module)
+    const permissions = user.role.rolePermissions.map((rp: any) => rp.permission.module)
 
     // 5. Embed package data into session (Super Admin always gets all features)
     const orgPackage = user.organization?.package
-    const packageFeatures = orgPackage?.features.map((f) => f.feature) ?? []
+    const packageFeatures = orgPackage?.features.map((f: any) => f.feature) ?? []
     const discountPercent = orgPackage?.discountPercent ?? 0
 
     const sessionData: SessionPayload = {

@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
     });
 
     // 2. For each guest, calculate total outstanding by checking settlements
-    const outstandingData = await Promise.all(guests.map(async (guest) => {
+    const outstandingData = await Promise.all(guests.map(async (guest: any) => {
       let guestTotalDue = 0;
-      const invoiceSummaries = await Promise.all(guest.invoices.map(async (inv) => {
+      const invoiceSummaries = await Promise.all(guest.invoices.map(async (inv: any) => {
         const settlements = await prisma.settlement.findMany({
           where: { sourceId: inv.id, sourceType: 'INVOICE' }
         });
-        const paid = settlements.reduce((sum, s) => sum + s.paidAmount, 0);
+        const paid = settlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
         const due = inv.totalAmount - paid;
         guestTotalDue += due;
         return {

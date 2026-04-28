@@ -96,17 +96,17 @@ export async function PATCH(
       });
 
       // Include the current update in the calculation
-      const kotsForStatus = allKots.map(k => k.id === id ? { ...k, status } : k);
+      const kotsForStatus = allKots.map((k: any) => k.id === id ? { ...k, status } : k);
       
       let finalStatus = 'PLACED';
-      const activeKots = kotsForStatus.filter(k => k.status !== 'CANCELLED');
+      const activeKots = kotsForStatus.filter((k: any) => k.status !== 'CANCELLED');
       
       if (activeKots.length > 0) {
-        if (activeKots.every(k => k.status === 'SERVED')) {
+        if (activeKots.every((k: any) => k.status === 'SERVED')) {
           finalStatus = 'SERVED';
-        } else if (activeKots.every(k => k.status === 'READY' || k.status === 'SERVED')) {
+        } else if (activeKots.every((k: any) => k.status === 'READY' || k.status === 'SERVED')) {
           finalStatus = 'READY';
-        } else if (activeKots.some(k => ['PREPARING', 'READY', 'SERVED'].includes(k.status))) {
+        } else if (activeKots.some((k: any) => ['PREPARING', 'READY', 'SERVED'].includes(k.status))) {
           finalStatus = 'IN_KITCHEN';
         }
       }

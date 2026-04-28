@@ -41,7 +41,7 @@ export async function POST(
     });
 
     const invoiceCount = invoices.length;
-    const totalSales = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const totalSales = invoices.reduce((sum: any, inv: any) => sum + inv.totalAmount, 0);
 
     // Payment mode breakdown from Payment table
     const payments = await prisma.payment.findMany({
@@ -63,8 +63,8 @@ export async function POST(
     }
 
     // Withdrawals & top-ups during shift
-    const totalWithdrawals = shift.withdrawals.reduce((s, w) => s + w.amount, 0);
-    const totalTopUps = shift.topUps.reduce((s, t) => s + t.amount, 0);
+    const totalWithdrawals = shift.withdrawals.reduce((s: any, w: any) => s + w.amount, 0);
+    const totalTopUps = shift.topUps.reduce((s: any, t: any) => s + t.amount, 0);
 
     // Expected cash = opening + cash sales + top-ups - withdrawals
     const expectedCash = shift.openingCash + cashSales + totalTopUps - totalWithdrawals;

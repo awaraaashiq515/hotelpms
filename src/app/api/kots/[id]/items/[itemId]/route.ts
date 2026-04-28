@@ -59,9 +59,9 @@ export async function PATCH(
           select: { status: true },
         })
 
-        const nonCancelledItems = allItems.filter((i) => i.status !== 'CANCELLED')
-        const allMatchReadyOrServed = nonCancelledItems.length > 0 && nonCancelledItems.every((i) => i.status === 'READY' || i.status === 'SERVED')
-        const allServed = nonCancelledItems.length > 0 && nonCancelledItems.every((i) => i.status === 'SERVED')
+        const nonCancelledItems = allItems.filter((i: any) => i.status !== 'CANCELLED')
+        const allMatchReadyOrServed = nonCancelledItems.length > 0 && nonCancelledItems.every((i: any) => i.status === 'READY' || i.status === 'SERVED')
+        const allServed = nonCancelledItems.length > 0 && nonCancelledItems.every((i: any) => i.status === 'SERVED')
 
         if (allMatchReadyOrServed || allServed) {
           const kot = await tx.kotTicket.findUnique({ where: { id: kotId } })
@@ -89,14 +89,14 @@ export async function PATCH(
 
             // Re-calculate the PosOrder status based on all its KOTs
             let finalOrderStatus = 'PLACED';
-            const activeKots = kotsCheck.map(k => k.id === kotId ? { ...k, status: targetKotStatus } : k).filter(k => k.status !== 'CANCELLED');
+            const activeKots = kotsCheck.map((k: any) => k.id === kotId ? { ...k, status: targetKotStatus } : k).filter((k: any) => k.status !== 'CANCELLED');
             
             if (activeKots.length > 0) {
-              if (activeKots.every(k => k.status === 'SERVED')) {
+              if (activeKots.every((k: any) => k.status === 'SERVED')) {
                 finalOrderStatus = 'SERVED';
-              } else if (activeKots.every(k => k.status === 'READY' || k.status === 'SERVED')) {
+              } else if (activeKots.every((k: any) => k.status === 'READY' || k.status === 'SERVED')) {
                 finalOrderStatus = 'READY';
-              } else if (activeKots.some(k => ['PREPARING', 'READY', 'SERVED'].includes(k.status))) {
+              } else if (activeKots.some((k: any) => ['PREPARING', 'READY', 'SERVED'].includes(k.status))) {
                 finalOrderStatus = 'IN_KITCHEN';
               }
             }

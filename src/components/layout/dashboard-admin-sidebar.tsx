@@ -68,7 +68,7 @@ export const DashboardAdminSidebar: React.FC = () => {
     if (item.subItems) {
       return {
         ...item,
-        subItems: item.subItems.filter(sub => {
+        subItems: item.subItems.filter((sub: any) => {
           if (session.role === 'SUPER_ADMIN') return true;
 
           // Sub-item feature gating (Admins see all for now)
@@ -213,7 +213,7 @@ export const DashboardAdminSidebar: React.FC = () => {
 
                     {isOpen && isGroupOpen && (
                       <div className="mt-1 space-y-0.5 ml-9 border-l border-slate-800/80">
-                        {item.subItems.map((sub) => {
+                        {item.subItems.map((sub: any) => {
                           const isSubActive = pathname === sub.path;
                           return (
                             <Link

@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
               },
             })
             floorId = floor.id
-            floorMap.set(table.floorName, floorId)
+            floorMap.set(table.floorName, floorId!)
           }
 
           await tx.table.create({

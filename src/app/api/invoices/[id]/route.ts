@@ -46,7 +46,7 @@ export async function GET(
       orderBy: { settlementDate: 'desc' }
     });
 
-    const paidAmount = settlements.reduce((sum, s) => sum + s.paidAmount, 0);
+    const paidAmount = settlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
     const dueAmount = invoice.totalAmount - paidAmount;
 
     return apiResponse({ 

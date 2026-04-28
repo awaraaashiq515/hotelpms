@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
       // Create KOT Items for the CURRENT placement
       await (tx as any).kotItem.createMany({
         data: sanitizedItems.map((item: any) => {
-          const product = products.find(p => p.id === item.productId)
+          const product = products.find((p: any) => p.id === item.productId)
           const orderItem = createdItems.find((ci: any) => ci.productId === item.productId)
           return {
             kotId: kotTicket.id,

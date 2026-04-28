@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       const existingSettlements = await tx.settlement.findMany({
         where: { sourceId: invoice.id, sourceType: 'INVOICE' }
       });
-      const alreadyPaid = existingSettlements.reduce((sum, s) => sum + s.paidAmount, 0);
+      const alreadyPaid = existingSettlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
       
       const totalAmount = invoice.totalAmount;
       const remainingBeforeThis = totalAmount - alreadyPaid;
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Enhance with Invoice and Guest info
-    const enhancedSettlements = await Promise.all(settlements.map(async (s) => {
+    const enhancedSettlements = await Promise.all(settlements.map(async (s: any) => {
       if (s.sourceType === 'INVOICE') {
         const invoice = await prisma.invoice.findUnique({
           where: { id: s.sourceId },

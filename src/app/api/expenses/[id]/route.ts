@@ -108,7 +108,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             },
           });
           await tx.voucherEntry.createMany({
-            data: original.entries.map((e) => ({
+            data: original.entries.map((e: any) => ({
               voucherId: reversalVoucher.id,
               accountId: e.accountId,
               debitAmount: e.creditAmount,

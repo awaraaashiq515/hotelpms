@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       warehouses = await prisma.warehouse.findMany({
         where: { propertyId: session.propertyId! }
       });
-    } else if (!warehouses.some(w => w.name.toLowerCase().includes('kitchen'))) {
+    } else if (!warehouses.some((w: any) => w.name.toLowerCase().includes('kitchen'))) {
        const k = await prisma.warehouse.create({
          data: { propertyId: session.propertyId!, name: 'Kitchen Store', code: 'KITCHEN' }
        });

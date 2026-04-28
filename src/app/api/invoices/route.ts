@@ -128,11 +128,11 @@ export async function GET(request: NextRequest) {
     })
 
     // Enhance with Paid/Due amounts from Settlements
-    const enhancedInvoices = await Promise.all(invoices.map(async (inv) => {
+    const enhancedInvoices = await Promise.all(invoices.map(async (inv: any) => {
       const settlements = await prisma.settlement.findMany({
         where: { sourceId: inv.id, sourceType: 'INVOICE' }
       });
-      const paidAmount = settlements.reduce((sum, s) => sum + s.paidAmount, 0);
+      const paidAmount = settlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
       return {
         ...inv,
         paidAmount,

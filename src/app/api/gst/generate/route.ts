@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     const detailedInvoices: any[] = [];
 
-    orders.forEach((order, idx) => {
+    orders.forEach((order: any, idx: any) => {
       if (idx === 0) firstOrderNo = order.orderNo;
       lastOrderNo = order.orderNo;
 
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       let orderSgst = 0;
 
       // For each item in the order
-      order.items.forEach((item) => {
+      order.items.forEach((item: any) => {
         // Get the effective tax rate
         const taxRate = item.product?.taxRate ?? 0;
         const hsnCode = item.product?.hsnCode || '996331'; // default restaurant SAC

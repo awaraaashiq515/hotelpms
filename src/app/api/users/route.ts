@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Sanitize output
-    const safeUsers = users.map(({ passwordHash, ...user }) => user)
+    const safeUsers = users.map(({ passwordHash, ...user }: any) => user)
 
     return apiResponse(safeUsers, 'Users fetched successfully')
   } catch (error) {

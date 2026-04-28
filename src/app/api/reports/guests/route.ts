@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         totalVisits,
         totalSpend
       };
-    }).sort((a, b) => b.totalSpend - a.totalSpend);
+    }).sort((a: any, b: any) => b.totalSpend - a.totalSpend);
 
     return apiResponse(enriched);
   } catch (error) {

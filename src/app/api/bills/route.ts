@@ -57,10 +57,10 @@ export async function GET(request: NextRequest) {
 
     // Compute aggregates
     const totalOrders = orders.length;
-    const totalSubtotal = orders.reduce((s, o) => s + (o.subtotal || 0), 0);
-    const totalTax = orders.reduce((s, o) => s + (o.taxAmount || 0), 0);
-    const totalDiscount = orders.reduce((s, o) => s + (o.discountAmount || 0), 0);
-    const totalGrand = orders.reduce((s, o) => s + (o.grandTotal || 0), 0);
+    const totalSubtotal = orders.reduce((s: any, o: any) => s + (o.subtotal || 0), 0);
+    const totalTax = orders.reduce((s: any, o: any) => s + (o.taxAmount || 0), 0);
+    const totalDiscount = orders.reduce((s: any, o: any) => s + (o.discountAmount || 0), 0);
+    const totalGrand = orders.reduce((s: any, o: any) => s + (o.grandTotal || 0), 0);
 
     return apiResponse({
       orders,

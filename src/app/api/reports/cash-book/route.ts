@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     const isDebitNature = cashAccount.openingBalanceType === 'DR';
     if (!isDebitNature) runningBalance = -runningBalance;
 
-    const rows = entries.map((entry) => {
+    const rows = entries.map((entry: any) => {
       runningBalance += entry.debitAmount - entry.creditAmount;
       return {
         id: entry.id,
@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
         account: cashAccount,
         entries: rows,
         totals: {
-          totalDebit: rows.reduce((s, r) => s + r.debit, 0),
-          totalCredit: rows.reduce((s, r) => s + r.credit, 0),
+          totalDebit: rows.reduce((s: any, r: any) => s + r.debit, 0),
+          totalCredit: rows.reduce((s: any, r: any) => s + r.credit, 0),
           closingBalance: runningBalance,
         },
       },

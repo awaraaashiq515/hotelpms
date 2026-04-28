@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     // Calculate running balance
     let runningBalance = account.openingBalance * (account.openingBalanceType === 'DR' ? 1 : -1);
 
-    const rows = entries.map((entry) => {
+    const rows = entries.map((entry: any) => {
       runningBalance += entry.debitAmount - entry.creditAmount;
       return {
         id: entry.id,
@@ -82,8 +82,8 @@ export async function GET(request: NextRequest) {
         openingBalanceType: account.openingBalanceType,
         entries: rows,
         totals: {
-          totalDebit: rows.reduce((s, r) => s + r.debit, 0),
-          totalCredit: rows.reduce((s, r) => s + r.credit, 0),
+          totalDebit: rows.reduce((s: any, r: any) => s + r.debit, 0),
+          totalCredit: rows.reduce((s: any, r: any) => s + r.credit, 0),
           closingBalance: Math.abs(runningBalance),
           closingBalanceType: runningBalance >= 0 ? 'DR' : 'CR',
         },

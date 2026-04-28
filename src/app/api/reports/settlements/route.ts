@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     });
 
     const modeSummary: Record<string, { name: string, count: number, total: number }> = {};
-    paymentModes.forEach(m => {
+    paymentModes.forEach((m: any) => {
       modeSummary[m.id] = { name: m.name, count: 0, total: 0 };
     });
 
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     let totalPaid = 0;
     let totalBalance = 0;
 
-    settlements.forEach(s => {
+    settlements.forEach((s: any) => {
       totalGross += s.grossAmount;
       totalPaid += s.paidAmount;
       totalBalance += s.balanceAmount;

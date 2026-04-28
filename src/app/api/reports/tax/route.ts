@@ -51,11 +51,11 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const totalTax = settledOrders.reduce((s, o) => s + o.taxAmount, 0) + 
-                     settledInvoices.reduce((s, i) => s + i.taxAmount, 0);
+    const totalTax = settledOrders.reduce((s: any, o: any) => s + o.taxAmount, 0) + 
+                     settledInvoices.reduce((s: any, i: any) => s + i.taxAmount, 0);
     
-    const totalTaxable = settledOrders.reduce((s, o) => s + o.subtotal, 0) + 
-                        settledInvoices.reduce((s, i) => s + i.subtotal, 0);
+    const totalTaxable = settledOrders.reduce((s: any, o: any) => s + o.subtotal, 0) + 
+                        settledInvoices.reduce((s: any, i: any) => s + i.subtotal, 0);
 
     return apiResponse({
       summary: {

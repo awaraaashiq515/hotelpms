@@ -34,7 +34,7 @@ export async function generateBackupData(organizationId: string, propertyId?: st
 
   if (!organization) return null;
 
-  const propertyIds = organization.properties.map(p => p.id);
+  const propertyIds = organization.properties.map((p: any) => p.id);
   const transWhere = { propertyId: { in: propertyIds } };
 
   // Fetch Transactional Data

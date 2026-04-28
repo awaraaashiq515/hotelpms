@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Update items – add new quantities (same logic as create endpoint)
     await Promise.all(
       items.map(async (item) => {
-        const existingItem = existingOrder.items.find((i) => i.productId === item.productId);
+        const existingItem = existingOrder.items.find((i: any) => i.productId === item.productId);
         if (existingItem) {
           await prisma.posOrderItem.update({
             where: { id: existingItem.id },

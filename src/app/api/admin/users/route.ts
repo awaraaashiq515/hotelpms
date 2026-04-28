@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Remove password hashes and calculate total sales
-    const safeUsers = users.map(({ passwordHash, ...user }) => ({
+    const safeUsers = users.map(({ passwordHash, ...user }: any) => ({
       ...user,
       totalSales: ((user as any).servedOrders || []).reduce((sum: number, b: any) => sum + (b.grandTotal || 0), 0),
     }));
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fullName, email, password, roleName, propertyId } = body;
+    const { fullName, email, password, roleName, propertyId, floorId } = body;
 
     // Validation
     if (!fullName || !email || !password || !roleName) {

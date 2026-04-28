@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
       orderBy: { voucherDate: 'asc' },
     });
 
-    const totalDebit = vouchers.reduce((s, v) => s + v.totalDebit, 0);
-    const totalCredit = vouchers.reduce((s, v) => s + v.totalCredit, 0);
+    const totalDebit = vouchers.reduce((s: any, v: any) => s + v.totalDebit, 0);
+    const totalCredit = vouchers.reduce((s: any, v: any) => s + v.totalCredit, 0);
 
     return apiResponse(
       { date: dateStr, vouchers, totals: { totalDebit, totalCredit, count: vouchers.length } },

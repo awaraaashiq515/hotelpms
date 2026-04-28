@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
     ]);
 
     const results = [
-      ...products.map(p => ({ id: p.id, type: 'Product', title: p.name, url: '/products' })),
+      ...products.map((p: any) => ({ id: p.id, type: 'Product', title: p.name, url: '/products' })),
       ...staff.map((s: any) => ({ id: s.id, type: 'Staff', title: s.fullName, url: '/staff' })),
-      ...guests.map(c => ({ id: c.id, type: 'Customer', title: `${c.firstName} ${c.lastName || ''}`, url: '/customers' })),
+      ...guests.map((c: any) => ({ id: c.id, type: 'Customer', title: `${c.firstName} ${c.lastName || ''}`, url: '/customers' })),
     ];
 
     return apiResponse(results);

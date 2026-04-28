@@ -34,7 +34,7 @@ export async function GET(
 
     if (!role) return apiError(new Error('Role not found'), 404);
 
-    const modules = role.rolePermissions.map(rp => rp.permission.module);
+    const modules = role.rolePermissions.map((rp: any) => rp.permission.module);
     return apiResponse(modules, 'Permissions fetched successfully');
   } catch (error) {
     return apiError(error);
