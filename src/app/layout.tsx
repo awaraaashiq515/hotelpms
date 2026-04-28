@@ -21,13 +21,20 @@ export async function generateMetadata(): Promise<Metadata> {
   let settings = null;
   
   try {
-    // Only attempt to fetch if prisma is available and we have a DATABASE_URL
-    // or if we're not in a build environment that lacks it.
-    if (process.env.DATABASE_URL || process.env.NODE_ENV !== 'production') {
-      settings = await prisma.websiteSettings.findFirst().catch(() => null);
+    // Only attempt to fetch if we are not in a strict build environment that might lack a DB
+    // We also use a very defensive fetch to avoid "missing column" crashes
+    if (process.env.DATABASE_URL) {
+      settings = await prisma.websiteSettings.findFirst({
+        select: {
+          hotelName: true,
+          tagline: true,
+          heroSubtitle: true,
+          logoUrl: true
+        }
+      }).catch(() => null);
     }
   } catch (error) {
-    console.warn("Could not fetch website settings for metadata:", error);
+    // Completely silent to avoid polluting build logs
   }
 
   const title = settings?.hotelName || "OrderMint";
