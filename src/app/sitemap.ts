@@ -4,18 +4,22 @@ import { prisma } from '@/lib/prisma';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ordermint.com';
 
-  // Get all active blog posts
-  const blogs = await prisma.websiteBlog.findMany({
-    where: { isActive: true },
-    select: { slug: true, updatedAt: true },
-  });
+  let blogEntries: any[] = [];
+  try {
+    const blogs = await prisma.websiteBlog.findMany({
+      where: { isActive: true },
+      select: { slug: true, updatedAt: true },
+    });
 
-  const blogEntries = blogs.map((blog: any) => ({
-    url: `${baseUrl}/blog/${blog.slug}`,
-    lastModified: blog.updatedAt,
-    changeFrequency: 'weekly' as const,
-    priority: 0.7,
-  }));
+    blogEntries = blogs.map((blog: any) => ({
+      url: `${baseUrl}/blog/${blog.slug}`,
+      lastModified: blog.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    }));
+  } catch (error) {
+    console.error('Sitemap: Failed to fetch blogs from database, skipping blog entries.', error);
+  }
 
   const staticPages = [
     '',
