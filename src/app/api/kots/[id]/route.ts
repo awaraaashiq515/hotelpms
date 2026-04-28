@@ -62,7 +62,7 @@ export async function PATCH(
       return apiError(new Error('KOT not found'), 404)
     }
 
-    const updatedKot = await prisma.$transaction(async (tx) => {
+    const updatedKot = await prisma.$transaction(async (tx: any) => {
       const kot = await tx.kotTicket.update({
         where: { id },
         data: { status }

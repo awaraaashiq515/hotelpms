@@ -170,7 +170,7 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
               </tr>
             </thead>
             <tbody>
-              ${kot?.items.map(item => `
+              ${kot?.items.map((item: any) => `
                 <tr>
                   <td class="qty">${item.quantity}</td>
                   <td class="item-name">

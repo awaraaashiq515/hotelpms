@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const expenseNo = `EXP-${Date.now()}`;
     const expenseDate = data.expenseDate ? new Date(data.expenseDate) : new Date();
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Create the Expense record using unchecked input (scalar FKs)
       const createData: Prisma.ExpenseUncheckedCreateInput = {
         propertyId,

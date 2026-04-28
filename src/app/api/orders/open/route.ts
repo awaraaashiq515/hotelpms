@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Table ID is required to open an order'), 400);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Find the table
       const table = await (tx as any).table.findUnique({
         where: { id: tableId },

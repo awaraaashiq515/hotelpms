@@ -700,7 +700,7 @@ export default function InventoryPage() {
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {lowStockItems.map(item => (
+                {lowStockItems.map((item: any) => (
                   <div key={item.id} className="bg-white border border-red-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-4">
                       <div>
@@ -1092,7 +1092,7 @@ export default function InventoryPage() {
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-medium dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all"
               >
                 <option value="" className="dark:bg-slate-900">Select unit...</option>
-                {['KG', 'G', 'L', 'ML', 'PCS', 'BOX', 'PKT', 'DOZEN', 'PLATE', 'BOTTLE'].map(u => (
+                {['KG', 'G', 'L', 'ML', 'PCS', 'BOX', 'PKT', 'DOZEN', 'PLATE', 'BOTTLE'].map((u: any) => (
                   <option key={u} value={u} className="dark:bg-slate-900">{u}</option>
                 ))}
               </select>

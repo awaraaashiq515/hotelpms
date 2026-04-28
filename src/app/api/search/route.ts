@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const results = [
       ...products.map(p => ({ id: p.id, type: 'Product', title: p.name, url: '/products' })),
-      ...staff.map(s => ({ id: s.id, type: 'Staff', title: s.fullName, url: '/staff' })),
+      ...staff.map((s: any) => ({ id: s.id, type: 'Staff', title: s.fullName, url: '/staff' })),
       ...guests.map(c => ({ id: c.id, type: 'Customer', title: `${c.firstName} ${c.lastName || ''}`, url: '/customers' })),
     ];
 

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Invalid or empty IDs array'), 400);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Verify ownership of all invoices
       const count = await tx.invoice.count({
         where: {

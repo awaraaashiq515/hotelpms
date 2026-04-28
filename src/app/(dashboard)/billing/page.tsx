@@ -299,7 +299,7 @@ export default function BillingPage() {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map((item: any) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
     });
@@ -310,7 +310,7 @@ export default function BillingPage() {
   };
 
   const updateQuantity = (productId: string, delta: number) => {
-    setCart(prev => prev.map(item => {
+    setCart(prev => prev.map((item: any) => {
       if (item.id === productId) {
         const newQty = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQty };
@@ -326,7 +326,7 @@ export default function BillingPage() {
       const payload = {
         restaurantTableId: tableId || undefined,
         orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-        items: cart.map(item => ({
+        items: cart.map((item: any) => ({
           productId: item.id,
           quantity: item.quantity,
           unitPrice: item.sellingPrice
@@ -364,7 +364,7 @@ export default function BillingPage() {
       const payload = {
         restaurantTableId: tableId || undefined,
         orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-        items: cart.map(item => ({
+        items: cart.map((item: any) => ({
           productId: item.id,
           quantity: item.quantity,
           unitPrice: item.sellingPrice
@@ -455,7 +455,7 @@ export default function BillingPage() {
     const orderToPrint = hasCartItems ? {
       orderNo: activeOrder?.orderNo || `POS-${Date.now()}`,
       tableNo: tableName || activeOrder?.tableNo || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Take Away' : 'Walk-in'),
-      items: cart.map(item => ({
+      items: cart.map((item: any) => ({
         product: item,
         quantity: item.quantity,
         unitPrice: item.sellingPrice,
@@ -512,7 +512,7 @@ export default function BillingPage() {
         totalAmount: grandTotal,
         membershipCardId: membershipCard?.id || null,
         membershipDiscount: membershipDiscount || 0,
-        items: cart.map(item => ({
+        items: cart.map((item: any) => ({
           id: item.id,
           name: item.name,
           quantity: item.quantity,
@@ -660,7 +660,7 @@ export default function BillingPage() {
   const displayedSubtotal = totalNetSubtotal;
 
   // Generate dynamic tax label
-  const uniqueRates = Array.from(new Set(cart.map(item => item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5)));
+  const uniqueRates = Array.from(new Set(cart.map((item: any) => item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5)));
   const taxLabel = cart.length > 0 && uniqueRates.length === 1 ? `Taxes (${uniqueRates[0]}%)` : 'Taxes';
 
   if (loading) return <div className="h-screen bg-slate-950 flex items-center justify-center text-white">Loading POS...</div>;
@@ -1148,7 +1148,7 @@ export default function BillingPage() {
             </div>
           ) : (
             <div className="space-y-2">
-               {cart.map(item => (
+               {cart.map((item: any) => (
                 <div key={item.id} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'} rounded-[1.5rem] p-2.5 border hover:border-pos-primary/30 transition-all duration-300`}>
                   <div className="flex items-center gap-3 relative z-10">
                     <div className="w-11 h-11 rounded-xl bg-slate-900 border border-white/5 overflow-hidden flex-shrink-0 shadow-lg">

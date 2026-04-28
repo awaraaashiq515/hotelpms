@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Run heavily protected Stock ledger generation
-    const movement = await prisma.$transaction(async (tx) => {
+    const movement = await prisma.$transaction(async (tx: any) => {
       
       // Calculate latest balance via atomic read/write protection concept in SQL 
       // (Simplified here: Reading sum of IN minus sum of OUT)

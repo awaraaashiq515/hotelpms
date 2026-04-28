@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     let computedTax = 0
     let computedDiscount = 0
 
-    const sanitizedItems = items.map(item => {
+    const sanitizedItems = items.map((item: any) => {
       const lineTotal = (item.quantity * item.unitPrice) - item.discountAmount + item.taxAmount
       computedSubtotal += (item.quantity * item.unitPrice)
       computedTax += item.taxAmount
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const grandTotal = computedSubtotal - computedDiscount + computedTax
 
     // wrapping in a transaction to ensure Order, Items and KOT succeed or fail together
-    const newOrder = await prisma.$transaction(async (tx) => {
+    const newOrder = await prisma.$transaction(async (tx: any) => {
       // 1. Find or create the PosOrder
       let order = null;
       if (orderData.restaurantTableId) {
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 
       // Create KOT Items for the CURRENT placement
       await (tx as any).kotItem.createMany({
-        data: sanitizedItems.map(item => {
+        data: sanitizedItems.map((item: any) => {
           const product = products.find(p => p.id === item.productId)
           const orderItem = createdItems.find((ci: any) => ci.productId === item.productId)
           return {

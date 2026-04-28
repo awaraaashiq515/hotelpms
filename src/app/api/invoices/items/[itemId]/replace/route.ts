@@ -15,7 +15,7 @@ export async function POST(
     const body = await request.json();
     const { reason, replacementProductId, replacementQty } = body;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const item = await tx.invoiceItem.findUnique({
         where: { id: itemId },
         include: { invoice: true, product: true }

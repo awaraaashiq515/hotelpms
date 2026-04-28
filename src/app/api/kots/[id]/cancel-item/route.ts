@@ -21,7 +21,7 @@ export async function POST(
     const body = await request.json()
     const { itemId, reason } = cancelItemSchema.parse(body)
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Verify item belongs to this KOT
       const item = await tx.kotItem.findFirst({
         where: { id: itemId, kotId },

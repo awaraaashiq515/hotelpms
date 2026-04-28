@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsedData = settlementSchema.parse(body)
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Fetch Invoice to verify amounts
       const invoice = await tx.invoice.findUnique({
         where: { id: parsedData.sourceId },

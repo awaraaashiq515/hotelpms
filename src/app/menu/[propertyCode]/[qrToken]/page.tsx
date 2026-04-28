@@ -88,7 +88,7 @@ export default function PublicMenuPage() {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => 
+        return prev.map((item: any) => 
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
@@ -100,7 +100,7 @@ export default function PublicMenuPage() {
     setCart(prev => {
       const existing = prev.find(item => item.id === productId);
       if (existing && existing.quantity > 1) {
-        return prev.map(item => 
+        return prev.map((item: any) => 
           item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
         );
       }

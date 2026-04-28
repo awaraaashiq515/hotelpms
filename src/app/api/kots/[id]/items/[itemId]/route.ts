@@ -19,7 +19,7 @@ export async function PATCH(
       return apiError(new Error(`Invalid status: ${status}`), 400)
     }
 
-    const updatedItem = await prisma.$transaction(async (tx) => {
+    const updatedItem = await prisma.$transaction(async (tx: any) => {
       // Update the individual item
       const item = await tx.kotItem.update({
         where: { id: itemId },

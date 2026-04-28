@@ -15,7 +15,7 @@ export async function POST(
     const body = await request.json();
     const { reason } = body;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const invoice = await tx.invoice.findUnique({
         where: { id, propertyId: session.propertyId! }
       });

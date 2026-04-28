@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Invalid tax type'), 400);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Update all products for the property
       const updatedProducts = await tx.product.updateMany({
         where: {

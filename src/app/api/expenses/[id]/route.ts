@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const expense = await prisma.expense.findUnique({ where: { id } });
     if (!expense) return apiError(new Error('Expense not found'), 404);
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Void the expense
       await tx.expense.update({ where: { id }, data: { status: 'VOID' } });
 

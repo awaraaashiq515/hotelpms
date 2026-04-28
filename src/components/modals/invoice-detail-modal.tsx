@@ -111,7 +111,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
               </tr>
             </thead>
             <tbody>
-              ${invoice.items?.map(item => `
+              ${invoice.items?.map((item: any) => `
                 <tr>
                   <td>${item.qty}</td>
                   <td class="uppercase">

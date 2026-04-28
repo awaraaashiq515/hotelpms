@@ -419,7 +419,7 @@ function CategoriesStep({ categories, reload }: { categories: Category[]; reload
         <div className="space-y-4">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Quick Add Suggestions</p>
           <div className="flex flex-wrap gap-2">
-            {SUGGESTIONS.map(s => (
+            {SUGGESTIONS.map((s: any) => (
               <button 
                 key={s} 
                 onClick={() => setNewName(s)} 

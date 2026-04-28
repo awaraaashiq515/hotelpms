@@ -65,7 +65,7 @@ async function processDriverAction(driverId: string, actionType: "rides" | "refe
   }
 
   // Offer is completed!
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     // 1. Mark current as completed
     await tx.driverOfferProgress.update({
       where: { id: progress!.id },

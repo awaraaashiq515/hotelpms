@@ -23,7 +23,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'KOT Item not found' }, { status: 404 });
     }
 
-    const updatedItem = await prisma.$transaction(async (tx) => {
+    const updatedItem = await prisma.$transaction(async (tx: any) => {
       // 1. Update the KotItem
       const item = await (tx as any).kotItem.update({
         where: { id: itemId },

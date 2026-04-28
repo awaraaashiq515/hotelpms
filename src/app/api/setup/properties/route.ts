@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsedData = propertySchema.parse(body)
 
-    const property = await prisma.$transaction(async (tx) => {
+    const property = await prisma.$transaction(async (tx: any) => {
       const p = await tx.property.create({
         data: parsedData,
       })

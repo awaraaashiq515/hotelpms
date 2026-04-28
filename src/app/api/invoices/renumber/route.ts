@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await renumberInvoices(session.propertyId!, tx);
     }, { timeout: 60000 });
 

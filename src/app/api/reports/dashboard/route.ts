@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         pendingPayments: pendingInvoices,
         lowStock: lowStock,
       },
-      recentActivity: recentActivity.map(inv => ({
+      recentActivity: recentActivity.map((inv: any) => ({
         id: inv.id,
         type: 'SALE',
         title: `Sale - ${inv.invoiceNo}`,

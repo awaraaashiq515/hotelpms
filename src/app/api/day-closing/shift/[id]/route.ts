@@ -70,7 +70,7 @@ export async function POST(
     const expectedCash = shift.openingCash + cashSales + totalTopUps - totalWithdrawals;
     const variance = Number(actualCash || 0) - expectedCash;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Close the shift
       const closedShift = await tx.shift.update({
         where: { id: shiftId },

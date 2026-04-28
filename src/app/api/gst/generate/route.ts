@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     // ── 6. Build b2cs array ───────────────────────────────────────────────────
     const b2cs = Object.values(b2csMap)
       .filter(item => item.txval > 0)
-      .map(item => ({
+      .map((item: any) => ({
         sply_ty: 'INTRA',
         pos: stateCode,
         typ: 'OE',

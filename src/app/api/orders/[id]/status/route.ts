@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       'CANCELLED': 'CANCELLED',
     }
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: any) => {
       const order = await tx.posOrder.update({
         where: { id: id },
         data: { status }

@@ -81,7 +81,7 @@ export default function PosPage() {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map((item: any) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
     });
@@ -92,7 +92,7 @@ export default function PosPage() {
   };
 
   const updateQuantity = (id: string, delta: number) => {
-    setCart(prev => prev.map(item => {
+    setCart(prev => prev.map((item: any) => {
       if (item.id === id) {
         const newQty = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQty };
@@ -217,7 +217,7 @@ export default function PosPage() {
                 </svg>
                 <p>Empty Cart</p>
               </div>
-            ) : cart.map(item => (
+            ) : cart.map((item: any) => (
               <div key={item.id} className="flex gap-3 bg-white/60 p-3 rounded-2xl animate-in fade-in slide-in-from-right-4 transition-all hover:bg-white/80">
                 <div className="flex-1">
                   <p className="font-semibold text-sm text-gray-900 line-clamp-1">{item.name}</p>
@@ -310,7 +310,7 @@ export default function PosPage() {
 
           <div className="bg-gray-50 p-4 rounded-2xl space-y-2">
             <p className="text-xs font-bold text-gray-400 uppercase">Order Summary</p>
-            {cart.map(item => (
+            {cart.map((item: any) => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span className="text-gray-600">{item.name} x {item.quantity}</span>
                 <span className="font-semibold">₹{item.sellingPrice * item.quantity}</span>

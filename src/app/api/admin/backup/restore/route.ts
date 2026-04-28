@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     // For V1, we will focus on Menu (Categories, Products) and Outlets.
     // Full restore of all transactional data is complex due to relations.
     
-    const results = await prisma.$transaction(async (tx) => {
+    const results = await prisma.$transaction(async (tx: any) => {
       const { 
         organization, 
         posOrders, 

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (!productId) return apiError(new Error('productId required'), 400);
 
     // Use transaction to update ingredients
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Delete existing ingredients
       await tx.productIngredient.deleteMany({
         where: { productId }

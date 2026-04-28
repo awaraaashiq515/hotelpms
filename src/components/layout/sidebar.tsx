@@ -53,7 +53,7 @@ export const Sidebar: React.FC = () => {
     }
 
     return true;
-  }).map(item => {
+  }).map((item: any) => {
     if (item.subItems) {
       return {
         ...item,

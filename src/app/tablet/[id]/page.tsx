@@ -213,7 +213,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map((item: any) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
     });
@@ -224,7 +224,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     setCart(prev => {
       const existing = prev.find(item => item.id === productId);
       if (existing && existing.quantity > 1) {
-        return prev.map(item => item.id === productId ? { ...item, quantity: item.quantity - 1 } : item);
+        return prev.map((item: any) => item.id === productId ? { ...item, quantity: item.quantity - 1 } : item);
       }
       return prev.filter(item => item.id !== productId);
     });
@@ -755,7 +755,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                 <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white">Empty Selection</h3>
                 <p className="text-[9px] mt-4 font-bold text-slate-600 uppercase tracking-widest leading-loose">The kitchen awaits your first command.<br/>Excellence takes a moment.</p>
               </div>
-            ) : cart.map(item => (
+            ) : cart.map((item: any) => (
               <div key={item.id} className="flex gap-6 items-center animate-in slide-in-from-right-8 duration-500">
                 <div className="w-16 h-16 rounded-2xl bg-white/5 overflow-hidden shrink-0 border border-white/10 p-0.5 shadow-2xl">
                   {item.image ? (
@@ -877,7 +877,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               ].map((step, idx, arr) => {
                 const stepIdx = idx;
                 const currentStatus = activeOrder.status;
-                const stages = arr.map(s => s.key);
+                const stages = arr.map((s: any) => s.key);
                 
                 // Determine if this step is passed or current
                 let currentIdx = stages.indexOf(currentStatus);

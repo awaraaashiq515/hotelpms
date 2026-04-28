@@ -210,7 +210,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
           className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all appearance-none"
         >
           <option value="">No Driver Reference</option>
-          {drivers.map(d => (
+          {drivers.map((d: any) => (
             <option key={d.id} value={d.id}>{d.name} ({d.vehicleNumber || 'N/A'})</option>
           ))}
         </select>

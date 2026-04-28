@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (!stockItemId || !fromWarehouseId || !toWarehouseId || !qty || qty <= 0)
       return apiError(new Error('stockItemId, warehouses and qty > 0 required'), 400);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Deduct from source
       const lastMovFrom = await tx.stockMovement.findFirst({
         where: { stockItemId, warehouseId: fromWarehouseId },

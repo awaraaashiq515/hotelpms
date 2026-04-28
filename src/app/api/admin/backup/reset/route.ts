@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Begin Reset Transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       const where = { propertyId };
 
       // 1. KOT Tickets & Items (Delete items first)

@@ -23,7 +23,7 @@ export async function POST(
     const body = await request.json()
     const { productId, quantity, notes, unitPrice } = addItemSchema.parse(body)
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Fetch the KOT with its parent order
       const kot = await tx.kotTicket.findUnique({
         where: { id: kotId },

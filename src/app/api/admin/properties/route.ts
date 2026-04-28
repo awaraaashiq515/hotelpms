@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Property and seed default records in a transaction for safety
-    const newProperty = await prisma.$transaction(async (tx) => {
+    const newProperty = await prisma.$transaction(async (tx: any) => {
       // 1. Create Property
       const prop = await tx.property.create({
         data: {
@@ -266,20 +266,20 @@ export async function DELETE(request: NextRequest) {
     if (!existing) return apiError(new Error('Property not found or access denied'), 404);
 
     // Perform manual cascade delete across all related models in a transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       console.log('Transaction started for property:', id);
 
       // 0. Handle external nullable references first
       const propertyUsers = await tx.user.findMany({ where: { propertyId: id }, select: { id: true } });
       if (propertyUsers.length > 0) {
-        const userIds = propertyUsers.map(u => u.id);
+        const userIds = propertyUsers.map((u: any) => u.id);
         await tx.auditLog.updateMany({ where: { userId: { in: userIds } }, data: { userId: null } });
         await tx.posOrder.updateMany({ where: { servedById: { in: userIds } }, data: { servedById: null } });
       }
       
       const propertyDrivers = await tx.driver.findMany({ where: { propertyId: id }, select: { id: true } });
       if (propertyDrivers.length > 0) {
-        const driverIds = propertyDrivers.map(d => d.id);
+        const driverIds = propertyDrivers.map((d: any) => d.id);
         await tx.guest.updateMany({ where: { driverId: { in: driverIds } }, data: { driverId: null } });
       }
 

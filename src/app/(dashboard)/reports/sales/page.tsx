@@ -86,7 +86,7 @@ export default function SalesReportPage() {
     
     const csvContent = [
       headers.join(','),
-      ...items.map(item => {
+      ...items.map((item: any) => {
         if (view === 'products') {
           return `"${item.name}","${(item as any).category}",${item.qty},${item.amount}`;
         }
@@ -115,7 +115,7 @@ export default function SalesReportPage() {
     doc.text(`Total Revenue: INR ${data.summary.totalSales.toLocaleString()}`, 14, 32);
     doc.text(`Total Items Sold: ${data.products.reduce((acc, p) => acc + p.qty, 0)}`, 14, 38);
     
-    const tableData = (view === 'products' ? data.products : data.categories).map(item => [
+    const tableData = (view === 'products' ? data.products : data.categories).map((item: any) => [
       (item as any).name,
       view === 'products' ? (item as any).category : '-',
       item.qty.toString(),

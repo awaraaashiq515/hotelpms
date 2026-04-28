@@ -74,7 +74,7 @@ export async function DELETE(
     const body = await request.json().catch(() => ({}));
     const { reason } = body;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const invoice = await tx.invoice.findUnique({
         where: { id: id as string, propertyId: session.propertyId as string }
       });
@@ -126,7 +126,7 @@ export async function PATCH(
     const body = await request.json();
     const { paymentStatus, invoiceStatus } = body;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const invoice = await tx.invoice.findUnique({
         where: { id, propertyId: session.propertyId! }
       });

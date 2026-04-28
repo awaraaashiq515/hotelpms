@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const agg = await tx.stockMovement.aggregate({
         where: { stockItemId, warehouseId: warehouse!.id },
         _sum: { qtyIn: true, qtyOut: true },

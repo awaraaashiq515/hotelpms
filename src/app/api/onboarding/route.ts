@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const userRole = session.role
 
     // Run in transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Update User Personal Info
       const updatedUser = await tx.user.update({
         where: { id: userId },

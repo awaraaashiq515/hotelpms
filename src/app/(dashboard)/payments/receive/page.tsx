@@ -157,7 +157,7 @@ export default function ReceivePaymentPage() {
                   value={selectedInvoiceId}
                   onChange={(e) => handleInvoiceChange(e.target.value)}
                   options={invoices.length > 0 
-                    ? invoices.map(inv => ({ label: `${inv.invoiceNo} (Due: ₹${inv.dueAmount})`, value: inv.id }))
+                    ? invoices.map((inv: any) => ({ label: `${inv.invoiceNo} (Due: ₹${inv.dueAmount})`, value: inv.id }))
                     : [{ label: 'No pending invoices found', value: '' }]
                   }
                 />

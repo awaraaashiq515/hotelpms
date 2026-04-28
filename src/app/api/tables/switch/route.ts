@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Source and target tables cannot be the same'), 400);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Find source table and its active order
       const sourceTable = await tx.table.findUnique({
         where: { id: sourceTableId },

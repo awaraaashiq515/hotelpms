@@ -75,7 +75,7 @@ export async function PUT(
     }
 
     // Replace role permissions
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.rolePermission.deleteMany({ where: { roleId: id } });
       
       for (const pid of permissionIds) {

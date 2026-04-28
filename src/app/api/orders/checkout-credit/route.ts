@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return apiResponse(null, 'Customer is required for credit sales', 400);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Verify guest exists
       const guest = await (tx as any).guest.findUnique({ where: { id: guestId } });
       if (!guest) throw new Error('Customer not found');

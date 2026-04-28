@@ -232,7 +232,7 @@ export default function TableManagementPage() {
           guestId: guestId,
           driverId: driverId,
           totalAmount: billData.subtotal,
-          items: billData.items.map(item => ({
+          items: billData.items.map((item: any) => ({
             id: item.id,
             name: item.name,
             quantity: item.quantity,
@@ -804,7 +804,7 @@ export default function TableManagementPage() {
             { label: 'KOT Running', color: 'bg-amber-400' },
             { label: 'Bill Printed', color: 'bg-blue-400' },
             { label: 'Cleaning', color: 'bg-slate-400' },
-          ].map(item => (
+          ].map((item: any) => (
             <div key={item.label} className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>
               <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{item.label}</span>

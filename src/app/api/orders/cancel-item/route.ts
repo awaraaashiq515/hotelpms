@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid parameters: requires orderItemId, cancelQuantity, reason' }, { status: 400 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Find PosOrderItem
       const orderItem = await (tx as any).posOrderItem.findUnique({
         where: { id: orderItemId },

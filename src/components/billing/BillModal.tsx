@@ -251,7 +251,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               </tr>
             </thead>
             <tbody>
-              ${bill.items.map(item => `
+              ${bill.items.map((item: any) => `
                 <tr>
                   <td>${item.quantity}</td>
                   <td class="uppercase">

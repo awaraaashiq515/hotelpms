@@ -226,7 +226,7 @@ export default function GstSettingsPage() {
                 className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary appearance-none dark:text-slate-100"
               >
                 <option value="">-- Select State --</option>
-                {STATE_CODES.map(s => (
+                {STATE_CODES.map((s: any) => (
                   <option key={s.code} value={s.code}>
                     {s.code} — {s.name}
                   </option>

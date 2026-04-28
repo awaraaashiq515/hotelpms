@@ -64,7 +64,7 @@ export const DashboardAdminSidebar: React.FC = () => {
 
     if (item.roles && !isRoleListed) return false;
     return true;
-  }).map(item => {
+  }).map((item: any) => {
     if (item.subItems) {
       return {
         ...item,

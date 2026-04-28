@@ -129,12 +129,12 @@ export async function GET(request: NextRequest) {
     );
 
     // Format breakdown
-    const propertiesBreakdown = allProperties.map(p => ({
+    const propertiesBreakdown = allProperties.map((p: any) => ({
       id: p.id,
       name: p.name,
       type: p.type,
       city: p.city,
-      totalSales: p.posOrders.reduce((sum, order) => sum + order.grandTotal, 0),
+      totalSales: p.posOrders.reduce((sum: number, order: any) => sum + order.grandTotal, 0),
       orderCount: p._count.posOrders,
       outletCount: p._count.outlets,
       userCount: p._count.users

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     let taxAmount = 0
     let discountAmount = 0 // In full version, extracted from body if applied to invoice level
 
-    const sanitizedItems = items.map(item => {
+    const sanitizedItems = items.map((item: any) => {
       const lineTotal = (item.qty * item.unitPrice) + item.taxAmount
       subtotal += (item.qty * item.unitPrice)
       taxAmount += item.taxAmount
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const totalAmount = subtotal - discountAmount + taxAmount
 
-    const newInvoice = await prisma.$transaction(async (tx) => {
+    const newInvoice = await prisma.$transaction(async (tx: any) => {
       // Create Header
       const invoice = await tx.invoice.create({
         data: {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
       // Create Lines
       await tx.invoiceItem.createMany({
-        data: sanitizedItems.map(item => ({ ...item, invoiceId: invoice.id }))
+        data: sanitizedItems.map((item: any) => ({ ...item, invoiceId: invoice.id }))
       })
 
       return await tx.invoice.findUnique({

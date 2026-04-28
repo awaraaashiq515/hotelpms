@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const propertyId = (voucherData.propertyId || session.propertyId) as string
-    const savedVoucher = await prisma.$transaction(async (tx) => {
+    const savedVoucher = await prisma.$transaction(async (tx: any) => {
       const voucher = await tx.voucher.create({
         data: {
           propertyId,

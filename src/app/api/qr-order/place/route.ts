@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Process the order in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Find or create an active order for this table
       let order = await tx.posOrder.findFirst({
         where: {

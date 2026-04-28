@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Run everything in a transaction for safety
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const cat of categories) {
         if (!cat.name) continue;
 
