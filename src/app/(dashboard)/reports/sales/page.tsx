@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/shared/page-header';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { jsPDF } from 'jspdf';
@@ -161,31 +162,27 @@ export default function SalesReportPage() {
   return (
     <div className="space-y-4 pb-8 animate-in fade-in duration-500">
       {/* Ultra-Compact Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/10">
-            <BarChart3 size={20} />
+      <PageHeader
+        title="Sales Intelligence"
+        subtitle="Performance Diagnostics"
+        showBack
+        backUrl="/reports"
+        actions={
+          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            {['today', 'yesterday', 'week', 'month'].map((t) => (
+              <Button 
+                key={t}
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setRangeType(t as any)} 
+                className="rounded-lg text-[9px] font-black uppercase tracking-widest h-7 px-3"
+              >
+                {t === 'week' ? '7D' : t}
+              </Button>
+            ))}
           </div>
-          <div>
-            <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Sales Intelligence</h1>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Performance Diagnostics</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-           {['today', 'yesterday', 'week', 'month'].map((t) => (
-             <Button 
-               key={t}
-               variant="ghost" 
-               size="sm" 
-               onClick={() => setRangeType(t as any)} 
-               className="rounded-lg text-[9px] font-black uppercase tracking-widest h-7 px-3"
-             >
-               {t === 'week' ? '7D' : t}
-             </Button>
-           ))}
-        </div>
-      </div>
+        }
+      />
 
       {/* Compact Filter Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Banknote, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface CashEntry {
   id: string;
@@ -62,13 +63,12 @@ export default function CashBookPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Cash Book</h1>
-        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
-          All cash receipts and payments with running balance
-        </p>
-      </div>
+      <PageHeader
+        title="Cash Book"
+        subtitle="All cash receipts and payments with running balance"
+        showBack
+        backUrl="/accounts"
+      />
 
       {/* Date + Fetch */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-5">

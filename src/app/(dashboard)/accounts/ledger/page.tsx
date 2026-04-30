@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BookMarked, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface Account {
   id: string;
@@ -82,12 +83,12 @@ export default function LedgerPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Ledger Statement</h1>
-        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
-          Account-level transactions with running balance
-        </p>
-      </div>
+      <PageHeader
+        title="Ledger Statement"
+        subtitle="Account-level transactions with running balance"
+        showBack
+        backUrl="/accounts"
+      />
 
       {/* Filters */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-5">

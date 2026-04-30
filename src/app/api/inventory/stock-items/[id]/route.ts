@@ -52,6 +52,7 @@ export async function PUT(
       reorderLevel,
       costPrice,
       isActive,
+      itemType,
     } = body;
 
     const updated = await prisma.stockItem.update({
@@ -64,6 +65,7 @@ export async function PUT(
         reorderLevel: Number(reorderLevel || 0),
         costPrice: Number(costPrice || 0),
         isActive: isActive !== false,
+        itemType: itemType !== undefined ? itemType : undefined,
       },
     });
 

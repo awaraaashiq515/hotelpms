@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import Link from 'next/link';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface Expense {
   id: string;
@@ -95,20 +96,20 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold section-heading tracking-tight text-gray-900 dark:text-white">Expenses</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 tracking-widest mt-0.5">
-            All recorded expenses · Auto-linked to accounting
-          </p>
-        </div>
-        <Link
-          href="/expenses/new"
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
-        >
-          <Plus size={16} /> New Expense
-        </Link>
-      </div>
+      <PageHeader
+        title="Expenses"
+        subtitle="All recorded expenses · Auto-linked to accounting"
+        showBack
+        backUrl="/operations"
+        actions={
+          <Link
+            href="/expenses/new"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
+          >
+            <Plus size={16} /> New Expense
+          </Link>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">

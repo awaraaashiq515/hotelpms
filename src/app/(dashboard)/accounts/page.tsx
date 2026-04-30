@@ -12,6 +12,7 @@ import {
   ArrowDownLeft,
   Calendar
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default function AccountsDashboard() {
   const cards = [
@@ -49,19 +50,20 @@ export default function AccountsDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Accounting Hub</h1>
-          <p className="text-xs font-bold text-slate-400 tracking-widest mt-0.5">Financial reporting and management</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
-          <Calendar size={16} className="text-pos-primary" />
-          <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-            {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </span>
-        </div>
-      </div>
+      <PageHeader
+        title="Accounting Hub"
+        subtitle="Financial reporting and management"
+        showBack
+        backUrl="/operations"
+        actions={
+          <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+            <Calendar size={16} className="text-pos-primary" />
+            <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+              {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+        }
+      />
 
       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

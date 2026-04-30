@@ -36,11 +36,11 @@ async function main() {
 
   // 3. Create sample users
   await prisma.user.upsert({
-    where: { email: 'admin@petpooja.com' },
+    where: { email: 'admin@ordermint.com' },
     update: { roleId: adminRole.id },
     create: {
       fullName: 'Admin User',
-      email: 'admin@petpooja.com',
+      email: 'admin@ordermint.com',
       passwordHash: passwordHash,
       organizationId: org.id,
       propertyId: property.id,
@@ -50,11 +50,11 @@ async function main() {
   });
 
   await prisma.user.upsert({
-    where: { email: 'pos@petpooja.com' },
+    where: { email: 'pos@ordermint.com' },
     update: { roleId: posRole.id },
     create: {
       fullName: 'POS User',
-      email: 'pos@petpooja.com',
+      email: 'pos@ordermint.com',
       passwordHash: passwordHash,
       organizationId: org.id,
       propertyId: property.id,
@@ -64,8 +64,8 @@ async function main() {
   });
 
   console.log('Roles and test users created successfully!');
-  console.log('Admin User: admin@petpooja.com / admin123');
-  console.log('POS User: pos@petpooja.com / admin123');
+  console.log('Admin User: admin@ordermint.com / admin123');
+  console.log('POS User: pos@ordermint.com / admin123');
 }
 
 main()

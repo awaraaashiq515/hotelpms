@@ -121,9 +121,10 @@ export default function StaffPage() {
   return (
     <div className="space-y-8">
       <PageHeader 
-        title="Staff Management" 
-        subtitle="Manage user accounts and roles"
+        title="Staff Access Control" 
+        subtitle="Manage staff permissions and terminal access"
         showBack
+        backUrl="/operations"
         actions={
           <Button 
             onClick={() => { setSelectedStaff(null); setIsFormOpen(true); }}

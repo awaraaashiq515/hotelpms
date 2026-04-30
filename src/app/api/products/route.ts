@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
       where: getMultiTenantWhere(session, propertyIdParam),
       include: { 
         category: true,
+        variants: true,
         property: { select: { name: true, city: true } }
       },
       orderBy: { name: 'asc' },
@@ -38,13 +39,14 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('No property context found. Please select a property.'), 400);
     }
 
-    const { name, sellingPrice, costPrice, categoryId, productType, sku, barcode, hsnCode, taxRate, taxType, trackInventory, isActive, image, description } = body;
+    const { name, sellingPrice, halfPrice, costPrice, categoryId, productType, sku, barcode, hsnCode, taxRate, taxType, trackInventory, isActive, image, description, menuType, pegSize, pegUnit, stockItemId, variants } = body;
 
     const product = await prisma.product.create({
       data: {
         name,
         description: description || null,
         sellingPrice: Number(sellingPrice),
+        halfPrice: halfPrice ? Number(halfPrice) : null,
         costPrice: Number(costPrice || 0),
         productType: productType || 'REVENUE',
         sku,
@@ -55,10 +57,22 @@ export async function POST(request: NextRequest) {
         image,
         trackInventory: trackInventory === true,
         isActive: isActive !== false,
+        menuType: menuType || 'RESTAURANT',
+        pegSize: pegSize ? Number(pegSize) : null,
+        pegUnit: pegUnit || 'ml',
+        stockItemId: stockItemId || null,
         propertyId: propertyId,
         categoryId,
+        variants: variants && variants.length > 0 ? {
+          create: variants.map((v: any) => ({
+            name: v.name,
+            price: Number(v.price)
+          }))
+        } : undefined
       },
+      include: { variants: true }
     });
+
 
     return apiResponse(product, 'Product created', 201);
   } catch (error) {

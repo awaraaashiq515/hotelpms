@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { PageHeader } from '@/components/shared/page-header';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
 import { DataTable } from '@/components/shared/data-table';
 import { Plus, Edit, Trash2, Grid } from 'lucide-react';
@@ -15,6 +15,7 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedMenuTypeFilter, setSelectedMenuTypeFilter] = useState('all');
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -70,10 +71,12 @@ export default function CategoriesPage() {
     }
   };
 
-  const filteredCategories = (categories || []).filter((cat: Category) =>
-    cat.name?.toLowerCase().includes(search.toLowerCase()) ||
-    cat.description?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCategories = (categories || []).filter((cat: Category) => {
+    const matchesSearch = cat.name?.toLowerCase().includes(search.toLowerCase()) ||
+                         cat.description?.toLowerCase().includes(search.toLowerCase());
+    const matchesMenuType = selectedMenuTypeFilter === 'all' || cat.menuType === selectedMenuTypeFilter;
+    return matchesSearch && matchesMenuType;
+  });
 
   const columns = [
     {
@@ -96,6 +99,19 @@ export default function CategoriesPage() {
         <span className="text-xs text-gray-500 dark:text-slate-400 line-clamp-1">{row.description || 'No description'}</span>
       ),
       width: '300px'
+    },
+    {
+      header: 'Menu Type',
+      cell: (row: Category) => (
+        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${
+          row.menuType === 'BAR' 
+            ? 'bg-amber-50 text-amber-600 border-amber-100' 
+            : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+        }`}>
+          {row.menuType || 'RESTAURANT'}
+        </span>
+      ),
+      width: '120px'
     },
     {
       header: 'Status',
@@ -139,8 +155,9 @@ export default function CategoriesPage() {
     <div className="space-y-8">
       <PageHeader
         title="Categories"
-        subtitle="Group your menu items into categories"
+        description="Group your menu items into categories"
         showBack
+        backUrl="/operations"
         actions={
           <Button
             onClick={() => {
@@ -159,6 +176,40 @@ export default function CategoriesPage() {
         value={search}
         onChange={setSearch}
         placeholder="Search by category name..."
+        actions={
+          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700">
+            <button
+              onClick={() => setSelectedMenuTypeFilter('all')}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedMenuTypeFilter === 'all'
+                  ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setSelectedMenuTypeFilter('RESTAURANT')}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedMenuTypeFilter === 'RESTAURANT'
+                  ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+              }`}
+            >
+              Restaurant
+            </button>
+            <button
+              onClick={() => setSelectedMenuTypeFilter('BAR')}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedMenuTypeFilter === 'BAR'
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+              }`}
+            >
+              Bar
+            </button>
+          </div>
+        }
       />
 
       <DataTable

@@ -194,6 +194,7 @@ export default function PosStaffPage() {
         title="POS Support Staff" 
         subtitle="Manage waiters, stewards & support staff for order assignment"
         showBack
+        backUrl="/operations"
         actions={
           <Button 
             onClick={() => { setSelectedStaff(null); setIsFormOpen(true); }}

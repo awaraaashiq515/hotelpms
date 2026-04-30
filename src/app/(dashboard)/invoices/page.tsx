@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileText, Search, Printer, Trash2, Eye, Filter, Building2, ChevronDown, ReceiptText, RotateCcw, Star } from 'lucide-react';
-import { PageHeader } from '@/components/shared/page-header';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable } from '@/components/shared/data-table';
 import { StatusButton } from '@/components/shared/status-button';
 import { invoicesApi, Invoice } from '@/lib/api/invoices';
@@ -337,8 +337,9 @@ export default function InvoicesPage() {
     <div className="space-y-8">
       <PageHeader
         title="Invoices"
-        subtitle="Manage billing history and cancellations"
+        description="Manage billing history and cancellations"
         showBack
+        backUrl="/operations"
       />
 
       <div className="bg-white dark:bg-slate-900/50 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">

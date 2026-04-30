@@ -15,6 +15,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface Settlement {
   id: string;
@@ -75,16 +76,12 @@ export default function SettlementsReportPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-pos-primary/5 rounded-full -mr-32 -mt-32" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-               <CreditCard className="text-pos-primary" size={32} />
-               Settlement Report
-            </h1>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Payment mode breakdown and closing analysis</p>
-          </div>
+      <PageHeader
+        title="Settlement Report"
+        subtitle="Payment mode breakdown and closing analysis"
+        showBack
+        backUrl="/reports"
+        actions={
           <div className="flex bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent text-xs font-black text-slate-700 dark:text-slate-300 outline-none p-2" />
              <span className="p-2 text-slate-300">→</span>
@@ -93,8 +90,8 @@ export default function SettlementsReportPage() {
                 <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
              </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {data ? (
         <>

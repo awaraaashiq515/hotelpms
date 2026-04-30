@@ -11,12 +11,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const lowStockOnly = searchParams.get('lowStock') === 'true';
+    const itemType = searchParams.get('itemType');
 
     const where = getMultiTenantWhere(session);
     if (search) {
       (where as any).name = { contains: search };
     }
     (where as any).isActive = true;
+    if (itemType) {
+      (where as any).itemType = itemType;
+    }
 
     const warehouseId = searchParams.get('warehouseId');
 
@@ -74,6 +78,7 @@ export async function POST(request: NextRequest) {
       minimumStock,
       reorderLevel,
       costPrice,
+      itemType,
     } = body;
 
     if (!name) return apiError(new Error('Name is required'), 400);
@@ -90,6 +95,7 @@ export async function POST(request: NextRequest) {
         reorderLevel: Number(reorderLevel || 0),
         costPrice: Number(costPrice || 0),
         isActive: true,
+        itemType: itemType || 'RESTAURANT',
       },
     });
 

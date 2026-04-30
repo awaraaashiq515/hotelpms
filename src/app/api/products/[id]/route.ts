@@ -14,7 +14,10 @@ export async function GET(
 
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: { 
+        category: true,
+        variants: true
+      },
     });
 
     if (!product) return apiError(new Error('Product not found'), 404);
@@ -49,28 +52,56 @@ export async function PUT(
       trackInventory, 
       isActive,
       image,
-      description
+      description,
+      menuType,
+      pegSize,
+      pegUnit,
+      stockItemId,
+      halfPrice,
+      variants
     } = body;
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        description: description !== undefined ? (description || null) : undefined,
-        sellingPrice: Number(sellingPrice),
-        costPrice: Number(costPrice || 0),
-        productType,
-        sku,
-        barcode,
-        hsnCode,
-        taxRate: taxRate !== undefined ? (taxRate === null ? null : Number(taxRate)) : undefined,
-        taxType: taxType !== undefined ? taxType : undefined,
-        image,
-        trackInventory: trackInventory === true,
-        isActive: isActive !== false,
-        categoryId,
-      },
+    // Use transaction to sync variants
+    const product = await prisma.$transaction(async (tx: any) => {
+      // 1. Delete existing variants
+      await tx.productVariant.deleteMany({
+        where: { productId: id }
+      });
+
+      // 2. Update product and create new variants
+      return await tx.product.update({
+        where: { id },
+        data: {
+          name,
+          description: description !== undefined ? (description || null) : undefined,
+          sellingPrice: Number(sellingPrice),
+          halfPrice: halfPrice !== undefined ? (halfPrice ? Number(halfPrice) : null) : undefined,
+          costPrice: Number(costPrice || 0),
+          productType,
+          sku,
+          barcode,
+          hsnCode,
+          taxRate: taxRate !== undefined ? (taxRate === null ? null : Number(taxRate)) : undefined,
+          taxType: taxType !== undefined ? taxType : undefined,
+          image,
+          trackInventory: trackInventory === true,
+          isActive: isActive !== false,
+          menuType: menuType !== undefined ? menuType : undefined,
+          pegSize: pegSize !== undefined ? (pegSize ? Number(pegSize) : null) : undefined,
+          pegUnit: pegUnit !== undefined ? pegUnit : undefined,
+          stockItemId: stockItemId !== undefined ? stockItemId : undefined,
+          categoryId,
+          variants: variants && variants.length > 0 ? {
+            create: variants.map((v: any) => ({
+              name: v.name,
+              price: Number(v.price)
+            }))
+          } : undefined
+        },
+        include: { variants: true }
+      });
     });
+
 
     return apiResponse(product, 'Product updated');
   } catch (error) {

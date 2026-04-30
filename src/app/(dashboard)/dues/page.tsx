@@ -114,6 +114,7 @@ export default function DuesPage() {
         title="Outstanding Dues" 
         subtitle="Track unpaid invoices and customer balances"
         showBack
+        backUrl="/operations"
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

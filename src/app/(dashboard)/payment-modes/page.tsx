@@ -176,6 +176,7 @@ export default function PaymentModesPage() {
         title="Payment Modes" 
         subtitle="Manage accepted payment methods"
         showBack
+        backUrl="/operations"
         actions={
           <Button 
             onClick={() => setIsAddOpen(true)}

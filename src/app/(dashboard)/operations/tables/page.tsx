@@ -6,7 +6,7 @@ import {
   LayoutGrid, RefreshCcw, Plus,
   Search, Filter, ChevronRight,
   Map, Monitor, Utensils,
-  Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode
+  Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft
 } from 'lucide-react';
 import { QRModal } from '@/components/tables/QRModal';
 import { Button } from '@/components/ui/Button';
@@ -593,6 +593,14 @@ export default function TableManagementPage() {
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl transition-all">
         <div className="flex items-center gap-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push('/operations')}
+            className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </Button>
           <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-colors">
             <Map size={24} />
           </div>

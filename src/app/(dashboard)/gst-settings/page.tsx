@@ -149,6 +149,8 @@ export default function GstSettingsPage() {
       <PageHeader
         title="GST Configuration"
         description="Configure your GSTIN, state code and HSN defaults for GST filing."
+        showBack
+        backUrl="/operations"
       />
 
       {/* ── Business Info ─────────────────────────────────────────────── */}

@@ -55,9 +55,14 @@ export default async function BlogDetailPage({
   params: Promise<{ slug: string }> 
 }) {
   const { slug } = await params;
-  const blog = await prisma.websiteBlog.findUnique({
-    where: { slug, isActive: true },
-  });
+  let blog = null;
+  try {
+    blog = await prisma.websiteBlog.findUnique({
+      where: { slug, isActive: true },
+    });
+  } catch (error) {
+    console.error('Failed to fetch blog detail from database, likely during build.', error);
+  }
 
   if (!blog) {
     notFound();

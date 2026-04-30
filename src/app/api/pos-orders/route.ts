@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
         select: { id: true, name: true }
       })
 
-      // Create KOT Items for the CURRENT placement
+      // 5. Create KOT Items for the CURRENT placement
       await (tx as any).kotItem.createMany({
         data: sanitizedItems.map((item: any) => {
           const product = products.find((p: any) => p.id === item.productId)
@@ -198,6 +198,51 @@ export async function POST(request: NextRequest) {
           }
         })
       })
+
+      // 6. Handle Bar Inventory Deduction
+      let warehouse = await tx.warehouse.findFirst({
+        where: { propertyId: orderData.propertyId },
+      });
+      if (!warehouse) {
+        warehouse = await tx.warehouse.create({
+          data: { propertyId: orderData.propertyId, name: 'Main Store', code: 'MAIN' },
+        });
+      }
+
+      for (const item of sanitizedItems) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { stockItemId: true, pegSize: true }
+        });
+
+        if (product?.stockItemId && product?.pegSize) {
+          const deductionQty = product.pegSize * item.quantity;
+          
+          const agg = await tx.stockMovement.aggregate({
+            where: { stockItemId: product.stockItemId, warehouseId: warehouse.id },
+            _sum: { qtyIn: true, qtyOut: true },
+          });
+          const stockItem = await tx.stockItem.findUnique({ where: { id: product.stockItemId } });
+          const openingStock = stockItem?.openingStock || 0;
+          const currentBalance = openingStock + (agg._sum.qtyIn || 0) - (agg._sum.qtyOut || 0);
+          const newBalance = currentBalance - deductionQty;
+
+          await tx.stockMovement.create({
+            data: {
+              propertyId: orderData.propertyId,
+              warehouseId: warehouse.id,
+              stockItemId: product.stockItemId,
+              movementType: 'SALE',
+              referenceModule: 'POS_ORDER',
+              referenceId: order.id,
+              qtyIn: 0,
+              qtyOut: deductionQty,
+              balanceQty: newBalance,
+              movementDate: new Date()
+            }
+          });
+        }
+      }
 
       return await (tx as any).posOrder.findUnique({
         where: { id: order.id },
@@ -242,6 +287,7 @@ export async function GET(request: NextRequest) {
     const outletId = searchParams.get('outletId')
     const status = searchParams.get('status')
     const restaurantTableId = searchParams.get('restaurantTableId')
+    const orderId = searchParams.get('orderId')
 
     const where: any = getMultiTenantWhere(session, propertyIdParam);
 
@@ -258,6 +304,7 @@ export async function GET(request: NextRequest) {
     const orders = await prisma.posOrder.findMany({
       where: {
         ...where,
+        ...(orderId ? { id: orderId } : {}),
         ...(outletId ? { outletId } : {}),
         ...(restaurantTableId ? { restaurantTableId } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),

@@ -13,7 +13,32 @@ import { StorySection } from '@/components/website/StorySection';
 import { BlogSection } from '@/components/website/BlogSection';
 import { AppDownloadSection } from '@/components/website/AppDownloadSection';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function RootPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirection to dashboard disabled as per user request
+    /*
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) {
+          const role = data.user.role;
+          if (role === 'SUPER_ADMIN') {
+            router.replace('/admin/dashboard');
+          } else if (role === 'RESTAURANTS_ADMIN') {
+            router.replace('/dashboard');
+          } else {
+            router.replace('/operations');
+          }
+        }
+      })
+      .catch(() => {});
+    */
+  }, [router]);
   return (
     <main className="min-h-screen bg-white selection:bg-pos-primary/30 selection:text-pos-primary">
       {/* 1. Header */}

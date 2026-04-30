@@ -4,6 +4,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { sendSMS } from '@/lib/notificationService';
 import { processDriverRide } from '@/lib/driverOfferEngine';
+import { sendWhatsAppMessage, formatWhatsAppReceipt } from '@/lib/whatsapp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount } = body;
+    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, sendWhatsApp } = body;
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 0. Find target account (Cash Account)
@@ -333,12 +334,25 @@ export async function POST(request: NextRequest) {
       processDriverRide(result.driverId).catch(err => console.error('Driver Engine Error:', err));
     }
 
-    // Send SMS Notification
+    // Notifications (SMS & WhatsApp)
     if (guestId) {
       const guest = await prisma.guest.findUnique({ where: { id: guestId } });
       const property = await prisma.property.findUnique({ where: { id: session.propertyId! } });
       
       if (guest?.mobile) {
+        // 1. WhatsApp Receipt
+        if (sendWhatsApp) {
+          const templateSetting = await prisma.systemSetting.findUnique({ where: { key: 'WHATSAPP_TEMPLATE_BILL' } });
+          const message = formatWhatsAppReceipt({ ...result, items }, property, templateSetting?.value);
+          
+          sendWhatsAppMessage({
+            mobile: guest.mobile,
+            message: message,
+            propertyId: session.propertyId!
+          }).catch(err => console.error('Failed to trigger WhatsApp:', err));
+        }
+
+        // 2. Standard SMS
         sendSMS(guest.mobile, 'TEMPLATE_BILL_PAID', {
           NAME: guest.firstName || 'Guest',
           AMOUNT: result.grandTotal.toString(),

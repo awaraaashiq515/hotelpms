@@ -95,7 +95,7 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
 
   // Logic: Disable lock for Administrative roles on Management pages
   // Or for everyone on exempt pages like Kitchen Display
-  const disableLock = ((session?.role === 'RESTAURANTS_ADMIN' || session?.role === 'SUPER_ADMIN') && isManagementPage) || isExemptPage;
+  const disableLock = ((session?.role === 'RESTAURANTS_ADMIN' || session?.role === 'SUPER_ADMIN' || session?.role === 'POSSYSTEM') && isManagementPage) || isExemptPage;
   
   // Effective timeout (0 if disabled)
   const effectiveTimeout = disableLock ? 0 : settings.timeout;

@@ -14,7 +14,14 @@ interface Product {
   id: string;
   name: string;
   sellingPrice: number;
+  halfPrice?: number | null;
   categoryId: string;
+  menuType?: string;
+  variants?: {
+    id: string;
+    name: string;
+    price: number;
+  }[];
 }
 
 interface Category {
@@ -24,6 +31,8 @@ interface Category {
 
 interface CartItem extends Product {
   quantity: number;
+  size?: string;
+  cartItemId: string;
 }
 
 interface PaymentMode {
@@ -77,23 +86,33 @@ export default function PosPage() {
     fetchData();
   }, []);
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, size: string = 'Full', price?: number) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map((item: any) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      const cartItemId = `${product.id}-${size}`;
+      const existing = prev.find(item => item.cartItemId === cartItemId);
+
+      let itemPrice = price ?? product.sellingPrice;
+      let itemName = product.name;
+
+      if (size !== 'Full') {
+        itemName = `${product.name} (${size})`;
       }
-      return [...prev, { ...product, quantity: 1 }];
+
+      if (existing) {
+        return prev.map((item: any) => item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, name: itemName, sellingPrice: itemPrice, cartItemId, size, quantity: 1 }];
     });
   };
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id));
+
+  const removeFromCart = (cartItemId: string) => {
+    setCart(prev => prev.filter((item: any) => item.cartItemId !== cartItemId));
   };
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = (cartItemId: string, delta: number) => {
     setCart(prev => prev.map((item: any) => {
-      if (item.id === id) {
+      if (item.cartItemId === cartItemId) {
         const newQty = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQty };
       }
@@ -105,7 +124,7 @@ export default function PosPage() {
   const tax = total * 0.05;
   const grandTotal = total + tax;
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = products.filter((p: any) => {
     const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -160,7 +179,7 @@ export default function PosPage() {
             >
               All
             </Button>
-            {categories.map(cat => (
+            {categories.map((cat: any) => (
               <Button
                 key={cat.id}
                 variant={activeCategory === cat.id ? 'primary' : 'secondary'}
@@ -176,26 +195,81 @@ export default function PosPage() {
         <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pr-2">
           {loading ? (
             <Skeleton className="h-40 w-full" count={8} />
-          ) : filteredProducts.map(product => (
+          ) : filteredProducts.map((product: any) => (
             <Card
               key={product.id}
-              className="p-3 hover:border-pos-primary/40 cursor-pointer transition-all group flex flex-col justify-between h-40"
-              onClick={() => addToCart(product)}
+              className="p-3 hover:border-pos-primary/40 transition-all group flex flex-col justify-between h-40"
             >
-              <div>
+              <div className="cursor-pointer" onClick={() => addToCart(product, 'Full')}>
                 <Badge variant="primary" className="mb-2">₹{product.sellingPrice}</Badge>
                 <h3 className="font-semibold text-gray-900 group-hover:text-pos-primary transition-colors line-clamp-2">
                   {product.name}
                 </h3>
               </div>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Select Item</span>
-                <span className="bg-pos-primary/10 p-1 rounded-md">
-                  <svg className="w-4 h-4 text-pos-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </span>
+
+              {/* Actions Area - Absolute bottom */}
+              <div className="mt-auto -mx-3 -mb-3 border-t border-gray-100 dark:border-slate-800 overflow-hidden rounded-b-xl">
+                {product.variants && product.variants.length > 0 ? (
+                  <div className="grid grid-cols-2">
+                    {product.variants.map((v: any, idx: number) => {
+                      const colors = [
+                        'bg-orange-500 hover:bg-orange-600',
+                        'bg-rose-400 hover:bg-rose-500',
+                        'bg-amber-500 hover:bg-amber-600',
+                        'bg-emerald-500 hover:bg-emerald-600'
+                      ];
+                      const colorClass = colors[idx % colors.length];
+                      const isLastAndOdd = idx === product.variants.length - 1 && product.variants.length % 2 !== 0;
+
+                      return (
+                        <button
+                          key={v.id}
+                          className={`py-4 text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 ${colorClass} ${isLastAndOdd ? 'col-span-2' : ''} border-r border-b border-white/10`}
+                          onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                        >
+                          {v.name}
+                        </button>
+                      );
+                    })}
+                    {/* Fallback to Full Price if variants exist but user wants original */}
+                    <button
+                      className="col-span-2 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-slate-700 hover:bg-slate-800 transition-all active:scale-95"
+                      onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
+                    >
+                      Base Price (Full)
+                    </button>
+                  </div>
+                ) : product.menuType === 'RESTAURANT' ? (
+                  <div className="grid grid-cols-2">
+                    <button
+                      className="py-5 text-[10px] font-black uppercase tracking-widest text-white bg-orange-500 hover:bg-orange-600 transition-all active:scale-95 border-r border-white/10"
+                      onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice || undefined); }}
+                    >
+                      Half
+                    </button>
+                    <button
+                      className="py-5 text-[10px] font-black uppercase tracking-widest text-white bg-rose-400 hover:bg-rose-500 transition-all active:scale-95"
+                      onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
+                    >
+                      Full
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-pos-primary bg-pos-primary/5 px-4 py-4 cursor-pointer hover:bg-pos-primary hover:text-white transition-all"
+                    onClick={() => addToCart(product, 'Full')}
+                  >
+                    <span>Add to Order</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                )}
               </div>
+
+
+
+
             </Card>
           ))}
         </div>
@@ -218,16 +292,16 @@ export default function PosPage() {
                 <p>Empty Cart</p>
               </div>
             ) : cart.map((item: any) => (
-              <div key={item.id} className="flex gap-3 bg-white/60 p-3 rounded-2xl animate-in fade-in slide-in-from-right-4 transition-all hover:bg-white/80">
+              <div key={item.cartItemId} className="flex gap-3 bg-white/60 p-3 rounded-2xl animate-in fade-in slide-in-from-right-4 transition-all hover:bg-white/80">
                 <div className="flex-1">
                   <p className="font-semibold text-sm text-gray-900 line-clamp-1">{item.name}</p>
                   <p className="text-xs text-pos-primary font-bold">₹{item.sellingPrice}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100">-</button>
+                  <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100">-</button>
                   <span className="w-5 text-center font-bold text-sm">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100">+</button>
-                  <button onClick={() => removeFromCart(item.id)} className="ml-1 text-gray-400 hover:text-red-500">
+                  <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100">+</button>
+                  <button onClick={() => removeFromCart(item.cartItemId)} className="ml-1 text-gray-400 hover:text-red-500">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -292,7 +366,7 @@ export default function PosPage() {
                 label="Select Customer"
                 options={[
                   { label: 'Walk-in Guest', value: '' },
-                  ...customers.map(c => ({ label: `${c.firstName} ${c.lastName || ''} (${c.mobile || 'No Mobile'})`, value: c.id }))
+                  ...customers.map((c: any) => ({ label: `${c.firstName} ${c.lastName || ''} (${c.mobile || 'No Mobile'})`, value: c.id }))
                 ]}
                 value={selectedGuestId}
                 onChange={(e) => setSelectedGuestId(e.target.value)}
@@ -301,7 +375,7 @@ export default function PosPage() {
             <div className="col-span-2">
               <Select
                 label="Select Payment Method"
-                options={paymentModes.map(m => ({ label: m.name, value: m.id }))}
+                options={paymentModes.map((m: any) => ({ label: m.name, value: m.id }))}
                 value={selectedPaymentMode}
                 onChange={(e) => setSelectedPaymentMode(e.target.value)}
               />
@@ -311,7 +385,7 @@ export default function PosPage() {
           <div className="bg-gray-50 p-4 rounded-2xl space-y-2">
             <p className="text-xs font-bold text-gray-400 uppercase">Order Summary</p>
             {cart.map((item: any) => (
-              <div key={item.id} className="flex justify-between text-sm">
+              <div key={item.cartItemId} className="flex justify-between text-sm">
                 <span className="text-gray-600">{item.name} x {item.quantity}</span>
                 <span className="font-semibold">₹{item.sellingPrice * item.quantity}</span>
               </div>

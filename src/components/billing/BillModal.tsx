@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { 
   X, Search, User, ReceiptText, 
   Printer, CreditCard, CheckCircle2,
-  Banknote, QrCode, Smartphone, Star
+  Banknote, QrCode, Smartphone, Star,
+  MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { printerService } from '@/lib/printer-service';
@@ -60,6 +61,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [rating, setRating] = React.useState(0);
   const [ratingComments, setRatingComments] = React.useState('');
   const [settledInvoiceId, setSettledInvoiceId] = React.useState<string | null>(null);
+  const [sendWhatsApp, setSendWhatsApp] = React.useState(true);
 
   // Quick Add Customer State
   const [newCustFirst, setNewCustFirst] = React.useState('');
@@ -125,7 +127,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               paymentModeId: selectedModeId,
               guestId: selectedGuestId || undefined,
               totalAmount: bill.grandTotal,
-              items: bill.items.map(i => ({ id: i.id, quantity: i.quantity, sellingPrice: i.price }))
+              items: bill.items.map(i => ({ id: i.id, quantity: i.quantity, sellingPrice: i.price })),
+              sendWhatsApp: sendWhatsApp
           })
       });
       const result = await response.json();
@@ -293,6 +296,36 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     printWindow.document.close();
   };
 
+  const handleWhatsApp = () => {
+    const guest = customers.find(c => c.id === selectedGuestId);
+    let mobile = guest?.mobile || '';
+
+    if (!mobile) {
+      const input = window.prompt('Please enter WhatsApp number (with country code, e.g., 91...):');
+      if (!input) return;
+      mobile = input.replace(/\D/g, ''); 
+    }
+
+    // Add country code if missing (assuming 91 for India as default if it's 10 digits)
+    if (mobile.length === 10) mobile = '91' + mobile;
+
+    const itemsText = bill.items.map(item => `${item.name} x ${item.quantity} = ₹${(item.quantity * item.price).toFixed(0)}`).join('\n');
+    const message = `*Receipt from ${property?.name || 'POS'}*
+Order No: ${bill.orderNo}
+Table: ${bill.tableNo || 'Walk-in'}
+---
+${itemsText}
+---
+Subtotal: ₹${bill.subtotal.toFixed(0)}
+Tax: ₹${bill.tax.toFixed(0)}
+*Total: ₹${bill.grandTotal.toFixed(0)}*
+---
+Thank you! Visit again.`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${mobile}?text=${encodedMessage}`, '_blank');
+  };
+
   const handleAddCustomer = async () => {
     if (!onAddCustomer) return;
     if (!newCustFirst || !newCustMobile) {
@@ -327,13 +360,22 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
           
           {/* LEFT: THE BILL (Visual) - 4 Cols */}
           <div className="lg:col-span-12 xl:col-span-5 bg-white p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden relative flex flex-col" id="printable-bill">
-            <button 
-              onClick={() => handlePrint()} 
-              className="absolute top-4 right-4 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-900 print:hidden z-20"
-              title="Print Bill"
-            >
-              <Printer size={16} />
-            </button>
+            <div className="absolute top-4 right-4 flex gap-2 print:hidden z-20">
+              <button 
+                onClick={() => handleWhatsApp()} 
+                className="p-2 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors text-emerald-500 hover:text-emerald-700"
+                title="Send via WhatsApp"
+              >
+                <MessageCircle size={16} />
+              </button>
+              <button 
+                onClick={() => handlePrint()} 
+                className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-900"
+                title="Print Bill"
+              >
+                <Printer size={16} />
+              </button>
+            </div>
             {/* Header */}
             <div className="text-center mb-10 relative z-10">
               <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none">
@@ -585,6 +627,26 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                   </button>
                 </div>
 
+                  <div className="flex items-center gap-3 mb-6 bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                    <button 
+                      type="button"
+                      onClick={() => setSendWhatsApp(!sendWhatsApp)}
+                      className={`relative w-12 h-6 rounded-full transition-all duration-300 ${sendWhatsApp ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                    >
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${sendWhatsApp ? 'translate-x-6' : 'translate-x-0'}`} />
+                    </button>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase text-emerald-600 tracking-tight leading-none mb-1">WhatsApp Receipt</span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Automated Message</span>
+                    </div>
+                    {sendWhatsApp && (
+                      <div className="ml-auto flex items-center gap-2">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                        <span className="text-[8px] font-bold text-emerald-600 uppercase">Active</span>
+                      </div>
+                    )}
+                  </div>
+
                 <div className="mt-auto">
                   <Button 
                     loading={isSettling}
@@ -659,6 +721,13 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                 className="w-full h-14 bg-indigo-600 text-white font-black uppercase rounded-2xl shadow-xl shadow-indigo-100"
               >
                 Submit & Print Bill
+              </Button>
+              <Button 
+                onClick={handleWhatsApp}
+                className="w-full h-14 bg-emerald-600 text-white font-black uppercase rounded-2xl shadow-xl shadow-emerald-100 flex items-center justify-center gap-2"
+              >
+                <MessageCircle size={20} />
+                Send via WhatsApp
               </Button>
               <button 
                 onClick={() => { handlePrint(); onClose(); }}

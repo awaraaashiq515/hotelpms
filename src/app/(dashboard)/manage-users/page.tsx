@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { ShieldCheck, Key, UserCheck, Monitor, Eye, EyeOff, Edit, Trash2, Plus } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -204,19 +205,18 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase">POS Access Management</h1>
-          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">
-            <ShieldCheck size={14} className="text-pos-primary" />
-            Control terminal access and POS permissions for your properties
-          </p>
-        </div>
-        <Button onClick={openCreateModal} className="bg-slate-900 dark:bg-pos-primary hover:bg-black dark:hover:bg-pos-primary-dark text-white rounded-xl py-4 px-6 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-slate-900/10 flex items-center gap-2">
-          <Key size={16} />
-          Provision POS Access
-        </Button>
-      </div>
+      <PageHeader
+        title="POS Access Management"
+        subtitle="Control terminal access and POS permissions for your properties"
+        showBack
+        backUrl="/operations"
+        actions={
+          <Button onClick={openCreateModal} className="bg-slate-900 dark:bg-pos-primary hover:bg-black dark:hover:bg-pos-primary-dark text-white rounded-xl py-4 px-6 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-slate-900/10 flex items-center gap-2">
+            <Key size={16} />
+            Provision POS Access
+          </Button>
+        }
+      />
 
       <Card className="overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-xl dark:shadow-none rounded-2xl bg-white dark:bg-slate-900/40">
         {loading ? (

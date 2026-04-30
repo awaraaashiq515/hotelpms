@@ -27,14 +27,18 @@ export default function GlobalPropertyManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     name: '',
     code: '',
     type: 'RESTAURANT',
     city: '',
     state: '',
     country: 'India',
-    organizationId: '', // For Super Admin to assign an owner
+    organizationId: '',
+    whatsAppEnabled: false,
+    whatsAppApiKey: '',
+    whatsAppInstanceId: '',
+    whatsAppTemplate: '',
   });
 
   useEffect(() => {
@@ -74,10 +78,14 @@ export default function GlobalPropertyManagement() {
         state: property.state || '',
         country: property.country || 'India',
         organizationId: property.organizationId || '',
+        whatsAppEnabled: property.whatsAppEnabled || false,
+        whatsAppApiKey: property.whatsAppApiKey || '',
+        whatsAppInstanceId: property.whatsAppInstanceId || '',
+        whatsAppTemplate: property.whatsAppTemplate || '',
       });
     } else {
       setEditingId(null);
-      setFormData({ name: '', code: '', type: 'RESTAURANT', city: '', state: '', country: 'India', organizationId: '' });
+      setFormData({ name: '', code: '', type: 'RESTAURANT', city: '', state: '', country: 'India', organizationId: '', whatsAppEnabled: false, whatsAppApiKey: '', whatsAppInstanceId: '', whatsAppTemplate: '' });
     }
     setIsModalOpen(true);
   };
@@ -285,6 +293,52 @@ export default function GlobalPropertyManagement() {
               onChange={(e) => setFormData({ ...formData, state: e.target.value })}
               className="rounded-xl border-slate-200"
             />
+          </div>
+
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">WhatsApp Integration</h4>
+              <button 
+                type="button"
+                onClick={() => setFormData({ ...formData, whatsAppEnabled: !formData.whatsAppEnabled })}
+                className={`relative w-12 h-6 rounded-full transition-all duration-300 ${formData.whatsAppEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${formData.whatsAppEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {formData.whatsAppEnabled && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="API Key / Token"
+                    placeholder="WhatsApp API Key"
+                    value={formData.whatsAppApiKey}
+                    onChange={(e) => setFormData({ ...formData, whatsAppApiKey: e.target.value })}
+                    className="rounded-xl border-slate-200"
+                  />
+                  <Input
+                    label="Instance / Channel ID"
+                    placeholder="e.g. instance1234"
+                    value={formData.whatsAppInstanceId}
+                    onChange={(e) => setFormData({ ...formData, whatsAppInstanceId: e.target.value })}
+                    className="rounded-xl border-slate-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-1">Receipt Template</label>
+                  <textarea
+                    placeholder="Custom Receipt Template..."
+                    value={formData.whatsAppTemplate}
+                    onChange={(e) => setFormData({ ...formData, whatsAppTemplate: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none bg-white dark:bg-slate-900 text-sm font-medium text-slate-700 dark:text-slate-200 transition-all min-h-[100px]"
+                  />
+                  <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tight mt-1 ml-1">
+                    Variables: {'{HOTEL}, {ORDER_NO}, {AMOUNT}, {SUBTOTAL}, {TAX}, {ITEMS}'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">

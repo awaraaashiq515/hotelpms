@@ -26,16 +26,21 @@ export default async function BlogListingPage({
   const category = typeof params.category === 'string' ? params.category : '';
 
   // Fetch blogs from database
-  const blogs = await prisma.websiteBlog.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { title: { contains: searchTerm } },
-        { category: { contains: category === 'All' ? '' : category } },
-      ],
-    },
-    orderBy: { publishedAt: 'desc' },
-  });
+  let blogs: any[] = [];
+  try {
+    blogs = await prisma.websiteBlog.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { title: { contains: searchTerm } },
+          { category: { contains: category === 'All' ? '' : category } },
+        ],
+      },
+      orderBy: { publishedAt: 'desc' },
+    });
+  } catch (error) {
+    console.error('Failed to fetch blogs from database, using empty array for build.', error);
+  }
 
   const categories = ['All', 'Product Updates', 'Industry Insights', 'Customer Stories', 'Guides'];
 

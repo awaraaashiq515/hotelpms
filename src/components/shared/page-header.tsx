@@ -11,6 +11,9 @@ interface PageHeaderProps {
   showBack?: boolean;
   backUrl?: string;       // ✅ Added backUrl support
   actions?: React.ReactNode;
+  className?: string;     // ✅ Added className support
+  titleClassName?: string;
+  subtitleClassName?: string;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -18,18 +21,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   showBack = false,
   backUrl,
-  actions
+  actions,
+  className,
+  titleClassName,
+  subtitleClassName
 }) => {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 ${className || ''}`}>
       <div className="flex items-start gap-4">
         {showBack && (
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push(backUrl || '/')}  // ✅ Use backUrl if provided
+            onClick={() => backUrl ? router.push(backUrl) : router.back()}  // ✅ Better back behavior
             className="h-10 px-3 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 dark:text-white flex items-center gap-2"
           >
             <ChevronLeft size={16} />
@@ -37,11 +43,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </Button>
         )}
         <div className="space-y-0.5">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
+          <h1 className={`text-2xl font-bold text-gray-900 dark:text-white tracking-tight uppercase ${titleClassName || ''}`}>
             {title}
           </h1>
           {subtitle && (
-            <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 uppercase tracking-[0.1em]">
+            <p className={`text-[11px] font-medium text-gray-500 dark:text-slate-400 uppercase tracking-[0.1em] ${subtitleClassName || ''}`}>
               {subtitle}
             </p>
           )}

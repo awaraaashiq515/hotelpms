@@ -10,9 +10,10 @@ import { useSidebar } from '@/context/sidebar-context';
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { isOpen } = useSidebar();
+  const { isOpen, isHidden } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [barPosEnabled, setBarPosEnabled] = useState(false);
 
   React.useEffect(() => {
     fetch('/api/auth/session')
@@ -24,12 +25,21 @@ export const Sidebar: React.FC = () => {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    // Fetch barPosEnabled setting
+    fetch('/api/setup/properties/current')
+      .then(r => r.json())
+      .then(data => { if (data.success) setBarPosEnabled(!!data.data.barPosEnabled); })
+      .catch(() => {});
   }, []);
 
   // Filter menu based on role
   const menu = session ? getSidebarMenu(session.role) : [];
   
   const filteredMenu = menu.filter(item => {
+    // Hide Bar POS menu item when barPosEnabled is false
+    if (item.path === '/bar-pos' && !barPosEnabled) return false;
+
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;
 
@@ -107,7 +117,7 @@ export const Sidebar: React.FC = () => {
       bg-pos-sidebar text-pos-sidebar-text flex flex-col sticky top-16 left-0 z-40 shadow-xl
       transition-all duration-500 ease-in-out overflow-hidden shrink-0
       dark:bg-slate-950 dark:border-r dark:border-slate-800
-      ${isOpen ? 'w-[260px]' : 'w-20'}
+      ${isHidden ? 'w-0 opacity-0 pointer-events-none' : isOpen ? 'w-[260px]' : 'w-20'}
     `}>
       {/* Inner wrapper — fixed width so content doesn't squeeze during animation */}
       <div className={`${isOpen ? 'w-[260px]' : 'w-20'} flex flex-col h-full transition-all duration-500`}>

@@ -57,6 +57,11 @@ model Property {
   posTerminalPin       String?
   thermalPrinterName   String?             @default("MPT-II")
   enableDirectPrinting Boolean             @default(true)
+  whatsAppEnabled      Boolean             @default(false)
+  whatsAppApiKey       String?
+  whatsAppInstanceId   String?
+  whatsAppTemplate     String?
+  barPosEnabled        Boolean             @default(false)
   accounts             Account[]
   auditLogs            AuditLog[]
   cashTopUps           CashTopUp[]
@@ -334,6 +339,7 @@ model Category {
   displayOrder Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  menuType     String    @default("RESTAURANT")
   property     Property  @relation(fields: [propertyId], references: [id])
   products     Product[]
 
@@ -352,6 +358,7 @@ model Product {
   productType        String
   costPrice          Float               @default(0)
   sellingPrice       Float
+  halfPrice          Float?
   taxRuleId          String?
   trackInventory     Boolean             @default(false)
   isActive           Boolean             @default(true)
@@ -364,9 +371,13 @@ model Product {
   kitchenMapping     String?
   variantSize        String?
   taxType            String              @default("EXCLUSIVE")
+  menuType           String              @default("RESTAURANT")
+  pegSize            Float?
+  pegUnit            String?             @default("ml")
   invoiceItems       InvoiceItem[]
   kotItems           KotItem[]
   posOrderItems      PosOrderItem[]
+  variants           ProductVariant[]
   outlet             Outlet?             @relation(fields: [outletId], references: [id])
   category           Category            @relation(fields: [categoryId], references: [id])
   property           Property            @relation(fields: [propertyId], references: [id])
@@ -376,6 +387,19 @@ model Product {
   @@index([propertyId])
   @@index([categoryId])
 }
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  price     Float
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
 
 model PosOrder {
   id                 String          @id @default(cuid())
@@ -547,6 +571,7 @@ model StockItem {
   reorderLevel       Float               @default(0)
   costPrice          Float               @default(0)
   isActive           Boolean             @default(true)
+  itemType           String              @default("RESTAURANT")
   products           Product[]
   usedInProducts     ProductIngredient[]
   purchaseOrderItems PurchaseOrderItem[]

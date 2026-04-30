@@ -115,9 +115,8 @@ export async function proxy(request: NextRequest) {
         if (pathname === '/all-bills' || pathname.startsWith('/all-bills/')) {
            return NextResponse.redirect(new URL('/operations', request.url));
         }
-        if (pathname === '/payments' || pathname.startsWith('/payments/')) {
-           return NextResponse.redirect(new URL('/operations', request.url));
-        }
+        // Payments allowed for POSSYSTEM now
+
 
         const permissions = (payload.permissions as string[] || []).map((p: string) => p.toLowerCase());
         
@@ -152,7 +151,12 @@ export async function proxy(request: NextRequest) {
         
         if (matchedPath) {
           const requiredPerm = pathPermissionMap[matchedPath];
-          if (!permissions.includes(requiredPerm)) {
+          
+          // Special bypass for POSSYSTEM role for standard POS modules
+          const isStandardPosPath = ['/payments', '/invoices', '/billing', '/kots', '/inventory', '/products', '/categories'].some(p => pathname.startsWith(p));
+          const shouldBypass = role === 'POSSYSTEM' && isStandardPosPath;
+
+          if (!permissions.includes(requiredPerm) && !shouldBypass) {
             // Redirect unauthorized users to operations (landing page for POS)
             if (pathname !== '/operations') {
                return NextResponse.redirect(new URL('/operations', request.url));
@@ -176,7 +180,7 @@ export async function proxy(request: NextRequest) {
         '/categories': 'POS',
         '/inventory': 'INVENTORY',
         '/invoices': 'POS',
-        '/payments': 'ACCOUNTING',
+        '/payments': 'POS',
         '/expenses': 'ACCOUNTING',
         '/accounts': 'ACCOUNTING',
         '/vouchers': 'ACCOUNTING',

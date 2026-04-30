@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Receipt, Plus, Calendar, Tag, CreditCard, User, FileText, AlertTriangle, CheckCircle, ChevronLeft } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useRouter } from 'next/navigation';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface Category {
   id: string;
@@ -75,20 +76,12 @@ export default function NewExpensePage() {
   return (
     <div className="space-y-6 max-w-2xl">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push('/expenses')}
-          className="p-2.5 text-gray-400 dark:text-slate-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">New Expense</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
-            Record an expense · Auto-posts accounting voucher
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="New Expense"
+        subtitle="Record an expense · Auto-posts accounting voucher"
+        showBack
+        backUrl="/expenses"
+      />
 
       {/* Success */}
       {success && (

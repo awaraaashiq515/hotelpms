@@ -15,6 +15,9 @@ export interface Product {
   taxType?: 'INCLUSIVE' | 'EXCLUSIVE' | 'EXEMPT';
   trackInventory: boolean;
   isActive: boolean;
+  menuType?: 'RESTAURANT' | 'BAR';
+  pegSize?: number | null;
+  pegUnit?: string;
   image?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -22,7 +25,13 @@ export interface Product {
     id: string;
     name: string;
   };
+  variants?: {
+    id?: string;
+    name: string;
+    price: number;
+  }[];
 }
+
 
 export const productsApi = {
   async list(propertyId?: string): Promise<Product[]> {

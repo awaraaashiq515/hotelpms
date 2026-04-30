@@ -178,9 +178,10 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="All Bills"
-        subtitle="Complete list of all settled bills with totals"
+        title="Orders Control"
+        subtitle="Live tracking and management of all active orders"
         showBack
+        backUrl="/operations"
       />
 
       {/* ── Summary Cards ──────────────────────────────────── */}

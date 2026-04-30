@@ -95,6 +95,8 @@ export default function DriverHubPage() {
       <PageHeader 
         title="Drivers Hub" 
         subtitle="Manage all your drivers and their rewards in one place"
+        showBack
+        backUrl="/operations"
       />
 
       {/* Hero Stats Row */}

@@ -15,6 +15,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface StockItem {
   id: string;
@@ -66,30 +67,28 @@ export default function InventoryReportPage() {
 
   return (
     <div className="space-y-8 pb-10">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-             <Package className="text-pos-primary" size={32} />
-             Inventory Status
-          </h1>
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time stock levels & valuation</p>
-        </div>
-        <div className="flex items-center gap-3">
-           <Button 
-                variant="outline" 
-                size="sm" 
-                className="rounded-xl border-slate-200 dark:border-slate-700 gap-2"
-                onClick={() => setFilterLow(!filterLow)}
-            >
-                <Filter size={14} className={filterLow ? 'text-pos-primary' : ''} />
-                {filterLow ? 'Showing Low Stock' : 'Filter Low Stock'}
-           </Button>
-           <Button onClick={fetchStock} variant="secondary" size="sm" className="rounded-xl w-10 h-10 p-0">
-                <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
-           </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Inventory Status"
+        subtitle="Real-time stock levels & valuation"
+        showBack
+        backUrl="/reports"
+        actions={
+          <div className="flex items-center gap-3">
+            <Button 
+                 variant="outline" 
+                 size="sm" 
+                 className="rounded-xl border-slate-200 dark:border-slate-700 gap-2"
+                 onClick={() => setFilterLow(!filterLow)}
+             >
+                 <Filter size={14} className={filterLow ? 'text-pos-primary' : ''} />
+                 {filterLow ? 'Showing Low Stock' : 'Filter Low Stock'}
+            </Button>
+            <Button onClick={fetchStock} variant="secondary" size="sm" className="rounded-xl w-10 h-10 p-0">
+                 <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
+            </Button>
+          </div>
+        }
+      />
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

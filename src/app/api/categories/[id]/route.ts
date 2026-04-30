@@ -34,7 +34,7 @@ export async function PUT(
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { name, description, isActive } = body;
+    const { name, description, isActive, menuType } = body;
 
     const category = await prisma.category.update({
       where: { id },
@@ -42,6 +42,7 @@ export async function PUT(
         name,
         description,
         isActive: isActive !== undefined ? isActive : true,
+        menuType: menuType !== undefined ? menuType : undefined,
       },
     });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown } from 'lucide-react';
+import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
 import { DataTable } from '@/components/shared/data-table';
@@ -11,6 +11,7 @@ import { Building2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { ProductForm } from '@/components/forms/product-form';
 import { ConfirmDeleteModal } from '@/components/modals/confirm-delete-modal';
+import { ProductIcon } from '@/components/shared/product-icon';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,6 +28,7 @@ export default function ProductsPage() {
   const [session, setSession] = useState<any>(null);
   const [isBulkTaxOpen, setIsBulkTaxOpen] = useState(false);
   const [selectedTaxType, setSelectedTaxType] = useState('EXCLUSIVE');
+  const [selectedMenuTypeFilter, setSelectedMenuTypeFilter] = useState('all');
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -116,9 +118,10 @@ export default function ProductsPage() {
   const filteredProducts = (products || []).filter((p: Product) => {
     const searchLower = search.toLowerCase();
     return (
-      p.name.toLowerCase().includes(searchLower) ||
+      (p.name.toLowerCase().includes(searchLower) ||
       (p.sku || '').toLowerCase().includes(searchLower) ||
-      (p.category?.name || '').toLowerCase().includes(searchLower)
+      (p.category?.name || '').toLowerCase().includes(searchLower)) &&
+      (selectedMenuTypeFilter === 'all' || p.menuType === selectedMenuTypeFilter)
     );
   });
 
@@ -137,11 +140,11 @@ export default function ProductsPage() {
       cell: (row: Product) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700 flex items-center justify-center overflow-hidden text-orange-600">
-             {row.image ? (
-               <img src={row.image} alt={row.name} className="w-full h-full object-cover" />
-             ) : (
-               <Package size={16} className="opacity-40" />
-             )}
+              {row.image ? (
+                <img src={row.image} alt={row.name} className="w-full h-full object-cover" />
+              ) : (
+                <ProductIcon productName={row.name} categoryName={row.category?.name} size={16} className="opacity-40" />
+              )}
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight">
@@ -203,6 +206,19 @@ export default function ProductsPage() {
         </div>
       ),
       width: '150px'
+    },
+    { 
+      header: 'Menu Type', 
+      cell: (row: Product) => (
+        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${
+          row.menuType === 'BAR' 
+            ? 'bg-amber-50 text-amber-600 border-amber-100' 
+            : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+        }`}>
+          {row.menuType || 'RESTAURANT'}
+        </span>
+      ),
+      width: '120px'
     },
     { 
       header: 'Status', 
@@ -313,6 +329,7 @@ export default function ProductsPage() {
         title="Products" 
         subtitle="Manage your restaurant menu items"
         showBack
+        backUrl="/operations"
         actions={
           <div className="flex gap-2">
             <Button 
@@ -365,6 +382,38 @@ export default function ProductsPage() {
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform group-hover:translate-y-[-40%]" />
               </div>
             )}
+            <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700">
+                <button
+                  onClick={() => setSelectedMenuTypeFilter('all')}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    selectedMenuTypeFilter === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setSelectedMenuTypeFilter('RESTAURANT')}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    selectedMenuTypeFilter === 'RESTAURANT'
+                      ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Restaurant
+                </button>
+                <button
+                  onClick={() => setSelectedMenuTypeFilter('BAR')}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    selectedMenuTypeFilter === 'BAR'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Bar
+                </button>
+            </div>
             <Button variant="secondary" className="font-bold text-xs tracking-widest gap-2 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 px-4 rounded-xl">
               <Filter size={16} />
               FILTERS

@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { PrintKOT } from '@/components/kots/PrintKOT';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
+import { PageHeader } from '@/components/shared/page-header';
 
 const STATUS_COLORS: Record<string, string> = {
   NEW: 'bg-pos-primary/10 text-pos-primary border-pos-primary/20',
@@ -217,25 +218,17 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
   return (
     <div className="space-y-8 pb-32">
       {/* Page Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.back()}
-          className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-gray-900 transition-all shadow-sm"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{kot.kotNo}</h1>
-            <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${STATUS_COLORS[kot.status] || 'bg-gray-50 text-gray-500 border-gray-100'}`}>
-              {kot.status}
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
-            Order: {kot.order?.orderNo} · {kot.order?.orderType} · {totalUnits} Units
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title={kot.kotNo}
+        subtitle={`Order: ${kot.order?.orderNo} · ${kot.order?.orderType} · ${totalUnits} Units`}
+        showBack
+        backUrl="/kots"
+        actions={
+          <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${STATUS_COLORS[kot.status] || 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+            {kot.status}
+          </span>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: Items + Order Info */}

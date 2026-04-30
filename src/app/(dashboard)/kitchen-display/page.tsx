@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Utensils, Clock, RefreshCw, Wifi, Bell, ChefHat,
   Layers, CheckCircle, Play, Send, AlertTriangle,
-  User, ArrowRight, Flame, EyeOff, Volume2, VolumeX
+  User, ArrowRight, Flame, EyeOff, Volume2, VolumeX, ChevronLeft
 } from 'lucide-react';
 import { kotsApi, KotTicket } from '@/lib/api/kots';
 import { useToast } from '@/components/ui/Toast';
@@ -538,6 +538,12 @@ export default function KitchenDisplayPage() {
       {/* ── TOP BAR ───────────────────────────────────────────────── */}
       <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-[#0c1221]">
         <div className="flex items-center gap-4">
+          <Link
+            href="/operations"
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-400 hover:text-white transition-all shadow-sm"
+          >
+            <ChevronLeft size={20} />
+          </Link>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pos-primary to-pos-primary-dark flex items-center justify-center shadow-lg">
             <Utensils size={19} className="text-white" />
           </div>

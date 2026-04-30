@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { DataTable } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { AlertCircle, Wallet, ArrowRight, User } from 'lucide-react';
+import { AlertCircle, Wallet, ArrowRight, User, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 interface OutstandingGuest {
@@ -83,9 +83,14 @@ export default function OutstandingDuesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Outstanding Dues</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Monitor unpaid revenue across all customers</p>
+        <div className="flex items-center gap-4">
+          <Link href="/payments" className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <ChevronLeft size={20} className="text-gray-500" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Outstanding Dues</h1>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Monitor unpaid revenue across all customers</p>
+          </div>
         </div>
         
         <div className="bg-rose-50 border border-rose-100 px-6 py-3 rounded-2xl flex items-center gap-4">

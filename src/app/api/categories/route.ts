@@ -34,13 +34,14 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('No property context found. Please select a property.'), 400);
     }
 
-    const { name, description, isActive } = body;
+    const { name, description, isActive, menuType } = body;
 
     const category = await prisma.category.create({
       data: {
         name,
         description,
         isActive: isActive !== undefined ? isActive : true,
+        menuType: menuType || 'RESTAURANT',
         propertyId: propertyId,
       },
     });

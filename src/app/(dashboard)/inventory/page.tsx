@@ -19,6 +19,7 @@ import {
   ArrowDownCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/shared/page-header';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -44,6 +45,7 @@ export default function InventoryPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [itemSearch, setItemSearch] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
+  const [inventoryMenuType, setInventoryMenuType] = useState<'ALL' | 'RESTAURANT' | 'BAR'>('ALL');
   const [loadingItems, setLoadingItems] = useState(true);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<StockItem | null>(null);
@@ -55,6 +57,7 @@ export default function InventoryPage() {
     reorderLevel: '',
     minimumStock: '',
     costPrice: '',
+    itemType: 'RESTAURANT',
   });
   const [savingItem, setSavingItem] = useState(false);
 
@@ -113,7 +116,8 @@ export default function InventoryPage() {
     try {
       const data = await inventoryApi.listStockItems({ 
         search: itemSearch,
-        warehouseId: selectedWarehouseId || undefined
+        warehouseId: selectedWarehouseId || undefined,
+        itemType: inventoryMenuType !== 'ALL' ? inventoryMenuType : undefined,
       });
       setStockItems(data || []);
     } catch {
@@ -121,7 +125,7 @@ export default function InventoryPage() {
     } finally {
       setLoadingItems(false);
     }
-  }, [itemSearch]);
+  }, [itemSearch, inventoryMenuType]);
 
   const fetchMovements = useCallback(async () => {
     setLoadingMov(true);
@@ -186,7 +190,7 @@ export default function InventoryPage() {
 
   const openAddItem = () => {
     setEditItem(null);
-    setItemForm({ name: '', sku: '', unit: '', openingStock: '', reorderLevel: '', minimumStock: '', costPrice: '' });
+    setItemForm({ name: '', sku: '', unit: '', openingStock: '', reorderLevel: '', minimumStock: '', costPrice: '', itemType: 'RESTAURANT' });
     setIsAddItemOpen(true);
   };
 
@@ -200,6 +204,7 @@ export default function InventoryPage() {
       reorderLevel: String(item.reorderLevel),
       minimumStock: String(item.minimumStock),
       costPrice: String(item.costPrice),
+      itemType: item.itemType || 'RESTAURANT',
     });
     setIsAddItemOpen(true);
   };
@@ -216,7 +221,8 @@ export default function InventoryPage() {
           reorderLevel: Number(itemForm.reorderLevel || 0),
           minimumStock: Number(itemForm.minimumStock || 0),
           costPrice: Number(itemForm.costPrice || 0),
-        });
+          itemType: itemForm.itemType,
+        } as any);
       } else {
         await inventoryApi.createStockItem({
           name: itemForm.name,
@@ -226,7 +232,8 @@ export default function InventoryPage() {
           reorderLevel: Number(itemForm.reorderLevel || 0),
           minimumStock: Number(itemForm.minimumStock || 0),
           costPrice: Number(itemForm.costPrice || 0),
-        });
+          itemType: itemForm.itemType,
+        } as any);
       }
       setIsAddItemOpen(false);
       fetchStockItems();
@@ -303,20 +310,20 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black section-heading uppercase tracking-tight">Inventory Control</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-widest mt-0.5">
-            Stock management & movement tracking
-          </p>
-        </div>
-        {tab === 'items' && (
-          <Button onClick={openAddItem} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-100">
-            <Plus size={16} />
-            Add Stock Item
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Inventory Control"
+        subtitle="Stock management & movement tracking"
+        showBack
+        backUrl="/operations"
+        actions={
+          tab === 'items' && (
+            <Button onClick={openAddItem} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-100">
+              <Plus size={16} />
+              Add Stock Item
+            </Button>
+          )
+        }
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-4">
@@ -372,6 +379,22 @@ export default function InventoryPage() {
                 className="pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-white/5 rounded-xl text-xs w-full max-w-sm focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-200 transition-all font-medium placeholder:text-gray-400 dark:placeholder:text-slate-500"
               />
             </div>
+            {/* Restaurant / Bar Filter */}
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 rounded-xl p-1">
+              {(['ALL', 'RESTAURANT', 'BAR'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setInventoryMenuType(type)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    inventoryMenuType === type
+                      ? type === 'BAR' ? 'bg-amber-500 text-white shadow-sm' : type === 'RESTAURANT' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-white shadow-sm'
+                      : 'text-gray-400 dark:text-slate-400 hover:text-gray-600'
+                  }`}
+                >
+                  {type === 'ALL' ? 'All' : type === 'RESTAURANT' ? '🍽️ Rest.' : '🍺 Bar'}
+                </button>
+              ))}
+            </div>
             <select
               value={selectedWarehouseId}
               onChange={(e) => setSelectedWarehouseId(e.target.value)}
@@ -406,11 +429,16 @@ export default function InventoryPage() {
                   <tr key={item.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-gray-50/30 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-5 py-4">
                       <div className="font-bold text-sm text-gray-900 dark:text-white">{item.name}</div>
-                      {item.products && item.products.length > 0 && (
-                        <div className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                          {item.products.length} product{item.products.length > 1 ? 's' : ''} linked
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {item.products && item.products.length > 0 && (
+                          <div className="text-[9px] text-emerald-600 font-bold">
+                            {item.products.length} product{item.products.length > 1 ? 's' : ''} linked
+                          </div>
+                        )}
+                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${(item as any).itemType === 'BAR' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400'}`}>
+                          {(item as any).itemType === 'BAR' ? '🍺 Bar' : '🍽️ Rest.'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-xs text-gray-500 dark:text-slate-400 font-medium">{item.sku || '—'}</td>
                     <td className="px-5 py-4 text-xs text-gray-500 dark:text-slate-400 font-medium">{item.unit || '—'}</td>
@@ -1146,6 +1174,25 @@ export default function InventoryPage() {
                 onChange={(e) => setItemForm(f => ({ ...f, minimumStock: e.target.value }))}
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-white/5 rounded-xl text-sm font-bold dark:text-slate-100 focus:border-emerald-400 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-slate-600"
               />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-[10px] font-black text-gray-500 dark:text-slate-500 uppercase tracking-widest mb-2">Item Type</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setItemForm(f => ({ ...f, itemType: 'RESTAURANT' }))}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all text-[11px] font-black uppercase tracking-widest ${itemForm.itemType === 'RESTAURANT' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'border-gray-200 dark:border-slate-700 text-gray-400'}`}
+                >
+                  🍽️ Restaurant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setItemForm(f => ({ ...f, itemType: 'BAR' }))}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all text-[11px] font-black uppercase tracking-widest ${itemForm.itemType === 'BAR' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400' : 'border-gray-200 dark:border-slate-700 text-gray-400'}`}
+                >
+                  🍺 Bar
+                </button>
+              </div>
             </div>
           </div>
 

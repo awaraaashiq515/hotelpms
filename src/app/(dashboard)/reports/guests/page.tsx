@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface GuestRecord {
   id: string;
@@ -56,16 +57,12 @@ export default function GuestHistoryReportPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full -mr-32 -mt-32" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-               <Users2 className="text-indigo-500" size={32} />
-               Guest Spending History
-            </h1>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Visit patterns and lifetime value analysis</p>
-          </div>
+      <PageHeader
+        title="Guest Spending History"
+        subtitle="Visit patterns and lifetime value analysis"
+        showBack
+        backUrl="/reports"
+        actions={
           <div className="flex items-center gap-3">
              <div className="relative group min-w-[300px]">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
@@ -81,8 +78,8 @@ export default function GuestHistoryReportPage() {
                 <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
              </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

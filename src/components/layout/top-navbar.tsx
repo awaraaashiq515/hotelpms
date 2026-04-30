@@ -258,7 +258,7 @@ export const TopNavbar: React.FC = () => {
              </div>
              <div className="flex flex-col leading-none">
                <p className="text-[9px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">Support</p>
-               <p className="text-xs font-bold text-pos-primary tracking-tight">+91 000 000 0000</p>
+               <p className="text-xs font-bold text-pos-primary tracking-tight">+91 86798 00074</p>
              </div>
           </div>
           

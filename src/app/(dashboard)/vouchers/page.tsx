@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BookOpen, Plus, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import Link from 'next/link';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface VoucherEntry {
   id: string;
@@ -74,20 +75,20 @@ export default function VouchersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Vouchers</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
-            All accounting vouchers · Double-entry ledger
-          </p>
-        </div>
-        <Link
-          href="/vouchers/new"
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 transition-all"
-        >
-          <Plus size={16} /> New Voucher
-        </Link>
-      </div>
+      <PageHeader
+        title="Vouchers"
+        subtitle="All accounting vouchers · Double-entry ledger"
+        showBack
+        backUrl="/accounts"
+        actions={
+          <Link
+            href="/vouchers/new"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 transition-all"
+          >
+            <Plus size={16} /> New Voucher
+          </Link>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">

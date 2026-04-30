@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { ChevronLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default function ReceivePaymentPage() {
   const router = useRouter();
@@ -125,15 +126,12 @@ export default function ReceivePaymentPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/payments" className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-          <ChevronLeft size={20} className="text-gray-500" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Receive Payment</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Settle outstanding balances manually</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Receive Payment"
+        subtitle="Settle outstanding balances manually"
+        showBack
+        backUrl="/payments"
+      />
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">

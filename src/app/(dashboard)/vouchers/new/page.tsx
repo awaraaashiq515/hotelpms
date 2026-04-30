@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BookOpen, Plus, Minus, Send, AlertTriangle, CheckCircle, ChevronLeft } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useRouter } from 'next/navigation';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface Account {
   id: string;
@@ -106,17 +107,12 @@ export default function NewVoucherPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => router.push('/vouchers')} className="p-2.5 text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl">
-          <ChevronLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">New Voucher</h1>
-          <p className="text-xs font-bold text-gray-400 tracking-widest mt-0.5">
-            Double-entry · Debit must = Credit
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="New Voucher"
+        subtitle="Double-entry · Debit must = Credit"
+        showBack
+        backUrl="/vouchers"
+      />
 
       {success && (
         <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-6 py-4">

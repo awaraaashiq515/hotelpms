@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Layers, ShoppingBag } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Category } from '@/lib/api/categories';
@@ -9,6 +10,7 @@ const categorySchema = z.object({
   name: z.string().min(1, 'Category name is required').max(50),
   description: z.string().max(200).optional(),
   isActive: z.boolean().default(true),
+  menuType: z.enum(['RESTAURANT', 'BAR']).default('RESTAURANT'),
 });
 
 interface CategoryFormProps {
@@ -28,6 +30,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
     name: initialData?.name || '',
     description: initialData?.description || '',
     isActive: initialData?.isActive !== false,
+    menuType: initialData?.menuType || 'RESTAURANT',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -60,7 +63,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
           placeholder="e.g. Main Course"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className={`w-full px-4 py-3 bg-gray-50 border ${errors.name ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+          className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border ${errors.name ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-pos-primary/20 transition-all placeholder:text-gray-400 dark:placeholder:text-slate-500`}
         />
         {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.name}</p>}
       </div>
@@ -74,20 +77,20 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
           rows={3}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all resize-none"
+          className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-pos-primary/20 transition-all resize-none placeholder:text-gray-400 dark:placeholder:text-slate-500"
         />
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-transparent dark:border-slate-700">
         <div>
-          <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Active Status</h4>
-          <p className="text-[10px] text-gray-400 font-medium">Show or hide this category in the menu</p>
+          <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-widest">Active Status</h4>
+          <p className="text-[10px] text-gray-400 dark:text-slate-400 font-medium">Show or hide this category in the menu</p>
         </div>
         <button
           type="button"
           onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
           className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${
-            formData.isActive ? 'bg-emerald-500' : 'bg-gray-300'
+            formData.isActive ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-slate-700'
           }`}
         >
           <div
@@ -97,13 +100,42 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
           />
         </button>
       </div>
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Menu Category</label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, menuType: 'RESTAURANT' as any })}
+            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+              formData.menuType === 'RESTAURANT'
+                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <Layers size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Restaurant</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, menuType: 'BAR' as any })}
+            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+              formData.menuType === 'BAR'
+                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <ShoppingBag size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Bar Menu</span>
+          </button>
+        </div>
+      </div>
 
       <div className="flex gap-3 pt-4">
         <Button
           type="button"
           variant="secondary"
           onClick={onCancel}
-          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white border border-gray-200"
+          className="flex-1 py-3 text-xs font-bold uppercase tracking-widest bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400"
         >
           Cancel
         </Button>

@@ -14,6 +14,7 @@ import {
   Wallet,
   FileText
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default function ReportsHub() {
   const sections = [
@@ -90,14 +91,12 @@ export default function ReportsHub() {
 
   return (
     <div className="space-y-10 pb-10">
-      {/* Header Section */}
-      <div className="bg-white dark:bg-slate-800 p-6 lg:p-8 rounded-2xl lg:rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 lg:w-64 h-48 lg:h-64 bg-pos-primary/5 rounded-full -mr-24 -mt-24 lg:-mr-32 lg:-mt-32" />
-        <div className="relative z-10">
-           <h1 className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Reports & Intelligence</h1>
-           <p className="text-[10px] lg:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time business performance analytics</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Reports & Intelligence"
+        subtitle="Real-time business performance analytics"
+        showBack
+        backUrl="/operations"
+      />
 
       {/* Report Sections */}
       {sections.map((section, idx) => (

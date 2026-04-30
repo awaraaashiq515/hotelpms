@@ -80,7 +80,7 @@ export const WebsiteFooter = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-4 text-slate-400">
                 <Phone className="text-pos-primary shrink-0" size={20} />
-                <p className="text-sm font-bold">{settings?.phone || '+91 82190-76305'}</p>
+                <p className="text-sm font-bold">{settings?.phone || '+91 86798 00074'}</p>
               </div>
               <div className="flex items-center gap-4 text-slate-400">
                 <Mail className="text-pos-primary shrink-0" size={20} />

@@ -16,6 +16,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface AuditLog {
   id: string;
@@ -56,38 +57,34 @@ export default function AuditLogReportPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
-      <div className="bg-slate-900 p-10 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group">
-        <div className="absolute inset-0 bg-pos-primary/5 animate-pulse" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-           <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-[1.5rem] bg-white/10 flex items-center justify-center text-pos-primary shadow-inner">
-                 <ShieldCheck size={40} />
-              </div>
-              <div>
-                 <h1 className="text-3xl font-black text-white tracking-tight">System Audit Log</h1>
-                 <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">Real-time verification of user activities</p>
-              </div>
-           </div>
-           
-           <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
-              <select 
-                 value={module} 
-                 onChange={e => setModule(e.target.value)}
-                 className="bg-transparent text-white text-xs font-black uppercase tracking-widest px-4 outline-none border-none cursor-pointer"
-              >
-                 <option value="" className="bg-slate-900 text-white">All Modules</option>
-                 <option value="POS" className="bg-slate-900 text-white">POS Orders</option>
-                 <option value="INVENTORY" className="bg-slate-900 text-white">Inventory</option>
-                 <option value="BILLING" className="bg-slate-900 text-white">Billing</option>
-                 <option value="SETUP" className="bg-slate-900 text-white">Setup</option>
-              </select>
-              <div className="w-px h-8 bg-white/10" />
-              <Button onClick={fetchLogs} loading={loading} className="bg-pos-primary hover:bg-pos-primary-dark rounded-xl px-4 h-10 w-10 p-0 transition-transform hover:scale-110">
-                 <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
-              </Button>
-           </div>
-        </div>
-      </div>
+      <PageHeader
+        title="System Audit Log"
+        subtitle="Real-time verification of user activities"
+        showBack
+        backUrl="/reports"
+        actions={
+          <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
+             <select 
+                value={module} 
+                onChange={e => setModule(e.target.value)}
+                className="bg-transparent text-white text-xs font-black uppercase tracking-widest px-4 outline-none border-none cursor-pointer"
+             >
+                <option value="" className="bg-slate-900 text-white">All Modules</option>
+                <option value="POS" className="bg-slate-900 text-white">POS Orders</option>
+                <option value="INVENTORY" className="bg-slate-900 text-white">Inventory</option>
+                <option value="BILLING" className="bg-slate-900 text-white">Billing</option>
+                <option value="SETUP" className="bg-slate-900 text-white">Setup</option>
+             </select>
+             <div className="w-px h-8 bg-white/10" />
+             <Button onClick={fetchLogs} loading={loading} className="bg-pos-primary hover:bg-pos-primary-dark rounded-xl px-4 h-10 w-10 p-0 transition-transform hover:scale-110">
+                <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
+             </Button>
+          </div>
+        }
+        className="bg-slate-900 p-10 rounded-[3rem] border border-white/10 shadow-2xl"
+        titleClassName="text-white"
+        subtitleClassName="text-slate-400"
+      />
 
       {/* Main List */}
       <div className="space-y-4">

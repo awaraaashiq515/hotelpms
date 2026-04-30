@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Product } from '@/lib/api/products';
 import { categoriesApi, Category } from '@/lib/api/categories';
-import { Box, Tag, DollarSign, Barcode, Layers, FileText } from 'lucide-react';
+import { Box, Tag, DollarSign, Barcode, Layers, FileText, FlaskConical, Droplets, ShoppingBag } from 'lucide-react';
+import { inventoryApi, StockItem } from '@/lib/api/inventory';
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(100),
@@ -14,6 +15,7 @@ const productSchema = z.object({
   productType: z.string().default('REVENUE'),
   costPrice: z.number().min(0, 'Cost price cannot be negative'),
   sellingPrice: z.number().min(0, 'Selling price cannot be negative'),
+  halfPrice: z.union([z.number().min(0, 'Half price cannot be negative'), z.literal('')]).nullable().optional(),
   sku: z.string().max(50).optional(),
   barcode: z.string().max(50).optional(),
   hsnCode: z.string().max(20).optional(),
@@ -22,6 +24,14 @@ const productSchema = z.object({
   image: z.string().optional(),
   trackInventory: z.boolean().default(false),
   isActive: z.boolean().default(true),
+  menuType: z.enum(['RESTAURANT', 'BAR']).default('RESTAURANT'),
+  pegSize: z.number().nullable().optional(),
+  pegUnit: z.string().optional(),
+  stockItemId: z.string().nullable().optional(),
+  variants: z.array(z.object({
+    name: z.string().min(1, 'Name required'),
+    price: z.number().min(0, 'Price must be positive')
+  })).optional(),
 });
 
 interface ProductFormProps {
@@ -38,6 +48,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   loading
 }) => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     description: (initialData as any)?.description || '',
@@ -45,6 +56,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     productType: initialData?.productType || 'REVENUE',
     costPrice: initialData?.costPrice || 0,
     sellingPrice: initialData?.sellingPrice || 0,
+    halfPrice: (initialData as any)?.halfPrice || '',
     sku: initialData?.sku || '',
     barcode: initialData?.barcode || '',
     hsnCode: initialData?.hsnCode || '',
@@ -53,20 +65,30 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     image: initialData?.image || '',
     trackInventory: initialData?.trackInventory ?? false,
     isActive: initialData?.isActive ?? true,
+    menuType: initialData?.menuType || 'RESTAURANT',
+    pegSize: (initialData as any)?.pegSize ?? null,
+    pegUnit: (initialData as any)?.pegUnit || 'ml',
+    stockItemId: (initialData as any)?.stockItemId || '',
+    variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: v.price })) || [] as { name: string, price: number }[],
   });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const data = await categoriesApi.list();
-        setCategories(data || []);
+        const [cats, stocks] = await Promise.all([
+          categoriesApi.list(),
+          inventoryApi.listStockItems()
+        ]);
+        setCategories(cats || []);
+        setStockItems(stocks || []);
       } catch (err) {
-        console.error('Failed to load categories', err);
+        console.error('Failed to load form data', err);
       }
     };
-    fetchCategories();
+    fetchData();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,7 +101,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     } catch (err) {
       if (err instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
-        err.issues.forEach((issue) => {
+        err.issues.forEach((issue: any) => {
           if (issue.path[0]) fieldErrors[issue.path[0] as string] = issue.message;
         });
         setErrors(fieldErrors);
@@ -190,9 +212,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 className={`w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border ${errors.categoryId ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all appearance-none`}
               >
                 <option value="">Select Category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
+                {categories
+                  .filter((cat: any) => !cat.menuType || cat.menuType === formData.menuType)
+                  .map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
               </select>
             </div>
             {errors.categoryId && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.categoryId}</p>}
@@ -215,8 +239,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
 
-      {/* Row 3: Selling Price + Cost Price */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Row 3: Prices */}
+      <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Selling Price</label>
           <div className="relative">
@@ -226,6 +250,18 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               value={formData.sellingPrice}
               onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
               className={`w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border ${errors.sellingPrice ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all`}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Half Price</label>
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><DollarSign size={14} /></div>
+            <input
+              type="number" step="0.01" placeholder="Auto 50%"
+              value={formData.halfPrice}
+              onChange={(e) => setFormData({ ...formData, halfPrice: e.target.value ? parseFloat(e.target.value) : '' })}
+              className="w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all"
             />
           </div>
         </div>
@@ -344,7 +380,156 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
 
+      {/* Row 7: Menu Type (Restaurant vs Bar) */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Menu Category</label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, menuType: 'RESTAURANT' as any })}
+            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+              formData.menuType === 'RESTAURANT'
+                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <Layers size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Restaurant</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, menuType: 'BAR' as any })}
+            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+              formData.menuType === 'BAR'
+                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <ShoppingBag size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Bar Menu</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Bar Specific Section */}
+      {formData.menuType === 'BAR' && (
+        <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-100 dark:border-amber-900/50 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <FlaskConical size={14} className="text-amber-600" />
+            <h4 className="text-[10px] font-black text-amber-900 dark:text-amber-400 uppercase tracking-widest">Bar Inventory Tracking</h4>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-amber-800/60 dark:text-amber-400/60 uppercase ml-1">Peg Size</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 30"
+                  value={formData.pegSize || ''}
+                  onChange={(e) => setFormData({ ...formData, pegSize: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full pl-4 pr-10 py-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm font-semibold focus:outline-none focus:border-amber-400 transition-all dark:text-white"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-600">ml</span>
+              </div>
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-amber-800/60 dark:text-amber-400/60 uppercase ml-1">Stock Item (Bottle)</label>
+              <select
+                value={formData.stockItemId || ''}
+                onChange={(e) => setFormData({ ...formData, stockItemId: e.target.value })}
+                className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm font-semibold focus:outline-none focus:border-amber-400 transition-all appearance-none dark:text-white"
+              >
+                <option value="">Select Bottle/Item</option>
+                {stockItems.map((item: any) => (
+                  <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="text-[9px] text-amber-700/70 dark:text-amber-400/50 font-medium italic">
+            * This will automatically deduct the specified quantity from the selected bottle in inventory upon each sale.
+          </p>
+        </div>
+      )}
+
+      {/* Product Variants Section */}
+      <div className="p-4 bg-pos-primary/5 dark:bg-pos-primary/10 rounded-2xl border border-pos-primary/10 dark:border-pos-primary/30 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers size={14} className="text-pos-primary" />
+            <h4 className="text-[10px] font-black text-pos-primary uppercase tracking-widest">Product Variants (Sizes)</h4>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormData({ 
+              ...formData, 
+              variants: [...formData.variants, { name: '', price: 0 }] 
+            })}
+            className="text-[9px] font-black uppercase text-pos-primary bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-pos-primary/20 hover:bg-pos-primary hover:text-white transition-all shadow-sm"
+          >
+            + Add Variant
+          </button>
+        </div>
+
+        {formData.variants.length === 0 ? (
+          <p className="text-[9px] text-gray-400 font-medium italic text-center py-2">
+            No custom sizes added. Default price will be used.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {formData.variants.map((variant: any, index: number) => (
+              <div key={index} className="grid grid-cols-12 gap-3 items-center animate-in fade-in slide-in-from-top-2">
+                <div className="col-span-6">
+                  <input
+                    type="text"
+                    placeholder="Size (e.g. Small)"
+                    value={variant.name}
+                    onChange={(e) => {
+                      const newVariants = [...formData.variants];
+                      newVariants[index].name = e.target.value;
+                      setFormData({ ...formData, variants: newVariants });
+                    }}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:border-pos-primary transition-all dark:text-white"
+                  />
+                </div>
+                <div className="col-span-4 relative">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">₹</div>
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={variant.price || ''}
+                    onChange={(e) => {
+                      const newVariants = [...formData.variants];
+                      newVariants[index].price = parseFloat(e.target.value) || 0;
+                      setFormData({ ...formData, variants: newVariants });
+                    }}
+                    className="w-full pl-6 pr-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:border-pos-primary transition-all dark:text-white"
+                  />
+                </div>
+                <div className="col-span-2 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newVariants = formData.variants.filter((_: any, i: number) => i !== index);
+                      setFormData({ ...formData, variants: newVariants });
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Action Buttons */}
+
       <div className="flex gap-3 pt-2">
         <Button
           type="button"

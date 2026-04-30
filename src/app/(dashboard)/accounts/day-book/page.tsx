@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { CalendarDays, RefreshCw, BookOpen } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface VoucherEntry {
   id: string;
@@ -63,12 +64,12 @@ export default function DayBookPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Day Book</h1>
-        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
-          All transactions for a selected date
-        </p>
-      </div>
+      <PageHeader
+        title="Day Book"
+        subtitle="All transactions for a selected date"
+        showBack
+        backUrl="/accounts"
+      />
 
       {/* Date Picker */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-5">

@@ -9,10 +9,11 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   showBack?: boolean;
+  backUrl?: string;
   actions?: React.ReactNode;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, showBack = false, actions }) => {
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, showBack = false, backUrl, actions }) => {
   const router = useRouter();
 
   return (
@@ -22,7 +23,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, show
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.back()}
+            onClick={() => {
+              if (backUrl) {
+                router.push(backUrl);
+                // Fallback for Electron/Static environments where router might be slow
+                setTimeout(() => {
+                  if (window.location.pathname !== backUrl) {
+                    window.location.href = backUrl;
+                  }
+                }, 300);
+              } else {
+                router.back();
+              }
+            }}
             className="flex items-center gap-1 group py-2"
           >
             <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />

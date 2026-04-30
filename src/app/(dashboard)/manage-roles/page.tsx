@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { Settings, ShieldCheck, CheckSquare, Square } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
 
 const AVAILABLE_MODULES = [
   { id: 'Dashboard', name: 'Dashboard', description: 'Main analytics dashboard' },
@@ -133,15 +134,12 @@ export default function RolesPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase">Role Permissions</h1>
-          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">
-            <ShieldCheck size={14} className="text-pos-primary" />
-            Manage page-level access for system roles
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Role Permissions"
+        subtitle="Manage page-level access for system roles"
+        showBack
+        backUrl="/operations"
+      />
 
       <Card className="p-0 overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-xl dark:shadow-none rounded-2xl bg-white dark:bg-slate-900/40">
         {loading ? (

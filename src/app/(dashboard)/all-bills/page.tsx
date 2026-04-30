@@ -6,7 +6,7 @@ import {
   Calculator, ChevronDown, ChevronUp, Clock,
   Hash, Package, User, Truck, Printer, Building2
 } from 'lucide-react';
-import { PageHeader } from '@/components/shared/page-header';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { PrintBillModal } from '@/components/modals/print-bill-modal';
 import { useSearchParams } from 'next/navigation';
 
@@ -200,17 +200,12 @@ export default function AllBillsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3 transition-colors">
-            <ReceiptText className="text-pos-primary" size={32} />
-            All Bills Archive
-          </h1>
-          <p className="text-[11px] lg:text-xs font-medium text-gray-500 dark:text-slate-400 mt-1 tracking-widest transition-colors">
-            Comprehensive overview of all generated receipts
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="All Bills Archive"
+        description="Comprehensive overview of all generated receipts"
+        showBack
+        backUrl="/operations"
+      />
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

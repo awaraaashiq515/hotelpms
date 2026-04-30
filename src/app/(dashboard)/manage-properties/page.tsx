@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Home, Plus, Edit2, Trash2, AlertCircle, ArrowRightCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default function PropertiesPage() {
   const router = useRouter();
@@ -129,15 +130,18 @@ export default function PropertiesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white transition-colors">Property Management</h1>
-          <p className="text-[11px] lg:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 transition-colors">Manage branches and POS locations.</p>
-        </div>
-        <Button onClick={() => handleOpenModal()} icon={<Plus size={16} />} className="rounded-xl shadow-lg shadow-pos-primary/20">
-          Add New Branch
-        </Button>
-      </div>
+      <PageHeader
+        title="Property Management"
+        subtitle="Manage branches and POS locations."
+        showBack
+        backUrl="/operations"
+        actions={
+          <Button onClick={() => handleOpenModal()} className="rounded-xl shadow-lg shadow-pos-primary/20">
+            <Plus size={16} className="mr-2" />
+            Add New Branch
+          </Button>
+        }
+      />
 
       <Card className="overflow-hidden border-2 border-slate-200/60 dark:border-slate-800 shadow-xl dark:shadow-none rounded-2xl bg-white dark:bg-slate-900/40">
         {loading ? (

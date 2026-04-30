@@ -207,6 +207,7 @@ export default function CustomerListingPage() {
         title="Customer Listing" 
         subtitle="Guest Relationship Management"
         showBack
+        backUrl="/operations"
         actions={
           <Button 
             onClick={() => {

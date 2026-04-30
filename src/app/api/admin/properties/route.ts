@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, code, type, city, state, country, organizationId: targetOrgId } = body;
+    const { name, code, type, city, state, country, organizationId: targetOrgId, whatsAppEnabled, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate } = body;
 
     // Security: Only Super Admin can specify a different organizationId
     const isSuper = session.role === 'SUPER_ADMIN';
@@ -72,6 +72,10 @@ export async function POST(request: NextRequest) {
           state,
           country,
           organizationId: finalOrgId,
+          whatsAppEnabled: whatsAppEnabled ?? false,
+          whatsAppApiKey,
+          whatsAppInstanceId,
+          whatsAppTemplate,
         },
       });
 
@@ -207,7 +211,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, code, type, city, state, country, organizationId: targetOrgId } = body;
+    const { id, name, code, type, city, state, country, organizationId: targetOrgId, whatsAppEnabled, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate } = body;
 
     if (!id || !name || !code) {
       return apiError(new Error('Missing required fields: id, name, code'), 400);
@@ -235,7 +239,13 @@ export async function PUT(request: NextRequest) {
 
     const updatedProperty = await prisma.property.update({
       where: { id },
-      data: { name, code, type, city, state, country },
+      data: { 
+        name, code, type, city, state, country,
+        whatsAppEnabled,
+        whatsAppApiKey,
+        whatsAppInstanceId,
+        whatsAppTemplate
+      },
     });
 
     return apiResponse(updatedProperty, 'Property updated successfully');

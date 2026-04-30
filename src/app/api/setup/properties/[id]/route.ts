@@ -18,7 +18,7 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled } = body;
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
@@ -36,6 +36,7 @@ export async function PUT(
     if (posTerminalPin !== undefined) updateData.posTerminalPin = posTerminalPin;
     if (thermalPrinterName !== undefined) updateData.thermalPrinterName = thermalPrinterName;
     if (enableDirectPrinting !== undefined) updateData.enableDirectPrinting = enableDirectPrinting;
+    if (barPosEnabled !== undefined) updateData.barPosEnabled = barPosEnabled;
 
     console.log('Processed Update Data:', updateData);
 

@@ -15,6 +15,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface TaxSummary {
   totalTaxable: number;
@@ -67,24 +68,22 @@ export default function TaxReportPage() {
 
   return (
     <div className="space-y-8 pb-10">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-             <Building2 className="text-pos-primary" size={32} />
-             Tax & Statutory Report
-          </h1>
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">GST and other tax computations for filing</p>
-        </div>
-        <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm shadow-slate-100">
-           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent text-xs font-black text-slate-700 dark:text-slate-300 outline-none p-2" />
-           <span className="p-2 text-slate-300">→</span>
-           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent text-xs font-black text-slate-700 dark:text-slate-300 outline-none p-2" />
-           <Button onClick={fetchReport} loading={loading} className="bg-pos-primary rounded-xl px-4 py-2 ml-2">
-              <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
-           </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Tax & Statutory Report"
+        subtitle="GST and other tax computations for filing"
+        showBack
+        backUrl="/reports"
+        actions={
+          <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm shadow-slate-100">
+             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent text-xs font-black text-slate-700 dark:text-slate-300 outline-none p-2" />
+             <span className="p-2 text-slate-300">→</span>
+             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent text-xs font-black text-slate-700 dark:text-slate-300 outline-none p-2" />
+             <Button onClick={fetchReport} loading={loading} className="bg-pos-primary rounded-xl px-4 py-2 ml-2">
+                <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
+             </Button>
+          </div>
+        }
+      />
 
       {data ? (
         <>

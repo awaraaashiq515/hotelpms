@@ -91,7 +91,7 @@ export default function ContactPage() {
                   </div>
                   <h4 className="text-sm font-medium text-slate-500 mb-1">Sales Support</h4>
                   <p className="text-base font-semibold text-slate-900">
-                    +91 8679800074
+                    +91 86798 00074
                   </p>
                 </div>
 

@@ -69,10 +69,10 @@ export default function OperationsPage() {
   const permissions = (session?.permissions || []).map((p: string) => p.trim().toLowerCase());
   const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN';
 
-  const hasPermission = (permId?: string) => {
-    if (isAdmin) return true;
-    if (!permId) return true;
-    return permissions.includes(permId.trim().toLowerCase());
+  const hasPermission = (perm?: string) => {
+    if (!perm || isAdmin) return true;
+    // For POS Staff, some things should be accessible by role if permission string is missing but role is explicitly allowed
+    return session?.permissions?.some((p: string) => p.toLowerCase() === perm.toLowerCase());
   };
 
   const hasFeature = (feature?: string) => {
@@ -85,17 +85,19 @@ export default function OperationsPage() {
     { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: '/manage-users', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: '/pos-staff', feature: 'STAFF' },
-    { label: 'Inventory', perm: 'Inventory', icon: Package, path: '/inventory', feature: 'INVENTORY', roles: ['POSSYSTEM'] },
-    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM'] },
-    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM'] },
-    { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM'] },
+    { label: 'Payment Modes', perm: 'Settings', icon: CreditCard, path: '/payment-modes', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Inventory', perm: 'Inventory', icon: Package, path: '/inventory', feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: '/operations/tables/qr-gallery', feature: 'TABLES' },
     { label: 'Customers', icon: Contact, path: '/customers' },
   ];
 
   const financialActions: DashboardAction[] = [
-    { label: 'Invoices', perm: 'Invoices', icon: FileText, path: '/invoices', feature: 'HMS', roles: ['POSSYSTEM'] },
-    { label: 'Payments', perm: 'Payments', icon: CreditCard, path: '/payments', feature: 'ACCOUNTING', roles: ['POSSYSTEM'] },
-    { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: '/expenses', feature: 'ACCOUNTING', roles: ['POSSYSTEM'] },
+    { label: 'Invoices', perm: 'Invoices', icon: FileText, path: '/invoices', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Payments', perm: 'Payments', icon: CreditCard, path: '/payments', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: '/expenses', feature: 'ACCOUNTING', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Accounting', perm: 'Accounting', icon: BookOpen, path: '/accounts', feature: 'ACCOUNTING' },
     { label: 'Reports', perm: 'Reports', icon: PieChart, path: '/reports', feature: 'REPORTS' },
     { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: '/day-closing', feature: 'POS' },
@@ -108,7 +110,6 @@ export default function OperationsPage() {
     { label: 'KOTs List', perm: 'KOTs', icon: ClipboardList, path: '/kots', feature: 'POS' },
     { label: 'Table Bookings', perm: 'Table Bookings', icon: CalendarDays, path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Drivers', perm: 'Drivers', icon: CarFront, path: '/drivers', feature: 'DRIVERS' },
-    { label: 'Customers', icon: Contact, path: '/customers' },
   ];
 
   // Configs only for Admins
@@ -128,19 +129,34 @@ export default function OperationsPage() {
   ];
 
   if (loading) return null;
+
+  const isVisible = (a: DashboardAction) => {
+    const hasCorrectRole = !a.roles || a.roles.includes(session?.role);
+    if (!hasCorrectRole) return false;
+    
+    const hasCorrectFeature = hasFeature(a.feature);
+    if (!hasCorrectFeature) return false;
+
+    // If role is explicitly POSSYSTEM and it's in the roles array, 
+    // we allow access to standard POS management tasks even if the specific permission string is missing
+    if (session?.role === 'POSSYSTEM' && a.roles?.includes('POSSYSTEM')) return true;
+
+    return hasPermission(a.perm);
+  };
+
   // 1. Administrative Section
-  const visibleManagement = managementActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
+  const visibleManagement = managementActions.filter(isVisible);
   const showManagement = isAdmin || (visibleManagement.length > 0);
 
   // 2. Financial Section
-  const visibleFinancial = financialActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
+  const visibleFinancial = financialActions.filter(isVisible);
   const showFinancial = isAdmin || (visibleFinancial.length > 0);
 
   // 3. Operational Section
-  const visibleOperational = operationalActions.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
+  const visibleOperational = operationalActions.filter(isVisible);
 
   // 4. Config Section
-  const visibleConfigs = masterConfigs.filter(a => hasPermission(a.perm) && hasFeature(a.feature) && (!a.roles || a.roles.includes(role)));
+  const visibleConfigs = masterConfigs.filter(isVisible);
 
   return (
     <div className="space-y-12 pb-20">

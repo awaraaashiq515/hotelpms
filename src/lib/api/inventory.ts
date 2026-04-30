@@ -11,6 +11,7 @@ export interface StockItem {
   reorderLevel: number;
   costPrice: number;
   isActive: boolean;
+  itemType?: string;
   currentStock?: number;
   isLow?: boolean;
   products?: { id: string; name: string }[];
@@ -43,12 +44,13 @@ export interface StockAdjustment {
 
 export const inventoryApi = {
   // Stock Items
-  async listStockItems(params?: { search?: string; lowStock?: boolean; warehouseId?: string }): Promise<StockItem[]> {
+  async listStockItems(params?: { search?: string; lowStock?: boolean; warehouseId?: string; itemType?: string }): Promise<StockItem[]> {
     return apiClient.get('/api/inventory/stock-items', {
       params: {
         ...(params?.search ? { search: params.search } : {}),
         ...(params?.lowStock ? { lowStock: 'true' } : {}),
         ...(params?.warehouseId ? { warehouseId: params.warehouseId } : {}),
+        ...(params?.itemType ? { itemType: params.itemType } : {}),
       },
     });
   },

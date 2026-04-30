@@ -16,7 +16,12 @@ export async function GET() {
       'TEMPLATE_BILL_PAID',
       'TEMPLATE_KOT',
       'TEMPLATE_WELCOME',
-      'GEMINI_API_KEY'
+      'GEMINI_API_KEY',
+      'WHATSAPP_ENABLED',
+      'WHATSAPP_PROVIDER',
+      'WHATSAPP_API_KEY',
+      'WHATSAPP_INSTANCE_ID',
+      'WHATSAPP_TEMPLATE_BILL'
     ];
 
     const settings = await prisma.systemSetting.findMany({
@@ -50,15 +55,22 @@ export async function PUT(req: Request) {
       'TEMPLATE_BILL_PAID',
       'TEMPLATE_KOT',
       'TEMPLATE_WELCOME',
-      'GEMINI_API_KEY'
+      'GEMINI_API_KEY',
+      'WHATSAPP_ENABLED',
+      'WHATSAPP_PROVIDER',
+      'WHATSAPP_API_KEY',
+      'WHATSAPP_INSTANCE_ID',
+      'WHATSAPP_TEMPLATE_BILL'
     ];
 
     for (const key of keys) {
       if (body[key] !== undefined) {
+        // Ensure values are stored as strings
+        const stringValue = typeof body[key] === 'boolean' ? String(body[key]) : body[key];
         await prisma.systemSetting.upsert({
           where: { key },
-          update: { value: body[key] },
-          create: { key, value: body[key] }
+          update: { value: stringValue },
+          create: { key, value: stringValue }
         });
       }
     }

@@ -509,6 +509,8 @@ export default function GstFilingPage() {
       <PageHeader
         title="GST Filing"
         description="Generate monthly GSTR-1 JSON and upload it to the GST portal."
+        showBack
+        backUrl="/operations"
       />
 
       {/* ── Step Wizard Bar ───────────────────────────────────────────── */}
