@@ -10,6 +10,7 @@ const orderItemSchema = z.object({
   unitPrice: z.number().min(0),
   discountAmount: z.number().default(0),
   taxAmount: z.number().default(0),
+  name: z.string().optional(), // Added to support parsing serving sizes for inventory
 })
 
 const posOrderSchema = z.object({
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
         })
       })
 
-      // 6. Handle Bar Inventory Deduction
+      // 6. Handle Inventory Deduction (Restaurant & Bar)
       let warehouse = await tx.warehouse.findFirst({
         where: { propertyId: orderData.propertyId },
       });
@@ -210,14 +211,43 @@ export async function POST(request: NextRequest) {
       }
 
       for (const item of sanitizedItems) {
+        // Fetch product with variants and inventory settings
         const product = await tx.product.findUnique({
           where: { id: item.productId },
-          select: { stockItemId: true, pegSize: true }
+          include: { variants: true }
         });
 
-        if (product?.stockItemId && product?.pegSize) {
-          const deductionQty = product.pegSize * item.quantity;
-          
+        if (!product || !product.stockItemId || !product.trackInventory) continue;
+
+        let deductionQty = 0;
+
+        if (product.menuType === 'BAR') {
+          // Find the selected variant name from the order item
+          // Note: In BarPosPage, we format item.name as "ProductName (VariantName)"
+          // We need to match the variant name to find the volume
+          const orderItem = items.find((i: any) => i.productId === item.productId);
+          const variantNameMatch = orderItem?.name?.match(/\((.*?)\)$/);
+          const variantName = variantNameMatch ? variantNameMatch[1] : null;
+
+          if (variantName) {
+            if (variantName.toLowerCase().includes('bottle')) {
+              deductionQty = (product.bottleSize || 750) * item.quantity;
+            } else {
+              // Extract number from string like "30ml" or "60 ml"
+              const mlMatch = variantName.match(/(\d+)/);
+              const mlValue = mlMatch ? parseInt(mlMatch[1]) : 0;
+              deductionQty = mlValue * item.quantity;
+            }
+          } else {
+            // Fallback to legacy pegSize or default 30ml
+            deductionQty = (product.pegSize || 30) * item.quantity;
+          }
+        } else {
+          // Restaurant product: 1 unit per item sold
+          deductionQty = item.quantity;
+        }
+
+        if (deductionQty > 0) {
           const agg = await tx.stockMovement.aggregate({
             where: { stockItemId: product.stockItemId, warehouseId: warehouse.id },
             _sum: { qtyIn: true, qtyOut: true },
@@ -232,7 +262,7 @@ export async function POST(request: NextRequest) {
               propertyId: orderData.propertyId,
               warehouseId: warehouse.id,
               stockItemId: product.stockItemId,
-              movementType: 'SALE',
+              movementType: 'SALE_OUT',
               referenceModule: 'POS_ORDER',
               referenceId: order.id,
               qtyIn: 0,

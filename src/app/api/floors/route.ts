@@ -62,19 +62,35 @@ export async function GET(request: NextRequest) {
         .filter((t: any) => t.floorId === floor.id)
         .map((table: any) => {
           let activeOrder = null;
-          // Link the open order for this table if it exists AND the table is not vacant
-          const openOrder = table.status !== 'VACANT' 
-            ? openOrders.find((o: any) => o.restaurantTableId === table.id)
-            : null;
+          // Link the open orders for this table if it exists AND the table is not vacant
+          // Filter to only show orders from the last 24 hours to avoid 'ghost' orders
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const tableOrders = table.status !== 'VACANT' 
+            ? openOrders.filter((o: any) => o.restaurantTableId === table.id && new Date(o.createdAt) > oneDayAgo)
+            : [];
           
-          if (openOrder) {
-            const elapsedTime = Math.round((Date.now() - new Date((openOrder as any).createdAt).getTime()) / 60000);
+          if (tableOrders.length > 0) {
+            // Use the most recent order for status and elapsed time
+            const primaryOrder = tableOrders[0]; 
+            const totalAmount = tableOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || 0), 0);
+            const totalSubtotal = tableOrders.reduce((sum: number, o: any) => sum + (o.subtotal || 0), 0);
+            const totalTax = tableOrders.reduce((sum: number, o: any) => sum + (o.taxAmount || 0), 0);
+            const totalItems = tableOrders.reduce((sum: number, o: any) => 
+              sum + o.items.reduce((iSum: number, item: any) => iSum + item.quantity, 0), 0);
+            
+            const elapsedTime = Math.round((Date.now() - new Date((primaryOrder as any).createdAt).getTime()) / 60000);
+            
             activeOrder = {
-              id: openOrder.id,
-              amount: openOrder.grandTotal || 0,
-              itemCount: openOrder.items.reduce((sum: number, item: any) => sum + item.quantity, 0),
-              kotCount: openOrder.kotTickets.length,
+              id: primaryOrder.id,
+              orderIds: tableOrders.map((o: any) => o.id),
+              amount: totalAmount,
+              subtotal: totalSubtotal,
+              taxAmount: totalTax,
+              itemCount: totalItems,
+              kotCount: tableOrders.reduce((sum: number, o: any) => sum + (o.kotTickets?.length || 0), 0),
               elapsedTime: Math.max(0, elapsedTime),
+              status: primaryOrder.status,
+              orderCount: tableOrders.length
             };
           }
 

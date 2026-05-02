@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, ChevronRight, AlertCircle } from 'lucide-react';
+import { ShoppingBag, ChevronRight, AlertCircle, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 // Refactored Components
@@ -12,6 +12,7 @@ import { Onboarding } from '@/components/menu/Onboarding';
 import { ProductList } from '@/components/menu/ProductList';
 import { ActiveOrders } from '@/components/menu/ActiveOrders';
 import { CartDrawer } from '@/components/menu/CartDrawer';
+import { BottomNav } from '@/components/menu/BottomNav';
 
 interface Product {
   id: string;
@@ -46,7 +47,27 @@ export default function PublicMenuPage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({ name: '', phone: '' });
   
-  const [activeTab, setActiveTab] = useState<'menu' | 'orders'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'orders' | 'profile'>('menu');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  // Handle Theme
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
 
   useEffect(() => {
     const savedInfo = localStorage.getItem('guest_info');
@@ -117,8 +138,20 @@ export default function PublicMenuPage() {
     setShowOnboarding(false);
   };
 
-  const placeOrder = async () => {
+  const [paymentMethod, setPaymentMethod] = useState<'COUNTER' | 'UPI'>('COUNTER');
+  const [showPaymentMock, setShowPaymentMock] = useState(false);
+
+  const placeOrder = async (overridePayment?: string) => {
     if (cart.length === 0) return;
+    
+    const selectedMethod = overridePayment || paymentMethod;
+    
+    // If UPI selected but mock not shown yet, show mock
+    if (selectedMethod === 'UPI' && !showPaymentMock) {
+      setShowPaymentMock(true);
+      return;
+    }
+
     setOrderStatus('submitting');
     try {
       const res = await fetch('/api/public/order/place', {
@@ -129,13 +162,16 @@ export default function PublicMenuPage() {
           tableId: data.table.id,
           guestName: guestInfo?.name,
           guestPhone: guestInfo?.phone,
-          items: cart
+          items: cart,
+          paymentMethod: selectedMethod,
+          isPrepaid: selectedMethod === 'UPI'
         })
       });
       const json = await res.json();
       if (json.success) {
         setOrderStatus('success');
         setCart([]);
+        setShowPaymentMock(false);
         setTimeout(() => {
           setIsCartOpen(false);
           setOrderStatus('idle');
@@ -189,28 +225,13 @@ export default function PublicMenuPage() {
         setSearchQuery={setSearchQuery} 
       />
 
-      {/* Tab Switcher */}
-      <div className="sticky top-[117px] z-30 bg-white/50 dark:bg-slate-950/50 backdrop-blur-md px-5 py-3 flex gap-2">
-        {(['menu', 'orders'] as const).map((tab) => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-              activeTab === tab 
-              ? 'bg-pos-accent text-white shadow-lg shadow-pos-accent/20' 
-              : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'
-            }`}
-          >
-            {tab === 'menu' ? 'Menu' : 'Track Orders'}
-          </button>
-        ))}
-      </div>
+      <div className="pt-2" />
 
       {activeTab === 'menu' ? (
         <>
           {/* Category Bar */}
           {!searchQuery && (
-            <div className="sticky top-[181px] z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-2 px-5 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-50 dark:border-slate-900">
+            <div className="sticky top-[100px] z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-2 px-5 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-50 dark:border-slate-900">
               {data.menu.map((cat: any) => (
                 <button
                   key={cat.id}
@@ -238,11 +259,73 @@ export default function PublicMenuPage() {
             removeFromCart={removeFromCart} 
           />
         </>
-      ) : (
+      ) : activeTab === 'orders' ? (
         <ActiveOrders 
           orders={data.activeOrders} 
           tableName={data.table.name} 
+          propertyId={data.property.id}
+          upiId={data.property.upiId || ''}
+          upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab} 
+        />
+      ) : (
+        <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Your Profile</h2>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Guest Details</p>
+          </div>
+          
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-20 h-20 bg-pos-primary/10 rounded-3xl flex items-center justify-center text-pos-primary">
+                <span className="text-3xl font-black">{guestInfo?.name?.charAt(0) || 'G'}</span>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-black text-slate-900 dark:text-white">{guestInfo?.name || 'Guest'}</p>
+                <p className="text-xs font-bold text-slate-400">{guestInfo?.phone || 'No phone provided'}</p>
+              </div>
+            </div>
+
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowOnboarding(true)}
+              className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest"
+            >
+              Edit Details
+            </Button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <div>
+                <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Appearance</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</p>
+              </div>
+              <button 
+                onClick={toggleTheme}
+                className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 transition-all active:scale-95"
+              >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-[2rem] p-6 text-center space-y-2">
+            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Table Information</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Table: {data.table.name}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Spacing for Bottom Nav */}
+      <div className="h-32" />
+
+      {/* Bottom Nav */}
+      {!isCartOpen && (
+        <BottomNav 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          orderCount={data.activeOrders?.length || 0}
         />
       )}
 
@@ -255,7 +338,7 @@ export default function PublicMenuPage() {
             exit={{ y: 100, opacity: 0 }}
             className="fixed bottom-6 left-5 right-5 z-50"
           >
-            <div className="bg-slate-900 dark:bg-white rounded-[2rem] p-3 pr-6 flex items-center justify-between shadow-2xl border border-white/10">
+            <div className="bg-slate-900 dark:bg-white rounded-[2rem] p-3 pr-6 flex items-center justify-between shadow-2xl border border-white/10 mb-20">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-pos-primary rounded-2xl flex items-center justify-center text-white relative shadow-lg">
                   <ShoppingBag size={20} />
@@ -288,6 +371,10 @@ export default function PublicMenuPage() {
         cartTotal={cartTotal}
         orderStatus={orderStatus}
         placeOrder={placeOrder}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
+        showPaymentMock={showPaymentMock}
+        setShowPaymentMock={setShowPaymentMock}
       />
 
       <Onboarding 

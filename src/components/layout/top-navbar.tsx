@@ -1,9 +1,9 @@
 'use client';
 
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useState, useEffect } from 'react';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { usePOSSecurity } from '@/components/providers/POSSecurityProvider';
@@ -15,6 +15,84 @@ export const TopNavbar: React.FC = () => {
   const { manuallyLock } = usePOSSecurity();
   const [session, setSession] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
+
+  // Notifications State
+  const [unreadCount, setUnreadCount] = useState(0);
+  const lastIdRef = useRef<string | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      setAudioEnabled(true);
+      // Play a silent sound to unlock audio context
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      silentAudio.play().catch(() => {});
+      window.removeEventListener('click', unlockAudio);
+    };
+    window.addEventListener('click', unlockAudio);
+    return () => window.removeEventListener('click', unlockAudio);
+  }, []);
+
+  const playNotificationSound = (message: string) => {
+    console.log("🔔 Triggering sound for:", message);
+    try {
+      // 1. Play Modern Beep Sound
+      const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_78383a7589.mp3'); // Clear notification sound
+      audio.volume = 1.0;
+      audio.play().catch(e => {
+        console.warn('Audio play blocked. Click anywhere on page.', e);
+      });
+
+      // 2. Voice Announcement (with delay so it doesn't overlap with beep)
+      setTimeout(() => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(message);
+          utterance.rate = 0.9; utterance.pitch = 1; utterance.volume = 1;
+          window.speechSynthesis.speak(utterance);
+        }
+      }, 500);
+    } catch (e) {
+      console.error('Notification sound error:', e);
+    }
+  };
+
+  const [activeToast, setActiveToast] = useState<string | null>(null);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/pos-orders/notifications');
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        const latest = data.data[0];
+        const latestKey = `${latest.id}-${latest.type}`;
+        
+        console.log("📡 Notification Check:", latestKey, "vs Last:", lastIdRef.current);
+
+        if (lastIdRef.current && latestKey !== lastIdRef.current) {
+          console.log("✨ NEW ALERT DETECTED!");
+          playNotificationSound(latest.message);
+          setUnreadCount(prev => prev + 1);
+          
+          // Show visual toast
+          setActiveToast(latest.message);
+          setTimeout(() => setActiveToast(null), 5000);
+        }
+        
+        lastIdRef.current = latestKey;
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications');
+    }
+  };
+
+  useEffect(() => {
+    // Set initial baseline
+    fetchNotifications();
+
+    const interval = setInterval(fetchNotifications, 5000); // Check every 5s
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -240,7 +318,23 @@ export const TopNavbar: React.FC = () => {
           </div>
           <NavbarAction icon={<History size={18} />} label="Recent" onClick={() => router.push('/invoices')} />
           <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
-          <NavbarAction icon={<Bell size={18} />} label="Alerts" />
+          <NavbarAction 
+            icon={
+              <div className="relative">
+                <Bell size={18} className={unreadCount > 0 ? 'animate-bounce text-pos-primary' : ''} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-pos-primary text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-950">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            } 
+            label="Alerts" 
+            onClick={() => {
+              setUnreadCount(0);
+              router.push('/operations/notifications');
+            }}
+          />
         </div>
         
         <div className="flex items-center gap-3">
@@ -271,6 +365,23 @@ export const TopNavbar: React.FC = () => {
           </button>
         </div>
       </div>
+      {/* Global Notification Toast */}
+      {activeToast && (
+        <div className="fixed top-20 right-6 z-[999] animate-in slide-in-from-right-10 duration-300">
+          <div className="bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-4">
+            <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center animate-bounce">
+              <Bell size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-pos-primary uppercase tracking-widest">New Alert</p>
+              <p className="text-sm font-bold">{activeToast}</p>
+            </div>
+            <button onClick={() => setActiveToast(null)} className="ml-4 text-slate-500 hover:text-white">
+              <Plus className="rotate-45" size={20} />
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

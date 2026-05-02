@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Image as ImageIcon, Upload, Tablet, ChevronRight, Printer, ShieldCheck, CreditCard, LayoutDashboard, Globe, MonitorPlay, MapPin, Facebook, Instagram, Twitter, Save, RefreshCcw, Loader2, X, Wine } from 'lucide-react';
+import { Image as ImageIcon, Upload, Tablet, ChevronRight, Printer, ShieldCheck, CreditCard, LayoutDashboard, Globe, MonitorPlay, MapPin, Facebook, Instagram, Twitter, Save, RefreshCcw, Loader2, X, Wine, QrCode, CheckCircle, Smartphone } from 'lucide-react';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- Shared Components ---
 
@@ -1010,8 +1011,199 @@ const BarPosSettingsForm = () => {
   );
 };
 
+const UpiPaymentForm = () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [property, setProperty] = useState<any>(null);
+  const [upiId, setUpiId] = useState('');
+  const [upiName, setUpiName] = useState('');
+
+  useEffect(() => {
+    fetch('/api/setup/properties/current')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const prop = data.data;
+          setProperty(prop);
+          setUpiId(prop.upiId || '');
+          setUpiName(prop.upiName || prop.name || '');
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    if (!property) return;
+    if (!upiId.trim()) return alert('Please enter a valid UPI ID (e.g. yourname@upi)');
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/setup/properties/${property.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upiId: upiId.trim(), upiName: upiName.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        alert(data.message || 'Save failed');
+      }
+    } catch (error) {
+      alert('Failed to save UPI settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Build preview UPI string
+  const previewUpiUrl = upiId
+    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Restaurant')}&cu=INR`
+    : null;
+
+  if (loading) return <div className="p-20 text-center animate-pulse text-gray-400 font-black uppercase tracking-widest">Loading...</div>;
+
+  return (
+    <div className="space-y-8 max-w-4xl">
+      {/* Hero Card */}
+      <Card className="p-0 overflow-hidden border-none shadow-2xl">
+        <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 p-8 pb-12 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/3 translate-x-1/3" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                <QrCode size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-white tracking-tight">UPI Payment Gateway</h2>
+                <p className="text-indigo-200 text-[11px] font-bold uppercase tracking-widest">Customer Self-Pay Configuration</p>
+              </div>
+            </div>
+            <p className="text-indigo-100 text-sm leading-relaxed max-w-xl">
+              Set your UPI ID once. A real QR code with the exact bill amount will be auto-generated for every customer when they pay from their phone.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-8 -mt-6 rounded-t-[2rem] relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Form Fields */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">Your UPI ID *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    placeholder="yourname@ybl  or  9876543210@paytm"
+                    className="w-full px-5 py-4 rounded-2xl border-2 border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 focus:border-indigo-500 bg-gray-50 dark:bg-slate-800/50 font-bold text-sm dark:text-white tracking-wide transition-all"
+                  />
+                  {upiId && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500"><CheckCircle size={18} /></div>}
+                </div>
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-2 ml-1">Example: restaurant@axisbank • shop@oksbi • 9876@paytm</p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2">Business / Display Name</label>
+                <input
+                  type="text"
+                  value={upiName}
+                  onChange={(e) => setUpiName(e.target.value)}
+                  placeholder="e.g. Ashoka Dhaba"
+                  className="w-full px-5 py-4 rounded-2xl border-2 border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 focus:border-indigo-500 bg-gray-50 dark:bg-slate-800/50 font-bold text-sm dark:text-white tracking-wide transition-all"
+                />
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-2 ml-1">This name appears on customer's UPI app when they scan the QR code</p>
+              </div>
+
+              <button
+                onClick={handleSave}
+                disabled={saving || !upiId.trim()}
+                className={`w-full h-14 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-xl ${
+                  saved
+                    ? 'bg-emerald-500 text-white shadow-emerald-200'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+              >
+                {saving ? (
+                  <><Loader2 size={18} className="animate-spin" /> Saving...</>
+                ) : saved ? (
+                  <><CheckCircle size={18} /> UPI Settings Saved!</>
+                ) : (
+                  <><QrCode size={18} /> Save UPI Configuration</>
+                )}
+              </button>
+            </div>
+
+            {/* QR Preview */}
+            <div className="flex flex-col items-center justify-center">
+              <div className="bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30 rounded-3xl p-6 text-center space-y-4 border-2 border-indigo-100 dark:border-indigo-900/50 w-full">
+                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em]">Live Preview</p>
+                {upiId ? (
+                  <>
+                    <div className="bg-white p-4 rounded-2xl inline-block shadow-lg border-4 border-indigo-100">
+                      {/* Real QR code generated locally using qrcode.react */}
+                      <QRCodeSVG
+                        value={`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName || 'Restaurant')}&cu=INR&am=100`}
+                        size={176}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 tracking-wider">{upiId}</p>
+                    <p className="text-[9px] text-gray-400 font-bold">{upiName || 'Restaurant'}</p>
+                    <div className="flex items-center justify-center gap-2 text-[9px] font-black text-emerald-500 uppercase tracking-widest">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                      Amount auto-fills from bill total
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-44 h-44 bg-white dark:bg-slate-800 border-4 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center mx-auto">
+                      <div className="text-center">
+                        <QrCode size={40} className="text-indigo-200 dark:text-indigo-700 mx-auto mb-2" />
+                        <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">QR Preview</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-bold">Enter your UPI ID to see preview</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* How it works */}
+      <Card className="p-8 border-none shadow-lg bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+        <h3 className="text-[11px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-[0.3em] mb-6">How Customer Payments Work</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { icon: Smartphone, title: 'Customer Scans', desc: 'Customer opens their phone menu and goes to Track Orders', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-950/30' },
+            { icon: QrCode, title: 'QR with Bill Amount', desc: 'A real UPI QR code is shown with exact bill amount pre-filled', color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+            { icon: CheckCircle, title: 'Instant Settlement', desc: 'Order auto-marks as Settled & POS plays notification sound', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+          ].map((step, i) => (
+            <div key={i} className="flex items-start gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${step.bg}`}>
+                <step.icon size={20} className={step.color} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest mb-1">Step {i + 1}: {step.title}</p>
+                <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium leading-relaxed">{step.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'bar' | 'branding' | 'admin' | 'website'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'branding' | 'admin' | 'website'>('profile');
   const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
@@ -1027,6 +1219,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile', label: 'Print Settings', icon: Printer, color: 'text-pos-primary', bg: 'bg-pos-primary/10' },
+    { id: 'payments', label: '💳 UPI Payments', icon: QrCode, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'bar', label: '🍺 Bar POS', icon: Wine, color: 'text-amber-600', bg: 'bg-amber-50' },
     { id: 'admin', label: 'Admin', icon: ShieldCheck, color: 'text-slate-900', bg: 'bg-slate-100' },
     ...(session?.role === 'SUPER_ADMIN' ? [{ id: 'website', label: 'Website (OrderMint)', icon: Globe, color: 'text-pos-primary', bg: 'bg-pos-primary/10' }] : []),
@@ -1077,6 +1270,12 @@ export default function SettingsPage() {
         )}
         
 
+
+        {activeTab === 'payments' && (
+          <div className="animate-in slide-in-from-bottom-4 duration-500">
+            <UpiPaymentForm />
+          </div>
+        )}
 
         {activeTab === 'bar' && (
           <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-2xl">

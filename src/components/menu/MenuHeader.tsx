@@ -3,8 +3,8 @@ import { Search, History, UtensilsCrossed } from 'lucide-react';
 
 interface MenuHeaderProps {
   data: any;
-  activeTab: 'menu' | 'orders';
-  setActiveTab: (tab: 'menu' | 'orders') => void;
+  activeTab: 'menu' | 'orders' | 'profile';
+  setActiveTab: (tab: 'menu' | 'orders' | 'profile') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -35,19 +35,10 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
             </div>
           </div>
         </div>
-        <button 
-          onClick={() => setActiveTab('orders')}
-          className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 relative"
-        >
-          <History size={18} />
-          {data?.activeOrders?.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-pos-primary rounded-full border-2 border-white dark:border-slate-950"></span>
-          )}
-        </button>
       </div>
 
       {activeTab === 'menu' && (
-        <div className="mt-4 relative">
+        <div className="mt-4 relative animate-in slide-in-from-top-1 duration-300">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text"

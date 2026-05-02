@@ -30,7 +30,9 @@ import {
   PieChart,
   History,
   ClipboardList,
-  Contact
+  Contact,
+  Store,
+  FileJson
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -101,15 +103,17 @@ export default function OperationsPage() {
     { label: 'Accounting', perm: 'Accounting', icon: BookOpen, path: '/accounts', feature: 'ACCOUNTING' },
     { label: 'Reports', perm: 'Reports', icon: PieChart, path: '/reports', feature: 'REPORTS' },
     { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: '/day-closing', feature: 'POS' },
+    { label: 'GST Filing', perm: 'GST Filing', icon: FileJson, path: '/pos/gst-filing', feature: 'GST', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const operationalActions: DashboardAction[] = [
-    { label: 'POS Terminal', perm: 'POS Terminal', icon: Monitor, path: '/billing', feature: 'POS' },
-    { label: 'Orders Control', perm: 'Orders Control', icon: ShoppingBag, path: '/orders', feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Kitchen Display', perm: 'Kitchen Display', icon: Eye, path: '/kitchen-display', feature: 'POS' },
-    { label: 'KOTs List', perm: 'KOTs', icon: ClipboardList, path: '/kots', feature: 'POS' },
-    { label: 'Table Bookings', perm: 'Table Bookings', icon: CalendarDays, path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
-    { label: 'Drivers', perm: 'Drivers', icon: CarFront, path: '/drivers', feature: 'DRIVERS' },
+    { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: '/billing',           feature: 'POS' },
+    { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: '/counter-payments',  feature: 'POS' },
+    { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: '/kitchen-display',   feature: 'POS' },
+    { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
+    { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
+    { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: '/drivers',           feature: 'DRIVERS' },
   ];
 
   // Configs only for Admins

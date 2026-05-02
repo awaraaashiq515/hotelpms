@@ -84,8 +84,8 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
     '/customers',
     '/day-closing',
     '/vouchers',
-    '/gst-filing',
-    '/gst-settings'
+    '/pos/gst-filing',
+    '/pos/gst-settings'
   ];
 
   const isManagementPage = managementPaths.some(path => pathname.startsWith(path)) || pathname === '/operations';

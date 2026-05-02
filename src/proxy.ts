@@ -25,8 +25,8 @@ export async function proxy(request: NextRequest) {
                            pathname.startsWith('/manage-properties') ||
                            pathname.startsWith('/manage-users') ||
                            pathname.startsWith('/manage-roles') ||
-                           pathname.startsWith('/gst-filing') ||
-                           pathname.startsWith('/gst-settings') ||
+                           pathname.startsWith('/pos/gst-filing') ||
+                           pathname.startsWith('/pos/gst-settings') ||
                            pathname.startsWith('/vouchers') ||
                            pathname.startsWith('/orders') ||
                            pathname.startsWith('/all-bills') ||
@@ -142,8 +142,8 @@ export async function proxy(request: NextRequest) {
           '/operations/occupancy': 'live occupancy',
           '/table-reservations': 'table bookings',
           '/drivers': 'drivers',
-          '/gst-filing': 'gst filing',
-          '/gst-settings': 'gst filing',
+          '/pos/gst-filing': 'gst filing',
+          '/pos/gst-settings': 'gst filing',
         };
 
         // Find if the current path requires a permission
@@ -153,7 +153,7 @@ export async function proxy(request: NextRequest) {
           const requiredPerm = pathPermissionMap[matchedPath];
           
           // Special bypass for POSSYSTEM role for standard POS modules
-          const isStandardPosPath = ['/payments', '/invoices', '/billing', '/kots', '/inventory', '/products', '/categories'].some(p => pathname.startsWith(p));
+          const isStandardPosPath = ['/payments', '/invoices', '/billing', '/kots', '/inventory', '/products', '/categories', '/pos/gst-filing', '/pos/gst-settings'].some(p => pathname.startsWith(p));
           const shouldBypass = role === 'POSSYSTEM' && isStandardPosPath;
 
           if (!permissions.includes(requiredPerm) && !shouldBypass) {
@@ -185,8 +185,8 @@ export async function proxy(request: NextRequest) {
         '/accounts': 'ACCOUNTING',
         '/vouchers': 'ACCOUNTING',
         '/reports': 'REPORTS',
-        '/gst-filing': 'GST',
-        '/gst-settings': 'GST',
+        '/pos/gst-filing': 'GST',
+        '/pos/gst-settings': 'GST',
         '/drivers': 'DRIVERS',
         '/pos-staff': 'STAFF',
         '/operations/tables': 'TABLES',

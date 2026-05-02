@@ -27,6 +27,9 @@ const productSchema = z.object({
   menuType: z.enum(['RESTAURANT', 'BAR']).default('RESTAURANT'),
   pegSize: z.number().nullable().optional(),
   pegUnit: z.string().optional(),
+  bottleSize: z.number().nullable().optional(),
+  bottlePrice: z.number().nullable().optional(),
+  pegPrice: z.number().nullable().optional(),
   stockItemId: z.string().nullable().optional(),
   variants: z.array(z.object({
     name: z.string().min(1, 'Name required'),
@@ -68,6 +71,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     menuType: initialData?.menuType || 'RESTAURANT',
     pegSize: (initialData as any)?.pegSize ?? null,
     pegUnit: (initialData as any)?.pegUnit || 'ml',
+    bottleSize: (initialData as any)?.bottleSize ?? null,
+    bottlePrice: (initialData as any)?.bottlePrice ?? null,
+    pegPrice: (initialData as any)?.pegPrice ?? null,
     stockItemId: (initialData as any)?.stockItemId || '',
     variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: v.price })) || [] as { name: string, price: number }[],
   });
@@ -90,6 +96,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     };
     fetchData();
   }, []);
+
+  // Sync selling price with peg price for bar items if selling price is 0
+  useEffect(() => {
+    if (formData.menuType === 'BAR' && formData.pegPrice && formData.sellingPrice === 0) {
+      setFormData(prev => ({ ...prev, sellingPrice: prev.pegPrice || 0 }));
+    }
+  }, [formData.pegPrice, formData.menuType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +151,38 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      
+
+      {/* Row 0: Menu Category — TOP PRIORITY */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Menu Category</label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, menuType: 'RESTAURANT', categoryId: '' })}
+            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+              formData.menuType === 'RESTAURANT'
+                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <Layers size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Restaurant</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, menuType: 'BAR', categoryId: '' })}
+            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+              formData.menuType === 'BAR'
+                ? 'border-amber-500 bg-amber-500/5 text-amber-600 shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <FlaskConical size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Bar Menu</span>
+          </button>
+        </div>
+      </div>
+
       {/* Row 1: Product Name (full width) */}
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Product Name</label>
@@ -242,7 +286,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       {/* Row 3: Prices */}
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Selling Price</label>
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+            {formData.menuType === 'BAR' ? 'Default / Base Price' : 'Selling Price'}
+          </label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><DollarSign size={14} /></div>
             <input
@@ -380,77 +426,115 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
 
-      {/* Row 7: Menu Type (Restaurant vs Bar) */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Menu Category</label>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => setFormData({ ...formData, menuType: 'RESTAURANT' as any })}
-            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-              formData.menuType === 'RESTAURANT'
-                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
-                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
-            }`}
-          >
-            <Layers size={14} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Restaurant</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormData({ ...formData, menuType: 'BAR' as any })}
-            className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-              formData.menuType === 'BAR'
-                ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm'
-                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
-            }`}
-          >
-            <ShoppingBag size={14} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Bar Menu</span>
-          </button>
-        </div>
-      </div>
+
 
       {/* Bar Specific Section */}
       {formData.menuType === 'BAR' && (
-        <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-100 dark:border-amber-900/50 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <FlaskConical size={14} className="text-amber-600" />
-            <h4 className="text-[10px] font-black text-amber-900 dark:text-amber-400 uppercase tracking-widest">Bar Inventory Tracking</h4>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-amber-800/60 dark:text-amber-400/60 uppercase ml-1">Peg Size</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  placeholder="e.g. 30"
-                  value={formData.pegSize || ''}
-                  onChange={(e) => setFormData({ ...formData, pegSize: e.target.value ? Number(e.target.value) : null })}
-                  className="w-full pl-4 pr-10 py-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm font-semibold focus:outline-none focus:border-amber-400 transition-all dark:text-white"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-600">ml</span>
+        <div className="p-5 bg-amber-50/50 dark:bg-amber-950/20 rounded-[2rem] border border-amber-100 dark:border-amber-900/50 space-y-6 shadow-sm animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
+                <FlaskConical size={16} className="text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-[11px] font-black text-amber-900 dark:text-amber-400 uppercase tracking-widest leading-none">Bar Inventory & Pricing</h4>
+                <p className="text-[9px] text-amber-700/60 dark:text-amber-500/50 font-bold uppercase tracking-tighter mt-1">Configure serving sizes and rates</p>
               </div>
             </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-amber-800/60 dark:text-amber-400/60 uppercase ml-1">Stock Item (Bottle)</label>
+            <div className="px-3 py-1 bg-amber-100 dark:bg-amber-900/50 rounded-full">
+               <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Bar Mode</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-5">
+            {/* Bottle Configuration */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-amber-800/60 dark:text-amber-400/60 uppercase ml-1 tracking-widest">Bottle Volume</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 transition-transform group-focus-within:scale-110"><Droplets size={14} /></div>
+                  <input
+                    type="number"
+                    placeholder="e.g. 750"
+                    value={formData.bottleSize || ''}
+                    onChange={(e) => setFormData({ ...formData, bottleSize: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full pl-10 pr-12 py-3 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all dark:text-white"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-amber-600 uppercase">ml</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-amber-800/60 dark:text-amber-400/60 uppercase ml-1 tracking-widest">Bottle Price</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 transition-transform group-focus-within:scale-110"><DollarSign size={14} /></div>
+                  <input
+                    type="number"
+                    placeholder="Full bottle rate"
+                    value={formData.bottlePrice || ''}
+                    onChange={(e) => setFormData({ ...formData, bottlePrice: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Peg Configuration */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-amber-800/60 dark:text-amber-400/60 uppercase ml-1 tracking-widest">Peg Size</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 transition-transform group-focus-within:scale-110"><FlaskConical size={14} /></div>
+                  <input
+                    type="number"
+                    placeholder="e.g. 30"
+                    value={formData.pegSize || ''}
+                    onChange={(e) => setFormData({ ...formData, pegSize: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full pl-10 pr-12 py-3 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all dark:text-white"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-amber-600 uppercase">ml</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-amber-800/60 dark:text-amber-400/60 uppercase ml-1 tracking-widest">Peg Price</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 transition-transform group-focus-within:scale-110"><DollarSign size={14} /></div>
+                  <input
+                    type="number"
+                    placeholder="Standard peg rate"
+                    value={formData.pegPrice || ''}
+                    onChange={(e) => setFormData({ ...formData, pegPrice: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-2">
+            <label className="text-[10px] font-black text-amber-800/60 dark:text-amber-400/60 uppercase ml-1 tracking-widest">Map to Inventory (Stock Item)</label>
+            <div className="relative group">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 transition-transform group-focus-within:scale-110"><Box size={14} /></div>
               <select
                 value={formData.stockItemId || ''}
                 onChange={(e) => setFormData({ ...formData, stockItemId: e.target.value })}
-                className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm font-semibold focus:outline-none focus:border-amber-400 transition-all appearance-none dark:text-white"
+                className="w-full pl-10 pr-10 py-3 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm font-bold focus:outline-none focus:border-amber-400 transition-all appearance-none dark:text-white"
               >
-                <option value="">Select Bottle/Item</option>
+                <option value="">Select Bottle Item from Inventory</option>
                 {stockItems.map((item: any) => (
                   <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
                 ))}
               </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-amber-400"><Layers size={14} /></div>
             </div>
           </div>
-          <p className="text-[9px] text-amber-700/70 dark:text-amber-400/50 font-medium italic">
-            * This will automatically deduct the specified quantity from the selected bottle in inventory upon each sale.
-          </p>
+
+          <div className="bg-amber-100/50 dark:bg-amber-900/30 p-3 rounded-xl border border-amber-200/50 dark:border-amber-800/30">
+            <p className="text-[9px] text-amber-800 dark:text-amber-300 font-bold uppercase tracking-widest text-center leading-relaxed">
+              Deducts <span className="text-amber-600 underline">{formData.pegSize || 'XX'}ml</span> from <span className="text-amber-600 underline">"{stockItems.find(s => s.id === formData.stockItemId)?.name || 'Bottle'}"</span> on each serving
+            </p>
+          </div>
         </div>
       )}
 

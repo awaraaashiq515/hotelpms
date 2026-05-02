@@ -20,6 +20,8 @@ export async function GET(
         logoUrl: true,
         address: true,
         phone: true,
+        upiId: true,
+        upiName: true,
       },
     });
 
@@ -46,8 +48,9 @@ export async function GET(
     const activeOrders = await prisma.posOrder.findMany({
       where: {
         restaurantTableId: table.id,
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'BILL_PRINTED'] },
-        orderType: 'DINE_IN'
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+        orderType: 'DINE_IN',
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       },
       include: {
         items: {

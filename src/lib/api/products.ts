@@ -18,6 +18,9 @@ export interface Product {
   menuType?: 'RESTAURANT' | 'BAR';
   pegSize?: number | null;
   pegUnit?: string;
+  bottleSize?: number | null;
+  bottlePrice?: number | null;
+  pegPrice?: number | null;
   image?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -16,9 +16,12 @@ export interface Table {
   activeOrder?: {
     id: string;
     amount: number;
+    subtotal: number;
+    taxAmount: number;
     itemCount: number;
     kotCount: number;
     elapsedTime: number; // minutes
+    status: string;
   } | null;
 }
 

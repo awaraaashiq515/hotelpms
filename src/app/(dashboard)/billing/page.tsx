@@ -355,7 +355,8 @@ export default function BillingPage() {
       let itemPrice = baseProduct.sellingPrice;
       let itemName = baseProduct.name;
       if (newSize === 'Half') {
-        itemPrice = (baseProduct as any).halfPrice ? (baseProduct as any).halfPrice : (baseProduct.sellingPrice / 2);
+        if (!(baseProduct as any).halfPrice) return prev;
+        itemPrice = (baseProduct as any).halfPrice;
         itemName = `${baseProduct.name} (Half)`;
       }
 
@@ -977,7 +978,7 @@ export default function BillingPage() {
                               );
                             })}
                           </div>
-                        ) : ((product as any).menuType === 'RESTAURANT' || !(product as any).menuType) && (
+                        ) : ((product as any).menuType === 'RESTAURANT' || !(product as any).menuType) && (product as any).halfPrice > 0 && (
                           <div className="flex w-full">
                             <button 
                               onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
@@ -1045,7 +1046,7 @@ export default function BillingPage() {
                             </button>
                           ))}
                         </div>
-                      ) : ((product as any).menuType === 'RESTAURANT' || !(product as any).menuType) && (
+                      ) : ((product as any).menuType === 'RESTAURANT' || !(product as any).menuType) && (product as any).halfPrice > 0 && (
                         <div className="flex gap-2">
                           <button 
                             onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
@@ -1371,7 +1372,7 @@ export default function BillingPage() {
                         </div>
                         
                         {/* Half/Full Toggle Pill - Compact Version */}
-                        {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (
+                        {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
                           <div className="flex items-center bg-black/20 dark:bg-white/5 rounded-xl p-0.5 border border-white/5 shadow-inner scale-90 origin-left">
                             <button
                               onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}

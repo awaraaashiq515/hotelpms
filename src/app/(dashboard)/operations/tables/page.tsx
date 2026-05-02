@@ -60,6 +60,17 @@ export default function TableManagementPage() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [propertyData, setPropertyData] = useState<any>(null);
 
+  // Notification Sound
+  const prevFloorsRef = React.useRef<Floor[]>([]);
+  const playNotificationSound = () => {
+    try {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play().catch(e => console.log('Audio play failed:', e));
+    } catch (err) {
+      console.error('Failed to play sound:', err);
+    }
+  };
+
   // Modals Data
   const [kotSlip, setKotSlip] = useState<KotSlipData | null>(null);
   const [billData, setBillData] = useState<BillData | null>(null);
@@ -176,15 +187,41 @@ export default function TableManagementPage() {
       const cData = await custRes.json();
 
       if (fData.success) {
-        const floors = fData.data;
-        setFloors(floors);
+        const newFloors = fData.data as Floor[];
+        
+        // Detect changes for sound notification
+        if (prevFloorsRef.current.length > 0) {
+          let hasNewActivity = false;
+          newFloors.forEach(nf => {
+            const oldFloor = prevFloorsRef.current.find(of => of.id === nf.id);
+            if (oldFloor) {
+              nf.tables.forEach(nt => {
+                const oldTable = oldFloor.tables.find(ot => ot.id === nt.id);
+                if (oldTable) {
+                  const newOrderId = nt.activeOrder?.id;
+                  const oldOrderId = oldTable.activeOrder?.id;
+                  const newOrderStatus = nt.activeOrder?.status;
+                  const oldOrderStatus = oldTable.activeOrder?.status;
 
-        // Smarter initialization: 
-        // 1. If currently active floor exists in new data, keep it.
-        // 2. If not, pick the first floor.
-        const currentValid = floors.find((f: any) => f.id === activeFloorId);
-        if (!currentValid && floors.length > 0) {
-          const firstId = floors[0].id;
+                  if (newOrderId && (!oldOrderId || newOrderStatus !== oldOrderStatus)) {
+                    hasNewActivity = true;
+                  }
+                }
+              });
+            }
+          });
+
+          if (hasNewActivity) {
+            playNotificationSound();
+          }
+        }
+        
+        prevFloorsRef.current = newFloors;
+        setFloors(newFloors);
+
+        const currentValid = newFloors.find((f: any) => f.id === activeFloorId);
+        if (!currentValid && newFloors.length > 0) {
+          const firstId = newFloors[0].id;
           setActiveFloorId(firstId);
           localStorage.setItem('pos_active_floor_id', firstId);
         }
@@ -268,8 +305,8 @@ export default function TableManagementPage() {
   useEffect(() => {
     fetchData();
     fetchPropertyData();
-    // Auto-refresh every 10 seconds
-    const interval = setInterval(fetchData, 10000);
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 

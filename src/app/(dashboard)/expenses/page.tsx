@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Receipt, Plus, Filter, RefreshCw, Search, Trash2, ExternalLink,
-  Banknote, CreditCard, Smartphone, Globe, TrendingDown
+  Banknote, CreditCard, Smartphone, Globe, TrendingDown, Tags
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import Link from 'next/link';
@@ -102,12 +102,20 @@ export default function ExpensesPage() {
         showBack
         backUrl="/operations"
         actions={
-          <Link
-            href="/expenses/new"
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
-          >
-            <Plus size={16} /> New Expense
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/expenses/new"
+              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
+            >
+              <Plus size={16} /> Add Expense
+            </Link>
+            <Link
+              href="/expenses/categories"
+              className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest transition-all shadow-sm"
+            >
+              <Tags size={16} /> Categories
+            </Link>
+          </div>
         }
       />
 
@@ -259,9 +267,6 @@ export default function ExpensesPage() {
 
       {/* Quick Links */}
       <div className="flex gap-3">
-        <Link href="/expenses/categories" className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 rounded-xl text-xs font-bold tracking-widest transition-all">
-          Manage Categories →
-        </Link>
         <Link href="/vouchers" className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-violet-300 hover:text-violet-600 rounded-xl text-xs font-bold tracking-widest transition-all">
           View Vouchers →
         </Link>

@@ -286,38 +286,61 @@ export async function POST(request: NextRequest) {
               });
             }
             
-            // Also check for legacy 1-to-1 mapping
+            // Handle Inventory Deduction
             const product = await tx.product.findUnique({
               where: { id: item.id },
-              select: { stockItemId: true, trackInventory: true }
+              include: { variants: true }
             });
 
             if (product?.trackInventory && product.stockItemId) {
-              // Only deduct if not already handled by ingredients to avoid double deduction
               const alreadyHandled = ingredients.some((i: any) => i.stockItemId === product.stockItemId);
               if (!alreadyHandled) {
-                const lastMovement = await tx.stockMovement.findFirst({
-                  where: { stockItemId: product.stockItemId, warehouseId: warehouse.id },
-                  orderBy: { movementDate: 'desc' }
-                });
+                let deductionQty = 0;
 
-                const currentBalance = lastMovement?.balanceQty || 0;
-                const qtyOut = item.qty;
+                if (product.menuType === 'BAR') {
+                  // Extract variant name from item name like "Royal Stag (30ml)"
+                  const variantNameMatch = item.name?.match(/\((.*?)\)$/);
+                  const variantName = variantNameMatch ? variantNameMatch[1] : null;
 
-                await tx.stockMovement.create({
-                  data: {
-                    propertyId: session.propertyId!,
-                    warehouseId: warehouse.id,
-                    stockItemId: product.stockItemId,
-                    movementType: 'SALE_OUT',
-                    referenceModule: 'POS_ORDER',
-                    referenceId: posOrder.id,
-                    qtyIn: 0,
-                    qtyOut: qtyOut,
-                    balanceQty: currentBalance - qtyOut,
-                    movementDate: new Date(),
+                  if (variantName) {
+                    if (variantName.toLowerCase().includes('bottle')) {
+                      deductionQty = (product.bottleSize || 750) * item.qty;
+                    } else {
+                      const mlMatch = variantName.match(/(\d+)/);
+                      const mlValue = mlMatch ? parseInt(mlMatch[1]) : 0;
+                      deductionQty = mlValue * item.qty;
+                    }
+                  } else {
+                    deductionQty = (product.pegSize || 30) * item.qty;
                   }
-                });
+                } else {
+                  // Restaurant product
+                  deductionQty = item.qty;
+                }
+
+                if (deductionQty > 0) {
+                  const lastMovement = await tx.stockMovement.findFirst({
+                    where: { stockItemId: product.stockItemId, warehouseId: warehouse.id },
+                    orderBy: { movementDate: 'desc' }
+                  });
+
+                  const currentBalance = lastMovement?.balanceQty || 0;
+
+                  await tx.stockMovement.create({
+                    data: {
+                      propertyId: session.propertyId!,
+                      warehouseId: warehouse.id,
+                      stockItemId: product.stockItemId,
+                      movementType: 'SALE_OUT',
+                      referenceModule: 'POS_ORDER',
+                      referenceId: posOrder.id,
+                      qtyIn: 0,
+                      qtyOut: deductionQty,
+                      balanceQty: currentBalance - deductionQty,
+                      movementDate: new Date(),
+                    }
+                  });
+                }
               }
             }
           }

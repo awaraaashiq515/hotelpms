@@ -207,7 +207,8 @@ export async function POST(request: NextRequest) {
         hsn_sc: h.hsn_sc,
         desc: h.desc,
         uqc: h.uqc,
-        cnt: h.cnt,
+        qty: h.cnt,
+        val: round2(h.txval + h.iamt + h.camt + h.samt + h.csamt),
         rt: h.rt,
         txval: h.txval,
         iamt: h.iamt,
@@ -217,19 +218,19 @@ export async function POST(request: NextRequest) {
       }));
 
     // ── 8. Document summary ───────────────────────────────────────────────────
-    const docs = [{
+    const doc_issue = {
       doc_det: [{
         doc_num: 1,
-        doc_typ: 'Invoices for outward supply',
         docs: [{
-          num: firstOrderNo,
+          num: 1,
+          from: firstOrderNo,
           to: lastOrderNo,
           totnum: orders.length,
           cancel: 0,
           net_issue: orders.length,
         }]
       }]
-    }];
+    };
 
     // ── 9. Final GSTN JSON ────────────────────────────────────────────────────
     const gstJson = {
@@ -237,11 +238,11 @@ export async function POST(request: NextRequest) {
       hash: 'hash',
       gstin: gstin,
       fp: filingPeriod,
-      gt: totalGrand,
-      cur_gt: totalGrand,
+      gt: 0, // usually previous year's annual turnover
+      cur_gt: 0, // usually current year's annual turnover
       ...(b2cs.length > 0 && { b2cs }),
-      hsn: { data: hsnData },
-      docs,
+      ...(hsnData.length > 0 && { hsn: { data: hsnData } }),
+      doc_issue,
     };
 
     // ── 10. Optionally save as draft ─────────────────────────────────────────

@@ -109,6 +109,7 @@ export default function ReceivePaymentPage() {
         sourceId: selectedInvoiceId,
         sourceType: 'INVOICE',
         paidAmount: parseFloat(amount),
+        grossAmount: selectedInvoice?.totalAmount || 0,
         paymentModeId,
         accountId,
         referenceNo

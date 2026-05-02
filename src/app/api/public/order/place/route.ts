@@ -9,14 +9,14 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { items, tableId, propertyId, guestName, guestPhone } = body;
+    const { items, tableId, propertyId, guestName, guestPhone, paymentMethod, isPrepaid } = body;
 
     if (!tableId || !propertyId || !items || items.length === 0) {
       return apiError(new Error('Missing required fields (tableId, propertyId, items)'), 400);
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
-      // 1. Verify Property and Table
+      // ... (existing verification and guest handling code)
       const property = await tx.property.findUnique({
         where: { id: propertyId },
         select: { id: true, organizationId: true }
@@ -30,45 +30,32 @@ export async function POST(request: NextRequest) {
         throw new Error('Invalid table or property reference');
       }
 
-      // 1b. Handle Guest
       let guestId = null;
       if (guestPhone) {
         let guest = await tx.guest.findFirst({
-          where: { 
-            mobile: guestPhone,
-            organizationId: property.organizationId
-          }
+          where: { mobile: guestPhone, organizationId: property.organizationId }
         });
-
         if (!guest) {
           guest = await tx.guest.create({
-            data: {
-              firstName: guestName || 'Guest',
-              mobile: guestPhone,
-              organizationId: property.organizationId
-            }
+            data: { firstName: guestName || 'Guest', mobile: guestPhone, organizationId: property.organizationId }
           });
         }
         guestId = guest.id;
       }
 
+      const outlet = await tx.outlet.findFirst({ where: { propertyId } });
+      if (!outlet) throw new Error('POS Outlet not found');
+
       // 2. Find or create the PosOrder
       let order = await tx.posOrder.findFirst({
         where: { 
           restaurantTableId: tableId,
-          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'BILL_PRINTED'] },
-          orderType: 'DINE_IN'
+          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+          orderType: 'DINE_IN',
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
         },
         include: { items: true }
       });
-
-      const outlet = await tx.outlet.findFirst({
-        where: { propertyId }
-      });
-      
-      if (!outlet) {
-        throw new Error('POS Outlet not found for this property.');
-      }
 
       if (!order) {
         order = await tx.posOrder.create({
@@ -77,42 +64,32 @@ export async function POST(request: NextRequest) {
             outletId: outlet.id,
             orderNo: `QR-${Date.now()}`,
             orderType: 'DINE_IN',
-            status: 'OPEN',
+            status: isPrepaid ? 'SETTLED' : 'OPEN',
             restaurantTableId: tableId,
             tableNo: table.name,
-            guestId: guestId, // Link guest
+            guestId: guestId,
           },
           include: { items: true }
         });
-      } else if (guestId && !order.guestId) {
-        // Update existing order with guest if not already set
-        await tx.posOrder.update({
-          where: { id: order.id },
-          data: { guestId }
-        });
+      } else {
+        if (guestId && !order.guestId) {
+          await tx.posOrder.update({ where: { id: order.id }, data: { guestId } });
+        }
+        if (isPrepaid) {
+           // If prepaid, we might want to mark it as settled or just keep track of the payment
+           // For simplicity, let's keep it as is but add the payment record later
+        }
       }
 
       // 3. Process items for KOT
       const newItemsForKot: any[] = [];
-      
       for (const item of items) {
-        // Find existing item in order (if table already had an order)
         const existingItem = (order as any).items.find((ei: any) => ei.productId === item.id);
-        
-        // QR orders are usually additive. 
-        // We assume 'item.quantity' is what they just added now.
-        // But for safety, let's treat it as the TOTAL quantity they want of that item?
-        // Actually, on a public menu, they might just click "Add" and "Place Order".
-        // Let's assume the payload contains the NEW items they want to add.
-        
         if (existingItem) {
           const newTotalQty = existingItem.quantity + item.quantity;
           await tx.posOrderItem.update({
             where: { id: existingItem.id },
-            data: { 
-              quantity: newTotalQty,
-              totalAmount: newTotalQty * (item.sellingPrice || 0)
-            }
+            data: { quantity: newTotalQty, totalAmount: newTotalQty * (item.sellingPrice || 0) }
           });
           newItemsForKot.push({ ...item, quantity: item.quantity, orderItemId: existingItem.id });
         } else {
@@ -141,83 +118,89 @@ export async function POST(request: NextRequest) {
 
       for (const i of allUpdatedItems) {
         const itemTotal = i.totalAmount;
-        const taxRate = i.product.taxRate ?? 5; // Default 5% if not set
+        const taxRate = i.product.taxRate ?? 5;
         const taxType = i.product.taxType || 'EXCLUSIVE';
+        let itemSub = 0, itemTax = 0;
 
-        let itemSub = 0;
-        let itemTax = 0;
-        let itemGrand = 0;
+        if (taxType === 'EXEMPT') { itemSub = itemTotal; itemTax = 0; }
+        else if (taxType === 'INCLUSIVE') { itemSub = itemTotal / (1 + (taxRate / 100)); itemTax = itemTotal - itemSub; }
+        else { itemSub = itemTotal; itemTax = itemTotal * (taxRate / 100); }
 
-        if (taxType === 'EXEMPT') {
-          itemSub = itemTotal;
-          itemTax = 0;
-          itemGrand = itemTotal;
-        } else if (taxType === 'INCLUSIVE') {
-          itemSub = itemTotal / (1 + (taxRate / 100));
-          itemTax = itemTotal - itemSub;
-          itemGrand = itemTotal;
-        } else { // EXCLUSIVE
-          itemSub = itemTotal;
-          itemTax = itemTotal * (taxRate / 100);
-          itemGrand = itemTotal + itemTax;
-        }
-
-        // Update item level tax in db
-        await tx.posOrderItem.update({
-          where: { id: i.id },
-          data: { taxAmount: itemTax }
-        });
-
-        subtotal += itemSub;
-        taxAmount += itemTax;
-        grandTotal += itemGrand;
+        await tx.posOrderItem.update({ where: { id: i.id }, data: { taxAmount: itemTax } });
+        subtotal += itemSub; taxAmount += itemTax; grandTotal += (itemSub + itemTax);
       }
 
       await tx.posOrder.update({
         where: { id: order!.id },
-        data: { subtotal, taxAmount, grandTotal }
+        data: { subtotal, taxAmount, grandTotal, status: isPrepaid ? 'SETTLED' : 'OPEN' }
       });
 
       // 5. Generate KOT
       let kotTicket: any = null;
       if (newItemsForKot.length > 0) {
-        const kotNo = `KOT-QR-${Date.now()}`;
-        
         kotTicket = await (tx as any).kotTicket.create({
           data: {
-            kotNo,
+            kotNo: `KOT-QR-${Date.now()}`,
             orderId: order!.id,
-            propertyId,
-            outletId: outlet.id,
-            restaurantTableId: tableId,
-            tableNo: table.name,
-            status: 'NEW',
-            createdBy: 'Self-Service (QR)'
+            propertyId, outletId: outlet.id,
+            restaurantTableId: tableId, tableNo: table.name,
+            status: 'NEW', createdBy: 'Self-Service (QR)'
           }
         });
-
         await (tx as any).kotItem.createMany({
           data: newItemsForKot.map((item: any) => {
             const orderItem = allUpdatedItems.find((ai: any) => ai.productId === item.id);
             return {
-              kotId: kotTicket.id,
-              orderItemId: orderItem.id,
-              productId: item.id,
-              itemName: item.name,
-              quantity: item.quantity,
-              status: 'NEW',
+              kotId: kotTicket.id, orderItemId: orderItem.id,
+              productId: item.id, itemName: item.name, quantity: item.quantity, status: 'NEW',
             };
           }),
         });
       }
 
-      // 6. Update Table Status
+      // 6. Handle Payment & Settlement for Prepaid
+      if (isPrepaid) {
+        const cashAccount = await tx.account.findFirst({ where: { propertyId, accountType: 'CASH' } });
+        const upiMode = await tx.paymentMode.findFirst({ where: { propertyId, name: { contains: 'UPI' } } }) 
+                        || await tx.paymentMode.findFirst({ where: { propertyId } });
+
+        // Create Receipt
+        await tx.receipt.create({
+          data: {
+            propertyId,
+            receiptNo: `REC-QR-${Date.now()}`,
+            receivedFromAccountId: cashAccount?.id || 'default-account',
+            amount: grandTotal,
+            paymentModeId: upiMode?.id || 'default-mode',
+            sourceModule: 'POS_ORDER',
+            sourceRefId: order!.id,
+          }
+        });
+
+        // Create Settlement
+        await tx.settlement.create({
+          data: {
+            propertyId,
+            settlementNo: `SET-QR-${Date.now()}`,
+            sourceId: order!.id,
+            sourceType: 'POS_ORDER',
+            guestId: guestId,
+            grossAmount: grandTotal,
+            paidAmount: grandTotal,
+            balanceAmount: 0,
+            status: 'COMPLETED',
+            settlementDate: new Date(),
+          }
+        });
+      }
+
+      // 7. Update Table Status
       await (tx as any).table.update({
         where: { id: tableId },
-        data: { status: 'KOT_RUNNING' }
+        data: { status: isPrepaid ? 'VACANT' : 'KOT_RUNNING' }
       });
 
-      return { orderNo: order!.orderNo, kotNo: kotTicket?.kotNo };
+      return { orderNo: order!.orderNo, kotNo: kotTicket?.kotNo, isPrepaid };
     });
 
     return apiResponse(result, 'Order placed successfully', 201);

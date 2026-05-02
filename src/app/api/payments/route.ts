@@ -8,7 +8,7 @@ const settlementSchema = z.object({
   propertyId: z.string().optional(),
   sourceType: z.enum(['INVOICE', 'FOLIO']),
   sourceId: z.string().min(1, 'Source ID (Invoice or Folio) is required'),
-  grossAmount: z.number().min(0),
+  grossAmount: z.number().optional(),
   paidAmount: z.number().min(0, 'Paid amount must be >= 0'),
   accountId: z.string().min(1, 'Receiving Account (e.g. Cash Ledger) is required'),
   paymentModeId: z.string().min(1, 'Payment Mode ID is required'),

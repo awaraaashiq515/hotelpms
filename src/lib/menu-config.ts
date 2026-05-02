@@ -26,6 +26,7 @@ import {
   FileJson,
   Trophy,
   Wine,
+  Store,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -71,8 +72,9 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       icon: Map,
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'],
     },
-    { name: 'POS Terminal',  path: '/billing',  icon: CreditCard, feature: 'POS', roles: ['POSSYSTEM'] },
-    { name: '🍺 Bar POS',    path: '/bar-pos',  icon: Wine,       feature: 'POS', roles: ['POSSYSTEM'] },
+    { name: 'POS Terminal',       path: '/billing',           icon: CreditCard, feature: 'POS', roles: ['POSSYSTEM'] },
+    { name: 'Counter Payments',   path: '/counter-payments',  icon: Store,      feature: 'POS', roles: ['POSSYSTEM'] },
+    { name: '🍺 Bar POS',         path: '/bar-pos',           icon: Wine,       feature: 'POS', roles: ['POSSYSTEM'] },
     { name: 'All Bills',    path: '/all-bills', icon: Receipt,   feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { name: 'Payments',    path: '/payments',  icon: PaymentIcon, feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
@@ -151,14 +153,14 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
     },
     {
       name: 'GST Filing',
-      path: '/gst-filing',
+      path: '/pos/gst-filing',
       icon: FileJson,
       feature: 'GST',
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'],
       perm: 'GST Filing',
       subItems: [
-        { name: 'Generate Return', path: '/gst-filing',    feature: 'GST' },
-        { name: 'GST Settings',   path: '/gst-settings',  feature: 'GST' },
+        { name: 'Generate Return', path: '/pos/gst-filing',    feature: 'GST' },
+        { name: 'GST Settings',   path: '/pos/gst-settings',  feature: 'GST' },
       ],
     },
     {

@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { productsApi, Product } from '@/lib/api/products';
 import { Building2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
-import { ProductForm } from '@/components/forms/product-form';
+import { RestaurantProductForm } from '@/components/forms/restaurant-product-form';
+import { BarProductForm } from '@/components/forms/bar-product-form';
 import { ConfirmDeleteModal } from '@/components/modals/confirm-delete-modal';
 import { ProductIcon } from '@/components/shared/product-icon';
 
@@ -29,6 +30,7 @@ export default function ProductsPage() {
   const [isBulkTaxOpen, setIsBulkTaxOpen] = useState(false);
   const [selectedTaxType, setSelectedTaxType] = useState('EXCLUSIVE');
   const [selectedMenuTypeFilter, setSelectedMenuTypeFilter] = useState('all');
+  const [activeFormType, setActiveFormType] = useState<'RESTAURANT' | 'BAR'>('RESTAURANT');
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -238,6 +240,7 @@ export default function ProductsPage() {
             <button 
              onClick={() => {
                setSelectedProduct(row);
+               setActiveFormType(row.menuType === 'BAR' ? 'BAR' : 'RESTAURANT');
                setIsFormOpen(true);
              }}
              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-gray-400 hover:text-pos-primary dark:hover:text-pos-primary/70 transition-colors"
@@ -349,12 +352,24 @@ export default function ProductsPage() {
             <Button 
               onClick={() => {
                 setSelectedProduct(null);
+                setActiveFormType('RESTAURANT');
                 setIsFormOpen(true);
               }}
-              className="bg-pos-primary hover:bg-red-700 text-white font-bold text-xs tracking-widest px-6 py-3 rounded-lg shadow-lg shadow-red-200"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs tracking-widest px-4 py-3 rounded-lg shadow-lg shadow-indigo-200"
             >
                <Plus size={16} className="mr-2" />
-               ADD NEW PRODUCT
+               RESTAURANT PRODUCT
+            </Button>
+            <Button 
+              onClick={() => {
+                setSelectedProduct(null);
+                setActiveFormType('BAR');
+                setIsFormOpen(true);
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs tracking-widest px-4 py-3 rounded-lg shadow-lg shadow-amber-200"
+            >
+               <Plus size={16} className="mr-2" />
+               BAR PRODUCT
             </Button>
           </div>
         }
@@ -617,15 +632,24 @@ export default function ProductsPage() {
       <Modal 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
-        title={selectedProduct ? 'Edit Product' : 'New Product'}
-        maxWidth="2xl"
+        title={selectedProduct ? `Edit ${activeFormType === 'BAR' ? 'Bar' : 'Restaurant'} Product` : `New ${activeFormType === 'BAR' ? 'Bar' : 'Restaurant'} Product`}
+        maxWidth={activeFormType === 'BAR' ? "4xl" : "2xl"}
       >
-        <ProductForm 
-          initialData={selectedProduct || undefined}
-          onSubmit={handleCreateOrUpdate}
-          onCancel={() => setIsFormOpen(false)}
-          loading={mutationLoading}
-        />
+        {activeFormType === 'RESTAURANT' ? (
+          <RestaurantProductForm 
+            initialData={selectedProduct || undefined}
+            onSubmit={handleCreateOrUpdate}
+            onCancel={() => setIsFormOpen(false)}
+            loading={mutationLoading}
+          />
+        ) : (
+          <BarProductForm 
+            initialData={selectedProduct || undefined}
+            onSubmit={handleCreateOrUpdate}
+            onCancel={() => setIsFormOpen(false)}
+            loading={mutationLoading}
+          />
+        )}
       </Modal>
 
       {isDeleteOpen && (

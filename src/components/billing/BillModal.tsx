@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { isValid, format } from 'date-fns';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { 
@@ -9,7 +10,6 @@ import {
   Banknote, QrCode, Smartphone, Star,
   MessageCircle
 } from 'lucide-react';
-import { format } from 'date-fns';
 import { printerService } from '@/lib/printer-service';
 
 export interface BillData {
@@ -52,7 +52,6 @@ interface BillModalProps {
 export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer, autoPrint = false, guestId }) => {
   const [isSettling, setIsSettling] = React.useState(false);
   const [selectedModeId, setSelectedModeId] = React.useState<string | null>(null);
-  // Search and Select Customer State
   const [customerSearch, setCustomerSearch] = React.useState('');
   const [showAddCustomer, setShowAddCustomer] = React.useState(false);
   const [selectedGuestId, setSelectedGuestId] = React.useState<string>(guestId || '');
@@ -63,16 +62,13 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [settledInvoiceId, setSettledInvoiceId] = React.useState<string | null>(null);
   const [sendWhatsApp, setSendWhatsApp] = React.useState(true);
 
-  // Quick Add Customer State
   const [newCustFirst, setNewCustFirst] = React.useState('');
   const [newCustLast, setNewCustLast] = React.useState('');
   const [newCustMobile, setNewCustMobile] = React.useState('');
   const [isAddingCustomer, setIsAddingCustomer] = React.useState(false);
 
-  // Property Branding State
   const [property, setProperty] = React.useState<any>(null);
 
-  // Update selectedGuestId if prop changes
   React.useEffect(() => {
     if (guestId) {
       setSelectedGuestId(guestId);
@@ -94,7 +90,6 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
       .catch(err => console.error('Failed to fetch property branding:', err));
   }, []);
 
-  // Auto-print logic
   React.useEffect(() => {
     if (autoPrint && property && bill) {
       handlePrint();
@@ -117,7 +112,6 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!onSettle || !selectedModeId) return;
     setIsSettling(true);
     try {
-      // Capture the result which contains the invoice
       const response = await fetch('/api/orders/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -127,7 +121,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               paymentModeId: selectedModeId,
               guestId: selectedGuestId || undefined,
               totalAmount: bill.grandTotal,
-              items: bill.items.map(i => ({ id: i.id, quantity: i.quantity, sellingPrice: i.price })),
+              items: bill.items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity, sellingPrice: i.price })),
               sendWhatsApp: sendWhatsApp
           })
       });
@@ -164,7 +158,6 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   };
 
   const handlePrint = async () => {
-    // Try Direct Serial Printing via Backend API first
     if (property?.enableDirectPrinting) {
       try {
         const response = await fetch('/api/print', {
@@ -231,7 +224,10 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
             ${property?.address ? `<p style="font-size: 9px; font-weight: normal; margin-bottom: 0.5mm;">${property.address}</p>` : ''}
             ${property?.phone ? `<p style="font-size: 9px; font-weight: normal; margin-bottom: 0.5mm;">PH: ${property.phone}</p>` : ''}
             ${property?.taxDetails ? `<p style="font-size: 9px; font-weight: 900; margin-bottom: 1mm;">GSTIN: ${property.taxDetails}</p>` : ''}
-            <p style="font-size: 10px; margin-top: 1mm;">${format(new Date(bill.createdAt), 'dd/MM/yyyy HH:mm')}</p>
+            <p style="font-size: 10px; margin-top: 1mm;">${(() => {
+              const d = bill.createdAt ? new Date(bill.createdAt) : new Date();
+              return format(isValid(d) ? d : new Date(), 'dd/MM/yyyy HH:mm');
+            })()}</p>
           </div>
 
           <div class="double-line" style="margin-top: 4mm;"></div>
@@ -261,7 +257,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                     ${item.name}
                     ${item.hsnCode ? `<br/><span class="hsn">HSN: ${item.hsnCode}</span>` : ''}
                   </td>
-                  <td class="text-right">₹${(item.quantity * item.price).toFixed(2)}</td>
+                  <td class="text-right">₹${(item.quantity * (item.price || 0)).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -303,22 +299,21 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!mobile) {
       const input = window.prompt('Please enter WhatsApp number (with country code, e.g., 91...):');
       if (!input) return;
-      mobile = input.replace(/\D/g, ''); 
+      mobile = input.replace(/\\D/g, ''); 
     }
 
-    // Add country code if missing (assuming 91 for India as default if it's 10 digits)
     if (mobile.length === 10) mobile = '91' + mobile;
 
-    const itemsText = bill.items.map(item => `${item.name} x ${item.quantity} = ₹${(item.quantity * item.price).toFixed(0)}`).join('\n');
+    const itemsText = bill.items.map(item => `${item.name} x ${item.quantity} = ₹${(item.quantity * (item.price || 0)).toFixed(0)}`).join('\\n');
     const message = `*Receipt from ${property?.name || 'POS'}*
 Order No: ${bill.orderNo}
 Table: ${bill.tableNo || 'Walk-in'}
 ---
 ${itemsText}
 ---
-Subtotal: ₹${bill.subtotal.toFixed(0)}
-Tax: ₹${bill.tax.toFixed(0)}
-*Total: ₹${bill.grandTotal.toFixed(0)}*
+Subtotal: ₹${(bill.subtotal || 0).toFixed(0)}
+Tax: ₹${(bill.tax || 0).toFixed(0)}
+*Total: ₹${(bill.grandTotal || 0).toFixed(0)}*
 ---
 Thank you! Visit again.`;
 
@@ -342,7 +337,6 @@ Thank you! Visit again.`;
         setSelectedGuestId(newGuest.id);
         setCustomerSearch(`${newGuest.firstName} ${newGuest.lastName || ''}`);
         setShowAddCustomer(false);
-        // Reset form
         setNewCustFirst('');
         setNewCustLast('');
         setNewCustMobile('');
@@ -358,9 +352,9 @@ Thank you! Visit again.`;
       <div className="mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           
-          {/* LEFT: THE BILL (Visual) - 4 Cols */}
-          <div className="lg:col-span-12 xl:col-span-5 bg-white p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden relative flex flex-col" id="printable-bill">
-            <div className="absolute top-4 right-4 flex gap-2 print:hidden z-20">
+          {/* LEFT: THE BILL (Visual) - 5 Cols */}
+          <div className="lg:col-span-5 bg-white p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden relative flex flex-col" id="printable-bill">
+            <div className="absolute top-6 right-6 flex gap-2 print:hidden z-20">
               <button 
                 onClick={() => handleWhatsApp()} 
                 className="p-2 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors text-emerald-500 hover:text-emerald-700"
@@ -376,8 +370,8 @@ Thank you! Visit again.`;
                 <Printer size={16} />
               </button>
             </div>
-            {/* Header */}
-            <div className="text-center mb-10 relative z-10">
+            
+            <div className="text-center mb-10 mt-4 relative z-10">
               <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none">
                 {property?.name || 'POS RESTAURANT'}
               </h2>
@@ -389,7 +383,6 @@ Thank you! Visit again.`;
               <div className="w-16 h-1.5 bg-indigo-600 mx-auto mt-8 rounded-full shadow-[0_0_15px_rgba(79,70,229,0.3)]"></div>
             </div>
 
-            {/* Info Grid */}
             <div className="grid grid-cols-1 gap-4 mb-10 relative z-10">
               <div className="flex justify-between items-end border-b border-slate-100 pb-3">
                 <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Order ID</span>
@@ -397,15 +390,19 @@ Thank you! Visit again.`;
               </div>
               <div className="flex justify-between items-end border-b border-slate-100 pb-3">
                 <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Table Name</span>
-                <span className="font-black text-indigo-600 text-sm uppercase">Table {bill.tableNo}</span>
+                <span className="font-black text-indigo-600 text-sm uppercase">{bill.tableNo ? `Table ${bill.tableNo}` : 'Walk-in'}</span>
               </div>
               <div className="flex justify-between items-end border-b border-slate-100 pb-3">
                 <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Timestamp</span>
-                <span className="font-black text-slate-900 text-xs">{format(new Date(bill.createdAt), 'dd/MM/yyyy HH:mm')}</span>
+                <span className="font-black text-slate-900 text-xs">
+                  {(() => {
+                    const d = bill.createdAt ? new Date(bill.createdAt) : new Date();
+                    return format(isValid(d) ? d : new Date(), 'dd/MM/yyyy HH:mm');
+                  })()}
+                </span>
               </div>
             </div>
 
-            {/* Items Table - Strict Column Alignment */}
             <div className="mb-4 relative z-10 flex-1 flex flex-col min-h-[220px]">
               <div className="grid grid-cols-[1fr_85px_75px] gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-3 border-b-2 border-slate-100 pb-3 px-1">
                 <span>Description</span>
@@ -419,36 +416,35 @@ Thank you! Visit again.`;
                       <p className="text-[12px] font-black text-slate-900 leading-tight uppercase group-hover:text-indigo-600 transition-colors">{item.name}</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-[10px] font-bold text-slate-400 tabular-nums">{item.quantity} × {item.price.toFixed(0)}</p>
+                        <p className="text-[10px] font-bold text-slate-400 tabular-nums">{item.quantity} × {(item.price || 0).toFixed(0)}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-[12px] font-black text-slate-900 tabular-nums tracking-tighter">₹{(item.quantity * item.price).toFixed(0)}</p>
+                        <p className="text-[12px] font-black text-slate-900 tabular-nums tracking-tighter">₹{(item.quantity * (item.price || 0)).toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Totals Section */}
             <div className="border-t border-dashed border-slate-200 pt-6 space-y-2 relative z-10 mt-auto">
               <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
                 <span>Subtotal</span>
-                <span className="text-slate-900 font-black">₹{bill.subtotal.toFixed(0)}</span>
+                <span className="text-slate-900 font-black">₹{(bill.subtotal || 0).toFixed(0)}</span>
               </div>
               {bill.membershipDiscount && bill.membershipDiscount > 0 ? (
                 <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest pb-1">
                   <span>Membership Discount</span>
-                  <span className="font-black">-₹{bill.membershipDiscount.toFixed(0)}</span>
+                  <span className="font-black">-₹{(bill.membershipDiscount || 0).toFixed(0)}</span>
                 </div>
               ) : null}
               <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest pb-3 border-b border-slate-100">
                 <span>{bill.taxLabel || 'Tax'}</span>
-                <span className="text-slate-900 font-black">₹{bill.tax.toFixed(0)}</span>
+                <span className="text-slate-900 font-black">₹{(bill.tax || 0).toFixed(0)}</span>
               </div>
               <div className="flex justify-between items-center bg-slate-900 text-white p-5 rounded-2xl mt-4 shadow-xl print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">
                 <div>
-                    <span className="text-[7px] font-black uppercase tracking-[0.3em] opacity-40 block mb-0.5 print:text-[8px] print:font-bold">Payable</span>
-                    <span className="text-2xl font-black text-white leading-none print:text-black">₹{bill.grandTotal.toFixed(0)}</span>
+                    <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-40 block mb-0.5 print:text-[8px] print:font-bold">Payable</span>
+                    <span className="text-2xl font-black text-white leading-none print:text-black">₹{(bill.grandTotal || 0).toFixed(0)}</span>
                 </div>
                 <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center border border-white/5 print:hidden">
                     <ReceiptText size={18} className="text-indigo-400" />
@@ -457,10 +453,8 @@ Thank you! Visit again.`;
             </div>
           </div>
 
-          {/* RIGHT: SETTLEMENT CONTROLS - 7 Cols */}
           <div className="lg:col-span-7 flex flex-col gap-5 print:hidden">
             
-            {/* Customer Management */}
             {isProforma && onSettle && (
               <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col">
                 <div className="p-4 bg-gray-50/50 border-b border-gray-50 flex justify-between items-center">
@@ -566,7 +560,6 @@ Thank you! Visit again.`;
               </div>
             )}
 
-            {/* Payment & Checkout */}
             {isProforma && onSettle && (
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl p-6 flex-1 flex flex-col min-h-0">
                 <div className="flex items-center gap-4 mb-4">
@@ -608,7 +601,6 @@ Thank you! Visit again.`;
                     );
                   })}
 
-                  {/* Add Pay Later Custom Button */}
                   <button 
                     type="button"
                     onClick={() => setSelectedModeId(selectedModeId === 'PAY_LATER' ? null : 'PAY_LATER')}
@@ -669,7 +661,7 @@ Thank you! Visit again.`;
                     </div>
                     <div className={`h-full flex flex-col justify-center items-end px-6 border-l transition-colors ${selectedModeId ? 'bg-black/10 border-white/10' : 'bg-gray-50 border-gray-100'}`}>
                        <span className={`text-[7px] uppercase tracking-widest ${selectedModeId ? 'text-white/40' : 'text-gray-400'}`}>Payable</span>
-                       <span className={`text-xl font-black ${selectedModeId ? 'text-white' : 'text-gray-300'}`}>₹{bill.grandTotal.toFixed(0)}</span>
+                       <span className={`text-xl font-black ${selectedModeId ? 'text-white' : 'text-gray-300'}`}>₹{(bill.grandTotal || 0).toFixed(0)}</span>
                     </div>
                   </Button>
                   

@@ -56,6 +56,9 @@ export async function PUT(
       menuType,
       pegSize,
       pegUnit,
+      bottleSize,
+      bottlePrice,
+      pegPrice,
       stockItemId,
       halfPrice,
       variants
@@ -89,6 +92,9 @@ export async function PUT(
           menuType: menuType !== undefined ? menuType : undefined,
           pegSize: pegSize !== undefined ? (pegSize ? Number(pegSize) : null) : undefined,
           pegUnit: pegUnit !== undefined ? pegUnit : undefined,
+          bottleSize: bottleSize !== undefined ? (bottleSize ? Number(bottleSize) : null) : undefined,
+          bottlePrice: bottlePrice !== undefined ? (bottlePrice ? Number(bottlePrice) : null) : undefined,
+          pegPrice: pegPrice !== undefined ? (pegPrice ? Number(pegPrice) : null) : undefined,
           stockItemId: stockItemId !== undefined ? stockItemId : undefined,
           categoryId,
           variants: variants && variants.length > 0 ? {

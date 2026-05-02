@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('No property context found. Please select a property.'), 400);
     }
 
-    const { name, sellingPrice, halfPrice, costPrice, categoryId, productType, sku, barcode, hsnCode, taxRate, taxType, trackInventory, isActive, image, description, menuType, pegSize, pegUnit, stockItemId, variants } = body;
+    const { name, sellingPrice, halfPrice, costPrice, categoryId, productType, sku, barcode, hsnCode, taxRate, taxType, trackInventory, isActive, image, description, menuType, pegSize, pegUnit, stockItemId, variants, bottleSize, bottlePrice, pegPrice } = body;
 
     const product = await prisma.product.create({
       data: {
@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
         menuType: menuType || 'RESTAURANT',
         pegSize: pegSize ? Number(pegSize) : null,
         pegUnit: pegUnit || 'ml',
+        bottleSize: bottleSize ? Number(bottleSize) : null,
+        bottlePrice: bottlePrice ? Number(bottlePrice) : null,
+        pegPrice: pegPrice ? Number(pegPrice) : null,
         stockItemId: stockItemId || null,
         propertyId: propertyId,
         categoryId,

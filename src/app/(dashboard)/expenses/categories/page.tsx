@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Tag, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, CheckCircle, X, AlertTriangle } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { PageHeader } from '@/components/shared/page-header';
 
 interface ExpenseCategory {
   id: string;
@@ -93,21 +94,20 @@ export default function ExpenseCategoriesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Expense Categories</h1>
-          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest mt-0.5">
-            Manage expense types for classification
-          </p>
-        </div>
-        <button
-          onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
-        >
-          <Plus size={16} /> Add Category
-        </button>
-      </div>
+      <PageHeader
+        title="Expense Categories"
+        subtitle="Manage expense types for classification"
+        showBack
+        backUrl="/expenses"
+        actions={
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold tracking-widest shadow-lg shadow-violet-100 dark:shadow-none transition-all"
+          >
+            <Plus size={16} /> Add Category
+          </button>
+        }
+      />
 
       {/* Success Banner */}
       {successMsg && (
