@@ -231,6 +231,39 @@ export const AppDownloadSection = () => {
             
             {/* Ambient Background Glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-pos-primary/10 rounded-full blur-[100px] -z-10" />
+            
+            {/* Dedicated Android Card (Floating) */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.5 }}
+              className="absolute -bottom-12 -right-6 lg:-right-12 bg-white p-6 rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-100 z-20 max-w-[240px]"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center">
+                  <Monitor className="text-green-600 w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Now Available</div>
+                  <div className="text-lg font-extrabold text-gray-900">Android App</div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                Install our proper native app for Android tablets & phones. Optimized for touch billing.
+              </p>
+              <a 
+                href="/downloads/ordermint-pos.apk"
+                className="w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-pos-primary transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download APK
+              </a>
+              <div className="mt-3 flex items-center justify-center gap-1 opacity-50">
+                <ShieldCheck className="w-3 h-3" />
+                <span className="text-[9px] font-medium">Verified & Secure</span>
+              </div>
+            </motion.div>
           </div>
 
         </div>
