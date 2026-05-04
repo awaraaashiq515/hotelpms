@@ -106,10 +106,15 @@ export const AppDownloadSection = () => {
                     macOS
                   </motion.a>
                 ) : (
-                  <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium">
+                  <motion.a
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    href="/downloads/ordermint-pos-mac.dmg"
+                    className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
+                  >
                     <Apple className="w-4 h-4" />
                     Mac
-                  </div>
+                  </motion.a>
                 )}
 
                 {/* Android APK */}
@@ -118,7 +123,7 @@ export const AppDownloadSection = () => {
                     <Monitor className="w-4 h-4" />
                     Android (Coming Soon)
                   </div>
-                ) : fileStatus.android ? (
+                ) : (
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -126,13 +131,8 @@ export const AppDownloadSection = () => {
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Monitor className="w-4 h-4" />
-                    Android APK
-                  </motion.a>
-                ) : (
-                  <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium">
-                    <Monitor className="w-4 h-4" />
                     Android
-                  </div>
+                  </motion.a>
                 )}
 
                 {/* Windows EXE */}
@@ -152,15 +152,15 @@ export const AppDownloadSection = () => {
                     EXE Installer
                   </motion.a>
                 ) : (
-                  <div className="group relative">
-                    <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium cursor-help">
-                      <Download className="w-4 h-4" />
-                      Windows EXE
-                    </div>
-                    <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1.5 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-50">
-                      Use "Install Web App" button above (Recommended)
-                    </span>
-                  </div>
+                  <motion.a
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    href="/downloads/ordermint-pos-windows.exe"
+                    className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Windows EXE
+                  </motion.a>
                 )}
               </div>
             </div>
