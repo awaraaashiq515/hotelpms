@@ -32,7 +32,8 @@ import {
   ClipboardList,
   Contact,
   Store,
-  FileJson
+  FileJson,
+  Star
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -94,6 +95,7 @@ export default function OperationsPage() {
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: '/operations/tables/qr-gallery', feature: 'TABLES' },
     { label: 'Customers', icon: Contact, path: '/customers' },
+    { label: 'Customer Feedback', icon: Star, path: '/reports/ratings', feature: 'REPORTS' },
   ];
 
   const financialActions: DashboardAction[] = [

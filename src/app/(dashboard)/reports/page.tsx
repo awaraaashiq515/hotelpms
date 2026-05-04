@@ -12,7 +12,8 @@ import {
   ChevronRight,
   BookOpen,
   Wallet,
-  FileText
+  FileText,
+  Star
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 
@@ -38,6 +39,12 @@ export default function ReportsHub() {
           icon: <CreditCard className="text-purple-500" />, 
           desc: 'Breakdown of payments (Cash, Card, UPI).', 
           href: '/reports/settlements' 
+        },
+        { 
+          name: 'Customer Feedback', 
+          icon: <Star className="text-amber-500" />, 
+          desc: 'Table-wise customer ratings and detailed comments.', 
+          href: '/reports/ratings' 
         },
       ]
     },

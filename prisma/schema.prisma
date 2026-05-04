@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -107,6 +107,7 @@ model Property {
   users                User[]
   vouchers             Voucher[]
   warehouses           Warehouse[]
+  tableFeedbacks       TableFeedback[]
 
   @@index([organizationId])
 }
@@ -1035,6 +1036,7 @@ model WebsiteSettings {
   smtpPort                 String?  @default("465")
   windowsComingSoon        Boolean  @default(false)
   macComingSoon            Boolean  @default(false)
+  androidComingSoon        Boolean  @default(false)
   geminiApiKey             String?
 }
 
@@ -1113,6 +1115,7 @@ model Table {
   property          Property           @relation(fields: [propertyId], references: [id])
   tableReservations TableReservation[]
   tablets           Tablet[]
+  feedbacks         TableFeedback[]
 
   @@index([propertyId])
   @@index([floorId])
@@ -1438,4 +1441,19 @@ model MembershipUsage {
   discountApplied  Float
   usedAt           DateTime       @default(now())
   membershipCard   MembershipCard @relation(fields: [membershipCardId], references: [id])
+}
+
+model TableFeedback {
+  id         String   @id @default(cuid())
+  propertyId String
+  tableId    String
+  rating     Int
+  comments   String?
+  createdAt  DateTime @default(now())
+  
+  property   Property @relation(fields: [propertyId], references: [id])
+  table      Table    @relation(fields: [tableId], references: [id])
+
+  @@index([propertyId])
+  @@index([tableId])
 }

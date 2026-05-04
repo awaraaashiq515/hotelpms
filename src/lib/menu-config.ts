@@ -27,6 +27,7 @@ import {
   Trophy,
   Wine,
   Store,
+  Star,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -149,6 +150,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
         { name: 'Tax Report',        path: '/reports/tax',         feature: 'REPORTS' },
         { name: 'Inventory Report',  path: '/reports/inventory',   feature: 'REPORTS' },
         { name: 'Audit Logs',        path: '/reports/audit',       feature: 'REPORTS' },
+        { name: 'Customer Feedback', path: '/reports/ratings',     feature: 'REPORTS' },
       ],
     },
     {
@@ -197,6 +199,7 @@ export const operationsGrid = [
   { label: 'Table Bookings', icon: CalendarDays, path: '/table-reservations' },
   { label: 'Drivers', icon: CarFront, path: '/drivers' },
   { label: 'POS Staff', icon: Users, path: '/pos-staff' },
+  { label: 'Customer Feedback', icon: Star, path: '/reports/ratings' },
 ];
 
 // Legacy Export for compatibility during migration

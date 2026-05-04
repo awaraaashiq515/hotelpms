@@ -10,8 +10,10 @@ export const AppDownloadSection = () => {
   const [fileStatus, setFileStatus] = useState({ 
     windows: false, 
     mac: false, 
+    android: false,
     windowsComingSoon: false, 
-    macComingSoon: false 
+    macComingSoon: false,
+    androidComingSoon: false 
   });
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +59,7 @@ export const AppDownloadSection = () => {
             >
               Install <span className="text-pos-primary">OrderMint POS</span> <br /> 
               on your <span className="relative">
-                Windows
+                Windows & Android
                 <svg className="absolute -bottom-2 left-0 w-full h-2 text-pos-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">
                   <path d="M0 5 Q 25 0, 50 5 T 100 5" fill="none" stroke="currentColor" strokeWidth="4" />
                 </svg>
@@ -71,7 +73,7 @@ export const AppDownloadSection = () => {
               transition={{ delay: 0.2 }}
               className="text-xl text-gray-600 mb-10 max-w-xl leading-relaxed"
             >
-              Get a proper desktop experience with lightning-fast billing, hardware integration, and a dedicated window. No browser tabs, no distractions.
+              Get a proper experience with lightning-fast billing, hardware integration, and a dedicated app. No browser tabs, no distractions.
             </motion.p>
             
             <div className="flex flex-col sm:flex-row flex-wrap justify-center lg:justify-start gap-4 mb-8">
@@ -106,7 +108,30 @@ export const AppDownloadSection = () => {
                 ) : (
                   <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium">
                     <Apple className="w-4 h-4" />
-                    Mac (Building...)
+                    Mac
+                  </div>
+                )}
+
+                {/* Android APK */}
+                {fileStatus.androidComingSoon ? (
+                  <div className="flex items-center gap-2 px-6 py-3 bg-orange-50 text-orange-600 border border-orange-100 rounded-xl text-sm font-bold animate-pulse">
+                    <Monitor className="w-4 h-4" />
+                    Android (Coming Soon)
+                  </div>
+                ) : fileStatus.android ? (
+                  <motion.a
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    href="/downloads/ordermint-pos.apk"
+                    className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
+                  >
+                    <Monitor className="w-4 h-4" />
+                    Android APK
+                  </motion.a>
+                ) : (
+                  <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl text-sm font-medium">
+                    <Monitor className="w-4 h-4" />
+                    Android
                   </div>
                 )}
 

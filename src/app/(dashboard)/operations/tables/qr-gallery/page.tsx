@@ -34,6 +34,7 @@ export default function QRGalleryPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
+  const [qrMode, setQrMode] = useState<'order' | 'rating'>('order');
 
   const fetchData = async () => {
     setLoading(true);
@@ -198,13 +199,31 @@ export default function QRGalleryPage() {
             showBack
             backUrl="/operations/tables"
             actions={
-              <Button
-                onClick={handlePrintAll}
-                className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark font-black uppercase text-xs tracking-widest gap-2"
-              >
-                <Printer size={18} />
-                Print All QRs
-              </Button>
+              <>
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-gray-200 dark:border-slate-800">
+                  <Button
+                    variant={qrMode === 'order' ? 'primary' : 'ghost'}
+                    onClick={() => setQrMode('order')}
+                    className={`rounded-xl h-10 px-6 text-xs font-black uppercase tracking-widest ${qrMode === 'order' ? 'bg-pos-primary hover:bg-pos-primary-dark' : 'text-gray-500'}`}
+                  >
+                    Order QRs
+                  </Button>
+                  <Button
+                    variant={qrMode === 'rating' ? 'primary' : 'ghost'}
+                    onClick={() => setQrMode('rating')}
+                    className={`rounded-xl h-10 px-6 text-xs font-black uppercase tracking-widest ${qrMode === 'rating' ? 'bg-orange-500 hover:bg-orange-600' : 'text-gray-500'}`}
+                  >
+                    Rating QRs
+                  </Button>
+                </div>
+                <Button
+                  onClick={handlePrintAll}
+                  className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark font-black uppercase text-xs tracking-widest gap-2"
+                >
+                  <Printer size={18} />
+                  Print All QRs
+                </Button>
+              </>
             }
           />
         </div>
@@ -225,26 +244,29 @@ export default function QRGalleryPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {floorTables.map(table => {
-                  const qrUrl = `${origin}/menu/${table.property.code}/${table.qrToken || table.id}`;
+                  const qrUrl = qrMode === 'order' 
+                    ? `${origin}/menu/${table.property.code}/${table.qrToken || table.id}`
+                    : `${origin}/rate/${table.property.code}/${table.qrToken || table.id}`;
+                    
                   return (
                     <div
                       key={table.id}
-                      className="qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300"
+                      className={`qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300 ${qrMode === 'rating' ? 'border-orange-200 dark:border-orange-900/30' : ''}`}
                     >
                       <div className="print-content w-full flex flex-col items-center gap-2">
                         {/* Property name */}
-                        <div className="space-y-2 w-full flex flex-col items-center">
+                        <div className="space-y-1 w-full flex flex-col items-center">
                           <h3 className="print-property-name text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate w-full">
                             {table.property.name}
                           </h3>
                           {/* Floor badge */}
-                          <div className="print-floor-badge mt-1 text-xs text-gray-500">
+                          <div className={`print-floor-badge text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${qrMode === 'rating' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
                              {floorName}
                           </div>
                         </div>
 
                         {/* QR Code */}
-                        <div className="print-qr-container p-2 bg-white rounded-xl border border-gray-100 shadow-inner">
+                        <div className={`print-qr-container p-2 bg-white rounded-xl border shadow-inner ${qrMode === 'rating' ? 'border-orange-100' : 'border-gray-100'}`}>
                           <QRCodeSVG
                             value={qrUrl}
                             size={140}
@@ -258,8 +280,8 @@ export default function QRGalleryPage() {
                           <h2 className="print-table-name text-lg font-bold text-gray-900 dark:text-white">
                             {table.name}
                           </h2>
-                          <p className="print-footer text-xs font-medium text-gray-400">
-                            Scan to Order · OrderMint
+                          <p className={`print-footer text-[10px] font-black uppercase tracking-[0.2em] ${qrMode === 'rating' ? 'text-orange-500' : 'text-gray-400'}`}>
+                            {qrMode === 'order' ? 'Scan to Order' : 'Scan to Rate'}
                           </p>
                         </div>
                       </div>
