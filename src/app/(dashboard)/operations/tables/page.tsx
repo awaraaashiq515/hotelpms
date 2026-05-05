@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   LayoutGrid, RefreshCcw, Plus,
@@ -59,6 +59,11 @@ export default function TableManagementPage() {
   const [isFinalInvoice, setIsFinalInvoice] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [propertyData, setPropertyData] = useState<any>(null);
+  const activeFloorIdRef = useRef(activeFloorId);
+
+  useEffect(() => {
+    activeFloorIdRef.current = activeFloorId;
+  }, [activeFloorId]);
 
   // Notification Sound
   const prevFloorsRef = React.useRef<Floor[]>([]);
@@ -219,7 +224,7 @@ export default function TableManagementPage() {
         prevFloorsRef.current = newFloors;
         setFloors(newFloors);
 
-        const currentValid = newFloors.find((f: any) => f.id === activeFloorId);
+        const currentValid = newFloors.find((f: any) => f.id === activeFloorIdRef.current);
         if (!currentValid && newFloors.length > 0) {
           const firstId = newFloors[0].id;
           setActiveFloorId(firstId);
