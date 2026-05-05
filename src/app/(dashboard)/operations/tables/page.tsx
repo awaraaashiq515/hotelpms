@@ -515,27 +515,14 @@ export default function TableManagementPage() {
     }
   };
 
-  const handleTableClick = async (table: Table) => {
-    // If table has no active order, we should be able to open a new one
-    if (!table.activeOrder) {
-      try {
-        const res = await fetch('/api/orders/open', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tableId: table.id }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
-        } else {
-          router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
-        }
-      } catch (error) {
-        console.error('Failed to open order:', error);
-        router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
-      }
+  const handleTableClick = (table: Table) => {
+    const isVacant = !table.activeOrder || table.status === 'VACANT';
+    
+    if (isVacant) {
+      // Empty table: Single click opens POS
+      router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
     } else {
-      // Toggle selection for occupied tables
+      // Occupied table: Single click selects (shows KOT/Bill menu)
       if (selectedTable?.id === table.id) {
         setSelectedTable(null);
       } else {

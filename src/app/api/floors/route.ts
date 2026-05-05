@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const openOrders = await (prisma as any).posOrder.findMany({
       where: { 
         ...where,
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] }
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING'] }
       },
       include: {
         items: true,
@@ -63,10 +63,8 @@ export async function GET(request: NextRequest) {
         .map((table: any) => {
           let activeOrder = null;
           // Link the open orders for this table if it exists AND the table is not vacant
-          // Filter to only show orders from the last 24 hours to avoid 'ghost' orders
-          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const tableOrders = table.status !== 'VACANT' 
-            ? openOrders.filter((o: any) => o.restaurantTableId === table.id && new Date(o.createdAt) > oneDayAgo)
+            ? openOrders.filter((o: any) => o.restaurantTableId === table.id)
             : [];
           
           if (tableOrders.length > 0) {
