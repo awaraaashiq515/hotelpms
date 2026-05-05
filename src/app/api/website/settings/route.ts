@@ -43,7 +43,7 @@ export async function PUT(req: NextRequest) {
         'heroTitle', 'heroSubtitle', 'heroVideo', 'heroImage',
         'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact',
         'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail',
-        'windowsComingSoon', 'macComingSoon', 'geminiApiKey'
+        'windowsComingSoon', 'macComingSoon', 'androidComingSoon', 'geminiApiKey'
       ];
       
       fields.forEach(field => {
@@ -61,7 +61,13 @@ export async function PUT(req: NextRequest) {
         data: body,
       });
     }
-    return apiResponse(settings, 'Settings updated successfully');
+    
+    // Force a fresh fetch of the settings to ensure consistency
+    const updatedSettings = await prisma.websiteSettings.findUnique({
+      where: { id: settings.id }
+    });
+
+    return apiResponse(updatedSettings, 'Settings updated successfully');
   } catch (error) {
     return apiError(error);
   }

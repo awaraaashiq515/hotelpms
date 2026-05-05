@@ -35,22 +35,22 @@ export function PremiumFooter() {
   };
 
   return (
-    <footer className="bg-white pt-16 pb-12 border-t border-slate-100">
-      <div className="container mx-auto px-6 max-w-5xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-16">
+    <footer className="bg-[#050505] pt-24 pb-12 border-t border-white/5">
+      <div className="container mx-auto px-6 max-w-7xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-16 mb-24">
           
           {/* Brand Col */}
           <div className="lg:col-span-2">
-            <Link href="/" className="inline-flex flex-col items-start gap-3 mb-6 group">
+            <Link href="/" className="inline-flex flex-col items-start gap-3 mb-8 group">
                <div className="h-16 md:h-24 lg:h-28 max-w-[280px] md:max-w-[350px]">
                  {settings?.logoUrl ? (
                    <img 
                      src={settings.logoUrl} 
                      alt={settings.hotelName || "OrderMint"} 
-                     className="h-full w-auto object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105" 
+                     className="h-full w-auto object-contain brightness-0 invert opacity-80 transition-transform duration-300 group-hover:scale-105" 
                    />
                  ) : (
-                   <div id="footer-fallback-logo" className="text-2xl font-medium tracking-tight text-slate-900 hover:opacity-80 transition-opacity">
+                   <div id="footer-fallback-logo" className="text-3xl font-black tracking-tighter text-white hover:opacity-80 transition-opacity">
                      {settings?.hotelName ? (
                        settings.hotelName
                      ) : (
@@ -60,13 +60,13 @@ export function PremiumFooter() {
                  )}
                </div>
             </Link>
-            <p className="text-slate-500 max-w-sm mb-6 font-light">
-              {settings?.tagline || "The premier restaurant management platform built to streamline operations and increase revenue."}
+            <p className="text-slate-500 max-w-sm mb-8 font-light leading-relaxed">
+              {settings?.tagline || "The premier hospitality management ecosystem built to scale operations and maximize revenue through intelligent automation."}
             </p>
             <div className="flex gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="w-10 h-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center hover:bg-slate-100 transition-colors cursor-pointer">
-                  <div className="w-4 h-4 bg-slate-300 rounded-sm" />
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-pos-primary hover:text-white transition-all cursor-pointer text-slate-400">
+                  <div className="w-5 h-5 bg-current rounded-sm opacity-50" />
                 </div>
               ))}
             </div>
@@ -74,11 +74,11 @@ export function PremiumFooter() {
 
           {/* Link Cols */}
           <div>
-            <h4 className="font-medium text-slate-900 mb-6">Product</h4>
+            <h4 className="font-bold text-white mb-8 uppercase tracking-widest text-xs">Product</h4>
             <ul className="space-y-4">
               {footerLinks.Product.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-slate-500 font-light hover:text-pos-primary transition-colors">
+                  <Link href={link.href} className="text-slate-500 font-medium hover:text-pos-primary transition-colors">
                     {link.name}
                   </Link>
                 </li>
@@ -86,11 +86,11 @@ export function PremiumFooter() {
             </ul>
           </div>
           <div>
-            <h4 className="font-medium text-slate-900 mb-6">Company</h4>
+            <h4 className="font-bold text-white mb-8 uppercase tracking-widest text-xs">Company</h4>
             <ul className="space-y-4">
               {footerLinks.Company.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-slate-500 font-light hover:text-pos-primary transition-colors">
+                  <Link href={link.href} className="text-slate-500 font-medium hover:text-pos-primary transition-colors">
                     {link.name}
                   </Link>
                 </li>
@@ -98,11 +98,11 @@ export function PremiumFooter() {
             </ul>
           </div>
           <div>
-            <h4 className="font-medium text-slate-900 mb-6">Legal</h4>
+            <h4 className="font-bold text-white mb-8 uppercase tracking-widest text-xs">Legal</h4>
             <ul className="space-y-4">
               {footerLinks.Legal.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-slate-500 font-light hover:text-pos-primary transition-colors">
+                  <Link href={link.href} className="text-slate-500 font-medium hover:text-pos-primary transition-colors">
                     {link.name}
                   </Link>
                 </li>
@@ -111,14 +111,14 @@ export function PremiumFooter() {
           </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm font-light text-slate-400">
-            © {new Date().getFullYear()} {settings?.hotelName || "OrderMint"} Inc. All rights reserved.
+        <div className="border-t border-white/5 pt-12 flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-sm font-medium text-slate-600">
+            © {new Date().getFullYear()} {settings?.hotelName || "OrderMint"} Inc. Crafted with passion for hospitality.
           </p>
-          <div className="flex gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              All Systems Operational
+          <div className="flex gap-3">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-400 text-xs font-bold uppercase tracking-widest">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+              Global Systems Live
             </span>
           </div>
         </div>

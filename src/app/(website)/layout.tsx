@@ -9,7 +9,7 @@ export default function WebsiteLayout({
 }) {
   return (
     <div className="flex flex-col min-h-screen">
-      <WebsiteHeader />
+      <WebsiteHeader dark />
       <div className="flex-grow">
         {children}
       </div>

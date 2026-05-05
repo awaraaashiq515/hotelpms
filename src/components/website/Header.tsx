@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 
-export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
+export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: boolean, dark?: boolean }) => {
   const [isSticky, setIsSticky] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
   }, []);
 
   const navLinks = [
-    { name: 'Features', href: '/#features' },
+    { name: 'Features', href: '/features' },
     { name: 'About', href: '/about' },
     { name: 'Blog', href: '/blog' },
     { name: 'Contact', href: '/contact' },
@@ -81,22 +81,37 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
               </div>
             </Link>
 
-            {/* ── DESKTOP NAV ── */}
             <nav className="hidden lg:flex items-center gap-10">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className="text-sm font-semibold text-slate-600 hover:text-pos-primary transition-colors duration-200"
-                >
-                  {link.name}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const isAnchor = link.href.startsWith('/#');
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    onClick={(e) => {
+                      if (isAnchor && window.location.pathname === '/') {
+                        e.preventDefault();
+                        const id = link.href.split('#')[1];
+                        const element = document.getElementById(id);
+                        if (element) {
+                          element.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                    className={`text-sm font-semibold transition-colors duration-200 ${!isSticky && dark ? 'text-white/70 hover:text-white' : 'text-slate-600 hover:text-pos-primary'
+                      }`}
+                  >
+                    {link.name}
+                  </Link>
+                );
+              })}
               <Link
                 href="/login"
-                className={`px-6 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all duration-300 shadow-sm hover:shadow-md ${isSticky || isSimple
-                  ? 'bg-pos-primary text-white hover:bg-slate-900'
-                  : 'bg-slate-900 text-white hover:bg-pos-primary'
+                className={`px-8 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 shadow-lg ${isSticky || isSimple
+                    ? 'bg-pos-primary text-white hover:bg-slate-900 shadow-pos-primary/20'
+                    : dark
+                      ? 'bg-pos-primary text-white hover:scale-105 shadow-[0_0_25px_rgba(232,160,160,0.4)]'
+                      : 'bg-slate-900 text-white hover:bg-pos-primary shadow-slate-900/20'
                   }`}
               >
                 Sign In
@@ -105,7 +120,7 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
 
             {/* ── MOBILE TOGGLE ── */}
             <button
-              className="lg:hidden text-slate-900 p-1"
+              className={`lg:hidden p-1 transition-colors ${!isSticky && dark ? 'text-white' : 'text-slate-900'}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
             >
@@ -139,16 +154,29 @@ export const WebsiteHeader = ({ isSimple = false }: { isSimple?: boolean }) => {
               </button>
             </div>
             <nav className="flex flex-col gap-6">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-xl font-semibold text-slate-900 tracking-tight hover:text-pos-primary"
-                >
-                  {link.name}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const isAnchor = link.href.startsWith('/#');
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    onClick={(e) => {
+                      setMobileMenuOpen(false);
+                      if (isAnchor && window.location.pathname === '/') {
+                        e.preventDefault();
+                        const id = link.href.split('#')[1];
+                        const element = document.getElementById(id);
+                        if (element) {
+                          element.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                    className="text-xl font-semibold text-slate-900 tracking-tight hover:text-pos-primary"
+                  >
+                    {link.name}
+                  </Link>
+                );
+              })}
               <Link
                 href="/login"
                 className="mt-4 bg-pos-primary text-white py-4 rounded-xl text-center font-bold uppercase tracking-widest"

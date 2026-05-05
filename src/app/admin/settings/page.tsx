@@ -28,6 +28,7 @@ export default function WebsiteSettingsPage() {
     contactReceiverEmail: '',
     windowsComingSoon: false,
     macComingSoon: false,
+    androidComingSoon: false,
   });
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function WebsiteSettingsPage() {
             contactReceiverEmail: fetchedData.contactReceiverEmail || '',
             windowsComingSoon: fetchedData.windowsComingSoon ?? false,
             macComingSoon: fetchedData.macComingSoon ?? false,
+            androidComingSoon: fetchedData.androidComingSoon ?? false,
           });
         }
       });
@@ -75,7 +77,10 @@ export default function WebsiteSettingsPage() {
       });
       const json = await res.json();
       if (json.success) {
+        setSettings(json.data);
         alert('Settings updated successfully!');
+      } else {
+        alert('Failed to update settings: ' + (json.message || 'Unknown error'));
       }
     } catch (err) {
       console.error(err);
@@ -241,6 +246,22 @@ export default function WebsiteSettingsPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-6 rounded-[30px]">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">Android App</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                  {settings.androidComingSoon ? 'Coming Soon Mode' : 'Available for Download'}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSettings({ ...settings, androidComingSoon: !settings.androidComingSoon })}
+                className={`relative w-14 h-7 rounded-full transition-all duration-300 ${settings.androidComingSoon ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+              >
+                <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${settings.androidComingSoon ? 'translate-x-7' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-6 rounded-[30px]">
               <div className="space-y-1">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">Windows App</h3>
