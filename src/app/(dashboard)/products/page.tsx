@@ -269,6 +269,7 @@ export default function ProductsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [includeTax, setIncludeTax] = useState(true);
   const [includeHsn, setIncludeHsn] = useState(true);
+  const [aiMenuType, setAiMenuType] = useState<'RESTAURANT' | 'BAR'>('RESTAURANT');
 
   const handleAiScan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,7 +308,10 @@ export default function ProductsPage() {
       const res = await fetch('/api/ai/scan-menu/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: scannedData.categories }),
+        body: JSON.stringify({ 
+          categories: scannedData.categories,
+          menuType: aiMenuType 
+        }),
       });
 
       const data = await res.json();
@@ -506,8 +510,53 @@ export default function ProductsPage() {
           onClose={() => { if(!mutationLoading) setIsAiModalOpen(false); }} 
           title="Scan Menu using Mint AI"
         >
-          {!scannedData ? (
-             <form onSubmit={handleAiScan} className="space-y-4 p-2">
+          <div className="p-2 space-y-6">
+            {/* Unified Menu Destination Toggle - Always Visible */}
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${
+              aiMenuType === 'RESTAURANT' 
+                ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800/30' 
+                : 'bg-amber-50/50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-800/30'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${
+                  aiMenuType === 'RESTAURANT' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'
+                }`}>
+                  <Layers size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-900 dark:text-white">Save Scanned Items To</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Current Selection: {aiMenuType}</p>
+                </div>
+              </div>
+
+              <div className="flex p-1 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setAiMenuType('RESTAURANT')}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    aiMenuType === 'RESTAURANT'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  Restaurant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMenuType('BAR')}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    aiMenuType === 'BAR'
+                      ? 'bg-amber-500 text-white shadow-lg shadow-amber-200 dark:shadow-none'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  Bar
+                </button>
+              </div>
+            </div>
+
+            {!scannedData ? (
+              <form onSubmit={handleAiScan} className="space-y-4">
                <p className="text-sm text-gray-500">Upload an image of your menu card to automatically extract and create products & categories.</p>
                <div className="border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-xl p-8 text-center cursor-pointer hover:border-pos-primary transition-colors">
                  <input 
@@ -557,22 +606,32 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex justify-end gap-3 pt-2">
                   <Button variant="secondary" onClick={() => setIsAiModalOpen(false)} type="button">Cancel</Button>
-                  <Button type="submit" isLoading={scanning} disabled={!file}>Start AI Scan</Button>
+                  <Button type="submit" isLoading={scanning} disabled={!file} className="px-8">Start AI Scan</Button>
                </div>
              </form>
           ) : (
-            <div className="space-y-4 p-2 max-h-[60vh] overflow-y-auto no-scrollbar">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Review scanned items from AI:</p>
-              {scannedData.categories?.map((cat: any, i: number) => (
-                <div key={i} className="border border-gray-100 dark:border-slate-800 rounded-xl p-6 bg-white dark:bg-slate-800/50 shadow-sm space-y-4 mb-4">
-                  <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-3">
-                    <div className="w-2 h-6 bg-pos-primary rounded-full" />
-                    <h4 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">{cat.name}</h4>
-                  </div>
-                  <div className="divide-y divide-gray-50 dark:divide-slate-800">
-                    {cat.items?.map((item: any, j: number) => (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">Review Scanned Items</p>
+                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border ${
+                  aiMenuType === 'BAR' 
+                    ? 'bg-amber-50 text-amber-600 border-amber-100' 
+                    : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                }`}>
+                  Destination: {aiMenuType}
+                </span>
+              </div>
+              <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-4">
+                {scannedData.categories?.map((cat: any, i: number) => (
+                  <div key={i} className="border border-gray-100 dark:border-slate-800 rounded-xl p-6 bg-white dark:bg-slate-800/50 shadow-sm space-y-4 mb-4">
+                    <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-3">
+                      <div className="w-2 h-6 bg-pos-primary rounded-full" />
+                      <h4 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">{cat.name}</h4>
+                    </div>
+                    <div className="divide-y divide-gray-50 dark:divide-slate-800">
+                      {cat.items?.map((item: any, j: number) => (
                         <div key={j} className="py-4 last:pb-0 transition-opacity">
                             <div className="flex justify-between items-start mb-2">
                               <div className="flex flex-col">
@@ -614,10 +673,11 @@ export default function ProductsPage() {
                               )}
                             </div>
                         </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <Button variant="secondary" onClick={() => setScannedData(null)} disabled={mutationLoading}>Back / Scan Again</Button>
@@ -625,6 +685,7 @@ export default function ProductsPage() {
               </div>
             </div>
           )}
+          </div>
         </Modal>
       )}
 

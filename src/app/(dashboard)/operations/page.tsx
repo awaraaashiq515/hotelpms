@@ -33,7 +33,10 @@ import {
   Contact,
   Store,
   FileJson,
-  Star
+  Star,
+  LayoutGrid,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -70,7 +73,7 @@ export default function OperationsPage() {
 
   const role = session?.role;
   const permissions = (session?.permissions || []).map((p: string) => p.trim().toLowerCase());
-  const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN';
+  const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN' || role === 'POSSYSTEM';
 
   const hasPermission = (perm?: string) => {
     if (!perm || isAdmin) return true;
@@ -85,6 +88,7 @@ export default function OperationsPage() {
   };
 
   const managementActions: DashboardAction[] = [
+    { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: '/manage-users', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: '/pos-staff', feature: 'STAFF' },
@@ -120,6 +124,7 @@ export default function OperationsPage() {
 
   // Configs only for Admins
   const masterConfigs: DashboardAction[] = [
+    { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', variant: 'config' },
     { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM'] },
     { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM'] },
     { label: 'Tax Setup', perm: 'Settings', icon: ShieldCheck, path: '/settings' },
@@ -170,6 +175,34 @@ export default function OperationsPage() {
         title="Operations Command Center"
         subtitle={isAdmin ? "Centralized management for your entire business portfolio." : "Direct access to terminal controls and order management."}
       />
+
+      {/* Quick Setup Banner - Highlighted for Ease of Use */}
+      {isAdmin && (
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[40px] p-10 text-white shadow-2xl animate-in fade-in slide-in-from-top-6 duration-1000 group">
+           <div className="absolute top-0 right-0 w-96 h-96 bg-pos-primary/10 blur-[120px] rounded-full -mr-32 -mt-32" />
+           <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full -ml-32 -mb-32" />
+           
+           <div className="relative flex flex-col md:flex-row items-center justify-between gap-10">
+              <div className="space-y-4 text-center md:text-left">
+                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <Sparkles size={14} className="text-pos-primary" />
+                    New Feature: High Efficiency
+                 </div>
+                 <h2 className="text-3xl md:text-4xl font-black tracking-tight leading-none uppercase">One-Page <span className="text-pos-primary">Setup</span></h2>
+                 <p className="text-white/60 text-sm font-medium max-w-md leading-relaxed">
+                    Configure your entire restaurant database — Products, Categories, Tables, and Inventory — all from a single, unified master page.
+                 </p>
+              </div>
+              
+              <button 
+                onClick={() => window.location.href = '/setup'}
+                className="bg-white text-slate-950 px-10 py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all group/btn"
+              >
+                Start Master Setup <ArrowRight size={18} className="ml-3 inline-block group-hover/btn:translate-x-2 transition-transform" />
+              </button>
+           </div>
+        </div>
+      )}
 
       {/* 1. Administrative Section */}
       {showManagement && (

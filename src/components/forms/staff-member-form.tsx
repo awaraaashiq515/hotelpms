@@ -51,7 +51,7 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
     joiningDate: initialData?.joiningDate
       ? new Date(initialData.joiningDate).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
-    isActive: initialData !== undefined ? initialData.isActive : true,
+    isActive: initialData ? initialData.isActive : true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 

@@ -66,11 +66,17 @@ export const viewport = {
   themeColor: "#0a0a0a",
 };
 
+import { getProjectStatus } from "@/lib/project-status";
+import { redirect } from "next/navigation";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Project Status Check (Kill Switch)
+  const projectStatus = getProjectStatus();
+  
   return (
     <html lang="en">
       <body
@@ -78,8 +84,15 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <ToastProvider>
-            {children}
-            <PWAInstallBanner />
+            {(projectStatus.status === 'LOCKED' || projectStatus.status === 'TERMINATED') ? (
+              // If you want to force redirect even if they try to bypass CSS
+              redirect('/expired')
+            ) : (
+              <>
+                {children}
+                <PWAInstallBanner />
+              </>
+            )}
           </ToastProvider>
         </ThemeProvider>
         <script

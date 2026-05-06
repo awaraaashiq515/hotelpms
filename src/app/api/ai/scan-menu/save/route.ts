@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { categories } = body; // Array of { name: string, items: [] }
+    const { categories, menuType = 'RESTAURANT' } = body; // Array of { name: string, items: [] }
 
     if (!categories || !Array.isArray(categories)) {
       return apiError(new Error('Invalid data format: categories array is required'), 400);
@@ -24,12 +24,20 @@ export async function POST(request: NextRequest) {
 
         // 1. Find or Create Category
         let categoryRecord = await tx.category.findFirst({
-          where: { name: cat.name, propertyId: session.propertyId! }
+          where: { 
+            name: cat.name, 
+            propertyId: session.propertyId!,
+            menuType: menuType
+          }
         });
 
         if (!categoryRecord) {
           categoryRecord = await tx.category.create({
-            data: { name: cat.name, propertyId: session.propertyId! }
+            data: { 
+              name: cat.name, 
+              propertyId: session.propertyId!,
+              menuType: menuType
+            }
           });
         }
 
@@ -56,6 +64,7 @@ export async function POST(request: NextRequest) {
                 isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
                 availabilityStatus: item.showInMenu !== undefined ? Boolean(item.showInMenu) : true,
                 description: item.description || null,
+                menuType: menuType
               }
             });
           }
