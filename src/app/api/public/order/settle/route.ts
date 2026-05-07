@@ -64,12 +64,61 @@ export async function POST(request: NextRequest) {
         data: { status: 'SETTLED' }
       });
 
-      // 4. Update Table Status if it's the last order? 
-      // Usually keep it as is, or set to VACANT if that's the flow
+      // 4. Update Table Status
       await tx.table.update({
         where: { id: order.restaurantTableId },
         data: { status: 'VACANT' }
       });
+
+      // 5. Update UPI Received Amount tracking
+      if (paymentMethod === 'UPI') {
+        const prop = await tx.property.findUnique({
+          where: { id: propertyId },
+          select: {
+            id: true,
+            upiId: true,
+            upiLimit: true,
+            upiReceivedToday: true,
+            upiId2: true,
+            upiLimit2: true,
+            upiReceivedToday2: true,
+            lastUpiResetDate: true
+          }
+        });
+
+        if (prop) {
+          const now = new Date();
+          const lastReset = prop.lastUpiResetDate ? new Date(prop.lastUpiResetDate) : null;
+          const isDifferentDay = !lastReset || 
+            lastReset.getDate() !== now.getDate() || 
+            lastReset.getMonth() !== now.getMonth() || 
+            lastReset.getFullYear() !== now.getFullYear();
+
+          if (isDifferentDay) {
+            await tx.property.update({
+              where: { id: propertyId },
+              data: {
+                upiReceivedToday: order.grandTotal,
+                upiReceivedToday2: 0,
+                lastUpiResetDate: now
+              }
+            });
+          } else {
+            // Logic to decide which bucket to increment
+            if (prop.upiReceivedToday >= prop.upiLimit && prop.upiId2 && prop.upiReceivedToday2 < prop.upiLimit2) {
+              await tx.property.update({
+                where: { id: propertyId },
+                data: { upiReceivedToday2: { increment: order.grandTotal } }
+              });
+            } else {
+              await tx.property.update({
+                where: { id: propertyId },
+                data: { upiReceivedToday: { increment: order.grandTotal } }
+              });
+            }
+          }
+        }
+      }
 
       return { success: true, orderNo: order.orderNo };
     });

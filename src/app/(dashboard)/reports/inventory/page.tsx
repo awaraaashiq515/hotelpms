@@ -10,12 +10,15 @@ import {
   Search,
   Download,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/shared/page-header';
+import { exportToExcel, exportToPDF } from '@/lib/export-utils';
 
 interface StockItem {
   id: string;
@@ -50,6 +53,42 @@ export default function InventoryReportPage() {
   useEffect(() => {
     fetchStock();
   }, [fetchStock]);
+
+  const handleExcelExport = () => {
+    exportToExcel(
+      filteredData.map(item => ({
+        'Item Name': item.name,
+        'SKU': item.sku || '',
+        'Unit': item.unit || '',
+        'Current Stock': item.currentStock,
+        'Reorder Level': item.reorderLevel,
+        'Cost Price (₹)': item.costPrice.toFixed(2),
+        'Stock Value (₹)': (item.currentStock * item.costPrice).toFixed(2),
+        Status: item.currentStock <= 0 ? 'Out of Stock' : item.isLow ? 'Low Stock' : 'In Stock',
+      })),
+      `inventory-report-${new Date().toISOString().slice(0, 10)}`,
+      'Inventory Status'
+    );
+  };
+
+  const handlePDFExport = () => {
+    exportToPDF(
+      ['Item', 'SKU', 'Unit', 'Stock', 'Reorder', 'Cost/Unit', 'Value', 'Status'],
+      filteredData.map(item => [
+        item.name,
+        item.sku || '—',
+        item.unit || 'Units',
+        item.currentStock,
+        item.reorderLevel,
+        `₹${item.costPrice.toFixed(2)}`,
+        `₹${(item.currentStock * item.costPrice).toFixed(2)}`,
+        item.currentStock <= 0 ? 'OUT' : item.isLow ? 'LOW' : 'OK',
+      ]),
+      `inventory-report-${new Date().toISOString().slice(0, 10)}`,
+      'Inventory Status Report',
+      `Total Items: ${filteredData.length} | Total Valuation: ₹${stats.totalValuation.toLocaleString('en-IN')}`
+    );
+  };
 
   const filteredData = data.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -123,8 +162,11 @@ export default function InventoryReportPage() {
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none focus:border-pos-primary focus:bg-white dark:focus:bg-slate-800/50 transition-all"
                />
             </div>
-            <Button variant="outline" size="sm" className="rounded-xl gap-2 font-black text-[10px] uppercase border-slate-200 dark:border-slate-700 h-[46px] px-6">
-                <Download size={14} /> Download Report
+            <Button variant="outline" size="sm" onClick={handleExcelExport} disabled={filteredData.length === 0} className="rounded-xl gap-2 font-black text-[10px] uppercase border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 h-[46px] px-4">
+                <FileSpreadsheet size={14} /> Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePDFExport} disabled={filteredData.length === 0} className="rounded-xl gap-2 font-black text-[10px] uppercase border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 h-[46px] px-4">
+                <FileText size={14} /> PDF
             </Button>
          </div>
 

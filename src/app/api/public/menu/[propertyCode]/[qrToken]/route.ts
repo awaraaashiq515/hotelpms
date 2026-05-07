@@ -9,42 +9,96 @@ export async function GET(
   try {
     const { propertyCode, qrToken } = await params;
 
-    // 1. Find Property
-    const property = await prisma.property.findFirst({
-      where: { 
-        code: propertyCode.toLowerCase()
-      },
-      select: {
-        id: true,
-        name: true,
-        logoUrl: true,
-        address: true,
-        phone: true,
-        upiId: true,
-        upiName: true,
-      },
-    });
-
-    if (!property) {
-      return apiError(new Error('Property not found'), 404);
-    }
-
-    // 2. Find Table
-    const table = await prisma.table.findFirst({
+    // 1. Find the table by qrToken or ID and include its property details
+    const tableData = await prisma.table.findFirst({
       where: {
         OR: [
           { qrToken: qrToken },
           { id: qrToken }
-        ],
-        propertyId: property.id,
+        ]
       },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            logoUrl: true,
+            brandName: true,
+            address: true,
+            phone: true,
+            upiId: true,
+            upiName: true,
+            upiLimit: true,
+            upiReceivedToday: true,
+            upiId2: true,
+            upiName2: true,
+            upiLimit2: true,
+            upiReceivedToday2: true,
+            lastUpiResetDate: true,
+            showBarInQrMenu: true
+          }
+        }
+      }
     });
 
-    if (!table) {
-      return apiError(new Error('Table not found or invalid QR code'), 404);
+    if (!tableData) {
+      return apiError(new Error('Invalid or expired QR link'), 404);
     }
 
-    // 3. Fetch Active Orders for this table (Dine-in)
+    // Verify property code matches (case-insensitive)
+    if (tableData.property.code.toLowerCase() !== propertyCode.toLowerCase()) {
+      return apiError(new Error('Invalid property code for this QR'), 400);
+    }
+
+    let property = { ...tableData.property };
+
+    // --- UPI ROTATION LOGIC ---
+    const now = new Date();
+    const lastReset = property.lastUpiResetDate ? new Date(property.lastUpiResetDate) : null;
+    
+    // Check if we need to reset daily counts (different day)
+    const isDifferentDay = !lastReset || 
+      lastReset.getDate() !== now.getDate() || 
+      lastReset.getMonth() !== now.getMonth() || 
+      lastReset.getFullYear() !== now.getFullYear();
+
+    if (isDifferentDay) {
+      // Reset in DB
+      await prisma.property.update({
+        where: { id: property.id },
+        data: {
+          upiReceivedToday: 0,
+          upiReceivedToday2: 0,
+          lastUpiResetDate: now
+        }
+      });
+      property.upiReceivedToday = 0;
+      property.upiReceivedToday2 = 0;
+    }
+
+    // Determine active UPI ID
+    let activeUpiId = property.upiId;
+    let activeUpiName = property.upiName;
+
+    if (property.upiId && property.upiReceivedToday !== null && property.upiLimit !== null) {
+      if (property.upiReceivedToday >= property.upiLimit) {
+        // Primary limit reached, try secondary
+        if (property.upiId2 && property.upiReceivedToday2 !== null && property.upiLimit2 !== null) {
+          if (property.upiReceivedToday2 < property.upiLimit2) {
+             activeUpiId = property.upiId2;
+             activeUpiName = property.upiName2;
+          }
+        }
+      }
+    }
+
+    // Inject active UPI into property object for frontend
+    (property as any).upiId = activeUpiId;
+    (property as any).upiName = activeUpiName;
+    const table = { id: tableData.id, name: tableData.name };
+
+    // 2. Fetch Active Orders for this table (Dine-in)
     const activeOrders = await prisma.posOrder.findMany({
       where: {
         restaurantTableId: table.id,
@@ -67,17 +121,23 @@ export async function GET(
       orderBy: { createdAt: 'desc' }
     });
 
-    // 4. Fetch Menu (Categories + Products)
+    // 3. Fetch Menu (Categories + Products)
+    // Filter by BAR menuType if showBarInQrMenu is false
     const categories = await prisma.category.findMany({
       where: {
         propertyId: property.id,
         isActive: true,
+        ...(property.showBarInQrMenu ? {} : { menuType: { not: 'BAR' } })
       },
       include: {
         products: {
           where: {
             isActive: true,
             availabilityStatus: true,
+            ...(property.showBarInQrMenu ? {} : { menuType: { not: 'BAR' } })
+          },
+          include: {
+            variants: true
           },
           orderBy: { name: 'asc' },
         },
@@ -90,14 +150,12 @@ export async function GET(
 
     return apiResponse({
       property,
-      table: {
-        id: table.id,
-        name: table.name,
-      },
+      table,
       activeOrders,
       menu,
     });
   } catch (error) {
+    console.error('Public Menu API Error:', error);
     return apiError(error);
   }
 }

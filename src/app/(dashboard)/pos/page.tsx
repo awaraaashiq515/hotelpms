@@ -9,6 +9,8 @@ import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { queueOfflineAction } from '@/lib/offline-db';
 
 interface Product {
   id: string;
@@ -56,6 +58,7 @@ export default function PosPage() {
   const [customers, setCustomers] = useState<{ id: string, firstName: string, lastName?: string, mobile?: string }[]>([]);
   const [selectedGuestId, setSelectedGuestId] = useState('');
 
+  const isOnline = useOnlineStatus();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -131,17 +134,39 @@ export default function PosPage() {
   });
 
   const handleCheckout = async () => {
+    const payload = {
+      items: cart,
+      paymentModeId: selectedPaymentMode,
+      totalAmount: grandTotal,
+      guestId: selectedGuestId || undefined,
+    };
+
+    if (!isOnline) {
+      // Offline Flow
+      try {
+        await queueOfflineAction({
+          type: 'CREATE_ORDER',
+          endpoint: '/api/orders/checkout',
+          method: 'POST',
+          payload: payload as any,
+          timestamp: Date.now(),
+        });
+        addToast('success', 'Offline Mode: Order saved locally. Will sync when online.');
+        setCart([]);
+        setIsCheckoutOpen(false);
+      } catch (err) {
+        addToast('error', 'Failed to save order locally.');
+      }
+      return;
+    }
+
+    // Online Flow
     setIsProcessing(true);
     try {
       const res = await fetch('/api/orders/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: cart,
-          paymentModeId: selectedPaymentMode,
-          totalAmount: grandTotal,
-          guestId: selectedGuestId || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {

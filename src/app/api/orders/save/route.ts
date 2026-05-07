@@ -59,7 +59,15 @@ export async function POST(request: NextRequest) {
       const newItemsForKot: any[] = [];
       
       for (const item of items) {
-        const existingItem = (order as any).items.find((ei: any) => ei.productId === item.id);
+        const variantId = item.variantId || null;
+        const portion = item.portion || 'FULL';
+
+        const existingItem = (order as any).items.find((ei: any) => 
+          ei.productId === item.id && 
+          (ei.variantId || null) === variantId && 
+          (ei.portion || 'FULL') === portion
+        );
+
         const diffQty = item.quantity - (existingItem?.quantity || 0);
 
         if (diffQty > 0) {
@@ -71,7 +79,14 @@ export async function POST(request: NextRequest) {
                 totalAmount: item.quantity * (item.sellingPrice || item.unitPrice || 0)
               }
             });
-            newItemsForKot.push({ ...item, quantity: diffQty, orderItemId: existingItem.id });
+            newItemsForKot.push({ 
+              ...item, 
+              quantity: diffQty, 
+              orderItemId: existingItem.id,
+              variantId,
+              variantName: item.variantName,
+              portion
+            });
           } else {
             const newItem = await tx.posOrderItem.create({
               data: {
@@ -80,9 +95,19 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity,
                 unitPrice: item.sellingPrice || item.unitPrice || 0,
                 totalAmount: item.quantity * (item.sellingPrice || item.unitPrice || 0),
+                variantId,
+                variantName: item.variantName,
+                portion
               }
             });
-            newItemsForKot.push({ ...item, quantity: diffQty, orderItemId: newItem.id });
+            newItemsForKot.push({ 
+              ...item, 
+              quantity: diffQty, 
+              orderItemId: newItem.id,
+              variantId,
+              variantName: item.variantName,
+              portion
+            });
           }
         }
       }
@@ -174,14 +199,16 @@ export async function POST(request: NextRequest) {
 
         await (tx as any).kotItem.createMany({
           data: newItemsForKot.map((item: any) => {
-            const orderItem = allUpdatedItems.find((ai: any) => ai.productId === item.id);
             return {
               kotId: kotTicket.id,
-              orderItemId: orderItem.id,
+              orderItemId: item.orderItemId,
               productId: item.id,
               itemName: item.name,
               quantity: item.quantity,
               status: 'NEW',
+              variantId: item.variantId,
+              variantName: item.variantName,
+              portion: item.portion
             };
           }),
         });

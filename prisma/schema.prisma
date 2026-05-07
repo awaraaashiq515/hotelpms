@@ -62,8 +62,16 @@ model Property {
   whatsAppInstanceId   String?
   whatsAppTemplate     String?
   barPosEnabled        Boolean             @default(false)
+  showBarInQrMenu      Boolean             @default(true)
   upiId                String?
   upiName              String?
+  upiLimit             Float               @default(100000)
+  upiReceivedToday     Float               @default(0)
+  upiId2               String?
+  upiName2             String?
+  upiLimit2            Float               @default(100000)
+  upiReceivedToday2    Float               @default(0)
+  lastUpiResetDate     DateTime?           @default(now())
   accounts             Account[]
   auditLogs            AuditLog[]
   cashTopUps           CashTopUp[]
@@ -108,6 +116,9 @@ model Property {
   vouchers             Voucher[]
   warehouses           Warehouse[]
   tableFeedbacks       TableFeedback[]
+  attendance           Attendance[]
+  inventoryItems       InventoryItem[]
+  suppliers            Supplier[]
 
   @@index([organizationId])
 }
@@ -128,11 +139,17 @@ model User {
   lastLoginAt         DateTime?
   designation         String?
   posPin              String?
+  // ── Two-Factor Authentication ──────────────────────────────
+  twoFactorEnabled    Boolean      @default(false)
+  twoFactorSecret     String?      // Base32-encoded TOTP secret
+  twoFactorBackupCodes String?     // JSON array of one-time backup codes
+  // ──────────────────────────────────────────────────────────
   auditLogs           AuditLog[]
   servedOrders        PosOrder[]   @relation("ServedOrders")
   organization        Organization @relation(fields: [organizationId], references: [id])
   property            Property?    @relation(fields: [propertyId], references: [id])
   role                Role         @relation(fields: [roleId], references: [id])
+  attendance          Attendance[]
 
   @@index([organizationId])
   @@index([propertyId])
@@ -460,6 +477,9 @@ model PosOrderItem {
   taxAmount      Float     @default(0)
   totalAmount    Float
   kotItems       KotItem[]
+  variantId      String?
+  variantName    String?
+  portion        String?
   product        Product   @relation(fields: [productId], references: [id])
   posOrder       PosOrder  @relation(fields: [posOrderId], references: [id])
 }
@@ -500,6 +520,9 @@ model KotItem {
   status       String       @default("NEW")
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  variantId    String?
+  variantName  String?
+  portion      String?
   posOrderItem PosOrderItem @relation(fields: [orderItemId], references: [id])
   product      Product      @relation(fields: [productId], references: [id])
   kot          KotTicket    @relation(fields: [kotId], references: [id])
@@ -582,7 +605,6 @@ model StockItem {
   isActive           Boolean             @default(true)
   itemType           String              @default("RESTAURANT")
   products           Product[]
-  usedInProducts     ProductIngredient[]
   purchaseOrderItems PurchaseOrderItem[]
   property           Property            @relation(fields: [propertyId], references: [id])
   stockMovements     StockMovement[]
@@ -609,12 +631,62 @@ model StockMovement {
 model ProductIngredient {
   id          String    @id @default(cuid())
   productId   String
-  stockItemId String
+  inventoryItemId String?
   quantity    Float
-  stockItem   StockItem @relation(fields: [stockItemId], references: [id])
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
   product     Product   @relation(fields: [productId], references: [id])
 
-  @@unique([productId, stockItemId])
+  @@unique([productId, inventoryItemId])
+}
+
+model InventoryItem {
+  id               String            @id @default(cuid())
+  propertyId       String
+  name             String
+  sku              String?
+  unit             String?           // kg, gm, ltr, ml, pcs
+  currentQuantity  Float             @default(0)
+  minThreshold     Float             @default(0)
+  costPrice        Float             @default(0)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  ingredients      ProductIngredient[]
+  stockLogs        InventoryLog[]
+  property         Property          @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId])
+}
+
+model InventoryLog {
+  id              String    @id @default(cuid())
+  inventoryItemId String
+  type            String    // IN, OUT, ADJUSTMENT
+  quantity        Float
+  previousQty     Float
+  newQty          Float
+  reference       String?   // Order ID or Purchase ID
+  note            String?
+  createdAt       DateTime  @default(now())
+  item            InventoryItem @relation(fields: [inventoryItemId], references: [id])
+}
+
+model Supplier {
+  id              String    @id @default(cuid())
+  propertyId      String
+  name            String
+  contactPerson   String?
+  phone           String?
+  email           String?
+  address         String?
+  gstNumber       String?
+  balance         Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  property        Property  @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId])
 }
 
 model StockAdjustment {
@@ -813,7 +885,30 @@ model Shift {
   topUps      CashTopUp[]
   withdrawals CashWithdrawal[]
   dayClosings DayClosing[]
+  actualCash  Float?           @default(0)
+  expectedCash Float?          @default(0)
+  discrepancy Float?           @default(0)
   property    Property         @relation(fields: [propertyId], references: [id])
+}
+
+model Attendance {
+  id             String       @id @default(cuid())
+  userId         String?
+  staffMemberId  String?
+  propertyId     String
+  clockIn        DateTime     @default(now())
+  clockOut       DateTime?
+  status         String       @default("PRESENT") // PRESENT, LATE, ABSENT
+  note           String?
+  locationIn     String?      // GPS coordinates or IP
+  locationOut    String?
+  user           User?        @relation(fields: [userId], references: [id])
+  staffMember    StaffMember? @relation(fields: [staffMemberId], references: [id])
+  property       Property     @relation(fields: [propertyId], references: [id])
+
+  @@index([userId])
+  @@index([staffMemberId])
+  @@index([propertyId])
 }
 
 model CashWithdrawal {
@@ -1201,6 +1296,7 @@ model StaffMember {
   updatedAt        DateTime   @updatedAt
   posOrders        PosOrder[]
   property         Property   @relation(fields: [propertyId], references: [id])
+  attendance       Attendance[]
 
   @@index([propertyId])
 }

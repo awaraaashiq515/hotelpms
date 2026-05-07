@@ -11,12 +11,15 @@ import {
   Clock, 
   User,
   Database,
-  ArrowRight
+  ArrowRight,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/shared/page-header';
+import { exportToExcel, exportToPDF } from '@/lib/export-utils';
 
 interface AuditLog {
   id: string;
@@ -54,6 +57,36 @@ export default function AuditLogReportPage() {
     fetchLogs();
   }, [fetchLogs]);
 
+  const handleExcelExport = () => {
+    exportToExcel(
+      data.map(log => ({
+        Module: log.moduleName,
+        Action: log.actionType,
+        'Record ID': log.recordId,
+        Executor: log.user ? log.user.fullName : 'System',
+        'User Email': log.user ? log.user.email : '',
+        Timestamp: new Date(log.createdAt).toLocaleString('en-IN'),
+      })),
+      `audit-log-${new Date().toISOString().slice(0, 10)}`,
+      'Audit Log'
+    );
+  };
+
+  const handlePDFExport = () => {
+    exportToPDF(
+      ['Module', 'Action', 'Executor', 'Timestamp'],
+      data.map(log => [
+        log.moduleName,
+        log.actionType,
+        log.user ? log.user.fullName : 'System',
+        new Date(log.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      ]),
+      `audit-log-${new Date().toISOString().slice(0, 10)}`,
+      'System Audit Log',
+      `Module Filter: ${module || 'All Modules'} | Total: ${data.length} entries`
+    );
+  };
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
@@ -63,7 +96,7 @@ export default function AuditLogReportPage() {
         showBack
         backUrl="/reports"
         actions={
-          <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
+          <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
              <select 
                 value={module} 
                 onChange={e => setModule(e.target.value)}
@@ -76,6 +109,12 @@ export default function AuditLogReportPage() {
                 <option value="SETUP" className="bg-slate-900 text-white">Setup</option>
              </select>
              <div className="w-px h-8 bg-white/10" />
+             <Button onClick={handleExcelExport} disabled={data.length === 0} title="Export Excel" className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 h-10 w-10 p-0 transition-transform hover:scale-110">
+               <FileSpreadsheet size={16} />
+             </Button>
+             <Button onClick={handlePDFExport} disabled={data.length === 0} title="Export PDF" className="bg-rose-600 hover:bg-rose-500 rounded-xl px-3 h-10 w-10 p-0 transition-transform hover:scale-110">
+               <FileText size={16} />
+             </Button>
              <Button onClick={fetchLogs} loading={loading} className="bg-pos-primary hover:bg-pos-primary-dark rounded-xl px-4 h-10 w-10 p-0 transition-transform hover:scale-110">
                 <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
              </Button>

@@ -10,12 +10,14 @@ import {
   Download,
   Percent,
   TrendingDown,
-  ChevronRight
+  ChevronRight,
+  FileSpreadsheet
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/shared/page-header';
+import { exportToExcel, exportToPDF } from '@/lib/export-utils';
 
 interface TaxSummary {
   totalTaxable: number;
@@ -65,6 +67,50 @@ export default function TaxReportPage() {
   useEffect(() => {
     fetchReport();
   }, []);
+
+  const handleExcelExport = () => {
+    if (!data) return;
+    const posRows = data.posOrders.map(o => ({
+      Type: 'POS Order',
+      'Ref No': o.orderNo || '',
+      Date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '',
+      'Taxable (₹)': o.subtotal.toFixed(2),
+      'Tax (₹)': o.taxAmount.toFixed(2),
+      'Total (₹)': (o.grandTotal || 0).toFixed(2),
+    }));
+    const invRows = data.invoices.map(v => ({
+      Type: 'Invoice',
+      'Ref No': v.invoiceNo || '',
+      Date: v.invoiceDate ? new Date(v.invoiceDate).toLocaleDateString('en-IN') : '',
+      'Taxable (₹)': v.subtotal.toFixed(2),
+      'Tax (₹)': v.taxAmount.toFixed(2),
+      'Total (₹)': (v.totalAmount || 0).toFixed(2),
+    }));
+    exportToExcel(
+      [...posRows, ...invRows],
+      `tax-report-${startDate}-to-${endDate}`,
+      'Tax Report'
+    );
+  };
+
+  const handlePDFExport = () => {
+    if (!data) return;
+    const posRows: (string|number)[][] = data.posOrders.map(o => [
+      'POS Order', o.orderNo || '', o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '',
+      `₹${o.subtotal.toFixed(2)}`, `₹${o.taxAmount.toFixed(2)}`, `₹${(o.grandTotal||0).toFixed(2)}`
+    ]);
+    const invRows: (string|number)[][] = data.invoices.map(v => [
+      'Invoice', v.invoiceNo || '', v.invoiceDate ? new Date(v.invoiceDate).toLocaleDateString('en-IN') : '',
+      `₹${v.subtotal.toFixed(2)}`, `₹${v.taxAmount.toFixed(2)}`, `₹${(v.totalAmount||0).toFixed(2)}`
+    ]);
+    exportToPDF(
+      ['Type', 'Ref No', 'Date', 'Taxable (₹)', 'Tax (₹)', 'Total (₹)'],
+      [...posRows, ...invRows],
+      `tax-report-${startDate}-to-${endDate}`,
+      'Tax & GST Report',
+      `Period: ${startDate} → ${endDate} | Total Tax: ₹${data.summary.totalTax.toLocaleString()}`
+    );
+  };
 
   return (
     <div className="space-y-8 pb-10">
@@ -121,9 +167,14 @@ export default function TaxReportPage() {
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
              <div className="p-8 border-b border-slate-50 dark:border-slate-700 flex items-center justify-between">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Statutory Ledger</h3>
-                <Button variant="outline" className="rounded-xl gap-2 font-black text-[10px] uppercase h-[46px] px-6 border-slate-200 dark:border-slate-700">
-                    <Download size={14} /> Export statutory Excel
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={handleExcelExport} disabled={!data} className="rounded-xl gap-2 font-black text-[10px] uppercase h-10 px-4 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400">
+                    <FileSpreadsheet size={14} /> Excel
+                  </Button>
+                  <Button variant="outline" onClick={handlePDFExport} disabled={!data} className="rounded-xl gap-2 font-black text-[10px] uppercase h-10 px-4 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400">
+                    <FileText size={14} /> PDF
+                  </Button>
+                </div>
              </div>
              
              <div className="overflow-x-auto">

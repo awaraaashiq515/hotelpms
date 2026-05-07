@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Shield } from 'lucide-react';
+import { TwoFactorSection } from '@/components/settings/TwoFactorSection';
 
 export default function WebsiteSettingsPage() {
   const [loading, setLoading] = useState(false);
@@ -389,6 +390,19 @@ export default function WebsiteSettingsPage() {
               />
             </div>
           </div>
+        </div>
+        {/* Security / 2FA Settings */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+              <Shield size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Account Security</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Protect your super admin account with an extra layer of safety.</p>
+            </div>
+          </div>
+          <TwoFactorSection />
         </div>
       </div>
     </div>

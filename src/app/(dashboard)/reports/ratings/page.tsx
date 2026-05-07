@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Star, MessageSquare, Calendar, Table as TableIcon, RefreshCcw } from 'lucide-react';
+import { Star, MessageSquare, Calendar, Table as TableIcon, RefreshCcw, FileSpreadsheet, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/Button';
+import { exportToExcel, exportToPDF } from '@/lib/export-utils';
 
 interface Feedback {
   id: string;
@@ -43,6 +44,35 @@ export default function RatingsReportPage() {
     ? (feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length).toFixed(1)
     : 0;
 
+  const handleExcelExport = () => {
+    exportToExcel(
+      feedbacks.map(f => ({
+        Table: f.table.name,
+        Rating: f.rating,
+        Comments: f.comments || '',
+        Date: new Date(f.createdAt).toLocaleDateString('en-IN'),
+        Time: new Date(f.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      })),
+      `customer-feedback-${new Date().toISOString().slice(0, 10)}`,
+      'Customer Feedback'
+    );
+  };
+
+  const handlePDFExport = () => {
+    exportToPDF(
+      ['Table', 'Rating', 'Comments', 'Date'],
+      feedbacks.map(f => [
+        f.table.name,
+        `${f.rating}/5 ★`,
+        f.comments || 'No comment',
+        new Date(f.createdAt).toLocaleDateString('en-IN'),
+      ]),
+      `customer-feedback-${new Date().toISOString().slice(0, 10)}`,
+      'Customer Feedback Report',
+      `Average Rating: ${averageRating}/5 | Total Responses: ${feedbacks.length}`
+    );
+  };
+
   return (
     <div className="space-y-8 pb-10">
       <PageHeader
@@ -51,10 +81,18 @@ export default function RatingsReportPage() {
         showBack
         backUrl="/reports"
         actions={
-          <Button variant="outline" onClick={fetchFeedbacks} disabled={loading} className="rounded-xl gap-2">
-            <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExcelExport} disabled={feedbacks.length === 0} className="rounded-xl gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 text-[10px] font-black uppercase h-9 px-3">
+              <FileSpreadsheet size={14} /> Excel
+            </Button>
+            <Button variant="outline" onClick={handlePDFExport} disabled={feedbacks.length === 0} className="rounded-xl gap-2 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 text-[10px] font-black uppercase h-9 px-3">
+              <FileText size={14} /> PDF
+            </Button>
+            <Button variant="outline" onClick={fetchFeedbacks} disabled={loading} className="rounded-xl gap-2 h-9">
+              <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
+          </div>
         }
       />
 

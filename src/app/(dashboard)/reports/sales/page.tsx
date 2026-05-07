@@ -21,9 +21,7 @@ import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/shared/page-header';
 import { motion, AnimatePresence } from 'framer-motion';
-
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { exportToExcel, exportToPDF } from '@/lib/export-utils';
 
 interface SalesSummary {
   totalSales: number;
@@ -80,58 +78,41 @@ export default function SalesReportPage() {
     fetchReport();
   }, [fetchReport]);
 
-  const downloadCSV = () => {
+  const handleExcelExport = () => {
     if (!data) return;
     const items = view === 'products' ? data.products : data.categories;
-    const headers = view === 'products' ? ['Name', 'Category', 'Qty', 'Amount'] : ['Category', 'Qty', 'Amount'];
+    const rows = items.map((item: any) => ({
+      [view === 'products' ? 'Product' : 'Category']: item.name,
+      ...(view === 'products' ? { Category: item.category } : {}),
+      Quantity: item.qty,
+      'Amount (₹)': item.amount.toFixed(2),
+    }));
     
-    const csvContent = [
-      headers.join(','),
-      ...items.map((item: any) => {
-        if (view === 'products') {
-          return `"${item.name}","${(item as any).category}",${item.qty},${item.amount}`;
-        }
-        return `"${item.name}",${item.qty},${item.amount}`;
-      })
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `sales_report_${startDate}_to_${endDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToExcel(
+      rows,
+      `sales-report-${view}-${startDate}-to-${endDate}`,
+      `Sales Report (${view.toUpperCase()})`
+    );
   };
 
-  const downloadPDF = () => {
+  const handlePDFExport = () => {
     if (!data) return;
-    const doc = new jsPDF();
-    const title = `Sales Intelligence Report (${startDate} to ${endDate})`;
-    
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    
-    doc.setFontSize(11);
-    doc.text(`Total Revenue: INR ${data.summary.totalSales.toLocaleString()}`, 14, 32);
-    doc.text(`Total Items Sold: ${data.products.reduce((acc, p) => acc + p.qty, 0)}`, 14, 38);
-    
-    const tableData = (view === 'products' ? data.products : data.categories).map((item: any) => [
-      (item as any).name,
-      view === 'products' ? (item as any).category : '-',
+    const items = view === 'products' ? data.products : data.categories;
+    const headers = view === 'products' ? ['Description', 'Group', 'Qty', 'Amount (₹)'] : ['Category', 'Qty', 'Amount (₹)'];
+    const rows = items.map((item: any) => [
+      item.name,
+      ...(view === 'products' ? [item.category] : []),
       item.qty.toString(),
-      `INR ${item.amount.toLocaleString()}`
+      `₹${item.amount.toLocaleString()}`,
     ]);
 
-    autoTable(doc, {
-      startY: 45,
-      head: [['Description', 'Group', 'Qty', 'Amount (INR)']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [16, 185, 129] } // Emerald color
-    });
-
-    doc.save(`sales_report_${startDate}_to_${endDate}.pdf`);
+    exportToPDF(
+      headers,
+      rows,
+      `sales-report-${view}-${startDate}-to-${endDate}`,
+      'Sales Intelligence Report',
+      `Period: ${startDate} → ${endDate} | Total Revenue: ₹${data.summary.totalSales.toLocaleString()}`
+    );
   };
 
   const setRangeType = (type: 'today' | 'yesterday' | 'week' | 'month') => {
@@ -217,18 +198,20 @@ export default function SalesReportPage() {
 
         <div className="lg:col-span-3 flex gap-2">
            <Button 
-              onClick={downloadPDF}
+              onClick={handlePDFExport}
+              disabled={!data}
               variant="outline" 
-              className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[9px] font-bold uppercase tracking-widest h-10"
+              className="flex-1 rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/30 dark:text-rose-400 bg-white dark:bg-slate-900 text-[9px] font-black uppercase tracking-widest h-10"
            >
-              <Download size={14} className="mr-2" /> PDF
+              PDF
            </Button>
            <Button 
-              onClick={downloadCSV}
+              onClick={handleExcelExport}
+              disabled={!data}
               variant="outline" 
-              className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[9px] font-bold uppercase tracking-widest h-10"
+              className="flex-1 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/30 dark:text-emerald-400 bg-white dark:bg-slate-900 text-[9px] font-black uppercase tracking-widest h-10"
            >
-              <Download size={14} className="mr-2" /> CSV
+              Excel
            </Button>
         </div>
       </div>

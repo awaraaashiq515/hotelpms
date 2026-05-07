@@ -3,8 +3,8 @@ import { Search, History, UtensilsCrossed } from 'lucide-react';
 
 interface MenuHeaderProps {
   data: any;
-  activeTab: 'menu' | 'orders' | 'profile';
-  setActiveTab: (tab: 'menu' | 'orders' | 'profile') => void;
+  activeTab: 'menu' | 'bar' | 'orders' | 'profile';
+  setActiveTab: (tab: 'menu' | 'bar' | 'orders' | 'profile') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -37,7 +37,7 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
         </div>
       </div>
 
-      {activeTab === 'menu' && (
+      {['menu', 'bar'].includes(activeTab) && (
         <div className="mt-4 relative animate-in slide-in-from-top-1 duration-300">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 

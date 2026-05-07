@@ -6,6 +6,7 @@ import { Lock, Mail, Eye, EyeOff, ArrowRight, Sparkles, Shield, Zap, Users } fro
 import { Button } from '@/components/ui/Button';
 import { authApi } from '@/lib/api/auth';
 import { APIError } from '@/lib/api/client';
+import { RefreshCcw } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,17 @@ export default function LoginPage() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [captchaText, setCaptchaText] = useState('');
+  const [captchaUrl, setCaptchaUrl] = useState('/api/auth/captcha');
+
+  const refreshCaptcha = () => {
+    setCaptchaUrl(`/api/auth/captcha?t=${Date.now()}`);
+    setCaptchaText('');
+  };
+  const [otpToken, setOtpToken] = useState('');
+  const [tempUserId, setTempUserId] = useState<string | null>(null);
+  const [verifying2FA, setVerifying2FA] = useState(false);
 
   useEffect(() => {
 
@@ -37,33 +49,69 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await authApi.login({ email, password });
+      const response = await authApi.login({ email, password, captchaText });
 
-      const res = await fetch('/api/auth/session');
-      const data = await res.json();
-
-      if (data.authenticated) {
-        const role = data.user.role;
-        if (role === 'SUPER_ADMIN') {
-          router.push('/admin/dashboard');
-        } else if (role === 'RESTAURANTS_ADMIN') {
-          router.push('/dashboard');
-        } else {
-          router.push('/operations');
-        }
-      } else {
-        router.push('/operations');
+      if (response.twoFactorRequired) {
+        setTempUserId(response.userId || null);
+        setShow2FA(true);
+        setLoading(false);
+        return;
       }
 
-      router.refresh();
+      await completeLogin();
     } catch (err) {
       if (err instanceof APIError) {
         setError(err.message);
       } else {
         setError('An unexpected error occurred. Please check your connection.');
       }
-    } finally {
       setLoading(false);
+      refreshCaptcha();
+    }
+  };
+
+  const completeLogin = async () => {
+    const res = await fetch('/api/auth/session');
+    const data = await res.json();
+
+    if (data.authenticated) {
+      const role = data.user.role;
+      if (role === 'SUPER_ADMIN') {
+        router.push('/admin/dashboard');
+      } else if (role === 'RESTAURANTS_ADMIN') {
+        router.push('/dashboard');
+      } else {
+        router.push('/operations');
+      }
+    } else {
+      router.push('/operations');
+    }
+
+    router.refresh();
+  };
+
+  const handle2FAVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifying2FA(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/auth/2fa/login-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: tempUserId, token: otpToken }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        await completeLogin();
+      } else {
+        setError(data.error || 'Invalid verification code');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred during verification.');
+    } finally {
+      setVerifying2FA(false);
     }
   };
 
@@ -200,13 +248,15 @@ export default function LoginPage() {
           {/* Header text */}
           <div className="mb-8">
             <p className="text-[11px] font-bold text-red-700 uppercase tracking-[0.25em] mb-2">
-              {isForgotPassword ? 'Secure Access' : 'Welcome back'}
+              {show2FA ? 'Identity Verification' : isForgotPassword ? 'Secure Access' : 'Welcome back'}
             </p>
             <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-              {isForgotPassword ? (resetSent ? 'Check your email' : 'Reset your password') : 'Sign in to your account'}
+              {show2FA ? 'Enter 2FA Code' : isForgotPassword ? (resetSent ? 'Check your email' : 'Reset your password') : 'Sign in to your account'}
             </h1>
             <p className="text-gray-400 text-sm mt-2 font-medium">
-              {isForgotPassword 
+              {show2FA 
+                ? 'A 6-digit code has been requested from your Authenticator app'
+                : isForgotPassword 
                 ? (resetSent ? `We've sent a recovery link to ${email}` : 'Enter your email to receive a password reset link')
                 : 'Enter your credentials to access the dashboard'}
             </p>
@@ -226,7 +276,79 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
-          {!resetSent ? (
+          {show2FA ? (
+            <form onSubmit={handle2FAVerify} className="space-y-6">
+              <div>
+                <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-3 text-center">
+                  6-Digit Verification Code
+                </label>
+                <div className="flex justify-center">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpToken}
+                    onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    autoFocus
+                    className="w-full max-w-[280px] text-center text-3xl font-black tracking-[0.25em] px-4 py-6 rounded-2xl border-2 border-slate-200 focus:border-red-700 bg-white text-slate-900 placeholder-slate-400 outline-none transition-all shadow-inner dark:bg-slate-800 dark:text-white dark:border-slate-700"
+                    style={{
+                      boxShadow: focusedField === 'otp' ? '0 0 0 4px rgba(185,28,28,0.08)' : 'none',
+                    }}
+                    onFocus={() => setFocusedField('otp')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight text-center mt-4">
+                  Open your Google Authenticator app to get the code
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="submit"
+                  disabled={verifying2FA || otpToken.length < 6}
+                  className="w-full relative flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all duration-300 overflow-hidden group"
+                  style={{
+                    background: verifying2FA
+                      ? '#9f1239'
+                      : 'linear-gradient(135deg, #991b1b 0%, #b91c1c 50%, #c2410c 100%)',
+                    boxShadow: verifying2FA
+                      ? 'none'
+                      : '0 8px 24px rgba(185,28,28,0.35), 0 2px 8px rgba(185,28,28,0.2)',
+                    opacity: otpToken.length < 6 ? 0.6 : 1
+                  }}
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    {verifying2FA ? (
+                      <>
+                        <div
+                          className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full"
+                          style={{ animation: 'spin 0.8s linear infinite' }}
+                        />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        Verify Code
+                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShow2FA(false);
+                    setOtpToken('');
+                    setError(null);
+                  }}
+                  className="w-full py-4 text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors"
+                >
+                  ← Back to Login
+                </button>
+              </div>
+            </form>
+          ) : !resetSent ? (
             <form onSubmit={isForgotPassword ? handleForgotPassword : handleLogin} className="space-y-4">
               {/* Email Field */}
               <div>
@@ -351,11 +473,64 @@ export default function LoginPage() {
               </div>
 
               {/* Submit Button */}
+              {/* Premium Security Widget */}
+              {!isForgotPassword && (
+                <div className="pt-6 mt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                      <Shield size={60} className="text-slate-900 dark:text-white" />
+                    </div>
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-red-600 border border-slate-100 dark:border-slate-700">
+                          <Lock size={14} />
+                        </div>
+                        <div>
+                          <h3 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Human Verification</h3>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Please solve to continue</p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/50 uppercase tracking-widest">
+                        High Trust
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-14 bg-white dark:bg-slate-950 rounded-2xl border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center relative group/img shadow-inner overflow-hidden">
+                        <img 
+                          src={captchaUrl} 
+                          alt="Math Challenge" 
+                          className="h-full w-full object-contain" 
+                        />
+                        <button 
+                          type="button"
+                          onClick={refreshCaptcha}
+                          className="absolute right-2 top-2 p-1.5 bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-red-700 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-700"
+                        >
+                          <RefreshCcw size={14} className="active:rotate-180 transition-transform" />
+                        </button>
+                      </div>
+
+                      <div className="w-32 h-14 relative">
+                        <input
+                          type="text"
+                          placeholder="ANS"
+                          value={captchaText}
+                          onChange={(e) => setCaptchaText(e.target.value)}
+                          className="w-full h-full bg-white dark:bg-slate-950 rounded-2xl border-2 border-slate-100 dark:border-slate-800 focus:border-red-600 outline-none text-center font-black text-sm text-slate-900 dark:text-white transition-all placeholder:text-slate-200 placeholder:text-[10px] shadow-inner"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full relative flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all duration-300 overflow-hidden group"
+                  disabled={loading || (!isForgotPassword && !captchaText)}
+                  className="w-full relative flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all duration-300 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     background: loading
                       ? '#9f1239'

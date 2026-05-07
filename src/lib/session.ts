@@ -21,7 +21,7 @@ export type SessionPayload = {
 
 
 // 1 Hour expiration
-export async function encrypt(payload: SessionPayload) {
+export async function encrypt(payload: any) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -29,12 +29,12 @@ export async function encrypt(payload: SessionPayload) {
     .sign(key)
 }
 
-export async function decrypt(input: string): Promise<SessionPayload | null> {
+export async function decrypt(input: string): Promise<any | null> {
   try {
     const { payload } = await jwtVerify(input, key, {
       algorithms: ['HS256'],
     })
-    return payload as SessionPayload
+    return payload;
   } catch (error) {
     return null
   }
@@ -43,5 +43,5 @@ export async function decrypt(input: string): Promise<SessionPayload | null> {
 export async function getSession() {
   const session = (await cookies()).get('session')?.value
   if (!session) return null
-  return await decrypt(session)
+  return await decrypt(session) as SessionPayload | null
 }

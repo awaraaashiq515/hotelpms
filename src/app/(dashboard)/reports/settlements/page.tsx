@@ -10,12 +10,15 @@ import {
   Banknote, 
   ChevronRight,
   Download,
-  Search
+  Search,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/shared/page-header';
+import { exportToExcel, exportToPDF, exportToCSV } from '@/lib/export-utils';
 
 interface Settlement {
   id: string;
@@ -73,6 +76,40 @@ export default function SettlementsReportPage() {
     fetchReport();
   }, []);
 
+  const handleExcelExport = () => {
+    if (!data) return;
+    exportToExcel(
+      data.settlements.map(s => ({
+        'Settlement No': s.settlementNo,
+        'Date': new Date(s.settlementDate).toLocaleString('en-IN'),
+        'Gross Amount (₹)': s.grossAmount.toFixed(2),
+        'Paid Amount (₹)': s.paidAmount.toFixed(2),
+        'Balance (₹)': s.balanceAmount.toFixed(2),
+        'Status': s.status,
+      })),
+      `settlements-${startDate}-to-${endDate}`,
+      'Settlements'
+    );
+  };
+
+  const handlePDFExport = () => {
+    if (!data) return;
+    exportToPDF(
+      ['Settlement No', 'Date', 'Gross (₹)', 'Paid (₹)', 'Balance (₹)', 'Status'],
+      data.settlements.map(s => [
+        s.settlementNo,
+        new Date(s.settlementDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        `₹${s.grossAmount.toFixed(2)}`,
+        `₹${s.paidAmount.toFixed(2)}`,
+        `₹${s.balanceAmount.toFixed(2)}`,
+        s.status,
+      ]),
+      `settlements-${startDate}-to-${endDate}`,
+      'Settlement Report',
+      `Period: ${startDate} → ${endDate}`
+    );
+  };
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
@@ -129,11 +166,26 @@ export default function SettlementsReportPage() {
 
           {/* Main Table */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-             <div className="p-8 border-b border-slate-50 dark:border-slate-700 flex items-center justify-between">
+             <div className="p-6 border-b border-slate-50 dark:border-slate-700 flex items-center justify-between">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Historical Ledger</h3>
-                <Button variant="outline" className="rounded-xl gap-2 font-black text-[10px] uppercase h-[46px] px-6 border-slate-200 dark:border-slate-700">
-                    <Download size={14} /> Export CSV
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleExcelExport}
+                    disabled={!data}
+                    className="rounded-xl gap-2 font-black text-[10px] uppercase h-10 px-4 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                  >
+                    <FileSpreadsheet size={14} /> Excel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handlePDFExport}
+                    disabled={!data}
+                    className="rounded-xl gap-2 font-black text-[10px] uppercase h-10 px-4 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400"
+                  >
+                    <FileText size={14} /> PDF
+                  </Button>
+                </div>
              </div>
              <div className="overflow-x-auto">
                 <table className="w-full">

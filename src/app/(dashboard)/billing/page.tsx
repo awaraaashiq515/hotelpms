@@ -387,6 +387,38 @@ export default function BillingPage() {
     });
   };
 
+  const changeVariant = (cartItemId: string, variantName: string, variantPrice: number) => {
+    setCart(prev => {
+      const itemToChange = prev.find(i => i.cartItemId === cartItemId);
+      if (!itemToChange) return prev;
+
+      const newCartItemId = `${itemToChange.id}-${variantName}`;
+      const baseProduct = products.find(p => p.id === itemToChange.id);
+      if (!baseProduct) return prev;
+
+      const itemName = variantName === 'Full' ? baseProduct.name : `${baseProduct.name} (${variantName})`;
+      
+      const existingIndex = prev.findIndex(i => i.cartItemId === newCartItemId);
+      
+      if (existingIndex >= 0 && newCartItemId !== cartItemId) {
+        const updatedCart = [...prev];
+        updatedCart[existingIndex] = {
+          ...updatedCart[existingIndex],
+          quantity: updatedCart[existingIndex].quantity + itemToChange.quantity
+        };
+        return updatedCart.filter(i => i.cartItemId !== cartItemId);
+      } else {
+        return prev.map(i => i.cartItemId === cartItemId ? {
+          ...i,
+          size: variantName,
+          cartItemId: newCartItemId,
+          sellingPrice: variantPrice,
+          name: itemName
+        } : i);
+      }
+    });
+  };
+
   const handleSimpleSave = async () => {
     if (cart.length === 0) return;
     setSaveLoading(true);
@@ -1047,16 +1079,16 @@ export default function BillingPage() {
                           ))}
                         </div>
                       ) : ((product as any).menuType === 'RESTAURANT' || !(product as any).menuType) && (product as any).halfPrice > 0 && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-1.5">
                           <button 
                             onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
-                            className="px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-500/20"
+                            className="px-4 py-1.5 bg-amber-500 text-white rounded-xl text-[9px] font-black hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-500/20 uppercase"
                           >
                             HALF
                           </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
-                            className="px-4 py-2 bg-pos-primary text-white rounded-xl text-[10px] font-black hover:bg-pos-primary-dark transition-all active:scale-95 shadow-lg shadow-pos-primary/20"
+                            className="px-4 py-1.5 bg-pos-primary text-white rounded-xl text-[9px] font-black hover:bg-pos-primary-dark transition-all active:scale-95 shadow-lg shadow-pos-primary/20 uppercase"
                           >
                             FULL
                           </button>
@@ -1357,64 +1389,67 @@ export default function BillingPage() {
           ) : (
             <div className="space-y-2">
                {cart.map((item: any) => (
-                <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'} rounded-2xl p-2.5 border hover:border-pos-primary/30 transition-all duration-300`}>
-                  <div className="flex items-center gap-3 relative z-10">
-                    <div className="w-11 h-11 rounded-xl bg-slate-900 border border-white/5 overflow-hidden flex-shrink-0 shadow-lg">
-                       {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" /> : <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-800"><Utensils size={18} /></div>}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`text-[12px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight mb-1`}>{item.name}</h4>
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col">
-                          <span className="text-[11px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
-                          <span className="text-[8px] text-slate-500 font-bold opacity-50 leading-none">₹{item.sellingPrice.toFixed(0)}</span>
+                <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-[1.25rem] p-3 border transition-all duration-300 mb-1`}>
+                  <div className="flex flex-col gap-2.5 relative z-10">
+                    {/* Compact Header: Name, Price, Qty & Trash */}
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <h4 className={`text-[12px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
+                          {item.name.split('(')[0].trim()}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-[13px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
+                          <span className="text-[9px] text-slate-500 font-bold opacity-40">/ ₹{item.sellingPrice.toFixed(0)}</span>
                         </div>
-                        
-                        {/* Half/Full Toggle Pill - Compact Version */}
-                        {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
-                          <div className="flex items-center bg-black/20 dark:bg-white/5 rounded-xl p-0.5 border border-white/5 shadow-inner scale-90 origin-left">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
-                              className={`text-[8px] px-2.5 py-1 rounded-[10px] font-black uppercase transition-all ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                              Half
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
-                              className={`text-[8px] px-2.5 py-1 rounded-[10px] font-black uppercase transition-all ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                              Full
-                            </button>
-                          </div>
-                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
+                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
+                            <Minus size={12} strokeWidth={4} />
+                          </button>
+                          <span className="w-5 text-center text-[12px] font-black">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
+                            <Plus size={12} strokeWidth={4} />
+                          </button>
+                        </div>
+                        <button 
+                          onClick={() => removeFromCart(item.cartItemId)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-1 bg-black/40 dark:bg-black/30 rounded-2xl p-0.5 border border-white/5 shadow-inner">
-                        <button 
-                          onClick={() => updateQuantity(item.cartItemId, -1)} 
-                          className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
-                        >
-                          <Minus size={12} strokeWidth={3} />
-                        </button>
-                        <span className={`w-4 text-center text-[12px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>{item.quantity}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.cartItemId, 1)} 
-                          className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-pos-primary hover:bg-pos-primary/10 rounded-xl transition-all"
-                        >
-                          <Plus size={12} strokeWidth={3} />
-                        </button>
-                      </div>
+                    {/* Compact Grid: Sizes/Variants */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
+                            className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                          >
+                            Half
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
+                            className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                          >
+                            Full
+                          </button>
+                        </>
+                      )}
 
-                      {/* Delete button */}
-                      <button 
-                        onClick={() => removeFromCart(item.cartItemId)}
-                        className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white' : 'bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white'}`}
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
+                        <button 
+                          key={v.id}
+                          onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
+                          className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                        >
+                          {v.name}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>

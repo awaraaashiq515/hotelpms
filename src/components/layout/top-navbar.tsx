@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { usePOSSecurity } from '@/components/providers/POSSecurityProvider';
+import { GlobalSearch } from './global-search';
 
 export const TopNavbar: React.FC = () => {
   const router = useRouter();
@@ -127,23 +128,6 @@ export const TopNavbar: React.FC = () => {
     router.refresh();
   };
 
-  const [searchBill, setSearchBill] = useState('');
-  const [searchKot, setSearchKot] = useState('');
-
-  const handleBillSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && searchBill.trim()) {
-      router.push(`/orders?search=${encodeURIComponent(searchBill.trim())}`);
-      setSearchBill('');
-    }
-  };
-
-  const handleKotSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && searchKot.trim()) {
-      router.push(`/kots?search=${encodeURIComponent(searchKot.trim())}`);
-      setSearchKot('');
-    }
-  };
-
   // Close dropdown on click outside
   useEffect(() => {
     if (!showDisplayMenu && !showLiveOrderMenu) return;
@@ -257,18 +241,8 @@ export const TopNavbar: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-3 ml-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-            <input 
-              type="text" 
-              placeholder="Search Bill No" 
-              value={searchBill}
-              onChange={(e) => setSearchBill(e.target.value)}
-              onKeyDown={handleBillSearch}
-              className="pl-9 pr-4 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-md text-xs w-48 font-medium focus:outline-none focus:ring-1 focus:ring-pos-primary transition-all text-slate-800 dark:text-slate-200"
-            />
-          </div>
+        <div className="hidden lg:flex items-center gap-3 ml-4 flex-1 max-w-[220px]">
+          <GlobalSearch />
         </div>
       </div>
 
@@ -316,7 +290,6 @@ export const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-          <NavbarAction icon={<History size={18} />} label="Recent" onClick={() => router.push('/invoices')} />
           <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
           <NavbarAction 
             icon={

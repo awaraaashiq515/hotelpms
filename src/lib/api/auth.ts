@@ -3,6 +3,7 @@ import { apiClient } from './client';
 export interface LoginCredentials {
   email: string;
   password: string;
+  captchaText?: string | null;
 }
 
 export interface User {
@@ -18,8 +19,10 @@ export interface User {
 }
 
 export interface AuthResponse {
-  user: User;
-  token: string;
+  user?: User;
+  token?: string;
+  twoFactorRequired?: boolean;
+  userId?: string;
 }
 
 export const authApi = {

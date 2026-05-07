@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, CheckCircle, Wallet, CreditCard, QrCode, Smartphone } from 'lucide-react';
+import { X, Minus, Plus, CheckCircle, QrCode, Smartphone } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cart: any[];
-  removeFromCart: (id: string) => void;
-  addToCart: (product: any) => void;
+  removeFromCart: (id: string, options?: any) => void;
+  addToCart: (product: any, options?: any) => void;
   cartTotal: number;
   orderStatus: 'idle' | 'submitting' | 'success';
   placeOrder: (method?: string) => void;
@@ -116,37 +116,54 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <>
                 <div className="flex-grow overflow-y-auto px-6 space-y-6 pb-8 no-scrollbar">
                   <div className="grid grid-cols-2 gap-3 auto-rows-max">
-                    {cart.map((item) => (
-                      <motion.div 
-                        layout
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        key={item.id} 
-                        className="bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-3 border border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-3 group hover:border-pos-primary/30 transition-colors"
-                      >
-                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl shadow-sm">
-                          <img 
-                            src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=150'} 
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                          />
-                          <div className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2 py-0.5 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
-                            <p className="text-[10px] font-black text-pos-accent">₹{item.sellingPrice}</p>
+                    {cart.map((item: any) => {
+                      const itemKey = `${item.id}-${item.variantId || ''}-${item.portion || 'FULL'}`;
+                      return (
+                        <motion.div 
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          key={itemKey} 
+                          className="bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-3 border border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-3 group hover:border-pos-primary/30 transition-colors"
+                        >
+                          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl shadow-sm">
+                            <img 
+                              src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=150'} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                              alt=""
+                            />
+                            <div className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2 py-0.5 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                              <p className="text-[10px] font-black text-pos-accent">₹{item.sellingPrice}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex-grow space-y-1">
-                          <h4 className="font-bold text-slate-900 dark:text-white text-[11px] leading-tight line-clamp-2">{item.name}</h4>
-                        </div>
-                        <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-2xl p-1 border border-slate-100 dark:border-slate-800 shadow-sm">
-                          <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors"><Minus size={14} /></button>
-                          <span className="font-black text-xs tabular-nums text-slate-900 dark:text-white">{item.quantity}</span>
-                          <button onClick={() => addToCart(item)} className="w-8 h-8 flex items-center justify-center text-pos-accent hover:bg-pos-accent/10 rounded-xl transition-colors"><Plus size={14} /></button>
-                        </div>
-                      </motion.div>
-                    ))}
+                          <div className="flex-grow space-y-1">
+                            <h4 className="font-bold text-slate-900 dark:text-white text-[11px] leading-tight line-clamp-1">{item.name}</h4>
+                            {(item.variantName || (item.portion && item.portion !== 'FULL')) && (
+                              <p className="text-[9px] font-black text-pos-primary uppercase tracking-widest">
+                                {item.variantName || item.portion}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-2xl p-1 border border-slate-100 dark:border-slate-800 shadow-sm">
+                            <button 
+                              onClick={() => removeFromCart(item.id, { variantId: item.variantId, portion: item.portion })} 
+                              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors"
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="font-black text-xs tabular-nums text-slate-900 dark:text-white">{item.quantity}</span>
+                            <button 
+                              onClick={() => addToCart(item, { variantId: item.variantId, portion: item.portion, variantName: item.variantName, price: item.sellingPrice })} 
+                              className="w-8 h-8 flex items-center justify-center text-pos-accent hover:bg-pos-accent/10 rounded-xl transition-colors"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
-
-                  {/* Payment method selection removed as per user request. Orders are placed as 'Pay Later' by default. */}
                   
                   <div className="pt-6 border-t border-slate-50 dark:border-slate-800 space-y-2">
                     <div className="flex justify-between text-xs text-slate-400 font-bold"><span>Subtotal</span><span className="text-slate-900 dark:text-white">₹{cartTotal}</span></div>

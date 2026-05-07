@@ -27,6 +27,9 @@ interface Product {
 
 interface CartItem extends Product {
   quantity: number;
+  variantId?: string;
+  variantName?: string;
+  portion?: 'FULL' | 'HALF';
 }
 
 export default function PublicMenuPage() {
@@ -47,7 +50,7 @@ export default function PublicMenuPage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({ name: '', phone: '' });
   
-  const [activeTab, setActiveTab] = useState<'menu' | 'orders' | 'profile'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'bar' | 'orders' | 'profile'>('menu');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Handle Theme
@@ -83,8 +86,14 @@ export default function PublicMenuPage() {
         const json = await res.json();
         if (json.success) {
           setData(json.data);
-          if (json.data.menu.length > 0 && !activeCategory) {
-            setActiveCategory(json.data.menu[0].id);
+          
+          // Only set active category if not set or if changing tabs
+          const currentMenu = json.data.menu.filter((cat: any) => 
+            activeTab === 'bar' ? cat.menuType === 'BAR' : cat.menuType !== 'BAR'
+          );
+
+          if (currentMenu.length > 0 && (!activeCategory || !currentMenu.find((c: any) => c.id === activeCategory))) {
+            setActiveCategory(currentMenu[0].id);
           }
         } else {
           setError(json.message);
@@ -99,33 +108,63 @@ export default function PublicMenuPage() {
 
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [propertyCode, qrToken, activeCategory]);
+  }, [propertyCode, qrToken, activeCategory, activeTab]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
   }, [cart]);
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: any, options?: { variantId?: string; variantName?: string; portion?: 'FULL' | 'HALF'; price?: number }) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const variantId = options?.variantId || '';
+      const portion = options?.portion || 'FULL';
+      const itemPrice = options?.price ?? product.sellingPrice;
+      
+      const existing = prev.find(item => 
+        item.id === product.id && 
+        (item.variantId || '') === variantId && 
+        (item.portion || 'FULL') === portion
+      );
+
       if (existing) {
         return prev.map((item: any) => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          (item.id === product.id && (item.variantId || '') === variantId && (item.portion || 'FULL') === portion)
+            ? { ...item, quantity: item.quantity + 1 } 
+            : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { 
+        ...product, 
+        quantity: 1, 
+        variantId, 
+        variantName: options?.variantName,
+        portion,
+        sellingPrice: itemPrice 
+      }];
     });
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (productId: string, options?: { variantId?: string; portion?: 'FULL' | 'HALF' }) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === productId);
+      const variantId = options?.variantId || '';
+      const portion = options?.portion || 'FULL';
+
+      const existing = prev.find(item => 
+        item.id === productId && 
+        (item.variantId || '') === variantId && 
+        (item.portion || 'FULL') === portion
+      );
+
       if (existing && existing.quantity > 1) {
         return prev.map((item: any) => 
-          item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
+          (item.id === productId && (item.variantId || '') === variantId && (item.portion || 'FULL') === portion)
+            ? { ...item, quantity: item.quantity - 1 } 
+            : item
         );
       }
-      return prev.filter(item => item.id !== productId);
+      return prev.filter(item => 
+        !(item.id === productId && (item.variantId || '') === variantId && (item.portion || 'FULL') === portion)
+      );
     });
   };
 
@@ -187,6 +226,13 @@ export default function PublicMenuPage() {
     }
   };
 
+  const filteredMenu = useMemo(() => {
+    if (!data?.menu) return [];
+    return data.menu.filter((cat: any) => 
+      activeTab === 'bar' ? cat.menuType === 'BAR' : cat.menuType !== 'BAR'
+    );
+  }, [data?.menu, activeTab]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 space-y-4">
@@ -227,12 +273,12 @@ export default function PublicMenuPage() {
 
       <div className="pt-2" />
 
-      {activeTab === 'menu' ? (
+      {['menu', 'bar'].includes(activeTab) ? (
         <>
           {/* Category Bar */}
-          {!searchQuery && (
+          {!searchQuery && filteredMenu.length > 0 && (
             <div className="sticky top-[100px] z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-2 px-5 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-50 dark:border-slate-900">
-              {data.menu.map((cat: any) => (
+              {filteredMenu.map((cat: any) => (
                 <button
                   key={cat.id}
                   onClick={() => {
@@ -252,7 +298,7 @@ export default function PublicMenuPage() {
           )}
 
           <ProductList 
-            categories={data.menu} 
+            categories={filteredMenu} 
             searchQuery={searchQuery} 
             cart={cart} 
             addToCart={addToCart} 
@@ -326,12 +372,13 @@ export default function PublicMenuPage() {
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
           orderCount={data.activeOrders?.length || 0}
+          showBar={data.property.showBarInQrMenu}
         />
       )}
 
       {/* Floating Cart Bar */}
       <AnimatePresence>
-        {cart.length > 0 && activeTab === 'menu' && (
+        {cart.length > 0 && ['menu', 'bar'].includes(activeTab) && (
           <motion.div 
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

@@ -18,7 +18,7 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, upiId, upiName } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2 } = body;
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
@@ -37,8 +37,13 @@ export async function PUT(
     if (thermalPrinterName !== undefined) updateData.thermalPrinterName = thermalPrinterName;
     if (enableDirectPrinting !== undefined) updateData.enableDirectPrinting = enableDirectPrinting;
     if (barPosEnabled !== undefined) updateData.barPosEnabled = barPosEnabled;
+    if (showBarInQrMenu !== undefined) updateData.showBarInQrMenu = showBarInQrMenu;
     if (upiId !== undefined) updateData.upiId = upiId;
     if (upiName !== undefined) updateData.upiName = upiName;
+    if (upiLimit !== undefined) updateData.upiLimit = upiLimit;
+    if (upiId2 !== undefined) updateData.upiId2 = upiId2;
+    if (upiName2 !== undefined) updateData.upiName2 = upiName2;
+    if (upiLimit2 !== undefined) updateData.upiLimit2 = upiLimit2;
 
     console.log('Processed Update Data:', updateData);
 
