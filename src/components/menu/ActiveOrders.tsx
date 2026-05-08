@@ -12,9 +12,10 @@ interface ActiveOrdersProps {
   upiId?: string;
   upiName?: string;
   setActiveTab: (tab: 'menu' | 'orders') => void;
+  onPaymentSuccess?: () => void;
 }
 
-export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, upiId, upiName, setActiveTab }) => {
+export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, upiId, upiName, setActiveTab, onPaymentSuccess }) => {
   const { showToast } = useToast();
   const prevStatusesRef = useRef<Record<string, string>>({});
   const audioAcceptedRef = useRef<HTMLAudioElement | null>(null);
@@ -99,6 +100,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
       if (json.success) {
         setPaymentStatus('success');
         setTimeout(resetPayModal, 2500);
+        if (onPaymentSuccess) onPaymentSuccess();
       } else {
         alert(json.message);
         setPaymentStatus('idle');
@@ -118,8 +120,28 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
       const json = await res.json();
       // Even if API doesn't exist yet, show success UI
       setPaymentStatus('counter_requested');
+      if (onPaymentSuccess) onPaymentSuccess();
     } catch {
       setPaymentStatus('counter_requested');
+    }
+  };
+
+  const handleBillRequest = async (orderId: string) => {
+    try {
+      const res = await fetch('/api/public/request-assistance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableId: orders[0]?.restaurantTableId, // Assuming all orders are for same table
+          propertyId,
+          type: 'BILL'
+        })
+      });
+      if (res.ok) {
+        showToast('Bill request sent to staff.', 'success');
+      }
+    } catch {
+      showToast('Failed to send bill request.', 'error');
     }
   };
 
@@ -276,18 +298,27 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
               </div>
 
               {order.status !== 'SETTLED' && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => { setPayingOrder(order); setPayMode('upi'); }}
+                      className="h-14 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    >
+                      <Smartphone size={16} /> Pay Online
+                    </button>
+                    <button 
+                      onClick={() => { setPayingOrder(order); setPayMode('counter'); }}
+                      className="h-14 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    >
+                      <Store size={16} /> Pay at Counter
+                    </button>
+                  </div>
+                  
                   <button 
-                    onClick={() => { setPayingOrder(order); setPayMode('upi'); }}
-                    className="h-14 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    onClick={() => handleBillRequest(order.id)}
+                    className="w-full h-12 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 active:scale-95 transition-transform"
                   >
-                    <Smartphone size={16} /> Pay Online
-                  </button>
-                  <button 
-                    onClick={() => { setPayingOrder(order); setPayMode('counter'); }}
-                    className="h-14 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <Store size={16} /> Pay at Counter
+                    <QrCode size={14} /> Request Bill
                   </button>
                 </div>
               )}

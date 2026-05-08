@@ -106,10 +106,14 @@ export async function POST(request: NextRequest) {
 
     const token = await encrypt(sessionData)
 
+    const url = new URL(request.url);
+    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.startsWith('192.168.') || url.hostname.startsWith('10.') || url.hostname.startsWith('172.');
+    const isSecure = process.env.NODE_ENV === 'production' && !isLocal;
+
     // 7. Set HttpOnly Cookie (8h matches JWT expiry)
     cookieStore.set('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 8,

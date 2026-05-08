@@ -5,6 +5,7 @@ import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { SidebarProvider } from '@/context/sidebar-context';
 import { POSSecurityProvider } from '@/components/providers/POSSecurityProvider';
 import { OfflineBadge } from '@/components/shared/offline-badge';
+import { NotificationOverlay } from '@/components/shared/NotificationOverlay';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -26,6 +27,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
         </DashboardShell>
         {/* Global offline indicator — auto-syncs queued orders when connection returns */}
         <OfflineBadge />
+        <NotificationOverlay />
       </POSSecurityProvider>
     </SidebarProvider>
   );

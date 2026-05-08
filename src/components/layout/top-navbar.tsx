@@ -202,7 +202,10 @@ export const TopNavbar: React.FC = () => {
           {/* ── Live Order Dropdown (Delivery / Pick Up) ── */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Button 
-              className={`font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center gap-2 ${showLiveOrderMenu ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-gray-50'}`}
+              className={`font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center gap-2 
+                ${showLiveOrderMenu 
+                  ? 'bg-violet-700 text-white' 
+                  : 'bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 dark:shadow-none'}`}
               onClick={() => setShowLiveOrderMenu(!showLiveOrderMenu)}
               title="Live Order"
             >

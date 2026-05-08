@@ -9,7 +9,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { items, tableId, propertyId, guestName, guestPhone, paymentMethod, isPrepaid } = body;
+    const { items, tableId, propertyId, guestName, guestPhone, paymentMethod, isPrepaid, rating, comments } = body;
 
     if (!tableId || !propertyId || !items || items.length === 0) {
       return apiError(new Error('Missing required fields (tableId, propertyId, items)'), 400);
@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
       });
 
       const table = await tx.table.findUnique({
-        where: { id: tableId }
+        where: { id: tableId },
+        include: { floor: true }
       });
 
       if (!table || !property || table.propertyId !== propertyId) {
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest) {
         const variantId = item.variantId || null;
         const portion = item.portion || 'FULL';
 
+        const product = await tx.product.findUnique({ where: { id: item.id } });
+        if (!product) throw new Error(`Product not found: ${item.id}`);
+
         const existingItem = (order as any).items.find((ei: any) => 
           ei.productId === item.id && 
           (ei.variantId || null) === variantId && 
@@ -101,6 +105,7 @@ export async function POST(request: NextRequest) {
           });
           newItemsForKot.push({ 
             ...item, 
+            name: product.name,
             quantity: item.quantity, 
             orderItemId: existingItem.id,
             variantId,
@@ -122,6 +127,7 @@ export async function POST(request: NextRequest) {
           });
           newItemsForKot.push({ 
             ...item, 
+            name: product.name,
             quantity: item.quantity, 
             orderItemId: newItem.id,
             variantId,
@@ -160,6 +166,15 @@ export async function POST(request: NextRequest) {
         data: { subtotal, taxAmount, grandTotal, status: isPrepaid ? 'SETTLED' : 'OPEN' }
       });
 
+      // 4.5 Save Rating if provided
+      if (rating) {
+        await tx.orderRating.upsert({
+          where: { orderId: order!.id },
+          update: { rating, comments },
+          create: { orderId: order!.id, rating, comments }
+        });
+      }
+
       // 5. Generate KOT
       let kotTicket: any = null;
       if (newItemsForKot.length > 0) {
@@ -191,38 +206,48 @@ export async function POST(request: NextRequest) {
 
       // 6. Handle Payment & Settlement for Prepaid
       if (isPrepaid) {
-        const cashAccount = await tx.account.findFirst({ where: { propertyId, accountType: 'CASH' } });
-        const upiMode = await tx.paymentMode.findFirst({ where: { propertyId, name: { contains: 'UPI' } } }) 
-                        || await tx.paymentMode.findFirst({ where: { propertyId } });
+        try {
+          const cashAccount = await tx.account.findFirst({ where: { propertyId, accountType: 'CASH' } })
+                           || await tx.account.findFirst({ where: { propertyId } });
+          const upiMode = await tx.paymentMode.findFirst({ where: { propertyId, name: { contains: 'UPI' } } }) 
+                          || await tx.paymentMode.findFirst({ where: { propertyId } });
 
-        // Create Receipt
-        await tx.receipt.create({
-          data: {
-            propertyId,
-            receiptNo: `REC-QR-${Date.now()}`,
-            receivedFromAccountId: cashAccount?.id || 'default-account',
-            amount: grandTotal,
-            paymentModeId: upiMode?.id || 'default-mode',
-            sourceModule: 'POS_ORDER',
-            sourceRefId: order!.id,
-          }
-        });
+          if (cashAccount && upiMode) {
+            // Create Receipt
+            await tx.receipt.create({
+              data: {
+                propertyId,
+                receiptNo: `REC-QR-${Date.now()}`,
+                receivedFromAccountId: cashAccount.id,
+                amount: grandTotal,
+                paymentModeId: upiMode.id,
+                sourceModule: 'POS_ORDER',
+                sourceRefId: order!.id,
+              }
+            });
 
-        // Create Settlement
-        await tx.settlement.create({
-          data: {
-            propertyId,
-            settlementNo: `SET-QR-${Date.now()}`,
-            sourceId: order!.id,
-            sourceType: 'POS_ORDER',
-            guestId: guestId,
-            grossAmount: grandTotal,
-            paidAmount: grandTotal,
-            balanceAmount: 0,
-            status: 'COMPLETED',
-            settlementDate: new Date(),
+            // Create Settlement
+            await tx.settlement.create({
+              data: {
+                propertyId,
+                settlementNo: `SET-QR-${Date.now()}`,
+                sourceId: order!.id,
+                sourceType: 'POS_ORDER',
+                guestId: guestId,
+                grossAmount: grandTotal,
+                paidAmount: grandTotal,
+                balanceAmount: 0,
+                status: 'COMPLETED',
+                settlementDate: new Date(),
+              }
+            });
+          } else {
+            console.warn('Skipping receipt/settlement creation: Missing Account or PaymentMode');
           }
-        });
+        } catch (payErr) {
+          console.error('Payment record creation failed but continuing order:', payErr);
+          // We don't throw here so the order and notifications still go through
+        }
       }
 
       // 7. Update Table Status
@@ -230,6 +255,51 @@ export async function POST(request: NextRequest) {
         where: { id: tableId },
         data: { status: isPrepaid ? 'VACANT' : 'KOT_RUNNING' }
       });
+
+      // 8. Create Real-Time Notifications for Dashboard
+      const itemSummary = newItemsForKot.map(i => `${i.quantity}x ${i.name}`).join(', ');
+      
+      // Always create an ORDER notification
+      await tx.notification.create({
+        data: {
+          propertyId,
+          title: 'New QR Order Received',
+          message: `New order from Table ${table.name} (${table.floor.name}): ${itemSummary}`,
+          type: 'ORDER',
+          priority: 'MEDIUM',
+          metadata: JSON.stringify({
+            tableId,
+            tableName: table.name,
+            floorName: table.floor.name,
+            amount: grandTotal,
+            orderId: order!.id,
+            orderNo: order!.orderNo,
+            items: newItemsForKot.map(i => ({ name: i.name, qty: i.quantity }))
+          }),
+        }
+      });
+
+      // If it's a payment (Prepaid/Online), create a second notification for the PAYMENT
+      if (isPrepaid) {
+        await tx.notification.create({
+          data: {
+            propertyId,
+            title: 'Online Payment Received',
+            message: `Payment of ₹${grandTotal.toFixed(2)} received from Table ${table.name} (${table.floor.name})`,
+            type: 'PAYMENT',
+            priority: 'URGENT',
+            metadata: JSON.stringify({
+              tableId,
+              tableName: table.name,
+              floorName: table.floor.name,
+              amount: grandTotal,
+              orderId: order!.id,
+              orderNo: order!.orderNo,
+              paymentMethod: 'UPI'
+            }),
+          }
+        });
+      }
 
       return { orderNo: order!.orderNo, kotNo: kotTicket?.kotNo, isPrepaid };
     });

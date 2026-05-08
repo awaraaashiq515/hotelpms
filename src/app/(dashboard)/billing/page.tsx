@@ -73,20 +73,20 @@ const PRODUCT_PALETTE_DARK = [
   { bg: '#80deea', border: '#26c6da', text: '#002a30', textSub: '#005560' },  // Cyan
 ];
 
-// Light mode product card colors
+// Light mode product card colors - More vibrant than before
 const PRODUCT_PALETTE_LIGHT = [
-  { bg: '#e8f5e9', border: '#66bb6a', text: '#1b5e20', textSub: '#2e7d32' },  // Green
-  { bg: '#f3e5f5', border: '#ab47bc', text: '#4a148c', textSub: '#6a1b9a' },  // Purple
-  { bg: '#e3f2fd', border: '#42a5f5', text: '#0d47a1', textSub: '#1565c0' },  // Blue
-  { bg: '#fce4ec', border: '#e91e63', text: '#880e4f', textSub: '#ad1457' },  // Pink
-  { bg: '#fffde7', border: '#fdd835', text: '#f57f17', textSub: '#f9a825' },  // Yellow
-  { bg: '#e0f2f1', border: '#26a69a', text: '#004d40', textSub: '#00695c' },  // Teal
-  { bg: '#fff3e0', border: '#ffa726', text: '#e65100', textSub: '#f57c00' },  // Orange
-  { bg: '#eceff1', border: '#78909c', text: '#263238', textSub: '#37474f' },  // Grey
-  { bg: '#f1f8e9', border: '#8bc34a', text: '#33691e', textSub: '#558b2f' },  // Lime
-  { bg: '#fff8e1', border: '#ffca28', text: '#ff6f00', textSub: '#ff8f00' },  // Amber
-  { bg: '#ffebee', border: '#e53935', text: '#b71c1c', textSub: '#c62828' },  // Red
-  { bg: '#e0f7fa', border: '#26c6da', text: '#006064', textSub: '#00838f' },  // Cyan
+  { bg: '#C8E6C9', border: '#4CAF50', text: '#1B5E20', textSub: '#2E7D32' },  // Green
+  { bg: '#E1BEE7', border: '#9C27B0', text: '#4A148C', textSub: '#6A1B9A' },  // Purple
+  { bg: '#B3E5FC', border: '#03A9F4', text: '#01579B', textSub: '#0277BD' },  // Blue
+  { bg: '#F8BBD0', border: '#E91E63', text: '#880E4F', textSub: '#AD1457' },  // Pink
+  { bg: '#FFF9C4', border: '#FBC02D', text: '#F57F17', textSub: '#F9A825' },  // Yellow
+  { bg: '#B2DFDB', border: '#009688', text: '#004D40', textSub: '#00695C' },  // Teal
+  { bg: '#FFCCBC', border: '#FF5722', text: '#BF360C', textSub: '#D84315' },  // Orange
+  { bg: '#CFD8DC', border: '#607D8B', text: '#263238', textSub: '#37474F' },  // Grey
+  { bg: '#DCEDC8', border: '#8BC34A', text: '#33691E', textSub: '#558B2F' },  // Lime
+  { bg: '#FFECB3', border: '#FFC107', text: '#FF6F00', textSub: '#FF8F00' },  // Amber
+  { bg: '#FFCDD2', border: '#F44336', text: '#B71C1C', textSub: '#C62828' },  // Red
+  { bg: '#B2EBF2', border: '#00BCD4', text: '#006064', textSub: '#00838F' },  // Cyan
 ];
 
 export default function BillingPage() {
@@ -290,15 +290,39 @@ export default function BillingPage() {
       const result = await response.json();
       
       if (result.success && result.data.length > 0) {
-        // If searching by orderId, it might return a single object or array depending on API
-        const order = Array.isArray(result.data) ? result.data[0] : result.data;
-        setActiveOrder(order);
-        const orderItems = order.items.map((i: any) => ({
-          ...i.product,
-          quantity: i.quantity,
-          sellingPrice: i.unitPrice
-        }));
-        setCart(orderItems);
+        // Merge all items from all active orders for this table/query
+        const allOrders = Array.isArray(result.data) ? result.data : [result.data];
+        
+        // Use the first order as the "active" one for metadata purposes
+        setActiveOrder(allOrders[0]);
+
+        const mergedItems: any[] = [];
+        
+        allOrders.forEach((order: any) => {
+          order.items.forEach((i: any) => {
+            const size = i.portion || i.variantName || 'Full';
+            const cartItemId = `${i.productId}-${size}`;
+            
+            // Check if this item (same product + same size) already exists in our merged list
+            const existing = mergedItems.find(mi => mi.cartItemId === cartItemId);
+            if (existing) {
+              existing.quantity += i.quantity;
+            } else {
+              mergedItems.push({
+                ...i.product,
+                quantity: i.quantity,
+                sellingPrice: i.unitPrice,
+                size: size,
+                cartItemId: cartItemId,
+                variantId: i.variantId,
+                variantName: i.variantName,
+                portion: i.portion
+              });
+            }
+          });
+        });
+        
+        setCart(mergedItems);
       } else {
         setActiveOrder(null);
         setCart([]);
@@ -429,7 +453,10 @@ export default function BillingPage() {
         items: cart.map((item: any) => ({
           productId: item.id,
           quantity: item.quantity,
-          unitPrice: item.sellingPrice
+          unitPrice: item.sellingPrice,
+          portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+          variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+          name: item.name 
         })),
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
@@ -457,7 +484,7 @@ export default function BillingPage() {
     }
   };
 
-  const handlePrintKOT = async () => {
+  const handlePrintKOT = async (showModal: boolean = true) => {
     if (cart.length === 0) return;
     setSaveLoading(true);
     try {
@@ -467,7 +494,10 @@ export default function BillingPage() {
         items: cart.map((item: any) => ({
           productId: item.id,
           quantity: item.quantity,
-          unitPrice: item.sellingPrice
+          unitPrice: item.sellingPrice,
+          portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+          variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+          name: item.name 
         })),
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
@@ -500,7 +530,9 @@ export default function BillingPage() {
               notes: item.notes
             }))
           });
-          setIsKotOpen(true);
+          if (showModal) {
+            setIsKotOpen(true);
+          }
 
           // Direct thermal printing via Backend API
           if (property?.enableDirectPrinting) {
@@ -548,7 +580,47 @@ export default function BillingPage() {
     }
   };
 
-  const handlePrintBill = async () => {
+  const handlePrintBill = async (saveFirst: boolean = false) => {
+    if (saveFirst && cart.length > 0) {
+      setSaveLoading(true);
+      try {
+        const payload = {
+          restaurantTableId: tableId || undefined,
+          orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
+          items: cart.map((item: any) => ({
+            productId: item.id,
+            quantity: item.quantity,
+            unitPrice: item.sellingPrice,
+            portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+            variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+            name: item.name 
+          })),
+          guestId: selectedGuestId || undefined,
+          guestCount: orderType === 'DINE_IN' ? guestCount : 1,
+          driverId: selectedDriver?.id || undefined
+        };
+
+        const response = await fetch('/api/pos-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.success) {
+          addToast('success', 'Order saved successfully');
+          // Update active order with the result
+          setActiveOrder(result.data);
+          fetchAllActiveOrders();
+        }
+      } catch (err) {
+        addToast('error', 'Failed to save order before printing');
+        setSaveLoading(false);
+        return;
+      } finally {
+        setSaveLoading(false);
+      }
+    }
+
     // Priority: If cart has items, use cart data. Otherwise fallback to activeOrder.
     const hasCartItems = cart.length > 0;
     
@@ -616,7 +688,10 @@ export default function BillingPage() {
           id: item.id,
           name: item.name,
           quantity: item.quantity,
-          unitPrice: item.sellingPrice
+          unitPrice: item.sellingPrice,
+          portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+          variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+          variantId: item.variantId
         }))
       };
 
@@ -884,14 +959,21 @@ export default function BillingPage() {
                   return (
                     <div
                       key={product.id}
-                      onClick={() => addToCart(product, 'Full')}
+                      onClick={() => {
+                        if (!product.variants || product.variants.length === 0) {
+                          if (!((product as any).halfPrice > 0)) {
+                            addToCart(product, 'Full');
+                          }
+                        }
+                      }}
                       style={{
                         backgroundColor: isColored ? cardColor.bg : darkBg,
                         transition: transitionStr('background-color'),
-                        outline: isInCart && isColored ? `2px solid ${cardColor.border}` : 'none',
+                        outline: isInCart && isColored ? `3px solid ${cardColor.border}` : (theme === 'light' ? '1px solid rgba(0,0,0,0.05)' : 'none'),
                         outlineOffset: '2px',
+                        boxShadow: theme === 'light' ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'
                       }}
-                      className={`group relative rounded-lg p-3 flex flex-col text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] min-h-[140px] w-full ${isInCart ? 'shadow-2xl' : 'hover:shadow-xl'} transition-all duration-300 cursor-pointer`}
+                      className={`group relative rounded-2xl p-3 flex flex-col text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] h-[165px] w-full ${isInCart ? 'shadow-2xl ring-2 ring-offset-2' : 'hover:shadow-xl'} transition-all duration-300 cursor-pointer`}
                     >
                       {/* Hover glow */}
                       <div
@@ -905,31 +987,33 @@ export default function BillingPage() {
                       {/* Top Row: HSN & Price */}
                       <div className="flex justify-between items-start w-full relative z-10">
                         <span 
-                          className="text-[9px] font-black uppercase tracking-tighter"
+                          className="text-[10px] font-black uppercase tracking-widest"
                           style={{
                             color: isColored ? cardColor.text : darkText,
                             transition: transitionStr('color'),
-                            opacity: 0.8
+                            opacity: theme === 'light' ? 0.7 : 0.6
                           }}
                         >
-                          HSN {product.hsnCode || '0000'}
+                          HSN {product.hsnCode || '2106'}
                         </span>
-                        <span 
-                          className="text-base sm:text-lg font-black tracking-tight font-bebas leading-none shrink-0 ml-1"
-                          style={{
-                            color: isColored ? cardColor.text : darkText,
-                            transition: transitionStr('color'),
-                            fontFamily: 'var(--font-bebas-neue)'
-                          }}
-                        >
-                          RS {product.sellingPrice.toFixed(0)}
-                        </span>
+                        <div className="text-right">
+                          <p className="text-[9px] font-black uppercase opacity-40 leading-none mb-1">Price</p>
+                          <span 
+                            className="text-[22px] font-black tracking-tight leading-none"
+                            style={{
+                              color: isColored ? cardColor.text : darkText,
+                              transition: transitionStr('color'),
+                            }}
+                          >
+                            ₹{product.sellingPrice.toFixed(0)}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Middle: Product Name */}
-                      <div className="flex-1 flex items-center w-full relative z-10 mt-1">
+                      {/* Middle: Product Name with Auto-wrapping */}
+                      <div className="flex-1 flex items-center w-full relative z-10 py-1">
                         <h3
-                          className="text-[20px] sm:text-[22px] md:text-[26px] leading-[0.95] font-normal break-words w-full uppercase"
+                          className="text-[23px] leading-[1] font-black break-words w-full uppercase overflow-hidden line-clamp-3"
                           style={{
                             color: isColored ? cardColor.text : darkText,
                             transition: transitionStr('color'),
@@ -937,96 +1021,94 @@ export default function BillingPage() {
                           }}
                         >
                           {(() => {
-                            // Split product name to simulate the bold/light look if possible, or just render it
                             const words = product.name.split(' ');
                             if (words.length > 1) {
                               return (
                                 <>
-                                  <span className="font-bold">{words[0]}</span> <span className="opacity-90">{words.slice(1).join(' ')}</span>
+                                  <span className="font-black">{words[0]}</span> <span className="font-medium opacity-80">{words.slice(1).join(' ')}</span>
                                 </>
                               );
                             }
-                            return <span className="font-bold">{product.name}</span>;
+                            return <span className="font-black">{product.name}</span>;
                           })()}
                         </h3>
                       </div>
 
-                      {/* Bottom Row: Veg/Non-veg, Icon, GST */}
-                      <div className="flex justify-between items-end w-full relative z-10 mt-auto pt-1">
-                        <span 
-                          className="text-[9px] font-black uppercase tracking-widest"
-                          style={{
-                            color: isColored ? cardColor.text : darkText,
-                            transition: transitionStr('color'),
-                            opacity: 0.7
-                          }}
-                        >
-                          {categories.find(c => c.id === product.categoryId)?.name || 'N/A'}
-                        </span>
-                        
-                        <div className="flex flex-col items-end gap-1">
+                      {/* Bottom Row: Info or Action Area */}
+                      <div className={`w-full relative z-10 pt-1.5 border-t ${theme === 'light' ? 'border-black/10' : 'border-white/5'}`}>
+                        <div className="flex justify-between items-end h-6">
+                          <div className="flex flex-col">
+                            <span 
+                              className="text-[9px] font-black uppercase tracking-widest truncate max-w-[120px]"
+                              style={{
+                                color: isColored ? cardColor.text : darkText,
+                                opacity: theme === 'light' ? 0.8 : 0.5
+                              }}
+                            >
+                              {categories.find(c => c.id === product.categoryId)?.name || 'N/A'}
+                            </span>
+                            <span 
+                              className="text-[9px] font-black uppercase tracking-tighter"
+                              style={{
+                                color: isColored ? cardColor.text : darkText,
+                                opacity: theme === 'light' ? 0.9 : 0.6
+                              }}
+                            >
+                              GST {product.taxRate || 5}%
+                            </span>
+                          </div>
+                          
                           <div 
-                            className="opacity-40 mb-1"
-                            style={{
-                              color: isColored ? cardColor.text : darkText,
-                              transition: transitionStr('color')
-                            }}
+                            className="opacity-30"
+                            style={{ color: isColored ? cardColor.text : darkText }}
                           >
                             <ProductIcon 
                               productName={product.name}
                               categoryName={categories.find(c => c.id === product.categoryId)?.name}
-                              size={18}
+                              size={16}
                             />
                           </div>
-                          <span 
-                            className="text-[9px] font-black uppercase tracking-tighter"
-                            style={{
-                              color: isColored ? cardColor.text : darkText,
-                              transition: transitionStr('color'),
-                              opacity: 0.8
-                            }}
-                          >
-                            GST {product.taxRate || 5}%
-                          </span>
                         </div>
                       </div>
 
-                      {/* Quick Add Buttons Overlay */}
-                      <div className="absolute inset-x-0 bottom-0 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 z-20">
-                        {product.variants && product.variants.length > 0 ? (
-                          <div className="grid grid-cols-2">
-                            {product.variants.map((v: any, vIdx: number) => {
-                              const vColors = ['bg-orange-500 hover:bg-orange-600', 'bg-rose-400 hover:bg-rose-500', 'bg-amber-500 hover:bg-amber-600', 'bg-emerald-500 hover:bg-emerald-600'];
-                              const vColor = vColors[vIdx % vColors.length];
-                              const isLastOdd = vIdx === (product.variants?.length || 0) - 1 && (product.variants?.length || 0) % 2 !== 0;
-                              return (
-                                <button 
-                                  key={v.id}
-                                  onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
-                                  className={`py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 ${vColor} ${isLastOdd ? 'col-span-2' : ''} border-r border-b border-white/10`}
-                                >
-                                  {v.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : ((product as any).menuType === 'RESTAURANT' || !(product as any).menuType) && (product as any).halfPrice > 0 && (
-                          <div className="flex w-full">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
-                              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black py-3 uppercase tracking-wider"
-                            >
-                              Half
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
-                              className="flex-1 bg-pos-primary hover:bg-pos-primary-dark text-white text-[11px] font-black py-3 uppercase tracking-wider border-l border-white/10"
-                            >
-                              Full
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {/* Quick Add Buttons Overlay (Variants) */}
+                      {((product.variants?.length ?? 0) > 0 || (product as any).halfPrice > 0) && (
+                        <div className="absolute inset-x-0 bottom-0 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 z-20">
+                          {product.variants && product.variants.length > 0 ? (
+                            <div className="grid grid-cols-2">
+                              {product.variants.map((v: any, vIdx: number) => {
+                                const vColors = ['bg-orange-500 hover:bg-orange-600', 'bg-rose-400 hover:bg-rose-500', 'bg-amber-500 hover:bg-amber-600', 'bg-emerald-500 hover:bg-emerald-600'];
+                                const vColor = vColors[vIdx % vColors.length];
+                                const isLastOdd = vIdx === (product.variants?.length || 0) - 1 && (product.variants?.length || 0) % 2 !== 0;
+                                return (
+                                  <button 
+                                    key={v.id}
+                                    onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                                    className={`py-4 text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 ${vColor} ${isLastOdd ? 'col-span-2' : ''} border-r border-b border-white/10`}
+                                  >
+                                    {v.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (product as any).halfPrice > 0 && (
+                            <div className="flex w-full">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
+                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black py-4 uppercase tracking-wider"
+                              >
+                                Half
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
+                                className="flex-1 bg-pos-primary hover:bg-pos-primary-dark text-white text-[11px] font-black py-4 uppercase tracking-wider border-l border-white/10"
+                              >
+                                Full
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Selection Checkmark (Top Right) */}
                       {isInCart && (
@@ -1516,40 +1598,49 @@ export default function BillingPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <Button 
-               onClick={handlePrintKOT}
+               onClick={() => handlePrintKOT(true)}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 hover:bg-emerald-500 hover:text-white border-emerald-200 text-emerald-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
+               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+                 ${theme === 'dark' 
+                   ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-500' 
+                   : 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700/10 shadow-lg shadow-emerald-600/20'}`}
             >
-              <Printer size={18} /> KOT
+              <Printer size={18} /> PRINT KOT
+            </Button>
+            <Button 
+               onClick={() => handlePrintKOT(false)}
+               loading={saveLoading}
+               disabled={cart.length === 0}
+               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+                 ${theme === 'dark' 
+                   ? 'bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-500' 
+                   : 'bg-teal-600 text-white hover:bg-teal-700 border-teal-700/10 shadow-lg shadow-teal-600/20'}`}
+            >
+              <CheckCircle2 size={18} /> SAVE & KOT
             </Button>
             <Button 
                onClick={handleSimpleSave}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-blue-500/10 hover:bg-blue-500 hover:text-white border-blue-500/20 text-blue-500' : 'bg-blue-50 hover:bg-blue-500 hover:text-white border-blue-200 text-blue-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
+               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+                 ${theme === 'dark' 
+                   ? 'bg-blue-500/10 hover:bg-blue-500 hover:text-white border-blue-500/20 text-blue-500' 
+                   : 'bg-blue-600 text-white hover:bg-blue-700 border-blue-700/10 shadow-lg shadow-blue-600/20'}`}
             >
               <Save size={18} /> SAVE
             </Button>
             <Button 
+               disabled={cart.length === 0 && !activeOrder}
                onClick={() => {
                  setIsProforma(true);
-                 setAutoPrint(true);
-                 handlePrintBill();
+                 setAutoPrint(false); 
+                 handlePrintBill(false); 
                }}
-               disabled={!activeOrder && cart.length === 0}
-               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-amber-500/10 hover:bg-amber-500 hover:text-white border-amber-500/20 text-amber-500' : 'bg-amber-50 hover:bg-amber-500 hover:text-white border-amber-200 text-amber-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
-            >
-              <Printer size={18} /> BILL
-            </Button>
-            <Button 
-               disabled={cart.length === 0}
-               onClick={() => {
-                 setIsProforma(true);
-                 setAutoPrint(false); // Settle still needs the modal for payment selection
-                 handlePrintBill();
-               }}
-               className={`py-4 rounded-2xl ${theme === 'dark' ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-500' : 'bg-rose-50 hover:bg-rose-500 hover:text-white border-rose-200 text-rose-700'} border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
+               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+                 ${theme === 'dark' 
+                   ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-500' 
+                   : 'bg-rose-600 text-white hover:bg-rose-700 border-rose-700/10 shadow-lg shadow-rose-600/20'}`}
             >
                <CreditCard size={18} /> SETTLE (F1)
             </Button>

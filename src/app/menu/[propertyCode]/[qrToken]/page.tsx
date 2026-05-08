@@ -13,6 +13,7 @@ import { ProductList } from '@/components/menu/ProductList';
 import { ActiveOrders } from '@/components/menu/ActiveOrders';
 import { CartDrawer } from '@/components/menu/CartDrawer';
 import { BottomNav } from '@/components/menu/BottomNav';
+import { FeedbackModal } from '@/components/menu/FeedbackModal';
 
 interface Product {
   id: string;
@@ -52,6 +53,10 @@ export default function PublicMenuPage() {
   
   const [activeTab, setActiveTab] = useState<'menu' | 'bar' | 'orders' | 'profile'>('menu');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  
+  const [rating, setRating] = useState<number>(5);
+  const [comments, setComments] = useState<string>('');
+  const [showFeedback, setShowFeedback] = useState(false);
 
   // Handle Theme
   useEffect(() => {
@@ -177,6 +182,22 @@ export default function PublicMenuPage() {
     setShowOnboarding(false);
   };
 
+  const resetGuestSession = () => {
+    localStorage.removeItem('guest_info');
+    setGuestInfo(null);
+    setOnboardingForm({ name: '', phone: '' });
+    setShowOnboarding(true);
+    setCart([]);
+    setActiveTab('menu');
+    setIsCartOpen(false);
+    setOrderStatus('idle');
+    
+    // Force a reload to ensure the landing state (onboarding) is triggered reliably
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  };
+
   const [paymentMethod, setPaymentMethod] = useState<'COUNTER' | 'UPI'>('COUNTER');
   const [showPaymentMock, setShowPaymentMock] = useState(false);
 
@@ -211,11 +232,17 @@ export default function PublicMenuPage() {
         setOrderStatus('success');
         setCart([]);
         setShowPaymentMock(false);
+        setRating(5);
+        setComments('');
         setTimeout(() => {
-          setIsCartOpen(false);
-          setOrderStatus('idle');
-          setActiveTab('orders');
-        }, 2000);
+          if (selectedMethod === 'UPI') {
+            setShowFeedback(true);
+          } else {
+            setIsCartOpen(false);
+            setOrderStatus('idle');
+            setActiveTab('orders');
+          }
+        }, 1500);
       } else {
         alert(json.message);
         setOrderStatus('idle');
@@ -313,6 +340,10 @@ export default function PublicMenuPage() {
           upiId={data.property.upiId || ''}
           upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab} 
+          onPaymentSuccess={() => {
+            // Show feedback modal after settlement from ActiveOrders
+            setTimeout(() => setShowFeedback(true), 1500);
+          }}
         />
       ) : (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -429,6 +460,19 @@ export default function PublicMenuPage() {
         form={onboardingForm}
         setForm={setOnboardingForm}
         onSubmit={handleOnboardingSubmit}
+      />
+
+      <FeedbackModal 
+        show={showFeedback}
+        rating={rating}
+        setRating={setRating}
+        comments={comments}
+        setComments={setComments}
+        onSubmit={async () => {
+          // Submit to some API if needed, then reset
+          resetGuestSession();
+        }}
+        onSkip={() => resetGuestSession()}
       />
 
       <style jsx global>{`

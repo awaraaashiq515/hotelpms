@@ -10,7 +10,10 @@ const orderItemSchema = z.object({
   unitPrice: z.number().min(0),
   discountAmount: z.number().default(0),
   taxAmount: z.number().default(0),
-  name: z.string().optional(), // Added to support parsing serving sizes for inventory
+  name: z.string().optional(),
+  variantId: z.string().optional().nullable(),
+  variantName: z.string().optional().nullable(),
+  portion: z.string().optional().nullable(),
 })
 
 const posOrderSchema = z.object({
@@ -78,6 +81,9 @@ export async function POST(request: NextRequest) {
         discountAmount: item.discountAmount,
         taxAmount: item.taxAmount,
         totalAmount: lineTotal,
+        variantId: item.variantId || null,
+        variantName: item.variantName || null,
+        portion: item.portion || null,
       }
     })
 
@@ -117,13 +123,18 @@ export async function POST(request: NextRequest) {
       // 2. Insert or update Items
       const createdItems = await Promise.all(
         sanitizedItems.map(async (item) => {
-          const existingItem = (order as any).items.find((ei: any) => ei.productId === item.productId)
+          const existingItem = (order as any).items.find((ei: any) => 
+            ei.productId === item.productId && 
+            ei.variantId === item.variantId && 
+            ei.portion === item.portion
+          )
           if (existingItem) {
              return tx.posOrderItem.update({
                where: { id: existingItem.id },
                data: {
                  quantity: existingItem.quantity + item.quantity,
-                 totalAmount: (existingItem.quantity + item.quantity) * item.unitPrice
+                 totalAmount: (existingItem.quantity + item.quantity) * item.unitPrice,
+                 unitPrice: item.unitPrice // Update to latest price
                }
              })
           } else {
@@ -348,7 +359,7 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: 50 
+      take: (orderId || restaurantTableId) ? undefined : 50 
     })
 
     return apiResponse(orders, 'POS Orders fetched successfully')

@@ -161,7 +161,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                 type="text" placeholder="e.g. Jack Daniels"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.name ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-2xl text-sm font-bold dark:text-white focus:outline-none shadow-sm transition-all focus:bg-white`}
+                className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.name ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-2xl text-sm font-bold dark:text-white focus:outline-none shadow-sm transition-all focus:bg-white dark:focus:bg-slate-700`}
               />
             </div>
 

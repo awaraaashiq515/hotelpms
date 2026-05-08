@@ -6,15 +6,12 @@ import { getSession } from '@/lib/session';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    console.log('--- Current Property Fetch ---');
-    console.log('Session PropertyID:', session?.propertyId);
 
     if (!session) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
     const propertyId = (session.propertyId as string | null) || (await (async () => {
-      console.log('No propertyId in session, picking first for org:', session.organizationId);
       const first: any[] = await (prisma as any).$queryRawUnsafe(
         'SELECT id FROM "Property" WHERE "organizationId" = $1 ORDER BY "createdAt" ASC LIMIT 1',
         session.organizationId
@@ -33,12 +30,10 @@ export async function GET(request: NextRequest) {
     );
 
     if (properties.length === 0) {
-      console.log('Property not found for ID:', propertyId);
       return apiError(new Error('Property not found'), 404);
     }
 
     const property = properties[0];
-    console.log('Property found via Raw SQL:', property.name);
     return apiResponse(property);
   } catch (error) {
     console.error('[API Error]:', error);

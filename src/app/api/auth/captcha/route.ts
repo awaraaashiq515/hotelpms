@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { encrypt } from '@/lib/session';
 
@@ -52,17 +52,21 @@ function generateCaptcha() {
   return { code, svg };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { code, svg } = generateCaptcha();
 
   // Encrypt the captcha text and store in a short-lived cookie
   const payload = { text: code.toLowerCase(), exp: Math.floor(Date.now() / 1000) + 60 * 5 };
   const encryptedCaptcha = await encrypt(payload);
 
+  const url = new URL(request.url);
+  const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.startsWith('192.168.') || url.hostname.startsWith('10.') || url.hostname.startsWith('172.');
+  const isSecure = process.env.NODE_ENV === 'production' && !isLocal;
+
   const cookieStore = await cookies();
   cookieStore.set('captcha', encryptedCaptcha, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isSecure,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 5, // 5 minutes

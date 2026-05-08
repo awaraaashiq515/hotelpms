@@ -119,6 +119,7 @@ model Property {
   attendance           Attendance[]
   inventoryItems       InventoryItem[]
   suppliers            Supplier[]
+  notifications        Notification[]
 
   @@index([organizationId])
 }
@@ -1552,4 +1553,21 @@ model TableFeedback {
 
   @@index([propertyId])
   @@index([tableId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  propertyId  String
+  title       String
+  message     String
+  type        String   // PAYMENT, ORDER, INVENTORY, etc.
+  status      String   @default("UNREAD") // UNREAD, READ, DISMISSED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  metadata    String?  // JSON string for additional data (tableNo, floorName, amount, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  property    Property @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId])
+  @@index([status])
 }

@@ -51,7 +51,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
           }`}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="flex items-center justify-between h-20 md:h-28 lg:h-32">
+          <div className="flex items-center justify-between h-14 md:h-16 lg:h-20">
 
             {/* ── LOGO ── */}
             <Link href="/" className="flex-shrink-0 group">
@@ -60,8 +60,8 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
                   <img
                     src={logoUrl}
                     alt="Website Logo"
-                    className="h-30 md:h-48 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
-                    style={{ mixBlendMode: 'normal', maxWidth: '350px' }}
+                    className="h-8 md:h-10 lg:h-12 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
+                    style={{ mixBlendMode: 'normal', maxWidth: '240px' }}
                   />
                 ) : (
                   <>

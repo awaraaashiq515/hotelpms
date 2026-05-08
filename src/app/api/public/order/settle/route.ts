@@ -5,7 +5,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, propertyId, paymentMethod } = body;
+    const { orderId, propertyId, paymentMethod, rating, comments } = body;
 
     if (!orderId || !propertyId) {
       return apiError(new Error('Missing orderId or propertyId'), 400);
@@ -27,36 +27,43 @@ export async function POST(request: NextRequest) {
       }
 
       // 2. Create Receipt & Settlement (Mocking UPI success)
-      const cashAccount = await tx.account.findFirst({ where: { propertyId, accountType: 'CASH' } });
-      const upiMode = await tx.paymentMode.findFirst({ where: { propertyId, name: { contains: 'UPI' } } }) 
-                      || await tx.paymentMode.findFirst({ where: { propertyId } });
+      try {
+        const cashAccount = await tx.account.findFirst({ where: { propertyId, accountType: 'CASH' } })
+                         || await tx.account.findFirst({ where: { propertyId } });
+        const upiMode = await tx.paymentMode.findFirst({ where: { propertyId, name: { contains: 'UPI' } } }) 
+                        || await tx.paymentMode.findFirst({ where: { propertyId } });
 
-      await tx.receipt.create({
-        data: {
-          propertyId,
-          receiptNo: `REC-QR-S-${Date.now()}`,
-          receivedFromAccountId: cashAccount?.id || 'default-account',
-          amount: order.grandTotal,
-          paymentModeId: upiMode?.id || 'default-mode',
-          sourceModule: 'POS_ORDER',
-          sourceRefId: order.id,
-        }
-      });
+        if (cashAccount && upiMode) {
+          await tx.receipt.create({
+            data: {
+              propertyId,
+              receiptNo: `REC-QR-S-${Date.now()}`,
+              receivedFromAccountId: cashAccount.id,
+              amount: order.grandTotal,
+              paymentModeId: upiMode.id,
+              sourceModule: 'POS_ORDER',
+              sourceRefId: order.id,
+            }
+          });
 
-      await tx.settlement.create({
-        data: {
-          propertyId,
-          settlementNo: `SET-QR-S-${Date.now()}`,
-          sourceId: order.id,
-          sourceType: 'POS_ORDER',
-          guestId: order.guestId,
-          grossAmount: order.grandTotal,
-          paidAmount: order.grandTotal,
-          balanceAmount: 0,
-          status: 'COMPLETED',
-          settlementDate: new Date(),
+          await tx.settlement.create({
+            data: {
+              propertyId,
+              settlementNo: `SET-QR-S-${Date.now()}`,
+              sourceId: order.id,
+              sourceType: 'POS_ORDER',
+              guestId: order.guestId,
+              grossAmount: order.grandTotal,
+              paidAmount: order.grandTotal,
+              balanceAmount: 0,
+              status: 'COMPLETED',
+              settlementDate: new Date(),
+            }
+          });
         }
-      });
+      } catch (payErr) {
+        console.error('Settlement record creation failed but continuing:', payErr);
+      }
 
       // 3. Update Order Status
       await tx.posOrder.update({
@@ -118,6 +125,48 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+      }
+
+      // 6. Save Rating if provided
+      if (rating) {
+        await tx.orderRating.upsert({
+          where: { orderId: order.id },
+          update: { rating, comments },
+          create: { orderId: order.id, rating, comments }
+        });
+      }
+
+      // 7. Create Notification for Staff
+      const table = await tx.table.findUnique({
+        where: { id: order.restaurantTableId },
+        include: { floor: true }
+      });
+
+      const orderWithItems = await tx.posOrder.findUnique({
+        where: { id: order.id },
+        include: { items: { include: { product: true } } }
+      });
+
+      if (table && orderWithItems) {
+        await tx.notification.create({
+          data: {
+            propertyId,
+            title: 'Online Payment Received',
+            message: `Payment of ₹${order.grandTotal.toFixed(2)} received from Table ${table.name} (${table.floor.name})`,
+            type: 'PAYMENT',
+            priority: 'URGENT',
+            metadata: JSON.stringify({
+              tableId: table.id,
+              tableName: table.name,
+              floorName: table.floor.name,
+              amount: order.grandTotal,
+              orderId: order.id,
+              orderNo: order.orderNo,
+              paymentMethod: 'UPI',
+              items: orderWithItems.items.map((i: any) => ({ name: i.product.name, qty: i.quantity }))
+            }),
+          }
+        });
       }
 
       return { success: true, orderNo: order.orderNo };

@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       take: 100
     })
 
-    // Enhance with Invoice and Guest info
+    // Enhance with Source details (Invoice, Order, or Folio)
     const enhancedSettlements = await Promise.all(settlements.map(async (s: any) => {
       if (s.sourceType === 'INVOICE') {
         const invoice = await prisma.invoice.findUnique({
@@ -135,6 +135,32 @@ export async function GET(request: NextRequest) {
           guestName: invoice?.guest ? `${invoice.guest.firstName} ${invoice.guest.lastName || ''}` : 'Walk-in'
         }
       }
+
+      if (s.sourceType === 'POS_ORDER') {
+        const order = await prisma.posOrder.findUnique({
+          where: { id: s.sourceId },
+          include: { guest: true, table: true }
+        });
+        return {
+          ...s,
+          invoiceNo: order?.orderNo,
+          guestName: order?.guest ? `${order.guest.firstName} ${order.guest.lastName || ''}` : 
+                     (order?.table ? `Table ${order.table.name}` : 'Walk-in')
+        }
+      }
+
+      if (s.sourceType === 'FOLIO') {
+        const folio = await prisma.folio.findUnique({
+          where: { id: s.sourceId },
+          include: { guest: true }
+        });
+        return {
+          ...s,
+          invoiceNo: folio?.folioNo,
+          guestName: folio?.guest ? `${folio.guest.firstName} ${folio.guest.lastName || ''}` : 'Room Guest'
+        }
+      }
+
       return s;
     }));
 

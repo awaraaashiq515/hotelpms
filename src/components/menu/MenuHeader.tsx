@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, History, UtensilsCrossed } from 'lucide-react';
+import { Search, History, UtensilsCrossed, Bell } from 'lucide-react';
+import { useState } from 'react';
 
 interface MenuHeaderProps {
   data: any;
@@ -16,6 +16,31 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
   searchQuery, 
   setSearchQuery 
 }) => {
+  const [requesting, setRequesting] = useState(false);
+
+  const callWaiter = async () => {
+    if (requesting) return;
+    setRequesting(true);
+    try {
+      const res = await fetch('/api/public/request-assistance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableId: data.table.id,
+          propertyId: data.property.id,
+          type: 'ASSISTANCE'
+        })
+      });
+      if (res.ok) {
+        alert('A waiter has been called to your table.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-900 px-5 py-4">
       <div className="flex items-center justify-between">
@@ -35,6 +60,18 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
             </div>
           </div>
         </div>
+
+        <button 
+          onClick={callWaiter}
+          disabled={requesting}
+          className={`
+            flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95
+            ${requesting ? 'bg-slate-100 text-slate-400' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 shadow-sm shadow-amber-500/10'}
+          `}
+        >
+          <Bell size={18} className={requesting ? '' : 'animate-bounce'} />
+          <span className="text-[9px] font-black uppercase tracking-tighter">Call Waiter</span>
+        </button>
       </div>
 
       {['menu', 'bar'].includes(activeTab) && (

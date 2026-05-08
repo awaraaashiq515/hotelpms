@@ -210,7 +210,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <input
                 type="number" step="0.01" value={formData.sellingPrice}
                 onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
-                className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white transition-all"
+                className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
           </div>
@@ -221,7 +221,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <input
                 type="number" step="0.01" value={formData.halfPrice}
                 onChange={(e) => setFormData({ ...formData, halfPrice: e.target.value ? parseFloat(e.target.value) : '' })}
-                className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white transition-all"
+                className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
           </div>
@@ -232,7 +232,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <input
                 type="number" step="0.01" value={formData.costPrice}
                 onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-                className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white transition-all"
+                className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
           </div>

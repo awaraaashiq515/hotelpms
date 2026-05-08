@@ -28,14 +28,16 @@ export async function POST(request: NextRequest) {
       }
 
       // 1. Find or Create PosOrder
-      let posOrder = null;
+      let posOrders: any[] = [];
+      let posOrder: any = null;
       if (restaurantTableId) {
-        posOrder = await (tx as any).posOrder.findFirst({
+        posOrders = await (tx as any).posOrder.findMany({
           where: { 
             restaurantTableId, 
             status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] } 
           }
         });
+        posOrder = posOrders.length > 0 ? posOrders[0] : null;
       }
 
       // Calculate true totals from items
@@ -90,20 +92,27 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      if (posOrder) {
-        // Update existing order
-        posOrder = await tx.posOrder.update({
-          where: { id: posOrder.id },
+      if (posOrders.length > 0) {
+        // Update all existing orders for this table to SETTLED
+        await tx.posOrder.updateMany({
+          where: { id: { in: posOrders.map((o: any) => o.id) } },
           data: {
             status: 'SETTLED',
-            subtotal: subtotal,
-            taxAmount: taxAmount,
-            grandTotal: grandTotal,
             discountAmount: membershipDiscount || 0,
             ...(driverId && { driverId }),
             ...(staffMemberId && { staffMemberId }),
             membershipCardId: membershipCardId || null,
             membershipDiscount: membershipDiscount || 0
+          }
+        });
+        
+        // Also update the primary order with the final totals for the invoice link
+        posOrder = await tx.posOrder.update({
+          where: { id: posOrder.id },
+          data: {
+            subtotal: subtotal,
+            taxAmount: taxAmount,
+            grandTotal: grandTotal,
           }
         });
       } else {

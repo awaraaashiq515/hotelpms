@@ -22,7 +22,15 @@ export function apiResponse<T>(data: T, message: string = 'Success', status: num
 
 // Centralized error handler for API Routes
 export function apiError(error: any, status: number = 500, message: string = 'Internal Server Error') {
-  console.error('[API Error]:', error)
+  const finalMessage = error instanceof Error ? error.message : message;
+  
+  // Don't flood server logs with expected user-side errors (400, 401, 404)
+  const silentStatuses = [400, 401, 404];
+  const isSilentMessage = ['Unauthorized', 'Captcha expired', 'Invalid captcha'].some(m => finalMessage.includes(m));
+
+  if (!silentStatuses.includes(status) && !isSilentMessage) {
+    console.error('[API Error]:', error);
+  }
 
   // Handle Zod Validation Errors
   if (error instanceof ZodError) {
@@ -49,8 +57,6 @@ export function apiError(error: any, status: number = 500, message: string = 'In
       )
     }
   }
-
-  const finalMessage = error instanceof Error ? error.message : message;
 
   return NextResponse.json(
     {
