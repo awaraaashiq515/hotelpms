@@ -21,10 +21,27 @@ const foodItems = [
 async function main() {
   console.log('Adding 50 demo products with HSN numbers...');
   
+  const property = await prisma.property.findFirst();
+  if (!property) {
+    console.error('No property found. Please run seed.ts first.');
+    return;
+  }
+
+  let category = await prisma.category.findFirst({ where: { propertyId: property.id } });
+  if (!category) {
+    category = await prisma.category.create({
+      data: {
+        name: 'Main Menu',
+        propertyId: property.id,
+        isActive: true,
+      }
+    });
+  }
+
   const entries = foodItems.map((item, index) => {
     return {
-      propertyId: PROPERTY_ID,
-      categoryId: CATEGORY_ID,
+      propertyId: property.id,
+      categoryId: category!.id,
       name: item,
       sellingPrice: 50 + (index * 10),
       hsnCode: '21069099',
@@ -39,7 +56,7 @@ async function main() {
     data: entries,
   });
 
-  console.log(`Successfully added ${created.count} products to Property: ${PROPERTY_ID}`);
+  console.log(`Successfully added ${created.count} products to Property: ${property.id}`);
   await prisma.$disconnect();
 }
 

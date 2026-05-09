@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         ...where,
         createdAt: { gte: thresholdDate },
         OR: [
-          { status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING'] } },
+          { status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] } },
           { paymentRequested: true }
         ],
         status: { not: 'SETTLED' }

@@ -72,27 +72,31 @@ async function main() {
     {
       name: 'Deluxe Room',
       price: 4500,
-      imageUrl: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=1000',
-      features: 'Free WiFi, Balcony, Mountain View',
+      image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=1000',
       order: 0,
     },
     {
       name: 'Super Deluxe Room',
       price: 6500,
-      imageUrl: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&q=80&w=1000',
-      features: 'Free WiFi, Mini Bar, Modern Bath',
+      image: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&q=80&w=1000',
       order: 1,
     },
   ];
 
   for (const r of rooms) {
+    const { image, ...roomData } = r;
     await prisma.websiteRoom.create({ 
       data: {
-        ...r,
+        ...roomData,
         slug: r.name.toLowerCase().replace(/\s+/g, '-'),
-        description: r.name, // websiteRoom expects description
-        capacity: 2,         // websiteRoom expects capacity
-        type: 'Deluxe'       // websiteRoom expects type
+        description: r.name,
+        capacity: 2,
+        type: 'Deluxe',
+        images: {
+          create: [
+            { url: image, order: 0 }
+          ]
+        }
       }
     });
   }

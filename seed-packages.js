@@ -144,18 +144,16 @@ async function seedPackages() {
     console.log(`  ✅ Created: ${created.name} (${pkg.features.length} features, ${pkg.discountPercent}% discount)`);
   }
 
-  // Optionally assign "Professional" to an existing org as demo
-  const professionalPkg = await prisma.package.findUnique({ where: { name: 'Professional' } });
-  if (professionalPkg) {
-    const sampleOrg = await prisma.organization.findFirst({
-      where: { name: { not: 'System Root Org' } },
-    });
-    if (sampleOrg && !sampleOrg.packageId) {
+  // Assign "Enterprise" to all existing organizations to restore access
+  const enterprisePkg = await prisma.package.findUnique({ where: { name: 'Enterprise' } });
+  if (enterprisePkg) {
+    const orgs = await prisma.organization.findMany();
+    for (const org of orgs) {
       await prisma.organization.update({
-        where: { id: sampleOrg.id },
-        data: { packageId: professionalPkg.id },
+        where: { id: org.id },
+        data: { packageId: enterprisePkg.id },
       });
-      console.log(`  🔗 Assigned "Professional" package to org: ${sampleOrg.name}`);
+      console.log(`  🔗 Assigned "Enterprise" package to organization: ${org.name}`);
     }
   }
 

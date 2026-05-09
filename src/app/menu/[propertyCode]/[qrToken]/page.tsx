@@ -84,36 +84,57 @@ export default function PublicMenuPage() {
     } else {
       setShowOnboarding(true);
     }
+  }, []);
 
+  // Polling logic — refetch data every 5s to detect approval changes
+  useEffect(() => {
     async function fetchData() {
       try {
         const res = await fetch(`/api/public/menu/${propertyCode}/${qrToken}`);
         const json = await res.json();
         if (json.success) {
-          setData(json.data);
-          
-          // Only set active category if not set or if changing tabs
-          const currentMenu = json.data.menu.filter((cat: any) => 
+          setData((prev: any) => {
+            // Detect approval: order was PAYMENT_AWAITING_APPROVAL, now SETTLED
+            if (prev?.orders && json.data.orders) {
+              const wasApproved = prev.orders.some((po: any) =>
+                po.status === 'PAYMENT_AWAITING_APPROVAL' &&
+                json.data.orders.some((co: any) => co.id === po.id && co.status === 'SETTLED')
+              );
+              if (wasApproved) {
+                // Delay slightly so the ActiveOrders polling also catches it first
+                setTimeout(() => setShowFeedback(true), 500);
+              }
+            }
+            return json.data;
+          });
+
+          if (json.data.property?.primaryColor) {
+            document.documentElement.style.setProperty('--primary-color', json.data.property.primaryColor);
+          }
+
+          const currentMenu = json.data.menu.filter((cat: any) =>
             activeTab === 'bar' ? cat.menuType === 'BAR' : cat.menuType !== 'BAR'
           );
-
-          if (currentMenu.length > 0 && (!activeCategory || !currentMenu.find((c: any) => c.id === activeCategory))) {
-            setActiveCategory(currentMenu[0].id);
-          }
+          setActiveCategory((prev: any) => {
+            if (!prev || !currentMenu.find((c: any) => c.id === prev)) {
+              return currentMenu.length > 0 ? currentMenu[0].id : prev;
+            }
+            return prev;
+          });
         } else {
           setError(json.message);
         }
       } catch (err) {
-        setError("Failed to load menu. Please try again.");
+        // silent fail during polling
       } finally {
         setLoading(false);
       }
     }
-    fetchData();
 
+    fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [propertyCode, qrToken, activeCategory, activeTab]);
+  }, [propertyCode, qrToken, activeTab]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
@@ -235,13 +256,10 @@ export default function PublicMenuPage() {
         setRating(5);
         setComments('');
         setTimeout(() => {
-          if (selectedMethod === 'UPI') {
-            setShowFeedback(true);
-          } else {
-            setIsCartOpen(false);
-            setOrderStatus('idle');
-            setActiveTab('orders');
-          }
+          setIsCartOpen(false);
+          setOrderStatus('idle');
+          setActiveTab('orders');
+          setShowPaymentMock(false);
         }, 1500);
       } else {
         alert(json.message);
@@ -341,8 +359,7 @@ export default function PublicMenuPage() {
           upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab} 
           onPaymentSuccess={() => {
-            // Show feedback modal after settlement from ActiveOrders
-            setTimeout(() => setShowFeedback(true), 1500);
+            // Don't show feedback yet, wait for staff approval
           }}
         />
       ) : (

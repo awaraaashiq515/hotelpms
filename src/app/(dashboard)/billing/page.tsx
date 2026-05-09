@@ -842,12 +842,12 @@ export default function BillingPage() {
   if (loading) return <div className="h-screen bg-slate-950 flex items-center justify-center text-white">Loading POS...</div>;
 
   return (
-    <div className={`flex h-screen ${theme === 'dark' ? 'bg-[#111111] text-slate-200' : 'bg-[#fdf8f8] text-[#2d1515]'} overflow-hidden font-sans selection:bg-pos-primary/30 transition-colors duration-500`}>
+    <div className={`flex h-full w-full ${theme === 'dark' ? 'bg-[#111111] text-slate-200' : 'bg-[#fdf8f8] text-[#2d1515]'} overflow-hidden font-sans selection:bg-pos-primary/30 transition-colors duration-500`}>
       {/* CENTER - Product Grid (Premium Dark Theme) */}
       <div className={`flex-1 flex flex-col h-full ${theme === 'dark' ? 'bg-[#111111]' : 'bg-white'} overflow-hidden`}>
-        {/* Header/Search Bar */}
-        <div className="px-4 py-2 flex items-center justify-between gap-4">
-           <div className="flex items-center gap-3">
+        {/* Header/Search Bar - Extra Compact */}
+        <div className="px-3 py-1 flex items-center justify-between gap-3">
+           <div className="flex items-center gap-2">
              <button
                onClick={() => router.push('/operations')}
                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-500 hover:text-pos-primary"
@@ -875,7 +875,7 @@ export default function BillingPage() {
                 placeholder="Search menu items..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={`w-full ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5 text-slate-200' : 'bg-white border-pos-primary/20 text-slate-800'} border focus:border-pos-primary/50 pl-11 pr-4 py-1.5 rounded-xl outline-none transition-all placeholder:text-slate-600 font-bold text-sm`}
+                className={`w-full ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5 text-slate-200' : 'bg-white border-pos-primary/20 text-slate-800'} border focus:border-pos-primary/50 pl-10 pr-3 py-1 rounded-xl outline-none transition-all placeholder:text-slate-600 font-bold text-xs`}
               />
            </div>
            <div className="flex items-center gap-3">
@@ -886,8 +886,8 @@ export default function BillingPage() {
            </div>
         </div>
 
-        {/* Category Pastel Tiles - Restaurant Only */}
-        <div className="px-4 py-1.5 overflow-x-auto no-scrollbar flex gap-3">
+        {/* Category Pastel Tiles - Extra Compact */}
+        <div className="px-3 py-0.5 overflow-x-auto no-scrollbar flex gap-2">
            {categories.filter(c => (c as any).menuType === 'RESTAURANT' || !(c as any).menuType).slice(0, 15).map((cat, idx) => {
               const palette = theme === 'dark' ? PRODUCT_PALETTE_DARK : PRODUCT_PALETTE_LIGHT;
               const cardColor = palette[idx % 12];
@@ -901,39 +901,39 @@ export default function BillingPage() {
                      backgroundColor: cardColor.bg,
                      color: cardColor.text,
                    }}
-                   className={`flex-none min-w-[125px] min-h-[115px] p-4 rounded-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-2 ${selectedCategory === cat.id ? 'ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+                   className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === cat.id ? 'ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
                  >
-                   <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.05)' }}>
+                   <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.05)' }}>
                       {(() => {
                         const name = cat.name.toLowerCase();
-                        if (name.includes('coffee') || name.includes('tea') || name.includes('hot')) return <Coffee size={18}/>;
-                        if (name.includes('drink') || name.includes('beverage') || name.includes('cold') || name.includes('juice')) return <CupSoda size={18}/>;
-                        if (name.includes('dessert') || name.includes('sweet') || name.includes('ice')) return <IceCream size={18}/>;
-                        if (name.includes('pizza')) return <Pizza size={18}/>;
-                        if (name.includes('burger')) return <Sandwich size={18}/>;
-                        if (name.includes('chicken') || name.includes('meat') || name.includes('main')) return <CookingPot size={18}/>;
-                        if (name.includes('soup')) return <Soup size={18}/>;
-                        if (name.includes('bakery') || name.includes('cake')) return <Cake size={18}/>;
-                        if (name.includes('snack') || name.includes('popcorn')) return <Popcorn size={18}/>;
-                        if (name.includes('bar') || name.includes('wine')) return <Wine size={18}/>;
-                        if (name.includes('seafood') || name.includes('fish')) return <Fish size={18}/>;
-                        if (name.includes('special')) return <ChefHat size={18}/>;
-                        return <Utensils size={18}/>;
+                        if (name.includes('coffee') || name.includes('tea') || name.includes('hot')) return <Coffee size={14}/>;
+                        if (name.includes('drink') || name.includes('beverage') || name.includes('cold') || name.includes('juice')) return <CupSoda size={14}/>;
+                        if (name.includes('dessert') || name.includes('sweet') || name.includes('ice')) return <IceCream size={14}/>;
+                        if (name.includes('pizza')) return <Pizza size={14}/>;
+                        if (name.includes('burger')) return <Sandwich size={14}/>;
+                        if (name.includes('chicken') || name.includes('meat') || name.includes('main')) return <CookingPot size={14}/>;
+                        if (name.includes('soup')) return <Soup size={14}/>;
+                        if (name.includes('bakery') || name.includes('cake')) return <Cake size={14}/>;
+                        if (name.includes('snack') || name.includes('popcorn')) return <Popcorn size={14}/>;
+                        if (name.includes('bar') || name.includes('wine')) return <Wine size={14}/>;
+                        if (name.includes('seafood') || name.includes('fish')) return <Fish size={14}/>;
+                        if (name.includes('special')) return <ChefHat size={14}/>;
+                        return <Utensils size={14}/>;
                       })()}
                     </div>
 
                    <div className="text-center">
-                      <h3 className="text-[16px] md:text-[18px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>{cat.name}</h3>
-                      <p className="text-[10px] font-black uppercase opacity-60 tracking-widest">{itemCount} items</p>
+                      <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>{cat.name}</h3>
+                      <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{itemCount} items</p>
                    </div>
                 </button>
               );
            })}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pt-1 scroll-smooth no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 pt-0.5 scroll-smooth no-scrollbar">
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
                {filteredProducts.map((product, idx) => {
                   const catIndex = categories.findIndex(c => c.id === product.categoryId);
                   const safeCatIndex = catIndex >= 0 ? catIndex : 0;
@@ -960,10 +960,10 @@ export default function BillingPage() {
                     <div
                       key={product.id}
                       onClick={() => {
-                        if (!product.variants || product.variants.length === 0) {
-                          if (!((product as any).halfPrice > 0)) {
-                            addToCart(product, 'Full');
-                          }
+                        if (product.variants && product.variants.length > 0) {
+                          addToCart(product, product.variants[0].name, product.variants[0].price);
+                        } else {
+                          addToCart(product, 'Full');
                         }
                       }}
                       style={{
@@ -973,7 +973,7 @@ export default function BillingPage() {
                         outlineOffset: '2px',
                         boxShadow: theme === 'light' ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'
                       }}
-                      className={`group relative rounded-2xl p-3 flex flex-col text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] h-[165px] w-full ${isInCart ? 'shadow-2xl ring-2 ring-offset-2' : 'hover:shadow-xl'} transition-all duration-300 cursor-pointer`}
+                      className={`group relative rounded-xl p-1.5 flex flex-col text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] aspect-square w-full ${isInCart ? 'shadow-2xl ring-2 ring-offset-2' : 'hover:shadow-xl'} transition-all duration-300 cursor-pointer`}
                     >
                       {/* Hover glow */}
                       <div
@@ -987,7 +987,7 @@ export default function BillingPage() {
                       {/* Top Row: HSN & Price */}
                       <div className="flex justify-between items-start w-full relative z-10">
                         <span 
-                          className="text-[10px] font-black uppercase tracking-widest"
+                          className="text-[8px] font-black uppercase tracking-widest"
                           style={{
                             color: isColored ? cardColor.text : darkText,
                             transition: transitionStr('color'),
@@ -997,9 +997,9 @@ export default function BillingPage() {
                           HSN {product.hsnCode || '2106'}
                         </span>
                         <div className="text-right">
-                          <p className="text-[9px] font-black uppercase opacity-40 leading-none mb-1">Price</p>
+                          <p className="text-[7px] font-black uppercase opacity-40 leading-none mb-0.5">Price</p>
                           <span 
-                            className="text-[22px] font-black tracking-tight leading-none"
+                            className="text-[14px] font-black tracking-tight leading-none"
                             style={{
                               color: isColored ? cardColor.text : darkText,
                               transition: transitionStr('color'),
@@ -1011,9 +1011,9 @@ export default function BillingPage() {
                       </div>
 
                       {/* Middle: Product Name with Auto-wrapping */}
-                      <div className="flex-1 flex items-center w-full relative z-10 py-1">
+                      <div className="flex-1 flex items-center w-full relative z-10 py-0.5">
                         <h3
-                          className="text-[23px] leading-[1] font-black break-words w-full uppercase overflow-hidden line-clamp-3"
+                          className="text-[14px] leading-[1.1] font-black break-words w-full uppercase overflow-hidden line-clamp-2"
                           style={{
                             color: isColored ? cardColor.text : darkText,
                             transition: transitionStr('color'),
@@ -1035,11 +1035,11 @@ export default function BillingPage() {
                       </div>
 
                       {/* Bottom Row: Info or Action Area */}
-                      <div className={`w-full relative z-10 pt-1.5 border-t ${theme === 'light' ? 'border-black/10' : 'border-white/5'}`}>
-                        <div className="flex justify-between items-end h-6">
+                      <div className={`w-full relative z-10 pt-0.5 border-t ${theme === 'light' ? 'border-black/10' : 'border-white/5'}`}>
+                        <div className="flex justify-between items-end h-4">
                           <div className="flex flex-col">
                             <span 
-                              className="text-[9px] font-black uppercase tracking-widest truncate max-w-[120px]"
+                              className="text-[7px] font-black uppercase tracking-widest truncate max-w-[100px]"
                               style={{
                                 color: isColored ? cardColor.text : darkText,
                                 opacity: theme === 'light' ? 0.8 : 0.5
@@ -1048,7 +1048,7 @@ export default function BillingPage() {
                               {categories.find(c => c.id === product.categoryId)?.name || 'N/A'}
                             </span>
                             <span 
-                              className="text-[9px] font-black uppercase tracking-tighter"
+                              className="text-[7px] font-black uppercase tracking-tighter"
                               style={{
                                 color: isColored ? cardColor.text : darkText,
                                 opacity: theme === 'light' ? 0.9 : 0.6
@@ -1065,7 +1065,7 @@ export default function BillingPage() {
                             <ProductIcon 
                               productName={product.name}
                               categoryName={categories.find(c => c.id === product.categoryId)?.name}
-                              size={16}
+                              size={12}
                             />
                           </div>
                         </div>
@@ -1200,7 +1200,7 @@ export default function BillingPage() {
             style={{
               backgroundColor: theme === 'dark' ? '#181818' : '#f8f8f8',
               borderColor: theme === 'dark' ? '#2a2a2a' : '#ececec',
-              minHeight: 60,
+              minHeight: 45,
               flexShrink: 0,
             }}
           >
@@ -1299,12 +1299,12 @@ export default function BillingPage() {
       </div>
 
       {/* RIGHT SIDEBAR - Cart & Checkout (Dark/Sleek) */}
-      <div className={`w-[400px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full shadow-2xl z-10 transition-all duration-300`}>
-        <div className="p-4 pb-2 flex flex-col gap-2.5">
+      <div className={`w-[420px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full shadow-2xl z-10 transition-all duration-300`}>
+        <div className="p-3 pb-1 flex flex-col gap-2">
            <div className="flex items-center justify-between">
               <div>
-                 <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} tracking-tight`}>Order Details</h2>
-                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                 <h2 className={`text-lg font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} tracking-tight`}>Order Details</h2>
+                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em]">
                    {tableName || (orderType === 'DELIVERY' ? 'Delivery Order' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter Service')}
                  </p>
               </div>
@@ -1333,12 +1333,12 @@ export default function BillingPage() {
            </div>
 
            {/* ── CUSTOMER & DRIVER BUTTONS (Premium Integrated) ── */}
-           <div className="grid grid-cols-2 gap-2 mt-1">
+           <div className="grid grid-cols-2 gap-2">
              {/* Customer Button */}
              <div className="relative group">
                 <button 
                   onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); }}
-                  className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-2xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
+                  className={`w-full flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <UserIcon size={12} className={selectedGuestId ? 'text-white' : 'text-pos-primary'} />
@@ -1460,13 +1460,13 @@ export default function BillingPage() {
         </div>
 
         {/* Cart Items List */}
-        <div className="flex-1 overflow-y-auto px-6 py-2 no-scrollbar">
+        <div className="max-h-[340px] h-[340px] flex-none overflow-y-auto px-6 py-2 no-scrollbar">
           {cart.length === 0 ? (
-            <div className={`h-full flex flex-col items-center justify-center text-center gap-6 ${theme === 'dark' ? 'opacity-20' : 'opacity-30'}`}>
-              <div className="w-20 h-20 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-500/20">
-                <ShoppingBag size={40} className="text-slate-400" />
+            <div className={`h-full flex flex-col items-center justify-center text-center gap-4 ${theme === 'dark' ? 'opacity-20' : 'opacity-30'}`}>
+              <div className="w-14 h-14 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-500/20">
+                <ShoppingBag size={28} className="text-slate-400" />
               </div>
-              <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-400">Your Cart is Empty</p>
+              <p className="font-black text-[9px] uppercase tracking-[0.2em] text-slate-400">Your Cart is Empty</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1541,7 +1541,7 @@ export default function BillingPage() {
         </div>
 
         {/* Totals & Checkout Section */}
-        <div className={`p-6 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
+        <div className={`p-3 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-2 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
           <div className="space-y-1.5">
             {membershipCard ? (
               <div 
@@ -1583,10 +1583,10 @@ export default function BillingPage() {
               <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{tax.toFixed(2)}</span>
             </div>
             <div className="h-px bg-slate-500/10 my-2" />
-            <div className="flex justify-between items-end pt-1">
+            <div className="flex justify-between items-end">
               <div>
-                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1 block px-1">Total Payable</span>
-                 <p className="text-4xl font-black text-pos-primary tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
+                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 block px-1">Total Payable</span>
+                 <p className="text-2xl font-black text-pos-primary tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
               </div>
               <div className="flex flex-col items-end">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
@@ -1601,34 +1601,34 @@ export default function BillingPage() {
                onClick={() => handlePrintKOT(true)}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-500' 
                    : 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700/10 shadow-lg shadow-emerald-600/20'}`}
             >
-              <Printer size={18} /> PRINT KOT
+              <Printer size={14} /> PRINT KOT
             </Button>
             <Button 
                onClick={() => handlePrintKOT(false)}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-500' 
                    : 'bg-teal-600 text-white hover:bg-teal-700 border-teal-700/10 shadow-lg shadow-teal-600/20'}`}
             >
-              <CheckCircle2 size={18} /> SAVE & KOT
+              <CheckCircle2 size={14} /> SAVE & KOT
             </Button>
             <Button 
                onClick={handleSimpleSave}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-blue-500/10 hover:bg-blue-500 hover:text-white border-blue-500/20 text-blue-500' 
                    : 'bg-blue-600 text-white hover:bg-blue-700 border-blue-700/10 shadow-lg shadow-blue-600/20'}`}
             >
-              <Save size={18} /> SAVE
+              <Save size={14} /> SAVE
             </Button>
             <Button 
                disabled={cart.length === 0 && !activeOrder}
@@ -1637,12 +1637,12 @@ export default function BillingPage() {
                  setAutoPrint(false); 
                  handlePrintBill(false); 
                }}
-               className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-500' 
                    : 'bg-rose-600 text-white hover:bg-rose-700 border-rose-700/10 shadow-lg shadow-rose-600/20'}`}
             >
-               <CreditCard size={18} /> SETTLE (F1)
+               <CreditCard size={14} /> SETTLE (F1)
             </Button>
           </div>
         </div>

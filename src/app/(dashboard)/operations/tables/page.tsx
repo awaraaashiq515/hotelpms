@@ -6,7 +6,8 @@ import {
   LayoutGrid, RefreshCcw, Plus,
   Search, Filter, ChevronRight,
   Map, Monitor, Utensils,
-  Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft
+  Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft,
+  CarFront
 } from 'lucide-react';
 import { QRModal } from '@/components/tables/QRModal';
 import { Button } from '@/components/ui/Button';
@@ -60,6 +61,15 @@ export default function TableManagementPage() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [propertyData, setPropertyData] = useState<any>(null);
   const activeFloorIdRef = useRef(activeFloorId);
+
+  // ─── Parking Slots ───────────────────────────────────────────────
+  const [parkingSlots, setParkingSlots] = useState<any[]>([]);
+  const [isParkingFormOpen, setIsParkingFormOpen] = useState(false);
+  const [parkingFormLoading, setParkingFormLoading] = useState(false);
+  const [parkingSlotName, setParkingSlotName] = useState('');
+  const [editingParkingSlot, setEditingParkingSlot] = useState<any | null>(null);
+  const [isParkingQROpen, setIsParkingQROpen] = useState(false);
+  const [selectedParkingSlot, setSelectedParkingSlot] = useState<any | null>(null);
 
   useEffect(() => {
     activeFloorIdRef.current = activeFloorId;
@@ -179,6 +189,14 @@ export default function TableManagementPage() {
     }
   };
 
+  const fetchParkingSlots = async () => {
+    try {
+      const res = await fetch('/api/parking-slots');
+      const json = await res.json();
+      if (json.success) setParkingSlots(json.data);
+    } catch { /* silent */ }
+  };
+
   const fetchData = async () => {
     try {
       const [floorsRes, pmRes, custRes] = await Promise.all([
@@ -245,6 +263,52 @@ export default function TableManagementPage() {
       setLoading(false);
       setRefreshing(false);
     }
+    fetchParkingSlots();
+  };
+
+  // Handlers for parking slots
+  const handleSaveParkingSlot = async () => {
+    if (!parkingSlotName.trim()) return;
+    setParkingFormLoading(true);
+    try {
+      if (editingParkingSlot) {
+        const res = await fetch(`/api/parking-slots/${editingParkingSlot.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: parkingSlotName.trim() }),
+        });
+        const result = await res.json();
+        if (result.success) { setIsParkingFormOpen(false); setEditingParkingSlot(null); fetchParkingSlots(); }
+        else alert(result.message);
+      } else {
+        const res = await fetch('/api/parking-slots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: parkingSlotName.trim() }),
+        });
+        const result = await res.json();
+        if (result.success) { setIsParkingFormOpen(false); fetchParkingSlots(); }
+        else alert(result.message);
+      }
+    } catch { alert('An error occurred'); }
+    finally { setParkingFormLoading(false); setParkingSlotName(''); }
+  };
+
+  const handleDeleteParkingSlot = async (id: string) => {
+    if (!confirm('Delete this parking slot?')) return;
+    try {
+      const res = await fetch(`/api/parking-slots/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (result.success) fetchParkingSlots();
+      else alert(result.message);
+    } catch { alert('An error occurred'); }
+  };
+
+  const handleResetParkingSlot = async (id: string) => {
+    try {
+      await fetch(`/api/parking-slots/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'VACANT' }) });
+      fetchParkingSlots();
+    } catch { /* silent */ }
   };
 
   const fetchPropertyData = async () => {
@@ -877,6 +941,162 @@ export default function TableManagementPage() {
           )}
         </div>
       </div>
+
+      {/* ─── Parking Section ──────────────────────────────────────── */}
+      <div className="flex flex-col gap-4 bg-black/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden p-6">
+        {/* Parking Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <CarFront size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white tracking-tight">Parking Area</h2>
+              <p className="text-[10px] font-bold text-amber-400/70 uppercase tracking-[0.2em]">Slot Management &amp; QR Orders</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{parkingSlots.length} Slots</span>
+            <Button
+              className="rounded-2xl h-10 px-5 font-black uppercase text-[10px] tracking-widest gap-2 flex items-center bg-amber-500/90 hover:bg-amber-400 text-white border border-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+              onClick={() => { setEditingParkingSlot(null); setParkingSlotName(''); setIsParkingFormOpen(true); }}
+            >
+              <Plus size={14} /> New Slot
+            </Button>
+          </div>
+        </div>
+
+        {/* Parking Grid */}
+        {parkingSlots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400/50">
+              <CarFront size={28} />
+            </div>
+            <p className="text-sm font-black text-white/30 uppercase tracking-widest">No Parking Slots Yet</p>
+            <p className="text-xs text-white/20">Click "New Slot" to add your first parking space</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {parkingSlots.map((slot: any) => {
+              const isOccupied = slot.status !== 'VACANT';
+              const order = slot.activeOrder;
+              return (
+                <div key={slot.id} className={`relative flex flex-col gap-2 p-4 rounded-2xl border transition-all cursor-pointer group ${
+                  isOccupied
+                    ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'
+                    : 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50 hover:bg-amber-500/10'
+                }`}>
+                  {/* Status dot */}
+                  <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${isOccupied ? 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]'}`} />
+
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: isOccupied ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)' }}>
+                    <CarFront size={18} className={isOccupied ? 'text-red-400' : 'text-amber-400'} />
+                  </div>
+
+                  <p className="text-sm font-black text-white leading-tight">{slot.name}</p>
+
+                  {order ? (
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-bold text-white/50 truncate">{order.customerName}</p>
+                      {order.vehicleNumber && <p className="text-[10px] font-black text-amber-400 tracking-widest">{order.vehicleNumber}</p>}
+                      <p className="text-[10px] font-bold text-red-300">₹{(order.amount || 0).toFixed(0)} · {order.elapsedTime}m</p>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] font-bold text-amber-400/60 uppercase tracking-widest">Vacant</p>
+                  )}
+
+                  {/* Action row */}
+                  <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { setSelectedParkingSlot({ ...slot, qrToken: slot.qrToken }); setIsParkingQROpen(true); }}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[9px] font-black text-white/70 uppercase tracking-widest transition-colors">
+                      <QrCode size={10} /> QR
+                    </button>
+                    <button onClick={() => { setEditingParkingSlot(slot); setParkingSlotName(slot.name); setIsParkingFormOpen(true); }}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[9px] font-black text-white/70 uppercase tracking-widest transition-colors">
+                      <Edit2 size={10} /> Edit
+                    </button>
+                    {isOccupied && (
+                      <button onClick={() => handleResetParkingSlot(slot.id)}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[9px] font-black text-white/70 uppercase tracking-widest transition-colors">
+                        <Power size={10} />
+                      </button>
+                    )}
+                    <button onClick={() => handleDeleteParkingSlot(slot.id)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors">
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Parking Add/Edit Modal */}
+      <Modal
+        isOpen={isParkingFormOpen}
+        onClose={() => { setIsParkingFormOpen(false); setEditingParkingSlot(null); setParkingSlotName(''); }}
+        title={editingParkingSlot ? 'Edit Parking Slot' : 'Add Parking Slot'}
+      >
+        <div className="space-y-5 py-2">
+          <div>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Slot Name / Number</label>
+            <input
+              autoFocus
+              value={parkingSlotName}
+              onChange={e => setParkingSlotName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSaveParkingSlot()}
+              placeholder="e.g. P-01, Slot A, Handicap Bay"
+              className="w-full h-12 px-4 rounded-2xl border border-slate-200 focus:border-amber-400 outline-none text-sm font-semibold transition-colors"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1 rounded-2xl h-12 font-black uppercase text-xs tracking-widest" onClick={() => { setIsParkingFormOpen(false); setEditingParkingSlot(null); setParkingSlotName(''); }}>Cancel</Button>
+            <Button loading={parkingFormLoading} className="flex-1 rounded-2xl h-12 bg-amber-500 hover:bg-amber-400 text-white font-black uppercase text-xs tracking-widest shadow-lg" onClick={handleSaveParkingSlot}>
+              {editingParkingSlot ? 'Save Changes' : 'Add Slot'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Parking QR Modal */}
+      {isParkingQROpen && selectedParkingSlot && propertyData && (
+        <Modal isOpen={isParkingQROpen} onClose={() => setIsParkingQROpen(false)} title="Parking QR Code">
+          <div className="flex flex-col items-center py-6 gap-6">
+            {(() => {
+              const { QRCodeSVG } = require('qrcode.react');
+              const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+              const qrUrl = `${baseUrl}/menu/parking/${propertyData.code}/${selectedParkingSlot.qrToken || selectedParkingSlot.id}`;
+              return (
+                <>
+                  <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100">
+                    <QRCodeSVG id="parking-qr-svg" value={qrUrl} size={220} level="H" includeMargin={false} />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-black text-gray-900">{selectedParkingSlot.name}</h3>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Scan to order from parking</p>
+                    <p className="text-xs text-amber-600 mt-2 font-mono break-all">{qrUrl}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 w-full">
+                    <Button variant="secondary" className="rounded-2xl h-14 font-black uppercase text-xs tracking-widest gap-2"
+                      onClick={() => { const a = document.createElement('a'); a.download = `QR_Parking_${selectedParkingSlot.name}.png`; a.href = '#'; a.click(); }}>
+                      Download
+                    </Button>
+                    <Button className="rounded-2xl h-14 bg-amber-500 hover:bg-amber-400 text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg"
+                      onClick={() => {
+                        const w = window.open('', '_blank');
+                        if (w) { w.document.write(`<html><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h1>${propertyData.name}</h1><p>Scan to order from ${selectedParkingSlot.name}</p><img src="${qrUrl}" /><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`); w.document.close(); }
+                      }}>
+                      Print QR
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </Modal>
+      )}
 
       <KotSlipModal kot={kotSlip} onClose={() => setKotSlip(null)} />
       <BillModal

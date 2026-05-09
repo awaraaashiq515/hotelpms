@@ -102,7 +102,7 @@ export async function GET(
     const activeOrders = await prisma.posOrder.findMany({
       where: {
         restaurantTableId: table.id,
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'PAYMENT_AWAITING_APPROVAL'] },
         orderType: 'DINE_IN',
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       },

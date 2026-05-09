@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             outletId: outlet.id,
             orderNo: `QR-${Date.now()}`,
             orderType: 'DINE_IN',
-            status: isPrepaid ? 'SETTLED' : 'OPEN',
+            status: isPrepaid ? 'PAYMENT_AWAITING_APPROVAL' : 'OPEN',
             restaurantTableId: tableId,
             tableNo: table.name,
             guestId: guestId,
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
 
       await tx.posOrder.update({
         where: { id: order!.id },
-        data: { subtotal, taxAmount, grandTotal, status: isPrepaid ? 'SETTLED' : 'OPEN' }
+        data: { subtotal, taxAmount, grandTotal, status: isPrepaid ? 'PAYMENT_AWAITING_APPROVAL' : 'OPEN' }
       });
 
       // 4.5 Save Rating if provided
@@ -206,54 +206,20 @@ export async function POST(request: NextRequest) {
 
       // 6. Handle Payment & Settlement for Prepaid
       if (isPrepaid) {
-        try {
-          const cashAccount = await tx.account.findFirst({ where: { propertyId, accountType: 'CASH' } })
-                           || await tx.account.findFirst({ where: { propertyId } });
-          const upiMode = await tx.paymentMode.findFirst({ where: { propertyId, name: { contains: 'UPI' } } }) 
-                          || await tx.paymentMode.findFirst({ where: { propertyId } });
-
-          if (cashAccount && upiMode) {
-            // Create Receipt
-            await tx.receipt.create({
-              data: {
-                propertyId,
-                receiptNo: `REC-QR-${Date.now()}`,
-                receivedFromAccountId: cashAccount.id,
-                amount: grandTotal,
-                paymentModeId: upiMode.id,
-                sourceModule: 'POS_ORDER',
-                sourceRefId: order!.id,
-              }
-            });
-
-            // Create Settlement
-            await tx.settlement.create({
-              data: {
-                propertyId,
-                settlementNo: `SET-QR-${Date.now()}`,
-                sourceId: order!.id,
-                sourceType: 'POS_ORDER',
-                guestId: guestId,
-                grossAmount: grandTotal,
-                paidAmount: grandTotal,
-                balanceAmount: 0,
-                status: 'COMPLETED',
-                settlementDate: new Date(),
-              }
-            });
-          } else {
-            console.warn('Skipping receipt/settlement creation: Missing Account or PaymentMode');
+        // Instead of immediate settlement, we mark it as awaiting approval
+        await tx.posOrder.update({
+          where: { id: order!.id },
+          data: { 
+            status: 'PAYMENT_AWAITING_APPROVAL',
+            onlinePaymentMethod: 'UPI',
+            paymentRequested: true 
           }
-        } catch (payErr) {
-          console.error('Payment record creation failed but continuing order:', payErr);
-          // We don't throw here so the order and notifications still go through
-        }
+        });
       }
 
-      // 7. Update Table Status
       await (tx as any).table.update({
         where: { id: tableId },
-        data: { status: isPrepaid ? 'VACANT' : 'KOT_RUNNING' }
+        data: { status: 'KOT_RUNNING' }
       });
 
       // 8. Create Real-Time Notifications for Dashboard

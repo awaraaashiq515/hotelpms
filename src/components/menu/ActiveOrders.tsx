@@ -28,6 +28,9 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
   const [payMode, setPayMode] = useState<'select' | 'upi' | 'counter'>('select');
   const [tipAmount, setTipAmount] = useState<string>('');
   const [txnLast4, setTxnLast4] = useState<string>('');
+  
+  // Tracks the order that's waiting for staff approval
+  const pendingApprovalOrderIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Initialize high-quality sounds
@@ -52,6 +55,16 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
     });
   };
 
+  // Sync payingOrder with latest orders data
+  useEffect(() => {
+    if (payingOrder) {
+      const latest = orders.find(o => o.id === payingOrder.id);
+      if (latest && JSON.stringify(latest) !== JSON.stringify(payingOrder)) {
+        setPayingOrder(latest);
+      }
+    }
+  }, [orders, payingOrder]);
+
   useEffect(() => {
     if (orders.length === 0) return;
 
@@ -65,6 +78,14 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
         } else if (order.status === 'READY') {
           showToast(`Order Ready: ${order.orderNo}`, 'success');
           audioReadyRef.current?.play().catch(() => {});
+        } else if (
+          order.status === 'SETTLED' &&
+          pendingApprovalOrderIdRef.current === order.id
+        ) {
+          // Staff has approved the online payment!
+          pendingApprovalOrderIdRef.current = null;
+          resetPayModal();
+          if (onPaymentSuccess) onPaymentSuccess(); // triggers rating modal
         }
       }
       prevStatusesRef.current[orderKey] = order.status;
@@ -98,9 +119,10 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
       });
       const json = await res.json();
       if (json.success) {
+        // Store the order ID — we'll wait for staff approval before closing
+        pendingApprovalOrderIdRef.current = orderId;
         setPaymentStatus('success');
-        setTimeout(resetPayModal, 2500);
-        if (onPaymentSuccess) onPaymentSuccess();
+        // Do NOT auto-close or trigger rating here — wait for staff approval via polling
       } else {
         alert(json.message);
         setPaymentStatus('idle');
@@ -202,13 +224,19 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
             const isReady = (order.status === 'READY') || (allStatuses.every((s: string) => s === 'READY') && allStatuses.length > 0);
             const isCooking = (order.status === 'IN_KITCHEN' || order.status === 'PREPARING') || allStatuses.some((s: string) => s === 'PREPARING' || s === 'IN_KITCHEN');
             const isNew = order.status === 'OPEN' || order.status === 'PLACED' || allStatuses.some((s: string) => s === 'NEW');
+            const isAwaitingApproval = order.status === 'PAYMENT_AWAITING_APPROVAL';
 
             let icon = <Clock size={20} />;
             let iconBg = "bg-orange-500/10";
             let iconColor = "text-orange-500";
             let description = "Order placed";
 
-            if (isReady) {
+            if (isAwaitingApproval) {
+              icon = <Smartphone size={20} />;
+              iconBg = "bg-amber-500/10";
+              iconColor = "text-amber-500";
+              description = "Payment Sent - Awaiting Staff Approval";
+            } else if (isReady) {
               icon = <CheckCircle size={20} />;
               iconBg = "bg-emerald-500/10";
               iconColor = "text-emerald-500";
@@ -226,7 +254,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
             }
 
             return (
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 flex items-center justify-between">
+              <div className={`rounded-2xl p-4 flex items-center justify-between ${isAwaitingApproval ? 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center ${iconColor}`}>
                     {icon}
@@ -289,6 +317,11 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                     <CheckCircle size={16} />
                     <span className="text-[10px] font-black uppercase tracking-widest">Paid</span>
                   </div>
+                ) : order.status === 'PAYMENT_AWAITING_APPROVAL' ? (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-500 rounded-xl animate-pulse">
+                    <Smartphone size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Approval Pending</span>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 text-orange-500 rounded-xl">
                     <Clock size={16} />
@@ -297,7 +330,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                 )}
               </div>
 
-              {order.status !== 'SETTLED' && (
+              {order.status !== 'SETTLED' && order.status !== 'PAYMENT_AWAITING_APPROVAL' && (
                 <div className="flex flex-col gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <button 
@@ -320,6 +353,61 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                   >
                     <QrCode size={14} /> Request Bill
                   </button>
+                </div>
+              )}
+
+              {order.status === 'PAYMENT_AWAITING_APPROVAL' && (
+                <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-2 border-amber-200 dark:border-amber-800 rounded-[2rem] p-8 text-center shadow-2xl shadow-amber-500/10">
+                  {/* Decorative Background Elements */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-500/5 rounded-full -ml-12 -mb-12 blur-xl" />
+                  
+                  <div className="relative z-10 space-y-5">
+                    <div className="relative w-20 h-20 mx-auto">
+                      <div className="absolute inset-0 bg-amber-500 rounded-[1.5rem] animate-ping opacity-20" />
+                      <div className="relative w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-amber-500/40">
+                        <Smartphone size={36} />
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center shadow-lg border-2 border-amber-500">
+                        <Clock size={16} className="text-amber-500 animate-spin" />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Payment Received!</h3>
+                      <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full border border-amber-200 dark:border-amber-800">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Awaiting Staff Approval</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-bold leading-relaxed px-2">
+                      We've received your UPI payment request. Please wait a moment while our staff verifies it from the counter.
+                    </p>
+                    
+                    <div className="pt-5 border-t border-amber-200/50 dark:border-amber-800/50">
+                      <div className="flex items-center justify-center gap-4">
+                        <div className="flex flex-col items-center">
+                           <div className="w-2 h-2 rounded-full bg-emerald-500 mb-1" />
+                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Payment Sent</span>
+                        </div>
+                        <div className="w-12 h-[2px] bg-amber-200 dark:bg-amber-800" />
+                        <div className="flex flex-col items-center">
+                           <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse mb-1" />
+                           <span className="text-[8px] font-black text-amber-500 uppercase tracking-tighter">Verification</span>
+                        </div>
+                        <div className="w-12 h-[2px] bg-slate-100 dark:bg-slate-800" />
+                        <div className="flex flex-col items-center opacity-30">
+                           <div className="w-2 h-2 rounded-full bg-slate-300 mb-1" />
+                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Settled</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <p className="text-[9px] text-slate-400 italic font-medium">
+                      This screen will refresh automatically once approved.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -360,13 +448,62 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                 <button onClick={resetPayModal} className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400"><X size={20} /></button>
               </div>
 
-              {/* ── SUCCESS ── */}
+              {/* ── SUCCESS / ONLINE PENDING ── */}
               {paymentStatus === 'success' && (
-                <div className="py-12 text-center space-y-4">
-                  <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto shadow-xl"><CheckCircle size={40} /></div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-white">Payment Successful!</h4>
-                  <p className="text-sm text-slate-500">Your table is now settled. Thank you!</p>
-                  {txnLast4 && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ref: ****{txnLast4}</p>}
+                <div className="py-12 text-center space-y-8 animate-in zoom-in duration-300">
+                  <div className="relative w-28 h-28 mx-auto">
+                    <div className="absolute inset-0 bg-amber-500 rounded-[2rem] animate-ping opacity-20" />
+                    <div className="relative w-28 h-28 bg-amber-500 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-amber-500/40">
+                      <Smartphone size={48} className="animate-bounce" />
+                    </div>
+                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center shadow-lg border-4 border-amber-500">
+                      <Clock size={20} className="text-amber-500 animate-spin" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 px-4">
+                    <h4 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Approval Pending</h4>
+                    <p className="text-sm text-slate-500 font-bold leading-relaxed">
+                      Your payment request has been sent to the counter. 
+                      <br />
+                      <span className="text-amber-500">Please wait while staff verifies your transaction.</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-100 dark:border-amber-900/30 rounded-3xl p-6 mx-2 space-y-4">
+                    <div className="flex items-center justify-center gap-3 text-amber-600 dark:text-amber-400">
+                      <Smartphone size={20} />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction ID: ****{txnLast4 || payingOrder.onlinePaymentReference || '----'}</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-6">
+                      <div className="flex flex-col items-center">
+                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 mb-1" />
+                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Sent</span>
+                      </div>
+                      <div className="w-16 h-[2px] bg-amber-300 dark:bg-amber-800" />
+                      <div className="flex flex-col items-center">
+                         <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse mb-1" />
+                         <span className="text-[8px] font-black text-amber-500 uppercase tracking-tighter">Verifying</span>
+                      </div>
+                      <div className="w-16 h-[2px] bg-slate-200 dark:bg-slate-800" />
+                      <div className="flex flex-col items-center opacity-30">
+                         <div className="w-2.5 h-2.5 rounded-full bg-slate-300 mb-1" />
+                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Complete</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">
+                      Waiting for Staff Approval...
+                    </p>
+                    <button 
+                      onClick={resetPayModal}
+                      className="mt-8 px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    >
+                      Hide & Stay on Orders
+                    </button>
+                  </div>
                 </div>
               )}
 

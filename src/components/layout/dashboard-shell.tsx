@@ -25,7 +25,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   const isPos = !showAdminLayout;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background dark:bg-slate-950 selection:bg-pos-primary selection:text-white overflow-hidden relative">
+    <div className="h-screen flex flex-col bg-background dark:bg-slate-950 selection:bg-pos-primary selection:text-white overflow-hidden relative">
       {isPos ? <TopNavbar /> : <DashboardAdminTopNavbar />}
       
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-64px)] lg:h-[calc(100vh-80px)]">

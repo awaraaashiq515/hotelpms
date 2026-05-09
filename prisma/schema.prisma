@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -112,6 +112,7 @@ model Property {
   tables               Table[]
   tableReservations    TableReservation[]
   tablets              Tablet[]
+  parkingSlots         ParkingSlot[]
   users                User[]
   vouchers             Voucher[]
   warehouses           Warehouse[]
@@ -463,6 +464,11 @@ model PosOrder {
   property           Property        @relation(fields: [propertyId], references: [id])
   items              PosOrderItem[]
   paymentRequested   Boolean         @default(false)
+  onlinePaymentReference String?
+  onlinePaymentMethod    String?
+  parkingSlotId      String?
+  vehicleNumber      String?
+  parkingSlot        ParkingSlot?    @relation("ParkingOrders", fields: [parkingSlotId], references: [id])
 
   @@index([propertyId])
   @@index([status])
@@ -1553,6 +1559,20 @@ model TableFeedback {
 
   @@index([propertyId])
   @@index([tableId])
+}
+
+model ParkingSlot {
+  id         String     @id @default(cuid())
+  propertyId String
+  name       String
+  status     String     @default("VACANT")
+  qrToken    String?    @unique @default(cuid())
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  property   Property   @relation(fields: [propertyId], references: [id])
+  posOrders  PosOrder[] @relation("ParkingOrders")
+
+  @@index([propertyId])
 }
 
 model Notification {

@@ -6,8 +6,16 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding Membership Demo Data...');
 
-  const propertyId = 'cmnfz7gms001bhef1i5muffo0'; // ASHOKA DHABA
-  const organizationId = 'cmnfz2q8e0015hef1uto03jij';
+  const property = await prisma.property.findFirst();
+  const org = await prisma.organization.findFirst();
+
+  if (!property || !org) {
+    console.error('No property or organization found. Please run seed.ts first.');
+    return;
+  }
+
+  const propertyId = property.id;
+  const organizationId = org.id;
 
   // 1. Create Membership Plans
   const plans = [
