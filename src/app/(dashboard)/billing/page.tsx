@@ -1013,7 +1013,7 @@ export default function BillingPage() {
                       {/* Middle: Product Name with Auto-wrapping */}
                       <div className="flex-1 flex items-center w-full relative z-10 py-0.5">
                         <h3
-                          className="text-[14px] leading-[1.1] font-black break-words w-full uppercase overflow-hidden line-clamp-2"
+                          className="text-[18px] leading-[1.0] font-black break-words w-full uppercase overflow-hidden line-clamp-2"
                           style={{
                             color: isColored ? cardColor.text : darkText,
                             transition: transitionStr('color'),

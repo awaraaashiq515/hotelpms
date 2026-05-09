@@ -184,14 +184,14 @@ export default function LoginPage() {
         <div className="relative z-10 text-center max-w-md">
           {/* Logo area */}
           <div className="mb-10 flex items-center justify-center">
-            <div className="p-5 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/60 shadow-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-[#b91c1c] rounded-2xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-black text-xl italic">O</span>
+            <div className="p-6 bg-white/80 backdrop-blur-sm rounded-[2rem] border border-white/60 shadow-2xl">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-[#b91c1c] rounded-3xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-black text-3xl italic">O</span>
                 </div>
                 <div className="text-left">
-                  <div className="text-[#7f1d1d] font-black text-2xl tracking-tight">OrderMint</div>
-                  <div className="text-[#b91c1c] text-[10px] tracking-[0.3em] font-semibold uppercase">POS Solutions</div>
+                  <div className="text-[#7f1d1d] font-black text-4xl tracking-tighter leading-none">OrderMint</div>
+                  <div className="text-[#b91c1c] text-[12px] tracking-[0.4em] font-bold uppercase mt-1">POS Solutions</div>
                 </div>
               </div>
             </div>
@@ -235,12 +235,12 @@ export default function LoginPage() {
       {/* ── RIGHT PANEL (Form Panel) ── */}
       <div className="w-full lg:w-1/2 xl:w-[45%] flex flex-col items-center justify-center min-h-screen bg-[#fafafa] p-6 sm:p-10 relative">
         {/* Mobile logo at top */}
-        <div className="lg:hidden mb-8 flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-red-700 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-black text-base italic">O</span>
+        <div className="lg:hidden mb-10 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-red-700 rounded-2xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-black text-xl italic">O</span>
             </div>
-            <span className="text-red-700 font-black text-xl tracking-tight">OrderMint</span>
+            <span className="text-red-700 font-black text-2xl tracking-tighter uppercase">OrderMint</span>
           </div>
         </div>
 

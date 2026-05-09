@@ -120,13 +120,13 @@ export const WebsiteBrandingForm = () => {
             <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Website Logo</h3>
             <div className="flex items-center gap-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-pos-primary/40 transition-colors">
               {/* Logo Preview */}
-              <div className="w-28 h-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-lg flex-shrink-0 relative">
+              <div className="w-48 h-48 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-2xl flex-shrink-0 relative group">
                 {settings.logoUrl ? (
                   <>
                     <img 
                       src={settings.logoUrl} 
-                      alt=""
-                      className="w-full h-full object-contain p-2"
+                      alt="Website Logo"
+                      className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-110"
                       onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = '1'; }}
                       onError={(e) => { 
                         const img = e.target as HTMLImageElement;
@@ -136,13 +136,13 @@ export const WebsiteBrandingForm = () => {
                       }}
                       style={{ opacity: 1 }}
                     />
-                    <div className="w-14 h-14 bg-pos-primary rounded-2xl items-center justify-center shadow-lg" style={{ display: 'none' }}>
-                      <span className="text-white font-black text-2xl italic">O</span>
+                    <div className="w-20 h-20 bg-pos-primary rounded-3xl items-center justify-center shadow-lg" style={{ display: 'none' }}>
+                      <span className="text-white font-black text-4xl italic">O</span>
                     </div>
                   </>
                 ) : (
-                  <div className="w-14 h-14 bg-pos-primary rounded-2xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-black text-2xl italic">O</span>
+                  <div className="w-20 h-20 bg-pos-primary rounded-3xl flex items-center justify-center shadow-lg">
+                    <span className="text-white font-black text-4xl italic">O</span>
                   </div>
                 )}
               </div>

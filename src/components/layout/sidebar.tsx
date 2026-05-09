@@ -121,6 +121,21 @@ export const Sidebar: React.FC = () => {
     `}>
       {/* Inner wrapper — fixed width so content doesn't squeeze during animation */}
       <div className={`${isOpen ? 'w-[260px]' : 'w-20'} flex flex-col h-full transition-all duration-500`}>
+        {/* Branding Area */}
+        <div className={`px-6 py-6 border-b border-white/5 bg-black/10 ${!isOpen && 'flex justify-center px-0'}`}>
+          <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20">
+                <span className="text-white font-black text-2xl italic">O</span>
+             </div>
+             {isOpen && (
+                <div>
+                   <p className="text-2xl font-black text-white tracking-tighter uppercase leading-none">Order<span className="text-pos-primary font-light">Mint</span></p>
+                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">POS System</p>
+                </div>
+             )}
+          </div>
+        </div>
+
         {/* Nav items */}
         <div className="flex-1 overflow-y-auto no-scrollbar py-4 scroll-smooth">
           {loading ? (

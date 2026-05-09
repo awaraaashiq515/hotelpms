@@ -77,10 +77,11 @@ export const AdminSidebar = () => {
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="p-8 flex items-center justify-between">
+        <div className="p-8 flex items-center justify-between border-b border-slate-800/50 bg-slate-950/20">
           <div className="flex flex-col">
-            <span className="text-xl font-bold text-white tracking-tight uppercase">OrderMint Admin</span>
-            <span className="text-[10px] font-bold tracking-widest mt-0.5" style={{color:'#e8a0a0'}}>POS · by Ritchie</span>
+            <span className="text-3xl font-black text-white tracking-tighter uppercase leading-none">OrderMint</span>
+            <span className="text-pos-primary text-xs font-bold tracking-[0.2em] mt-1 uppercase">Admin Panel</span>
+            <span className="text-[10px] font-bold tracking-widest mt-2 opacity-50 uppercase">POS · by Ritchie</span>
           </div>
           <button onClick={close} className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors">
             <X size={20} />

@@ -172,7 +172,7 @@ export const DashboardAdminSidebar: React.FC = () => {
               </div>
               {isOpen && (
                 <div>
-                  <p className="text-sm font-black text-white tracking-wide uppercase">Order<span className="text-pos-primary font-light">Mint</span></p>
+                  <p className="text-2xl font-black text-white tracking-tighter uppercase">Order<span className="text-pos-primary font-light">Mint</span></p>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{session?.role?.replace('_', ' ') || 'Management'}</p>
                 </div>
               )}

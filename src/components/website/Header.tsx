@@ -51,28 +51,28 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
           }`}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="flex items-center justify-between h-14 md:h-16 lg:h-20">
+          <div className="flex items-center justify-between h-14 md:h-16 lg:h-16">
 
             {/* ── LOGO ── */}
-            <Link href="/" className="flex-shrink-0 group">
-              <div className="flex items-center gap-3">
+            <Link href="/" className="flex-shrink-0 group relative z-[60]">
+              <div className="flex items-center gap-4">
                 {logoUrl ? (
                   <img
                     src={logoUrl}
                     alt="Website Logo"
-                    className="h-8 md:h-10 lg:h-12 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
-                    style={{ mixBlendMode: 'normal', maxWidth: '240px' }}
+                    className="h-20 md:h-24 lg:h-32 w-auto object-contain transition-all duration-300 group-hover:scale-105 drop-shadow-xl"
+                    style={{ mixBlendMode: 'normal', maxWidth: '400px' }}
                   />
                 ) : (
                   <>
-                    <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/30">
-                      <span className="text-white font-black text-lg italic">O</span>
+                    <div className="w-16 h-16 bg-pos-primary rounded-2xl flex items-center justify-center shadow-2xl shadow-pos-primary/40">
+                      <span className="text-white font-black text-3xl italic">O</span>
                     </div>
                     <div className="flex flex-col leading-none">
-                      <span className="text-2xl font-black tracking-tight text-pos-primary">
+                      <span className="text-4xl font-black tracking-tight text-pos-primary">
                         {hotelName}
                       </span>
-                      <span className="text-[10px] tracking-[0.3em] font-semibold uppercase text-slate-400 mt-0.5">
+                      <span className="text-[12px] tracking-[0.3em] font-semibold uppercase text-slate-400 mt-1">
                         {tagline}
                       </span>
                     </div>
