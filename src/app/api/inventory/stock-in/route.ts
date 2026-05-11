@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 
 // API for manual stock-in: purchase entry or opening stock adjustments
 export async function POST(request: NextRequest) {
@@ -54,6 +55,22 @@ export async function POST(request: NextRequest) {
       });
       return movement;
     });
+
+    // Notify about stock-in
+    try {
+      await createNotification({
+        propertyId: session.propertyId!,
+        title: 'Inventory Stock-In',
+        message: `New stock of ${qty} units added.`,
+        type: 'INVENTORY',
+        priority: 'MEDIUM',
+        metadata: {
+          movementId: (result as any).id,
+          qty,
+          link: '/inventory'
+        }
+      });
+    } catch (e) {}
 
     return apiResponse(result, 'Stock-in recorded', 201);
   } catch (error) {

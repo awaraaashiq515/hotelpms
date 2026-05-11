@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse } from '@/lib/api-utils'
+import { createNotification } from '@/lib/notificationService'
 
 export async function GET(
   request: NextRequest,
@@ -115,6 +116,27 @@ export async function PATCH(
         where: { id: oldKot.orderId },
         data: { status: finalStatus }
       });
+
+      // ─── CREATE NOTIFICATION FOR KITCHEN STATUS ───────────────────────────
+      try {
+        if (['PREPARING', 'READY', 'SERVED'].includes(status)) {
+          await createNotification({
+            propertyId: oldKot.propertyId,
+            title: `Kitchen: ${status.charAt(0) + status.slice(1).toLowerCase()}`,
+            message: `Order #${oldKot.tableNo || ''} KOT ${oldKot.kotNo} is now ${status.toLowerCase()}`,
+            type: 'KITCHEN',
+            priority: status === 'READY' ? 'HIGH' : 'MEDIUM',
+            metadata: {
+              kotId: id,
+              orderId: oldKot.orderId,
+              status,
+              link: `/operations/tables`
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('[KOT Notification] error:', notifError);
+      }
 
       return kot
     })

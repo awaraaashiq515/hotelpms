@@ -30,17 +30,19 @@ export interface BillData {
   grandTotal: number;
   createdAt: string;
   membershipDiscount?: number;
+  manualDiscount?: number;
   membershipCard?: {
     cardNumber: string;
     membershipPlan: { name: string };
   };
   taxLabel?: string;
+  propertyId?: string;
 }
 
 interface BillModalProps {
   bill: BillData | null;
   onClose: () => void;
-  onSettle?: (paymentModeId: string, guestId?: string, driverId?: string) => Promise<void>;
+  onSettle?: (paymentModeId: string, guestId?: string, driverId?: string, membershipCardId?: string | null, manualDiscount?: number) => Promise<void>;
   paymentModes?: any[];
   customers?: any[];
   onAddCustomer?: (data: { firstName: string; lastName: string; mobile: string }) => Promise<any>;
@@ -67,6 +69,11 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [newCustMobile, setNewCustMobile] = React.useState('');
   const [isAddingCustomer, setIsAddingCustomer] = React.useState(false);
 
+  const [membershipSearch, setMembershipSearch] = React.useState('');
+  const [isValidatingMembership, setIsValidatingMembership] = React.useState(false);
+  const [membershipCard, setMembershipCard] = React.useState<any>(bill?.membershipCard || null);
+  const [membershipDiscount, setMembershipDiscount] = React.useState(bill?.membershipDiscount || 0);
+
   const [property, setProperty] = React.useState<any>(null);
 
   React.useEffect(() => {
@@ -75,9 +82,51 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
       const guest = customers.find(c => c.id === guestId);
       if (guest) {
         setCustomerSearch(`${guest.firstName} ${guest.lastName || ''}`);
+        if (guest.mobile && !membershipCard) {
+          validateMembership(null, guest.mobile);
+        }
       }
     }
   }, [guestId, customers]);
+
+  const validateMembership = async (cardNumber: string | null, mobile?: string) => {
+    setIsValidatingMembership(true);
+    try {
+      const res = await fetch('/api/memberships/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardNumber, mobile }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMembershipCard(data.data);
+        setMembershipSearch('');
+      } else if (cardNumber) {
+        alert(data.message || 'Invalid membership card');
+      }
+    } catch (err) {
+      console.error('Membership validation error:', err);
+    } finally {
+      setIsValidatingMembership(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (membershipCard && bill) {
+      const { discountType, discountValue, minOrderValue } = membershipCard.membershipPlan;
+      if (bill.subtotal >= minOrderValue) {
+        if (discountType === 'PERCENTAGE') {
+          setMembershipDiscount((bill.subtotal * discountValue) / 100);
+        } else {
+          setMembershipDiscount(discountValue);
+        }
+      } else {
+        setMembershipDiscount(0);
+      }
+    } else {
+      setMembershipDiscount(bill?.membershipDiscount || 0);
+    }
+  }, [membershipCard, bill?.subtotal]);
 
   React.useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -108,6 +157,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
 
   if (!bill) return null;
 
+  const currentGrandTotal = bill.subtotal - membershipDiscount - (bill.manualDiscount || 0) + bill.tax;
+
   const handleSettle = async () => {
     if (!onSettle || !selectedModeId) return;
     setIsSettling(true);
@@ -120,8 +171,17 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               orderType: (bill as any).orderType || 'DINE_IN',
               paymentModeId: selectedModeId,
               guestId: selectedGuestId || undefined,
-              totalAmount: bill.grandTotal,
-              items: bill.items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity, sellingPrice: i.price })),
+              totalAmount: currentGrandTotal,
+              membershipCardId: membershipCard?.id || null,
+              membershipDiscount: membershipDiscount,
+              manualDiscount: bill.manualDiscount || 0,
+              items: bill.items.map(i => ({ 
+                id: i.id, 
+                name: i.name, 
+                quantity: i.quantity, 
+                sellingPrice: i.price,
+                isCombo: (i as any).isCombo || false
+              })),
               sendWhatsApp: sendWhatsApp
           })
       });
@@ -181,9 +241,10 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!printWindow) return;
 
     const subtotalAmt = bill.subtotal || 0;
-    const discountAmt = bill.membershipDiscount || 0;
+    const membershipDiscountAmt = bill.membershipDiscount || 0;
+    const manualDiscountAmt = bill.manualDiscount || 0;
     const taxAmt = bill.tax || 0;
-    const grandTotalAmt = bill.grandTotal || (subtotalAmt - discountAmt + taxAmt);
+    const grandTotalAmt = bill.grandTotal || (subtotalAmt - membershipDiscountAmt - manualDiscountAmt + taxAmt);
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -267,7 +328,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
 
           <div class="font-bold uppercase" style="font-size: 10px;">
             <div class="total-row"><span>SUB-TOTAL:</span> <span>₹${subtotalAmt.toFixed(2)}</span></div>
-            ${discountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>DISCOUNT:</span> <span>-₹${discountAmt.toFixed(2)}</span></div>` : ''}
+            ${membershipDiscountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>MEMBERSHIP DISCOUNT:</span> <span>-₹${membershipDiscountAmt.toFixed(2)}</span></div>` : ''}
+            ${manualDiscountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>DISCOUNT:</span> <span>-₹${manualDiscountAmt.toFixed(2)}</span></div>` : ''}
             <div class="total-row"><span>${bill.taxLabel || 'TAX'}:</span> <span>₹${taxAmt.toFixed(2)}</span></div>
             <div class="total-row" style="font-size: 8px; opacity: 0.6;"><span>(GST Breakdown)</span></div>
           </div>
@@ -434,7 +496,13 @@ Thank you! Visit again.`;
               {bill.membershipDiscount && bill.membershipDiscount > 0 ? (
                 <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest pb-1">
                   <span>Membership Discount</span>
-                  <span className="font-black">-₹{(bill.membershipDiscount || 0).toFixed(0)}</span>
+                  <span className="font-black">-₹{membershipDiscount.toFixed(0)}</span>
+                </div>
+              ) : null}
+              {bill.manualDiscount && bill.manualDiscount > 0 ? (
+                <div className="flex justify-between text-[10px] font-black text-blue-600 uppercase tracking-widest pb-1">
+                  <span>Discount</span>
+                  <span className="font-black">-₹{(bill.manualDiscount || 0).toFixed(0)}</span>
                 </div>
               ) : null}
               <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest pb-3 border-b border-slate-100">
@@ -444,7 +512,7 @@ Thank you! Visit again.`;
               <div className="flex justify-between items-center bg-slate-900 text-white p-5 rounded-2xl mt-4 shadow-xl print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">
                 <div>
                     <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-40 block mb-0.5 print:text-[8px] print:font-bold">Payable</span>
-                    <span className="text-2xl font-black text-white leading-none print:text-black">₹{(bill.grandTotal || 0).toFixed(0)}</span>
+                    <span className="text-2xl font-black text-white leading-none print:text-black">₹{currentGrandTotal.toFixed(0)}</span>
                 </div>
                 <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center border border-white/5 print:hidden">
                     <ReceiptText size={18} className="text-indigo-400" />
@@ -457,15 +525,10 @@ Thank you! Visit again.`;
             
             {isProforma && onSettle && (
               <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col">
-                <div className="p-4 bg-gray-50/50 border-b border-gray-50 flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
-                      <User size={18} />
-                    </div>
-                    <div>
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-gray-400">Guest</h4>
-                      <p className="text-[12px] font-black text-gray-900 uppercase">Select Customer</p>
-                    </div>
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+                  <div className="flex items-center gap-2">
+                    <User size={16} className="text-gray-400" />
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700">Select Customer</h4>
                   </div>
                   {!showAddCustomer && (
                     <button 
@@ -561,18 +624,57 @@ Thank you! Visit again.`;
             )}
 
             {isProforma && onSettle && (
-              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl p-6 flex-1 flex flex-col min-h-0">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
-                    <CreditCard size={18} />
+              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                 <div className="flex items-center gap-2 mb-4">
+                    <Star size={16} className="text-gray-400" />
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700">Promo & Membership</h4>
                   </div>
-                  <div>
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-gray-400">Checkout</h4>
-                    <p className="text-[12px] font-black text-gray-900 uppercase">Payment Method</p>
-                  </div>
+
+                  {membershipCard ? (
+                    <div 
+                      className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 border border-emerald-100 bg-emerald-50/50"
+                      onClick={() => { setMembershipCard(null); setMembershipDiscount(0); }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                         <Star size={14} className="text-emerald-500" />
+                         <div>
+                           <span className="text-[11px] font-black uppercase text-emerald-600 tracking-wider block leading-none">{membershipCard.membershipPlan.name}</span>
+                           <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter">Card: {membershipCard.cardNumber}</span>
+                         </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <span className="text-[12px] font-black text-emerald-600">-{membershipCard.membershipPlan.discountValue}{membershipCard.membershipPlan.discountType === 'PERCENTAGE' ? '%' : ''}</span>
+                         <X size={14} className="text-rose-400 cursor-pointer" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative flex items-center gap-3 bg-gray-50 border border-gray-100 px-4 py-2.5 rounded-xl group focus-within:bg-white focus-within:border-indigo-500/30 transition-all">
+                       <QrCode className="text-gray-300" size={16} />
+                       <input 
+                         type="text"
+                         placeholder="Enter Membership ID / Phone..."
+                         value={membershipSearch}
+                         onChange={(e) => setMembershipSearch(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && membershipSearch.trim() && validateMembership(membershipSearch.trim())}
+                         className="w-full bg-transparent text-[11px] font-black outline-none placeholder:text-gray-300 uppercase"
+                       />
+                       {isValidatingMembership && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
+                       {!isValidatingMembership && membershipSearch.trim() && (
+                          <button onClick={() => validateMembership(membershipSearch.trim())} className="text-[10px] font-black uppercase text-indigo-600">Apply</button>
+                       )}
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {isProforma && onSettle && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 flex-1 flex flex-col">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard size={16} className="text-gray-400" />
+                  <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700">Payment Method</h4>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
                   {paymentModes?.map(mode => {
                     const isSelected = selectedModeId === mode.id;
                     let Icon = Banknote;
@@ -585,18 +687,14 @@ Thank you! Visit again.`;
                         key={mode.id} 
                         type="button"
                         onClick={() => setSelectedModeId(isSelected ? null : mode.id)}
-                        className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${
+                        className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
                           isSelected 
-                          ? 'border-indigo-600 bg-white shadow-lg ring-2 ring-indigo-50' 
-                          : 'border-transparent bg-gray-50 hover:bg-white hover:border-indigo-100 text-gray-400'
+                          ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' 
+                          : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100 text-gray-400'
                         }`}
                       >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white text-gray-300 border border-gray-100'}`}>
-                          <Icon size={20} />
-                        </div>
-                        <span className={`text-[8px] font-black uppercase tracking-widest text-center leading-none ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`}>
-                          {mode.name}
-                        </span>
+                        <Icon size={18} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">{mode.name}</span>
                       </button>
                     );
                   })}
@@ -604,40 +702,30 @@ Thank you! Visit again.`;
                   <button 
                     type="button"
                     onClick={() => setSelectedModeId(selectedModeId === 'PAY_LATER' ? null : 'PAY_LATER')}
-                    className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${
+                    className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
                       selectedModeId === 'PAY_LATER'
-                      ? 'border-orange-500 bg-white shadow-lg ring-2 ring-orange-50' 
-                      : 'border-transparent bg-gray-50 hover:bg-white hover:border-orange-200 text-gray-400'
+                      ? 'border-orange-500 bg-orange-50/30 text-orange-600' 
+                      : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100 text-gray-400'
                     }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedModeId === 'PAY_LATER' ? 'bg-orange-500 text-white' : 'bg-white text-gray-300 border border-gray-100'}`}>
-                      <span className="font-black text-lg">⏳</span>
-                    </div>
-                    <span className={`text-[8px] font-black uppercase tracking-widest text-center leading-none ${selectedModeId === 'PAY_LATER' ? 'text-orange-600' : 'text-gray-400'}`}>
-                      Pay Later
-                    </span>
+                    <span className="text-base">⏳</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Pay Later</span>
                   </button>
                 </div>
 
-                  <div className="flex items-center gap-3 mb-6 bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                <div className="flex items-center gap-3 mb-6 bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <button 
                       type="button"
                       onClick={() => setSendWhatsApp(!sendWhatsApp)}
-                      className={`relative w-12 h-6 rounded-full transition-all duration-300 ${sendWhatsApp ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                      className={`relative w-10 h-5 rounded-full transition-all duration-300 ${sendWhatsApp ? 'bg-emerald-500' : 'bg-gray-300'}`}
                     >
-                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${sendWhatsApp ? 'translate-x-6' : 'translate-x-0'}`} />
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${sendWhatsApp ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase text-emerald-600 tracking-tight leading-none mb-1">WhatsApp Receipt</span>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Automated Message</span>
+                      <span className="text-[10px] font-black uppercase text-gray-700 tracking-tight leading-none mb-1">WhatsApp Receipt</span>
+                      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Send automated message</span>
                     </div>
-                    {sendWhatsApp && (
-                      <div className="ml-auto flex items-center gap-2">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                        <span className="text-[8px] font-bold text-emerald-600 uppercase">Active</span>
-                      </div>
-                    )}
-                  </div>
+                </div>
 
                 <div className="mt-auto">
                   <Button 
@@ -661,7 +749,7 @@ Thank you! Visit again.`;
                     </div>
                     <div className={`h-full flex flex-col justify-center items-end px-6 border-l transition-colors ${selectedModeId ? 'bg-black/10 border-white/10' : 'bg-gray-50 border-gray-100'}`}>
                        <span className={`text-[7px] uppercase tracking-widest ${selectedModeId ? 'text-white/40' : 'text-gray-400'}`}>Payable</span>
-                       <span className={`text-xl font-black ${selectedModeId ? 'text-white' : 'text-gray-300'}`}>₹{(bill.grandTotal || 0).toFixed(0)}</span>
+                       <span className={`text-xl font-black ${selectedModeId ? 'text-white' : 'text-gray-300'}`}>₹{currentGrandTotal.toFixed(0)}</span>
                     </div>
                   </Button>
                   

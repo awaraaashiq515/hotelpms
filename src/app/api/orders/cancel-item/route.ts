@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -142,6 +143,24 @@ export async function POST(request: NextRequest) {
         where: { id: orderItem.posOrderId },
         data: { subtotal, taxAmount, grandTotal }
       });
+
+      // Notify about cancellation
+      try {
+        await createNotification({
+          propertyId: orderItem.posOrder.propertyId,
+          title: 'Order Item Cancelled',
+          message: `${cancelQuantity}x "${orderItem.name || 'Item'}" cancelled from Order #${orderItem.posOrder.orderNo}. Reason: ${reason}`,
+          type: 'CANCELLATION',
+          priority: 'HIGH',
+          metadata: {
+            orderId: orderItem.posOrderId,
+            itemName: orderItem.name,
+            cancelQuantity,
+            reason,
+            link: `/billing?orderId=${orderItem.posOrderId}`
+          }
+        });
+      } catch (e) {}
 
       return { success: true };
     });

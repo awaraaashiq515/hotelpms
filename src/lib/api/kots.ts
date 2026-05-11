@@ -81,4 +81,8 @@ export const kotsApi = {
   cancelItem: async (kotId: string, itemId: string, reason?: string): Promise<KotItem> => {
     return apiClient.post<KotItem>(`/api/kots/${kotId}/cancel-item`, { itemId, reason });
   },
+  
+  cleanup: async (params: { hours?: number, all?: boolean }): Promise<any> => {
+    return apiClient.delete('/api/kots', { params: params as any });
+  }
 };

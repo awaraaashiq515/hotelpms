@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
 import { DataTable } from '@/components/shared/data-table';
-import { Plus, Edit, Trash2, Grid } from 'lucide-react';
+import { Plus, Edit, Trash2, Grid, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { categoriesApi, Category } from '@/lib/api/categories';
 import { Modal } from '@/components/ui/Modal';
@@ -20,13 +20,14 @@ export default function CategoriesPage() {
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isProductsOpen, setIsProductsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [mutationLoading, setMutationLoading] = useState(false);
 
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const data = await categoriesApi.list();
+      const data = await categoriesApi.list(true);
       setCategories(data || []);
     } catch (error) {
       console.error('Failed to fetch categories:', error);
@@ -114,6 +115,17 @@ export default function CategoriesPage() {
       width: '120px'
     },
     {
+      header: 'Products',
+      cell: (row: Category) => (
+        <div className="flex items-center gap-2">
+           <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 text-[10px] font-bold">
+            {row._count?.products || 0} ITEMS
+          </span>
+        </div>
+      ),
+      width: '120px'
+    },
+    {
       header: 'Status',
       cell: (row: Category) => (
         <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${row.isActive !== false ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500'
@@ -127,6 +139,16 @@ export default function CategoriesPage() {
       header: 'Actions',
       cell: (row: Category) => (
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSelectedCategory(row);
+              setIsProductsOpen(true);
+            }}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-gray-400 dark:text-slate-400 hover:text-blue-600 transition-colors"
+            title="View Products"
+          >
+            <Eye size={16} />
+          </button>
           <button
             onClick={() => {
               setSelectedCategory(row);
@@ -147,7 +169,7 @@ export default function CategoriesPage() {
           </button>
         </div>
       ),
-      width: '120px'
+      width: '150px'
     }
   ];
 
@@ -241,6 +263,47 @@ export default function CategoriesPage() {
           loading={mutationLoading}
         />
       )}
+
+      <Modal
+        isOpen={isProductsOpen}
+        onClose={() => setIsProductsOpen(false)}
+        title={`Products in ${selectedCategory?.name}`}
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          {selectedCategory?.products && selectedCategory.products.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2">
+              {selectedCategory.products.map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-pos-primary transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-white dark:bg-slate-700 flex items-center justify-center border border-gray-100 dark:border-slate-600 overflow-hidden">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-gray-400">NO IMG</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-gray-800 dark:text-slate-200 group-hover:text-pos-primary transition-colors">{product.name}</span>
+                      <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{product.productType}</span>
+                    </div>
+                  </div>
+                  <div className="text-right flex flex-col">
+                    <span className="text-sm font-black text-pos-primary">₹{product.sellingPrice}</span>
+                    {product.sku && <span className="text-[9px] text-gray-400 font-mono">{product.sku}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-3">
+                <Grid className="text-gray-400" size={20} />
+              </div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No products found in this category</p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

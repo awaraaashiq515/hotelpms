@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse } from '@/lib/api-utils'
+import { createNotification } from '@/lib/notificationService'
 
 const dayClosingSchema = z.object({
   propertyId: z.string().min(1, 'Property ID is required'),
@@ -38,6 +39,22 @@ export async function POST(request: NextRequest) {
         varianceAmount,
       }
     })
+
+    // Notify about day closing
+    try {
+      await createNotification({
+        propertyId: parsedData.propertyId,
+        title: 'Day Closing Completed',
+        message: `Day closed for ${dayClosing.closingDate.toDateString()}. Variance: ₹${varianceAmount}.`,
+        type: 'DAY_CLOSING',
+        priority: Math.abs(varianceAmount) > 500 ? 'URGENT' : 'HIGH',
+        metadata: {
+          closingId: dayClosing.id,
+          variance: varianceAmount,
+          link: '/day-closing'
+        }
+      });
+    } catch (e) {}
 
     return apiResponse(dayClosing, 'Day Closing completed successfully', 201)
   } catch (error) {

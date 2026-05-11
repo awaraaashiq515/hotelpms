@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { recordDriverActivity } from '@/lib/incentive-utils';
+import { createNotification } from '@/lib/notificationService';
 
 export async function GET(
   request: NextRequest,
@@ -49,6 +50,26 @@ export async function PUT(
     // --- Incentive Engine Integration ---
     if ((status === 'COMPLETED' || status === 'PAID') && order.driverId) {
        await recordDriverActivity(order.driverId, 'RIDE');
+    }
+
+    // --- Notification Integration ---
+    try {
+      if (status === 'BILL_PRINTED' || status === 'PENDING') {
+        await createNotification({
+          propertyId: order.propertyId,
+          title: status === 'BILL_PRINTED' ? 'Payment Requested' : 'Order Pending',
+          message: `Action required for Order ${order.orderNo} at ${order.tableNo ? 'Table ' + order.tableNo : 'POS'}`,
+          type: 'PAYMENT',
+          priority: 'HIGH',
+          metadata: {
+            orderId: order.id,
+            status,
+            link: `/billing?orderId=${order.id}`
+          }
+        });
+      }
+    } catch (notifError) {
+      console.error('[Order Notification] error:', notifError);
     }
 
     return apiResponse(order, 'Order status updated');

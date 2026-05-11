@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse, getMultiTenantWhere } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
+import { createNotification } from '@/lib/notificationService'
 
 const settlementSchema = z.object({
   propertyId: z.string().optional(),
@@ -86,6 +87,25 @@ export async function POST(request: NextRequest) {
           paymentStatus: balanceAfter <= 0 ? 'PAID' : 'PARTIAL'
         }
       });
+
+      // 6. Create Notification for Payment
+      try {
+        await createNotification({
+          propertyId: session.propertyId!,
+          title: 'Payment Received',
+          message: `Amount ₹${parsedData.paidAmount} received for ${invoice.invoiceNo}`,
+          type: 'PAYMENT',
+          priority: 'MEDIUM',
+          metadata: {
+            settlementId: settlement.id,
+            invoiceId: invoice.id,
+            amount: parsedData.paidAmount,
+            link: `/invoices?invoiceId=${invoice.id}`
+          }
+        });
+      } catch (notifError) {
+        console.error('[Payment Notification] error:', notifError);
+      }
 
       return settlement;
     });

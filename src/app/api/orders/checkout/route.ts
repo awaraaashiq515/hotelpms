@@ -12,7 +12,36 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, sendWhatsApp } = body;
+    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, sendWhatsApp } = body;
+
+    // --- COMBO EXPANSION ---
+    const expandedItems: any[] = [];
+    for (const item of items) {
+      if (item.isCombo) {
+        const combo = await prisma.combo.findUnique({
+          where: { id: item.id },
+          include: { items: { include: { product: true } } }
+        });
+        if (combo) {
+          // Distribute combo sellingPrice among its items
+          const totalBasePrice = combo.items.reduce((sum: number, ci: any) => sum + (ci.product.sellingPrice * ci.quantity), 0);
+          combo.items.forEach((ci: any, idx: number) => {
+            const ratio = totalBasePrice > 0 ? (ci.product.sellingPrice * ci.quantity) / totalBasePrice : 1 / combo.items.length;
+            expandedItems.push({
+              id: ci.productId,
+              name: `${ci.product.name} (from ${combo.name})`,
+              quantity: ci.quantity * item.quantity,
+              sellingPrice: (item.sellingPrice * ratio) / ci.quantity, // Price per unit
+              isComboPart: true
+            });
+          });
+        }
+      } else {
+        expandedItems.push(item);
+      }
+    }
+    items = expandedItems;
+    // -----------------------
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 0. Find target account (Cash Account)

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 import type { Prisma } from '@prisma/client';
 
 const expenseSchema = z.object({
@@ -102,6 +103,22 @@ export async function POST(request: NextRequest) {
         include: { category: { select: { id: true, name: true } } },
       });
     });
+
+    // Notify about new expense
+    try {
+      await createNotification({
+        propertyId,
+        title: 'New Expense Recorded',
+        message: `Expense of ₹${data.amount} recorded for ${data.paidTo || 'Others'}.`,
+        type: 'EXPENSE',
+        priority: data.amount > 5000 ? 'HIGH' : 'MEDIUM',
+        metadata: {
+          expenseId: (result as any).id,
+          amount: data.amount,
+          link: '/expenses'
+        }
+      });
+    } catch (e) {}
 
     return apiResponse(result, 'Expense created successfully', 201);
   } catch (error) {

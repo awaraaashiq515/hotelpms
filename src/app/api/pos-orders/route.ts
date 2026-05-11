@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse, getMultiTenantWhere } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
+import { createNotification } from '@/lib/notificationService'
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -308,6 +309,26 @@ export async function POST(request: NextRequest) {
       } catch (incError) {
         console.error('[POS Order] Incentive recording error:', incError);
       }
+    }
+
+    // 7. Create Notification for New Order
+    try {
+      await createNotification({
+        propertyId: orderData.propertyId,
+        title: 'New Order Received',
+        message: `Order ${newOrder.orderNo} created for ${newOrder.table?.name || 'Table ' + newOrder.tableNo}`,
+        type: 'ORDER',
+        priority: 'HIGH',
+        metadata: {
+          orderId: newOrder.id,
+          orderNo: newOrder.orderNo,
+          tableNo: newOrder.tableNo,
+          grandTotal: newOrder.grandTotal,
+          link: `/billing?orderId=${newOrder.id}`
+        }
+      });
+    } catch (notifError) {
+      console.error('[POS Order] Notification error:', notifError);
     }
 
     return apiResponse(newOrder, 'POS Order and KOT created successfully', 201)

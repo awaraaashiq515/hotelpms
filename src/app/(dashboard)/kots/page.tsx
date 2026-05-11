@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, Filter, ChevronRight, 
   Layers, Clock, MapPin, 
-  CheckCircle2, AlertCircle, Eye
+  CheckCircle2, AlertCircle, Eye, Settings, Trash2, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { kotsApi, KotTicket } from '@/lib/api/kots';
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/shared/page-header';
+import { useToast } from '@/components/ui/Toast';
 
 import { useSearchParams } from 'next/navigation';
 
@@ -23,6 +24,44 @@ export default function KotsPage() {
   const [kots, setKots] = useState<KotTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialSearch);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [autoClearEnabled, setAutoClearEnabled] = useState(false);
+  const [autoClearHours, setAutoClearHours] = useState(24);
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    const savedEnabled = localStorage.getItem('kot_auto_clear_enabled') === 'true';
+    const savedHours = parseInt(localStorage.getItem('kot_auto_clear_hours') || '24');
+    setAutoClearEnabled(savedEnabled);
+    setAutoClearHours(savedHours);
+  }, []);
+
+  const saveSettings = () => {
+    localStorage.setItem('kot_auto_clear_enabled', autoClearEnabled.toString());
+    localStorage.setItem('kot_auto_clear_hours', autoClearHours.toString());
+    setIsSettingsOpen(false);
+    addToast('success', 'KOT auto-clear settings updated.');
+  };
+
+  const handleResetAll = async () => {
+    if (!confirm('Are you sure you want to delete ALL KOTs? This cannot be undone.')) return;
+    try {
+      await kotsApi.cleanup({ all: true });
+      addToast('success', 'All KOTs have been cleared.');
+      fetchKots();
+    } catch (error) {
+      addToast('error', 'Failed to clear KOTs.');
+    }
+  };
+
+  const handleCleanup = async (hours: number) => {
+    try {
+      await kotsApi.cleanup({ hours });
+      fetchKots();
+    } catch (error) {
+      console.error('Auto-cleanup failed:', error);
+    }
+  };
 
   useEffect(() => {
     if (initialSearch) {
@@ -43,7 +82,16 @@ export default function KotsPage() {
 
   useEffect(() => {
     fetchKots();
-    const interval = setInterval(fetchKots, 10000);
+    const interval = setInterval(() => {
+      fetchKots();
+      
+      // Auto-cleanup check
+      const savedEnabled = localStorage.getItem('kot_auto_clear_enabled') === 'true';
+      if (savedEnabled) {
+        const hours = parseInt(localStorage.getItem('kot_auto_clear_hours') || '24');
+        handleCleanup(hours);
+      }
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -74,15 +122,25 @@ export default function KotsPage() {
         showBack
         backUrl="/operations"
         actions={
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search Table/Room..." 
-              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-pos-primary/20"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search Table/Room..." 
+                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-pos-primary/20"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button 
+              variant="secondary" 
+              onClick={() => setIsSettingsOpen(true)}
+              className="rounded-xl flex items-center gap-2"
+            >
+              <Settings size={18} />
+              <span className="hidden md:inline">Settings</span>
+            </Button>
           </div>
         }
       />
@@ -173,6 +231,74 @@ export default function KotsPage() {
           </table>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-800">
+              <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50/50 dark:bg-slate-800/50">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-pos-primary/10 flex items-center justify-center text-pos-primary">
+                       <Settings size={20} />
+                    </div>
+                    <div>
+                       <h2 className="text-lg font-black section-heading tracking-tight">KOT Settings</h2>
+                       <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">Configure auto-cleanup</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-colors">
+                    <X size={20} className="text-gray-400" />
+                 </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                 {/* Auto Clear Toggle */}
+                 <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700">
+                    <div>
+                       <h4 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-tight">Auto-Clear KOTs</h4>
+                       <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">Remove old tickets automatically</p>
+                    </div>
+                    <button 
+                       onClick={() => setAutoClearEnabled(!autoClearEnabled)}
+                       className={`w-12 h-6 rounded-full transition-colors relative ${autoClearEnabled ? 'bg-pos-primary' : 'bg-gray-200 dark:bg-slate-700'}`}
+                    >
+                       <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${autoClearEnabled ? 'translate-x-6' : ''}`} />
+                    </button>
+                 </div>
+
+                 {/* Hours Input */}
+                 {autoClearEnabled && (
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest ml-1">Clear tickets older than (Hours)</label>
+                       <input 
+                          type="number" 
+                          value={autoClearHours}
+                          onChange={(e) => setAutoClearHours(parseInt(e.target.value) || 1)}
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pos-primary/20"
+                       />
+                    </div>
+                 )}
+
+                 {/* Reset All Button */}
+                 <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
+                    <Button 
+                       variant="danger" 
+                       onClick={handleResetAll}
+                       className="w-full rounded-2xl flex items-center justify-center gap-2 h-12"
+                    >
+                       <Trash2 size={18} />
+                       RESET ALL KOTS NOW
+                    </Button>
+                 </div>
+              </div>
+
+              <div className="p-6 bg-gray-50/50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-slate-800 flex gap-3">
+                 <Button variant="secondary" onClick={() => setIsSettingsOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
+                 <Button variant="primary" onClick={saveSettings} className="flex-1 rounded-xl">Save Settings</Button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

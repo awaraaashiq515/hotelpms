@@ -28,6 +28,7 @@ import {
   Wine,
   Store,
   Star,
+  Trash2,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -124,6 +125,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
         { name: 'Drivers Hub',     path: '/drivers',              feature: 'DRIVERS' },
         { name: 'Customers',       path: '/customers',            feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
         { name: 'POS Staff',       path: '/pos-staff',            feature: 'STAFF',  roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+        { name: 'Waste Management', path: '/operations/waste-management', feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
       ],
     },
     {
@@ -200,6 +202,7 @@ export const operationsGrid = [
   { label: 'Drivers', icon: CarFront, path: '/drivers' },
   { label: 'POS Staff', icon: Users, path: '/pos-staff' },
   { label: 'Customer Feedback', icon: Star, path: '/reports/ratings' },
+  { label: 'Waste Management', icon: Trash2, path: '/operations/waste-management' },
 ];
 
 // Legacy Export for compatibility during migration

@@ -72,3 +72,48 @@ export const sendSMS = async (phone: string, templateKey: 'TEMPLATE_BILL_PAID' |
     return { success: false, error: 'Internal error sending SMS' };
   }
 };
+
+export const createNotification = async (data: {
+  propertyId: string;
+  title: string;
+  message: string;
+  type: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  metadata?: any;
+}, prismaClient?: any) => {
+  // Use provided client or global prisma
+  const client = prismaClient || prisma;
+  
+  // We wrap the actual creation in a promise that we don't necessarily have to block on
+  const performCreation = async () => {
+    try {
+      return await client.notification.create({
+        data: {
+          propertyId: data.propertyId,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          priority: data.priority || 'MEDIUM',
+          metadata: data.metadata ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata)) : null,
+        },
+      });
+    } catch (error) {
+      console.error('createNotification inner error:', error);
+      return null;
+    }
+  };
+
+  // If we are IN a transaction (prismaClient provided), we MUST await so it's part of the tx
+  if (prismaClient) {
+    return await performCreation();
+  }
+
+  // If not in a transaction, we still await but with a catch to ensure it doesn't crash the caller
+  // We use a small delay for SQLite to ensure any previous transactions have released their locks
+  return new Promise((resolve) => {
+    setTimeout(async () => {
+      const result = await performCreation();
+      resolve(result);
+    }, 100); // 100ms delay to let SQLite settle
+  });
+};

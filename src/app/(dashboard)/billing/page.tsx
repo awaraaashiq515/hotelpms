@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Plus, Search, Trash2, User as UserIcon, CreditCard, Percent, Pause, RotateCcw,
   Grid, List, ShoppingBag, Utensils, Minus, ChevronRight, ChevronLeft, Printer, 
-  Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode,
+  Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode, Star,
   Coffee, IceCream, Pizza, Soup, CookingPot, ChefHat, CupSoda,
   Cake, Fish, Popcorn, Sandwich, Wine
 } from 'lucide-react';
@@ -99,6 +99,7 @@ export default function BillingPage() {
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
+  const [combos, setCombos] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -132,6 +133,8 @@ export default function BillingPage() {
   const [membershipCard, setMembershipCard] = useState<any>(null);
   const [membershipSearch, setMembershipSearch] = useState('');
   const [isValidatingMembership, setIsValidatingMembership] = useState(false);
+  const [manualDiscount, setManualDiscount] = useState<number>(0);
+  const [manualDiscountType, setManualDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   // Driver selection for Delivery orders
   const [drivers, setDrivers] = useState<any[]>([]);
   const [driverSearch, setDriverSearch] = useState('');
@@ -256,17 +259,19 @@ export default function BillingPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [pData, cData, pmData, custData, propData] = await Promise.all([
+      const [pData, cData, pmData, custData, propData, comboRes] = await Promise.all([
         productsApi.list(),
         categoriesApi.list(),
         paymentModesApi.list(),
         customersApi.list(),
-        fetch('/api/setup/properties/current').then(r => r.json())
+        fetch('/api/setup/properties/current').then(r => r.json()),
+        fetch('/api/combos').then(r => r.json())
       ]);
       setProducts(pData);
       setCategories(cData);
       setPaymentModes(pmData);
       setCustomers(custData);
+      if (comboRes.success) setCombos(comboRes.data);
       if (propData.success) setProperty(propData.data);
       
       // Fetch drivers reliably on load
@@ -332,22 +337,30 @@ export default function BillingPage() {
     }
   };
 
-  const addToCart = (product: Product, size: string = 'Full', price?: number) => {
+  const addToCart = (product: Product | any, size: string = 'Full', price?: number, isCombo: boolean = false) => {
     setCart(prev => {
-      const cartItemId = `${product.id}-${size}`;
+      const cartItemId = isCombo ? `combo-${product.id}` : `${product.id}-${size}`;
       const existing = prev.find(item => item.cartItemId === cartItemId);
       
       let itemPrice = price ?? product.sellingPrice;
       let itemName = product.name;
       
-      if (size !== 'Full') {
+      if (!isCombo && size !== 'Full') {
         itemName = `${product.name} (${size})`;
       }
 
       if (existing) {
         return prev.map((item: any) => item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item);
       }
-      return [...prev, { ...product, name: itemName, sellingPrice: itemPrice, cartItemId, size, quantity: 1 }];
+      return [...prev, { 
+        ...product, 
+        name: itemName, 
+        sellingPrice: itemPrice, 
+        cartItemId, 
+        size, 
+        quantity: 1,
+        isCombo: isCombo 
+      }];
     });
   };
 
@@ -660,6 +673,7 @@ export default function BillingPage() {
       tableId: tableId || undefined,
       driverId: selectedDriver?.id || activeOrder?.driverId,
       membershipDiscount: membershipDiscount || orderToPrint.membershipDiscount || 0,
+      manualDiscount: manualDiscount || orderToPrint.manualDiscount || 0,
       membershipCard: membershipCard || orderToPrint.membershipCard
     } as any;
     
@@ -684,6 +698,7 @@ export default function BillingPage() {
         totalAmount: grandTotal,
         membershipCardId: membershipCard?.id || null,
         membershipDiscount: membershipDiscount || 0,
+        manualDiscount: manualDiscount || 0,
         items: cart.map((item: any) => ({
           id: item.id,
           name: item.name,
@@ -781,8 +796,13 @@ export default function BillingPage() {
     return matchesCategory && matchesSearch && matchesMenuType;
   });
 
+  const filteredCombos = combos.filter(c => {
+    const matchesCategory = selectedCategory === 'all' || selectedCategory === 'combos';
+    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesSearch && c.isActive !== false;
+  });
+
   const subtotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
-  
   let membershipDiscount = 0;
   if (membershipCard) {
     const { discountType, discountValue, minOrderValue } = membershipCard.membershipPlan;
@@ -795,12 +815,23 @@ export default function BillingPage() {
     }
   }
 
+  let totalManualDiscount = 0;
+  if (manualDiscount > 0) {
+    if (manualDiscountType === 'PERCENTAGE') {
+      totalManualDiscount = (subtotal * manualDiscount) / 100;
+    } else {
+      totalManualDiscount = manualDiscount;
+    }
+  }
+
+  const combinedDiscount = membershipDiscount + totalManualDiscount;
+
   // Calculate dynamic subtotal, taxes, and grand total based on product settings
   const { totalNetSubtotal, totalTax, totalPayable } = cart.reduce((acc, item) => {
     const itemTotalGross = item.sellingPrice * item.quantity;
     // Calculate proportional discount for this item based on its share of the total gross subtotal
     const grossSubtotal = cart.reduce((sum, i) => sum + (i.sellingPrice * i.quantity), 0);
-    const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * membershipDiscount : 0;
+    const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
     const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
     
     const rate = item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5;
@@ -868,15 +899,37 @@ export default function BillingPage() {
              )}
            </div>
 
-           <div className="flex-1 relative group max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pos-primary transition-colors" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search menu items..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={`w-full ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5 text-slate-200' : 'bg-white border-pos-primary/20 text-slate-800'} border focus:border-pos-primary/50 pl-10 pr-3 py-1 rounded-xl outline-none transition-all placeholder:text-slate-600 font-bold text-xs`}
-              />
+           <div className="flex-1 flex items-center gap-2 max-w-xl">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pos-primary transition-colors" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Search menu items..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className={`w-full ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5 text-slate-200' : 'bg-white border-pos-primary/20 text-slate-800'} border focus:border-pos-primary/50 pl-10 pr-3 py-2 rounded-xl outline-none transition-all placeholder:text-slate-600 font-bold text-xs`}
+                />
+              </div>
+              <button 
+                onClick={() => { setSelectedCategory('all'); setSearch(''); }}
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  selectedCategory === 'all' && !search
+                    ? 'bg-pos-primary text-white shadow-lg shadow-pos-primary/20' 
+                    : 'bg-white dark:bg-[#1a1a1a] text-slate-500 border border-slate-200 dark:border-white/5 hover:border-pos-primary/40'
+                }`}
+              >
+                All Items
+              </button>
+              <button 
+                onClick={() => { setSelectedCategory('combos'); setSearch(''); }}
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  selectedCategory === 'combos' && !search
+                    ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' 
+                    : 'bg-white dark:bg-[#1a1a1a] text-slate-500 border border-slate-200 dark:border-white/5 hover:border-rose-500/40'
+                }`}
+              >
+                Combos
+              </button>
            </div>
            <div className="flex items-center gap-3">
               <div className={`${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/10'} p-0.5 rounded-xl flex border`}>
@@ -888,6 +941,19 @@ export default function BillingPage() {
 
         {/* Category Pastel Tiles - Extra Compact */}
         <div className="px-3 py-0.5 overflow-x-auto no-scrollbar flex gap-2">
+            <button
+               onClick={() => setSelectedCategory('all')}
+               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'all' ? 'bg-pos-primary text-white ring-2 ring-black/20 shadow-2xl' : 'bg-white dark:bg-[#1a1a1a] text-slate-500 border border-slate-200 dark:border-white/5 shadow-lg'}`}
+             >
+               <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${selectedCategory === 'all' ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                 <Grid size={14} />
+               </div>
+               <div className="text-center">
+                 <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>All</h3>
+                 <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{products.length} items</p>
+               </div>
+            </button>
+
            {categories.filter(c => (c as any).menuType === 'RESTAURANT' || !(c as any).menuType).slice(0, 15).map((cat, idx) => {
               const palette = theme === 'dark' ? PRODUCT_PALETTE_DARK : PRODUCT_PALETTE_LIGHT;
               const cardColor = palette[idx % 12];
@@ -901,7 +967,7 @@ export default function BillingPage() {
                      backgroundColor: cardColor.bg,
                      color: cardColor.text,
                    }}
-                   className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === cat.id ? 'ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+                   className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === cat.id ? 'ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
                  >
                    <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.05)' }}>
                       {(() => {
@@ -929,11 +995,119 @@ export default function BillingPage() {
                 </button>
               );
            })}
+
+            {/* Combos Category Tile */}
+            {combos.length > 0 && (
+              <button
+                onClick={() => setSelectedCategory('combos')}
+                style={{
+                  backgroundColor: theme === 'dark' ? '#331a1a' : '#fff5f5',
+                  color: theme === 'dark' ? '#ff9b9b' : '#c53030',
+                }}
+                className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 border border-red-500/20 ${selectedCategory === 'combos' ? 'ring-2 ring-red-500/40 scale-105 shadow-2xl' : 'shadow-lg'}`}
+              >
+                <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-red-500/10">
+                  <Star size={14} />
+                </div>
+                <div className="text-center">
+                   <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Combos</h3>
+                   <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{combos.length} deals</p>
+                </div>
+              </button>
+            )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 pt-0.5 scroll-smooth no-scrollbar">
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
+               {/* Show Combos ONLY if 'combos' category is selected */}
+                {selectedCategory === 'combos' && filteredCombos.map((combo, idx) => {
+                  const cardColor = { bg: '#fff5f5', border: '#feb2b2', text: '#9b2c2c', textSub: '#c53030' };
+                  const isInCart = cart.some(item => item.cartItemId === `combo-${combo.id}`);
+                  const darkText = theme === 'dark' ? '#2e2e2e' : '#d0d0d0';
+                  
+                  return (
+                    <div
+                      key={combo.id}
+                      onClick={() => addToCart(combo, 'Full', combo.price, true)}
+                      style={{
+                        backgroundColor: cardColor.bg,
+                        outline: isInCart ? `3px solid ${cardColor.border}` : (theme === 'light' ? '1px solid rgba(0,0,0,0.05)' : 'none'),
+                        outlineOffset: '2px',
+                        boxShadow: theme === 'light' ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'
+                      }}
+                      className={`group relative rounded-xl p-1.5 flex flex-col text-left overflow-hidden hover:scale-[1.03] active:scale-[0.97] aspect-square w-full ${isInCart ? 'shadow-2xl ring-2 ring-offset-2' : 'hover:shadow-xl'} transition-all duration-300 cursor-pointer`}
+                    >
+                      {/* Top Row: HSN & Price */}
+                      <div className="flex justify-between items-start w-full relative z-10">
+                        <span 
+                          className="text-[8px] font-black uppercase tracking-widest"
+                          style={{
+                            color: cardColor.text,
+                            opacity: theme === 'light' ? 0.7 : 0.6
+                          }}
+                        >
+                          COMBO DEAL
+                        </span>
+                        <div className="text-right">
+                          <p className="text-[7px] font-black uppercase opacity-40 leading-none mb-0.5">Price</p>
+                          <span 
+                            className="text-[14px] font-black tracking-tight leading-none"
+                            style={{
+                              color: cardColor.text,
+                            }}
+                          >
+                            ₹{combo.price.toFixed(0)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Middle: Name */}
+                      <div className="flex-1 flex items-center w-full relative z-10 py-0.5">
+                        <h3
+                          className="text-[18px] leading-[1.0] font-black break-words w-full uppercase overflow-hidden line-clamp-2"
+                          style={{
+                            color: cardColor.text,
+                            fontFamily: 'var(--font-bebas-neue)'
+                          }}
+                        >
+                          {combo.name}
+                        </h3>
+                      </div>
+
+                      {/* Bottom Row */}
+                      <div className="w-full relative z-10 flex items-end justify-between">
+                         <div>
+                            <p 
+                              className="text-[7px] font-bold uppercase tracking-widest opacity-60"
+                              style={{ color: cardColor.text }}
+                            >
+                              {combo.items?.length || 0} PRODUCTS
+                            </p>
+                            <p 
+                              className="text-[7px] font-black uppercase tracking-tighter opacity-40"
+                              style={{ color: cardColor.text }}
+                            >
+                              SPECIAL DEAL
+                            </p>
+                         </div>
+                         <div className="opacity-20 group-hover:opacity-40 transition-opacity pb-0.5">
+                            <Star size={14} style={{ color: cardColor.text }} />
+                         </div>
+                      </div>
+
+                      {/* Selection Checkmark */}
+                      {isInCart && (
+                        <div className="absolute bottom-2 right-2 z-30 pointer-events-none">
+                          <div className="bg-red-500 text-white p-0.5 rounded-full shadow-md">
+                            <CheckCircle2 size={12} strokeWidth={3} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+               })}
+
                {filteredProducts.map((product, idx) => {
                   const catIndex = categories.findIndex(c => c.id === product.categoryId);
                   const safeCatIndex = catIndex >= 0 ? catIndex : 0;
@@ -1127,6 +1301,37 @@ export default function BillingPage() {
             </div>
           ) : (
             <div className="space-y-3 flex flex-col pb-6">
+              {/* Show Combos ONLY in List View if 'combos' selected */}
+              {selectedCategory === 'combos' && filteredCombos.map(combo => {
+                const isInCart = cart.some(item => item.cartItemId === `combo-${combo.id}`);
+                return (
+                  <div
+                    key={combo.id}
+                    onClick={() => addToCart(combo, 'Full', combo.price, true)}
+                    className={`w-full flex items-center gap-4 p-3 rounded-[1.25rem] transition-all text-left ${theme === 'dark' ? 'bg-[#1c1c1c] border-red-500/10 hover:bg-[#252525]' : 'bg-red-50 border-red-100 hover:bg-red-100/50'} border ${isInCart ? 'ring-2 ring-red-500 shadow-lg shadow-red-500/10' : 'hover:shadow-md'} cursor-pointer`}
+                  >
+                    <div className={`w-14 h-14 md:w-16 md:h-16 rounded-[0.85rem] overflow-hidden border flex flex-shrink-0 items-center justify-center ${theme === 'dark' ? 'bg-[#252525] border-white/5' : 'bg-white border-red-100'}`}>
+                      <Star className="text-red-500" size={24} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-black text-[13px] md:text-sm ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{combo.name}</h3>
+                        <span className="px-1.5 py-0.5 bg-red-600 text-white text-[7px] font-black uppercase rounded-md tracking-tighter">COMBO</span>
+                      </div>
+                      <p className={`text-[10px] md:text-[11px] font-bold mt-0.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>{combo.items?.length || 0} Products Bundled</p>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                      <p className="font-black text-[15px] md:text-lg text-red-600">₹{combo.price.toFixed(2)}</p>
+                      {isInCart && (
+                        <div className="inline-block px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 mt-1">
+                          <p className="text-[9px] uppercase font-black tracking-widest">In Cart</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
               {filteredProducts.map(product => {
                 const isInCart = cart.some(item => item.id === product.id);
                 return (
@@ -1543,34 +1748,32 @@ export default function BillingPage() {
         {/* Totals & Checkout Section */}
         <div className={`p-3 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-2 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
           <div className="space-y-1.5">
-            {membershipCard ? (
-              <div 
-                className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 transition-all cursor-pointer border border-indigo-500/30 bg-indigo-500/10"
-                onClick={() => setMembershipCard(null)}
-              >
-                <div className="flex items-center gap-2.5">
-                   <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white"><Trophy size={14} /></div>
-                   <span className="text-[11px] font-black uppercase text-indigo-500 tracking-wider">{membershipCard.membershipPlan.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                   <span className="text-[12px] font-black text-emerald-500">-{membershipCard.membershipPlan.discountValue}{membershipCard.membershipPlan.discountType === 'PERCENTAGE' ? '%' : ''}</span>
-                   <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-500 flex items-center justify-center"><Trash2 size={12} /></div>
-                </div>
-              </div>
-            ) : (
-              <div className={`relative flex items-center gap-3 ${theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border-slate-200'} px-4 py-3 rounded-2xl border group transition-all focus-within:border-indigo-500/40 shadow-sm`}>
-                 <QrCode className="text-slate-500 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                 <input 
-                   type="text"
-                   placeholder="Promo / Membership #"
-                   value={membershipSearch}
-                   onChange={(e) => setMembershipSearch(e.target.value)}
-                   onKeyDown={(e) => e.key === 'Enter' && membershipSearch.trim() && validateMembership(membershipSearch.trim())}
-                   className="w-full bg-transparent text-[11px] font-bold outline-none placeholder:opacity-50"
-                 />
-                 {isValidatingMembership && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
-              </div>
-            )}
+
+
+            {/* Manual Discount Field */}
+            <div className={`relative flex items-center gap-3 ${theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border-slate-200'} px-4 py-2.5 rounded-2xl border group transition-all focus-within:border-emerald-500/40 shadow-sm`}>
+               <div 
+                 onClick={() => setManualDiscountType(t => t === 'PERCENTAGE' ? 'FIXED' : 'PERCENTAGE')}
+                 className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${manualDiscountType === 'PERCENTAGE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}
+               >
+                 {manualDiscountType === 'PERCENTAGE' ? <Percent size={14} /> : <span className="text-[10px] font-black">₹</span>}
+               </div>
+               <input 
+                 type="number"
+                 placeholder="Add Discount..."
+                 value={manualDiscount || ''}
+                 onChange={(e) => setManualDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                 className="w-full bg-transparent text-[11px] font-bold outline-none placeholder:opacity-50"
+               />
+               {manualDiscount > 0 && (
+                 <button 
+                   onClick={() => setManualDiscount(0)}
+                   className="text-slate-500 hover:text-rose-500 transition-colors"
+                 >
+                   <Trash2 size={14} />
+                 </button>
+               )}
+            </div>
           </div>
 
           <div className="space-y-2.5">

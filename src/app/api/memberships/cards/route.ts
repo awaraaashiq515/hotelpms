@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { addDays } from 'date-fns';
+import { createNotification } from '@/lib/notificationService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,6 +72,23 @@ export async function POST(request: NextRequest) {
         status: 'ACTIVE',
       },
     });
+
+    // Notify about new membership
+    try {
+      await createNotification({
+        propertyId: plan.propertyId,
+        title: 'New Member Joined',
+        message: `New card ${card.cardNumber} issued for plan "${plan.name}".`,
+        type: 'MEMBERSHIP',
+        priority: 'MEDIUM',
+        metadata: {
+          cardId: card.id,
+          cardNumber: card.cardNumber,
+          planName: plan.name,
+          link: '/memberships'
+        }
+      });
+    } catch (e) {}
 
     return apiResponse(card, 'Membership Card issued', 201);
   } catch (error) {

@@ -11,17 +11,42 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'UNREAD';
+    const status = searchParams.get('status');
+    const autoCleanup = searchParams.get('autoCleanup'); // '24h', '7d', '30d'
+
+    // Perform automatic cleanup if policy is provided
+    if (autoCleanup && autoCleanup !== 'off') {
+      let cleanupDate = new Date();
+      if (autoCleanup === '24h') cleanupDate.setHours(cleanupDate.getHours() - 24);
+      else if (autoCleanup === '7d') cleanupDate.setDate(cleanupDate.getDate() - 7);
+      else if (autoCleanup === '30d') cleanupDate.setDate(cleanupDate.getDate() - 30);
+
+      try {
+        await prisma.notification.deleteMany({
+          where: {
+            propertyId: session.propertyId,
+            createdAt: { lt: cleanupDate }
+          }
+        });
+      } catch (cleanupError) {
+        console.error('Auto-cleanup failed:', cleanupError);
+      }
+    }
+
+    const where: any = {
+      propertyId: session.propertyId,
+    };
+
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
 
     const notifications = await prisma.notification.findMany({
-      where: {
-        propertyId: session.propertyId,
-        status: status as any,
-      },
+      where,
       orderBy: {
         createdAt: 'desc',
       },
-      take: 20,
+      take: 100, // Increase take limit for better visibility
     });
 
     return apiResponse(notifications, 'Notifications fetched successfully');
@@ -55,28 +80,46 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
-    // This could be called internally or by a webhook
-    const body = await request.json();
-    const { propertyId, title, message, type, priority, metadata } = body;
-
-    if (!propertyId || !title || !message) {
-      return apiError(new Error('Missing required fields'), 400);
+    const session = await getSession();
+    if (!session || !session.propertyId) {
+      return apiError(new Error('Unauthorized'), 401);
     }
 
-    const notification = await prisma.notification.create({
-      data: {
-        propertyId,
-        title,
-        message,
-        type: type || 'GENERAL',
-        priority: priority || 'MEDIUM',
-        metadata: metadata ? JSON.stringify(metadata) : null,
-      },
-    });
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const all = searchParams.get('all') === 'true';
+    const olderThan = searchParams.get('olderThan'); // e.g. '24h', '7d'
 
-    return apiResponse(notification, 'Notification created successfully', 201);
+    if (id) {
+      await prisma.notification.delete({ where: { id } });
+      return apiResponse(null, 'Notification deleted successfully');
+    }
+
+    if (all) {
+      await prisma.notification.deleteMany({
+        where: { propertyId: session.propertyId }
+      });
+      return apiResponse(null, 'All notifications cleared');
+    }
+
+    if (olderThan) {
+      let date = new Date();
+      if (olderThan === '24h') date.setHours(date.getHours() - 24);
+      else if (olderThan === '7d') date.setDate(date.getDate() - 7);
+      else if (olderThan === '30d') date.setDate(date.getDate() - 30);
+      
+      const result = await prisma.notification.deleteMany({
+        where: { 
+          propertyId: session.propertyId,
+          createdAt: { lt: date }
+        }
+      });
+      return apiResponse(result, `Deleted ${result.count} old notifications`);
+    }
+
+    return apiError(new Error('Invalid delete request'), 400);
   } catch (error) {
     return apiError(error);
   }

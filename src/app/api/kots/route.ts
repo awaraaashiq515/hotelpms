@@ -59,3 +59,44 @@ export async function GET(request: NextRequest) {
     return apiError(error)
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return apiError(new Error('Unauthorized'), 401);
+    }
+
+    const { searchParams } = new URL(request.url);
+    const propertyIdParam = searchParams.get('propertyId');
+    const hours = searchParams.get('hours');
+    const clearAll = searchParams.get('all') === 'true';
+
+    const where: any = getMultiTenantWhere(session, propertyIdParam);
+
+    if (clearAll) {
+      // Delete all KOTs for the property
+      await (prisma as any).kotTicket.deleteMany({
+        where: where
+      });
+      return apiResponse(null, 'All KOTs cleared successfully');
+    }
+
+    if (hours) {
+      const threshold = new Date();
+      threshold.setHours(threshold.getHours() - parseInt(hours));
+
+      await (prisma as any).kotTicket.deleteMany({
+        where: {
+          ...where,
+          createdAt: { lt: threshold }
+        }
+      });
+      return apiResponse(null, `KOTs older than ${hours} hours cleared successfully`);
+    }
+
+    return apiError(new Error('Invalid cleanup parameters'), 400);
+  } catch (error) {
+    return apiError(error);
+  }
+}

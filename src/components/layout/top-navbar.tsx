@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock } from 'lucide-react';
+import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -62,25 +62,26 @@ export const TopNavbar: React.FC = () => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/pos-orders/notifications');
+      const res = await fetch('/api/notifications?status=UNREAD');
       const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        const latest = data.data[0];
-        const latestKey = `${latest.id}-${latest.type}`;
+      if (data.success) {
+        setUnreadCount(data.data.length);
         
-        console.log("📡 Notification Check:", latestKey, "vs Last:", lastIdRef.current);
-
-        if (lastIdRef.current && latestKey !== lastIdRef.current) {
-          console.log("✨ NEW ALERT DETECTED!");
-          playNotificationSound(latest.message);
-          setUnreadCount(prev => prev + 1);
+        if (data.data.length > 0) {
+          const latest = data.data[0];
+          const latestKey = `${latest.id}-${latest.type}`;
           
-          // Show visual toast
-          setActiveToast(latest.message);
-          setTimeout(() => setActiveToast(null), 5000);
+          if (lastIdRef.current && latestKey !== lastIdRef.current) {
+            console.log("✨ NEW ALERT DETECTED!");
+            playNotificationSound(latest.message);
+            
+            // Show visual toast
+            setActiveToast(latest.message);
+            setTimeout(() => setActiveToast(null), 5000);
+          }
+          
+          lastIdRef.current = latestKey;
         }
-        
-        lastIdRef.current = latestKey;
       }
     } catch (err) {
       console.error('Failed to fetch notifications');
@@ -343,17 +344,23 @@ export const TopNavbar: React.FC = () => {
       </div>
       {/* Global Notification Toast */}
       {activeToast && (
-        <div className="fixed top-20 right-6 z-[999] animate-in slide-in-from-right-10 duration-300">
-          <div className="bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-4">
-            <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center animate-bounce">
-              <Bell size={20} />
+        <div className="fixed top-24 right-6 z-[999] animate-in slide-in-from-right-20 duration-500">
+          <div className="bg-slate-900/90 dark:bg-white/90 backdrop-blur-xl text-white dark:text-slate-900 px-6 py-5 rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 dark:border-black/5 flex items-center gap-5 min-w-[320px] max-w-md">
+            <div className="relative">
+              <div className="w-12 h-12 bg-pos-primary rounded-[18px] flex items-center justify-center shadow-lg shadow-pos-primary/40 animate-pulse">
+                <Bell size={22} className="text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
             </div>
-            <div>
-              <p className="text-[10px] font-black text-pos-primary uppercase tracking-widest">New Alert</p>
-              <p className="text-sm font-bold">{activeToast}</p>
+            <div className="flex-1">
+              <p className="text-[10px] font-black text-pos-primary uppercase tracking-[0.2em] mb-0.5">Notification</p>
+              <p className="text-[13px] font-bold leading-tight tracking-tight">{activeToast}</p>
             </div>
-            <button onClick={() => setActiveToast(null)} className="ml-4 text-slate-500 hover:text-white">
-              <Plus className="rotate-45" size={20} />
+            <button 
+              onClick={() => setActiveToast(null)} 
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 dark:hover:bg-black/5 transition-colors"
+            >
+              <X size={18} />
             </button>
           </div>
         </div>

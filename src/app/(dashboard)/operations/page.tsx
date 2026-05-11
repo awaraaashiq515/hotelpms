@@ -38,7 +38,9 @@ import {
   LayoutGrid,
   Sparkles,
   ArrowRight,
-  Clock
+  Clock,
+  Bell,
+  Trash2
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -119,10 +121,12 @@ export default function OperationsPage() {
     { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: '/counter-payments',  feature: 'POS' },
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: '/kitchen-display',   feature: 'POS' },
+    { label: 'Live Notifications', icon: Bell,             path: '/operations/notifications', feature: 'POS' },
     { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: '/staff/attendance',  feature: 'STAFF' },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: '/drivers',           feature: 'DRIVERS' },
+    { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: '/operations/waste-management', feature: 'POS' },
   ];
 
   const masterConfigs: DashboardAction[] = [

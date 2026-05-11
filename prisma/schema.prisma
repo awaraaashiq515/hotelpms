@@ -121,6 +121,9 @@ model Property {
   inventoryItems       InventoryItem[]
   suppliers            Supplier[]
   notifications        Notification[]
+  combos               Combo[]
+  printers             Printer[]
+  wastes               Waste[]
 
   @@index([organizationId])
 }
@@ -409,10 +412,42 @@ model Product {
   property           Property            @relation(fields: [propertyId], references: [id])
   stockItem          StockItem?          @relation(fields: [stockItemId], references: [id])
   ingredients        ProductIngredient[]
+  comboItems         ComboItem[]
+  wastes             Waste[]
+
 
   @@index([propertyId])
   @@index([categoryId])
 }
+
+model Combo {
+  id          String      @id @default(cuid())
+  propertyId  String
+  name        String
+  description String?
+  price       Float
+  image       String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  property    Property    @relation(fields: [propertyId], references: [id])
+  items       ComboItem[]
+
+  @@index([propertyId])
+}
+
+model ComboItem {
+  id        String  @id @default(cuid())
+  comboId   String
+  productId String
+  quantity  Int     @default(1)
+  combo     Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([comboId])
+  @@index([productId])
+}
+
 
 model ProductVariant {
   id        String   @id @default(cuid())
@@ -1589,5 +1624,58 @@ model Notification {
   property    Property @relation(fields: [propertyId], references: [id])
 
   @@index([propertyId])
+  @@index([status])
+}
+model Printer {
+  id              String   @id @default(cuid())
+  propertyId      String
+  name            String
+  connectionType  String   // NETWORK, USB, BLUETOOTH
+  ipAddress       String?
+  port            Int?     @default(9100)
+  printerType     String   @default("THERMAL") // THERMAL, DOT_MATRIX
+  paperSize       String   @default("80mm") // 58mm, 80mm, CUSTOM
+  customWidth     Int?     // In mm if CUSTOM
+  isBilling       Boolean  @default(false)
+  isKitchen       Boolean  @default(false)
+  isEnabled       Boolean  @default(true)
+  autoCut         Boolean  @default(true)
+  fontSize        Int      @default(12)
+  margin          Int      @default(0)
+  padding         Int      @default(0)
+  billFormat      String?  // JSON string for format settings
+  kotFormat       String?  // JSON string for format settings
+  status          String   @default("OFFLINE") // ONLINE, OFFLINE
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  property        Property @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId])
+}
+
+model Waste {
+  id              String   @id @default(cuid())
+  propertyId      String
+  productId       String?
+  productName     String
+  quantity        Float
+  reason          String   // Refunded, Burnt, Expired, Damaged, Wrong Order, Customer Return, Kitchen Mistake
+  orderNo         String?
+  tableNo         String?
+  staffName       String?
+  costPrice       Float    @default(0)
+  totalCost       Float    @default(0)
+  notes           String?
+  status          String   @default("RECORDED") // RECORDED, REVIEWED, DISPOSED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  property        Property @relation(fields: [propertyId], references: [id])
+  product         Product? @relation(fields: [productId], references: [id])
+
+  @@index([propertyId])
+  @@index([productId])
+  @@index([reason])
   @@index([status])
 }

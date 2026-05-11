@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { getMultiTenantWhere } from '@/lib/api-utils';
 import { recordDriverActivity } from '@/lib/incentive-utils';
+import { createNotification } from '@/lib/notificationService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -92,6 +93,24 @@ export async function POST(request: NextRequest) {
         console.error('[Table Reservation] Incentive Engine Error:', incError);
       }
     }
+
+    // Notify about new reservation
+    try {
+      await createNotification({
+        propertyId,
+        title: 'New Table Reservation',
+        message: `Reservation for ${customerName} on ${date} at ${time}.`,
+        type: 'RESERVATION',
+        priority: 'MEDIUM',
+        metadata: {
+          reservationId: newReservation.id,
+          customerName,
+          date,
+          time,
+          link: '/table-reservations'
+        }
+      });
+    } catch (e) {}
 
     return NextResponse.json({ success: true, data: newReservation });
   } catch (error: any) {

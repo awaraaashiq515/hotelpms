@@ -11,8 +11,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
 
+    const includeProducts = searchParams.get('includeProducts') === 'true';
+
     const categories = await prisma.category.findMany({
       where: getMultiTenantWhere(session, propertyIdParam),
+      include: {
+        _count: {
+          select: { products: true }
+        },
+        ...(includeProducts ? { products: true } : {})
+      },
       orderBy: { name: 'asc' },
     });
 

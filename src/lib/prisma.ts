@@ -24,6 +24,11 @@ export const prisma =
 
     return new PrismaClient({
       log: ['error', 'warn'],
+      // @ts-ignore
+      transactionOptions: {
+        maxWait: 10000, // 10 seconds
+        timeout: 10000, // 10 seconds
+      }
     });
   })();
 

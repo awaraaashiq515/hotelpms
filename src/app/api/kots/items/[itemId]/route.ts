@@ -41,6 +41,35 @@ export async function PATCH(
         }
       });
 
+      // 3. Record as Waste if CANCELLED
+      if (status === 'CANCELLED') {
+        const kot = await tx.kotTicket.findUnique({
+          where: { id: item.kotId },
+          include: { order: true }
+        });
+
+        const product = await tx.product.findUnique({
+          where: { id: item.productId }
+        });
+
+        await tx.waste.create({
+          data: {
+            propertyId: (session as any).propertyId!,
+            productId: item.productId,
+            productName: item.itemName,
+            quantity: item.quantity,
+            reason: 'Kitchen Mistake', // Default for kitchen cancellation
+            orderNo: kot?.order?.orderNo || 'Unknown',
+            tableNo: kot?.tableNo || kot?.order?.tableNo,
+            staffName: (session as any).user?.name || 'Kitchen Staff',
+            costPrice: product?.costPrice || 0,
+            totalCost: (product?.costPrice || 0) * item.quantity,
+            notes: remarks || 'Cancelled in Kitchen',
+            status: 'RECORDED'
+          }
+        });
+      }
+
       // 3. Check if all items in this KOT are now SERVED or CANCELLED
       const allItems = await (tx as any).kotItem.findMany({
         where: { kotId: item.kotId }

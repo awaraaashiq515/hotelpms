@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
           tableId,
           tableName: table.name,
           floorName: table.floor.name,
-          requestType: type
+          requestType: type,
+          link: '/operations/tables'
         }),
       },
     });

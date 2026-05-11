@@ -224,47 +224,46 @@ export async function POST(request: NextRequest) {
 
       // 8. Create Real-Time Notifications for Dashboard
       const itemSummary = newItemsForKot.map(i => `${i.quantity}x ${i.name}`).join(', ');
-      
+      const { createNotification } = await import('@/lib/notificationService');
+
       // Always create an ORDER notification
-      await tx.notification.create({
-        data: {
+      await createNotification({
+        propertyId,
+        title: 'New QR Order Received',
+        message: `New order from Table ${table.name} (${table.floor.name}): ${itemSummary}`,
+        type: 'ORDER',
+        priority: 'MEDIUM',
+        metadata: {
+          tableId,
+          tableName: table.name,
+          floorName: table.floor.name,
+          amount: grandTotal,
+          orderId: order!.id,
+          orderNo: order!.orderNo,
+          items: newItemsForKot.map(i => ({ name: i.name, qty: i.quantity })),
+          link: `/billing?orderId=${order!.id}`
+        },
+      }, tx);
+
+      // If it's a payment (Prepaid/Online), create a second notification for the PAYMENT
+      if (isPrepaid) {
+        await createNotification({
           propertyId,
-          title: 'New QR Order Received',
-          message: `New order from Table ${table.name} (${table.floor.name}): ${itemSummary}`,
-          type: 'ORDER',
-          priority: 'MEDIUM',
-          metadata: JSON.stringify({
+          title: 'Online Payment Received',
+          message: `Payment of ₹${grandTotal.toFixed(2)} received from Table ${table.name} (${table.floor.name})`,
+          type: 'PAYMENT',
+          priority: 'URGENT',
+          metadata: {
             tableId,
             tableName: table.name,
             floorName: table.floor.name,
             amount: grandTotal,
             orderId: order!.id,
             orderNo: order!.orderNo,
-            items: newItemsForKot.map(i => ({ name: i.name, qty: i.quantity }))
-          }),
-        }
-      });
-
-      // If it's a payment (Prepaid/Online), create a second notification for the PAYMENT
-      if (isPrepaid) {
-        await tx.notification.create({
-          data: {
-            propertyId,
-            title: 'Online Payment Received',
-            message: `Payment of ₹${grandTotal.toFixed(2)} received from Table ${table.name} (${table.floor.name})`,
-            type: 'PAYMENT',
-            priority: 'URGENT',
-            metadata: JSON.stringify({
-              tableId,
-              tableName: table.name,
-              floorName: table.floor.name,
-              amount: grandTotal,
-              orderId: order!.id,
-              orderNo: order!.orderNo,
-              paymentMethod: 'UPI'
-            }),
-          }
-        });
+            paymentMethod: 'UPI',
+            link: `/billing?orderId=${order!.id}`
+          },
+        }, tx);
       }
 
       return { orderNo: order!.orderNo, kotNo: kotTicket?.kotNo, isPrepaid };

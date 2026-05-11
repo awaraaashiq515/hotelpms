@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { apiError, apiResponse } from '@/lib/api-utils';
+import { createNotification } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,22 @@ export async function POST(request: NextRequest) {
           locationIn: location
         }
       });
+      // Notify management about clock-in
+      try {
+        await createNotification({
+          propertyId: session.propertyId as string,
+          title: 'Staff Clock-In',
+          message: `${isStaffMember?.name || isUser?.firstName} has clocked in.`,
+          type: 'STAFF',
+          priority: 'LOW',
+          metadata: {
+            userId: targetId,
+            attendanceId: attendance.id,
+            link: '/reports/attendance'
+          }
+        });
+      } catch (e) {}
+
       return apiResponse(attendance, 'Clocked in successfully');
     } else if (action === 'clock-out') {
       const active = await prisma.attendance.findFirst({
@@ -56,6 +73,22 @@ export async function POST(request: NextRequest) {
           locationOut: location
         }
       });
+      // Notify management about clock-out
+      try {
+        await createNotification({
+          propertyId: session.propertyId as string,
+          title: 'Staff Clock-Out',
+          message: `${isStaffMember?.name || isUser?.firstName} has clocked out.`,
+          type: 'STAFF',
+          priority: 'LOW',
+          metadata: {
+            userId: targetId,
+            attendanceId: attendance.id,
+            link: '/reports/attendance'
+          }
+        });
+      } catch (e) {}
+
       return apiResponse(attendance, 'Clocked out successfully');
     }
 

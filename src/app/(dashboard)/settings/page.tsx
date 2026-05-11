@@ -16,7 +16,7 @@ import { UpiPaymentForm } from '@/components/settings/UpiPaymentForm';
 import { TwoFactorSection } from '@/components/settings/TwoFactorSection';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'branding' | 'admin' | 'website'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'branding' | 'admin' | 'website' | 'printers'>('profile');
   const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
@@ -31,7 +31,8 @@ export default function SettingsPage() {
   }, []);
 
   const tabs = [
-    { id: 'profile', label: 'Print Settings', icon: Printer, color: 'text-pos-primary', bg: 'bg-pos-primary/10' },
+    { id: 'profile', label: 'Business Profile', icon: ShieldCheck, color: 'text-pos-primary', bg: 'bg-pos-primary/10' },
+    { id: 'printers', label: 'Printers', icon: Printer, color: 'text-blue-600', bg: 'bg-blue-50' },
     { id: 'payments', label: '💳 UPI Payments', icon: QrCode, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'bar', label: '🍺 Bar POS', icon: Wine, color: 'text-amber-600', bg: 'bg-amber-50' },
     { id: 'admin', label: 'Admin', icon: ShieldCheck, color: 'text-slate-900', bg: 'bg-slate-100' },
@@ -79,6 +80,18 @@ export default function SettingsPage() {
         {activeTab === 'profile' && (
           <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-4xl">
             <BusinessProfileForm />
+          </div>
+        )}
+
+        {activeTab === 'printers' && (
+          <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-4xl">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-gray-100 dark:border-slate-800 shadow-sm">
+                <h3 className="text-xl font-bold mb-4">Printer Management</h3>
+                <p className="text-gray-500 mb-6">Manage your thermal printers for billing and kitchen orders. Configure IP addresses, paper sizes, and roles.</p>
+                <Button variant="primary" onClick={() => window.location.href = '/settings/printers'}>
+                    Go to Printer Settings
+                </Button>
+            </div>
           </div>
         )}
 

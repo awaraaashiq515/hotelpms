@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
+import { createNotification } from '@/lib/notificationService'
 
 const voucherEntrySchema = z.object({
   accountId: z.string().min(1, 'Account ID is required'),
@@ -69,6 +70,23 @@ export async function POST(request: NextRequest) {
         include: { entries: { include: { account: { select: { name: true } } } } }
       })
     })
+
+    // Notify about new voucher
+    try {
+      await createNotification({
+        propertyId,
+        title: `Accounting: ${savedVoucher.voucherType} Posted`,
+        message: `${savedVoucher.voucherType} voucher ${savedVoucher.voucherNo} posted for ₹${savedVoucher.totalDebit}.`,
+        type: 'ACCOUNTING',
+        priority: savedVoucher.totalDebit > 10000 ? 'HIGH' : 'MEDIUM',
+        metadata: {
+          voucherId: savedVoucher.id,
+          voucherNo: savedVoucher.voucherNo,
+          amount: savedVoucher.totalDebit,
+          link: '/accounts'
+        }
+      });
+    } catch (e) {}
 
     return apiResponse(savedVoucher, 'Voucher posted successfully', 201)
   } catch (error) {

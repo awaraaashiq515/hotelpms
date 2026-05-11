@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 
 export async function POST(
   request: NextRequest,
@@ -68,6 +69,48 @@ export async function POST(
            }
          });
       }
+
+      // 4. Record as Waste
+      const invoiceItems = await tx.invoiceItem.findMany({
+        where: { invoiceId: id },
+        include: { product: true }
+      });
+
+      for (const item of invoiceItems) {
+        await tx.waste.create({
+          data: {
+            propertyId: session.propertyId!,
+            productId: item.productId,
+            productName: item.description || item.product?.name || 'Unknown Item',
+            quantity: item.qty,
+            reason: 'Refunded',
+            orderNo: invoice.invoiceNo,
+            tableNo: invoice.tableNo,
+            staffName: (session as any).user?.name || 'Staff',
+            costPrice: item.product?.costPrice || 0,
+            totalCost: (item.product?.costPrice || 0) * item.qty,
+            notes: `Refunded from Invoice ${invoice.invoiceNo}. Reason: ${reason || 'Not specified'}`,
+            status: 'RECORDED'
+          }
+        });
+      }
+
+      // Notify management about refund
+      try {
+        await createNotification({
+          propertyId: session.propertyId!,
+          title: 'Invoice Refunded',
+          message: `Invoice ${invoice.invoiceNo} has been fully refunded. Amount: ₹${invoice.totalAmount}. Reason: ${reason || 'Not specified'}`,
+          type: 'REFUND',
+          priority: 'URGENT',
+          metadata: {
+            invoiceId: id,
+            amount: invoice.totalAmount,
+            reason,
+            link: `/invoices?invoiceId=${id}`
+          }
+        });
+      } catch (e) {}
 
       return updatedInvoice;
     });

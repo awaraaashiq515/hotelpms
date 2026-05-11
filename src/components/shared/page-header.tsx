@@ -36,10 +36,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             variant="secondary"
             size="sm"
             onClick={() => backUrl ? router.push(backUrl) : router.back()}  // ✅ Better back behavior
-            className="h-10 px-3 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 dark:text-white flex items-center gap-2"
+            className="h-9 px-2.5 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 dark:text-white flex items-center gap-1.5"
           >
-            <ChevronLeft size={16} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Back</span>
+            <ChevronLeft size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
           </Button>
         )}
         <div className="space-y-0.5">

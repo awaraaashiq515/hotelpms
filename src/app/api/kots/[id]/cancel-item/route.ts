@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
+import { createNotification } from '@/lib/notificationService'
 import { z } from 'zod'
 
 const cancelItemSchema = z.object({
@@ -52,6 +53,27 @@ export async function POST(
           remarks: `Cancelled item: ${item.itemName}${reason ? ` — Reason: ${reason}` : ''}`,
         },
       })
+
+      // Notify management about cancellation
+      try {
+        const kot = await tx.kotTicket.findUnique({ where: { id: kotId } });
+        if (kot) {
+          await createNotification({
+            propertyId: kot.propertyId,
+            title: 'KOT Item Cancelled',
+            message: `"${item.itemName}" cancelled from KOT #${kot.kotNo} at Table ${kot.tableNo || 'N/A'}. Reason: ${reason || 'Not provided'}`,
+            type: 'CANCELLATION',
+            priority: 'URGENT',
+            metadata: {
+              kotId,
+              itemId,
+              itemName: item.itemName,
+              reason,
+              link: '/kots'
+            }
+          });
+        }
+      } catch (e) {}
 
       return cancelledItem
     })

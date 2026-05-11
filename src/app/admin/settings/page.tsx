@@ -149,7 +149,15 @@ export default function WebsiteSettingsPage() {
         <div className="flex items-center gap-8">
           <div className="relative w-40 h-40 bg-slate-50 dark:bg-slate-800 rounded-[32px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
             {settings.logoUrl ? (
-              <img src={settings.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-4" />
+              <img 
+                src={`${settings.logoUrl}?t=${Date.now()}`} 
+                alt="Logo Preview" 
+                className="w-full h-full object-contain p-4" 
+                onError={(e) => {
+                  // Fallback for broken images
+                  (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f8fafc/64748b?text=Broken+Image';
+                }}
+              />
             ) : (
               <div className="text-center p-4">
                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest leading-tight">No Logo<br/>Uploaded</p>
@@ -185,48 +193,66 @@ export default function WebsiteSettingsPage() {
                       body: formData,
                     });
                     const json = await res.json();
+                    
+                    if (!res.ok) throw new Error(json.error || 'Upload failed');
+                    
                     if (json.success) {
                       const newSettings = { ...settings, logoUrl: json.url };
                       setSettings(newSettings);
                       
                       // Auto-save the logo to the database
-                      await fetch('/api/website/settings', {
+                      const saveRes = await fetch('/api/website/settings', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newSettings),
                       });
-
-                      alert('Logo uploaded and saved successfully!');
+                      
+                      if (saveRes.ok) {
+                        alert('Logo uploaded and saved successfully!');
+                      } else {
+                        alert('Logo uploaded but failed to save settings. Please click "Save Changes" manually.');
+                      }
                     }
-                  } catch (err) {
+                  } catch (err: any) {
                     console.error('Upload failed:', err);
-                    alert('Upload failed');
+                    alert(`Error: ${err.message || 'Upload failed'}`);
                   } finally {
                     setLoading(false);
+                    // Reset input
+                    e.target.value = '';
                   }
                 }}
               />
               <label
                 htmlFor="logo-upload"
-                className="bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-bold cursor-pointer hover:bg-pos-primary transition-all"
+                className={`
+                  bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-bold cursor-pointer transition-all
+                  ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-pos-primary'}
+                `}
               >
-                Upload New Logo
+                {loading ? 'Processing...' : 'Upload New Logo'}
               </label>
               {settings.logoUrl && (
                 <button
+                  disabled={loading}
                   onClick={async () => {
+                    if (!confirm('Are you sure you want to remove the logo?')) return;
+                    
                     const newSettings = { ...settings, logoUrl: '' };
                     setSettings(newSettings);
                     
-                    await fetch('/api/website/settings', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(newSettings),
-                    });
-                    
-                    alert('Logo removed and saved successfully!');
+                    try {
+                      await fetch('/api/website/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newSettings),
+                      });
+                      alert('Logo removed and saved successfully!');
+                    } catch (err) {
+                      alert('Failed to remove logo from database.');
+                    }
                   }}
-                  className="text-red-500 text-xs font-bold hover:underline"
+                  className="text-red-500 text-xs font-bold hover:underline disabled:opacity-50"
                 >
                   Remove
                 </button>
