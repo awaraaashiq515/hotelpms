@@ -122,6 +122,7 @@ export default function OperationsPage() {
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: '/kitchen-display',   feature: 'POS' },
     { label: 'Live Notifications', icon: Bell,             path: '/operations/notifications', feature: 'POS' },
+    { label: 'Notification Settings', icon: Settings,      path: '/settings/notifications', feature: 'POS' },
     { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: '/staff/attendance',  feature: 'STAFF' },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
@@ -174,25 +175,25 @@ export default function OperationsPage() {
 
       {/* Quick Setup Banner */}
       {isAdmin && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[40px] p-10 text-white shadow-2xl animate-in fade-in slide-in-from-top-6 duration-1000 group">
-           <div className="absolute top-0 right-0 w-96 h-96 bg-pos-primary/10 blur-[120px] rounded-full -mr-32 -mt-32" />
-           <div className="relative flex flex-col md:flex-row items-center justify-between gap-10">
-              <div className="space-y-4 text-center md:text-left">
-                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-[0.2em]">
-                    <Sparkles size={14} className="text-pos-primary" />
-                    New Feature: High Efficiency
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-8 text-white shadow-xl animate-in fade-in slide-in-from-top-6 duration-1000 group">
+           <div className="absolute top-0 right-0 w-64 h-64 bg-pos-primary/10 blur-[100px] rounded-full -mr-20 -mt-20" />
+           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 text-center md:text-left">
+                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.2em]">
+                    <Sparkles size={12} className="text-pos-primary" />
+                    High Efficiency Setup
                  </div>
-                 <h2 className="text-3xl md:text-4xl font-black tracking-tight leading-none uppercase">One-Page <span className="text-pos-primary">Setup</span></h2>
-                 <p className="text-white/60 text-sm font-medium max-w-md leading-relaxed">
-                    Configure your entire restaurant database — Products, Categories, Tables, and Inventory — all from a single, unified master page.
+                 <h2 className="text-2xl md:text-3xl font-black tracking-tight leading-none uppercase">One-Page <span className="text-pos-primary">Setup</span></h2>
+                 <p className="text-white/60 text-xs font-medium max-w-md leading-relaxed">
+                    Configure your entire database — Products, Categories, Tables, and Inventory — all from a single master page.
                  </p>
               </div>
               
               <button 
                 onClick={() => window.location.href = '/setup'}
-                className="bg-white text-slate-950 px-10 py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all group/btn"
+                className="bg-white text-slate-950 px-8 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:scale-105 active:scale-95 transition-all group/btn"
               >
-                Start Master Setup <ArrowRight size={18} className="ml-3 inline-block group-hover/btn:translate-x-2 transition-transform" />
+                Start Master Setup <ArrowRight size={16} className="ml-2 inline-block group-hover/btn:translate-x-1 transition-transform" />
               </button>
            </div>
         </div>

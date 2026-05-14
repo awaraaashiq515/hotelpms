@@ -189,6 +189,7 @@ export async function POST(request: NextRequest) {
             propertyId: session.propertyId!,
             outletId: outlet.id,
             restaurantTableId: order.restaurantTableId || null,
+            parkingSlotId: null,
             tableNo: order.tableNo || null,
             roomId: null,
             status: 'NEW',

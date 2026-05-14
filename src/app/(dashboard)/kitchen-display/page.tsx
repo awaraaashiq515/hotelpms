@@ -161,6 +161,13 @@ export default function KitchenDisplayPage() {
   // Served-Hide Settings (minutes; 0 = show all day, hide next day only)
   const [servedHideMinutes, setServedHideMinutes] = useState<number>(0);
 
+  // Refs for current settings to avoid localStorage in interval
+  const settingsRef = useRef({
+    autoAccept: 0,
+    autoReady: 0,
+    servedHide: 0
+  });
+
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
@@ -169,11 +176,23 @@ export default function KitchenDisplayPage() {
   // Load settings from localStorage
   useEffect(() => {
     const savedAccept = localStorage.getItem('kds_auto_accept_time');
-    if (savedAccept) setAutoAcceptTime(parseInt(savedAccept, 10));
+    const acceptVal = savedAccept ? parseInt(savedAccept, 10) : 0;
+    setAutoAcceptTime(acceptVal);
+    
     const savedReady = localStorage.getItem('kds_auto_ready_time');
-    if (savedReady) setAutoReadyTime(parseInt(savedReady, 10));
+    const readyVal = savedReady ? parseInt(savedReady, 10) : 0;
+    setAutoReadyTime(readyVal);
+    
     const savedHide = localStorage.getItem('kds_served_hide_minutes');
-    if (savedHide) setServedHideMinutes(parseInt(savedHide, 10));
+    const hideVal = savedHide ? parseInt(savedHide, 10) : 0;
+    setServedHideMinutes(hideVal);
+
+    settingsRef.current = {
+      autoAccept: acceptVal,
+      autoReady: readyVal,
+      servedHide: hideVal
+    };
+
     const savedVoice = localStorage.getItem('kds_voice_enabled');
     if (savedVoice === 'true') setVoiceEnabled(true);
     const savedVoiceName = localStorage.getItem('kds_selected_voice');
@@ -203,12 +222,14 @@ export default function KitchenDisplayPage() {
 
   const handleAutoAcceptChange = (val: number) => {
     setAutoAcceptTime(val);
+    settingsRef.current.autoAccept = val;
     localStorage.setItem('kds_auto_accept_time', val.toString());
     showToast(`Auto-Accept: ${val === 0 ? 'Disabled' : `${val}s`}`, 'success');
   };
 
   const handleAutoReadyChange = (val: number) => {
     setAutoReadyTime(val);
+    settingsRef.current.autoReady = val;
     localStorage.setItem('kds_auto_ready_time', val.toString());
     const label = AUTO_READY_OPTIONS.find(o => o.value === val)?.label || 'Manual';
     showToast(`Auto-Ready: ${label}`, 'success');
@@ -216,6 +237,7 @@ export default function KitchenDisplayPage() {
 
   const handleServedHideChange = (val: number) => {
     setServedHideMinutes(val);
+    settingsRef.current.servedHide = val;
     localStorage.setItem('kds_served_hide_minutes', val.toString());
     const label = SERVED_HIDE_OPTIONS.find(o => o.value === val)?.label || 'All Day';
     showToast(`Served Hide: ${label}`, 'success');
@@ -391,21 +413,24 @@ export default function KitchenDisplayPage() {
   // - Always hide SERVED orders from previous days (today only on KDS)
   // - If servedHideMinutes > 0, also hide after that many minutes post-serving
   const filterServedOrders = useCallback((data: KotTicket[]): KotTicket[] => {
-    const hideMinutes = parseInt(localStorage.getItem('kds_served_hide_minutes') || '0', 10);
+    const hideMinutes = settingsRef.current.servedHide;
+    const now = Date.now();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const todayStartTime = todayStart.getTime();
 
     return data.filter((k) => {
       if (!['NEW', 'PREPARING', 'READY', 'SERVED'].includes(k.status)) return false;
       if (k.status !== 'SERVED') return true;
 
       // Must be from today
-      const servedAt = new Date(k.updatedAt || k.createdAt);
-      if (servedAt < todayStart) return false;
+      const servedAtDate = new Date(k.updatedAt || k.createdAt);
+      const servedAtTime = servedAtDate.getTime();
+      if (servedAtTime < todayStartTime) return false;
 
       // If a hide timer is set, check elapsed time since updatedAt
       if (hideMinutes > 0) {
-        const minutesElapsed = (Date.now() - servedAt.getTime()) / 60000;
+        const minutesElapsed = (now - servedAtTime) / 60000;
         if (minutesElapsed >= hideMinutes) return false;
       }
 
@@ -455,6 +480,8 @@ export default function KitchenDisplayPage() {
     setCountdown(POLL_INTERVAL);
 
     countdownRef.current = setInterval(() => {
+      const now = Date.now();
+      
       // 1. Update countdown
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -464,31 +491,37 @@ export default function KitchenDisplayPage() {
         return prev - 1;
       });
 
-      // 2. Check for auto-accept and auto-ready
-      setKots(currentKots => {
-        const acceptSettingsTime = parseInt(localStorage.getItem('kds_auto_accept_time') || '0', 10);
-        const readySettingsTime = parseInt(localStorage.getItem('kds_auto_ready_time') || '0', 10);
+      // 2. Heavy checks (Auto Accept/Ready) - Every 3 seconds to save CPU
+      if (now % 3000 < 1000) {
+        setKots(currentKots => {
+          const { autoAccept, autoReady } = settingsRef.current;
+          let changed = false;
 
-        currentKots.forEach(kot => {
-          // Auto Accept
-          if (acceptSettingsTime > 0 && kot.status === 'NEW') {
-            if (getAgeSeconds(kot.createdAt) >= acceptSettingsTime) {
-              handleStatusUpdate(kot.id, 'PREPARING');
+          currentKots.forEach(kot => {
+            if (autoAccept > 0 && kot.status === 'NEW') {
+              if (getAgeSeconds(kot.createdAt) >= autoAccept) {
+                handleStatusUpdate(kot.id, 'PREPARING');
+                changed = true;
+              }
             }
-          }
-          // Auto Ready
-          if (readySettingsTime > 0 && kot.status === 'PREPARING') {
-            // Use updatedAt for ready timer if available, otherwise createdAt
-            if (getAgeSeconds(kot.updatedAt || kot.createdAt) >= readySettingsTime) {
-              handleStatusUpdate(kot.id, 'READY');
+            if (autoReady > 0 && kot.status === 'PREPARING') {
+              if (getAgeSeconds(kot.updatedAt || kot.createdAt) >= autoReady) {
+                handleStatusUpdate(kot.id, 'READY');
+                changed = true;
+              }
             }
-          }
+          });
+          return changed ? [...currentKots] : currentKots;
         });
-        return currentKots;
-      });
+      }
 
-      // 3. Re-apply served hide filter every tick (so cards disappear on schedule)
-      setKots(currentKots => filterServedOrders(currentKots));
+      // 3. Re-apply served hide filter every 5 seconds
+      if (now % 5000 < 1000) {
+        setKots(currentKots => {
+          const filtered = filterServedOrders(currentKots);
+          return filtered.length !== currentKots.length ? filtered : currentKots;
+        });
+      }
     }, 1000);
   }, [fetchKots, filterServedOrders]);
 

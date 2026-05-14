@@ -157,7 +157,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
 
   if (!bill) return null;
 
-  const currentGrandTotal = bill.subtotal - membershipDiscount - (bill.manualDiscount || 0) + bill.tax;
+  const currentGrandTotal = bill.grandTotal || (bill.subtotal - membershipDiscount - (bill.manualDiscount || 0) + bill.tax);
 
   const handleSettle = async () => {
     if (!onSettle || !selectedModeId) return;
@@ -167,7 +167,9 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+              orderId: (bill as any).orderId,
               restaurantTableId: (bill as any).tableId,
+              parkingSlotId: (bill as any).parkingSlotId,
               orderType: (bill as any).orderType || 'DINE_IN',
               paymentModeId: selectedModeId,
               guestId: selectedGuestId || undefined,

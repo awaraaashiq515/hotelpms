@@ -95,6 +95,8 @@ export default function BillingPage() {
   const router = useRouter();
   const tableId = searchParams.get('tableId');
   const tableName = searchParams.get('tableName');
+  const parkingSlotId = searchParams.get('parkingSlotId');
+  const slotName = searchParams.get('slotName');
   const orderIdParam = searchParams.get('orderId');
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -284,12 +286,17 @@ export default function BillingPage() {
   };
 
   const fetchActiveOrder = async () => {
-    if (!tableId && !orderIdParam) return;
+    if (!tableId && !orderIdParam && !parkingSlotId) return;
     try {
-      // If we have an orderId, fetch that specific order. Otherwise fetch by tableId.
-      const query = orderIdParam 
-        ? `orderId=${orderIdParam}` 
-        : `restaurantTableId=${tableId}&status=in_progress`;
+      // Priority: Specific orderId -> Parking Slot -> Table
+      let query = '';
+      if (orderIdParam) {
+        query = `orderId=${orderIdParam}`;
+      } else if (parkingSlotId) {
+        query = `parkingSlotId=${parkingSlotId}&status=in_progress`;
+      } else {
+        query = `restaurantTableId=${tableId}&status=in_progress`;
+      }
         
       const response = await fetch(`/api/pos-orders?${query}`);
       const result = await response.json();
@@ -462,15 +469,34 @@ export default function BillingPage() {
     try {
       const payload = {
         restaurantTableId: tableId || undefined,
-        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-        items: cart.map((item: any) => ({
-          productId: item.id,
-          quantity: item.quantity,
-          unitPrice: item.sellingPrice,
-          portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
-          variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
-          name: item.name 
-        })),
+        parkingSlotId: parkingSlotId || undefined,
+        orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
+        items: cart.map((item: any) => {
+          const itemTotalGross = item.sellingPrice * item.quantity;
+          const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
+          const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
+          
+          const rate = item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5;
+          const type = item.taxType || 'EXCLUSIVE';
+          
+          let itemTax = 0;
+          if (type === 'INCLUSIVE') {
+            itemTax = itemNetAfterDiscount - (itemNetAfterDiscount / (1 + (rate / 100)));
+          } else if (type === 'EXCLUSIVE') {
+            itemTax = itemNetAfterDiscount * (rate / 100);
+          }
+
+          return {
+            productId: item.id,
+            quantity: item.quantity,
+            unitPrice: item.sellingPrice,
+            taxAmount: itemTax,
+            discountAmount: itemDiscount,
+            portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+            variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+            name: item.name 
+          };
+        }),
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined
@@ -487,8 +513,8 @@ export default function BillingPage() {
         // Refresh active order to sync (get core IDs, items properly linked)
         fetchActiveOrder();
         fetchAllActiveOrders();
-        // Redirect to operations/tables as requested
-        router.push('/operations/tables');
+        // Redirect to appropriate operations page
+        router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
       }
     } catch (err) {
       addToast('error', 'Failed to save order');
@@ -503,15 +529,34 @@ export default function BillingPage() {
     try {
       const payload = {
         restaurantTableId: tableId || undefined,
-        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-        items: cart.map((item: any) => ({
-          productId: item.id,
-          quantity: item.quantity,
-          unitPrice: item.sellingPrice,
-          portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
-          variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
-          name: item.name 
-        })),
+        parkingSlotId: parkingSlotId || undefined,
+        orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
+        items: cart.map((item: any) => {
+          const itemTotalGross = item.sellingPrice * item.quantity;
+          const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
+          const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
+          
+          const rate = item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5;
+          const type = item.taxType || 'EXCLUSIVE';
+          
+          let itemTax = 0;
+          if (type === 'INCLUSIVE') {
+            itemTax = itemNetAfterDiscount - (itemNetAfterDiscount / (1 + (rate / 100)));
+          } else if (type === 'EXCLUSIVE') {
+            itemTax = itemNetAfterDiscount * (rate / 100);
+          }
+
+          return {
+            productId: item.id,
+            quantity: item.quantity,
+            unitPrice: item.sellingPrice,
+            taxAmount: itemTax,
+            discountAmount: itemDiscount,
+            portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+            variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+            name: item.name 
+          };
+        }),
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined
@@ -534,7 +579,7 @@ export default function BillingPage() {
           setKotData({
             kotNo: latestKot.kotNo,
             orderNo: orderData.orderNo,
-            tableNo: tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
+            tableNo: slotName || tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
             orderType: orderData.orderType,
             createdAt: latestKot.createdAt,
             items: latestKot.items.map((item: any) => ({
@@ -599,15 +644,34 @@ export default function BillingPage() {
       try {
         const payload = {
           restaurantTableId: tableId || undefined,
-          orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
-          items: cart.map((item: any) => ({
-            productId: item.id,
-            quantity: item.quantity,
-            unitPrice: item.sellingPrice,
-            portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
-            variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
-            name: item.name 
-          })),
+          parkingSlotId: parkingSlotId || undefined,
+          orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
+          items: cart.map((item: any) => {
+            const itemTotalGross = item.sellingPrice * item.quantity;
+            const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
+            const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
+            
+            const rate = item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5;
+            const type = item.taxType || 'EXCLUSIVE';
+            
+            let itemTax = 0;
+            if (type === 'INCLUSIVE') {
+              itemTax = itemNetAfterDiscount - (itemNetAfterDiscount / (1 + (rate / 100)));
+            } else if (type === 'EXCLUSIVE') {
+              itemTax = itemNetAfterDiscount * (rate / 100);
+            }
+
+            return {
+              productId: item.id,
+              quantity: item.quantity,
+              unitPrice: item.sellingPrice,
+              taxAmount: itemTax,
+              discountAmount: itemDiscount,
+              portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
+              variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
+              name: item.name 
+            };
+          }),
           guestId: selectedGuestId || undefined,
           guestCount: orderType === 'DINE_IN' ? guestCount : 1,
           driverId: selectedDriver?.id || undefined
@@ -639,7 +703,7 @@ export default function BillingPage() {
     
     const orderToPrint = hasCartItems ? {
       orderNo: activeOrder?.orderNo || `POS-${Date.now()}`,
-      tableNo: tableName || activeOrder?.tableNo || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Take Away' : 'Walk-in'),
+      tableNo: slotName || tableName || activeOrder?.tableNo || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Take Away' : 'Walk-in'),
       items: cart.map((item: any) => ({
         product: item,
         quantity: item.quantity,
@@ -656,7 +720,7 @@ export default function BillingPage() {
 
     const mappedBill: BillData = {
       orderNo: orderToPrint.orderNo,
-      tableNo: tableName || orderToPrint.tableNo || (orderToPrint.orderType === 'DELIVERY' ? 'Delivery' : (orderToPrint.orderType === 'TAKEAWAY' || orderToPrint.orderType === 'PICKUP') ? 'Take Away' : 'Walk-in'),
+      tableNo: slotName || tableName || orderToPrint.tableNo || (orderToPrint.orderType === 'DELIVERY' ? 'Delivery' : (orderToPrint.orderType === 'TAKEAWAY' || orderToPrint.orderType === 'PICKUP' || orderToPrint.orderType === 'PARKING') ? 'Take Away' : 'Walk-in'),
       items: orderToPrint.items.map((i: any) => ({
         id: i.productId || i.id,
         name: i.product?.name || i.itemName || 'Item',
@@ -672,8 +736,8 @@ export default function BillingPage() {
       orderId: orderToPrint.id,
       tableId: tableId || undefined,
       driverId: selectedDriver?.id || activeOrder?.driverId,
-      membershipDiscount: membershipDiscount || orderToPrint.membershipDiscount || 0,
-      manualDiscount: manualDiscount || orderToPrint.manualDiscount || 0,
+      membershipDiscount: membershipDiscountAmount || orderToPrint.membershipDiscount || 0,
+      manualDiscount: manualDiscountAmount || orderToPrint.manualDiscount || 0,
       membershipCard: membershipCard || orderToPrint.membershipCard
     } as any;
     
@@ -691,14 +755,15 @@ export default function BillingPage() {
     try {
       const payload = {
         restaurantTableId: tableId || undefined,
-        orderType: orderType === 'PICKUP' ? 'TAKEAWAY' : orderType,
+        parkingSlotId: parkingSlotId || undefined,
+        orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
         paymentModeId: paymentModeId,
         guestId: guestId || selectedGuestId || undefined,
         driverId: driverId || selectedDriver?.id || undefined,
         totalAmount: grandTotal,
         membershipCardId: membershipCard?.id || null,
-        membershipDiscount: membershipDiscount || 0,
-        manualDiscount: manualDiscount || 0,
+        membershipDiscount: membershipDiscountAmount || 0,
+        manualDiscount: manualDiscountAmount || 0,
         items: cart.map((item: any) => ({
           id: item.id,
           name: item.name,
@@ -802,35 +867,35 @@ export default function BillingPage() {
     return matchesCategory && matchesSearch && c.isActive !== false;
   });
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
-  let membershipDiscount = 0;
+  const grossSubtotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
+  
+  let membershipDiscountAmount = 0;
   if (membershipCard) {
     const { discountType, discountValue, minOrderValue } = membershipCard.membershipPlan;
-    if (subtotal >= minOrderValue) {
+    if (grossSubtotal >= minOrderValue) {
       if (discountType === 'PERCENTAGE') {
-        membershipDiscount = (subtotal * discountValue) / 100;
+        membershipDiscountAmount = (grossSubtotal * discountValue) / 100;
       } else {
-        membershipDiscount = discountValue;
+        membershipDiscountAmount = discountValue;
       }
     }
   }
 
-  let totalManualDiscount = 0;
+  let manualDiscountAmount = 0;
   if (manualDiscount > 0) {
     if (manualDiscountType === 'PERCENTAGE') {
-      totalManualDiscount = (subtotal * manualDiscount) / 100;
+      manualDiscountAmount = (grossSubtotal * manualDiscount) / 100;
     } else {
-      totalManualDiscount = manualDiscount;
+      manualDiscountAmount = manualDiscount;
     }
   }
 
-  const combinedDiscount = membershipDiscount + totalManualDiscount;
+  const combinedDiscount = membershipDiscountAmount + manualDiscountAmount;
 
   // Calculate dynamic subtotal, taxes, and grand total based on product settings
   const { totalNetSubtotal, totalTax, totalPayable } = cart.reduce((acc, item) => {
     const itemTotalGross = item.sellingPrice * item.quantity;
     // Calculate proportional discount for this item based on its share of the total gross subtotal
-    const grossSubtotal = cart.reduce((sum, i) => sum + (i.sellingPrice * i.quantity), 0);
     const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
     const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
     
@@ -864,7 +929,10 @@ export default function BillingPage() {
 
   const tax = totalTax;
   const grandTotal = totalPayable;
-  const displayedSubtotal = totalNetSubtotal;
+  const displayedSubtotal = grossSubtotal; // Show gross subtotal before tax and discount for better UX? 
+  // Wait, let's show gross subtotal as the "Sub-Total" line in the UI, then show discount, then tax.
+  // In the current UI, it shows "Sub-Total" and then "Taxes" and "Total Payable".
+  // If we show gross subtotal, we should also show a "Discount" line.
 
   // Generate dynamic tax label
   const uniqueRates = Array.from(new Set(cart.map((item: any) => item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5)));
@@ -1781,6 +1849,12 @@ export default function BillingPage() {
               <span>Sub-Total</span>
               <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{displayedSubtotal.toFixed(2)}</span>
             </div>
+            {combinedDiscount > 0 && (
+              <div className="flex justify-between items-center text-[11px] font-black text-rose-500 uppercase tracking-widest px-1">
+                <span>Discount</span>
+                <span>-₹{combinedDiscount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest px-1">
               <span>{taxLabel}</span>
               <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{tax.toFixed(2)}</span>

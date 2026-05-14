@@ -2,49 +2,82 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  ChevronLeft, Map, CarFront, Plus, RefreshCcw, 
-  Edit2, Trash2, Power, QrCode 
+import {
+  LayoutGrid, RefreshCcw, Plus,
+  Search, Filter, ChevronRight,
+  Map, Monitor, Utensils,
+  Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft,
+  CarFront
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { Modal } from '@/components/ui/Modal';
 import { ParkingLayoutView } from '@/components/tables/ParkingLayoutView';
 import { QRModal } from '@/components/tables/QRModal';
+import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
+import { BillModal, BillData } from '@/components/billing/BillModal';
+import { MarkWasteModal } from '@/components/modals/MarkWasteModal';
+import { customersApi } from '@/lib/api/customers';
 
-export default function ParkingPage() {
+interface ParkingSlot {
+  id: string;
+  name: string;
+  status: 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'BILL_PRINTED';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  propertyId: string;
+  activeOrder?: any;
+}
+
+export default function ParkingOperationsPage() {
   const router = useRouter();
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [parkingSlots, setParkingSlots] = useState<any[]>([]);
-  const [floors, setFloors] = useState<any[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [propertyData, setPropertyData] = useState<any>(null);
+  const [paymentModes, setPaymentModes] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   
-  // Parking Form State
-  const [isParkingFormOpen, setIsParkingFormOpen] = useState(false);
-  const [parkingSlotName, setParkingSlotName] = useState('');
-  const [editingParkingSlot, setEditingParkingSlot] = useState<any | null>(null);
-  
-  // QR Modal State
+  // Selected state
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const selectedSlot = parkingSlots.find(s => s.id === selectedSlotId);
+
+  // Modals Data
+  const [kotSlip, setKotSlip] = useState<KotSlipData | null>(null);
+  const [billData, setBillData] = useState<BillData | null>(null);
+  const [isFinalInvoice, setIsFinalInvoice] = useState(false);
   const [isParkingQROpen, setIsParkingQROpen] = useState(false);
-  const [selectedParkingSlot, setSelectedParkingSlot] = useState<any | null>(null);
+  const [selectedParkingSlotForQR, setSelectedParkingSlotForQR] = useState<any | null>(null);
+
+  // Waste Modal
+  const [isWasteModalOpen, setIsWasteModalOpen] = useState(false);
+  const [wasteOrderData, setWasteOrderData] = useState<any | null>(null);
+  const [wasteLoading, setWasteLoading] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [slotsRes, floorsRes, propsRes] = await Promise.all([
+      const [slotsRes, pmRes, custRes, propRes] = await Promise.all([
         fetch('/api/parking-slots'),
-        fetch('/api/floors'),
+        fetch('/api/payment-modes'),
+        fetch('/api/customers'),
         fetch('/api/admin/properties')
       ]);
-      const slotsJson = await slotsRes.json();
-      const floorsJson = await floorsRes.json();
-      const propsJson = await propsRes.json();
+
+      const sData = await slotsRes.json();
+      const pData = await pmRes.json();
+      const cData = await custRes.json();
+      const prData = await propRes.json();
+
+      if (sData.success) setParkingSlots(sData.data);
+      if (pData.success) setPaymentModes(pData.data);
+      if (cData.success || Array.isArray(cData)) setCustomers(Array.isArray(cData) ? cData : cData.data || []);
+      if (prData.success && prData.data.length > 0) setPropertyData(prData.data[0]);
       
-      if (slotsJson.success) setParkingSlots(slotsJson.data);
-      if (floorsJson.success) setFloors(floorsJson.data);
-      if (propsJson.success && propsJson.data.length > 0) setPropertyData(propsJson.data[0]);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
+    } catch (error) {
+      console.error('Failed to fetch parking data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,52 +86,196 @@ export default function ParkingPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(() => {
+      if (!isEditMode && !billData && !kotSlip && !isWasteModalOpen) fetchData();
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isEditMode, billData, kotSlip, isWasteModalOpen]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
 
-  const handleSaveParkingSlot = async () => {
-    if (!parkingSlotName.trim()) return;
+  const fetchOrderPrintData = async (orderId: string) => {
     try {
-      const url = editingParkingSlot ? `/api/parking-slots/${editingParkingSlot.id}` : '/api/parking-slots';
-      const method = editingParkingSlot ? 'PATCH' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: parkingSlotName.trim() })
+      const res = await fetch(`/api/orders/${orderId}/print`);
+      const result = await res.json();
+      return result.success ? result.data : null;
+    } catch (err) {
+      console.error('Failed to fetch print data:', err);
+      return null;
+    }
+  };
+
+  const handlePrintKOT = async (slot: ParkingSlot) => {
+    if (!slot.activeOrder?.id) return;
+    const order = await fetchOrderPrintData(slot.activeOrder.id);
+    if (!order || !order.kotTickets?.length) return;
+
+    const allItems: any[] = [];
+    order.kotTickets.forEach((kot: any) => {
+      kot.items.forEach((item: any) => {
+        const name = item.itemName || item.product?.name || 'Unknown Item';
+        const existing = allItems.find(i => i.name === name);
+        if (existing) {
+          existing.quantity += item.quantity;
+        } else {
+          allItems.push({
+            name: name,
+            quantity: item.quantity,
+            notes: item.notes
+          });
+        }
       });
+    });
+
+    const latestKot = order.kotTickets[order.kotTickets.length - 1];
+    setKotSlip({
+      kotNo: latestKot.kotNo,
+      orderNo: order.orderNo,
+      tableNo: slot.name,
+      orderType: order.orderType,
+      createdAt: latestKot.createdAt,
+      items: allItems
+    });
+  };
+
+  const handlePrintBill = async (slot: ParkingSlot) => {
+    if (!slot.activeOrder?.id) return;
+    const order = await fetchOrderPrintData(slot.activeOrder.id);
+    if (!order) return;
+
+    setIsFinalInvoice(false);
+    setBillData({
+      orderNo: order.orderNo,
+      tableNo: slot.name,
+      items: order.items.map((i: any) => ({
+        id: i.productId || i.id,
+        name: i.product.name,
+        quantity: i.quantity,
+        price: i.unitPrice || i.product.sellingPrice,
+        hsnCode: i.product.hsnCode
+      })),
+      subtotal: order.subtotal,
+      tax: order.taxAmount || (order.subtotal * 0.05),
+      grandTotal: order.grandTotal,
+      createdAt: order.createdAt,
+      tableId: undefined, // Parking doesn't use tableId for settlement this way
+      orderId: order.id,
+      parkingSlotId: slot.id // Add parkingSlotId to BillData
+    } as any);
+
+    try {
+      await fetch(`/api/parking-slots/${slot.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'BILL_PRINTED' })
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Failed to mark bill printed', error);
+    }
+  };
+
+  const handleMarkWaste = async (slot: ParkingSlot) => {
+    if (!slot.activeOrder?.id) return;
+    setWasteLoading(true);
+    try {
+      const order = await fetchOrderPrintData(slot.activeOrder.id);
+      if (!order) return;
+      setWasteOrderData(order);
+      setIsWasteModalOpen(true);
+    } catch (error) {
+      console.error('Waste modal error:', error);
+    } finally {
+      setWasteLoading(false);
+    }
+  };
+
+  const handleSettleOrder = async (paymentModeId: string, guestId?: string, driverId?: string) => {
+    if (!billData?.orderId) return;
+
+    try {
+      const res = await fetch('/api/orders/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: billData.orderId,
+          paymentModeId: paymentModeId,
+          guestId: guestId,
+          driverId: driverId,
+          totalAmount: billData.grandTotal,
+          items: billData.items.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.price
+          }))
+        })
+      });
+
       const result = await res.json();
       if (result.success) {
-        setIsParkingFormOpen(false);
-        setParkingSlotName('');
-        setEditingParkingSlot(null);
+        setIsFinalInvoice(true);
         fetchData();
+      } else {
+        alert(result.message || 'Settlement failed');
       }
-    } catch { alert('An error occurred'); }
+    } catch (error) {
+      console.error('Settlement error:', error);
+    }
+  };
+
+  const handleSlotPositionChange = async (id: string, x: number, y: number) => {
+    setParkingSlots(prev => prev.map(s => s.id === id ? { ...s, x, y } : s));
+    try {
+      await fetch(`/api/parking-slots/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x, y })
+      });
+    } catch (error) {
+      fetchData();
+    }
+  };
+
+  const handleSlotResize = async (id: string, width: number, height: number) => {
+    setParkingSlots(prev => prev.map(s => s.id === id ? { ...s, width, height } : s));
+    try {
+      await fetch(`/api/parking-slots/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ width, height })
+      });
+    } catch (error) {
+      fetchData();
+    }
   };
 
   const handleDeleteParkingSlot = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this slot?')) return;
+    if (!confirm('Are you sure you want to delete this parking slot?')) return;
     try {
       const res = await fetch(`/api/parking-slots/${id}`, { method: 'DELETE' });
-      const result = await res.json();
-      if (result.success) fetchData();
-    } catch { alert('An error occurred'); }
+      if (res.ok) {
+        fetchData();
+        if (selectedSlotId === id) setSelectedSlotId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete slot:', err);
+    }
   };
 
   const handleResetParkingSlot = async (id: string) => {
+    if (!confirm(`Are you sure you want to reset this slot to VACANT?`)) return;
     try {
-      await fetch(`/api/parking-slots/${id}`, { 
-        method: 'PATCH', 
-        headers: { 'Content-Type': 'application/json' }, 
+      await fetch(`/api/parking-slots/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'VACANT' }) 
       });
       fetchData();
+      setSelectedSlotId(null);
     } catch { /* silent */ }
   };
 
@@ -106,7 +283,7 @@ export default function ParkingPage() {
     total: parkingSlots.length,
     occupied: parkingSlots.filter(s => s.status !== 'VACANT').length,
     vacant: parkingSlots.filter(s => s.status === 'VACANT').length,
-    billed: 0
+    billed: parkingSlots.filter(s => s.status === 'BILL_PRINTED').length
   };
 
   return (
@@ -135,7 +312,7 @@ export default function ParkingPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-2xl border border-white/5 shadow-inner transition-colors">
+          <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-2xl border border-white/5 shadow-inner">
             <div className="px-4 py-2 text-center border-r border-white/10">
               <p className="text-[9px] font-black text-white/40 uppercase tracking-wider">Total</p>
               <p className="text-sm font-black text-white">{stats.total}</p>
@@ -144,11 +321,24 @@ export default function ParkingPage() {
               <p className="text-[9px] font-black text-emerald-400/80 uppercase tracking-wider">Free</p>
               <p className="text-sm font-black text-emerald-400">{stats.vacant}</p>
             </div>
-            <div className="px-4 py-2 text-center">
+            <div className="px-4 py-2 text-center border-r border-white/10">
               <p className="text-[9px] font-black text-red-400/80 uppercase tracking-wider">Live</p>
               <p className="text-sm font-black text-red-400">{stats.occupied}</p>
             </div>
+            <div className="px-4 py-2 text-center">
+              <p className="text-[9px] font-black text-blue-400/80 uppercase tracking-wider transition-colors">Billed</p>
+              <p className="text-sm font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] transition-colors">{stats.billed}</p>
+            </div>
           </div>
+
+          <Button
+            variant={isEditMode ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest flex items-center shadow-lg ${isEditMode ? 'bg-pos-primary shadow-pos-primary/20 text-white' : ''}`}
+          >
+            {isEditMode ? 'Done Editing' : 'Edit Layout'}
+          </Button>
 
           <Button
             variant="secondary"
@@ -164,17 +354,15 @@ export default function ParkingPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 bg-black/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden transition-colors relative z-10">
-        {/* Navigation Tabs (Floors + Parking) */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-white/10 overflow-x-auto no-scrollbar transition-colors">
-          {floors.map(floor => (
-            <button
-              key={floor.id}
-              onClick={() => router.push(`/operations/tables?floorId=${floor.id}`)}
-              className="px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap bg-white/5 text-white/40 border-white/5 hover:border-white/20 hover:text-white/80"
-            >
-              {floor.name}
-            </button>
-          ))}
+        {/* Tabs Area */}
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-white/10 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => router.push('/operations/tables')}
+            className="px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-white/5 text-white/40 border-white/5 hover:border-indigo-500/50 hover:text-indigo-400"
+          >
+            <Utensils size={14} />
+            Ground Floor
+          </button>
           <button
             className="px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
           >
@@ -183,20 +371,118 @@ export default function ParkingPage() {
           </button>
         </div>
 
-        {/* Parking Content */}
+        {/* Selected Slot Action Toolbar (Table-style) */}
+        {selectedSlot && !isEditMode && (
+          <div className="px-6 py-4 bg-indigo-600 text-white flex items-center justify-between shadow-2xl animate-in slide-in-from-top duration-300 z-50">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-black">
+                  {selectedSlot.name}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-70 leading-tight">Selected Slot</p>
+                  <p className="text-sm font-black uppercase tracking-tight leading-tight">{selectedSlot.status.replace('_', ' ')}</p>
+                </div>
+              </div>
+
+              <div className="h-10 w-[1px] bg-white/20" />
+
+              <div className="flex items-center gap-2">
+                {selectedSlot.activeOrder?.kotCount ? (
+                   <button
+                    onClick={() => { handlePrintKOT(selectedSlot); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                  >
+                    <Utensils size={14} />
+                    Print KOT
+                  </button>
+                ) : null}
+                {selectedSlot.status !== 'VACANT' && (
+                  <button
+                    onClick={() => { handlePrintBill(selectedSlot); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-pos-primary hover:bg-red-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
+                  >
+                    <Receipt size={14} />
+                    Print Bill
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelectedParkingSlotForQR(selectedSlot); setIsParkingQROpen(true); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-pos-accent-soft text-pos-accent hover:bg-pos-accent hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-pos-accent/20"
+                >
+                  <QrCode size={14} />
+                  QR Code
+                </button>
+                <button
+                  onClick={() => { handleResetParkingSlot(selectedSlot.id); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-900/40 hover:bg-slate-900/60 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                >
+                  <Power size={14} />
+                  Reset
+                </button>
+                <button
+                  onClick={() => { router.push(`/billing?parkingSlotId=${selectedSlot.id}&slotName=${selectedSlot.name}`); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
+                >
+                  <Eye size={14} />
+                  Open POS
+                </button>
+                {selectedSlot.status !== 'VACANT' && (
+                  <button
+                    onClick={() => { handleMarkWaste(selectedSlot); }}
+                    disabled={wasteLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-100 hover:bg-red-500 hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-red-500/30"
+                  >
+                    <Trash2 size={14} />
+                    {wasteLoading ? 'Loading...' : 'Waste'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSelectedSlotId(null)}
+              className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="px-6 py-3 bg-[#0a0c10] flex flex-wrap gap-6 border-b border-white/5">
+          {[
+            { label: 'Vacant', color: 'bg-emerald-400' },
+            { label: 'Occupied', color: 'bg-red-400' },
+            { label: 'KOT Running', color: 'bg-amber-400' },
+            { label: 'Bill Printed', color: 'bg-blue-400' },
+          ].map((item: any) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{item.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Grid / Layout View */}
         <div className="flex-1 p-0 relative">
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 p-6">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+              {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
             </div>
           ) : (
             <ParkingLayoutView
               slots={parkingSlots}
-              onNewSlot={() => { setEditingParkingSlot(null); setParkingSlotName(''); setIsParkingFormOpen(true); }}
-              onEditSlot={(slot) => { setEditingParkingSlot(slot); setParkingSlotName(slot.name); setIsParkingFormOpen(true); }}
+              isEditMode={isEditMode}
+              selectedSlotId={selectedSlotId}
+              onSelectSlot={(slot) => setSelectedSlotId(slot?.id || null)}
+              onSlotPositionChange={handleSlotPositionChange}
+              onSlotResize={handleSlotResize}
+              onNewSlot={() => { }}
+              onEditSlot={() => { }}
               onDeleteSlot={handleDeleteParkingSlot}
               onResetSlot={handleResetParkingSlot}
-              onShowQR={(slot) => { setSelectedParkingSlot(slot); setIsParkingQROpen(true); }}
+              onShowQR={(slot) => { setSelectedParkingSlotForQR(slot); setIsParkingQROpen(true); }}
               onBillingNavigate={(id, name) => router.push(`/billing?parkingSlotId=${id}&slotName=${name}`)}
             />
           )}
@@ -204,45 +490,46 @@ export default function ParkingPage() {
       </div>
 
       {/* Modals */}
-      <Modal
-        isOpen={isParkingFormOpen}
-        onClose={() => { setIsParkingFormOpen(false); setEditingParkingSlot(null); setParkingSlotName(''); }}
-        title={editingParkingSlot ? 'Edit Parking Slot' : 'Add Parking Slot'}
-      >
-        <div className="space-y-5 py-2">
-          <div>
-            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Slot Name / Number</label>
-            <input
-              autoFocus
-              value={parkingSlotName}
-              onChange={e => setParkingSlotName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSaveParkingSlot()}
-              placeholder="e.g. P-01, Slot A"
-              className="w-full h-12 px-4 rounded-2xl border border-slate-200 focus:border-amber-400 outline-none text-sm font-semibold transition-colors"
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setIsParkingFormOpen(false)}>Cancel</Button>
-            <Button variant="primary" className="bg-amber-500 hover:bg-amber-600" onClick={handleSaveParkingSlot}>Save Slot</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {isParkingQROpen && selectedParkingSlot && propertyData && (
-        <QRModal
-          isOpen={isParkingQROpen}
-          onClose={() => { setIsParkingQROpen(false); setSelectedParkingSlot(null); }}
-          table={{
-            id: selectedParkingSlot.id,
-            name: selectedParkingSlot.name,
-            qrToken: selectedParkingSlot.qrToken
-          }}
-          property={{
-            name: propertyData.name,
-            code: propertyData.code
-          }}
-        />
-      )}
+      <KotSlipModal kot={kotSlip} onClose={() => setKotSlip(null)} />
+      <BillModal
+        bill={billData}
+        onClose={() => {
+          setBillData(null);
+          setIsFinalInvoice(false);
+        }}
+        onSettle={handleSettleOrder}
+        paymentModes={paymentModes}
+        customers={customers}
+        onAddCustomer={async (data: { firstName: string; lastName: string; mobile: string }) => {
+          const newGuest = await customersApi.create(data);
+          if (newGuest) {
+            fetchData();
+            return newGuest;
+          }
+          throw new Error('Failed to add customer');
+        }}
+        isProforma={!isFinalInvoice}
+      />
+      <QRModal
+        isOpen={isParkingQROpen}
+        onClose={() => setIsParkingQROpen(false)}
+        type="PARKING"
+        table={selectedParkingSlotForQR ? { ...selectedParkingSlotForQR, name: selectedParkingSlotForQR.name } : null}
+        property={propertyData} 
+      />
+      <MarkWasteModal 
+        isOpen={isWasteModalOpen}
+        onClose={() => {
+          setIsWasteModalOpen(false);
+          setWasteOrderData(null);
+        }}
+        order={wasteOrderData}
+        table={selectedSlot ? { ...selectedSlot, name: selectedSlot.name } as any : null}
+        onSuccess={() => {
+          fetchData();
+          setSelectedSlotId(null);
+        }}
+      />
     </div>
   );
 }

@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       let newTotal = 0;
 
       if (newQty <= 0) {
+        await tx.kotItem.deleteMany({ where: { orderItemId: orderItem.id } });
         await (tx as any).posOrderItem.delete({ where: { id: orderItem.id } });
       } else {
         newTotal = newQty * orderItem.unitPrice;

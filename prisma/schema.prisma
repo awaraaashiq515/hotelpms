@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -121,6 +121,7 @@ model Property {
   inventoryItems       InventoryItem[]
   suppliers            Supplier[]
   notifications        Notification[]
+  notificationPrefs    NotificationPreference[]
   combos               Combo[]
   printers             Printer[]
   wastes               Waste[]
@@ -546,6 +547,8 @@ model KotTicket {
   property          Property       @relation(fields: [propertyId], references: [id])
   order             PosOrder       @relation(fields: [orderId], references: [id])
   table             Table?         @relation(fields: [restaurantTableId], references: [id])
+  parkingSlotId     String?
+  parkingSlot       ParkingSlot?   @relation(fields: [parkingSlotId], references: [id])
 
   @@index([propertyId])
   @@index([orderId])
@@ -1602,10 +1605,15 @@ model ParkingSlot {
   name       String
   status     String     @default("VACANT")
   qrToken    String?    @unique @default(cuid())
+  width      Int?       @default(256)
+  height     Int?       @default(350)
+  x          Float?     @default(0)
+  y          Float?     @default(0)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   property   Property   @relation(fields: [propertyId], references: [id])
   posOrders  PosOrder[] @relation("ParkingOrders")
+  kotTickets KotTicket[]
 
   @@index([propertyId])
 }
@@ -1678,4 +1686,18 @@ model Waste {
   @@index([productId])
   @@index([reason])
   @@index([status])
+}
+
+model NotificationPreference {
+  id           String   @id @default(cuid())
+  propertyId   String
+  type         String   // e.g., 'ORDER', 'PAYMENT', 'INVENTORY', etc.
+  isEnabled    Boolean  @default(true)
+  soundEnabled Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  property     Property @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, type])
+  @@index([propertyId])
 }

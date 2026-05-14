@@ -35,15 +35,39 @@ interface Notification {
 }
 
 export function NotificationOverlay() {
+  const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [preferences, setPreferences] = useState<Record<string, boolean>>({}); // type -> soundEnabled
 
-  const playSound = useCallback(() => {
+  const fetchPrefs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings/notifications');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const soundMap: Record<string, boolean> = {};
+        json.data.forEach((p: any) => {
+          // Handle SQLite 0/1 or standard boolean
+          soundMap[p.type] = p.soundEnabled === 1 || p.soundEnabled === true || p.soundEnabled === 'true';
+        });
+        setPreferences(soundMap);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notification preferences', err);
+    }
+  }, []);
+
+  const playSound = useCallback((type: string) => {
     if (!isAudioEnabled) return;
+    
+    // Check specific type preference
+    const soundEnabled = preferences[type] ?? true; // Default to true if not found
+    if (!soundEnabled) return;
+
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     audio.play().catch(e => console.log('Audio play failed', e));
-  }, [isAudioEnabled]);
+  }, [isAudioEnabled, preferences]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -51,20 +75,26 @@ export function NotificationOverlay() {
       const json = await res.json();
       if (json.success) {
         if (json.data.length > notifications.length) {
-          playSound();
+          // Play sound for the newest notification's type
+          const newest = json.data[0];
+          if (newest) {
+            playSound(newest.type);
+          }
         }
         setNotifications(json.data);
       }
     } catch (err) {
       console.error('Failed to fetch notifications', err);
     }
-  }, [notifications.length, isAudioEnabled]);
+  }, [notifications.length, playSound]);
 
   useEffect(() => {
+    setMounted(true);
+    fetchPrefs();
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 5000); // Poll every 5s for faster response
     return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  }, [fetchNotifications, fetchPrefs]);
 
   const dismissNotification = async (id: string) => {
     try {
@@ -97,6 +127,8 @@ export function NotificationOverlay() {
     return <Bell className="text-pos-primary" />;
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="fixed top-20 right-6 z-[9999] flex flex-col gap-2 w-72 pointer-events-none">
       <div className="flex justify-end mb-1 pointer-events-auto">
@@ -110,7 +142,12 @@ export function NotificationOverlay() {
       </div>
       <AnimatePresence>
         {notifications.map((notification) => {
-          const metadata = notification.metadata ? JSON.parse(notification.metadata) : {};
+          let metadata = {};
+          try {
+            metadata = notification.metadata ? JSON.parse(notification.metadata) : {};
+          } catch (e) {
+            console.error('Failed to parse metadata', e);
+          }
           
           return (
             <motion.div
@@ -123,7 +160,7 @@ export function NotificationOverlay() {
               <div className={`
                 relative bg-white dark:bg-slate-900 
                 rounded-2xl shadow-xl border-l-4 p-3 flex gap-3
-                ${notification.type === 'ORDER' ? 'border-emerald-500' : 
+                ${notification.type === 'ORDER' ? 'border-emerald-50' : 
                   notification.type === 'ASSISTANCE' ? 'border-amber-500' :
                   notification.priority === 'URGENT' ? 'border-amber-500' : 'border-indigo-500'}
               `}>
@@ -139,7 +176,7 @@ export function NotificationOverlay() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-[10px] font-black text-slate-900 dark:text-white uppercase truncate pr-4">
-                      {metadata.tableName ? `Table ${metadata.tableName}` : notification.title}
+                      {(metadata as any).tableName ? `Table ${(metadata as any).tableName}` : notification.title}
                     </h3>
                     <button onClick={() => dismissNotification(notification.id)} className="text-slate-300 hover:text-slate-500">
                       <X size={14} />
@@ -151,34 +188,34 @@ export function NotificationOverlay() {
                   </p>
 
                   {/* Payment / Bill Amount */}
-                  {metadata.amount && (
+                  {(metadata as any).amount && (
                     <div className={`flex items-center justify-between p-2 rounded-lg mb-2 ${notification.type === 'PAYMENT' ? 'bg-emerald-500/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
                       <span className={`text-[9px] font-black uppercase ${notification.type === 'PAYMENT' ? 'text-emerald-600' : 'text-slate-500'}`}>
                         {notification.type === 'PAYMENT' ? 'Amount Received' : 'Total Bill'}
                       </span>
                       <span className={`text-base font-black ${notification.type === 'PAYMENT' ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
-                        ₹{metadata.amount}
+                        ₹{(metadata as any).amount}
                       </span>
                     </div>
                   )}
 
                   {/* Items List */}
-                  {metadata.items && metadata.items.length > 0 && (
+                  {(metadata as any).items && (metadata as any).items.length > 0 && (
                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 mb-2 border border-slate-100 dark:border-slate-800">
                       <div className="space-y-1">
-                        {metadata.items.slice(0, expandedOrders[notification.id] ? undefined : 3).map((item: any, idx: number) => (
+                        {(metadata as any).items.slice(0, expandedOrders[notification.id] ? undefined : 3).map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between items-center text-[9px]">
                             <span className="font-bold text-slate-700 dark:text-slate-300 truncate pr-2">{item.name}</span>
                             <span className="text-slate-500 shrink-0 font-black">x{item.qty}</span>
                           </div>
                         ))}
                       </div>
-                      {metadata.items.length > 3 && (
+                      {(metadata as any).items.length > 3 && (
                         <button 
                           onClick={() => setExpandedOrders(prev => ({ ...prev, [notification.id]: !prev[notification.id] }))}
                           className="w-full mt-1 pt-1 border-t border-slate-200 dark:border-slate-700 text-[8px] font-black text-pos-primary uppercase"
                         >
-                          {expandedOrders[notification.id] ? 'Less' : `+${metadata.items.length - 3} More`}
+                          {expandedOrders[notification.id] ? 'Less' : `+${(metadata as any).items.length - 3} More`}
                         </button>
                       )}
                     </div>
@@ -196,27 +233,20 @@ export function NotificationOverlay() {
           );
         })}
       </AnimatePresence>
+      <style jsx global>{`
+        @keyframes ring {
+          0% { transform: rotate(0deg); }
+          10% { transform: rotate(15deg); }
+          20% { transform: rotate(-15deg); }
+          30% { transform: rotate(15deg); }
+          40% { transform: rotate(-15deg); }
+          50% { transform: rotate(0deg); }
+          100% { transform: rotate(0deg); }
+        }
+        .animate-ring {
+          animation: ring 2s ease infinite;
+        }
+      `}</style>
     </div>
   );
-}
-
-// Inject custom animations
-if (typeof document !== 'undefined') {
-  const styles = `
-    @keyframes ring {
-      0% { transform: rotate(0deg); }
-      10% { transform: rotate(15deg); }
-      20% { transform: rotate(-15deg); }
-      30% { transform: rotate(15deg); }
-      40% { transform: rotate(-15deg); }
-      50% { transform: rotate(0deg); }
-      100% { transform: rotate(0deg); }
-    }
-    .animate-ring {
-      animation: ring 2s ease infinite;
-    }
-  `;
-  const styleElement = document.createElement('style');
-  styleElement.textContent = styles;
-  document.head.appendChild(styleElement);
 }

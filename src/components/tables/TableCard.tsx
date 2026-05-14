@@ -1,7 +1,7 @@
 import React from 'react';
-import { Users, Clock, ShoppingBag, Layers, Utensils, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Users, Clock, ShoppingBag, Layers, Utensils, CheckCircle, AlertCircle, Loader2, Smartphone } from 'lucide-react';
 
-export type TableStatus = 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'BILL_PRINTED' | 'BILLING_PENDING' | 'CLEANING';
+export type TableStatus = 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'BILL_PRINTED' | 'BILLING_PENDING' | 'CLEANING' | 'PAYMENT_AWAITING_APPROVAL';
 
 export interface Table {
   id: string;
@@ -98,6 +98,15 @@ const STATUS_CONFIG: Record<TableStatus, {
     dot: 'bg-slate-400 shadow-slate-400/60',
     icon: <Loader2 size={13} className="text-slate-400 animate-spin" />,
   },
+  PAYMENT_AWAITING_APPROVAL: {
+    gradient: 'from-amber-600 via-yellow-900 to-slate-950',
+    glow: 'shadow-amber-500/30',
+    badge: 'bg-amber-500 text-black border-amber-400 font-black',
+    badgeText: 'Verify Pay',
+    label: 'UPI Pending',
+    dot: 'bg-amber-400 shadow-amber-400/60 animate-bounce',
+    icon: <Smartphone size={13} className="text-black" />,
+  },
 };
 
 export const TableCard: React.FC<TableCardProps> = ({ 
@@ -149,6 +158,7 @@ export const TableCard: React.FC<TableCardProps> = ({
           table.status === 'KOT_RUNNING' ? 'bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500' :
           table.status === 'BILL_PRINTED' ? 'bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-500' :
           table.status === 'BILLING_PENDING' ? 'bg-gradient-to-r from-violet-400 via-purple-400 to-violet-500' :
+          table.status === 'PAYMENT_AWAITING_APPROVAL' ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500' :
           'bg-gradient-to-r from-slate-400 via-gray-400 to-slate-500'
         }`} />
 

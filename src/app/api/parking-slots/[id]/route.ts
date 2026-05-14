@@ -12,7 +12,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, status } = body;
+    const { name, status, width, height, x, y } = body;
 
     const existing = await (prisma as any).parkingSlot.findFirst({
       where: { id, propertyId: session.propertyId! },
@@ -24,6 +24,10 @@ export async function PATCH(
       data: {
         ...(name && { name }),
         ...(status && { status }),
+        ...(width !== undefined && { width: parseInt(width) }),
+        ...(height !== undefined && { height: parseInt(height) }),
+        ...(x !== undefined && { x: parseFloat(x) }),
+        ...(y !== undefined && { y: parseFloat(y) }),
       },
     });
 

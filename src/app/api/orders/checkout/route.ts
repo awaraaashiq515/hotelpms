@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, sendWhatsApp } = body;
+    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp } = body;
 
     // --- COMBO EXPANSION ---
     const expandedItems: any[] = [];
@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
         const qty = item.quantity || item.qty || 1;
         const lineTotalRaw = unitPrice * qty;
 
-        const lineDiscount = totalRaw > 0 ? (lineTotalRaw / totalRaw) * (membershipDiscount || 0) : 0;
+        const totalDiscount = (membershipDiscount || 0) + (manualDiscount || 0);
+        const lineDiscount = totalRaw > 0 ? (lineTotalRaw / totalRaw) * totalDiscount : 0;
         const lineNetAfterDiscount = Math.max(0, lineTotalRaw - lineDiscount);
 
         const taxRate = detail?.taxRate !== null && detail?.taxRate !== undefined ? detail.taxRate : 5;
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
           where: { id: { in: posOrders.map((o: any) => o.id) } },
           data: {
             status: 'SETTLED',
-            discountAmount: membershipDiscount || 0,
+            discountAmount: (membershipDiscount || 0) + (manualDiscount || 0),
             ...(driverId && { driverId }),
             ...(staffMemberId && { staffMemberId }),
             membershipCardId: membershipCardId || null,
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
               status: 'SETTLED',
               subtotal: subtotal,
               taxAmount: taxAmount,
-              discountAmount: membershipDiscount || 0,
+              discountAmount: (membershipDiscount || 0) + (manualDiscount || 0),
               grandTotal: grandTotal,
               restaurantTableId: restaurantTableId || null,
               tableNo: table?.name || null,
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
           propertyId: session.propertyId!,
           guestId: guestId || null,
           subtotal: subtotal,
-          discountAmount: membershipDiscount || 0,
+          discountAmount: (membershipDiscount || 0) + (manualDiscount || 0),
           taxAmount: taxAmount,
           totalAmount: grandTotal,
           paymentStatus: isPayLater ? 'UNPAID' : 'PAID',

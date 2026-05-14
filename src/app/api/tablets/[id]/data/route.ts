@@ -23,7 +23,7 @@ export async function GET(
     const [products, categories, tables] = await Promise.all([
       prisma.product.findMany({
         where: { propertyId, isActive: true },
-        include: { category: true },
+        include: { category: true, variants: true },
         orderBy: { name: 'asc' },
       }),
       prisma.category.findMany({
@@ -36,7 +36,7 @@ export async function GET(
       }),
     ]);
 
-    return apiResponse({ products, categories, tables });
+    return apiResponse({ products, categories, tables, property: tablet.property });
   } catch (error) {
     return apiError(error);
   }

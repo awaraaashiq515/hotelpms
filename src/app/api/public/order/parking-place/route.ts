@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
           orderId: order.id,
           propertyId,
           outletId,
+          parkingSlotId: slotId,
           tableNo: `PARKING: ${slot.name}`,
           status: 'NEW',
           createdBy: customerName ? `QR-PARK: ${customerName}` : 'Parking Customer',

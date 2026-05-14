@@ -22,14 +22,25 @@ export const prisma =
       });
     }
 
-    return new PrismaClient({
+    const client = new PrismaClient({
       log: ['error', 'warn'],
-      // @ts-ignore
-      transactionOptions: {
-        maxWait: 10000, // 10 seconds
-        timeout: 10000, // 10 seconds
-      }
     });
+
+    // --- SQLite Optimization for Multi-Device Environments ---
+    if (process.env.DATABASE_URL?.includes('sqlite') || !process.env.DATABASE_URL) {
+      // Enable WAL mode and increase busy timeout to handle concurrent access
+      (async () => {
+        try {
+          await client.$executeRawUnsafe('PRAGMA journal_mode=WAL;');
+          await client.$executeRawUnsafe('PRAGMA busy_timeout=5000;');
+          console.log('SQLite: WAL mode and busy_timeout (5s) enabled for better performance.');
+        } catch (e) {
+          console.error('Failed to set SQLite pragmas:', e);
+        }
+      })();
+    }
+
+    return client;
   })();
 
 if (process.env.NODE_ENV !== 'production') {

@@ -148,13 +148,14 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
     }
   };
 
-  const handleBillRequest = async (orderId: string) => {
+  const handleBillRequest = async (order: any) => {
     try {
       const res = await fetch('/api/public/request-assistance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tableId: orders[0]?.restaurantTableId, // Assuming all orders are for same table
+          tableId: order.restaurantTableId,
+          parkingSlotId: order.parkingSlotId,
           propertyId,
           type: 'BILL'
         })
@@ -348,7 +349,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                   </div>
                   
                   <button 
-                    onClick={() => handleBillRequest(order.id)}
+                    onClick={() => handleBillRequest(order)}
                     className="w-full h-12 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 active:scale-95 transition-transform"
                   >
                     <QrCode size={14} /> Request Bill

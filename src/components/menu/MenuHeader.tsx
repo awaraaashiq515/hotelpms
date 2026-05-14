@@ -26,13 +26,14 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tableId: data.table.id,
-          propertyId: data.property.id,
+          tableId: data.table?.id,
+          parkingSlotId: data.slot?.id,
+          propertyId: data.property?.id,
           type: 'ASSISTANCE'
         })
       });
       if (res.ok) {
-        alert('A waiter has been called to your table.');
+        alert(data.slot ? 'Staff has been notified. They will assist you at your vehicle.' : 'A waiter has been called to your table.');
       }
     } catch (err) {
       console.error(err);
@@ -41,11 +42,13 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
     }
   };
 
+  const displayName = data.slot ? `Slot: ${data.slot.name}` : `Table: ${data.table?.name || '---'}`;
+
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-900 px-5 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {data.property.logoUrl ? (
+          {data.property?.logoUrl ? (
             <img src={data.property.logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800 shadow-sm" />
           ) : (
             <div className="w-10 h-10 rounded-xl bg-pos-primary/10 flex items-center justify-center text-pos-primary">
@@ -53,10 +56,10 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
             </div>
           )}
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{data.property.name}</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{data.property?.brandName || data.property?.name || 'OrderMint'}</h1>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[11px] text-slate-400 font-medium">Table: {data.table.name}</span>
+              <span className="text-[11px] text-slate-400 font-medium">{displayName}</span>
             </div>
           </div>
         </div>

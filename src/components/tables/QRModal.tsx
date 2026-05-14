@@ -9,6 +9,7 @@ import { Printer, Download, X, Smartphone } from 'lucide-react';
 interface QRModalProps {
   isOpen: boolean;
   onClose: () => void;
+  type?: 'TABLE' | 'PARKING';
   table: {
     id: string;
     name: string;
@@ -20,13 +21,15 @@ interface QRModalProps {
   } | null;
 }
 
-export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, table, property }) => {
+export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, type = 'TABLE', table, property }) => {
   const printRef = useRef<HTMLDivElement>(null);
 
   if (!table || !property) return null;
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const qrUrl = `${baseUrl}/menu/${property.code}/${table.qrToken || table.id}`;
+  const qrUrl = type === 'PARKING' 
+    ? `${baseUrl}/menu/parking/${property.code}/${table.qrToken || table.id}`
+    : `${baseUrl}/menu/${property.code}/${table.qrToken || table.id}`;
 
   const handlePrint = () => {
     const printContent = printRef.current;

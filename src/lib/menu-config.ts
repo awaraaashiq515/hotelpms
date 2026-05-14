@@ -186,6 +186,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'],
       subItems: [
         { name: 'General Settings', path: '/settings' },
+        { name: 'Notification Settings', path: '/settings/notifications' },
         { name: 'Tablet Setup',     path: '/settings/tablets', feature: 'TABLETS' },
         { name: 'Data Backup',      path: '/settings/backup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
       ]

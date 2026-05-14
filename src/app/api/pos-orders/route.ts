@@ -20,15 +20,17 @@ const orderItemSchema = z.object({
 const posOrderSchema = z.object({
   propertyId: z.string().optional(),
   outletId: z.string().optional(),
-  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY']).optional().default('DINE_IN'),
+  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'PARKING']).optional().default('DINE_IN'),
   tableNo: z.string().optional(),
   restaurantTableId: z.string().optional(),
+  parkingSlotId: z.string().optional(),
+  vehicleNumber: z.string().optional(),
   roomId: z.string().optional(),
   folioId: z.string().optional(),
   driverId: z.string().nullable().optional(),
   guestId: z.string().nullable().optional(),
   guestCount: z.number().int().optional().default(1),
-  items: z.array(orderItemSchema).min(1, 'Order must contain at least 1 item'),
+  items: z.array(orderItemSchema).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
     // Map PICKUP to TAKEAWAY for compatibility with the billing page
     if (body.orderType === 'PICKUP') body.orderType = 'TAKEAWAY';
     const parsed = posOrderSchema.parse(body)
-    const { items, ...parsedData } = parsed;
+    const { items = [], ...parsedData } = parsed;
 
     // Auto-fill propertyId from session if not provided
     const propertyId = parsedData.propertyId || session.propertyId;
@@ -103,6 +105,15 @@ export async function POST(request: NextRequest) {
           },
           include: { items: true }
         });
+      } else if (orderData.parkingSlotId) {
+        order = await (tx as any).posOrder.findFirst({
+          where: { 
+            parkingSlotId: orderData.parkingSlotId,
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+            orderType: 'PARKING'
+          },
+          include: { items: true }
+        });
       }
 
       if (!order) {
@@ -111,7 +122,10 @@ export async function POST(request: NextRequest) {
           data: {
             ...orderData,
             orderNo: `POS-${Date.now()}`,
-            status: 'PLACED',
+            status: body.paymentMode === 'UPI' ? 'PAYMENT_AWAITING_APPROVAL' : 'PLACED',
+            paymentRequested: body.paymentMode === 'UPI',
+            onlinePaymentReference: body.transactionLast4 || null,
+            onlinePaymentMethod: body.paymentMode || null,
             subtotal: 0,
             taxAmount: 0,
             discountAmount: 0,
@@ -119,6 +133,19 @@ export async function POST(request: NextRequest) {
           },
           include: { items: true }
         })
+      } else {
+        // Update existing order status if it's a UPI payment request
+        if (body.paymentMode === 'UPI') {
+          await tx.posOrder.update({
+            where: { id: order.id },
+            data: {
+              status: 'PAYMENT_AWAITING_APPROVAL',
+              paymentRequested: true,
+              onlinePaymentReference: body.transactionLast4 || order.onlinePaymentReference,
+              onlinePaymentMethod: 'UPI'
+            }
+          });
+        }
       }
 
       // 2. Insert or update Items
@@ -150,15 +177,17 @@ export async function POST(request: NextRequest) {
       const allItems = await tx.posOrderItem.findMany({
         where: { posOrderId: order.id }
       })
-      const subtotal = allItems.reduce((sum: number, i: any) => sum + i.totalAmount, 0)
-      const taxAmount = subtotal * 0.05 // Simplified tax logic matching save/checkout
-      const grandTotal = subtotal + taxAmount
+      const subtotal = allItems.reduce((sum: number, i: any) => sum + (i.unitPrice * i.quantity), 0)
+      const taxAmount = allItems.reduce((sum: number, i: any) => sum + (i.taxAmount || 0), 0)
+      const discountAmount = allItems.reduce((sum: number, i: any) => sum + (i.discountAmount || 0), 0)
+      const grandTotal = subtotal - discountAmount + taxAmount
 
       await tx.posOrder.update({
         where: { id: order.id },
         data: { 
           subtotal, 
           taxAmount, 
+          discountAmount,
           grandTotal,
           guestId: orderData.guestId || undefined,
           guestCount: orderData.guestCount,
@@ -166,11 +195,16 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // 4. Update Table Status
+      // 4. Update Table/Parking Status
       if (orderData.restaurantTableId) {
         await (tx as any).table.update({
           where: { id: orderData.restaurantTableId },
           data: { status: 'KOT_RUNNING' }
+        })
+      } else if (orderData.parkingSlotId) {
+        await (tx as any).parkingSlot.update({
+          where: { id: orderData.parkingSlotId },
+          data: { status: 'OCCUPIED' }
         })
       }
 
@@ -183,6 +217,7 @@ export async function POST(request: NextRequest) {
           propertyId: orderData.propertyId,
           outletId: orderData.outletId,
           restaurantTableId: orderData.restaurantTableId || null,
+          parkingSlotId: orderData.parkingSlotId || null,
           tableNo: orderData.tableNo || null,
           roomId: orderData.roomId,
           status: 'NEW',
@@ -212,7 +247,7 @@ export async function POST(request: NextRequest) {
         })
       })
 
-      // 6. Handle Inventory Deduction (Restaurant & Bar)
+      // 6. Handle Inventory Deduction
       let warehouse = await tx.warehouse.findFirst({
         where: { propertyId: orderData.propertyId },
       });
@@ -223,20 +258,14 @@ export async function POST(request: NextRequest) {
       }
 
       for (const item of sanitizedItems) {
-        // Fetch product with variants and inventory settings
         const product = await tx.product.findUnique({
           where: { id: item.productId },
           include: { variants: true }
         });
-
         if (!product || !product.stockItemId || !product.trackInventory) continue;
 
         let deductionQty = 0;
-
         if (product.menuType === 'BAR') {
-          // Find the selected variant name from the order item
-          // Note: In BarPosPage, we format item.name as "ProductName (VariantName)"
-          // We need to match the variant name to find the volume
           const orderItem = items.find((i: any) => i.productId === item.productId);
           const variantNameMatch = orderItem?.name?.match(/\((.*?)\)$/);
           const variantName = variantNameMatch ? variantNameMatch[1] : null;
@@ -245,17 +274,14 @@ export async function POST(request: NextRequest) {
             if (variantName.toLowerCase().includes('bottle')) {
               deductionQty = (product.bottleSize || 750) * item.quantity;
             } else {
-              // Extract number from string like "30ml" or "60 ml"
               const mlMatch = variantName.match(/(\d+)/);
               const mlValue = mlMatch ? parseInt(mlMatch[1]) : 0;
               deductionQty = mlValue * item.quantity;
             }
           } else {
-            // Fallback to legacy pegSize or default 30ml
             deductionQty = (product.pegSize || 30) * item.quantity;
           }
         } else {
-          // Restaurant product: 1 unit per item sold
           deductionQty = item.quantity;
         }
 
@@ -301,7 +327,7 @@ export async function POST(request: NextRequest) {
       })
     })
 
-    // RECORD DRIVER ACTIVITY: If a driver is assigned to this order, track this as a RIDE
+    // RECORD DRIVER ACTIVITY
     if (orderData.driverId) {
       try {
         const { recordDriverActivity } = await import('@/lib/incentive-utils');
@@ -311,12 +337,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. Create Notification for New Order
+    // 7. Create Notification
     try {
       await createNotification({
         propertyId: orderData.propertyId,
         title: 'New Order Received',
-        message: `Order ${newOrder.orderNo} created for ${newOrder.table?.name || 'Table ' + newOrder.tableNo}`,
+        message: `Order ${newOrder.orderNo} created for ${newOrder.table?.name || newOrder.parkingSlot?.name || 'Table ' + newOrder.tableNo}`,
         type: 'ORDER',
         priority: 'HIGH',
         metadata: {
@@ -340,15 +366,14 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) {
-      return apiError(new Error('Unauthorized'), 401);
-    }
+    if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url)
     const propertyIdParam = searchParams.get('propertyId')
     const outletId = searchParams.get('outletId')
     const status = searchParams.get('status')
     const restaurantTableId = searchParams.get('restaurantTableId')
+    const parkingSlotId = searchParams.get('parkingSlotId')
     const orderId = searchParams.get('orderId')
 
     const where: any = getMultiTenantWhere(session, propertyIdParam);
@@ -356,7 +381,7 @@ export async function GET(request: NextRequest) {
     // Handle status filtering
     let statusFilter = undefined;
     if (status === 'in_progress') {
-      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] };
+      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'PAYMENT_AWAITING_APPROVAL'] };
     } else if (status?.includes(',')) {
       statusFilter = { in: status.split(',') };
     } else if (status) {
@@ -369,6 +394,7 @@ export async function GET(request: NextRequest) {
         ...(orderId ? { id: orderId } : {}),
         ...(outletId ? { outletId } : {}),
         ...(restaurantTableId ? { restaurantTableId } : {}),
+        ...(parkingSlotId ? { parkingSlotId } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
       },
       include: {
@@ -380,7 +406,7 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: (orderId || restaurantTableId) ? undefined : 50 
+      take: (orderId || restaurantTableId || parkingSlotId) ? undefined : 50 
     })
 
     return apiResponse(orders, 'POS Orders fetched successfully')

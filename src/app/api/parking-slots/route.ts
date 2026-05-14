@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { name } = body;
+    const { name, width, height, x, y } = body;
 
     if (!name) {
       return NextResponse.json({ success: false, message: 'Slot name is required' }, { status: 400 });
@@ -86,6 +86,10 @@ export async function POST(request: Request) {
         name: name.trim(),
         propertyId,
         status: 'VACANT',
+        width: width ? parseInt(width) : 256,
+        height: height ? parseInt(height) : 350,
+        x: x ? parseFloat(x) : 0,
+        y: y ? parseFloat(y) : 0
       },
     });
 

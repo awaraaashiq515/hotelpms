@@ -87,6 +87,40 @@ export const createNotification = async (data: {
   // We wrap the actual creation in a promise that we don't necessarily have to block on
   const performCreation = async () => {
     try {
+        // CHECK PREFERENCES: If notification type is disabled, skip creation
+        try {
+          let isEnabled = true;
+          
+          // Attempt to use model, fallback to Raw SQL if client is stale
+          // @ts-ignore
+          const prefModel = (client as any).notificationPreference;
+          
+          if (prefModel) {
+            const pref = await prefModel.findUnique({
+              where: { propertyId_type: { propertyId: data.propertyId, type: data.type } }
+            });
+            if (pref) isEnabled = !!pref.isEnabled;
+          } else {
+            // Raw SQL fallback for SQLite
+            const results: any[] = await client.$queryRawUnsafe(
+              `SELECT isEnabled FROM NotificationPreference WHERE propertyId = ? AND type = ? LIMIT 1`,
+              data.propertyId, data.type
+            );
+            if (results.length > 0) {
+              // SQLite returns 0 or 1 for booleans
+              isEnabled = results[0].isEnabled === 1 || results[0].isEnabled === true || results[0].isEnabled === 'true';
+            }
+          }
+
+          if (!isEnabled) {
+            console.log(`Notification of type ${data.type} is disabled for property ${data.propertyId}, skipping.`);
+            return null;
+          }
+        } catch (prefError) {
+          console.error('Error checking notification preferences:', prefError);
+          // Continue if preference check fails (default is enabled)
+        }
+
       return await client.notification.create({
         data: {
           propertyId: data.propertyId,

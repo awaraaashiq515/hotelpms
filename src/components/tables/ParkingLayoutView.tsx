@@ -1,13 +1,18 @@
 'use client';
 
-import React from 'react';
-import { CarFront, Plus, Edit2, Trash2, QrCode, Power } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { CarFront, Edit2, Trash2, QrCode, Power } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface ParkingSlot {
   id: string;
   name: string;
   status: string;
+  qrToken?: string | null;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
   activeOrder?: {
     customerName: string;
     vehicleNumber: string;
@@ -18,160 +23,318 @@ interface ParkingSlot {
 
 interface ParkingLayoutViewProps {
   slots: ParkingSlot[];
+  isEditMode?: boolean;
   onNewSlot: () => void;
   onEditSlot: (slot: ParkingSlot) => void;
   onDeleteSlot: (id: string) => void;
   onResetSlot: (id: string) => void;
   onShowQR: (slot: ParkingSlot) => void;
   onBillingNavigate: (slotId: string, slotName: string) => void;
+  onSlotPositionChange?: (id: string, x: number, y: number) => void;
+  onSlotResize?: (id: string, width: number, height: number) => void;
+  selectedSlotId?: string | null;
+  onSelectSlot: (slot: ParkingSlot | null) => void;
 }
+
+const SNAP = 1; // Ultra-smooth movement
+const MIN_W = 100;
+const MIN_H = 100;
+const DEFAULT_W = 220;
+const DEFAULT_H = 320;
 
 export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
   slots,
+  isEditMode = false,
   onNewSlot,
   onEditSlot,
   onDeleteSlot,
   onResetSlot,
   onShowQR,
-  onBillingNavigate
+  onBillingNavigate,
+  onSlotPositionChange,
+  onSlotResize,
+  selectedSlotId,
+  onSelectSlot
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+
+  // Interaction state
+  const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeRef = useRef<{ id: string; startX: number; startY: number; origW: number; origH: number } | null>(null);
+  
+  // Track active interaction for performance
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [isInteracting, setIsInteracting] = useState(false);
+
+  useEffect(() => {
+    // Only update from props if we are NOT interacting
+    if (isInteracting) return;
+
+    setPositions(prev => {
+      const next = { ...prev };
+      slots.forEach((s) => {
+        next[s.id] = { x: s.x ?? 0, y: s.y ?? 0 };
+      });
+      return next;
+    });
+    setSizes(prev => {
+      const next = { ...prev };
+      slots.forEach(s => {
+        next[s.id] = { w: s.width ?? DEFAULT_W, h: s.height ?? DEFAULT_H };
+      });
+      return next;
+    });
+  }, [slots, isInteracting]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragRef.current) {
+      const { id, startX, startY, origX, origY } = dragRef.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const newX = Math.max(0, Math.round((origX + dx) / SNAP) * SNAP);
+      const newY = Math.max(0, Math.round((origY + dy) / SNAP) * SNAP);
+      setPositions(prev => ({ ...prev, [id]: { x: newX, y: newY } }));
+    }
+    if (resizeRef.current) {
+      const { id, startX, startY, origW, origH } = resizeRef.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const newW = Math.max(MIN_W, Math.round((origW + dx) / SNAP) * SNAP);
+      const newH = Math.max(MIN_H, Math.round((origH + dy) / SNAP) * SNAP);
+      setSizes(prev => ({ ...prev, [id]: { w: newW, h: newH } }));
+    }
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    if (dragRef.current) {
+      const { id } = dragRef.current;
+      const pos = positions[id];
+      if (pos) onSlotPositionChange?.(id, pos.x, pos.y);
+      dragRef.current = null;
+    }
+    if (resizeRef.current) {
+      const { id } = resizeRef.current;
+      const sz = sizes[id];
+      if (sz) onSlotResize?.(id, sz.w, sz.h);
+      resizeRef.current = null;
+    }
+    setActiveId(null);
+    setIsInteracting(false);
+  }, [positions, sizes, onSlotPositionChange, onSlotResize]);
+
+  const startDrag = (e: React.PointerEvent, id: string) => {
+    if (!isEditMode) return;
+    e.stopPropagation();
+    const pos = positions[id] ?? { x: 0, y: 0 };
+    dragRef.current = { id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+    setActiveId(id);
+    setIsInteracting(true);
+  };
+
+  const startResize = (e: React.PointerEvent, id: string) => {
+    if (!isEditMode) return;
+    e.stopPropagation();
+    const sz = sizes[id] ?? { w: DEFAULT_W, h: DEFAULT_H };
+    resizeRef.current = { id, startX: e.clientX, startY: e.clientY, origW: sz.w, origH: sz.h };
+    setActiveId(id);
+    setIsInteracting(true);
+  };
+
+  // Memoize max bounds for grid container
+  const bounds = useMemo(() => {
+    const maxX = Math.max(1200, ...slots.map(s => (positions[s.id]?.x || 0) + (sizes[s.id]?.w || 0) + 600));
+    const maxY = Math.max(800, ...slots.map(s => (positions[s.id]?.y || 0) + (sizes[s.id]?.h || 0) + 600));
+    return { x: maxX, y: maxY };
+  }, [slots, positions, sizes]);
+
+  // Click handlers
+  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSlotClick = (slot: ParkingSlot) => {
+    if (isEditMode) return;
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current);
+      clickTimeout.current = null;
+      // Double click
+      onBillingNavigate(slot.id, slot.name);
+    } else {
+      clickTimeout.current = setTimeout(() => {
+        // Single click
+        onSelectSlot(selectedSlotId === slot.id ? null : slot);
+        clickTimeout.current = null;
+      }, 250);
+    }
+  };
+
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg">
-            <CarFront size={24} />
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-white tracking-tight">Parking Management</h2>
-            <p className="text-[11px] font-bold text-amber-400/70 uppercase tracking-[0.2em] mt-0.5">Real-time Vehicle Orders & Slots</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-black/40 rounded-xl border border-white/5">
-            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mr-2">Total Slots:</span>
-            <span className="text-sm font-black text-white">{slots.length}</span>
-          </div>
-          <Button
-            className="rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest gap-2 flex items-center bg-amber-500 hover:bg-amber-400 text-white border border-amber-400/50 shadow-xl transition-all"
-            onClick={onNewSlot}
-          >
-            <Plus size={16} /> New Slot
-          </Button>
-        </div>
-      </div>
+    <div 
+      ref={containerRef}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+      onClick={() => onSelectSlot(null)}
+      className="relative w-full h-full overflow-auto no-scrollbar select-none"
+      style={{
+        cursor: isEditMode ? 'crosshair' : 'default',
+        touchAction: 'none',
+        background: '#050505',
+        backgroundImage: isEditMode 
+          ? 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)' 
+          : 'none',
+        backgroundSize: '40px 40px'
+      }}
+    >
+      <div style={{ position: 'relative', width: bounds.x, height: bounds.y }}>
+        {slots.map((slot) => {
+          const pos = positions[slot.id] || { x: 0, y: 0 };
+          const sz = sizes[slot.id] || { w: DEFAULT_W, h: DEFAULT_H };
+          const isOccupied = slot.status !== 'VACANT';
+          const order = slot.activeOrder;
+          const isActive = activeId === slot.id;
+          const isSelected = selectedSlotId === slot.id;
 
-      {slots.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center gap-4 bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/10">
-          <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400/30">
-            <CarFront size={40} />
-          </div>
-          <div className="space-y-1">
-            <p className="text-lg font-black text-white/50 uppercase tracking-widest">No Parking Slots Configured</p>
-            <p className="text-sm text-white/30 max-w-xs mx-auto">Add parking spaces to manage orders from customers directly at their vehicles.</p>
-          </div>
-          <Button
-            variant="secondary"
-            className="mt-4 rounded-xl px-8 font-black uppercase text-[10px] tracking-widest border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-white"
-            onClick={onNewSlot}
-          >
-            Add First Slot
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
-          {slots.map((slot) => {
-            const isOccupied = slot.status !== 'VACANT';
-            const order = slot.activeOrder;
-            return (
-              <div
-                key={slot.id}
-                onClick={() => onBillingNavigate(slot.id, slot.name)}
-                className={`relative group flex flex-col gap-4 p-6 rounded-[2rem] border-2 transition-all duration-300 cursor-pointer overflow-hidden ${
-                  isOccupied
-                    ? 'bg-red-500/5 border-red-500/20 shadow-lg shadow-red-500/5'
-                    : 'bg-white/5 border-white/5 hover:border-amber-500/40 hover:bg-amber-500/5'
-                }`}
-              >
-                {/* Animated background gradient on hover */}
-                <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-br ${isOccupied ? 'from-red-500 to-orange-500' : 'from-amber-500 to-yellow-500'}`} />
+          // DYNAMIC TEXT SCALING (Refined)
+          const scaleFactor = Math.min(sz.w / DEFAULT_W, sz.h / DEFAULT_H);
+          const titleSize = Math.max(10, 24 * scaleFactor);
+          const iconSize = Math.max(16, 40 * scaleFactor);
+          const badgeSize = Math.max(6, 10 * scaleFactor);
+          const orderTextSize = Math.max(7, 11 * scaleFactor);
 
-                {/* Status Label */}
-                <div className="flex items-center justify-between relative z-10">
-                  <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+          return (
+            <div
+              key={slot.id}
+              onPointerDown={e => startDrag(e, slot.id)}
+              onClick={(e) => { e.stopPropagation(); handleSlotClick(slot); }}
+              style={{
+                position: 'absolute',
+                transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+                width: sz.w,
+                height: sz.h,
+                zIndex: isActive || isSelected ? 50 : 10,
+                transition: isActive ? 'none' : 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), width 0.5s cubic-bezier(0.16, 1, 0.3, 1), height 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                willChange: 'transform, width, height'
+              }}
+              className={`group flex flex-col gap-3 p-4 rounded-[2rem] border-2 shadow-2xl transition-all cursor-pointer overflow-hidden ${
+                isOccupied
+                  ? 'bg-red-500/10 border-red-500/30 shadow-red-500/10'
+                  : 'bg-white/5 border-white/10 hover:border-amber-500/40 hover:bg-amber-500/5'
+              } ${isEditMode && isActive ? 'ring-2 ring-indigo-500/50 scale-[1.01]' : ''} ${
+                isSelected ? 'ring-4 ring-amber-500 border-amber-500 bg-amber-500/5 shadow-amber-500/20' : ''
+              }`}
+            >
+              {/* Status Glow */}
+              <div className={`absolute -top-24 -left-24 w-48 h-48 blur-[80px] opacity-20 rounded-full transition-all duration-500 ${isOccupied ? 'bg-red-500' : 'bg-emerald-500'}`} />
+
+              {/* Status Label / Edit Actions */}
+              <div className="flex items-center justify-between relative z-10 shrink-0 pointer-events-none">
+                <div 
+                  style={{ fontSize: `${badgeSize}px` }}
+                  className={`px-3 py-1 rounded-full font-black uppercase tracking-[0.15em] border ${
                     isOccupied ? 'bg-red-500/20 text-red-400 border-red-500/20' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                  }`}>
-                    {isOccupied ? 'Occupied' : 'Available'}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
+                  }`}
+                >
+                  {isOccupied ? 'Occupied' : 'Available'}
+                </div>
+                <div className="flex items-center gap-1 pointer-events-auto">
+                   <button
                       onClick={(e) => { e.stopPropagation(); onEditSlot(slot); }}
-                      className="p-1.5 text-white/20 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                      className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-all"
                     >
-                      <Edit2 size={12} />
+                      <Edit2 size={Math.max(12, 14 * scaleFactor)} />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDeleteSlot(slot.id); }}
-                      className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    {isEditMode && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteSlot(slot.id); }}
+                        className="p-1.5 text-white/40 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+                      >
+                        <Trash2 size={Math.max(12, 14 * scaleFactor)} />
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              <div className="flex-grow flex flex-col items-center justify-center py-1 relative z-10 min-h-0 pointer-events-none">
+                <div 
+                  style={{ width: iconSize * 2, height: iconSize * 2, borderRadius: iconSize }}
+                  className={`flex items-center justify-center shadow-2xl transition-all duration-700 group-hover:scale-110 group-hover:rotate-3 shrink-0 ${isOccupied ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-500/30' : 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-amber-500/30'}`}
+                >
+                  <CarFront size={iconSize} />
+                </div>
+                <p 
+                  style={{ fontSize: `${titleSize}px` }}
+                  className="mt-3 font-black text-white tracking-tight group-hover:text-amber-400 transition-all duration-300 truncate w-full text-center"
+                >
+                  {slot.name}
+                </p>
+              </div>
+
+              {order ? (
+                <div 
+                  style={{ padding: `${10 * scaleFactor}px` }}
+                  className="shrink-0 space-y-1 relative z-10 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 shadow-inner pointer-events-none"
+                >
+                  <p style={{ fontSize: `${orderTextSize}px` }} className="font-black text-white uppercase tracking-tight truncate">{order.customerName}</p>
+                  <div className="flex items-center justify-between">
+                    <p style={{ fontSize: `${orderTextSize * 0.8}px` }} className="font-bold text-white/40 uppercase tracking-widest">{order.vehicleNumber}</p>
+                    <span style={{ fontSize: `${orderTextSize * 1.1}px` }} className="font-black text-amber-400">₹{(order.totalAmount || 0).toFixed(0)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span style={{ fontSize: `${orderTextSize * 0.7}px` }} className="font-bold text-white/40 uppercase tracking-widest">{order.elapsedTime || 0}m active</span>
                   </div>
                 </div>
-
-                <div className="flex flex-col items-center justify-center py-2 relative z-10">
-                  <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:scale-110 ${isOccupied ? 'bg-red-500 text-white shadow-red-500/20' : 'bg-amber-500 text-white shadow-amber-500/20'}`}>
-                    <CarFront size={32} />
-                  </div>
-                  <p className="mt-4 text-lg font-black text-white tracking-tight group-hover:text-amber-300 transition-colors">{slot.name}</p>
+              ) : (
+                <div className="shrink-0 mb-1 text-center relative z-10 flex flex-col items-center justify-center pointer-events-none">
+                  <p style={{ fontSize: `${orderTextSize * 0.8}px` }} className="font-black text-white/10 uppercase tracking-[0.3em] group-hover:text-white/20 transition-colors">Ready</p>
                 </div>
+              )}
 
-                {order ? (
-                  <div className="mt-2 space-y-1 relative z-10 bg-black/20 p-3 rounded-xl border border-white/5">
-                    <p className="text-[10px] font-black text-white/80 uppercase tracking-tight truncate">{order.customerName}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{order.vehicleNumber}</p>
-                      <span className="text-[10px] font-black text-amber-400">₹{(order.totalAmount || 0).toFixed(0)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-white/5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">{order.elapsedTime || 0} mins active</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-2 text-center relative z-10">
-                    <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em]">Ready for Orders</p>
-                  </div>
-                )}
-
-                {/* Action buttons appear on hover */}
-                <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/80 to-transparent flex items-center gap-2">
+              {/* Action buttons - Hidden in new toolbar version but kept for safety if height is large */}
+              {!isEditMode && sz.h > 350 && (
+                <div className="shrink-0 pt-1 flex items-center gap-2 relative z-20 pointer-events-auto">
                   <Button
                     variant="primary"
                     size="sm"
-                    className="flex-1 rounded-xl h-10 text-[9px] font-black uppercase tracking-widest bg-amber-500 hover:bg-amber-400"
+                    className={`flex-1 rounded-xl h-10 text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${
+                      isOccupied 
+                        ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20' 
+                        : 'bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
+                    }`}
                     onClick={(e) => { e.stopPropagation(); onBillingNavigate(slot.id, slot.name); }}
                   >
-                    {isOccupied ? 'Update' : 'New Order'}
+                    {isOccupied ? 'Bill' : 'New'}
                   </Button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onShowQR(slot); }}
-                    className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors border border-white/10"
+                    className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-300 border border-white/10"
                   >
-                    <QrCode size={16} />
+                    <QrCode size={14} />
                   </button>
-                  {isOccupied && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onResetSlot(slot.id); }}
-                      className="w-10 h-10 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white flex items-center justify-center transition-all border border-red-500/20"
-                    >
-                      <Power size={16} />
-                    </button>
-                  )}
                 </div>
-              </div>
-            );
-          })}
+              )}
+
+              {/* Resize Handle */}
+              {isEditMode && (
+                <div
+                  onPointerDown={e => startResize(e, slot.id)}
+                  className="absolute bottom-1 right-1 w-8 h-8 cursor-nwse-resize flex items-center justify-center z-30"
+                >
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {isEditMode && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-indigo-600/90 backdrop-blur-xl rounded-full border border-indigo-400/50 shadow-2xl z-[100] flex items-center gap-4 text-white animate-in slide-in-from-bottom-4">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          <p className="text-xs font-black uppercase tracking-widest whitespace-nowrap">
+            Layout Editor Active • Fast Mode Enabled
+          </p>
         </div>
       )}
     </div>

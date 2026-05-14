@@ -25,6 +25,7 @@ import { BillModal, BillData } from '@/components/billing/BillModal';
 import { SwitchTableModal } from '@/components/tables/SwitchTableModal';
 import { useSearchParams } from 'next/navigation';
 import { useSidebar } from '@/context/sidebar-context';
+import { MarkWasteModal } from '@/components/modals/MarkWasteModal';
 
 interface Floor {
   id: string;
@@ -108,6 +109,11 @@ export default function TableManagementPage() {
   const [sourceTableForSwitch, setSourceTableForSwitch] = useState<Table | null>(null);
   const [switchLoading, setSwitchLoading] = useState(false);
 
+  // Waste Modal
+  const [isWasteModalOpen, setIsWasteModalOpen] = useState(false);
+  const [wasteOrderData, setWasteOrderData] = useState<any | null>(null);
+  const [wasteLoading, setWasteLoading] = useState(false);
+
   const fetchOrderPrintData = async (orderId: string) => {
     try {
       const res = await fetch(`/api/orders/${orderId}/print`);
@@ -188,6 +194,24 @@ export default function TableManagementPage() {
       fetchData(); // Changed from fetchFloors to fetchData
     } catch (error) {
       console.error('Failed to mark bill printed', error);
+    }
+  };
+
+  const handleMarkWaste = async (table: Table) => {
+    if (!table.activeOrder?.id) return;
+    setWasteLoading(true);
+    try {
+      const order = await fetchOrderPrintData(table.activeOrder.id);
+      if (!order) {
+        alert('Failed to fetch order details');
+        return;
+      }
+      setWasteOrderData(order);
+      setIsWasteModalOpen(true);
+    } catch (error) {
+      console.error('Waste modal open error:', error);
+    } finally {
+      setWasteLoading(false);
     }
   };
 
@@ -847,6 +871,14 @@ export default function TableManagementPage() {
                   <Eye size={14} />
                   View Order
                 </button>
+                <button
+                  onClick={() => { handleMarkWaste(selectedTable); }}
+                  disabled={wasteLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-100 hover:bg-red-500 hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-red-500/30"
+                >
+                  <Trash2 size={14} />
+                  {wasteLoading ? 'Loading...' : 'Waste'}
+                </button>
               </div>
             </div>
 
@@ -1002,6 +1034,20 @@ export default function TableManagementPage() {
         onClose={() => setIsQRModalOpen(false)}
         table={selectedTable}
         property={propertyData}
+      />
+
+      <MarkWasteModal 
+        isOpen={isWasteModalOpen}
+        onClose={() => {
+          setIsWasteModalOpen(false);
+          setWasteOrderData(null);
+        }}
+        order={wasteOrderData}
+        table={selectedTable}
+        onSuccess={() => {
+          fetchData();
+          setSelectedTable(null);
+        }}
       />
     </div>
   );

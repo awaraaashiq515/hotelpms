@@ -1,15 +1,36 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { ShoppingBag, ChevronRight, AlertCircle, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingBag, ChevronRight, AlertCircle, Sun, Moon, Car } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
-interface CartItem {
+// Refactored Components
+import { MenuHeader } from '@/components/menu/MenuHeader';
+import { ParkingOnboarding } from '@/components/menu/ParkingOnboarding';
+import { ProductList } from '@/components/menu/ProductList';
+import { ActiveOrders } from '@/components/menu/ActiveOrders';
+import { CartDrawer } from '@/components/menu/CartDrawer';
+import { BottomNav } from '@/components/menu/BottomNav';
+import { FeedbackModal } from '@/components/menu/FeedbackModal';
+
+interface Product {
   id: string;
   name: string;
+  description: string | null;
   sellingPrice: number;
+  image: string | null;
+  categoryId: string;
+  basePrice: number;
+  isVeg: boolean | null;
+}
+
+interface CartItem extends Product {
   quantity: number;
+  variantId?: string;
+  variantName?: string;
+  portion?: 'FULL' | 'HALF';
 }
 
 export default function ParkingMenuPage() {
@@ -20,22 +41,52 @@ export default function ParkingMenuPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
-  const [showOnboarding, setShowOnboarding] = useState(true);
-  const [form, setForm] = useState({ name: '', phone: '', vehicle: '' });
+  
   const [guestInfo, setGuestInfo] = useState<{ name: string; phone: string; vehicle: string } | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingForm, setOnboardingForm] = useState({ name: '', phone: '', vehicle: '' });
+  
+  const [activeTab, setActiveTab] = useState<'menu' | 'orders' | 'profile'>('menu');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  
+  const [rating, setRating] = useState<number>(5);
+  const [comments, setComments] = useState<string>('');
+  const [showFeedback, setShowFeedback] = useState(false);
 
+  // Handle Theme
   useEffect(() => {
-    const saved = localStorage.getItem('parking_guest_info');
-    if (saved) {
-      setGuestInfo(JSON.parse(saved));
-      setShowOnboarding(false);
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+      document.documentElement.classList.add('dark');
     }
   }, []);
 
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
+
+  useEffect(() => {
+    const savedInfo = localStorage.getItem('parking_guest_info');
+    if (savedInfo) {
+      setGuestInfo(JSON.parse(savedInfo));
+    } else {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  // Polling logic
   useEffect(() => {
     async function fetchData() {
       try {
@@ -43,52 +94,111 @@ export default function ParkingMenuPage() {
         const json = await res.json();
         if (json.success) {
           setData(json.data);
-          if (!activeCategory && json.data.menu?.length > 0) {
+
+          if (json.data.property?.primaryColor) {
+            document.documentElement.style.setProperty('--primary-color', json.data.property.primaryColor);
+          }
+
+          if (!activeCategory && json.data.menu.length > 0) {
             setActiveCategory(json.data.menu[0].id);
           }
         } else {
           setError(json.message);
         }
-      } catch {
-        setError('Failed to load menu');
+      } catch (err) {
+        // silent fail during polling
       } finally {
         setLoading(false);
       }
     }
+
     fetchData();
-    const interval = setInterval(fetchData, 8000);
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [propertyCode, qrToken]);
 
-  const cartTotal = useMemo(() => cart.reduce((s, i) => s + i.sellingPrice * i.quantity, 0), [cart]);
+  const cartTotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
+  }, [cart]);
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: any, options?: { variantId?: string; variantName?: string; portion?: 'FULL' | 'HALF'; price?: number }) => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === product.id);
-      if (existing) return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { id: product.id, name: product.name, sellingPrice: product.sellingPrice, quantity: 1 }];
+      const variantId = options?.variantId || '';
+      const portion = options?.portion || 'FULL';
+      const itemPrice = options?.price ?? product.sellingPrice;
+      
+      const existing = prev.find(item => 
+        item.id === product.id && 
+        (item.variantId || '') === variantId && 
+        (item.portion || 'FULL') === portion
+      );
+
+      if (existing) {
+        return prev.map((item: any) => 
+          (item.id === product.id && (item.variantId || '') === variantId && (item.portion || 'FULL') === portion)
+            ? { ...item, quantity: item.quantity + 1 } 
+            : item
+        );
+      }
+      return [...prev, { 
+        ...product, 
+        quantity: 1, 
+        variantId, 
+        variantName: options?.variantName,
+        portion,
+        sellingPrice: itemPrice 
+      }];
     });
   };
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = (productId: string, options?: { variantId?: string; portion?: 'FULL' | 'HALF' }) => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === id);
-      if (existing && existing.quantity > 1) return prev.map(i => i.id === id ? { ...i, quantity: i.quantity - 1 } : i);
-      return prev.filter(i => i.id !== id);
+      const variantId = options?.variantId || '';
+      const portion = options?.portion || 'FULL';
+
+      const existing = prev.find(item => 
+        item.id === productId && 
+        (item.variantId || '') === variantId && 
+        (item.portion || 'FULL') === portion
+      );
+
+      if (existing && existing.quantity > 1) {
+        return prev.map((item: any) => 
+          (item.id === productId && (item.variantId || '') === variantId && (item.portion || 'FULL') === portion)
+            ? { ...item, quantity: item.quantity - 1 } 
+            : item
+        );
+      }
+      return prev.filter(item => 
+        !(item.id === productId && (item.variantId || '') === variantId && (item.portion || 'FULL') === portion)
+      );
     });
   };
 
   const handleOnboardingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.phone || !form.vehicle) return;
-    const info = { name: form.name, phone: form.phone, vehicle: form.vehicle };
+    if (!onboardingForm.name || !onboardingForm.phone || !onboardingForm.vehicle) return;
+    const info = { name: onboardingForm.name, phone: onboardingForm.phone, vehicle: onboardingForm.vehicle };
     setGuestInfo(info);
     localStorage.setItem('parking_guest_info', JSON.stringify(info));
     setShowOnboarding(false);
   };
 
+  const resetGuestSession = () => {
+    localStorage.removeItem('parking_guest_info');
+    setGuestInfo(null);
+    setOnboardingForm({ name: '', phone: '', vehicle: '' });
+    setShowOnboarding(true);
+    setCart([]);
+    setActiveTab('menu');
+    setIsCartOpen(false);
+    setOrderStatus('idle');
+    setTimeout(() => window.location.reload(), 500);
+  };
+
   const placeOrder = async () => {
-    if (!cart.length || !guestInfo) return;
+    if (cart.length === 0 || !guestInfo) return;
+    
     setOrderStatus('submitting');
     try {
       const res = await fetch('/api/public/order/parking-place', {
@@ -100,229 +210,238 @@ export default function ParkingMenuPage() {
           customerPhone: guestInfo.phone,
           vehicleNumber: guestInfo.vehicle,
           items: cart.map(i => ({ id: i.id, quantity: i.quantity })),
-        }),
+        })
       });
       const json = await res.json();
       if (json.success) {
         setOrderStatus('success');
         setCart([]);
-        setTimeout(() => { setIsCartOpen(false); setOrderStatus('idle'); }, 2000);
+        setTimeout(() => {
+          setIsCartOpen(false);
+          setOrderStatus('idle');
+          setActiveTab('orders');
+        }, 1500);
       } else {
         alert(json.message);
         setOrderStatus('idle');
       }
-    } catch {
-      alert('Something went wrong. Please try again.');
+    } catch (err) {
+      alert("Something went wrong. Please try again.");
       setOrderStatus('idle');
     }
   };
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-amber-50 gap-4">
-      <div className="w-12 h-12 border-4 border-amber-200 rounded-full animate-spin border-t-amber-500" />
-      <p className="text-sm font-bold text-amber-600">Loading parking menu...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 space-y-4">
+        <div className="w-12 h-12 border-4 border-amber-500/20 rounded-full animate-spin border-t-amber-500"></div>
+        <p className="text-sm font-medium text-slate-500">Loading your menu...</p>
+      </div>
+    );
+  }
 
-  if (error) return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-slate-50 gap-4">
-      <AlertCircle size={48} className="text-red-400" />
-      <h2 className="text-xl font-bold text-slate-800">Something went wrong</h2>
-      <p className="text-sm text-slate-500">{error}</p>
-      <button onClick={() => window.location.reload()} className="px-8 py-3 bg-amber-500 text-white rounded-2xl font-bold">Try Again</button>
-    </div>
-  );
-
-  const primaryColor = '#f59e0b';
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center space-y-4 bg-slate-50 dark:bg-slate-950">
+        <div className="w-20 h-20 bg-red-50 dark:bg-red-950/30 rounded-3xl flex items-center justify-center text-red-500 shadow-sm">
+          <AlertCircle size={40} />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Something went wrong</h2>
+          <p className="text-sm text-slate-500">{error}</p>
+        </div>
+        <Button onClick={() => window.location.reload()} className="rounded-xl px-10 h-12 bg-amber-500 font-bold shadow-md">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap'); .no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
+    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 font-sans selection:bg-pos-primary selection:text-white">
+      <div className="fixed top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-pos-primary/5 to-transparent pointer-events-none -z-10" />
 
-      {/* Onboarding Modal */}
-      {showOnboarding && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end">
-          <motion.div initial={{ y: 300 }} animate={{ y: 0 }} className="w-full bg-white rounded-t-[2.5rem] p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">
-                <Car size={24} className="text-amber-500" />
+      <MenuHeader 
+        data={data} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab as any} 
+        searchQuery={searchQuery} 
+        setSearchQuery={setSearchQuery} 
+      />
+
+      <div className="pt-2" />
+
+      {activeTab === 'menu' ? (
+        <>
+          {/* Category Bar */}
+          {!searchQuery && data?.menu?.length > 0 && (
+            <div className="sticky top-[100px] z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-2 px-5 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-50 dark:border-slate-900">
+              {data.menu.map((cat: any) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    document.getElementById(cat.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    activeCategory === cat.id 
+                    ? 'bg-pos-primary text-white shadow-md' 
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-400'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <ProductList 
+            categories={data?.menu || []} 
+            searchQuery={searchQuery} 
+            cart={cart} 
+            addToCart={addToCart} 
+            removeFromCart={removeFromCart} 
+          />
+        </>
+      ) : activeTab === 'orders' ? (
+        <ActiveOrders 
+          orders={data.activeOrders || []} 
+          tableName={data.slot.name} 
+          propertyId={data.property.id}
+          upiId={data.property.upiId || ''}
+          upiName={data.property.upiName || data.property.name || ''}
+          setActiveTab={setActiveTab as any} 
+          onPaymentSuccess={() => {}}
+        />
+      ) : (
+        <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Your Profile</h2>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Guest Details</p>
+          </div>
+          
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-20 h-20 bg-pos-primary/10 rounded-3xl flex items-center justify-center text-pos-primary">
+                <span className="text-3xl font-black">{guestInfo?.name?.charAt(0) || 'G'}</span>
               </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900">Parking Order</h2>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{data?.slot?.name}</p>
+              <div className="text-center">
+                <p className="text-lg font-black text-slate-900 dark:text-white">{guestInfo?.name || 'Guest'}</p>
+                <p className="text-xs font-bold text-slate-400">{guestInfo?.phone || 'No phone provided'}</p>
+                {guestInfo?.vehicle && (
+                  <div className="mt-2 px-3 py-1 bg-pos-primary/10 rounded-lg border border-pos-primary/20 inline-block">
+                    <p className="text-[10px] font-black text-pos-primary uppercase tracking-widest">{guestInfo.vehicle}</p>
+                  </div>
+                )}
               </div>
             </div>
-            <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowOnboarding(true)}
+              className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest"
+            >
+              Edit Details
+            </Button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between px-2">
               <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1 block">Customer Name *</label>
-                <input required value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Enter your name" className="w-full h-14 px-5 rounded-2xl bg-slate-100 border-2 border-transparent focus:border-amber-400 outline-none font-semibold text-slate-800 transition-colors" />
+                <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Appearance</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</p>
               </div>
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1 block">Phone Number *</label>
-                <input required type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="Enter phone number" className="w-full h-14 px-5 rounded-2xl bg-slate-100 border-2 border-transparent focus:border-amber-400 outline-none font-semibold text-slate-800 transition-colors" />
-              </div>
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1 block">Vehicle Number *</label>
-                <input required value={form.vehicle} onChange={e => setForm(p => ({ ...p, vehicle: e.target.value.toUpperCase() }))} placeholder="e.g. MH 01 AB 1234" className="w-full h-14 px-5 rounded-2xl bg-slate-100 border-2 border-transparent focus:border-amber-400 outline-none font-bold text-slate-800 tracking-widest transition-colors" />
-              </div>
-              <button type="submit" className="w-full h-14 bg-amber-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-amber-200 active:scale-95 transition-transform">
-                Continue to Menu →
+              <button 
+                onClick={toggleTheme}
+                className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 transition-all active:scale-95"
+              >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
               </button>
-            </form>
-          </motion.div>
+            </div>
+          </div>
+
+          <div className="bg-pos-primary/5 dark:bg-pos-primary/10 border border-pos-primary/20 rounded-[2rem] p-6 text-center space-y-2">
+            <p className="text-[10px] font-black text-pos-primary uppercase tracking-widest">Parking Information</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Slot: {data.slot.name}</p>
+          </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm">
-        <div className="px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {data?.property?.logoUrl ? (
-              <img src={data.property.logoUrl} alt="logo" className="w-10 h-10 rounded-xl object-cover" />
-            ) : (
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Car size={18} className="text-amber-500" />
-              </div>
-            )}
-            <div>
-              <p className="font-black text-slate-900 text-base leading-tight">{data?.property?.brandName || data?.property?.name}</p>
-              <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">{data?.slot?.name}</p>
-            </div>
-          </div>
-          {guestInfo && (
-            <div className="text-right">
-              <p className="text-xs font-black text-slate-700">{guestInfo.name}</p>
-              <p className="text-[10px] font-bold text-amber-500 tracking-widest">{guestInfo.vehicle}</p>
-            </div>
-          )}
-        </div>
+      {/* Spacing for Bottom Nav */}
+      <div className="h-32" />
 
-        {/* Category tabs */}
-        {data?.menu?.length > 0 && (
-          <div className="flex gap-2 px-5 pb-3 overflow-x-auto no-scrollbar">
-            {data.menu.map((cat: any) => (
-              <button key={cat.id} onClick={() => { setActiveCategory(cat.id); document.getElementById(cat.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCategory === cat.id ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Bottom Nav */}
+      {!isCartOpen && (
+        <BottomNav 
+          activeTab={activeTab as any} 
+          setActiveTab={setActiveTab as any} 
+          orderCount={data.activeOrders?.length || 0}
+          showBar={false}
+        />
+      )}
 
-      {/* Menu */}
-      <div className="px-5 py-4 space-y-8 pb-40">
-        {data?.menu?.map((cat: any) => (
-          <div key={cat.id} id={cat.id}>
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 px-1">{cat.name}</h3>
-            <div className="space-y-3">
-              {cat.products.map((product: any) => {
-                const cartItem = cart.find(i => i.id === product.id);
-                return (
-                  <div key={product.id} className="bg-white rounded-[1.5rem] p-4 flex items-center gap-4 shadow-sm border border-slate-100">
-                    {product.image && <img src={product.image} alt={product.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-900 text-sm leading-tight truncate">{product.name}</p>
-                      {product.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{product.description}</p>}
-                      <p className="font-black text-amber-600 text-base mt-1">₹{product.sellingPrice}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      {cartItem ? (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => removeFromCart(product.id)} className="w-8 h-8 bg-amber-100 text-amber-600 rounded-xl font-black text-lg flex items-center justify-center active:scale-90 transition-transform">−</button>
-                          <span className="font-black text-slate-900 w-5 text-center">{cartItem.quantity}</span>
-                          <button onClick={() => addToCart(product)} className="w-8 h-8 bg-amber-500 text-white rounded-xl font-black text-lg flex items-center justify-center active:scale-90 transition-transform">+</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => addToCart(product)} className="w-10 h-10 bg-amber-500 text-white rounded-xl font-black text-xl flex items-center justify-center active:scale-90 transition-transform shadow-md shadow-amber-200">+</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Cart bar */}
+      {/* Floating Cart Bar */}
       <AnimatePresence>
-        {cart.length > 0 && (
-          <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="fixed bottom-0 left-0 right-0 p-4 z-40">
-            <div className="bg-slate-900 rounded-[2rem] p-3 pr-5 flex items-center justify-between shadow-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center relative">
-                  <ShoppingBag size={20} className="text-white" />
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-amber-600 text-[10px] font-black rounded-full flex items-center justify-center">{cart.reduce((s, i) => s + i.quantity, 0)}</span>
+        {cart.length > 0 && activeTab === 'menu' && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-5 right-5 z-50"
+          >
+            <div className="bg-slate-900 dark:bg-white rounded-[2rem] p-3 pr-6 flex items-center justify-between shadow-2xl border border-white/10 mb-20">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-pos-primary rounded-2xl flex items-center justify-center text-white relative shadow-lg">
+                  <ShoppingBag size={20} />
+                  <span className="absolute -top-1.5 -right-1.5 bg-white text-pos-accent text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-slate-900">
+                    {cart.reduce((s, i) => s + i.quantity, 0)}
+                  </span>
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Total</p>
-                  <p className="text-xl font-black text-white">₹{cartTotal}</p>
+                  <p className="text-[10px] font-black text-white/50 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Subtotal</p>
+                  <p className="text-xl font-black text-white dark:text-slate-900 leading-none tabular-nums">₹{cartTotal}</p>
                 </div>
               </div>
-              <button onClick={() => setIsCartOpen(true)} className="h-10 px-6 bg-amber-500 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                Review <ChevronRight size={14} />
+              <button 
+                onClick={() => setIsCartOpen(true)}
+                className="h-10 px-6 bg-pos-accent text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-pos-accent/20"
+              >
+                Review Order <ChevronRight size={14} />
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Cart Drawer */}
-      <AnimatePresence>
-        {isCartOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end">
-            <motion.div initial={{ y: 400 }} animate={{ y: 0 }} exit={{ y: 400 }} className="w-full bg-white rounded-t-[2.5rem] max-h-[90vh] flex flex-col">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xl font-black text-slate-900">Your Order</h3>
-                <button onClick={() => setIsCartOpen(false)} className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 font-bold">✕</button>
-              </div>
+      <CartDrawer 
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        addToCart={addToCart}
+        removeFromCart={removeFromCart}
+        cartTotal={cartTotal}
+        orderStatus={orderStatus}
+        placeOrder={placeOrder}
+        paymentMethod="COUNTER"
+        setPaymentMethod={() => {}}
+        showPaymentMock={false}
+        setShowPaymentMock={() => {}}
+      />
 
-              {/* Customer info summary */}
-              {guestInfo && (
-                <div className="mx-6 mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
-                  <Car size={20} className="text-amber-500 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-black text-slate-800">{guestInfo.name} • {guestInfo.phone}</p>
-                    <p className="font-bold text-amber-600 tracking-widest">{guestInfo.vehicle}</p>
-                  </div>
-                </div>
-              )}
+      <ParkingOnboarding 
+        show={showOnboarding}
+        form={onboardingForm}
+        setForm={setOnboardingForm}
+        onSubmit={handleOnboardingSubmit}
+        slotName={data?.slot?.name}
+      />
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                {cart.map(item => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-bold text-slate-800 text-sm">{item.name}</p>
-                      <p className="text-xs text-amber-600 font-black">₹{item.sellingPrice} each</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-700 flex items-center justify-center">−</button>
-                      <span className="font-black text-slate-900 w-6 text-center">{item.quantity}</span>
-                      <button onClick={() => addToCart(item)} className="w-8 h-8 bg-amber-500 rounded-xl font-black text-white flex items-center justify-center">+</button>
-                    </div>
-                    <p className="font-black text-slate-900 w-20 text-right">₹{item.sellingPrice * item.quantity}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-6 border-t border-slate-100 space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-slate-500 text-sm">Total Amount</p>
-                  <p className="font-black text-2xl text-slate-900">₹{cartTotal}</p>
-                </div>
-                <button
-                  onClick={placeOrder}
-                  disabled={orderStatus === 'submitting' || orderStatus === 'success'}
-                  className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all ${orderStatus === 'success' ? 'bg-emerald-500 text-white' : orderStatus === 'submitting' ? 'bg-amber-300 text-white animate-pulse' : 'bg-amber-500 text-white shadow-lg shadow-amber-200 active:scale-95'}`}
-                >
-                  {orderStatus === 'success' ? '✓ Order Placed!' : orderStatus === 'submitting' ? 'Placing Order...' : 'Place Order →'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800;900&display=swap');
+        body { font-family: 'Outfit', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

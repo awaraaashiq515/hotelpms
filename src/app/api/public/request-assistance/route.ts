@@ -5,23 +5,53 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tableId, propertyId, type } = body;
+    const { tableId, parkingSlotId, propertyId, type } = body;
 
-    if (!tableId || !propertyId || !type) {
+    if ((!tableId && !parkingSlotId) || !propertyId || !type) {
       return apiError(new Error('Missing required fields'), 400);
     }
 
-    const table = await prisma.table.findUnique({
-      where: { id: tableId },
-      include: { floor: true }
-    });
+    let title = type === 'BILL' ? 'Bill Request' : 'Assistance Requested';
+    let message = '';
+    let metadata: any = { 
+      propertyId, 
+      requestType: type,
+      link: tableId ? '/operations/tables' : '/operations/parking'
+    };
 
-    if (!table) return apiError(new Error('Table not found'), 404);
+    if (tableId) {
+      const table = await prisma.table.findUnique({
+        where: { id: tableId },
+        include: { floor: true }
+      });
+      if (!table) return apiError(new Error('Table not found'), 404);
+      
+      message = type === 'BILL' 
+        ? `Guest at Table ${table.name} (${table.floor.name}) has requested the bill.`
+        : `Guest at Table ${table.name} (${table.floor.name}) is calling for a waiter.`;
+      
+      metadata = {
+        ...metadata,
+        tableId,
+        tableName: table.name,
+        floorName: table.floor.name
+      };
+    } else if (parkingSlotId) {
+      const slot = await (prisma as any).parkingSlot.findUnique({
+        where: { id: parkingSlotId }
+      });
+      if (!slot) return apiError(new Error('Parking slot not found'), 404);
 
-    const title = type === 'BILL' ? 'Bill Request' : 'Assistance Requested';
-    const message = type === 'BILL' 
-      ? `Guest at Table ${table.name} (${table.floor.name}) has requested the bill.`
-      : `Guest at Table ${table.name} (${table.floor.name}) is calling for a waiter.`;
+      message = type === 'BILL' 
+        ? `Guest at Parking Slot ${slot.name} has requested the bill.`
+        : `Guest at Parking Slot ${slot.name} is calling for assistance.`;
+
+      metadata = {
+        ...metadata,
+        parkingSlotId,
+        slotName: slot.name
+      };
+    }
 
     const notification = await prisma.notification.create({
       data: {
@@ -30,13 +60,7 @@ export async function POST(request: NextRequest) {
         message,
         type: 'ASSISTANCE',
         priority: 'URGENT',
-        metadata: JSON.stringify({
-          tableId,
-          tableName: table.name,
-          floorName: table.floor.name,
-          requestType: type,
-          link: '/operations/tables'
-        }),
+        metadata: JSON.stringify(metadata),
       },
     });
 

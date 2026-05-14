@@ -44,3 +44,6 @@ prisma/dev.db
 public/uploads/
 public/downloads/
 dist/
+dev_server.log
+*.db-shm
+*.db-wal

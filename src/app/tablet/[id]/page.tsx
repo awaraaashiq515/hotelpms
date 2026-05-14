@@ -1,21 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Utensils, ShoppingCart, User, Table as TableIcon, 
   CheckCircle, Clock, ChevronRight, Star, 
   Menu, X, Search, Filter, ArrowLeft, Plus, Minus,
-  ChefHat, ShoppingBag
+  ChefHat, ShoppingBag, Bell, CreditCard, ReceiptIndianRupee,
+  Volume2, VolumeX, Smartphone, Zap, CarFront, UserPlus
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { CustomerForm } from '@/components/forms/customer-form';
 import { useToast } from '@/components/ui/Toast';
-import { QRCodeSVG } from 'qrcode.react';
-import { QrCode, Smartphone, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Types ---
 interface TabletConfig {
@@ -42,8 +42,11 @@ interface Product {
   categoryId: string;
   image?: string;
   description?: string;
-  productType?: string; // Add productType for Veg/Non-Veg indicators
-  isPopular?: boolean;  // Extra feature: popular items
+  productType?: string;
+  isPopular?: boolean;
+  hsnCode?: string;
+  halfPrice?: number | null;
+  variants?: any[];
 }
 
 interface Category {
@@ -59,6 +62,10 @@ interface Order {
   id: string;
   orderNo: string;
   status: string;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  membershipDiscount?: number;
   grandTotal: number;
   createdAt: string;
   items?: Array<{
@@ -72,7 +79,29 @@ interface Order {
   }>;
 }
 
-// --- Main Page Component ---
+// --- Constants (Matching Billing Page Aesthetics) ---
+const PRODUCT_PALETTE_DARK = [
+  { bg: '#c8e6c9', border: '#81c784', text: '#1b3a1c', textSub: '#2e5e30' },  // Mint Green
+  { bg: '#ce93d8', border: '#ab47bc', text: '#1a0d1e', textSub: '#3d1547' },  // Lavender
+  { bg: '#90caf9', border: '#42a5f5', text: '#0d1f35', textSub: '#0c3b6e' },  // Sky Blue
+  { bg: '#f48fb1', border: '#e91e63', text: '#2d0016', textSub: '#6a0030' },  // Rose Pink
+  { bg: '#fff59d', border: '#fdd835', text: '#2d2600', textSub: '#5e4a00' },  // Yellow
+  { bg: '#80cbc4', border: '#26a69a', text: '#002926', textSub: '#00544f' },  // Teal
+  { bg: '#ffcc80', border: '#ffa726', text: '#2d1500', textSub: '#5e3000' },  // Peach/Orange
+  { bg: '#b0bec5', border: '#78909c', text: '#1a2125', textSub: '#2e3d45' },  // Blue Grey
+];
+
+const CATEGORY_COLORS_DARK: Record<number, string> = {
+  0: 'bg-[#b8d8bc] text-[#1a3d1f]', // Soft mint green
+  1: 'bg-[#c9b8d8] text-[#2e1a4a]', // Soft lavender
+  2: 'bg-[#b8cfd8] text-[#1a2e3d]', // Soft sky blue
+  3: 'bg-[#d8b8c2] text-[#3d1a26]', // Soft rose pink
+  4: 'bg-[#d8d4b8] text-[#3d3520]', // Soft warm beige
+  5: 'bg-[#b8d8d0] text-[#1a3d35]', // Soft teal
+  6: 'bg-[#d8c8b8] text-[#3d2d1a]', // Soft peach
+  7: 'bg-[#c8c8d8] text-[#1a1a3d]', // Soft periwinkle
+};
+
 export default function TabletPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = React.use(params);
@@ -80,6 +109,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tables, setTables] = useState<{id: string, name: string}[]>([]);
+  const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   // UI State
@@ -90,47 +120,72 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isStatusVisible, setIsStatusVisible] = useState(false);
   const [showTableSelector, setShowTableSelector] = useState(false);
-  const [showQRStand, setShowQRStand] = useState(false);
   
-  // Professional Waiter Workflow State
   const [pax, setPax] = useState<number>(1);
   const [sessionStage, setSessionStage] = useState<'TABLE' | 'PAX' | 'MENU'>('TABLE');
+  const [isStatusVisible, setIsStatusVisible] = useState(false);
 
-  // Modals
-  const [showRating, setShowRating] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
+  // --- Order Calculation States ---
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<'FLAT' | 'PERCENT'>('FLAT');
+
+  // --- Waiter/Search States ---
+  const [searchMode, setSearchMode] = useState<'CUSTOMER' | 'DRIVER' | null>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [driverSearch, setDriverSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isWaitingApproval, setIsWaitingApproval] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI'>('CASH');
+  const [transactionLast4, setTransactionLast4] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [drivers, setDrivers] = useState<any[]>([]);
+
+  const categoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(c => {
+      map[c.id] = c.name;
+    });
+    return map;
+  }, [categories]);
 
   const { addToast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [tabRes, dataRes] = await Promise.all([
+        const [tabRes, dataRes, custRes, drivRes] = await Promise.all([
           fetch(`/api/tablets/${id}`),
           fetch(`/api/tablets/${id}/data`),
+          fetch('/api/customers'),
+          fetch('/api/drivers'),
         ]);
         
         const tabData = await tabRes.json();
         const data = await dataRes.json();
+        const custData = await custRes.json();
+        const drivData = await drivRes.json();
 
         if (tabData.success) {
           setTablet(tabData.data);
           if (tabData.data.tableId) {
             setSelectedTableId(tabData.data.tableId);
+            setSessionStage('MENU');
           }
         }
-        if (data.success) {
-          const { products: prodData, categories: catData, tables: tableData } = data.data;
-          setProducts(prodData.map((p: Product) => ({
-            ...p,
-            isPopular: p.name.length % 7 === 0 
-          })));
-          setCategories(catData);
-          setTables(tableData);
-        }
+         if (data.success) {
+           const { products: prodData, categories: catData, tables: tableData, property: propData } = data.data;
+           setProducts(prodData);
+           setCategories(catData);
+           setTables(tableData);
+           setProperty(propData);
+         }
+        if (custData) setCustomers(Array.isArray(custData) ? custData : custData.data || []);
+        if (drivData.success) setDrivers(drivData.data);
       } catch (error) {
         addToast('error', 'Failed to load configuration');
       } finally {
@@ -140,101 +195,90 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     fetchData();
   }, [id]);
 
-  // Handle Table Selection & Load Active Order
   useEffect(() => {
-    if (tablet?.mode === 'WAITER' && !selectedTableId) {
-      setShowTableSelector(true);
-    } else {
-      setShowTableSelector(false);
-    }
-
     const fetchActiveOrder = async () => {
-      if (!selectedTableId) {
-        setActiveOrder(null);
-        setIsStatusVisible(false);
-        return;
-      }
-      
+      if (!selectedTableId) return;
       try {
         const res = await fetch(`/api/pos-orders?restaurantTableId=${selectedTableId}&status=in_progress`);
         const data = await res.json();
         if (data.success && data.data && data.data.length > 0) {
-          setActiveOrder(data.data[0]); // Load the most recent active order
+          const newOrder = data.data[0];
+          setActiveOrder(prev => {
+            // Only update if data has actually changed to prevent re-renders
+            if (prev && JSON.stringify(prev) === JSON.stringify(newOrder)) return prev;
+            return newOrder;
+          });
           setIsStatusVisible(true);
-          addToast('success', 'Active order re-connected');
         } else {
           setActiveOrder(null);
           setIsStatusVisible(false);
         }
       } catch (e) {
-        console.error('Failed to fetch existing table order');
+        // Silent error for polling to avoid toast spam
+        console.error('Polling error:', e);
       }
     };
 
-    fetchActiveOrder();
-    setCart([]);
-    setIsCartOpen(false);
-  }, [tablet?.mode, selectedTableId]);
+    if (selectedTableId) {
+      fetchActiveOrder();
+      const pollInterval = isWaitingApproval ? 5000 : 10000;
+      const interval = setInterval(fetchActiveOrder, pollInterval); 
+      return () => clearInterval(interval);
+    }
+  }, [selectedTableId, isWaitingApproval]);
 
-
-  // Real-time status polling for active order
+  // Effect to handle session reset on settlement
   useEffect(() => {
-    if (!activeOrder || activeOrder.status === 'SERVED') return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/pos-orders/${activeOrder.id}`);
-        const data = await res.json();
-        if (data.success) {
-          const newStatus = data.data.status;
-          const oldStatus = activeOrder.status;
-
-          // Notify guest of progress
-          if (newStatus !== oldStatus) {
-            if (newStatus === 'IN_KITCHEN') addToast('success', 'Chef has started crafting your masterpieces!');
-            else if (newStatus === 'READY') addToast('success', 'Your order is perfected and ready to serve!');
-            else if (newStatus === 'SERVED') addToast('success', 'Enjoy your meal! Presentation complete.');
-          }
-
-          setActiveOrder(data.data);
-          if (newStatus === 'SERVED') {
-            setShowRating(true);
-          }
-        }
-      } catch (e) {
-        console.error('Status poll failed', e);
+    if (activeOrder?.status === 'SETTLED') {
+      addToast('success', 'Payment Approved! Thank you.');
+      setActiveOrder(null);
+      setCart([]);
+      setIsWaitingApproval(false);
+      setIsStatusVisible(false);
+      setPax(1);
+      // If in TABLE mode, go back to table selection
+      if (tablet?.mode === 'WAITER') {
+        setSessionStage('TABLE');
       }
-    }, 5000);
+    }
+  }, [activeOrder?.status]);
 
-    return () => clearInterval(interval);
-  }, [activeOrder?.id, activeOrder?.status]);
+  const addToCart = (product: Product | any, variantName?: string, variantPrice?: number) => {
+    const finalPrice = variantPrice ?? product.sellingPrice;
+    const finalName = variantName && variantName !== 'Full' ? `${product.name} (${variantName})` : product.name;
+    const cartItemId = variantName ? `${product.id}-${variantName}` : product.id;
 
-  const addToCart = (product: Product) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const existing = prev.find(item => (item as any).cartItemId === cartItemId);
       if (existing) {
-        return prev.map((item: any) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item =>
+          (item as any).cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
+        );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, name: finalName, sellingPrice: finalPrice, cartItemId, quantity: 1, size: variantName }];
     });
-    addToast('success', `${product.name} added to cart`);
+    addToast('success', `${finalName} added to tray`);
   };
 
-  const removeFromCart = (productId: string) => {
+  const updateQuantity = (cartItemId: string, delta: number) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === productId);
-      if (existing && existing.quantity > 1) {
-        return prev.map((item: any) => item.id === productId ? { ...item, quantity: item.quantity - 1 } : item);
+      const existing = prev.find(item => (item as any).cartItemId === cartItemId);
+      if (existing && existing.quantity === 1 && delta === -1) {
+        return prev.filter(item => (item as any).cartItemId !== cartItemId);
       }
-      return prev.filter(item => item.id !== productId);
+      return prev.map(item =>
+        (item as any).cartItemId === cartItemId ? { ...item, quantity: item.quantity + delta } : item
+      );
     });
+  };
+
+  const removeFromCart = (cartItemId: string) => {
+    setCart(prev => prev.filter(item => (item as any).cartItemId !== cartItemId));
   };
 
   const handlePlaceOrder = async () => {
-    if (!selectedTableId) {
-      addToast('error', 'Please select a table');
-      return;
-    }
+    if (!selectedTableId) return;
+    if (cart.length === 0 && !activeOrder) return;
 
     setIsPlacingOrder(true);
     try {
@@ -244,28 +288,31 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         body: JSON.stringify({
           propertyId: tablet?.propertyId,
           outletId: 'default-pos-outlet',
-          orderType: 'DINE_IN',
+          orderType: selectedDriver ? 'DELIVERY' : 'DINE_IN',
           restaurantTableId: selectedTableId,
+          guestId: selectedCustomer?.id,
+          driverId: selectedDriver?.id,
+          discountAmount: discountAmount || 0,
+          discountType: discountType,
           items: cart.map(i => ({
             productId: i.id,
             quantity: i.quantity,
-            unitPrice: i.sellingPrice
-          }))
+            unitPrice: i.sellingPrice,
+            variantName: (i as any).size || (i as any).variantName || null
+          })),
+          paymentMode: paymentMode,
+          transactionLast4: transactionLast4
         })
       });
 
       const data = await res.json();
       if (data.success) {
-        addToast('success', 'Order placed successfully!');
-        setActiveOrder(data.data);
-        setIsStatusVisible(true);
-        setCart([]);
-        setIsCartOpen(false);
-        
-        // Wait a small moment for toast then redirect
-        setTimeout(() => {
-          router.push('/operations/tables');
-        }, 1500);
+         addToast('success', 'Order sent to kitchen!');
+         setActiveOrder(data.data);
+         setIsStatusVisible(true);
+         // Clear the local cart because items are now in activeOrder.items
+         // But the UI will still show them and the total will reflect them.
+         setCart([]); 
       } else {
         addToast('error', data.message || 'Failed to place order');
       }
@@ -276,841 +323,741 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const submitRating = async () => {
-    if (!activeOrder) return;
-    try {
-      await fetch(`/api/orders/${activeOrder.id}/rating`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, comments: comment })
-      });
-      addToast('success', 'Thank you for your feedback!');
-      setShowRating(false);
-      setActiveOrder(null);
-    } catch (e) {
-      addToast('error', 'Failed to submit rating');
-    }
-  };
+  const cartSubtotal = useMemo(() => {
+    const inCart = cart.reduce((total, item) => total + (item.sellingPrice * item.quantity), 0);
+    const ordered = activeOrder?.subtotal || 0;
+    return inCart + ordered;
+  }, [cart, activeOrder]);
 
-  const cartTotal = useMemo(() => cart.reduce((total, item) => total + (item.sellingPrice * item.quantity), 0), [cart]);
+  const cartTax = useMemo(() => {
+    const inCartTax = cart.reduce((total, item) => total + (item.sellingPrice * item.quantity * 0.05), 0);
+    const orderedTax = activeOrder?.taxAmount || 0;
+    return inCartTax + orderedTax;
+  }, [cart, activeOrder]);
 
-  const filteredProducts = products.filter(p => {
-    const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const cartTotal = cartSubtotal + cartTax 
+    - (discountType === 'PERCENT' ? (cartSubtotal * discountAmount / 100) : discountAmount)
+    - (activeOrder?.discountAmount || 0)
+    - (activeOrder?.membershipDiscount || 0);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, activeCategory, searchQuery]);
 
   if (loading) return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-white">
-      <div className="relative w-24 h-24 mb-6">
-        <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
-        <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
-      </div>
-      <p className="text-gray-400 font-bold uppercase tracking-widest text-sm animate-pulse">Initializing Interface...</p>
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0F172A]">
+      <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-4" />
+      <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Initializing Terminal...</p>
     </div>
   );
 
   if (!tablet) return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-red-50 text-red-600 p-10 text-center">
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-red-950/20 text-red-500 p-10 text-center">
       <X size={64} className="mb-4" />
-      <h2 className="text-2xl font-black mb-2 uppercase">Configuration Error</h2>
-      <p className="font-medium opacity-70">This tablet session is invalid or has expired.</p>
+      <h2 className="text-2xl font-black uppercase">Configuration Error</h2>
     </div>
   );
 
-  // --- WAITER MODE: Professional Session Assignment (With PAX Stage) ---
+  // Waiter Station Selection
   if (tablet.mode === 'WAITER' && sessionStage !== 'MENU') {
     return (
-      <div className="h-screen w-screen bg-slate-50 flex flex-col overflow-hidden font-sans select-none animate-in fade-in duration-700">
-        <header className="h-24 shrink-0 flex items-center justify-between px-20 relative bg-white border-b border-slate-100 shadow-sm z-30">
-          <div className="flex items-center gap-6">
-             <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shadow-lg transform rotate-2">
-                <ChefHat size={22} className="text-white" />
-             </div>
-             <div>
-                <h1 className="text-xl font-black tracking-[-0.03em] text-black uppercase leading-tight">ASO DHA <span className="text-slate-300 font-light">POS</span></h1>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{tablet.name} • WAITER PROTOCOL</p>
-             </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-             <div className="px-5 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Secure Node</span>
-             </div>
-          </div>
+      <div className="h-screen w-screen bg-[#0F172A] text-white flex flex-col overflow-hidden font-sans">
+        <header className="h-20 shrink-0 flex items-center justify-between px-10 border-b border-white/5 bg-slate-900/50">
+           <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                 <ChefHat size={20} className="text-white" />
+              </div>
+              <div>
+                 <h1 className="text-lg font-black tracking-tight uppercase">OrderMint <span className="text-indigo-500">Tablet</span></h1>
+                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{tablet.name} • WAITER STATION</p>
+              </div>
+           </div>
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center p-10 relative z-20">
+        <main className="flex-1 flex items-center justify-center p-10">
            {sessionStage === 'TABLE' ? (
-             <div className="w-full flex flex-col items-center animate-in slide-in-from-bottom-8 duration-700">
-                <div className="text-center mb-10">
-                   <h2 className="text-2xl font-bold text-black uppercase tracking-tight mb-1">Assign Station</h2>
-                   <p className="text-slate-400 font-medium uppercase tracking-[0.2em] text-[10px]">Identify your table station to initiate operations</p>
+             <div className="w-full max-w-5xl">
+                <div className="text-center mb-12">
+                   <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Select Station</h2>
+                   <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Identify the table to begin service</p>
                 </div>
-
-                <div className="w-full max-w-6xl grid grid-cols-2 md:grid-cols-4 luxury-scroll gap-6 overflow-y-auto py-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                    {tables.map(table => (
                      <button 
                        key={table.id}
-                       onClick={() => {
-                         setSelectedTableId(table.id);
-                         setSessionStage('PAX');
-                         addToast('success', `Table ${table.name} selected`);
-                       }}
-                       className="relative group aspect-square rounded-[32px] bg-white border border-slate-200 flex flex-col items-center justify-center transition-all duration-500 hover:border-black hover:-translate-y-2 hover:shadow-xl"
+                       onClick={() => { setSelectedTableId(table.id); setSessionStage('PAX'); }}
+                       className="aspect-square rounded-[32px] bg-slate-900 border border-white/5 flex flex-col items-center justify-center transition-all hover:border-indigo-500 hover:-translate-y-2 group shadow-2xl"
                      >
-                       <TableIcon size={20} className="text-slate-200 mb-3" />
-                       <span className="text-xl font-bold text-black">{table.name}</span>
-                       <div className="mt-3 px-3 py-1 bg-slate-50 rounded-full text-[8px] font-bold uppercase tracking-widest text-slate-300">Ready</div>
+                       <TableIcon size={24} className="text-slate-700 mb-3 group-hover:text-indigo-400" />
+                       <span className="text-2xl font-black">{table.name}</span>
+                       <div className="mt-2 px-3 py-1 bg-white/5 rounded-full text-[8px] font-black uppercase tracking-widest text-slate-500">Ready</div>
                      </button>
                    ))}
                 </div>
              </div>
            ) : (
-             <div className="w-full max-w-2xl flex flex-col items-center animate-in zoom-in-95 duration-700">
-                <button 
-                  onClick={() => setSessionStage('TABLE')}
-                  className="mb-8 flex items-center gap-2 text-slate-400 font-black text-[9px] tracking-widest hover:text-black transition-colors"
-                >
-                  <ArrowLeft size={14} /> BACK TO TABLES
-                </button>
-
-                <div className="text-center mb-12 px-12 py-10 bg-white rounded-[32px] border border-slate-100 shadow-xl w-full">
-                   <h2 className="text-2xl font-bold text-black uppercase tracking-tight mb-1">Guest Count (PAX)</h2>
-                   <p className="text-slate-400 font-medium uppercase tracking-[0.2em] text-[9px] mb-10">Table {tables.find(t => t.id === selectedTableId)?.name}</p>
-                   
-                   <div className="flex items-center justify-center gap-8">
-                      <button 
-                        onClick={() => setPax(Math.max(1, pax - 1))}
-                        className="w-16 h-16 rounded-2xl border-2 border-slate-100 flex items-center justify-center text-slate-300 hover:border-black hover:text-black transition-all"
-                      >
-                         <Minus size={24} />
-                      </button>
-                      <span className="text-6xl font-black text-black w-24 tabular-nums">{pax}</span>
-                      <button 
-                        onClick={() => setPax(pax + 1)}
-                        className="w-16 h-16 rounded-2xl border-2 border-slate-100 flex items-center justify-center text-slate-300 hover:border-black hover:text-black transition-all"
-                      >
-                         <Plus size={24} />
-                      </button>
+             <div className="w-full max-w-xl text-center">
+                <h2 className="text-3xl font-black uppercase tracking-tight mb-12">Guest Count</h2>
+                <div className="bg-slate-900 rounded-[40px] p-12 border border-white/5 shadow-2xl mb-12">
+                   <div className="flex items-center justify-center gap-12">
+                      <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Minus size={32} /></button>
+                      <span className="text-8xl font-black tabular-nums">{pax}</span>
+                      <button onClick={() => setPax(pax + 1)} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Plus size={32} /></button>
                    </div>
                 </div>
-
-                <button 
-                  onClick={() => {
-                    setSessionStage('MENU');
-                    addToast('success', `Session started for Table ${tables.find(t => t.id === selectedTableId)?.name} with ${pax} guests`);
-                  }}
-                  className="mt-4 w-full h-16 bg-black text-white rounded-[24px] font-bold text-sm tracking-[0.2em] uppercase shadow-lg hover:bg-slate-800 transition-all"
-                >
-                   Start Service Protocol
-                </button>
+                <button onClick={() => setSessionStage('MENU')} className="w-full py-6 bg-indigo-600 rounded-[24px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all">Launch Service Protocol</button>
              </div>
            )}
-
-           <div className="mt-20 flex items-center gap-12 opacity-50">
-              <div className={`flex flex-col items-center gap-2 ${sessionStage === 'TABLE' ? 'opacity-100' : 'opacity-20'}`}>
-                 <div className="w-1.5 h-1.5 rounded-full bg-black" />
-                 <span className="text-[9px] font-black text-black">STATION</span>
-              </div>
-              <div className="w-12 h-[1px] bg-slate-200" />
-              <div className={`flex flex-col items-center gap-2 ${sessionStage === 'PAX' ? 'opacity-100' : 'opacity-20'}`}>
-                 <div className="w-1.5 h-1.5 rounded-full bg-black" />
-                 <span className="text-[9px] font-black text-black">GUESTS</span>
-              </div>
-              <div className="w-12 h-[1px] bg-slate-200" />
-              <div className="opacity-20 flex flex-col items-center gap-2">
-                 <div className="w-1 h-1 rounded-full bg-slate-300" />
-                 <span className="text-[9px] font-black text-slate-400">SERVICE</span>
-              </div>
-           </div>
         </main>
-        
-        <footer className="h-16 shrink-0 flex items-center justify-center border-t border-slate-100 bg-white/50">
-            <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[1em]">INITIALIZING SESSION HANDLER</p>
-        </footer>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-[#F8FAFC] flex overflow-hidden font-sans select-none relative animate-in fade-in duration-700">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-50 rounded-full blur-[120px] -z-10 translate-x-1/3 -translate-y-1/3 opacity-40 animate-pulse" />
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-rose-50 rounded-full blur-[100px] -z-10 -translate-x-1/4 translate-y-1/4 opacity-30" />
-
-      {/* --- Header: Ultra-Premium Command Center --- */}
-      <header className="fixed top-6 left-6 right-6 h-20 bg-slate-900/40 backdrop-blur-[40px] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-[32px] z-50 flex items-center justify-between px-8 group transition-all duration-700">
-        <div className="flex items-center gap-5">
-          <div className="relative">
-            <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-            <div className="w-12 h-12 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-500/20 transform group-hover:rotate-6 transition-transform">
-              <Utensils className="text-white w-6 h-6" />
-            </div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-3">
-              <h1 className="font-black text-lg tracking-[-0.03em] text-white uppercase leading-none">ASO DHA <span className="text-indigo-500 tracking-widest ml-1 font-light opacity-50 text-[10px]">PREMIUM</span></h1>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                <span className="text-[8px] font-black text-emerald-400 tracking-widest uppercase">Live</span>
-              </div>
-            </div>
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] leading-none">
-              {tablet.name} <span className="mx-2 text-slate-700">|</span> <span className="text-indigo-400 font-bold">{tablet.mode} MODE</span>
-            </p>
-          </div>
+    <div className="h-screen w-screen bg-[#020617] text-white flex flex-col overflow-hidden font-sans select-none">
+      {/* Top Header - Unified Terminal Header */}
+      <header className="h-16 shrink-0 flex items-center justify-between px-6 bg-slate-900/80 backdrop-blur-md border-b border-white/5 z-50">
+        <div className="flex items-center gap-4">
+           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <Utensils size={18} />
+           </div>
+           <div>
+              <h1 className="font-black uppercase tracking-tight text-sm">OrderMint <span className="text-indigo-500">POS</span></h1>
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                 {tablet.name} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'}
+              </p>
+           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          {/* Table Indicator with Glow */}
-          {tablet.mode === 'WAITER' ? (
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setShowTableSelector(true)}
-                className="flex items-center gap-3 bg-white/5 hover:bg-white/10 text-white px-5 py-2.5 rounded-2xl border border-white/5 hover:border-white/10 transition-all active:scale-95 group/btn"
-              >
-                <TableIcon className="w-3.5 h-3.5 text-indigo-400 group-hover/btn:rotate-12 transition-transform" />
-                <span className="font-bold uppercase tracking-widest text-[10px]">
-                  {selectedTableId ? (tables.find(t => t.id === selectedTableId)?.name || 'Assign') : 'Assign'}
-                </span>
-              </button>
-              
-              <button 
-                onClick={() => {
-                  setSessionStage('TABLE');
-                  addToast('success', 'Starting new session...');
-                }}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 group/new"
-              >
-                <Plus size={14} className="group-hover/new:rotate-90 transition-transform" />
-                <span className="font-bold uppercase tracking-widest text-[10px]">New Table</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4 bg-indigo-500/10 px-6 py-3 rounded-2xl border border-indigo-500/20 shadow-inner">
-              <TableIcon className="text-indigo-400 w-4 h-4 shadow-[0_0_15px_rgba(129,140,248,0.3)]" />
-              <span className="font-black text-white uppercase tracking-[0.3em] text-[11px]">
-                {(() => {
-                  const tName = tables.find(t => t.id === selectedTableId)?.name || '...';
-                  return tName.toLowerCase().includes('table') ? tName : `Table ${tName}`;
-                })()}
-              </span>
-            </div>
-          )}
-
-          <div className="w-[1px] h-8 bg-white/5" />
-
-          {/* QR Display Toggle */}
-          {tablet.mode === 'TABLE' && (
-            <button 
-              onClick={() => setShowQRStand(true)}
-              className="flex items-center gap-3 bg-white/5 hover:bg-white/10 text-white px-5 py-3.5 rounded-2xl border border-white/10 transition-all active:scale-95 group/qr"
-            >
-              <QrCode size={18} className="text-emerald-400 group-hover/qr:scale-110 transition-transform" />
-              <div className="flex flex-col items-start leading-none">
-                <span className="text-[10px] font-black uppercase tracking-widest">Share QR</span>
-                <span className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-tight">Scan & Order</span>
-              </div>
-            </button>
-          )}
-
-          <div className="w-[1px] h-8 bg-white/5" />
-
-          {/* Active Order Summary Hub */}
-          {activeOrder && (
-            <button 
+        {activeOrder && (
+          <div className="hidden md:flex items-center gap-3 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 animate-in fade-in zoom-in duration-500">
+             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+             <div className="flex flex-col">
+                <span className="text-[7px] font-black uppercase text-indigo-400 tracking-widest leading-none">Active Order</span>
+                <span className="text-[9px] font-black leading-tight text-white/90">#{activeOrder.orderNo}</span>
+             </div>
+             <button 
               onClick={() => setIsStatusVisible(true)}
-              className="flex items-center gap-3 bg-white/5 hover:bg-white/10 text-white px-5 py-3.5 rounded-2xl border border-white/10 transition-all active:scale-95 group/history"
-            >
-              <ShoppingBag size={16} className="text-indigo-400 group-hover/history:scale-110 transition-transform" />
-              <div className="flex flex-col items-start leading-none">
-                <span className="text-[10px] font-black uppercase tracking-widest">My Orders</span>
-                <span className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-tight">Total: ₹{activeOrder.grandTotal.toFixed(2)}</span>
-              </div>
-            </button>
-          )}
+              className="text-[7px] font-black uppercase bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 ml-2 border border-white/5 transition-all"
+             >
+               Track Status
+             </button>
+          </div>
+        )}
 
-          {/* Cart Hub */}
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] shadow-[0_15px_40px_rgba(79,70,229,0.3)] hover:shadow-indigo-500/40 hover:-translate-y-1 active:translate-y-0 transition-all relative group/cart overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover/cart:translate-x-[100%] transition-transform duration-1000" />
-            <ShoppingCart size={16} className="group-hover/cart:scale-110 transition-transform" />
-            Basket 
-            {cart.length > 0 && (
-              <div className="bg-rose-500 px-2 py-0.5 rounded-lg text-[9px] font-black shadow-lg animate-in zoom-in duration-300">
-                {cart.reduce((s, i) => s + i.quantity, 0)}
-              </div>
-            )}
-          </button>
+        <div className="flex items-center gap-4">
+           <div className="relative w-64 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={14} />
+              <input 
+                type="text" 
+                placeholder="Search Menu..."
+                className="w-full h-10 bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500/50 transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+           </div>
+
+           {tablet.mode === 'WAITER' && (
+             <button 
+               onClick={() => setSessionStage('TABLE')}
+               className="h-10 px-4 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-[9px] font-black uppercase tracking-widest"
+             >
+               <TableIcon size={14} className="text-indigo-400" />
+               Change Table
+             </button>
+           )}
+
+           <button className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all">
+              <Bell size={18} />
+           </button>
         </div>
       </header>
 
-      {/* 2. Main Layout (Refined Sidebar + Content) */}
-      <main className="flex-1 pt-32 pb-6 flex overflow-hidden px-6 gap-6">
-        {/* Category: The Glass Blade */}
-        <aside className="w-24 lg:w-32 flex flex-col items-center py-8 gap-6 bg-slate-900/40 backdrop-blur-[40px] border border-white/5 shadow-2xl rounded-[40px] z-30">
-          <button 
-            onClick={() => setActiveCategory('all')}
-            className={`w-16 h-16 lg:w-20 lg:h-20 rounded-[28px] flex flex-col items-center justify-center transition-all duration-500 group relative ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-[0_0_40px_rgba(79,70,229,0.4)]' : 'text-slate-500 hover:bg-white/5 hover:text-indigo-400'}`}
-          >
-            <Filter size={22} className={`relative z-10 transition-transform ${activeCategory === 'all' ? 'scale-110 rotate-12' : 'opacity-40 group-hover:rotate-180'}`} />
-            <span className="relative z-10 text-[9px] font-black uppercase tracking-[0.2em] mt-2 leading-none whitespace-nowrap">Explore</span>
-          </button>
-          
-          <div className="w-12 h-[1px] bg-white/5" />
-          
-          <div className="flex-1 overflow-y-auto w-full flex flex-col items-center gap-6 scrollbar-hide pb-8">
-            {categories.map(cat => (
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        
+        {/* Left Side: Product Grid & Categories (Billing Style) */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-950/50">
+           {/* Category Bar */}
+           <div className="h-20 shrink-0 border-b border-white/5 flex items-center px-4 gap-3 overflow-x-auto no-scrollbar">
               <button 
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`w-16 h-20 lg:w-20 lg:h-24 rounded-[32px] flex flex-col items-center justify-center transition-all duration-500 flex-shrink-0 group relative ${activeCategory === cat.id ? 'bg-white text-slate-900 shadow-2xl scale-105' : 'text-slate-500 hover:bg-white/5 hover:text-indigo-400'}`}
+                onClick={() => setActiveCategory('all')}
+                className={`flex flex-col items-center justify-center min-w-[80px] h-14 rounded-xl transition-all ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
               >
-                {activeCategory === cat.id && (
-                    <div className="absolute left-0 w-2 h-8 bg-indigo-500 rounded-r-full animate-in slide-in-from-left duration-300 shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
-                )}
-                <span className="text-[10px] font-black uppercase tracking-tight text-center leading-tight px-2 group-hover:scale-105 transition-transform">{cat.name}</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest">All Items</span>
+                 <span className="text-[8px] font-bold opacity-60 mt-0.5">{products.length} Items</span>
               </button>
-            ))}
-          </div>
-        </aside>
 
-        {/* --- Content: The Interactive Canvas --- */}
-        <section className="flex-1 flex flex-col overflow-hidden relative">
-          {/* Smart Search Bar */}
-          <div className="px-4 py-4 flex justify-between items-center z-20 sticky top-0">
-             <div className="relative w-full max-w-2xl group">
-                <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity" />
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={20} />
-                <input 
-                  type="text" 
-                  placeholder="Masterpiece, please. Search for a dish..."
-                  className="w-full h-16 bg-slate-900/40 backdrop-blur-3xl border border-white/5 rounded-[28px] pl-16 pr-8 text-sm font-bold text-white outline-none focus:bg-slate-900/60 transition-all placeholder:text-slate-600 shadow-2xl border-b-white/10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-             </div>
-             
-             <div className="flex gap-4 ml-6">
-                <div className="p-4 bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl text-slate-500 hover:text-indigo-400 transition-colors shadow-xl">
-                   <Filter size={20} />
-                </div>
-             </div>
-          </div>
-
-          {/* Gallery: The Culinary Display */}
-          <div className="flex-1 overflow-y-auto px-6 pb-40 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8 scroll-smooth no-scrollbar animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            {filteredProducts.map(product => (
-              <div 
-                key={product.id}
-                className="group relative bg-slate-900/40 backdrop-blur-3xl rounded-[40px] border border-white/5 shadow-2xl hover:bg-slate-900/60 hover:-translate-y-3 transition-all duration-700 flex flex-col overflow-hidden h-full min-h-[420px]"
-              >
-                {/* Visual Reveal */}
-                <div className="relative w-full aspect-[4/3] overflow-hidden shrink-0">
-                  <div className="absolute inset-0">
-                    {product.image ? (
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover transition-transform duration-[2000ms] group-hover:scale-125 brightness-90 group-hover:brightness-110" 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 overflow-hidden relative">
-                        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/pinstripes.png')]" />
-                        <Utensils size={48} strokeWidth={0.5} className="text-slate-600 animate-pulse relative z-10" />
-                      </div>
-                    )}
-                    
-                    {/* Status HUD Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-                    
-                    <div className="absolute top-5 left-5 z-20">
-                      <div className={`px-2.5 py-1 rounded-full border bg-black/40 backdrop-blur-md flex items-center gap-1.5 shadow-2xl transition-all duration-500 scale-90 group-hover:scale-100 ${product.productType === 'NON_VEG' ? 'border-rose-500/50 text-rose-400' : 'border-emerald-500/50 text-emerald-400'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] ${product.productType === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                        <span className="text-[7px] font-black uppercase tracking-widest">{product.productType === 'NON_VEG' ? 'Meat' : 'Vegan'}</span>
-                      </div>
-                    </div>
-
-                    {product.isPopular && (
-                      <div className="absolute top-5 right-5 z-20">
-                        <div className="bg-amber-500/90 backdrop-blur-md text-white text-[8px] font-black px-3 py-1.5 rounded-xl uppercase tracking-[0.2em] flex items-center gap-2 shadow-2xl shadow-amber-500/20 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
-                          <Star size={9} className="fill-white" /> Trending
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Narrative & Interaction */}
-                <div className="p-7 flex-1 flex flex-col justify-between gap-6 relative">
-                  <div className="space-y-2">
-                    <h3 className="font-bold text-white leading-tight text-sm tracking-tight line-clamp-2 min-h-[2.4em] group-hover:text-indigo-400 transition-colors uppercase">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center gap-3">
-                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em] border-b border-white/5 pb-1">
-                          {categories.find(c => c.id === product.categoryId)?.name || 'Classic'}
-                       </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-end justify-between">
-                     <div className="flex flex-col gap-0.5">
-                        <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest opacity-60">Investment</span>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-indigo-400 text-xs font-black">₹</span>
-                          <span className="font-black text-2xl text-white tracking-tighter leading-none">{product.sellingPrice}</span>
-                        </div>
-                     </div>
-
-                     <div className="flex items-center">
-                        {(() => {
-                          const quantity = cart.find(i => i.id === product.id)?.quantity || 0;
-                          
-                          if (quantity === 0) {
-                            return (
-                              <button 
-                                onClick={() => addToCart(product)}
-                                className="h-12 px-6 bg-white text-slate-900 rounded-[22px] flex items-center gap-2 hover:bg-indigo-500 hover:text-white hover:shadow-[0_10px_30px_rgba(99,102,241,0.4)] hover:scale-110 active:scale-95 transition-all shadow-2xl relative group/add"
-                              >
-                                <Plus size={16} strokeWidth={3} className="group-hover/add:rotate-90 transition-transform" />
-                                <span className="font-black text-[9px] uppercase tracking-[0.2em]">Add to Tray</span>
-                              </button>
-                            );
-                          }
-
-                          return (
-                            <div className="flex items-center gap-4 bg-white/5 p-1 rounded-3xl border border-white/10 animate-in zoom-in duration-500">
-                               <button 
-                                onClick={() => removeFromCart(product.id)}
-                                className="w-10 h-10 bg-rose-500 text-white rounded-[20px] flex items-center justify-center hover:bg-rose-600 transition-all active:scale-90 shadow-xl shadow-rose-500/20"
-                               >
-                                 <Minus size={16} strokeWidth={3} />
-                               </button>
-                               <span className="w-6 text-center font-black text-sm text-white">{quantity}</span>
-                               <button 
-                                onClick={() => addToCart(product)}
-                                className="w-10 h-10 bg-indigo-500 text-white rounded-[20px] flex items-center justify-center hover:bg-indigo-600 transition-all active:scale-90 shadow-xl shadow-indigo-500/20"
-                               >
-                                 <Plus size={16} strokeWidth={3} />
-                               </button>
-                            </div>
-                          );
-                        })()}
-                     </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {filteredProducts.length === 0 && (
-              <div className="col-span-full py-32 flex flex-col items-center justify-center text-slate-500">
-                <div className="w-28 h-28 rounded-[40px] bg-white/5 flex items-center justify-center mb-6 shadow-xl border border-white/5 backdrop-blur-3xl">
-                  <Search size={40} strokeWidth={1} className="opacity-20" />
-                </div>
-                <h4 className="font-black uppercase tracking-[0.3em] text-xs text-white mb-2 underline decoration-indigo-500 decoration-4 underline-offset-8">Recipe Not Found</h4>
-                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-4">Try exploring a different category</p>
-              </div>
-            )}
-          </div>
-        </section>
-      </main>
-
-
-      {/* --- Sliding Basket Module: The Luxury Drawer --- */}
-      <div className={`fixed inset-0 z-[100] transition-all duration-700 flex justify-end ${isCartOpen ? 'visible' : 'invisible'}`}>
-        <div 
-          className={`absolute inset-0 bg-slate-900/60 backdrop-blur-2xl transition-opacity duration-700 ${isCartOpen ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setIsCartOpen(false)}
-        />
-        <aside className={`relative w-full max-w-md h-full bg-[#0F172A] shadow-[-40px_0_100px_rgba(0,0,0,0.5)] transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col border-l border-white/5 ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          {/* Basket Hero Section */}
-          <div className="relative p-10 pb-8 overflow-hidden shrink-0">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[60px]" />
-            <div className="flex items-center justify-between relative z-10">
-              <div className="space-y-1">
-                <h2 className="font-black text-3xl text-white uppercase tracking-tighter leading-none">Your Tray</h2>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Selected Masterpieces</p>
-              </div>
-              <button 
-                onClick={() => setIsCartOpen(false)}
-                className="w-12 h-12 rounded-[22px] bg-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all hover:bg-white/10 active:scale-90"
-              >
-                <X size={24} />
-              </button>
-            </div>
-          </div>
-
-          {/* Tray Scroll Area */}
-          <div className="flex-1 overflow-y-auto px-10 py-4 space-y-8 scrollbar-hide">
-            {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
-                <div className="w-24 h-24 bg-white/5 rounded-[40px] mb-8 flex items-center justify-center border border-white/5 animate-pulse">
-                  <ShoppingCart className="w-10 h-10 text-slate-400" strokeWidth={1} />
-                </div>
-                <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white">Empty Selection</h3>
-                <p className="text-[9px] mt-4 font-bold text-slate-600 uppercase tracking-widest leading-loose">The kitchen awaits your first command.<br/>Excellence takes a moment.</p>
-              </div>
-            ) : cart.map((item: any) => (
-              <div key={item.id} className="flex gap-6 items-center animate-in slide-in-from-right-8 duration-500">
-                <div className="w-16 h-16 rounded-2xl bg-white/5 overflow-hidden shrink-0 border border-white/10 p-0.5 shadow-2xl">
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-[14px]" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-700">
-                      <Utensils size={24} strokeWidth={1} />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-black text-white text-sm uppercase tracking-tight line-clamp-1">{item.name}</h4>
-                  <p className="text-indigo-400 font-black text-[11px] mt-1.5 opacity-70">₹{item.sellingPrice}</p>
-                </div>
-                <div className="flex items-center gap-4 bg-white/5 p-1.5 rounded-2xl border border-white/10">
-                  <button 
-                    onClick={() => removeFromCart(item.id)}
-                    className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95"
-                  >
-                    <Minus size={14} strokeWidth={3} />
-                  </button>
-                  <span className="w-6 text-center font-black text-sm text-white">{item.quantity}</span>
-                  <button 
-                    onClick={() => addToCart(item)}
-                    className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all active:scale-95"
-                  >
-                    <Plus size={14} strokeWidth={3} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Checkout Command Center */}
-          <div className="p-10 bg-slate-900/60 backdrop-blur-3xl border-t border-white/5 flex flex-col gap-8 shadow-[0_-20px_50px_rgba(0,0,0,0.3)]">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-slate-600 font-black uppercase tracking-[0.3em] text-[10px]">
-                <span>Artistic Total</span>
-                <span className="text-white">₹{cartTotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-white font-black text-4xl pt-6 border-t border-white/5">
-                <span className="tracking-tighter uppercase text-slate-400 text-lg">Payable</span>
-                <span className="text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">₹{cartTotal.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <Button 
-              className="w-full h-20 rounded-[32px] bg-indigo-600 hover:bg-indigo-500 text-white text-[12px] font-black uppercase tracking-[0.4em] shadow-[0_20px_40px_rgba(79,70,229,0.3)] flex items-center justify-center gap-4 transition-all duration-500 active:scale-[0.98] disabled:grayscale disabled:opacity-30 group/confirm"
-              disabled={cart.length === 0 || isPlacingOrder || (tablet.mode === 'WAITER' && !selectedTableId)}
-              loading={isPlacingOrder}
-              onClick={handlePlaceOrder}
-            >
-              Dispatch Order
-              <ChevronRight size={20} strokeWidth={3} className="group-hover/confirm:translate-x-2 transition-transform" />
-            </Button>
-            
-            {tablet.mode === 'WAITER' && !selectedTableId && (
-              <div className="p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20 text-center animate-bounce">
-                 <p className="text-rose-400 font-black text-[9px] uppercase tracking-[0.3em] flex items-center justify-center gap-3">
-                    <X size={14} strokeWidth={3} /> Assignment Required
-                 </p>
-              </div>
-            )}
-          </div>
-        </aside>
-      </div>
-
-      {/* --- Order Flow Tracking: Immersive View --- */}
-      {activeOrder && isStatusVisible && (
-        <div className="fixed inset-0 z-[150] bg-[#0F172A] flex flex-col animate-in fade-in zoom-in-95 duration-700">
-           {/* Decor */}
-           <div className="absolute top-[-20%] left-[-10%] w-[1000px] h-[1000px] bg-indigo-600/5 rounded-full blur-[200px]" />
-           
-           <div className="p-12 flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-6">
-               <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-[28px] flex items-center justify-center shadow-2xl shadow-indigo-500/20">
-                  <ChefHat className="text-white w-8 h-8" />
-               </div>
-               <div className="space-y-1">
-                  <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Culinary Sync</h2>
-                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em] opacity-60">Session {activeOrder.orderNo} • Kitchen Real-Time</p>
-               </div>
-            </div>
-            <button 
-              onClick={() => setIsStatusVisible(false)}
-              className="w-16 h-16 bg-white/5 rounded-[28px] flex items-center justify-center text-slate-400 hover:text-white shadow-2xl transition-all hover:bg-white/10"
-            >
-              <X size={28} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-12 md:px-24 py-12 relative z-10 no-scrollbar">
-            <div className="flex flex-col items-center w-full min-h-full">
-            <div className="w-full max-w-6xl grid grid-cols-4 gap-12 relative pb-24">
-              {/* Animated Progress Conduit */}
-              <div className="absolute top-[4rem] left-[10%] right-[10%] h-1 bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-rose-500 transition-all duration-[2000ms] ease-out shadow-[0_0_30px_rgba(99,102,241,1)]" 
-                  style={{ 
-                    width: `${(() => {
-                      const stages = ['PLACED', 'IN_KITCHEN', 'READY', 'SERVED'];
-                      let index = stages.indexOf(activeOrder.status);
-                      if (index === -1) {
-                        // Fallback: If status is PENDING/OPEN/NEW, map to PLACED (index 0)
-                        if (['PENDING', 'OPEN', 'NEW'].includes(activeOrder.status)) index = 0;
-                        else index = 0; 
-                      }
-                      return (index / 3) * 100;
-                    })()}%` 
-                  }}
-                />
-              </div>
-
-               {[
-                { key: 'PLACED', label: 'Authorized', desc: 'Securely received', icon: CheckCircle, altKeys: ['PENDING', 'OPEN', 'NEW'] },
-                { key: 'IN_KITCHEN', label: 'Crafting', desc: 'Active preparation', icon: Utensils, altKeys: ['PREPARING'] },
-                { key: 'READY', label: 'Perfected', desc: 'Quality inspected', icon: Star, altKeys: [] },
-                { key: 'SERVED', label: 'Presented', desc: 'Final delivery', icon: ShoppingBag, altKeys: [] }
-              ].map((step, idx, arr) => {
-                const stepIdx = idx;
-                const currentStatus = activeOrder.status;
-                const stages = arr.map((s: any) => s.key);
-                
-                // Determine if this step is passed or current
-                let currentIdx = stages.indexOf(currentStatus);
-                if (currentIdx === -1) {
-                  // Check aliases
-                  const aliasIdx = arr.findIndex(s => (s.altKeys || []).includes(currentStatus));
-                  currentIdx = aliasIdx !== -1 ? aliasIdx : 0;
-                }
-
-                const isPassed = stepIdx <= currentIdx;
-                const isCurrent = stepIdx === currentIdx;
-
+              {categories.map((cat, idx) => {
+                const colorClass = CATEGORY_COLORS_DARK[idx % 8];
                 return (
-                  <div key={step.key} className="flex flex-col items-center text-center relative z-10">
-                    <div className={`w-28 h-28 lg:w-32 lg:h-32 rounded-[44px] flex items-center justify-center transition-all duration-[1000ms] transform ${
-                      isPassed 
-                      ? 'bg-gradient-to-tr from-indigo-500 to-indigo-700 shadow-[0_20px_60px_rgba(79,70,229,0.4)] border-none' 
-                      : 'bg-white/5 border border-white/5 text-slate-800'
-                    } ${isCurrent ? 'animate-pulse ring-[16px] ring-indigo-500/10 scale-110' : ''}`}>
-                      <step.icon size={40} className={`transition-all duration-700 ${isPassed ? 'text-white drop-shadow-lg' : 'text-slate-700 opacity-20'}`} />
+                  <button 
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`flex flex-col items-center justify-center min-w-[100px] h-14 rounded-xl transition-all ${activeCategory === cat.id ? `${colorClass} shadow-lg scale-105` : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
+                  >
+                     <span className="text-[10px] font-black uppercase tracking-widest truncate w-full px-2 text-center">{cat.name}</span>
+                     <span className="text-[8px] font-bold opacity-60 mt-0.5">Category</span>
+                  </button>
+                );
+              })}
+           </div>
+
+
+           {/* High Density Product Grid */}
+           <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3 content-start no-scrollbar">
+              {filteredProducts.map((product, idx) => {
+                const palette = PRODUCT_PALETTE_DARK[idx % PRODUCT_PALETTE_DARK.length];
+                const inCart = cart.find(item => item.id === product.id);
+                const hasVariants = (product.variants && product.variants.length > 0) || product.halfPrice;
+                
+                return (
+                   <div 
+                     key={product.id} 
+                     className="relative group transform active:scale-95 transition-transform duration-200"
+                   >
+                     <div 
+                       onClick={() => !hasVariants && addToCart(product)}
+                       className={`relative w-full rounded-[16px] p-2.5 flex flex-col justify-between transition-all hover:brightness-110 shadow-md overflow-hidden border border-black/5 ${hasVariants ? 'cursor-default' : 'cursor-pointer'}`}
+                       style={{ backgroundColor: palette.bg, aspectRatio: '1/1' }}
+                     >
+                       <div className="flex justify-between items-start">
+                          <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
+                             {product.hsnCode || '2106'}
+                          </span>
+                          <div className="text-right">
+                             <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>Price</span>
+                             <span className="text-[12px] font-black leading-none" style={{ color: palette.textSub }}>₹{product.sellingPrice}</span>
+                          </div>
+                       </div>
+
+                       <div className="flex-1 flex items-center py-1">
+                          <h3 className="text-[11px] font-black uppercase tracking-tighter leading-[1.1] line-clamp-3 w-full text-left" style={{ color: palette.text }}>
+                             {product.name}
+                          </h3>
+                       </div>
+
+                       {!hasVariants ? (
+                         <div className="flex justify-between items-end border-t border-black/5 pt-1.5 mt-auto">
+                            <div className="text-left space-y-0">
+                               <span className="block text-[8px] font-black uppercase opacity-50 leading-none" style={{ color: palette.textSub }}>
+                                  {categoryMap[product.categoryId] || 'Menu'}
+                               </span>
+                               <span className="block text-[6px] font-bold opacity-30 uppercase leading-none" style={{ color: palette.textSub }}>GST 5%</span>
+                            </div>
+                            
+                            <div className="flex items-center">
+                               {inCart ? (
+                                  <div className="w-5 h-5 rounded-lg bg-black/10 flex items-center justify-center font-black text-[10px]" style={{ color: palette.text }}>
+                                     {inCart.quantity}
+                                  </div>
+                               ) : (
+                                  <div className={`w-2 h-2 rounded-full ${product.productType === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                               )}
+                            </div>
+                         </div>
+                       ) : (
+                         <div className="absolute inset-x-0 bottom-0 flex flex-col z-10">
+                            {/* Show 'Full' button ONLY if there are no variants OR if halfPrice exists without variants */}
+                            {(!product.variants || product.variants.length === 0) && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
+                                className="w-full py-3 bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 transition-colors border-t border-white/10"
+                              >
+                                Full Price
+                              </button>
+                            )}
+                            
+                            {/* Variants Grid - 2 per row */}
+                            <div className="grid grid-cols-2 w-full border-t border-white/10">
+                               {product.variants?.map((v: any, vIdx: number) => (
+                                 <button 
+                                   key={v.id}
+                                   onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                                   className={`py-2.5 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest hover:bg-rose-500 active:bg-rose-700 transition-colors ${vIdx % 2 === 0 ? 'border-r border-white/10' : ''} border-b border-white/5`}
+                                 >
+                                   {v.name}
+                                 </button>
+                               ))}
+                               {product.halfPrice && (
+                                 <button 
+                                   onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice!); }}
+                                   className={`py-2.5 bg-amber-500 text-white font-black text-[9px] uppercase tracking-widest hover:bg-amber-400 active:bg-amber-700 transition-colors ${(product.variants?.length || 0) % 2 === 0 ? 'col-span-2' : ''} border-b border-white/5`}
+                                 >
+                                   Half
+                                 </button>
+                               )}
+                            </div>
+                         </div>
+                       )}
+
+                       {!hasVariants && inCart && (
+                         <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
+                       )}
+                     </div>
                     </div>
-                    <div className="mt-10 space-y-2.5">
-                      <h4 className={`font-black text-[11px] uppercase tracking-[0.3em] ${isPassed ? 'text-white' : 'text-slate-600'}`}>{step.label}</h4>
-                      <p className={`text-[9px] font-bold uppercase tracking-widest transition-opacity duration-1000 ${isPassed ? 'text-slate-500 opacity-100' : 'opacity-0'}`}>{step.desc}</p>
-                    </div>
-                  </div>
                 );
               })}
             </div>
-            
-            {/* Active Items Carousel/List */}
-            <div className="w-full max-w-4xl mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom-12 duration-1000 delay-300">
-               {activeOrder.items && activeOrder.items.length > 0 ? (
-                 activeOrder.items.map((item, idx) => (
-                   <div key={item.id || idx} className="bg-white/5 backdrop-blur-3xl border border-white/5 rounded-3xl p-6 flex items-center gap-6 group hover:bg-white/10 transition-all duration-500">
-                      <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 shrink-0 group-hover:scale-110 transition-transform">
-                         {item.product?.image ? (
-                           <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover rounded-2xl" />
-                         ) : (
-                           <Utensils size={20} className="text-indigo-400" />
-                         )}
+         </div>
+
+        {/* Right Side: Order Tray (Billing Style) */}
+        <aside className="w-[380px] shrink-0 border-l border-white/5 bg-slate-900/30 flex flex-col overflow-hidden">
+           {/* Tray Header */}
+           <div className="p-6 border-b border-white/5 space-y-4">
+              <div className="flex items-start justify-between">
+                 <div>
+                    <h2 className="text-xl font-black uppercase tracking-tighter mb-0.5">Order <span className="text-indigo-500">Details</span></h2>
+                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                       {tablet.mode === 'WAITER' ? 'WAITER SERVICE' : 'COUNTER SERVICE'} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'}
+                    </p>
+                 </div>
+                 <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
+                    <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Minus size={14} /></button>
+                    <div className="px-3 flex flex-col items-center">
+                       <span className="text-xs font-black leading-none">{pax}</span>
+                       <span className="text-[6px] font-black text-slate-500 uppercase">Pax</span>
+                    </div>
+                    <button onClick={() => setPax(pax + 1)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Plus size={14} /></button>
+                 </div>
+              </div>
+
+              {/* Customer/Driver Selection */}
+              <div className="space-y-3">
+                 {!(selectedCustomer || selectedDriver) ? (
+                    <>
+                       <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => setSearchMode('CUSTOMER')}
+                            className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'CUSTOMER' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+                          >
+                             <User size={13} />
+                             <span className="text-[9px] font-black uppercase tracking-widest">Customer</span>
+                          </button>
+                          <button 
+                            onClick={() => setSearchMode('DRIVER')}
+                            className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'DRIVER' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+                          >
+                             <CarFront size={13} />
+                             <span className="text-[9px] font-black uppercase tracking-widest">Driver</span>
+                          </button>
+                       </div>
+
+                       {searchMode && (
+                          <div className="relative animate-in slide-in-from-top-2 duration-300">
+                             <div className="relative group">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={13} />
+                                <input 
+                                  type="text"
+                                  placeholder={searchMode === 'CUSTOMER' ? "Search guest..." : "Search driver..."}
+                                  value={searchMode === 'CUSTOMER' ? customerSearch : driverSearch}
+                                  onChange={(e) => searchMode === 'CUSTOMER' ? setCustomerSearch(e.target.value) : setDriverSearch(e.target.value)}
+                                  className="w-full h-9 bg-white/5 border border-white/10 rounded-xl pl-9 pr-9 text-[9px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-indigo-500/50 transition-all"
+                                  autoFocus
+                                />
+                                {searchMode === 'CUSTOMER' && (
+                                   <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center hover:bg-indigo-500/30 transition-all">
+                                      <UserPlus size={12} />
+                                   </button>
+                                )}
+                             </div>
+
+                             {/* Search Results Dropdown */}
+                             {(searchMode === 'CUSTOMER' ? customerSearch : driverSearch) && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden max-h-40 overflow-y-auto no-scrollbar">
+                                   {searchMode === 'CUSTOMER' ? (
+                                      customers.filter(c => 
+                                        c.firstName.toLowerCase().includes(customerSearch.toLowerCase()) || 
+                                        c.lastName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                                        c.mobile?.includes(customerSearch)
+                                      ).map(c => (
+                                         <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-3 py-2 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
+                                            <span className="text-[9px] font-bold text-white">{c.firstName} {c.lastName}</span>
+                                            <span className="text-[7px] text-slate-500 uppercase font-black">{c.mobile || 'No Mobile'}</span>
+                                         </button>
+                                      ))
+                                   ) : (
+                                      drivers.filter(d => 
+                                        d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                                        d.phone?.includes(driverSearch)
+                                      ).map(d => (
+                                         <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-3 py-2 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
+                                            <span className="text-[9px] font-bold text-white">{d.name}</span>
+                                            <span className="text-[7px] text-slate-500 uppercase font-black">{d.phone || 'No Phone'}</span>
+                                         </button>
+                                      ))
+                                   )}
+                                </div>
+                             )}
+                          </div>
+                       )}
+                    </>
+                 ) : (
+                    /* Selected Entity Indicator */
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center justify-between group">
+                       <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                             {selectedCustomer ? <User size={18} /> : <CarFront size={18} />}
+                          </div>
+                          <div>
+                             <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
+                             <p className="text-[10px] font-black text-white uppercase">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
+                          </div>
+                       </div>
+                       <button 
+                         onClick={() => { setSelectedCustomer(null); setSelectedDriver(null); }}
+                         className="h-8 px-3 bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-500 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                       >
+                          Change
+                       </button>
+                    </div>
+                 )}
+              </div>
+           </div>
+
+           {/* Tray Items List */}
+           <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+              {cart.length === 0 && (!activeOrder || !activeOrder.items || activeOrder.items.length === 0) ? (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20">
+                   <ShoppingCart size={48} strokeWidth={1} className="mb-4" />
+                   <p className="text-[10px] font-black uppercase tracking-[0.3em]">Tray is Empty</p>
+                </div>
+              ) : (
+                 <>
+                  {cart.map(item => (
+                   <div key={(item as any).cartItemId || item.id} className="bg-slate-800/40 rounded-2xl p-3 flex flex-col gap-3 animate-in slide-in-from-right-2 duration-300 border border-white/5">
+                      <div className="flex gap-4">
+                         <div className="w-11 h-11 bg-white/5 rounded-xl flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              <Utensils size={24} className="text-slate-600" />
+                            )}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <h4 className="text-[10px] font-black uppercase tracking-tight text-white/90 truncate">{item.name}</h4>
+                            <div className="flex items-center justify-between mt-2">
+                               <div className="flex flex-col">
+                                  <span className="text-[11px] font-black text-indigo-400">₹{item.sellingPrice * item.quantity}</span>
+                                  <span className="text-[7px] font-bold text-slate-500 uppercase">₹{item.sellingPrice} / unit</span>
+                               </div>
+                               <div className="flex items-center gap-3 bg-black/20 p-1 rounded-lg border border-white/5">
+                                  <button onClick={() => updateQuantity((item as any).cartItemId || item.id, -1)} className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all"><Minus size={12} /></button>
+                                  <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
+                                  <button onClick={() => updateQuantity((item as any).cartItemId || item.id, 1)} className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center hover:bg-indigo-500/20 hover:text-indigo-400 transition-all"><Plus size={12} /></button>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Quick Variant Switch in Tray */}
+                      {((item.variants && item.variants.length > 0) || item.halfPrice) && (
+                         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                            {item.variants?.map((v: any) => (
+                               <button 
+                                 key={v.id}
+                                 onClick={() => {
+                                    removeFromCart((item as any).cartItemId);
+                                    addToCart(item, v.name, v.price);
+                                 }}
+                                 className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${ (item as any).size === v.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10' }`}
+                               >
+                                  {v.name}
+                               </button>
+                            ))}
+                            {item.halfPrice && (
+                               <button 
+                                 onClick={() => {
+                                    removeFromCart((item as any).cartItemId);
+                                    addToCart(item, 'Half', item.halfPrice!);
+                                 }}
+                                 className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${ (item as any).size === 'Half' ? 'bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10' }`}
+                               >
+                                  Half
+                               </button>
+                            )}
+                         </div>
+                      )}
+                   </div>
+                 ))}
+                 </>
+              )}
+           </div>
+
+           {/* Active Order Items (Already Sent) */}
+           {activeOrder && activeOrder.items && activeOrder.items.length > 0 && (
+              <div className="px-4 pb-4 space-y-3 max-h-[300px] overflow-y-auto no-scrollbar border-t border-white/5 pt-4">
+                 <div className="flex items-center gap-2 mb-2 opacity-50">
+                    <div className="h-px flex-1 bg-white/10" />
+                    <span className="text-[7px] font-black uppercase tracking-[0.2em]">Already Ordered</span>
+                    <div className="h-px flex-1 bg-white/10" />
+                 </div>
+                 {activeOrder.items.map((item: any) => (
+                   <div key={item.id} className="bg-white/5 rounded-2xl p-3 flex items-center gap-4 border border-white/5 opacity-60">
+                      <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center shrink-0">
+                         <CheckCircle size={16} className="text-emerald-500" />
                       </div>
                       <div className="flex-1 min-w-0">
-                         <div className="flex justify-between items-start">
-                           <p className="text-[11px] font-black text-white uppercase tracking-wider line-clamp-1">{item.product?.name}</p>
-                           <span className="text-indigo-400 font-black text-[11px]">₹{(item.unitPrice * item.quantity).toFixed(2)}</span>
-                         </div>
-                         <div className="flex items-center gap-3 mt-1.5">
-                            <span className="bg-indigo-600 px-2 py-0.5 rounded-lg text-[9px] font-black text-white">{item.quantity}×</span>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confirmed</span>
-                         </div>
+                         <h4 className="text-[9px] font-black uppercase tracking-tight text-white/80 truncate">{item.product?.name || 'Item'}</h4>
+                         <p className="text-[8px] font-bold text-slate-500 mt-0.5">{item.quantity} x ₹{item.unitPrice}</p>
+                      </div>
+                      <div className="text-right flex flex-col items-end">
+                         <span className="text-[9px] font-black text-emerald-400">ORDERED</span>
+                         <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">KITCHEN</span>
                       </div>
                    </div>
-                 ))
-               ) : (
-                 <div className="col-span-full text-center py-10 opacity-20">
-                    <p className="text-[9px] font-black uppercase tracking-[0.4em] text-white">Initializing Item Stream...</p>
-                 </div>
-               )}
-            </div>
-
-            <div className="mt-16 flex flex-wrap justify-center gap-8">
-              <div className="bg-white/5 backdrop-blur-3xl px-10 py-7 rounded-[40px] border border-white/5 flex items-center gap-8 shadow-2xl group hover:border-white/10 transition-all duration-500">
-                <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center animate-pulse group-hover:bg-indigo-500/20 transition-colors">
-                  <Clock size={32} className="text-indigo-400" />
-                </div>
-                <div className="text-left space-y-1">
-                  <p className="text-slate-500 font-black text-[10px] uppercase tracking-[0.3em]">Temporal Estimate</p>
-                  <p className="font-extrabold text-3xl text-white tracking-tighter uppercase transition-all group-hover:text-indigo-400">08 <span className="text-xs text-slate-600 tracking-[0.5em] ml-2">Mins</span></p>
-                </div>
+                 ))}
               </div>
+           )}
 
-              <div className="bg-white/5 backdrop-blur-3xl px-10 py-7 rounded-[40px] border border-white/5 flex items-center gap-8 shadow-2xl group hover:border-white/10 transition-all duration-500">
-                <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
-                  <ShoppingBag size={32} className="text-emerald-400" />
+            {/* Totals & Actions */}
+            <div className="p-4 bg-slate-900 border-t border-white/10 space-y-3">
+                <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                       <span>Subtotal</span>
+                       <span>₹{cartSubtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                       <span>Estimated Tax (5%)</span>
+                       <span>₹{cartTax.toFixed(2)}</span>
+                    </div>
+
+                   <div className="pt-1.5 border-t border-white/5 space-y-2">
+                      <div className="flex items-center justify-between">
+                         <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Discount</span>
+                         <div className="flex bg-black/20 rounded-lg p-0.5 border border-white/5">
+                            <button onClick={() => setDiscountType('FLAT')} className={`px-2 py-0.5 text-[7px] font-black rounded ${discountType === 'FLAT' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>₹</button>
+                            <button onClick={() => setDiscountType('PERCENT')} className={`px-2 py-0.5 text-[7px] font-black rounded ${discountType === 'PERCENT' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>%</button>
+                         </div>
+                      </div>
+                      <div className="relative">
+                         <input 
+                            type="number"
+                            value={discountAmount || ''}
+                            onChange={(e) => setDiscountAmount(Number(e.target.value))}
+                            placeholder="0.00"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black outline-none focus:border-indigo-500/50"
+                         />
+                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-500">{discountType === 'PERCENT' ? '%' : '₹'}</span>
+                      </div>
+                   </div>
+
+                   <div className="pt-3 border-t border-white/5 flex justify-between items-end">
+                      <div className="flex flex-col">
+                         <span className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.3em]">Total Amount</span>
+                         <span className="text-2xl font-black tracking-tighter text-white">
+                            ₹{cartTotal.toFixed(2)}
+                         </span>
+                      </div>
+                      {cart.length > 0 && (
+                        <button 
+                          onClick={() => { setCart([]); setDiscountAmount(0); }}
+                          className="text-[7px] font-black text-rose-500 uppercase tracking-widest hover:underline mb-1"
+                        >
+                          Clear Tray
+                        </button>
+                      )}
+                   </div>
                 </div>
-                <div className="text-left space-y-1">
-                  <p className="text-slate-500 font-black text-[10px] uppercase tracking-[0.3em]">Session Investment</p>
-                  <p className="font-extrabold text-3xl text-white tracking-tighter uppercase transition-all group-hover:text-emerald-400">₹{activeOrder.grandTotal.toFixed(2)}</p>
+
+               {/* Payment Mode Selector */}
+               <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => setPaymentMode('CASH')}
+                    className={`h-9 rounded-xl flex items-center justify-center gap-2 border transition-all ${paymentMode === 'CASH' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+                  >
+                     <ReceiptIndianRupee size={12} />
+                     <span className="text-[9px] font-black uppercase tracking-widest">Cash</span>
+                  </button>
+                  <button 
+                    onClick={() => setPaymentMode('UPI')}
+                    className={`h-9 rounded-xl flex items-center justify-center gap-2 border transition-all ${paymentMode === 'UPI' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+                  >
+                     <Zap size={12} />
+                     <span className="text-[9px] font-black uppercase tracking-widest">UPI QR</span>
+                  </button>
+               </div>
+
+               <div className="grid grid-cols-2 gap-2.5">
+                  <button className="py-2.5 bg-slate-800 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-slate-700 transition-all border border-white/5 text-slate-400">
+                     Save Draft
+                  </button>
+                  <button 
+                    disabled={isPlacingOrder || (cart.length === 0 && !activeOrder)}
+                    onClick={() => paymentMode === 'UPI' ? setIsPaymentModalOpen(true) : handlePlaceOrder()}
+                    className="py-2.5 bg-indigo-600 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                     {isPlacingOrder ? 'Processing...' : 
+                        (paymentMode === 'UPI' ? 
+                          (cart.length > 0 ? 'Pay & Order' : 'Pay for Current Order') : 
+                          (cart.length > 0 ? 'Confirm Order' : 'Order Placed')
+                        )
+                      }
+                  </button>
+               </div>
+
+           </div>
+        </aside>
+      </div>
+
+      {/* Payment Modal Overlay */}
+      <AnimatePresence>
+        {isPaymentModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl"
+          >
+             <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-md bg-slate-900 rounded-[40px] border border-white/10 shadow-3xl overflow-hidden"
+             >
+                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-indigo-600/10">
+                   <div>
+                      <h2 className="text-2xl font-black uppercase tracking-tight">Scan to <span className="text-indigo-400">Pay</span></h2>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Dynamic UPI Generator</p>
+                   </div>
+                   <button onClick={() => setIsPaymentModalOpen(false)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all">
+                      <X size={20} />
+                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
 
+                <div className="p-8 flex flex-col items-center gap-6">
+                   {/* QR Code Container */}
+                   <div className="relative p-6 bg-white rounded-[32px] shadow-2xl">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${property?.upiId || '7296969566@ybl'}&pn=${encodeURIComponent(property?.upiName || property?.brandName || 'OrderMint')}&am=${(cartTotal * 1.05 - (discountType === 'PERCENT' ? (cartTotal * discountAmount / 100) : discountAmount)).toFixed(2)}&cu=INR`)}`}
+                        alt="Payment QR"
+                        className="w-48 h-48"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+                         <Zap size={60} className="text-indigo-600" />
+                      </div>
+                   </div>
 
+                   <div className="text-center">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total to Pay</span>
+                      <p className="text-4xl font-black text-white">₹{(cartTotal * 1.05 - (discountType === 'PERCENT' ? (cartTotal * discountAmount / 100) : discountAmount)).toFixed(2)}</p>
+                   </div>
 
-            {/* New Session Access for Staff */}
-            {tablet.mode === 'WAITER' && (
-              <div className="p-12 pb-24 flex justify-center w-full">
-                <Button 
-                  variant="secondary" 
-                  className="rounded-2xl px-12 h-16 text-[10px] font-bold uppercase tracking-widest bg-indigo-600 border-none text-white hover:bg-indigo-500 shadow-xl transition-all active:scale-95 flex items-center gap-3"
-                  onClick={() => {
-                    setActiveOrder(null);
-                    setIsStatusVisible(false);
-                    setSessionStage('TABLE');
-                  }}
+                   <div className="w-full space-y-4">
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest ml-1">Last 4 Digits of Transaction</label>
+                         <input 
+                            type="text"
+                            maxLength={4}
+                            value={transactionLast4}
+                            onChange={(e) => setTransactionLast4(e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="Ex: 5821"
+                            className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-xl font-black tracking-[0.5em] text-center outline-none focus:border-indigo-500/50"
+                         />
+                      </div>
+
+                      <button 
+                        disabled={transactionLast4.length !== 4 || isProcessingPayment}
+                        onClick={async () => {
+                          setIsProcessingPayment(true);
+                          // Here we would call handlePlaceOrder with payment metadata
+                          // For now we just call it and it will handle the creation
+                          await handlePlaceOrder();
+                          setIsProcessingPayment(false);
+                          setIsPaymentModalOpen(false);
+                          setIsWaitingApproval(true);
+                          setTransactionLast4('');
+                        }}
+                        className="w-full h-14 bg-indigo-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                      >
+                         {isProcessingPayment ? 'Validating...' : 'Confirm & Place Order'}
+                         <ChevronRight size={18} />
+                      </button>
+                      <p className="text-[8px] text-center text-slate-500 font-bold uppercase tracking-widest">Payment will be sent to admin for approval</p>
+                   </div>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Waiting for Approval Status Popup */}
+      <AnimatePresence>
+        {isWaitingApproval && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[120] w-full max-w-sm"
+          >
+             <div className="bg-slate-900 border border-indigo-500/30 rounded-[32px] p-6 shadow-3xl shadow-indigo-500/20 backdrop-blur-xl flex items-center gap-5">
+                <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center relative">
+                   <div className="absolute inset-0 bg-indigo-500/20 rounded-2xl animate-ping" />
+                   <Clock className="text-indigo-400 relative z-10" size={24} />
+                </div>
+                <div className="flex-1">
+                   <h3 className="text-xs font-black uppercase tracking-widest text-white">Sent for Approval</h3>
+                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                      Wait for counter verification.
+                   </p>
+                </div>
+                <button 
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="h-10 px-4 bg-indigo-500/20 text-indigo-400 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-indigo-500/30 transition-all border border-indigo-500/10"
+                 >
+                   Show QR
+                 </button>
+                <button 
+                  onClick={() => setIsWaitingApproval(false)}
+                  className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all"
                 >
-                  <Plus size={16} /> Start Next Table Order
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Floating Insight Tracker */}
-      {activeOrder && !isStatusVisible && (
-        <button 
-          onClick={() => setIsStatusVisible(true)}
-          className="fixed bottom-12 right-12 bg-indigo-600 text-white pl-6 pr-10 py-6 rounded-[36px] font-black text-xs uppercase tracking-[0.4em] shadow-[0_30px_80px_rgba(79,70,229,0.5)] flex items-center gap-6 hover:bg-indigo-500 hover:scale-110 active:scale-95 transition-all z-40 animate-in slide-in-from-bottom-12 ring-[8px] ring-white/10 group"
-        >
-          <div className="relative">
-             <div className="absolute inset-0 bg-white rounded-full animate-ping opacity-20" />
-             <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center group-hover:bg-white/20 transition-colors">
-                <Clock size={20} className="text-white" />
+                   <X size={18} />
+                </button>
              </div>
-          </div>
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-[9px] text-white/40 leading-none">Dispatching</span>
-            <span className="leading-none tracking-[0.2em]">{activeOrder.status}</span>
-          </div>
-          <ChevronRight size={18} strokeWidth={3} className="ml-2 group-hover:translate-x-2 transition-transform" />
-        </button>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Rating & Feedback: Floating Centered Overlay */}
-      {showRating && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 animate-in fade-in duration-500">
-           <div className="absolute inset-0 bg-black/60 backdrop-blur-3xl" onClick={() => { setShowRating(false); setActiveOrder(null); }} />
-           
-           <div className="w-full max-w-xl bg-[#0F172A] rounded-[48px] border border-white/10 shadow-[0_50px_100px_rgba(0,0,0,0.5)] overflow-hidden relative z-10 animate-in zoom-in-95 slide-in-from-bottom-12 duration-700">
-              <div className="py-12 text-center px-10">
-                <div className="w-24 h-24 bg-amber-500/10 rounded-[38px] flex items-center justify-center mx-auto mb-8 shadow-2xl border border-amber-500/20 group animate-bounce">
-                   <Star className="text-amber-500 fill-amber-500 animate-in zoom-in duration-1000" size={48} />
-                </div>
-                <h3 className="text-2xl font-black text-white tracking-tighter uppercase mb-4">Culinary Verdict</h3>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] px-12 leading-loose mb-10">How was your experience tonight?</p>
-                
-                <div className="flex justify-center gap-3 mb-10">
-                  {[1, 2, 3, 4, 5].map(num => (
-                    <button
-                      key={num}
-                      onClick={() => setRating(num)}
-                      className={`w-14 h-14 rounded-[20px] flex items-center justify-center text-lg font-black transition-all duration-500 ${
-                        rating >= num ? 'bg-amber-500 text-white shadow-[0_15px_40px_rgba(245,158,11,0.4)] -translate-y-2 scale-110' : 'bg-white/5 text-slate-700 hover:bg-white/10'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
 
-                <div className="relative group mb-10">
-                  <textarea
-                    placeholder="Tell us your secrets..."
-                    className="w-full bg-white/5 border border-white/5 rounded-[32px] p-6 text-sm outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all font-bold text-white placeholder:text-slate-700 shadow-inner min-h-[120px] resize-none"
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <Button variant="secondary" onClick={() => { setShowRating(false); setActiveOrder(null); }} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-[0.3em] bg-white/5 border-white/5 text-slate-500 hover:text-white transition-all">Dismiss</Button>
-                  <Button onClick={submitRating} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-[0.3em] bg-indigo-600 shadow-[0_15px_40px_rgba(79,70,229,0.3)] hover:bg-indigo-500 transition-all">Submit</Button>
-                </div>
-              </div>
-           </div>
+      <Modal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        title="New Guest Registration"
+      >
+        <div className="p-6">
+          <CustomerForm
+            onSubmit={async (data) => {
+              try {
+                const res = await fetch('/api/customers', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(data),
+                });
+                const result = await res.json();
+                if (result.success) {
+                  const newCustomer = result.data;
+                  setCustomers(prev => [...prev, newCustomer]);
+                  setSelectedCustomer(newCustomer);
+                  setIsCustomerModalOpen(false);
+                  addToast('success', 'Customer registered successfully');
+                } else {
+                  addToast('error', result.message || 'Failed to register customer');
+                }
+              } catch (e) {
+                addToast('error', 'Network error while registering customer');
+              }
+            }}
+            onCancel={() => setIsCustomerModalOpen(false)}
+          />
         </div>
-      )}
-      {/* --- QR STAND OVERLAY: Full Screen QR for Customers --- */}
-      {showQRStand && (
-        <div className="fixed inset-0 z-[300] bg-[#0A0C10] flex flex-col items-center justify-center p-8 animate-in fade-in duration-700">
-           {/* Dynamic Background */}
-           <div className="absolute inset-0 overflow-hidden">
-             <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-gradient-to-br from-indigo-500/10 via-slate-950 to-emerald-500/10 opacity-50" />
-             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-600/5 rounded-full blur-[150px] animate-pulse" />
-             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-emerald-600/5 rounded-full blur-[120px]" />
-           </div>
-
-           <div className="relative z-10 flex flex-col items-center max-w-2xl w-full text-center">
-              <div className="mb-12 flex flex-col items-center">
-                 <div className="w-20 h-20 bg-gradient-to-tr from-emerald-400 to-indigo-600 rounded-[30px] flex items-center justify-center shadow-2xl mb-6">
-                    <ChefHat className="text-white w-10 h-10" />
-                 </div>
-                 <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-4">Scan & Order</h2>
-                 <p className="text-slate-400 font-bold uppercase tracking-[0.4em] text-sm">Experience the menu on your own phone</p>
-              </div>
-
-              <div className="bg-white p-12 rounded-[60px] shadow-[0_40px_100px_rgba(0,0,0,0.6)] mb-12 border-8 border-white/10 group transition-transform duration-700 hover:scale-[1.02]">
-                 <QRCodeSVG 
-                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/menu/${tablet.property.code}/${tablet.table?.qrToken || tablet.table?.id || 'unknown'}`} 
-                    size={320}
-                    level="H"
-                    includeMargin={false}
-                 />
-                 <div className="mt-8 flex flex-col items-center">
-                    <div className="px-6 py-2 bg-slate-900 rounded-full border border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      Table Station: <span className="text-white ml-2">{tablet.table?.name || 'N/A'}</span>
-                    </div>
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-8 w-full">
-                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-indigo-400 border border-white/5">
-                       <Smartphone size={24} />
-                    </div>
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Scan QR</span>
-                 </div>
-                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-emerald-400 border border-white/5">
-                       <Zap size={24} />
-                    </div>
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Order Instantly</span>
-                 </div>
-                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-amber-400 border border-white/5">
-                       <Star size={24} />
-                    </div>
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enjoy Meal</span>
-                 </div>
-              </div>
-
-              <button 
-                onClick={() => setShowQRStand(false)}
-                className="mt-16 px-12 py-5 bg-white text-slate-900 rounded-[24px] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-indigo-50 transition-all active:scale-95"
-              >
-                 Return to Tablet Menu
-              </button>
-           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
