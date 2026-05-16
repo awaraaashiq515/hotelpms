@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
         </DashboardShell>
         {/* Global offline indicator — auto-syncs queued orders when connection returns */}
         <OfflineBadge />
-        <NotificationOverlay />
+        {session.role !== 'B2B_SUPPLIER' && <NotificationOverlay />}
       </POSSecurityProvider>
     </SidebarProvider>
   );

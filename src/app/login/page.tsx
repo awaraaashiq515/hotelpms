@@ -80,6 +80,8 @@ export default function LoginPage() {
         router.push('/admin/dashboard');
       } else if (role === 'RESTAURANTS_ADMIN') {
         router.push('/dashboard');
+      } else if (role === 'B2B_SUPPLIER') {
+        router.push('/b2b/supplier');
       } else {
         router.push('/operations');
       }

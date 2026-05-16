@@ -11,6 +11,7 @@ export type SessionPayload = {
   role: string
   organizationId: string
   propertyId: string | null
+  supplierId?: string | null
   onboardingCompleted: boolean
   permissions?: string[]
   packageFeatures?: string[]   // feature keys from the org's assigned package

@@ -141,6 +141,17 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       ],
     },
     {
+      name: 'B2B Marketplace',
+      path: '/b2b/market',
+      icon: ShoppingBag,
+      roles: ['RESTAURANTS_ADMIN', 'POSSYSTEM', 'SUPER_ADMIN'],
+      subItems: [
+        { name: 'Browse Market', path: '/b2b/market' },
+        { name: 'My B2B Orders',  path: '/b2b/orders' },
+        { name: 'Supplier Hub',   path: '/b2b/supplier', roles: ['SUPER_ADMIN', 'RESTAURANTS_ADMIN'] },
+      ],
+    },
+    {
       name: 'Reports',
       path: '/reports',
       icon: BarChart2,

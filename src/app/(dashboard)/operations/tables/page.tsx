@@ -865,7 +865,10 @@ export default function TableManagementPage() {
                   Reset
                 </button>
                 <button
-                  onClick={() => { router.push(`/billing?tableId=${selectedTable.id}&tableNo=${selectedTable.name}`); }}
+                  onClick={() => { 
+                    const orderId = selectedTable.activeOrder?.id ? `&orderId=${selectedTable.activeOrder.id}` : '';
+                    router.push(`/billing?tableId=${selectedTable.id}&tableName=${selectedTable.name}${orderId}`); 
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
                 >
                   <Eye size={14} />

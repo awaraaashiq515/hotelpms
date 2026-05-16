@@ -16,7 +16,7 @@ interface ParkingSlot {
   activeOrder?: {
     customerName: string;
     vehicleNumber: string;
-    totalAmount: number;
+    amount: number;
     elapsedTime?: number;
   };
 }
@@ -39,8 +39,8 @@ interface ParkingLayoutViewProps {
 const SNAP = 1; // Ultra-smooth movement
 const MIN_W = 100;
 const MIN_H = 100;
-const DEFAULT_W = 220;
-const DEFAULT_H = 320;
+const DEFAULT_W = 180;
+const DEFAULT_H = 240;
 
 export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
   slots,
@@ -230,12 +230,14 @@ export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
               {/* Status Label / Edit Actions */}
               <div className="flex items-center justify-between relative z-10 shrink-0 pointer-events-none">
                 <div 
-                  style={{ fontSize: `${badgeSize}px` }}
-                  className={`px-3 py-1 rounded-full font-black uppercase tracking-[0.15em] border ${
-                    isOccupied ? 'bg-red-500/20 text-red-400 border-red-500/20' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                  style={{ fontSize: `${badgeSize * 0.9}px` }}
+                  className={`px-2 py-0.5 rounded-lg font-black uppercase tracking-[0.2em] border shadow-sm ${
+                    isOccupied 
+                      ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                   }`}
                 >
-                  {isOccupied ? 'Occupied' : 'Available'}
+                  {isOccupied ? 'In Use' : 'Ready'}
                 </div>
                 <div className="flex items-center gap-1 pointer-events-auto">
                    <button
@@ -257,14 +259,18 @@ export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
 
               <div className="flex-grow flex flex-col items-center justify-center py-1 relative z-10 min-h-0 pointer-events-none">
                 <div 
-                  style={{ width: iconSize * 2, height: iconSize * 2, borderRadius: iconSize }}
-                  className={`flex items-center justify-center shadow-2xl transition-all duration-700 group-hover:scale-110 group-hover:rotate-3 shrink-0 ${isOccupied ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-500/30' : 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-amber-500/30'}`}
+                  style={{ width: iconSize * 1.6, height: iconSize * 1.6, borderRadius: iconSize * 0.6 }}
+                  className={`flex items-center justify-center shadow-2xl transition-all duration-700 group-hover:scale-105 group-hover:rotate-2 shrink-0 ${
+                    isOccupied 
+                      ? 'bg-gradient-to-br from-red-500/20 to-red-600/40 text-red-400 border border-red-500/30' 
+                      : 'bg-gradient-to-br from-white/5 to-white/10 text-white/40 border border-white/10'
+                  }`}
                 >
-                  <CarFront size={iconSize} />
+                  <CarFront size={iconSize * 0.8} />
                 </div>
                 <p 
-                  style={{ fontSize: `${titleSize}px` }}
-                  className="mt-3 font-black text-white tracking-tight group-hover:text-amber-400 transition-all duration-300 truncate w-full text-center"
+                  style={{ fontSize: `${titleSize * 0.85}px` }}
+                  className="mt-3 font-black text-white tracking-tight group-hover:text-amber-400 transition-all duration-300 truncate w-full text-center uppercase"
                 >
                   {slot.name}
                 </p>
@@ -272,17 +278,19 @@ export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
 
               {order ? (
                 <div 
-                  style={{ padding: `${10 * scaleFactor}px` }}
-                  className="shrink-0 space-y-1 relative z-10 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 shadow-inner pointer-events-none"
+                  style={{ padding: `${8 * scaleFactor}px` }}
+                  className="shrink-0 space-y-1 relative z-10 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 shadow-inner pointer-events-none"
                 >
-                  <p style={{ fontSize: `${orderTextSize}px` }} className="font-black text-white uppercase tracking-tight truncate">{order.customerName}</p>
-                  <div className="flex items-center justify-between">
-                    <p style={{ fontSize: `${orderTextSize * 0.8}px` }} className="font-bold text-white/40 uppercase tracking-widest">{order.vehicleNumber}</p>
-                    <span style={{ fontSize: `${orderTextSize * 1.1}px` }} className="font-black text-amber-400">₹{(order.totalAmount || 0).toFixed(0)}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <p style={{ fontSize: `${orderTextSize * 0.8}px` }} className="font-black text-white/80 uppercase tracking-tight truncate flex-1">{order.customerName}</p>
+                    <span style={{ fontSize: `${orderTextSize * 1.1}px` }} className="font-black text-amber-400 tabular-nums">₹{Math.round(order.amount || 0)}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    <span style={{ fontSize: `${orderTextSize * 0.7}px` }} className="font-bold text-white/40 uppercase tracking-widest">{order.elapsedTime || 0}m active</span>
+                  <div className="flex items-center justify-between">
+                    <p style={{ fontSize: `${orderTextSize * 0.7}px` }} className="font-bold text-white/30 uppercase tracking-widest">{order.vehicleNumber}</p>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                      <span style={{ fontSize: `${orderTextSize * 0.65}px` }} className="font-bold text-white/30 uppercase tracking-widest">{order.elapsedTime || 0}m</span>
+                    </div>
                   </div>
                 </div>
               ) : (

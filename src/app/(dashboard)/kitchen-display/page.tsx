@@ -80,9 +80,21 @@ const COLUMNS: {
   },
 ];
 
+const ITEM_STATUS_DOT: Record<string, string> = {
+  NEW: 'bg-pos-primary',
+  PREPARING: 'bg-orange-400',
+  READY: 'bg-emerald-400',
+  SERVED: 'bg-slate-500',
+  CANCELLED: 'bg-red-500',
+};
+
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 function getAgeSeconds(createdAt: string) {
-  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+  if (!createdAt) return 0;
+  const createdTime = new Date(createdAt).getTime();
+  if (isNaN(createdTime)) return 0;
+  // Ensure we don't return negative seconds due to clock skew
+  return Math.max(0, Math.floor((Date.now() - createdTime) / 1000));
 }
 
 function getWaitMinutes(createdAt: string) {
@@ -99,14 +111,6 @@ const URGENCY_STYLES = {
   low: 'text-emerald-400 bg-emerald-900/40 border-emerald-700/30',
   medium: 'text-orange-400 bg-orange-900/40 border-orange-700/30',
   high: 'text-red-400 bg-red-900/40 border-red-700/30 animate-pulse',
-};
-
-const ITEM_STATUS_DOT: Record<string, string> = {
-  NEW: 'bg-pos-primary',
-  PREPARING: 'bg-orange-400',
-  READY: 'bg-emerald-400',
-  SERVED: 'bg-slate-500',
-  CANCELLED: 'bg-red-500',
 };
 
 const AUTO_ACCEPT_OPTIONS = [
@@ -172,6 +176,19 @@ export default function KitchenDisplayPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
   const [language, setLanguage] = useState<'en' | 'pa'>('en');
+
+  // Use refs to keep track of current state for the interval without stale closures
+  const kotsRef = useRef<KotTicket[]>([]);
+  const updatingIdsRef = useRef<Set<string>>(new Set());
+
+  // Update refs whenever state changes
+  useEffect(() => {
+    kotsRef.current = kots;
+  }, [kots]);
+
+  useEffect(() => {
+    updatingIdsRef.current = updatingIds;
+  }, [updatingIds]);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -455,16 +472,23 @@ export default function KitchenDisplayPage() {
     }
   }, [filterServedOrders]);
 
-  const handleStatusUpdate = async (kotId: string, nextStatus: KotTicket['status']) => {
-    // Prevent double updates
-    if (updatingIds.has(kotId)) return;
+  const handleStatusUpdate = useCallback(async (kotId: string, nextStatus: KotTicket['status']) => {
+    // Prevent double updates using the ref (which is always fresh)
+    if (updatingIdsRef.current.has(kotId)) return;
 
-    setUpdatingIds((prev) => new Set(prev).add(kotId));
+    setUpdatingIds((prev) => {
+      const next = new Set(prev);
+      next.add(kotId);
+      return next;
+    });
+
     try {
       await kotsApi.updateStatus(kotId, nextStatus);
       showToast(`Updated → ${nextStatus}`, 'success');
+      // After update, refresh immediately
       fetchKots(true);
-    } catch {
+    } catch (err) {
+      console.error('[KDS] Update failed:', err);
       showToast('Update failed', 'error');
     } finally {
       setUpdatingIds((prev) => {
@@ -473,7 +497,7 @@ export default function KitchenDisplayPage() {
         return s;
       });
     }
-  };
+  }, [fetchKots, showToast]);
 
   const startCountdown = useCallback(() => {
     if (countdownRef.current) clearInterval(countdownRef.current);
@@ -491,39 +515,42 @@ export default function KitchenDisplayPage() {
         return prev - 1;
       });
 
-      // 2. Heavy checks (Auto Accept/Ready) - Every 3 seconds to save CPU
+      // 2. Heavy checks (Auto Accept/Ready) - Every 3 seconds
       if (now % 3000 < 1000) {
-        setKots(currentKots => {
-          const { autoAccept, autoReady } = settingsRef.current;
-          let changed = false;
+        const { autoAccept, autoReady } = settingsRef.current;
+        const currentKots = kotsRef.current;
 
-          currentKots.forEach(kot => {
-            if (autoAccept > 0 && kot.status === 'NEW') {
-              if (getAgeSeconds(kot.createdAt) >= autoAccept) {
-                handleStatusUpdate(kot.id, 'PREPARING');
-                changed = true;
-              }
+        // Process only ONE KOT candidate per tick to prevent SQLite transaction collisions
+        for (const kot of currentKots) {
+          // Auto Accept: NEW -> PREPARING
+          if (autoAccept > 0 && kot.status === 'NEW') {
+            const age = getAgeSeconds(kot.createdAt);
+            if (age >= autoAccept) {
+              handleStatusUpdate(kot.id, 'PREPARING');
+              break; // Only one per tick
             }
-            if (autoReady > 0 && kot.status === 'PREPARING') {
-              if (getAgeSeconds(kot.updatedAt || kot.createdAt) >= autoReady) {
-                handleStatusUpdate(kot.id, 'READY');
-                changed = true;
-              }
+          }
+          // Auto Ready: PREPARING -> READY
+          if (autoReady > 0 && kot.status === 'PREPARING') {
+            const timeSinceUpdate = getAgeSeconds(kot.updatedAt || kot.createdAt);
+            if (timeSinceUpdate >= autoReady) {
+              handleStatusUpdate(kot.id, 'READY');
+              break; // Only one per tick
             }
-          });
-          return changed ? [...currentKots] : currentKots;
-        });
+          }
+        }
       }
 
       // 3. Re-apply served hide filter every 5 seconds
       if (now % 5000 < 1000) {
-        setKots(currentKots => {
-          const filtered = filterServedOrders(currentKots);
-          return filtered.length !== currentKots.length ? filtered : currentKots;
-        });
+        const currentKots = kotsRef.current;
+        const filtered = filterServedOrders(currentKots);
+        if (filtered.length !== currentKots.length) {
+          setKots(filtered);
+        }
       }
     }, 1000);
-  }, [fetchKots, filterServedOrders]);
+  }, [fetchKots, filterServedOrders, handleStatusUpdate]);
 
   useEffect(() => {
     setMounted(true);
@@ -566,7 +593,7 @@ export default function KitchenDisplayPage() {
   }
 
   return (
-    <div className="-m-6 lg:-m-8 min-h-[calc(100vh-64px)] bg-[#080d1a] text-white flex flex-col overflow-hidden">
+    <div className="h-full bg-[#080d1a] text-white flex flex-col overflow-hidden">
 
       {/* ── TOP BAR ───────────────────────────────────────────────── */}
       <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-[#0c1221]">
@@ -736,13 +763,13 @@ export default function KitchenDisplayPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 grid grid-cols-2 xl:grid-cols-4 gap-0 min-h-0 overflow-hidden">
+        <div className="flex-1 grid grid-cols-2 xl:grid-cols-4 gap-0 min-h-0 h-full overflow-hidden">
           {COLUMNS.map((col) => {
             const ColIcon = col.icon;
             const colKots = getSortedColKots(col.status, kots);
 
             return (
-              <div key={col.status} className={`flex flex-col border-r border-slate-800 last:border-r-0 ${col.bgCls}`}>
+              <div key={col.status} className={`flex flex-col h-full min-h-0 border-r border-slate-800 last:border-r-0 touch-pan-y overscroll-contain ${col.bgCls}`}>
 
                 {/* Column Header */}
                 <div className={`shrink-0 ${col.headerCls} px-4 py-3 flex items-center justify-between`}>
@@ -763,7 +790,7 @@ export default function KitchenDisplayPage() {
                 </div>
 
                 {/* KOT Cards */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
                   {colKots.length === 0 && (
                     <div className="flex items-center justify-center h-32">
                       <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
@@ -824,7 +851,7 @@ export default function KitchenDisplayPage() {
                         </div>
 
                         {/* Items */}
-                        <div className="px-4 py-3 space-y-2 max-h-[260px] overflow-y-auto no-scrollbar">
+                        <div className="px-4 py-3 space-y-2 max-h-[260px] overflow-y-auto">
                           {activeItems.map((item) => {
                             const itemDone = item.status === 'READY' || item.status === 'SERVED';
                             const nextItemStatus =

@@ -40,7 +40,8 @@ import {
   ArrowRight,
   Clock,
   Bell,
-  Trash2
+  Trash2,
+  Truck
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -67,7 +68,6 @@ export default function OperationsPage() {
       })
       .catch(() => setLoading(false));
 
-    // Check for debug mode
     if (typeof window !== 'undefined' && window.location.search.includes('debug=true')) {
       setDebug(true);
     }
@@ -76,7 +76,6 @@ export default function OperationsPage() {
   if (loading) return null;
 
   const role = session?.role;
-  const permissions = (session?.permissions || []).map((p: string) => p.trim().toLowerCase());
   const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN' || role === 'POSSYSTEM';
 
   const hasPermission = (perm?: string) => {
@@ -122,7 +121,6 @@ export default function OperationsPage() {
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: '/kitchen-display',   feature: 'POS' },
     { label: 'Live Notifications', icon: Bell,             path: '/operations/notifications', feature: 'POS' },
-    { label: 'Notification Settings', icon: Settings,      path: '/settings/notifications', feature: 'POS' },
     { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: '/staff/attendance',  feature: 'STAFF' },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
@@ -130,41 +128,24 @@ export default function OperationsPage() {
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: '/operations/waste-management', feature: 'POS' },
   ];
 
-  const masterConfigs: DashboardAction[] = [
-    { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', variant: 'config' },
-    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM'] },
-    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM'] },
-    { label: 'Tax Setup', perm: 'Settings', icon: ShieldCheck, path: '/settings' },
-    { label: 'Discounts', perm: 'Settings', icon: Percent, path: '/settings' },
-    { label: 'System Settings', perm: 'Settings', icon: Settings, path: '/settings' },
-  ];
-
-  const operatorUtilities: DashboardAction[] = [
-    { label: 'Print Settings', perm: 'Settings', icon: Printer, path: '/settings' },
-    { label: 'Inventory Sync', icon: RefreshCw },
-    { label: 'Support Help', icon: RefreshCw },
+  const b2bActions: DashboardAction[] = [
+    { label: 'B2B Marketplace',   icon: ShoppingBag,    path: '/b2b/market',   roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Order History',    icon: Truck,          path: '/b2b/orders',   roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Supplier Hub',     icon: Store,          path: '/b2b/supplier', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const isVisible = (a: DashboardAction) => {
     const hasCorrectRole = !a.roles || a.roles.includes(session?.role);
     if (!hasCorrectRole) return false;
-    
     const hasCorrectFeature = hasFeature(a.feature);
     if (!hasCorrectFeature) return false;
-
-    if (session?.role === 'POSSYSTEM' && a.roles?.includes('POSSYSTEM')) return true;
-
     return hasPermission(a.perm);
   };
 
   const visibleManagement = managementActions.filter(isVisible);
-  const showManagement = isAdmin || (visibleManagement.length > 0);
-
   const visibleFinancial = financialActions.filter(isVisible);
-  const showFinancial = isAdmin || (visibleFinancial.length > 0);
-
   const visibleOperational = operationalActions.filter(isVisible);
-  const visibleConfigs = masterConfigs.filter(isVisible);
+  const visibleB2B = b2bActions.filter(isVisible);
 
   return (
     <div className="space-y-12 pb-20">
@@ -173,65 +154,47 @@ export default function OperationsPage() {
         subtitle={isAdmin ? "Centralized management for your entire business portfolio." : "Direct access to terminal controls and order management."}
       />
 
-      {/* Quick Setup Banner */}
-      {isAdmin && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-8 text-white shadow-xl animate-in fade-in slide-in-from-top-6 duration-1000 group">
-           <div className="absolute top-0 right-0 w-64 h-64 bg-pos-primary/10 blur-[100px] rounded-full -mr-20 -mt-20" />
-           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-2 text-center md:text-left">
-                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.2em]">
-                    <Sparkles size={12} className="text-pos-primary" />
-                    High Efficiency Setup
-                 </div>
-                 <h2 className="text-2xl md:text-3xl font-black tracking-tight leading-none uppercase">One-Page <span className="text-pos-primary">Setup</span></h2>
-                 <p className="text-white/60 text-xs font-medium max-w-md leading-relaxed">
-                    Configure your entire database — Products, Categories, Tables, and Inventory — all from a single master page.
-                 </p>
-              </div>
-              
-              <button 
-                onClick={() => window.location.href = '/setup'}
-                className="bg-white text-slate-950 px-8 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:scale-105 active:scale-95 transition-all group/btn"
-              >
-                Start Master Setup <ArrowRight size={16} className="ml-2 inline-block group-hover/btn:translate-x-1 transition-transform" />
-              </button>
-           </div>
+      {/* B2B Marketplace Quick Access */}
+      <section className="space-y-8">
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-1 bg-amber-500 rounded-full"></div>
+          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">B2B Supply Chain</h2>
         </div>
-      )}
-
-      {/* Sections */}
-      {showManagement && (
-        <section className="space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
-            <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Business & Team Management</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {visibleManagement.map((action) => (
-              <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {showFinancial && (
-        <section className="space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="h-6 w-1 bg-emerald-600 rounded-full"></div>
-            <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Financial Operations & Revenue</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {visibleFinancial.map((action) => (
-              <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
-            ))}
-          </div>
-        </section>
-      )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {visibleB2B.map((action) => (
+            <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
+          ))}
+        </div>
+      </section>
 
       <section className="space-y-8">
         <div className="flex items-center gap-4">
           <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
-          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">{isAdmin ? 'Terminal & POS Controls' : 'Quick Actions'}</h2>
+          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Team & Management</h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {visibleManagement.map((action) => (
+            <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-8">
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-1 bg-emerald-600 rounded-full"></div>
+          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Financial & Revenue</h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {visibleFinancial.map((action) => (
+            <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-8">
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
+          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">POS Terminal & Orders</h2>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {visibleOperational.map((action) => (
@@ -240,34 +203,15 @@ export default function OperationsPage() {
         </div>
       </section>
 
-      {/* Integrated Attendance Hub Section */}
-      <section className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-6 w-1 bg-indigo-600 rounded-full"></div>
-            <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Staff Attendance Terminal</h2>
-          </div>
-          <button 
-            onClick={() => window.location.href = '/staff/attendance'}
-            className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
-          >
-            Open Full Hub
-          </button>
+      <section className="space-y-8">
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-1 bg-indigo-600 rounded-full"></div>
+          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Staff Attendance Terminal</h2>
         </div>
-        
         <div className="bg-slate-50 dark:bg-slate-900/30 rounded-[48px] p-8 border border-slate-100 dark:border-slate-800/50">
            <AttendanceHubSection />
         </div>
       </section>
-
-      {/* Debug Footer */}
-      {debug && (
-        <div className="fixed bottom-0 right-0 bg-black/80 text-white p-4 m-4 rounded-xl text-[10px] font-mono z-[9999] max-w-xs ring-2 ring-pos-primary">
-          <p className="font-bold text-pos-primary border-b border-white/20 pb-1 mb-2">SESSION DEBUG</p>
-          <p>ROLE: {role}</p>
-          <button onClick={() => setDebug(false)} className="mt-3 w-full bg-white/10 hover:bg-white/20 py-1 rounded-md uppercase tracking-widest">Close Debug</button>
-        </div>
-      )}
     </div>
   );
 }

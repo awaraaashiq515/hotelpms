@@ -91,12 +91,10 @@ export async function PATCH(
       }
 
       // ─── SYNC POS ORDER STATUS ─────────────────────────────────────────────
-      // Calculate consolidated status based on ALL KOTs for this order
       const allKots = await tx.kotTicket.findMany({
         where: { orderId: oldKot.orderId }
       });
 
-      // Include the current update in the calculation
       const kotsForStatus = allKots.map((k: any) => k.id === id ? { ...k, status } : k);
       
       let finalStatus = 'PLACED';
@@ -108,7 +106,7 @@ export async function PATCH(
         } else if (activeKots.every((k: any) => k.status === 'READY' || k.status === 'SERVED')) {
           finalStatus = 'READY';
         } else if (activeKots.some((k: any) => ['PREPARING', 'READY', 'SERVED'].includes(k.status))) {
-          finalStatus = 'IN_KITCHEN';
+          finalStatus = 'KOT_RUNNING';
         }
       }
 
@@ -117,29 +115,31 @@ export async function PATCH(
         data: { status: finalStatus }
       });
 
-      // ─── CREATE NOTIFICATION FOR KITCHEN STATUS ───────────────────────────
-      try {
-        if (['PREPARING', 'READY', 'SERVED'].includes(status)) {
-          await createNotification({
-            propertyId: oldKot.propertyId,
-            title: `Kitchen: ${status.charAt(0) + status.slice(1).toLowerCase()}`,
-            message: `Order #${oldKot.tableNo || ''} KOT ${oldKot.kotNo} is now ${status.toLowerCase()}`,
-            type: 'KITCHEN',
-            priority: status === 'READY' ? 'HIGH' : 'MEDIUM',
-            metadata: {
-              kotId: id,
-              orderId: oldKot.orderId,
-              status,
-              link: `/operations/tables`
-            }
-          });
-        }
-      } catch (notifError) {
-        console.error('[KOT Notification] error:', notifError);
-      }
-
       return kot
+    }, {
+      timeout: 10000 // 10s timeout for SQLite
     })
+
+    // ─── CREATE NOTIFICATION FOR KITCHEN STATUS (OUTSIDE TX) ──────────────
+    try {
+      if (['PREPARING', 'READY', 'SERVED'].includes(status)) {
+        await createNotification({
+          propertyId: oldKot.propertyId,
+          title: `Kitchen: ${status.charAt(0) + status.slice(1).toLowerCase()}`,
+          message: `Order #${oldKot.tableNo || ''} KOT ${oldKot.kotNo} is now ${status.toLowerCase()}`,
+          type: 'KITCHEN',
+          priority: status === 'READY' ? 'HIGH' : 'MEDIUM',
+          metadata: {
+            kotId: id,
+            orderId: oldKot.orderId,
+            status,
+            link: `/operations/tables`
+          }
+        });
+      }
+    } catch (notifError) {
+      console.error('[KOT Notification] error:', notifError);
+    }
 
     return apiResponse(updatedKot, 'KOT status updated successfully')
   } catch (error) {

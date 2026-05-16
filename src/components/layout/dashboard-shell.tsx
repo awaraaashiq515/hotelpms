@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { TopNavbar } from '@/components/layout/top-navbar';
 import { DashboardAdminSidebar } from '@/components/layout/dashboard-admin-sidebar';
 import { DashboardAdminTopNavbar } from '@/components/layout/dashboard-admin-top-navbar';
+import { SupplierShell } from '@/components/layout/supplier-shell';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -23,6 +24,20 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   
   const showAdminLayout = isAdminRole && !isKitchenDisplay;
   const isPos = !showAdminLayout;
+
+  if (session.role === 'B2B_SUPPLIER') {
+    return <SupplierShell>{children}</SupplierShell>;
+  }
+
+  if (isKitchenDisplay) {
+    return (
+      <div className="h-screen flex flex-col bg-[#080d1a] selection:bg-pos-primary selection:text-white overflow-hidden relative">
+        <main className="flex-1 relative overflow-hidden">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background dark:bg-slate-950 selection:bg-pos-primary selection:text-white overflow-hidden relative">

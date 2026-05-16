@@ -17,31 +17,35 @@ export async function POST(request: NextRequest) {
         data: { paymentRequested: true },
         include: { 
           table: { include: { floor: true } },
+          parkingSlot: true,
           items: { include: { product: true } }
         }
       });
 
-      if (order?.table) {
-        await tx.notification.create({
-          data: {
-            propertyId,
-            title: 'Counter Payment Request',
-            message: `Guest at Table ${order.table.name} (${order.table.floor.name}) wants to pay at counter. Amount: ₹${order.grandTotal.toFixed(2)}`,
-            type: 'PAYMENT',
-            priority: 'URGENT',
-            metadata: JSON.stringify({
-              tableId: order.table.id,
-              tableName: order.table.name,
-              floorName: order.table.floor.name,
-              amount: order.grandTotal,
-              orderId,
-              orderNo: order.orderNo,
-              paymentMethod: 'COUNTER',
-              items: order.items.map((i: any) => ({ name: i.product.name, qty: i.quantity }))
-            }),
-          }
-        });
+      let locationName = 'Unknown Location';
+      if (order.table) {
+        locationName = `Table ${order.table.name} (${order.table.floor.name})`;
+      } else if (order.parkingSlot) {
+        locationName = `Parking Slot ${order.parkingSlot.name}`;
       }
+
+      await tx.notification.create({
+        data: {
+          propertyId,
+          title: 'Counter Payment Request',
+          message: `Guest at ${locationName} wants to pay at counter. Amount: ₹${order.grandTotal.toFixed(2)}`,
+          type: 'PAYMENT',
+          priority: 'URGENT',
+          metadata: JSON.stringify({
+            locationName,
+            amount: order.grandTotal,
+            orderId,
+            orderNo: order.orderNo,
+            paymentMethod: 'COUNTER',
+            items: order.items.map((i: any) => ({ name: i.product.name, qty: i.quantity }))
+          }),
+        }
+      });
 
       if (rating) {
         await tx.orderRating.upsert({

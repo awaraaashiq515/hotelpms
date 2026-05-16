@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
     const monthStart = startOfMonth(new Date());
     const monthEnd = endOfMonth(new Date());
 
+    if (!session.propertyId) {
+      return apiResponse([]);
+    }
+
     // 1. Fetch Users (Admins, POS System etc)
     const users = await prisma.user.findMany({
       where: { 

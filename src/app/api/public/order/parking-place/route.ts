@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slotId, items, customerName, customerPhone, vehicleNumber } = body;
+    const { slotId, items, customerName, customerPhone, vehicleNumber, guestCount, serviceMode } = body;
 
     if (!slotId || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ success: false, message: 'Invalid order data' }, { status: 400 });
@@ -51,12 +51,12 @@ export async function POST(request: NextRequest) {
             propertyId,
             outletId,
             orderNo: `PARK-${Date.now()}`,
-            orderType: 'PARKING',
+            orderType: serviceMode === 'PACKED' ? 'TAKEAWAY' : 'PARKING',
             status: 'OPEN',
             parkingSlotId: slotId,
             tableNo: customerName || 'Parking Customer',
             vehicleNumber: vehicleNumber || null,
-            guestCount: 1,
+            guestCount: guestCount || 1,
           },
           include: { items: true },
         });
@@ -137,9 +137,9 @@ export async function POST(request: NextRequest) {
           propertyId,
           outletId,
           parkingSlotId: slotId,
-          tableNo: `PARKING: ${slot.name}`,
+          tableNo: `PARK: ${slot.name} (${serviceMode === 'PACKED' ? 'PACKED' : 'IN-CAR'})`,
           status: 'NEW',
-          createdBy: customerName ? `QR-PARK: ${customerName}` : 'Parking Customer',
+          createdBy: customerName ? `QR: ${customerName}` : 'Parking Customer',
         },
       });
 

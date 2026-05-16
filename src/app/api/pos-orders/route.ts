@@ -7,7 +7,7 @@ import { createNotification } from '@/lib/notificationService'
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
-  quantity: z.number().min(1, 'Quantity must be > 0'),
+  quantity: z.number().min(0, 'Quantity must be >= 0'),
   unitPrice: z.number().min(0),
   discountAmount: z.number().default(0),
   taxAmount: z.number().default(0),
@@ -31,6 +31,7 @@ const posOrderSchema = z.object({
   guestId: z.string().nullable().optional(),
   guestCount: z.number().int().optional().default(1),
   items: z.array(orderItemSchema).optional(),
+  orderId: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -96,7 +97,12 @@ export async function POST(request: NextRequest) {
     const newOrder = await prisma.$transaction(async (tx: any) => {
       // 1. Find or create the PosOrder
       let order = null;
-      if (orderData.restaurantTableId) {
+      if (parsedData.orderId) {
+        order = await (tx as any).posOrder.findUnique({
+          where: { id: parsedData.orderId },
+          include: { items: true }
+        });
+      } else if (orderData.restaurantTableId) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             restaurantTableId: orderData.restaurantTableId,
@@ -122,7 +128,7 @@ export async function POST(request: NextRequest) {
           data: {
             ...orderData,
             orderNo: `POS-${Date.now()}`,
-            status: body.paymentMode === 'UPI' ? 'PAYMENT_AWAITING_APPROVAL' : 'PLACED',
+            status: body.paymentMode === 'UPI' ? 'PAYMENT_AWAITING_APPROVAL' : 'KOT_RUNNING',
             paymentRequested: body.paymentMode === 'UPI',
             onlinePaymentReference: body.transactionLast4 || null,
             onlinePaymentMethod: body.paymentMode || null,
@@ -148,10 +154,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 2. Insert or update Items
       const createdItems = await Promise.all(
         sanitizedItems.map(async (item) => {
-          const existingItem = (order as any).items.find((ei: any) => 
+          const existingItem = order?.items?.find((ei: any) => 
             ei.productId === item.productId && 
             ei.variantId === item.variantId && 
             ei.portion === item.portion
@@ -160,18 +165,40 @@ export async function POST(request: NextRequest) {
              return tx.posOrderItem.update({
                where: { id: existingItem.id },
                data: {
-                 quantity: existingItem.quantity + item.quantity,
-                 totalAmount: (existingItem.quantity + item.quantity) * item.unitPrice,
+                 quantity: item.quantity,
+                 totalAmount: item.totalAmount,
                  unitPrice: item.unitPrice // Update to latest price
                }
              })
           } else {
             return tx.posOrderItem.create({
-              data: { ...item, posOrderId: order.id }
+              data: { ...item, posOrderId: order!.id }
             })
           }
         })
       )
+
+      // Optional: Handle items that were removed from the cart but exist in the DB.
+      if (order?.items) {
+        const itemsToDelete = order.items.filter((ei: any) => 
+          !sanitizedItems.some((si: any) => 
+            si.productId === ei.productId && 
+            si.variantId === ei.variantId && 
+            si.portion === ei.portion
+          )
+        );
+        for (const itemToDelete of itemsToDelete) {
+          const kotCount = await (tx as any).kotItem.count({ where: { orderItemId: itemToDelete.id } });
+          if (kotCount === 0) {
+            await tx.posOrderItem.delete({ where: { id: itemToDelete.id } });
+          } else {
+            await tx.posOrderItem.update({
+              where: { id: itemToDelete.id },
+              data: { quantity: 0, totalAmount: 0 }
+            });
+          }
+        }
+      }
 
       // 3. Recalculate Order Totals
       const allItems = await tx.posOrderItem.findMany({
@@ -208,44 +235,64 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // 5. Create KOT Ticket for the newly added items ONLY
-      const kotNo = `KOT-${Date.now()}`
-      const kotTicket = await (tx as any).kotTicket.create({
-        data: {
-          kotNo,
-          orderId: order.id,
-          propertyId: orderData.propertyId,
-          outletId: orderData.outletId,
-          restaurantTableId: orderData.restaurantTableId || null,
-          parkingSlotId: orderData.parkingSlotId || null,
-          tableNo: orderData.tableNo || null,
-          roomId: orderData.roomId,
-          status: 'NEW',
-        }
-      })
-
-      // Fetch product names
+      // Fetch product names for KOT
       const products = await tx.product.findMany({
-        where: { id: { in: sanitizedItems.map(i => i.productId) } },
+        where: { id: { in: sanitizedItems.map((i: any) => i.productId) } },
         select: { id: true, name: true }
-      })
+      });
 
-      // 5. Create KOT Items for the CURRENT placement
-      await (tx as any).kotItem.createMany({
-        data: sanitizedItems.map((item: any) => {
-          const product = products.find((p: any) => p.id === item.productId)
-          const orderItem = createdItems.find((ci: any) => ci.productId === item.productId)
-          return {
-            kotId: kotTicket.id,
-            orderItemId: orderItem!.id,
+      // Calculate delta quantities for KOT
+      const kotItemsToCreate: any[] = [];
+      sanitizedItems.forEach((item: any) => {
+        const product = products.find((p: any) => p.id === item.productId);
+        const orderItem = createdItems.find((ci: any) => ci.productId === item.productId && ci.variantId === (item.variantId || null) && ci.portion === (item.portion || null));
+        
+        const existingItem = order?.items?.find((ei: any) => 
+          ei.productId === item.productId && 
+          ei.variantId === item.variantId && 
+          ei.portion === item.portion
+        );
+        const previousQty = existingItem ? existingItem.quantity : 0;
+        const newQty = item.quantity - previousQty;
+
+        if (newQty > 0 && orderItem) {
+          kotItemsToCreate.push({
+            orderItemId: orderItem.id,
             productId: item.productId,
             itemName: product?.name || 'Unknown Product',
-            quantity: item.quantity,
+            quantity: newQty,
             notes: '', 
             status: 'NEW',
+          });
+        }
+      });
+
+      // 5. Create KOT Ticket ONLY if there are new items
+      let kotTicket: any = null;
+      if (kotItemsToCreate.length > 0) {
+        const kotNo = `KOT-${Date.now()}`;
+        kotTicket = await (tx as any).kotTicket.create({
+          data: {
+            kotNo,
+            orderId: order!.id,
+            propertyId: orderData.propertyId,
+            outletId: orderData.outletId,
+            restaurantTableId: orderData.restaurantTableId || null,
+            parkingSlotId: orderData.parkingSlotId || null,
+            tableNo: orderData.tableNo || null,
+            roomId: orderData.roomId,
+            status: 'NEW',
           }
-        })
-      })
+        });
+
+        // 5b. Create KOT Items for the CURRENT placement
+        await (tx as any).kotItem.createMany({
+          data: kotItemsToCreate.map(kItem => ({
+            ...kItem,
+            kotId: kotTicket.id
+          }))
+        });
+      }
 
       // 6. Handle Inventory Deduction
       let warehouse = await tx.warehouse.findFirst({

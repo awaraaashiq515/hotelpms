@@ -1,8 +1,7 @@
 // Basic Service Worker for OrderMint POS PWA
-const CACHE_NAME = 'ordermint-pos-v1';
+const CACHE_NAME = 'ordermint-pos-v2'; // Bumped version to force update
 const OFFLINE_URL = '/offline.html';
 
-// Add assets to cache if needed, but for now we just want to satisfy PWA requirements
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -35,7 +34,15 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // basic fetch strategy: Network first, fallback to cache
+  const url = new URL(event.request.url);
+
+  // 🚀 CRITICAL: NEVER intercept API calls or B2B routes in the service worker
+  // This prevents the "Failed to convert value to Response" error
+  if (url.pathname.startsWith('/api/') || url.pathname.includes('b2b')) {
+    return; // Let the browser handle these normally
+  }
+
+  // Basic fetch strategy: Network first, fallback to cache
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -45,11 +52,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Assets and other requests
   event.respondWith(
     caches.match(event.request).then((response) => {
+      // If found in cache, return it. Otherwise, fetch from network.
       return response || fetch(event.request).catch(() => {
-        // Fallback or just return null to avoid the uncaught error
-        return null;
+        // If fetch fails, we don't return null, we just let it fail naturally 
+        // to avoid "Failed to convert value to Response"
       });
     })
   );

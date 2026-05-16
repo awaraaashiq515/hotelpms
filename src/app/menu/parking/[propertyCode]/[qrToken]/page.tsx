@@ -47,9 +47,9 @@ export default function ParkingMenuPage() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   
-  const [guestInfo, setGuestInfo] = useState<{ name: string; phone: string; vehicle: string } | null>(null);
+  const [guestInfo, setGuestInfo] = useState<{ name: string; phone: string; vehicle: string; guestCount: number; serviceMode?: 'SERVE_IN_CAR' | 'PACKED' } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingForm, setOnboardingForm] = useState({ name: '', phone: '', vehicle: '' });
+  const [onboardingForm, setOnboardingForm] = useState({ name: '', phone: '', vehicle: '', guestCount: 1, serviceMode: 'SERVE_IN_CAR' as const });
   
   const [activeTab, setActiveTab] = useState<'menu' | 'orders' | 'profile'>('menu');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -78,13 +78,32 @@ export default function ParkingMenuPage() {
   };
 
   useEffect(() => {
-    const savedInfo = localStorage.getItem('parking_guest_info');
+    // We no longer load from localStorage on mount to ensure that every fresh scan 
+    // asks for guest details, as requested ("har bar qr scan kare to details mange").
+    // Session-based persistence is used instead for the current tab.
+    const savedInfo = sessionStorage.getItem('parking_guest_info');
     if (savedInfo) {
       setGuestInfo(JSON.parse(savedInfo));
-    } else {
-      setShowOnboarding(true);
     }
   }, []);
+
+  // Restore guest info from active orders if it's missing (e.g., after a refresh)
+  useEffect(() => {
+    if (!guestInfo && data?.activeOrders?.length > 0) {
+      const firstOrder = data.activeOrders[0];
+      if (firstOrder.customerName || firstOrder.customerPhone || firstOrder.vehicleNumber) {
+        const info = {
+          name: firstOrder.customerName || '',
+          phone: firstOrder.customerPhone || '',
+          vehicle: firstOrder.vehicleNumber || '',
+          guestCount: firstOrder.guestCount || 1,
+          serviceMode: (firstOrder.orderType === 'TAKEAWAY' ? 'PACKED' : 'SERVE_IN_CAR') as "PACKED" | "SERVE_IN_CAR"
+        };
+        setGuestInfo(info);
+        sessionStorage.setItem('parking_guest_info', JSON.stringify(info));
+      }
+    }
+  }, [data, guestInfo]);
 
   // Polling logic
   useEffect(() => {
@@ -115,7 +134,19 @@ export default function ParkingMenuPage() {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [propertyCode, qrToken]);
+  }, [propertyCode, qrToken, activeCategory]);
+
+  // Logic to show onboarding only if no active orders and no guest info
+  useEffect(() => {
+    if (!loading && data) {
+      const hasActiveOrders = data.activeOrders?.length > 0;
+      if (!hasActiveOrders && !guestInfo) {
+        setShowOnboarding(true);
+      } else {
+        setShowOnboarding(false);
+      }
+    }
+  }, [loading, data, guestInfo]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
@@ -178,16 +209,22 @@ export default function ParkingMenuPage() {
   const handleOnboardingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onboardingForm.name || !onboardingForm.phone || !onboardingForm.vehicle) return;
-    const info = { name: onboardingForm.name, phone: onboardingForm.phone, vehicle: onboardingForm.vehicle };
+    const info = { 
+      name: onboardingForm.name, 
+      phone: onboardingForm.phone, 
+      vehicle: onboardingForm.vehicle,
+      guestCount: onboardingForm.guestCount || 1,
+      serviceMode: onboardingForm.serviceMode
+    };
     setGuestInfo(info);
-    localStorage.setItem('parking_guest_info', JSON.stringify(info));
+    sessionStorage.setItem('parking_guest_info', JSON.stringify(info));
     setShowOnboarding(false);
   };
 
   const resetGuestSession = () => {
-    localStorage.removeItem('parking_guest_info');
+    sessionStorage.removeItem('parking_guest_info');
     setGuestInfo(null);
-    setOnboardingForm({ name: '', phone: '', vehicle: '' });
+    setOnboardingForm({ name: '', phone: '', vehicle: '', guestCount: 1, serviceMode: 'SERVE_IN_CAR' });
     setShowOnboarding(true);
     setCart([]);
     setActiveTab('menu');
@@ -209,6 +246,8 @@ export default function ParkingMenuPage() {
           customerName: guestInfo.name,
           customerPhone: guestInfo.phone,
           vehicleNumber: guestInfo.vehicle,
+          guestCount: guestInfo.guestCount || 1,
+          serviceMode: guestInfo.serviceMode,
           items: cart.map(i => ({ id: i.id, quantity: i.quantity })),
         })
       });
@@ -311,7 +350,13 @@ export default function ParkingMenuPage() {
           upiId={data.property.upiId || ''}
           upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab as any} 
-          onPaymentSuccess={() => {}}
+          onPaymentSuccess={() => {
+            // After payment, clear session info so next visit asks for details again
+            sessionStorage.removeItem('parking_guest_info');
+            setGuestInfo(null);
+            setOnboardingForm({ name: '', phone: '', vehicle: '', guestCount: 1, serviceMode: 'SERVE_IN_CAR' });
+            setShowFeedback(true);
+          }}
         />
       ) : (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

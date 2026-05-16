@@ -51,7 +51,15 @@ export async function GET(request: NextRequest) {
         status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] }
       },
       include: {
-        items: { select: { quantity: true } },
+        items: { 
+          select: { 
+            quantity: true, 
+            productId: true, 
+            portion: true, 
+            variantName: true,
+            product: { select: { name: true } }
+          } 
+        },
         kotTickets: { select: { id: true } },
       },
     });
@@ -73,11 +81,16 @@ export async function GET(request: NextRequest) {
             const totalAmount = tableOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || 0), 0);
             const totalSubtotal = tableOrders.reduce((sum: number, o: any) => sum + (o.subtotal || 0), 0);
             const totalTax = tableOrders.reduce((sum: number, o: any) => sum + (o.taxAmount || 0), 0);
-            const totalItems = tableOrders.reduce((sum: number, o: any) => 
-              sum + o.items.reduce((iSum: number, item: any) => iSum + item.quantity, 0), 0);
+            const totalItems = tableOrders.reduce((sum: number, o: any) => sum + (o.items?.filter((i: any) => i.quantity > 0).length || 0), 0);
             
             const elapsedTime = Math.round((Date.now() - new Date((primaryOrder as any).createdAt).getTime()) / 60000);
             
+            // Prioritize status: BILL_PRINTED > IN_KITCHEN > READY > others
+            let displayStatus = primaryOrder.status;
+            if (tableOrders.some((o: any) => o.status === 'BILL_PRINTED')) displayStatus = 'BILL_PRINTED';
+            else if (tableOrders.some((o: any) => o.status === 'IN_KITCHEN' || o.status === 'KOT_RUNNING')) displayStatus = 'IN_KITCHEN';
+            else if (tableOrders.some((o: any) => o.status === 'READY')) displayStatus = 'READY';
+
             activeOrder = {
               id: primaryOrder.id,
               orderIds: tableOrders.map((o: any) => o.id),
@@ -87,7 +100,7 @@ export async function GET(request: NextRequest) {
               itemCount: totalItems,
               kotCount: tableOrders.reduce((sum: number, o: any) => sum + (o.kotTickets?.length || 0), 0),
               elapsedTime: Math.max(0, elapsedTime),
-              status: primaryOrder.status,
+              status: displayStatus,
               orderCount: tableOrders.length
             };
           }

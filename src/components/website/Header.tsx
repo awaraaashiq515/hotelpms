@@ -60,8 +60,8 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
                   <img
                     src={logoUrl}
                     alt="Website Logo"
-                    className="h-20 md:h-24 lg:h-32 w-auto object-contain transition-all duration-300 group-hover:scale-105 drop-shadow-xl"
-                    style={{ mixBlendMode: 'normal', maxWidth: '400px' }}
+                    className="h-10 md:h-12 lg:h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105 drop-shadow-xl"
+                    style={{ mixBlendMode: 'normal', maxWidth: '250px' }}
                   />
                 ) : (
                   <>
@@ -138,7 +138,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
                   <img
                     src={logoUrl}
                     alt="Website Logo"
-                    className="h-16 md:h-20 w-auto max-w-[250px] object-contain drop-shadow-sm"
+                    className="h-10 md:h-12 w-auto max-w-[200px] object-contain drop-shadow-sm"
                   />
                 ) : (
                   <>

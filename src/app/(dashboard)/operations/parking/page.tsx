@@ -131,10 +131,12 @@ export default function ParkingOperationsPage() {
     });
 
     const latestKot = order.kotTickets[order.kotTickets.length - 1];
+    const serviceModeLabel = order.orderType === 'TAKEAWAY' ? 'PACKED' : 'IN-CAR';
+    
     setKotSlip({
       kotNo: latestKot.kotNo,
       orderNo: order.orderNo,
-      tableNo: slot.name,
+      tableNo: `${slot.name} (${serviceModeLabel})`,
       orderType: order.orderType,
       createdAt: latestKot.createdAt,
       items: allItems
@@ -147,9 +149,11 @@ export default function ParkingOperationsPage() {
     if (!order) return;
 
     setIsFinalInvoice(false);
+    const serviceModeLabel = order.orderType === 'TAKEAWAY' ? 'PACKED' : 'IN-CAR';
+    
     setBillData({
       orderNo: order.orderNo,
-      tableNo: slot.name,
+      tableNo: `${slot.name} (${serviceModeLabel})`,
       items: order.items.map((i: any) => ({
         id: i.productId || i.id,
         name: i.product.name,
@@ -170,7 +174,7 @@ export default function ParkingOperationsPage() {
       await fetch(`/api/parking-slots/${slot.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'BILL_PRINTED' })
+        body: JSON.stringify({ status: 'VACANT' })
       });
       fetchData();
     } catch (error) {
@@ -283,7 +287,8 @@ export default function ParkingOperationsPage() {
     total: parkingSlots.length,
     occupied: parkingSlots.filter(s => s.status !== 'VACANT').length,
     vacant: parkingSlots.filter(s => s.status === 'VACANT').length,
-    billed: parkingSlots.filter(s => s.status === 'BILL_PRINTED').length
+    billed: parkingSlots.filter(s => s.status === 'BILL_PRINTED').length,
+    liveRevenue: parkingSlots.reduce((sum, s) => sum + (s.activeOrder?.amount || 0), 0)
   };
 
   return (
@@ -326,8 +331,8 @@ export default function ParkingOperationsPage() {
               <p className="text-sm font-black text-red-400">{stats.occupied}</p>
             </div>
             <div className="px-4 py-2 text-center">
-              <p className="text-[9px] font-black text-blue-400/80 uppercase tracking-wider transition-colors">Billed</p>
-              <p className="text-sm font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] transition-colors">{stats.billed}</p>
+              <p className="text-[9px] font-black text-amber-400/80 uppercase tracking-wider">Total Revenue</p>
+              <p className="text-sm font-black text-amber-400">₹{Math.round(stats.liveRevenue)}</p>
             </div>
           </div>
 

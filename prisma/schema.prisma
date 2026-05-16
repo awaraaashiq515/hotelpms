@@ -125,6 +125,8 @@ model Property {
   combos               Combo[]
   printers             Printer[]
   wastes               Waste[]
+  b2bOrders            B2BOrder[]
+
 
   @@index([organizationId])
 }
@@ -156,9 +158,12 @@ model User {
   property            Property?    @relation(fields: [propertyId], references: [id])
   role                Role         @relation(fields: [roleId], references: [id])
   attendance          Attendance[]
+  supplierId          String?
+  supplier            B2BSupplier? @relation(fields: [supplierId], references: [id])
 
   @@index([organizationId])
   @@index([propertyId])
+  @@index([supplierId])
 }
 
 model Role {
@@ -653,6 +658,7 @@ model StockItem {
   purchaseOrderItems PurchaseOrderItem[]
   property           Property            @relation(fields: [propertyId], references: [id])
   stockMovements     StockMovement[]
+  ingredients        ProductIngredient[]
 }
 
 model StockMovement {
@@ -676,12 +682,12 @@ model StockMovement {
 model ProductIngredient {
   id          String    @id @default(cuid())
   productId   String
-  inventoryItemId String?
+  stockItemId String?
   quantity    Float
-  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
-  product     Product   @relation(fields: [productId], references: [id])
+  stockItem   StockItem? @relation(fields: [stockItemId], references: [id])
+  product     Product    @relation(fields: [productId], references: [id])
 
-  @@unique([productId, inventoryItemId])
+  @@unique([productId, stockItemId])
 }
 
 model InventoryItem {
@@ -697,7 +703,6 @@ model InventoryItem {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   
-  ingredients      ProductIngredient[]
   stockLogs        InventoryLog[]
   property         Property          @relation(fields: [propertyId], references: [id])
 
@@ -1700,4 +1705,82 @@ model NotificationPreference {
 
   @@unique([propertyId, type])
   @@index([propertyId])
+}
+
+model B2BSupplier {
+  id          String      @id @default(cuid())
+  name        String
+  email       String      @unique
+  phone       String?
+  address     String?
+  image       String?     // Profile photo / Logo
+  gstNumber   String?
+  category    String?     // e.g., Vegetables, Dairy, Meat
+  isActive    Boolean     @default(true)
+  qrToken     String?     @unique  // Unique token for QR-based ordering
+  qrEnabled   Boolean     @default(true)
+  products    B2BProduct[]
+  orders      B2BOrder[]
+  users       User[]
+  createdAt   DateTime    @default(now())
+}
+
+model B2BProduct {
+  id            String      @id @default(cuid())
+  supplierId    String
+  name          String
+  description   String?
+  price         Float
+  unit          String      // e.g., kg, packet, crate
+  stockQuantity Float       @default(0)
+  discount      Float       @default(0)
+  gstRate       Float       @default(18)   // GST percentage: 0, 5, 12, 18, 28
+  hsnCode       String?                     // HSN/SAC Code
+  taxType       String      @default("Exclusive") // Exclusive, Inclusive, Exempt
+  image         String?
+  category      String?
+  supplier      B2BSupplier @relation(fields: [supplierId], references: [id])
+  orderItems    B2BOrderItem[]
+}
+
+model B2BOrder {
+  id              String         @id @default(cuid())
+  propertyId      String?        // Buying Restaurant (null for QR walk-in orders)
+  supplierId      String         // Selling Supplier
+  orderNo         String         @unique
+  status          String         @default("PENDING") // PENDING, ACCEPTED, PROCESSING, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+  totalAmount     Float
+  trackingId      String?
+  deliveryDate    DateTime?
+  // QR Order fields (for walk-in / scan-to-order flow)
+  orderSource     String         @default("PLATFORM") // PLATFORM | QR_SCAN
+  buyerName       String?        // Name of buyer from QR order form
+  buyerPhone      String?        // Phone from QR order form
+  buyerRestaurant String?        // Restaurant name from QR form
+  items           B2BOrderItem[]
+  statusLogs      B2BOrderLog[]
+  property        Property?      @relation(fields: [propertyId], references: [id])
+  supplier        B2BSupplier    @relation(fields: [supplierId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model B2BOrderItem {
+  id          String     @id @default(cuid())
+  orderId     String
+  productId   String
+  quantity    Float
+  unitPrice   Float
+  totalPrice  Float
+  order       B2BOrder   @relation(fields: [orderId], references: [id])
+  product     B2BProduct @relation(fields: [productId], references: [id])
+}
+
+model B2BOrderLog {
+  id        String         @id @default(cuid())
+  orderId   String
+  status    String
+  note      String?
+  createdAt DateTime       @default(now())
+  order     B2BOrder       @relation(fields: [orderId], references: [id])
 }

@@ -41,6 +41,14 @@ export async function POST(request: NextRequest) {
             paymentRequested: true // Also show up on counter
           }
         });
+
+        // Auto-clear the parking slot status to VACANT upon payment submission
+        if (order.parkingSlotId) {
+          await tx.parkingSlot.update({
+            where: { id: order.parkingSlotId },
+            data: { status: 'VACANT' }
+          });
+        }
       } else {
         // Legacy flow (if any) or other methods that don't need approval
         // 2. Create Receipt & Settlement (Mocking UPI success)
@@ -88,11 +96,18 @@ export async function POST(request: NextRequest) {
           data: { status: 'SETTLED' }
         });
 
-        // 4. Update Table Status
-        await tx.table.update({
-          where: { id: order.restaurantTableId },
-          data: { status: 'VACANT' }
-        });
+        // 4. Update Table/Slot Status
+        if (order.restaurantTableId) {
+          await tx.table.update({
+            where: { id: order.restaurantTableId },
+            data: { status: 'VACANT' }
+          });
+        } else if (order.parkingSlotId) {
+          await tx.parkingSlot.update({
+            where: { id: order.parkingSlotId },
+            data: { status: 'VACANT' }
+          });
+        }
       }
 
       // 6. Save Rating if provided
@@ -105,28 +120,44 @@ export async function POST(request: NextRequest) {
       }
 
       // 7. Create Notification for Staff
-      const table = await tx.table.findUnique({
-        where: { id: order.restaurantTableId },
-        include: { floor: true }
-      });
+      let locationName = 'Unknown';
+      let locationType = 'Location';
+
+      if (order.restaurantTableId) {
+        const table = await tx.table.findUnique({
+          where: { id: order.restaurantTableId },
+          include: { floor: true }
+        });
+        if (table) {
+          locationName = `Table ${table.name} (${table.floor.name})`;
+          locationType = 'Table';
+        }
+      } else if (order.parkingSlotId) {
+        const slot = await (tx as any).parkingSlot.findUnique({
+          where: { id: order.parkingSlotId }
+        });
+        if (slot) {
+          locationName = `Parking Slot ${slot.name}`;
+          locationType = 'Parking';
+        }
+      }
 
       const orderWithItems = await tx.posOrder.findUnique({
         where: { id: order.id },
         include: { items: { include: { product: true } } }
       });
 
-      if (table && orderWithItems) {
+      if (orderWithItems) {
         await tx.notification.create({
           data: {
             propertyId,
             title: 'Online Payment Received',
-            message: `Payment of ₹${order.grandTotal.toFixed(2)} received from Table ${table.name} (${table.floor.name})`,
+            message: `Payment of ₹${order.grandTotal.toFixed(2)} received from ${locationName}`,
             type: 'PAYMENT',
             priority: 'URGENT',
             metadata: JSON.stringify({
-              tableId: table.id,
-              tableName: table.name,
-              floorName: table.floor.name,
+              locationName,
+              locationType,
               amount: order.grandTotal,
               orderId: order.id,
               orderNo: order.orderNo,

@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
       role: user.role.name,
       organizationId: user.organizationId,
       propertyId: user.propertyId,
+      supplierId: user.supplierId,
       onboardingCompleted: user.onboardingCompleted,
       permissions,
       packageFeatures,

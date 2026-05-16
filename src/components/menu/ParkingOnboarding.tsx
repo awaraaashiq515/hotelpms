@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Phone, Car, UtensilsCrossed } from 'lucide-react';
+import { User, Phone, Car, UtensilsCrossed, Package, Armchair } from 'lucide-react';
 
 interface ParkingOnboardingProps {
   show: boolean;
-  form: { name: string; phone: string; vehicle: string };
+  form: { name: string; phone: string; vehicle: string; guestCount: number; serviceMode: 'SERVE_IN_CAR' | 'PACKED' };
   setForm: (form: any) => void;
   onSubmit: (e: React.FormEvent) => void;
   slotName?: string;
@@ -69,6 +69,47 @@ export const ParkingOnboarding: React.FC<ParkingOnboardingProps> = ({ show, form
                   onChange={(e) => setForm((prev: any) => ({ ...prev, vehicle: e.target.value.toUpperCase() }))}
                   className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl pl-14 pr-6 text-sm font-bold text-slate-900 dark:text-white outline-none focus:bg-white dark:focus:bg-slate-800 transition-all font-mono uppercase tracking-wider"
                 />
+              </div>
+
+              <div className="relative">
+                <UtensilsCrossed size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  required
+                  type="number"
+                  placeholder="Number of Guests"
+                  min="1"
+                  max="20"
+                  value={form.guestCount || ''}
+                  onChange={(e) => setForm((prev: any) => ({ ...prev, guestCount: parseInt(e.target.value) || 1 }))}
+                  className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl pl-14 pr-6 text-sm font-bold text-slate-900 dark:text-white outline-none focus:bg-white dark:focus:bg-slate-800 transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-1 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setForm((prev: any) => ({ ...prev, serviceMode: 'SERVE_IN_CAR' }))}
+                  className={`flex flex-col items-center justify-center py-4 rounded-xl transition-all gap-2 border-2 ${
+                    form.serviceMode === 'SERVE_IN_CAR'
+                      ? 'bg-amber-500 border-amber-600 text-white shadow-lg'
+                      : 'bg-transparent border-transparent text-slate-400'
+                  }`}
+                >
+                  <Armchair size={20} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">In Car</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((prev: any) => ({ ...prev, serviceMode: 'PACKED' }))}
+                  className={`flex flex-col items-center justify-center py-4 rounded-xl transition-all gap-2 border-2 ${
+                    form.serviceMode === 'PACKED'
+                      ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg'
+                      : 'bg-transparent border-transparent text-slate-400'
+                  }`}
+                >
+                  <Package size={20} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Packed</span>
+                </button>
               </div>
 
               <button 

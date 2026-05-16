@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import AdminSetupWizard from '@/components/dashboard/AdminSetupWizard';
-import { BarChart, ShoppingCart, Users, Building2, Store, ReceiptText, Layers, UtensilsCrossed, LayoutGrid, Tag, X, ArrowRightCircle, Plus, Trophy } from 'lucide-react';
+import { BarChart, ShoppingCart, Users, Building2, Store, ReceiptText, Layers, UtensilsCrossed, LayoutGrid, Tag, X, ArrowRightCircle, Plus, Trophy, AlertCircle } from 'lucide-react';
 
 export default function DashboardPage() {
   const [session, setSession] = useState<any>(null);
@@ -50,6 +50,8 @@ export default function DashboardPage() {
     { label: 'Total Businesses', value: stats?.totalBusinesses?.toString() || '0', icon: Building2, color: 'text-pos-primary' },
     { label: 'Active Outlets', value: stats?.totalOutlets?.toString() || '0', icon: Store, color: 'text-pos-primary' },
     { label: 'System Users', value: stats?.totalUsers?.toString() || '0', icon: Users, color: 'text-pos-primary' },
+    { label: 'B2B Active Orders', value: stats?.b2bActiveOrders?.toString() || '0', icon: ShoppingCart, color: 'text-amber-600' },
+    { label: 'Low Stock Alerts', value: stats?.lowStockCount?.toString() || '0', icon: AlertCircle, color: 'text-rose-600' },
   ];
 
   if (loading) {

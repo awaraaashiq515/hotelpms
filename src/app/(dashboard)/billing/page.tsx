@@ -94,7 +94,7 @@ export default function BillingPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tableId = searchParams.get('tableId');
-  const tableName = searchParams.get('tableName');
+  const tableName = searchParams.get('tableName') || searchParams.get('tableNo');
   const parkingSlotId = searchParams.get('parkingSlotId');
   const slotName = searchParams.get('slotName');
   const orderIdParam = searchParams.get('orderId');
@@ -189,18 +189,16 @@ export default function BillingPage() {
 
   // Effect to handle table switching
   useEffect(() => {
-    if (tableId) {
-      // Clear current cart and order when switching tables to avoid showing stale data
+    if (tableId || orderIdParam || parkingSlotId) {
+      // Clear current cart and order when switching parameters to avoid showing stale data
       setCart([]);
       setActiveOrder(null);
       fetchActiveOrder();
     } else {
-      // If no tableId, we might want to clear the cart if it was a table-specific order
-      // but usually we leave it if they are doing counter service.
-      // However, for safety:
       setActiveOrder(null);
+      setCart([]);
     }
-  }, [tableId]);
+  }, [tableId, orderIdParam, parkingSlotId]);
 
   useEffect(() => {
     const type = searchParams.get('type');
@@ -334,7 +332,8 @@ export default function BillingPage() {
           });
         });
         
-        setCart(mergedItems);
+        const finalItems = mergedItems.filter(item => item.quantity > 0);
+        setCart(finalItems);
       } else {
         setActiveOrder(null);
         setCart([]);
@@ -499,7 +498,8 @@ export default function BillingPage() {
         }),
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
-        driverId: selectedDriver?.id || undefined
+        driverId: selectedDriver?.id || undefined,
+        orderId: orderIdParam || activeOrder?.id || undefined
       };
 
       const response = await fetch('/api/pos-orders', {
@@ -559,7 +559,8 @@ export default function BillingPage() {
         }),
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
-        driverId: selectedDriver?.id || undefined
+        driverId: selectedDriver?.id || undefined,
+        orderId: orderIdParam || activeOrder?.id || undefined
       };
 
       const response = await fetch('/api/pos-orders', {
@@ -593,7 +594,8 @@ export default function BillingPage() {
           }
 
           // Direct thermal printing via Backend API
-          if (property?.enableDirectPrinting) {
+          // Skip paper print if showModal is false (Save & KOT flow)
+          if (property?.enableDirectPrinting && showModal) {
             try {
               const kotPrintData = {
                 kotNo: latestKot.kotNo,
@@ -630,6 +632,11 @@ export default function BillingPage() {
         // Refresh to ensure any UI components update with the latest DB state
         fetchActiveOrder();
         fetchAllActiveOrders();
+
+        // If showModal is false, it means we want to save and redirect immediately (Save & KOT flow)
+        if (!showModal) {
+          router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
+        }
       }
     } catch (err) {
       addToast('error', 'Failed to generate KOT');
@@ -788,6 +795,8 @@ export default function BillingPage() {
         setIsProforma(false);
         // Data for final print is already in billData, but status is now settled
         fetchAllActiveOrders();
+        // Immediate redirect to operations
+        router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
       } else {
         addToast('error', result.message || 'Settlement failed');
       }
@@ -1509,12 +1518,12 @@ export default function BillingPage() {
             {activeOrders.map((order) => {
               const isCurrentTable = order.tableId === tableId;
               const statusColor =
-                order.status === 'KOT_RUNNING' ? '#f97316'
+                (order.status === 'KOT_RUNNING' || order.status === 'IN_KITCHEN') ? '#f97316'
                 : order.status === 'BILL_PRINTED' ? '#3b82f6'
                 : order.status === 'OCCUPIED' ? '#22c55e'
                 : '#94a3b8';
               const statusLabel =
-                order.status === 'KOT_RUNNING' ? 'In Kitchen'
+                (order.status === 'KOT_RUNNING' || order.status === 'IN_KITCHEN') ? 'In Kitchen'
                 : order.status === 'BILL_PRINTED' ? 'Bill Printed'
                 : order.status === 'OCCUPIED' ? 'In process'
                 : 'Open';
@@ -1572,7 +1581,7 @@ export default function BillingPage() {
       </div>
 
       {/* RIGHT SIDEBAR - Cart & Checkout (Dark/Sleek) */}
-      <div className={`w-[420px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full shadow-2xl z-10 transition-all duration-300`}>
+      <div className={`w-[420px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full sticky top-0 shadow-2xl z-10 transition-all duration-300`}>
         <div className="p-3 pb-1 flex flex-col gap-2">
            <div className="flex items-center justify-between">
               <div>
@@ -1733,7 +1742,7 @@ export default function BillingPage() {
         </div>
 
         {/* Cart Items List */}
-        <div className="max-h-[340px] h-[340px] flex-none overflow-y-auto px-6 py-2 no-scrollbar">
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-2 scroll-smooth no-scrollbar">
           {cart.length === 0 ? (
             <div className={`h-full flex flex-col items-center justify-center text-center gap-4 ${theme === 'dark' ? 'opacity-20' : 'opacity-30'}`}>
               <div className="w-14 h-14 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-500/20">
@@ -1744,35 +1753,35 @@ export default function BillingPage() {
           ) : (
             <div className="space-y-2">
                {cart.map((item: any) => (
-                <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-[1.25rem] p-3 border transition-all duration-300 mb-1`}>
-                  <div className="flex flex-col gap-2.5 relative z-10">
+                <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
+                  <div className="flex flex-col gap-0.5 relative z-10">
                     {/* Compact Header: Name, Price, Qty & Trash */}
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0 pr-2">
-                        <h4 className={`text-[12px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
+                        <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
                           {item.name.split('(')[0].trim()}
                         </h4>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[13px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
-                          <span className="text-[9px] text-slate-500 font-bold opacity-40">/ ₹{item.sellingPrice.toFixed(0)}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[12px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
+                          <span className="text-[8px] text-slate-500 font-bold opacity-40">/ ₹{item.sellingPrice.toFixed(0)}</span>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
-                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
-                            <Minus size={12} strokeWidth={4} />
+                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
+                            <Minus size={10} strokeWidth={4} />
                           </button>
-                          <span className="w-5 text-center text-[12px] font-black">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
-                            <Plus size={12} strokeWidth={4} />
+                          <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
+                            <Plus size={10} strokeWidth={4} />
                           </button>
                         </div>
                         <button 
                           onClick={() => removeFromCart(item.cartItemId)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                          className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={10} />
                         </button>
                       </div>
                     </div>
@@ -1814,17 +1823,17 @@ export default function BillingPage() {
         </div>
 
         {/* Totals & Checkout Section */}
-        <div className={`p-3 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-2 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
-          <div className="space-y-1.5">
+        <div className={`p-2 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-1 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
+          <div className="space-y-1">
 
 
             {/* Manual Discount Field */}
-            <div className={`relative flex items-center gap-3 ${theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border-slate-200'} px-4 py-2.5 rounded-2xl border group transition-all focus-within:border-emerald-500/40 shadow-sm`}>
+            <div className={`relative flex items-center gap-2.5 ${theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border-slate-200'} px-3 py-1.5 rounded-2xl border group transition-all focus-within:border-emerald-500/40 shadow-sm`}>
                <div 
                  onClick={() => setManualDiscountType(t => t === 'PERCENTAGE' ? 'FIXED' : 'PERCENTAGE')}
-                 className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${manualDiscountType === 'PERCENTAGE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}
+                 className={`w-6 h-6 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${manualDiscountType === 'PERCENTAGE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}
                >
-                 {manualDiscountType === 'PERCENTAGE' ? <Percent size={14} /> : <span className="text-[10px] font-black">₹</span>}
+                 {manualDiscountType === 'PERCENTAGE' ? <Percent size={12} /> : <span className="text-[9px] font-black">₹</span>}
                </div>
                <input 
                  type="number"
@@ -1844,7 +1853,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest px-1">
               <span>Sub-Total</span>
               <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{displayedSubtotal.toFixed(2)}</span>
@@ -1873,12 +1882,12 @@ export default function BillingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <Button 
                onClick={() => handlePrintKOT(true)}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-500' 
                    : 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700/10 shadow-lg shadow-emerald-600/20'}`}
@@ -1889,18 +1898,18 @@ export default function BillingPage() {
                onClick={() => handlePrintKOT(false)}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-500' 
                    : 'bg-teal-600 text-white hover:bg-teal-700 border-teal-700/10 shadow-lg shadow-teal-600/20'}`}
             >
-              <CheckCircle2 size={14} /> SAVE & KOT
+               <CheckCircle2 size={14} /> SAVE & KOT
             </Button>
             <Button 
                onClick={handleSimpleSave}
                loading={saveLoading}
                disabled={cart.length === 0}
-               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-blue-500/10 hover:bg-blue-500 hover:text-white border-blue-500/20 text-blue-500' 
                    : 'bg-blue-600 text-white hover:bg-blue-700 border-blue-700/10 shadow-lg shadow-blue-600/20'}`}
@@ -1914,7 +1923,7 @@ export default function BillingPage() {
                  setAutoPrint(false); 
                  handlePrintBill(false); 
                }}
-               className={`py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
+               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
                  ${theme === 'dark' 
                    ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-500' 
                    : 'bg-rose-600 text-white hover:bg-rose-700 border-rose-700/10 shadow-lg shadow-rose-600/20'}`}
@@ -1946,6 +1955,10 @@ export default function BillingPage() {
             setIsBillOpen(false);
             setBillData(null);
             setAutoPrint(false);
+            // After successful settlement (not proforma), redirect back to operations
+            if (!isProforma) {
+              router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
+            }
         }} 
         onSettle={handleSettleNew}
         paymentModes={paymentModes}

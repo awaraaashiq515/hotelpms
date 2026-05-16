@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bell, 
@@ -40,6 +41,7 @@ export function NotificationOverlay() {
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [preferences, setPreferences] = useState<Record<string, boolean>>({}); // type -> soundEnabled
+  const pathname = usePathname();
 
   const fetchPrefs = useCallback(async () => {
     try {
@@ -70,6 +72,8 @@ export function NotificationOverlay() {
   }, [isAudioEnabled, preferences]);
 
   const fetchNotifications = useCallback(async () => {
+    if (pathname?.includes('kitchen-display')) return;
+    
     try {
       const res = await fetch('/api/notifications?status=UNREAD');
       const json = await res.json();
@@ -86,17 +90,19 @@ export function NotificationOverlay() {
     } catch (err) {
       console.error('Failed to fetch notifications', err);
     }
-  }, [notifications.length, playSound]);
+  }, [notifications.length, playSound, pathname]);
 
   useEffect(() => {
     setMounted(true);
+    if (pathname?.includes('kitchen-display')) return;
+
     fetchPrefs();
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 5000); // Poll every 5s for faster response
     return () => clearInterval(interval);
-  }, [fetchNotifications, fetchPrefs]);
+  }, [fetchNotifications, fetchPrefs, pathname]);
 
-  const dismissNotification = async (id: string) => {
+  const dismissNotification = useCallback(async (id: string) => {
     try {
       const res = await fetch('/api/notifications', {
         method: 'PATCH',
@@ -109,7 +115,20 @@ export function NotificationOverlay() {
     } catch (err) {
       console.error('Failed to dismiss notification', err);
     }
-  };
+  }, []);
+
+  const seenIds = React.useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    notifications.forEach(n => {
+      if (!seenIds.current.has(n.id)) {
+        seenIds.current.add(n.id);
+        setTimeout(() => {
+          dismissNotification(n.id);
+        }, 3000);
+      }
+    });
+  }, [notifications, dismissNotification]);
 
   const getIcon = (notification: Notification) => {
     const { type, priority } = notification;
@@ -128,6 +147,7 @@ export function NotificationOverlay() {
   };
 
   if (!mounted) return null;
+  if (pathname?.includes('kitchen-display')) return null;
 
   return (
     <div className="fixed top-20 right-6 z-[9999] flex flex-col gap-2 w-72 pointer-events-none">

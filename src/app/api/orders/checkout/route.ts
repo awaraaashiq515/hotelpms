@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp } = body;
+    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp } = body;
 
     // --- COMBO EXPANSION ---
     const expandedItems: any[] = [];
@@ -278,10 +278,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 7. Update Table Status to VACANT
+      // 7. Update Table/Parking Status to VACANT
       if (restaurantTableId) {
         await (tx as any).table.update({
           where: { id: restaurantTableId },
+          data: { status: 'VACANT' }
+        });
+      } else if (parkingSlotId) {
+        await (tx as any).parkingSlot.update({
+          where: { id: parkingSlotId },
           data: { status: 'VACANT' }
         });
       }
