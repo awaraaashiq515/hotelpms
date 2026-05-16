@@ -100,6 +100,7 @@ export default function OperationsPage() {
     { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: '/operations/tables/qr-gallery', feature: 'TABLES' },
+    { label: 'Notification Settings', perm: 'Settings', icon: Settings, path: '/settings/notifications', feature: 'POS' },
     { label: 'Customers', icon: Contact, path: '/customers' },
     { label: 'Customer Feedback', icon: Star, path: '/reports/ratings', feature: 'REPORTS' },
   ];
