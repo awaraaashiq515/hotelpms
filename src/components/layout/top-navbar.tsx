@@ -294,7 +294,7 @@ export const TopNavbar: React.FC = () => {
               <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] py-1.5 z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => {
-                    router.push('/kitchen-display');
+                    window.open('/kitchen-display', '_blank');
                     setShowDisplayMenu(false);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors"

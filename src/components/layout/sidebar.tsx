@@ -176,6 +176,7 @@ export const Sidebar: React.FC = () => {
                           <Link
                             key={sub.path}
                             href={sub.path}
+                            target={sub.target}
                             className={`flex items-center px-4 py-2.5 text-[11px] font-bold uppercase tracking-tight transition-all rounded-md ${
                               isSubActive
                                 ? 'text-pos-primary bg-pos-primary/10'
@@ -196,6 +197,7 @@ export const Sidebar: React.FC = () => {
               <div key={item.name} className="px-3 mb-1">
                 <Link
                   href={item.path}
+                  target={item.target}
                   className={`w-full flex items-center justify-between py-3 rounded-xl transition-all duration-200 group ${
                     isOpen ? 'px-4' : 'px-0 justify-center'
                   } ${

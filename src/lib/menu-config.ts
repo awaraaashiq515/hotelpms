@@ -37,6 +37,7 @@ export interface SubMenuItem {
   path: string;
   roles?: string[];
   feature?: string;
+  target?: string;
 }
 
 export interface MenuItem {
@@ -46,6 +47,7 @@ export interface MenuItem {
   roles?: string[];
   perm?: string;
   feature?: string;   // Package feature key required to see this item
+  target?: string;
   subItems?: SubMenuItem[];
 }
 
@@ -84,7 +86,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
     { name: 'Products',    path: '/products',  icon: Tag,       feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
     { name: 'Categories',  path: '/categories',icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
     { name: 'KOTs',        path: '/kots',      icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Kitchen Display', path: '/kitchen-display', icon: Eye, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { name: 'Kitchen Display', path: '/kitchen-display', icon: Eye, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], target: '_blank' },
     { name: 'Day Closing', path: '/day-closing', icon: Layers,  feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Day Closing' },
     {
       name: 'Expenses',

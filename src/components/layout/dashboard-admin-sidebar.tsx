@@ -219,6 +219,7 @@ export const DashboardAdminSidebar: React.FC = () => {
                             <Link
                               key={sub.path}
                               href={sub.path}
+                              target={sub.target}
                               onClick={() => {
                                 if (window.innerWidth < 1024) close();
                               }}
@@ -241,6 +242,7 @@ export const DashboardAdminSidebar: React.FC = () => {
                 <div key={item.name} className="px-3 mb-1">
                   <Link
                     href={item.path}
+                    target={item.target}
                     onClick={() => {
                       if (window.innerWidth < 1024) close();
                     }}

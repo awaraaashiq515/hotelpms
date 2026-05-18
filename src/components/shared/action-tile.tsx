@@ -30,6 +30,10 @@ export const ActionTile: React.FC<ActionTileProps> = ({
     }
 
     if (path) {
+      if (path === '/kitchen-display') {
+        window.open(path, '_blank');
+        return;
+      }
       // Standard Next.js navigation
       router.push(path);
       
