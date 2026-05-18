@@ -20,7 +20,29 @@ export const TopNavbar: React.FC = () => {
   // Notifications State
   const [unreadCount, setUnreadCount] = useState(0);
   const lastIdRef = useRef<string | null>(null);
+  const preferencesRef = useRef<Record<string, boolean>>({});
   const [audioEnabled, setAudioEnabled] = useState(false);
+
+  useEffect(() => {
+    const fetchPrefs = async () => {
+      try {
+        const res = await fetch('/api/settings/notifications');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const soundMap: Record<string, boolean> = {};
+          json.data.forEach((p: any) => {
+            soundMap[p.type] = p.soundEnabled === 1 || p.soundEnabled === true || p.soundEnabled === 'true';
+          });
+          preferencesRef.current = soundMap;
+        }
+      } catch (err) {
+        console.error('Failed to fetch notification preferences', err);
+      }
+    };
+    fetchPrefs();
+    const prefInterval = setInterval(fetchPrefs, 30000);
+    return () => clearInterval(prefInterval);
+  }, []);
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -34,7 +56,10 @@ export const TopNavbar: React.FC = () => {
     return () => window.removeEventListener('click', unlockAudio);
   }, []);
 
-  const playNotificationSound = (message: string) => {
+  const playNotificationSound = (message: string, type: string) => {
+    const soundEnabled = preferencesRef.current[type] ?? false; // Default to false
+    if (!soundEnabled) return;
+
     console.log("🔔 Triggering sound for:", message);
     try {
       // 1. Play Modern Beep Sound
@@ -73,7 +98,7 @@ export const TopNavbar: React.FC = () => {
           
           if (lastIdRef.current && latestKey !== lastIdRef.current) {
             console.log("✨ NEW ALERT DETECTED!");
-            playNotificationSound(latest.message);
+            playNotificationSound(latest.message, latest.type);
             
             // Show visual toast
             setActiveToast(latest.message);

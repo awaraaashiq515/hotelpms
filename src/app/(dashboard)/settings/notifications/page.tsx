@@ -158,7 +158,7 @@ export default function NotificationSettingsPage() {
   };
 
   const togglePref = async (type: string, field: 'isEnabled' | 'soundEnabled') => {
-    const current = preferences[type] || { type, isEnabled: true, soundEnabled: true };
+    const current = preferences[type] || { type, isEnabled: true, soundEnabled: false };
     const updated = { ...current, [field]: !current[field] };
     
     // Optimistic update
@@ -211,7 +211,7 @@ export default function NotificationSettingsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {NOTIFICATION_TYPES.map((notif, index) => {
-          const pref = preferences[notif.type] || { type: notif.type, isEnabled: true, soundEnabled: true };
+          const pref = preferences[notif.type] || { type: notif.type, isEnabled: true, soundEnabled: false };
           const isSavingNotif = savingType === notif.type + 'isEnabled';
           const isSavingSound = savingType === notif.type + 'soundEnabled';
 

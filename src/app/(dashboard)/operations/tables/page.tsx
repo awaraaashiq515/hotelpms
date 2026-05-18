@@ -80,8 +80,19 @@ export default function TableManagementPage() {
 
   // Notification Sound
   const prevFloorsRef = React.useRef<Floor[]>([]);
-  const playNotificationSound = () => {
+  const playNotificationSound = async () => {
     try {
+      const res = await fetch('/api/settings/notifications');
+      const json = await res.json();
+      let soundEnabled = false;
+      if (json.success && Array.isArray(json.data)) {
+        const orderPref = json.data.find((p: any) => p.type === 'ORDER');
+        if (orderPref) {
+          soundEnabled = orderPref.soundEnabled === 1 || orderPref.soundEnabled === true || orderPref.soundEnabled === 'true';
+        }
+      }
+      if (!soundEnabled) return; // Only play if explicitly enabled
+
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
       audio.play().catch(e => console.log('Audio play failed:', e));
     } catch (err) {

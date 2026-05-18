@@ -39,7 +39,7 @@ export function NotificationOverlay() {
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [preferences, setPreferences] = useState<Record<string, boolean>>({}); // type -> soundEnabled
   const pathname = usePathname();
 
@@ -64,7 +64,7 @@ export function NotificationOverlay() {
     if (!isAudioEnabled) return;
     
     // Check specific type preference
-    const soundEnabled = preferences[type] ?? true; // Default to true if not found
+    const soundEnabled = preferences[type] ?? false; // Default to false if not found
     if (!soundEnabled) return;
 
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');

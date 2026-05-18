@@ -78,10 +78,10 @@ export async function GET(request: NextRequest) {
           if (tableOrders.length > 0) {
             // Use the most recent order for status and elapsed time
             const primaryOrder = tableOrders[0]; 
-            const totalAmount = tableOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || 0), 0);
-            const totalSubtotal = tableOrders.reduce((sum: number, o: any) => sum + (o.subtotal || 0), 0);
-            const totalTax = tableOrders.reduce((sum: number, o: any) => sum + (o.taxAmount || 0), 0);
-            const totalItems = tableOrders.reduce((sum: number, o: any) => sum + (o.items?.filter((i: any) => i.quantity > 0).length || 0), 0);
+            const totalAmount = primaryOrder.grandTotal || 0;
+            const totalSubtotal = primaryOrder.subtotal || 0;
+            const totalTax = primaryOrder.taxAmount || 0;
+            const totalItems = primaryOrder.items?.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || 0;
             
             const elapsedTime = Math.round((Date.now() - new Date((primaryOrder as any).createdAt).getTime()) / 60000);
             

@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
         },
         guest: { select: { id: true, firstName: true, lastName: true, mobile: true } },
         table: { select: { id: true, name: true } },
+        parkingSlot: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,

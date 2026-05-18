@@ -117,7 +117,7 @@ export default function CounterPaymentsPage() {
           body: JSON.stringify({
             bill: {
               orderNo: orderToSettle.orderNo,
-              tableNo: orderToSettle.table?.name || orderToSettle.tableNo || 'WALK-IN',
+              tableNo: orderToSettle.parkingSlot ? `Parking: ${orderToSettle.parkingSlot.name}` : orderToSettle.table?.name || orderToSettle.tableNo || 'WALK-IN',
               items: orderToSettle.items.map((i: any) => ({
                 name: i.product?.name || 'Item',
                 quantity: i.quantity,
@@ -153,6 +153,7 @@ export default function CounterPaymentsPage() {
       o.orderNo?.toLowerCase().includes(q) ||
       o.tableNo?.toLowerCase().includes(q) ||
       o.table?.name?.toLowerCase().includes(q) ||
+      o.parkingSlot?.name?.toLowerCase().includes(q) ||
       o.guest?.firstName?.toLowerCase().includes(q) ||
       o.guest?.mobile?.includes(q)
     );
@@ -247,7 +248,18 @@ export default function CounterPaymentsPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-black text-slate-900 dark:text-white">#{order.orderNo?.slice(-6)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-900 dark:text-white">#{order.orderNo?.slice(-6)}</span>
+                      <div className={`flex items-center px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider ${
+                        order.parkingSlot ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400' : 
+                        order.table ? 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-400' : 
+                        order.orderType === 'TAKEAWAY' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400' :
+                        order.orderType === 'DELIVERY' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400' :
+                        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                      }`}>
+                        {order.parkingSlot ? 'PARKING' : order.table ? 'TABLE' : order.orderType || 'WALK-IN'}
+                      </div>
+                    </div>
                     <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${statusInfo.bg} ${statusInfo.color} border border-current/10`}>
                       <statusInfo.icon size={10} />
                       <span className="text-[8px] font-black uppercase">{statusInfo.label}</span>
@@ -256,13 +268,17 @@ export default function CounterPaymentsPage() {
 
                   <div className="space-y-2 mb-3">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400 font-bold uppercase">Table</span>
-                      <span className="font-black text-slate-700 dark:text-slate-200">{order.table?.name || order.tableNo || 'WALK-IN'}</span>
+                      <span className="text-slate-400 font-bold uppercase">
+                        {order.parkingSlot ? 'Parking Slot' : order.table ? 'Table' : 'Source'}
+                      </span>
+                      <span className="font-black text-slate-700 dark:text-slate-200 truncate max-w-[100px]">
+                        {order.parkingSlot?.name || order.table?.name || order.tableNo || 'WALK-IN'}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-slate-400 font-bold uppercase">Guest</span>
-                      <span className="font-black text-slate-700 dark:text-slate-200 truncate max-w-[80px]">
-                        {order.guest?.firstName || 'Walk-in'}
+                      <span className="font-black text-slate-700 dark:text-slate-200 truncate max-w-[100px]">
+                        {order.guest?.firstName || (order.vehicleNumber ? order.vehicleNumber : 'Walk-in')}
                       </span>
                     </div>
                   </div>
