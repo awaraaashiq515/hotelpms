@@ -667,47 +667,47 @@ export default function TableManagementPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-full gap-6 p-4 rounded-3xl" style={{ 
+    <div className="flex flex-col min-h-full gap-4 p-3 rounded-3xl" style={{ 
       background: 'radial-gradient(circle at top right, #13141f, #050505 70%)',
       boxShadow: 'inset 0 0 100px rgba(0,0,0,0.8)'
     }}>
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl transition-all">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in duration-300">
+        <div className="flex items-center gap-3">
           <Button
             variant="secondary"
             size="sm"
             onClick={() => router.push('/operations')}
-            className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            className="rounded-2xl h-10 w-10 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} />
           </Button>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-colors">
-            <Map size={24} />
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-colors">
+            <Map size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white tracking-tight transition-colors drop-shadow-md">Floor Operations</h1>
-            <p className="text-[10px] font-bold text-indigo-300/70 uppercase tracking-[0.2em] mt-0.5 transition-colors">Real-time Table Management</p>
+            <h1 className="text-xl font-black text-white tracking-tight transition-colors drop-shadow-md leading-none">Floor Operations</h1>
+            <p className="text-[9px] font-bold text-indigo-300/70 uppercase tracking-[0.2em] mt-1 transition-colors">Real-time Table Management</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-2xl border border-white/5 shadow-inner transition-colors">
-            <div className="px-4 py-2 text-center border-r border-white/10">
-              <p className="text-[9px] font-black text-white/40 uppercase tracking-wider transition-colors">Total</p>
-              <p className="text-sm font-black text-white transition-colors">{stats.total}</p>
+            <div className="px-3 py-1 text-center border-r border-white/10">
+              <p className="text-[8px] font-black text-white/40 uppercase tracking-wider transition-colors">Total</p>
+              <p className="text-xs font-black text-white transition-colors leading-none mt-0.5">{stats.total}</p>
             </div>
-            <div className="px-4 py-2 text-center border-r border-white/10">
-              <p className="text-[9px] font-black text-emerald-400/80 uppercase tracking-wider transition-colors">Free</p>
-              <p className="text-sm font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)] transition-colors">{stats.vacant}</p>
+            <div className="px-3 py-1 text-center border-r border-white/10">
+              <p className="text-[8px] font-black text-emerald-400/80 uppercase tracking-wider transition-colors">Free</p>
+              <p className="text-xs font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)] transition-colors leading-none mt-0.5">{stats.vacant}</p>
             </div>
-            <div className="px-4 py-2 text-center border-r border-white/10">
-              <p className="text-[9px] font-black text-red-400/80 uppercase tracking-wider transition-colors">Live</p>
-              <p className="text-sm font-black text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] transition-colors">{stats.occupied}</p>
+            <div className="px-3 py-1 text-center border-r border-white/10">
+              <p className="text-[8px] font-black text-red-400/80 uppercase tracking-wider transition-colors">Live</p>
+              <p className="text-xs font-black text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] transition-colors leading-none mt-0.5">{stats.occupied}</p>
             </div>
-            <div className="px-4 py-2 text-center">
-              <p className="text-[9px] font-black text-blue-400/80 uppercase tracking-wider transition-colors">Billed</p>
-              <p className="text-sm font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] transition-colors">{stats.billed}</p>
+            <div className="px-3 py-1 text-center">
+              <p className="text-[8px] font-black text-blue-400/80 uppercase tracking-wider transition-colors">Billed</p>
+              <p className="text-xs font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] transition-colors leading-none mt-0.5">{stats.billed}</p>
             </div>
           </div>
 
@@ -715,7 +715,7 @@ export default function TableManagementPage() {
             variant={isEditMode ? "primary" : "secondary"}
             size="sm"
             onClick={() => setIsEditMode(!isEditMode)}
-            className={`rounded-2xl h-12 px-6 font-black uppercase text-xs tracking-widest flex items-center shadow-lg ${isEditMode ? 'bg-pos-primary shadow-pos-primary/20 text-white' : ''}`}
+            className={`rounded-2xl h-10 px-4 font-black uppercase text-[10px] tracking-widest flex items-center shadow-lg transition-all ${isEditMode ? 'bg-pos-primary shadow-pos-primary/20 text-white' : ''}`}
           >
             {isEditMode ? 'Done Editing' : 'Edit Layout'}
           </Button>
@@ -725,34 +725,34 @@ export default function TableManagementPage() {
             size="sm"
             onClick={handleRefresh}
             loading={refreshing}
-            className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            className="rounded-2xl h-10 w-10 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
           >
-            <RefreshCcw size={18} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
           </Button>
 
           <Button
             variant="secondary"
-            className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 flex items-center bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
+            className="rounded-2xl h-10 px-4 font-black uppercase text-[9px] tracking-widest gap-1.5 flex items-center bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
             onClick={handleNewFloor}
           >
-            <Plus size={16} />
+            <Plus size={14} />
             New Floor
           </Button>
 
           <Button
-            className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 flex items-center shadow-[0_0_20px_rgba(99,102,241,0.4)] bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 transition-all"
+            className="rounded-2xl h-10 px-4 font-black uppercase text-[9px] tracking-widest gap-1.5 flex items-center shadow-[0_0_20px_rgba(99,102,241,0.4)] bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 transition-all"
             onClick={handleNewTable}
           >
-            <Plus size={16} />
+            <Plus size={14} />
             New Table
           </Button>
 
           <Button
             variant="secondary"
-            className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 flex items-center bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
+            className="rounded-2xl h-10 px-4 font-black uppercase text-[9px] tracking-widest gap-1.5 flex items-center bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
             onClick={() => router.push('/operations/tables/qr-gallery')}
           >
-            <QrCode size={16} />
+            <QrCode size={14} />
             QR Gallery
           </Button>
         </div>
@@ -761,9 +761,9 @@ export default function TableManagementPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 bg-black/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden transition-colors relative z-10">
         {/* Floor Tabs */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-white/10 overflow-x-auto no-scrollbar transition-colors">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 overflow-x-auto no-scrollbar transition-colors">
           {loading ? (
-            <Skeleton className="h-10 w-32 rounded-xl" count={3} />
+            <Skeleton className="h-8 w-24 rounded-lg" count={3} />
           ) : (
             floors.map(floor => (
               <div
@@ -775,34 +775,34 @@ export default function TableManagementPage() {
                     setActiveFloorId(floor.id);
                     localStorage.setItem('pos_active_floor_id', floor.id);
                   }}
-                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 ${activeFloorId === floor.id
+                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 ${activeFloorId === floor.id
                       ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
                       : 'bg-white/5 text-white/40 border-white/5 hover:border-white/20 hover:text-white/80'
                     }`}
                 >
                   {floor.name}
                   {activeFloorId === floor.id && (
-                    <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-white/20">
+                    <div className="flex items-center gap-1 ml-1.5 pl-1.5 border-l border-white/20">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingFloor(floor);
                           setIsFloorEditModalOpen(true);
                         }}
-                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
                         title="Edit Floor"
                       >
-                        <Edit2 size={12} />
+                        <Edit2 size={10} />
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteFloor(floor);
                         }}
-                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
                         title="Delete Floor"
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={10} />
                       </button>
                     </div>
                   )}
@@ -812,9 +812,9 @@ export default function TableManagementPage() {
               <button
                 key="parking-tab-link"
                 onClick={() => router.push('/operations/parking')}
-                className="px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-white/5 text-white/40 border-white/5 hover:border-amber-500/50 hover:text-amber-400"
+                className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-white/5 text-white/40 border-white/5 hover:border-amber-500/50 hover:text-amber-400"
               >
-                <CarFront size={14} />
+                <CarFront size={12} />
                 Parking Area
               </button>
             ])
@@ -911,8 +911,10 @@ export default function TableManagementPage() {
             { label: 'Vacant', color: 'bg-emerald-400' },
             { label: 'Occupied', color: 'bg-red-400' },
             { label: 'KOT Running', color: 'bg-amber-400' },
+            { label: 'Ready', color: 'bg-teal-400' },
+            { label: 'Served', color: 'bg-slate-400' },
             { label: 'Bill Printed', color: 'bg-blue-400' },
-            { label: 'Cleaning', color: 'bg-slate-400' },
+            { label: 'Cleaning', color: 'bg-slate-600' },
           ].map((item: any) => (
             <div key={item.label} className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>

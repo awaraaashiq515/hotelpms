@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
           staffMemberId: activeOrder.staffMemberId,
           staffMember: activeOrder.staffMember,
           kotTickets: activeOrder.kotTickets,
+          status: activeOrder.status,
           items: activeOrder.items.map((pi: any) => ({
             ...pi,
             product: pi.product

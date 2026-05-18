@@ -49,6 +49,34 @@ export async function PATCH(
             where: { id: kot.orderId },
             data: { status: 'IN_KITCHEN' }
           })
+
+          if (kot.restaurantTableId) {
+            const currentTable = await tx.table.findUnique({
+              where: { id: kot.restaurantTableId },
+              select: { status: true }
+            });
+            
+            if (currentTable && !['VACANT', 'BILL_PRINTED', 'BILLING_PENDING', 'CLEANING'].includes(currentTable.status)) {
+              await tx.table.update({
+                where: { id: kot.restaurantTableId },
+                data: { status: 'KOT_RUNNING' }
+              });
+            }
+          }
+
+          if (kot.parkingSlotId) {
+            const currentSlot = await tx.parkingSlot.findUnique({
+              where: { id: kot.parkingSlotId },
+              select: { status: true }
+            });
+            
+            if (currentSlot && !['VACANT', 'BILL_PRINTED'].includes(currentSlot.status)) {
+              await tx.parkingSlot.update({
+                where: { id: kot.parkingSlotId },
+                data: { status: 'KOT_RUNNING' }
+              });
+            }
+          }
         }
       }
 
@@ -105,6 +133,52 @@ export async function PATCH(
               where: { id: kot.orderId },
               data: { status: finalOrderStatus }
             });
+
+            if (kot.restaurantTableId) {
+              let tableStatus = 'OCCUPIED';
+              if (finalOrderStatus === 'READY') {
+                tableStatus = 'READY';
+              } else if (finalOrderStatus === 'SERVED') {
+                tableStatus = 'SERVED';
+              } else if (finalOrderStatus === 'IN_KITCHEN' || finalOrderStatus === 'KOT_RUNNING') {
+                tableStatus = 'KOT_RUNNING';
+              }
+
+              const currentTable = await tx.table.findUnique({
+                where: { id: kot.restaurantTableId },
+                select: { status: true }
+              });
+              
+              if (currentTable && !['VACANT', 'BILL_PRINTED', 'BILLING_PENDING', 'CLEANING'].includes(currentTable.status)) {
+                await tx.table.update({
+                  where: { id: kot.restaurantTableId },
+                  data: { status: tableStatus }
+                });
+              }
+            }
+
+            if (kot.parkingSlotId) {
+              let slotStatus = 'OCCUPIED';
+              if (finalOrderStatus === 'READY') {
+                slotStatus = 'READY';
+              } else if (finalOrderStatus === 'SERVED') {
+                slotStatus = 'SERVED';
+              } else if (finalOrderStatus === 'IN_KITCHEN' || finalOrderStatus === 'KOT_RUNNING') {
+                slotStatus = 'KOT_RUNNING';
+              }
+
+              const currentSlot = await tx.parkingSlot.findUnique({
+                where: { id: kot.parkingSlotId },
+                select: { status: true }
+              });
+              
+              if (currentSlot && !['VACANT', 'BILL_PRINTED'].includes(currentSlot.status)) {
+                await tx.parkingSlot.update({
+                  where: { id: kot.parkingSlotId },
+                  data: { status: slotStatus }
+                });
+              }
+            }
           }
         }
       }

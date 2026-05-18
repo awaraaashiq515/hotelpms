@@ -80,7 +80,7 @@ export const ParkingOnboarding: React.FC<ParkingOnboardingProps> = ({ show, form
                   min="1"
                   max="20"
                   value={form.guestCount || ''}
-                  onChange={(e) => setForm((prev: any) => ({ ...prev, guestCount: parseInt(e.target.value) || 1 }))}
+                  onChange={(e) => setForm((prev: any) => ({ ...prev, guestCount: parseInt(e.target.value) || 0 }))}
                   className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl pl-14 pr-6 text-sm font-bold text-slate-900 dark:text-white outline-none focus:bg-white dark:focus:bg-slate-800 transition-all"
                 />
               </div>

@@ -31,6 +31,18 @@ export async function PATCH(
       },
     });
 
+    if (status === 'VACANT') {
+      await (prisma as any).posOrder.updateMany({
+        where: {
+          parkingSlotId: id,
+          status: { notIn: ['SETTLED', 'CANCELLED'] }
+        },
+        data: {
+          parkingSlotId: null
+        }
+      });
+    }
+
     return NextResponse.json({ success: true, data: slot });
   } catch (error) {
     console.error('Error updating parking slot:', error);

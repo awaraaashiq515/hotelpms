@@ -1,7 +1,7 @@
 import React from 'react';
 import { Users, Clock, ShoppingBag, Layers, Utensils, CheckCircle, AlertCircle, Loader2, Smartphone } from 'lucide-react';
 
-export type TableStatus = 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'BILL_PRINTED' | 'BILLING_PENDING' | 'CLEANING' | 'PAYMENT_AWAITING_APPROVAL';
+export type TableStatus = 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'READY' | 'SERVED' | 'BILL_PRINTED' | 'BILLING_PENDING' | 'CLEANING' | 'PAYMENT_AWAITING_APPROVAL';
 
 export interface Table {
   id: string;
@@ -70,6 +70,24 @@ const STATUS_CONFIG: Record<TableStatus, {
     label: 'Cooking',
     dot: 'bg-orange-400 shadow-orange-400/60 animate-pulse',
     icon: <Utensils size={13} className="text-orange-400" />,
+  },
+  READY: {
+    gradient: 'from-teal-900 via-cyan-950 to-slate-950',
+    glow: 'shadow-teal-500/20',
+    badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
+    badgeText: 'Ready',
+    label: 'Ready to Serve',
+    dot: 'bg-teal-400 shadow-teal-400/60 animate-pulse',
+    icon: <CheckCircle size={13} className="text-teal-400" />,
+  },
+  SERVED: {
+    gradient: 'from-slate-800 via-slate-900 to-slate-950',
+    glow: 'shadow-slate-500/10',
+    badge: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+    badgeText: 'Served',
+    label: 'Food Served',
+    dot: 'bg-slate-400 shadow-slate-400/60',
+    icon: <CheckCircle size={13} className="text-slate-400" />,
   },
   BILL_PRINTED: {
     gradient: 'from-blue-900 via-indigo-950 to-slate-950',

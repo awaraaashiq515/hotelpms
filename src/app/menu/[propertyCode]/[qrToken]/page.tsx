@@ -78,13 +78,38 @@ export default function PublicMenuPage() {
   };
 
   useEffect(() => {
-    const savedInfo = localStorage.getItem('guest_info');
+    const savedInfo = sessionStorage.getItem('guest_info');
     if (savedInfo) {
       setGuestInfo(JSON.parse(savedInfo));
-    } else {
-      setShowOnboarding(true);
     }
   }, []);
+
+  // Restore guest info from active orders if it's missing (e.g., after a refresh)
+  useEffect(() => {
+    if (!guestInfo && data?.activeOrders?.length > 0) {
+      const firstOrder = data.activeOrders[0];
+      if (firstOrder.guest?.firstName || firstOrder.guest?.mobile) {
+        const info = {
+          name: firstOrder.guest.firstName || 'Guest',
+          phone: firstOrder.guest.mobile || ''
+        };
+        setGuestInfo(info);
+        sessionStorage.setItem('guest_info', JSON.stringify(info));
+      }
+    }
+  }, [data, guestInfo]);
+
+  // Logic to show onboarding only if no active orders and no guest info
+  useEffect(() => {
+    if (!loading && data) {
+      const hasActiveOrders = data.activeOrders?.length > 0;
+      if (!hasActiveOrders && !guestInfo) {
+        setShowOnboarding(true);
+      } else {
+        setShowOnboarding(false);
+      }
+    }
+  }, [loading, data, guestInfo]);
 
   // Polling logic — refetch data every 5s to detect approval changes
   useEffect(() => {
@@ -94,11 +119,19 @@ export default function PublicMenuPage() {
         const json = await res.json();
         if (json.success) {
           setData((prev: any) => {
+            // Detect checkout/settlement: if we had active orders, and now we don't
+            if (prev?.activeOrders?.length > 0 && (!json.data.activeOrders || json.data.activeOrders.length === 0)) {
+              // Cashier checked out/paid the table! Reset session immediately
+              setTimeout(() => {
+                resetGuestSession();
+              }, 500);
+            }
+
             // Detect approval: order was PAYMENT_AWAITING_APPROVAL, now SETTLED
-            if (prev?.orders && json.data.orders) {
-              const wasApproved = prev.orders.some((po: any) =>
+            if (prev?.activeOrders && json.data.activeOrders) {
+              const wasApproved = prev.activeOrders.some((po: any) =>
                 po.status === 'PAYMENT_AWAITING_APPROVAL' &&
-                json.data.orders.some((co: any) => co.id === po.id && co.status === 'SETTLED')
+                json.data.activeOrders.some((co: any) => co.id === po.id && co.status === 'SETTLED')
               );
               if (wasApproved) {
                 // Delay slightly so the ActiveOrders polling also catches it first
@@ -199,12 +232,12 @@ export default function PublicMenuPage() {
     if (!onboardingForm.name || !onboardingForm.phone) return;
     const info = { name: onboardingForm.name, phone: onboardingForm.phone };
     setGuestInfo(info);
-    localStorage.setItem('guest_info', JSON.stringify(info));
+    sessionStorage.setItem('guest_info', JSON.stringify(info));
     setShowOnboarding(false);
   };
 
   const resetGuestSession = () => {
-    localStorage.removeItem('guest_info');
+    sessionStorage.removeItem('guest_info');
     setGuestInfo(null);
     setOnboardingForm({ name: '', phone: '' });
     setShowOnboarding(true);

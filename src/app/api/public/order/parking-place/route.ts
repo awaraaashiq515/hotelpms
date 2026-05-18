@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         where: {
           parkingSlotId: slotId,
           status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'BILL_PRINTED'] },
-          orderType: 'PARKING',
+          orderType: { in: ['PARKING', 'TAKEAWAY'] },
         },
         include: { items: true },
       });

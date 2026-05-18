@@ -107,6 +107,7 @@ export async function GET(
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       },
       include: {
+        guest: true,
         items: {
           include: {
             product: {

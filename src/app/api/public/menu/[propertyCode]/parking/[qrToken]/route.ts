@@ -85,7 +85,7 @@ export async function GET(
     const activeOrders = await (prisma as any).posOrder.findMany({
       where: {
         parkingSlotId: slot.id,
-        orderType: 'PARKING',
+        orderType: { in: ['PARKING', 'TAKEAWAY'] },
         status: {
           in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'PAYMENT_AWAITING_APPROVAL'],
         },

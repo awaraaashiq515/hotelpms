@@ -85,11 +85,12 @@ export async function GET(request: NextRequest) {
             
             const elapsedTime = Math.round((Date.now() - new Date((primaryOrder as any).createdAt).getTime()) / 60000);
             
-            // Prioritize status: BILL_PRINTED > IN_KITCHEN > READY > others
+            // Prioritize status: BILL_PRINTED > IN_KITCHEN > READY > SERVED > others
             let displayStatus = primaryOrder.status;
             if (tableOrders.some((o: any) => o.status === 'BILL_PRINTED')) displayStatus = 'BILL_PRINTED';
             else if (tableOrders.some((o: any) => o.status === 'IN_KITCHEN' || o.status === 'KOT_RUNNING')) displayStatus = 'IN_KITCHEN';
             else if (tableOrders.some((o: any) => o.status === 'READY')) displayStatus = 'READY';
+            else if (tableOrders.some((o: any) => o.status === 'SERVED')) displayStatus = 'SERVED';
 
             activeOrder = {
               id: primaryOrder.id,

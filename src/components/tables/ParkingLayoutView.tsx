@@ -18,6 +18,7 @@ interface ParkingSlot {
     vehicleNumber: string;
     amount: number;
     elapsedTime?: number;
+    status?: string;
   };
 }
 
@@ -35,6 +36,71 @@ interface ParkingLayoutViewProps {
   selectedSlotId?: string | null;
   onSelectSlot: (slot: ParkingSlot | null) => void;
 }
+
+const STATUS_CFG: Record<string, {
+  surface: string;
+  rim: string;
+  glow: string;
+  label: string;
+  accent: string;
+  gradient: string;
+  shadow: string;
+}> = {
+  VACANT: {
+    surface: 'rgba(16, 40, 26, 0.75)',
+    rim: 'rgba(34, 197, 94, 0.5)',
+    glow: 'rgba(34, 197, 94, 0.4)',
+    label: 'Vacant',
+    accent: '#34d399',
+    gradient: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(6,30,16,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(34,197,94,0.15), 0 0 20px rgba(34,197,94,0.1)'
+  },
+  OCCUPIED: {
+    surface: 'rgba(60, 16, 20, 0.75)',
+    rim: 'rgba(239, 68, 68, 0.5)',
+    glow: 'rgba(239, 68, 68, 0.4)',
+    label: 'Occupied',
+    accent: '#f87171',
+    gradient: 'linear-gradient(145deg, rgba(239,68,68,0.15) 0%, rgba(40,10,10,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(239,68,68,0.2), 0 0 20px rgba(239,68,68,0.15)'
+  },
+  KOT_RUNNING: {
+    surface: 'rgba(60, 35, 10, 0.75)',
+    rim: 'rgba(245, 158, 11, 0.5)',
+    glow: 'rgba(245, 158, 11, 0.4)',
+    label: 'KOT Running',
+    accent: '#fbbf24',
+    gradient: 'linear-gradient(145deg, rgba(245,158,11,0.15) 0%, rgba(40,20,5,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(245,158,11,0.2), 0 0 20px rgba(245,158,11,0.15)'
+  },
+  READY: {
+    surface: 'rgba(13, 40, 45, 0.75)',
+    rim: 'rgba(45, 212, 191, 0.5)',
+    glow: 'rgba(45, 212, 191, 0.4)',
+    label: 'Ready to Serve',
+    accent: '#2dd4bf', // teal-400
+    gradient: 'linear-gradient(145deg, rgba(45,212,191,0.15) 0%, rgba(10,35,40,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(45,212,191,0.2), 0 0 20px rgba(45,212,191,0.15)'
+  },
+  SERVED: {
+    surface: 'rgba(30, 30, 40, 0.75)',
+    rim: 'rgba(148, 163, 184, 0.5)',
+    glow: 'rgba(148, 163, 184, 0.4)',
+    label: 'Served',
+    accent: '#94a3b8', // slate-400
+    gradient: 'linear-gradient(145deg, rgba(148,163,184,0.15) 0%, rgba(20,20,30,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(148,163,184,0.2), 0 0 20px rgba(148,163,184,0.15)'
+  },
+  BILL_PRINTED: {
+    surface: 'rgba(15, 25, 55, 0.75)',
+    rim: 'rgba(59, 130, 246, 0.5)',
+    glow: 'rgba(59, 130, 246, 0.4)',
+    label: 'Bill Printed',
+    accent: '#60a5fa',
+    gradient: 'linear-gradient(145deg, rgba(59,130,246,0.15) 0%, rgba(10,15,40,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.15)'
+  }
+};
 
 const SNAP = 1; // Ultra-smooth movement
 const MIN_W = 100;
@@ -190,7 +256,14 @@ export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
         {slots.map((slot) => {
           const pos = positions[slot.id] || { x: 0, y: 0 };
           const sz = sizes[slot.id] || { w: DEFAULT_W, h: DEFAULT_H };
-          const isOccupied = slot.status !== 'VACANT';
+          
+          const effectiveStatus = (slot.activeOrder?.status === 'READY' || slot.activeOrder?.status === 'SERVED')
+            ? slot.activeOrder.status
+            : slot.status;
+
+          const cfg = STATUS_CFG[effectiveStatus] || STATUS_CFG.VACANT;
+          const isOccupied = effectiveStatus !== 'VACANT';
+          
           const order = slot.activeOrder;
           const isActive = activeId === slot.id;
           const isSelected = selectedSlotId === slot.id;
@@ -214,30 +287,37 @@ export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
                 height: sz.h,
                 zIndex: isActive || isSelected ? 50 : 10,
                 transition: isActive ? 'none' : 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), width 0.5s cubic-bezier(0.16, 1, 0.3, 1), height 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
-                willChange: 'transform, width, height'
+                willChange: 'transform, width, height',
+                background: cfg.surface,
+                backgroundImage: cfg.gradient,
+                borderColor: isSelected ? cfg.accent : cfg.rim,
+                boxShadow: isSelected 
+                  ? `0 0 0 3px ${cfg.accent}, inset 0 0 30px ${cfg.glow}, ${cfg.shadow}` 
+                  : `inset 0 1px 1px rgba(255,255,255,0.15), ${cfg.shadow}`,
+                backdropFilter: 'blur(12px)',
               }}
-              className={`group flex flex-col gap-3 p-4 rounded-[2rem] border-2 shadow-2xl transition-all cursor-pointer overflow-hidden ${
-                isOccupied
-                  ? 'bg-red-500/10 border-red-500/30 shadow-red-500/10'
-                  : 'bg-white/5 border-white/10 hover:border-amber-500/40 hover:bg-amber-500/5'
-              } ${isEditMode && isActive ? 'ring-2 ring-indigo-500/50 scale-[1.01]' : ''} ${
-                isSelected ? 'ring-4 ring-amber-500 border-amber-500 bg-amber-500/5 shadow-amber-500/20' : ''
+              className={`group flex flex-col gap-3 p-4 rounded-[2rem] border transition-all cursor-pointer overflow-hidden ${
+                isEditMode && isActive ? 'ring-2 ring-indigo-500/50 scale-[1.01]' : ''
               }`}
             >
               {/* Status Glow */}
-              <div className={`absolute -top-24 -left-24 w-48 h-48 blur-[80px] opacity-20 rounded-full transition-all duration-500 ${isOccupied ? 'bg-red-500' : 'bg-emerald-500'}`} />
+              <div 
+                style={{ background: cfg.accent }}
+                className="absolute -top-24 -left-24 w-48 h-48 blur-[80px] opacity-25 rounded-full transition-all duration-500" 
+              />
 
               {/* Status Label / Edit Actions */}
               <div className="flex items-center justify-between relative z-10 shrink-0 pointer-events-none">
                 <div 
-                  style={{ fontSize: `${badgeSize * 0.9}px` }}
-                  className={`px-2 py-0.5 rounded-lg font-black uppercase tracking-[0.2em] border shadow-sm ${
-                    isOccupied 
-                      ? 'bg-red-500/10 text-red-400 border-red-500/20' 
-                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                  }`}
+                  style={{ 
+                    fontSize: `${badgeSize * 0.9}px`,
+                    borderColor: `${cfg.accent}30`,
+                    background: `${cfg.accent}15`,
+                    color: cfg.accent
+                  }}
+                  className="px-2 py-0.5 rounded-lg font-black uppercase tracking-[0.2em] border shadow-sm"
                 >
-                  {isOccupied ? 'In Use' : 'Ready'}
+                  {cfg.label}
                 </div>
                 <div className="flex items-center gap-1 pointer-events-auto">
                    <button
@@ -259,12 +339,15 @@ export const ParkingLayoutView: React.FC<ParkingLayoutViewProps> = ({
 
               <div className="flex-grow flex flex-col items-center justify-center py-1 relative z-10 min-h-0 pointer-events-none">
                 <div 
-                  style={{ width: iconSize * 1.6, height: iconSize * 1.6, borderRadius: iconSize * 0.6 }}
-                  className={`flex items-center justify-center shadow-2xl transition-all duration-700 group-hover:scale-105 group-hover:rotate-2 shrink-0 ${
-                    isOccupied 
-                      ? 'bg-gradient-to-br from-red-500/20 to-red-600/40 text-red-400 border border-red-500/30' 
-                      : 'bg-gradient-to-br from-white/5 to-white/10 text-white/40 border border-white/10'
-                  }`}
+                  style={{ 
+                    width: iconSize * 1.6, 
+                    height: iconSize * 1.6, 
+                    borderRadius: iconSize * 0.6,
+                    backgroundImage: `linear-gradient(135deg, ${cfg.accent}15, ${cfg.accent}30)`,
+                    color: cfg.accent,
+                    borderColor: `${cfg.accent}30`
+                  }}
+                  className="flex items-center justify-center shadow-2xl transition-all duration-700 group-hover:scale-105 group-hover:rotate-2 shrink-0 border"
                 >
                   <CarFront size={iconSize * 0.8} />
                 </div>

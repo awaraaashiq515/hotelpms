@@ -17,12 +17,14 @@ import { QRModal } from '@/components/tables/QRModal';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
 import { BillModal, BillData } from '@/components/billing/BillModal';
 import { MarkWasteModal } from '@/components/modals/MarkWasteModal';
+import { Modal } from '@/components/ui/Modal';
+import { ParkingSlotForm } from '@/components/forms/parking-slot-form';
 import { customersApi } from '@/lib/api/customers';
 
 interface ParkingSlot {
   id: string;
   name: string;
-  status: 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'BILL_PRINTED';
+  status: 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'READY' | 'SERVED' | 'BILL_PRINTED';
   x: number;
   y: number;
   width: number;
@@ -56,6 +58,11 @@ export default function ParkingOperationsPage() {
   const [isWasteModalOpen, setIsWasteModalOpen] = useState(false);
   const [wasteOrderData, setWasteOrderData] = useState<any | null>(null);
   const [wasteLoading, setWasteLoading] = useState(false);
+
+  // Form Modal
+  const [isSlotFormOpen, setIsSlotFormOpen] = useState(false);
+  const [slotFormLoading, setSlotFormLoading] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<any | null>(null);
 
   const fetchData = async () => {
     try {
@@ -231,6 +238,47 @@ export default function ParkingOperationsPage() {
     }
   };
 
+  const handleCreateSlotSubmit = async (data: { name: string }) => {
+    setSlotFormLoading(true);
+    try {
+      if (editingSlot) {
+        // Update Slot
+        const res = await fetch(`/api/parking-slots/${editingSlot.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: data.name.trim() }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          setIsSlotFormOpen(false);
+          setEditingSlot(null);
+          fetchData();
+        } else {
+          alert(result.message || 'Failed to update slot');
+        }
+      } else {
+        // Create Slot
+        const res = await fetch('/api/parking-slots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: data.name.trim() }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          setIsSlotFormOpen(false);
+          fetchData();
+        } else {
+          alert(result.error || result.message || 'Failed to create slot');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save slot:', err);
+      alert('An error occurred');
+    } finally {
+      setSlotFormLoading(false);
+    }
+  };
+
   const handleSlotPositionChange = async (id: string, x: number, y: number) => {
     setParkingSlots(prev => prev.map(s => s.id === id ? { ...s, x, y } : s));
     try {
@@ -346,6 +394,14 @@ export default function ParkingOperationsPage() {
           </Button>
 
           <Button
+            className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 flex items-center shadow-[0_0_20px_rgba(99,102,241,0.4)] bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 transition-all"
+            onClick={() => { setEditingSlot(null); setIsSlotFormOpen(true); }}
+          >
+            <Plus size={16} />
+            New Parking Slot
+          </Button>
+
+          <Button
             variant="secondary"
             size="sm"
             onClick={handleRefresh}
@@ -457,10 +513,12 @@ export default function ParkingOperationsPage() {
         {/* Legend */}
         <div className="px-6 py-3 bg-[#0a0c10] flex flex-wrap gap-6 border-b border-white/5">
           {[
-            { label: 'Vacant', color: 'bg-emerald-400' },
-            { label: 'Occupied', color: 'bg-red-400' },
-            { label: 'KOT Running', color: 'bg-amber-400' },
-            { label: 'Bill Printed', color: 'bg-blue-400' },
+            { label: 'Vacant', color: 'bg-emerald-400 shadow-[0_0_8px_#34d399]' },
+            { label: 'Occupied', color: 'bg-red-400 shadow-[0_0_8px_#f87171]' },
+            { label: 'KOT Running', color: 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' },
+            { label: 'Ready to Serve', color: 'bg-teal-400 shadow-[0_0_8px_#2dd4bf]' },
+            { label: 'Served', color: 'bg-slate-400 shadow-[0_0_8px_#94a3b8]' },
+            { label: 'Bill Printed', color: 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' },
           ].map((item: any) => (
             <div key={item.label} className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>
@@ -483,8 +541,8 @@ export default function ParkingOperationsPage() {
               onSelectSlot={(slot) => setSelectedSlotId(slot?.id || null)}
               onSlotPositionChange={handleSlotPositionChange}
               onSlotResize={handleSlotResize}
-              onNewSlot={() => { }}
-              onEditSlot={() => { }}
+              onNewSlot={() => { setEditingSlot(null); setIsSlotFormOpen(true); }}
+              onEditSlot={(slot) => { setEditingSlot(slot); setIsSlotFormOpen(true); }}
               onDeleteSlot={handleDeleteParkingSlot}
               onResetSlot={handleResetParkingSlot}
               onShowQR={(slot) => { setSelectedParkingSlotForQR(slot); setIsParkingQROpen(true); }}
@@ -535,6 +593,24 @@ export default function ParkingOperationsPage() {
           setSelectedSlotId(null);
         }}
       />
+      <Modal
+        isOpen={isSlotFormOpen}
+        onClose={() => {
+          setIsSlotFormOpen(false);
+          setEditingSlot(null);
+        }}
+        title={editingSlot ? 'Edit Parking Slot' : 'New Parking Slot'}
+      >
+        <ParkingSlotForm
+          initialData={editingSlot}
+          onSubmit={handleCreateSlotSubmit}
+          onCancel={() => {
+            setIsSlotFormOpen(false);
+            setEditingSlot(null);
+          }}
+          loading={slotFormLoading}
+        />
+      </Modal>
     </div>
   );
 }

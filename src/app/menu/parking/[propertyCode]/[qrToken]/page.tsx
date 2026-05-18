@@ -112,7 +112,16 @@ export default function ParkingMenuPage() {
         const res = await fetch(`/api/public/menu/${propertyCode}/parking/${qrToken}`);
         const json = await res.json();
         if (json.success) {
-          setData(json.data);
+          setData((prev: any) => {
+            // Detect checkout/settlement: if we had active orders, and now we don't
+            if (prev?.activeOrders?.length > 0 && (!json.data.activeOrders || json.data.activeOrders.length === 0)) {
+              // Cashier checked out/paid the table! Reset session immediately
+              setTimeout(() => {
+                resetGuestSession();
+              }, 500);
+            }
+            return json.data;
+          });
 
           if (json.data.property?.primaryColor) {
             document.documentElement.style.setProperty('--primary-color', json.data.property.primaryColor);

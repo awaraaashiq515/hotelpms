@@ -115,6 +115,52 @@ export async function PATCH(
         data: { status: finalStatus }
       });
 
+      if (oldKot.restaurantTableId) {
+        let tableStatus = 'OCCUPIED';
+        if (finalStatus === 'READY') {
+          tableStatus = 'READY';
+        } else if (finalStatus === 'SERVED') {
+          tableStatus = 'SERVED';
+        } else if (finalStatus === 'KOT_RUNNING') {
+          tableStatus = 'KOT_RUNNING';
+        }
+
+        const currentTable = await tx.table.findUnique({
+          where: { id: oldKot.restaurantTableId },
+          select: { status: true }
+        });
+        
+        if (currentTable && !['VACANT', 'BILL_PRINTED', 'BILLING_PENDING', 'CLEANING'].includes(currentTable.status)) {
+          await tx.table.update({
+            where: { id: oldKot.restaurantTableId },
+            data: { status: tableStatus }
+          });
+        }
+      }
+
+      if (oldKot.parkingSlotId) {
+        let slotStatus = 'OCCUPIED';
+        if (finalStatus === 'READY') {
+          slotStatus = 'READY';
+        } else if (finalStatus === 'SERVED') {
+          slotStatus = 'SERVED';
+        } else if (finalStatus === 'KOT_RUNNING') {
+          slotStatus = 'KOT_RUNNING';
+        }
+
+        const currentSlot = await tx.parkingSlot.findUnique({
+          where: { id: oldKot.parkingSlotId },
+          select: { status: true }
+        });
+        
+        if (currentSlot && !['VACANT', 'BILL_PRINTED'].includes(currentSlot.status)) {
+          await tx.parkingSlot.update({
+            where: { id: oldKot.parkingSlotId },
+            data: { status: slotStatus }
+          });
+        }
+      }
+
       return kot
     }, {
       timeout: 10000 // 10s timeout for SQLite

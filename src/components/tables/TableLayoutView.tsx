@@ -33,7 +33,7 @@ const STATUS_CFG: Record<string, {
     surface: 'rgba(16, 40, 26, 0.75)',
     rim: 'rgba(34, 197, 94, 0.5)',
     glow: 'rgba(34, 197, 94, 0.4)',
-    label: 'Free',
+    label: 'Vacant',
     accent: '#34d399',
     gradient: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(6,30,16,0.8) 100%)',
     shadow: '0 20px 40px -10px rgba(34,197,94,0.15), 0 0 20px rgba(34,197,94,0.1)'
@@ -42,7 +42,7 @@ const STATUS_CFG: Record<string, {
     surface: 'rgba(60, 16, 20, 0.75)',
     rim: 'rgba(239, 68, 68, 0.5)',
     glow: 'rgba(239, 68, 68, 0.4)',
-    label: 'Busy',
+    label: 'Occupied',
     accent: '#f87171',
     gradient: 'linear-gradient(145deg, rgba(239,68,68,0.15) 0%, rgba(40,10,10,0.8) 100%)',
     shadow: '0 20px 40px -10px rgba(239,68,68,0.2), 0 0 20px rgba(239,68,68,0.15)'
@@ -51,16 +51,34 @@ const STATUS_CFG: Record<string, {
     surface: 'rgba(60, 35, 10, 0.75)',
     rim: 'rgba(245, 158, 11, 0.5)',
     glow: 'rgba(245, 158, 11, 0.4)',
-    label: 'Cooking',
+    label: 'KOT Running',
     accent: '#fbbf24',
     gradient: 'linear-gradient(145deg, rgba(245,158,11,0.15) 0%, rgba(40,20,5,0.8) 100%)',
     shadow: '0 20px 40px -10px rgba(245,158,11,0.2), 0 0 20px rgba(245,158,11,0.15)'
+  },
+  READY: {
+    surface: 'rgba(13, 40, 45, 0.75)',
+    rim: 'rgba(45, 212, 191, 0.5)',
+    glow: 'rgba(45, 212, 191, 0.4)',
+    label: 'Ready to Serve',
+    accent: '#2dd4bf', // teal-400
+    gradient: 'linear-gradient(145deg, rgba(45,212,191,0.15) 0%, rgba(10,35,40,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(45,212,191,0.2), 0 0 20px rgba(45,212,191,0.15)'
+  },
+  SERVED: {
+    surface: 'rgba(30, 30, 40, 0.75)',
+    rim: 'rgba(148, 163, 184, 0.5)',
+    glow: 'rgba(148, 163, 184, 0.4)',
+    label: 'Served',
+    accent: '#94a3b8', // slate-400
+    gradient: 'linear-gradient(145deg, rgba(148,163,184,0.15) 0%, rgba(20,20,30,0.8) 100%)',
+    shadow: '0 20px 40px -10px rgba(148,163,184,0.2), 0 0 20px rgba(148,163,184,0.15)'
   },
   BILL_PRINTED: {
     surface: 'rgba(15, 25, 55, 0.75)',
     rim: 'rgba(59, 130, 246, 0.5)',
     glow: 'rgba(59, 130, 246, 0.4)',
-    label: 'Billed',
+    label: 'Bill Printed',
     accent: '#60a5fa',
     gradient: 'linear-gradient(145deg, rgba(59,130,246,0.15) 0%, rgba(10,15,40,0.8) 100%)',
     shadow: '0 20px 40px -10px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.15)'
@@ -110,8 +128,12 @@ const TableVisualPremium: React.FC<{
   isSelected: boolean;
   isEditMode: boolean;
 }> = ({ table, w, h, isSelected, isEditMode }) => {
-  const cfg = STATUS_CFG[table.status] || STATUS_CFG.VACANT;
-  const occupied = !!table.activeOrder && table.status !== 'VACANT' && table.status !== 'CLEANING';
+  const effectiveStatus = (table.activeOrder?.status === 'READY' || table.activeOrder?.status === 'SERVED')
+    ? table.activeOrder.status
+    : table.status;
+  
+  const cfg = STATUS_CFG[effectiveStatus] || STATUS_CFG.VACANT;
+  const occupied = !!table.activeOrder && effectiveStatus !== 'VACANT' && effectiveStatus !== 'CLEANING';
   const dist = distributeChairs(table.capacity);
 
   // Dynamic Chair Sizes

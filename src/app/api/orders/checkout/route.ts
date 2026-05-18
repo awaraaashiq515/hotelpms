@@ -59,7 +59,16 @@ export async function POST(request: NextRequest) {
       // 1. Find or Create PosOrder
       let posOrders: any[] = [];
       let posOrder: any = null;
-      if (restaurantTableId) {
+      
+      const orderId = body.orderId;
+      if (orderId) {
+        posOrder = await tx.posOrder.findUnique({
+          where: { id: orderId }
+        });
+        if (posOrder) {
+          posOrders = [posOrder];
+        }
+      } else if (restaurantTableId) {
         posOrders = await (tx as any).posOrder.findMany({
           where: { 
             restaurantTableId, 
@@ -279,14 +288,18 @@ export async function POST(request: NextRequest) {
       }
 
       // 7. Update Table/Parking Status to VACANT
-      if (restaurantTableId) {
+      const targetTableId = restaurantTableId || posOrder?.restaurantTableId;
+      const targetParkingSlotId = parkingSlotId || posOrder?.parkingSlotId;
+
+      if (targetTableId) {
         await (tx as any).table.update({
-          where: { id: restaurantTableId },
+          where: { id: targetTableId },
           data: { status: 'VACANT' }
         });
-      } else if (parkingSlotId) {
+      }
+      if (targetParkingSlotId) {
         await (tx as any).parkingSlot.update({
-          where: { id: parkingSlotId },
+          where: { id: targetParkingSlotId },
           data: { status: 'VACANT' }
         });
       }
