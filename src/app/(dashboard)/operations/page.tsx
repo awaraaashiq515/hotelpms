@@ -42,7 +42,8 @@ import {
   Bell,
   Trash2,
   Truck,
-  Home
+  Home,
+  Bike
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -127,6 +128,7 @@ export default function OperationsPage() {
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: '/drivers',           feature: 'DRIVERS' },
+    { label: 'Rider Portal',      perm: 'Drivers',         icon: Bike,           path: '/driver-portal',     feature: 'DRIVERS' },
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: '/operations/waste-management', feature: 'POS' },
     { label: 'Home Delivery QR',   perm: 'Table Layout',    icon: Home,           path: '/operations/delivery-flyer', feature: 'TABLES' },
     { label: 'Home Delivery Area', perm: 'Table Layout',    icon: Home,           path: '/operations/delivery',       feature: 'TABLES' },

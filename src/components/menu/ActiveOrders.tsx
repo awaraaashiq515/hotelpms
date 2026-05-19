@@ -15,6 +15,15 @@ interface ActiveOrdersProps {
   onPaymentSuccess?: () => void;
 }
 
+function getDeliveryOtp(orderId: string): string {
+  let hash = 0;
+  for (let i = 0; i < orderId.length; i++) {
+    hash = orderId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const otp = Math.abs(hash % 9000 + 1000);
+  return otp.toString();
+}
+
 const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
   const [pct, setPct] = useState(15);
   const [simulating, setSimulating] = useState(true);
@@ -87,6 +96,24 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
             </div>
           </div>
         </div>
+
+        {/* 🔑 Customer Delivery OTP Security Card */}
+        {order.status !== 'SETTLED' && (
+          <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center space-y-2.5 shadow-sm">
+            <div className="flex items-center justify-center gap-1.5 text-indigo-500 dark:text-indigo-400">
+              <Smartphone size={16} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Delivery OTP Verification</span>
+            </div>
+            <div>
+              <span className="text-2xl font-black text-slate-800 dark:text-white tracking-widest bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-5 py-1.5 rounded-2xl shadow-sm font-mono inline-block">
+                {getDeliveryOtp(order.id)}
+              </span>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider max-w-[260px] mx-auto leading-relaxed">
+              Please share this 4-digit security code with the rider when they arrive to complete your delivery safely.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -236,6 +263,23 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
             </div>
           </motion.div>
         )}
+      {/* 🔑 Customer Delivery OTP Security Card */}
+      {order.status !== 'SETTLED' && (
+        <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center space-y-2.5 shadow-sm mt-4">
+          <div className="flex items-center justify-center gap-1.5 text-indigo-500 dark:text-indigo-400">
+            <Smartphone size={16} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Delivery OTP Verification</span>
+          </div>
+          <div>
+            <span className="text-2xl font-black text-slate-800 dark:text-white tracking-widest bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-5 py-1.5 rounded-2xl shadow-sm font-mono inline-block">
+              {getDeliveryOtp(order.id)}
+            </span>
+          </div>
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider max-w-[260px] mx-auto leading-relaxed">
+            Please share this 4-digit security code with the rider when they arrive to complete your delivery safely.
+          </p>
+        </div>
+      )}
       </AnimatePresence>
     </div>
   );
@@ -458,26 +502,55 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
             let iconColor = "text-orange-500";
             let description = "Order placed";
 
-            if (isAwaitingApproval) {
-              icon = <Smartphone size={20} />;
-              iconBg = "bg-amber-500/10";
-              iconColor = "text-amber-500";
-              description = "Payment Sent - Awaiting Staff Approval";
-            } else if (isReady) {
-              icon = <CheckCircle size={20} />;
-              iconBg = "bg-emerald-500/10";
-              iconColor = "text-emerald-500";
-              description = "Order Ready to Serve!";
-            } else if (isCooking) {
-              icon = <ChefHat size={20} />;
-              iconBg = "bg-blue-500/10";
-              iconColor = "text-blue-500";
-              description = "Kitchen Accepted & Cooking";
-            } else if (isNew) {
-              icon = <Clock size={20} />;
-              iconBg = "bg-orange-500/10";
-              iconColor = "text-orange-500";
-              description = "Awaiting Kitchen Acceptance";
+            if (order.orderType === 'DELIVERY') {
+              if (order.status === 'SETTLED') {
+                icon = <CheckCircle size={20} />;
+                iconBg = "bg-emerald-500/10";
+                iconColor = "text-emerald-500";
+                description = "Order Delivered! Enjoy your meal!";
+              } else if (order.driver) {
+                icon = <Truck size={20} />;
+                iconBg = "bg-indigo-500/10";
+                iconColor = "text-indigo-500";
+                description = `Out for Delivery (${order.driver.name} is on the way)`;
+              } else if (isReady) {
+                icon = <CheckCircle size={20} />;
+                iconBg = "bg-emerald-500/10";
+                iconColor = "text-emerald-500";
+                description = "Accepted & Food is Ready! Awaiting Rider";
+              } else if (isCooking) {
+                icon = <ChefHat size={20} />;
+                iconBg = "bg-blue-500/10";
+                iconColor = "text-blue-500";
+                description = "Accepted & Preparing in Kitchen";
+              } else if (isNew) {
+                icon = <Clock size={20} />;
+                iconBg = "bg-orange-500/10";
+                iconColor = "text-orange-500";
+                description = "Awaiting Kitchen Acceptance";
+              }
+            } else {
+              if (isAwaitingApproval) {
+                icon = <Smartphone size={20} />;
+                iconBg = "bg-amber-500/10";
+                iconColor = "text-amber-500";
+                description = "Payment Sent - Awaiting Staff Approval";
+              } else if (isReady) {
+                icon = <CheckCircle size={20} />;
+                iconBg = "bg-emerald-500/10";
+                iconColor = "text-emerald-500";
+                description = "Order Ready to Serve!";
+              } else if (isCooking) {
+                icon = <ChefHat size={20} />;
+                iconBg = "bg-blue-500/10";
+                iconColor = "text-blue-500";
+                description = "Kitchen Accepted & Cooking";
+              } else if (isNew) {
+                icon = <Clock size={20} />;
+                iconBg = "bg-orange-500/10";
+                iconColor = "text-orange-500";
+                description = "Awaiting Kitchen Acceptance";
+              }
             }
 
             return (
