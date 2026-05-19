@@ -41,7 +41,8 @@ import {
   Clock,
   Bell,
   Trash2,
-  Truck
+  Truck,
+  Home
 } from 'lucide-react';
 
 interface DashboardAction {
@@ -127,6 +128,8 @@ export default function OperationsPage() {
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: '/drivers',           feature: 'DRIVERS' },
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: '/operations/waste-management', feature: 'POS' },
+    { label: 'Home Delivery QR',   perm: 'Table Layout',    icon: Home,           path: '/operations/delivery-flyer', feature: 'TABLES' },
+    { label: 'Home Delivery Area', perm: 'Table Layout',    icon: Home,           path: '/operations/delivery',       feature: 'TABLES' },
   ];
 
   const b2bActions: DashboardAction[] = [

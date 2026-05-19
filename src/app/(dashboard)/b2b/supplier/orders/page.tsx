@@ -87,8 +87,9 @@ export default function SupplierOrdersPage() {
 
   const filteredOrders = orders.filter(o => {
     const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
+    const rName = o.property?.name || o.buyerRestaurant || 'Direct QR Client';
     const matchesSearch = o.orderNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         o.property.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         rName.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
@@ -171,7 +172,7 @@ export default function SupplierOrdersPage() {
                                 <span className="text-sm font-black tracking-tighter text-slate-900 dark:text-white uppercase">{order.orderNo}</span>
                                 <Badge className="text-[8px] font-black uppercase h-4 px-2">{order.status}</Badge>
                              </div>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] mt-1">{order.property.name}</p>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] mt-1">{order.property?.name || order.buyerRestaurant || 'Direct QR Client'}</p>
                           </div>
                        </div>
                        <div className="text-right">
@@ -216,7 +217,7 @@ export default function SupplierOrdersPage() {
                              <div className="grid grid-cols-2 gap-6">
                                 <div>
                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Customer</p>
-                                   <p className="text-xs font-black mt-1 uppercase">{selectedOrder.property.name}</p>
+                                   <p className="text-xs font-black mt-1 uppercase">{selectedOrder.property?.name || selectedOrder.buyerRestaurant || 'Direct QR Client'}</p>
                                 </div>
                                 <div className="text-right">
                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Grand Total</p>

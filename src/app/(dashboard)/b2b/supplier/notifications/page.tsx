@@ -103,7 +103,7 @@ export default function SupplierNotificationsPage() {
   const notifications = [
     ...orders.filter(o => o.status === 'PENDING').map(o => ({
       id: o.id, type: 'order_new', title: `New Order ${o.orderNo}`,
-      desc: `${o.property.name} placed ₹${o.totalAmount.toLocaleString()} order`,
+      desc: `${o.property?.name || o.buyerRestaurant || 'Direct QR Client'} placed ₹${o.totalAmount.toLocaleString()} order`,
       time: o.createdAt, icon: ShoppingBag, color: 'emerald', urgent: true
     })),
     ...orders.filter(o => o.status === 'ACCEPTED').map(o => ({
@@ -113,12 +113,12 @@ export default function SupplierNotificationsPage() {
     })),
     ...orders.filter(o => o.status === 'SHIPPED').map(o => ({
       id: o.id, type: 'order_shipped', title: `Shipped ${o.orderNo}`,
-      desc: `Order is in transit to ${o.property.name}`,
+      desc: `Order is in transit to ${o.property?.name || o.buyerRestaurant || 'Direct QR Client'}`,
       time: o.createdAt, icon: Truck, color: 'purple', urgent: false
     })),
     ...orders.filter(o => o.status === 'DELIVERED').slice(0, 3).map(o => ({
       id: o.id, type: 'order_delivered', title: `Delivered ${o.orderNo}`,
-      desc: `Successfully delivered to ${o.property.name}`,
+      desc: `Successfully delivered to ${o.property?.name || o.buyerRestaurant || 'Direct QR Client'}`,
       time: o.createdAt, icon: CheckCircle2, color: 'emerald', urgent: false
     })),
     ...products.filter(p => p.stockQuantity < 10).map(p => ({

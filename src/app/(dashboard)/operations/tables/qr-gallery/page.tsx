@@ -39,14 +39,41 @@ export default function QRGalleryPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tableRes, propRes] = await Promise.all([
+      const [tableRes, propRes, floorRes] = await Promise.all([
         fetch('/api/tables'),
-        fetch('/api/admin/properties')
+        fetch('/api/admin/properties'),
+        fetch('/api/floors')
       ]);
       const tableData = await tableRes.json();
       const propData = await propRes.json();
+      const floorData = await floorRes.json();
 
-      if (tableData.success) setTables(tableData.data);
+      let activeTables = tableData.success ? tableData.data : [];
+
+      // Auto-create "Home Delivery" virtual table if missing
+      const homeDeliveryTable = activeTables.find((t: any) => t.name.toLowerCase() === 'home delivery');
+      if (!homeDeliveryTable && floorData.success && floorData.data.length > 0) {
+        const firstFloor = floorData.data[0];
+        const createRes = await fetch('/api/tables', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Home Delivery',
+            floorId: firstFloor.id,
+            capacity: 999
+          })
+        });
+        const createData = await createRes.json();
+        if (createData.success) {
+          const refreshRes = await fetch('/api/tables');
+          const refreshData = await refreshRes.json();
+          if (refreshData.success) {
+            activeTables = refreshData.data;
+          }
+        }
+      }
+
+      setTables(activeTables);
       if (propData.success && propData.data.length > 0) setProperty(propData.data[0]);
     } catch (err) {
       console.error('Failed to fetch data', err);
@@ -70,16 +97,20 @@ export default function QRGalleryPage() {
     </div>
   );
 
-  // Group tables by floor
-  const grouped = tables.reduce<Record<string, { floorName: string; tables: Table[] }>>((acc, table) => {
-    const floorId = table.floor?.id ?? 'no-floor';
-    const floorName = table.floor?.name ?? 'General';
-    if (!acc[floorId]) acc[floorId] = { floorName, tables: [] };
-    acc[floorId].tables.push(table);
-    return acc;
-  }, {});
+  // Group tables by floor (excl. virtual Home Delivery table)
+  const grouped = tables
+    .filter(t => t.name.toLowerCase() !== 'home delivery')
+    .reduce<Record<string, { floorName: string; tables: Table[] }>>((acc, table) => {
+      const floorId = table.floor?.id ?? 'no-floor';
+      const floorName = table.floor?.name ?? 'General';
+      if (!acc[floorId]) acc[floorId] = { floorName, tables: [] };
+      acc[floorId].tables.push(table);
+      return acc;
+    }, {});
 
   const floorGroups = Object.entries(grouped);
+
+
 
   return (
     <>
@@ -183,6 +214,8 @@ export default function QRGalleryPage() {
             letter-spacing: 4px !important;
           }
 
+
+
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -227,6 +260,8 @@ export default function QRGalleryPage() {
             }
           />
         </div>
+
+
 
         {/* ─── QR Grid ─── */}
         <div id="qr-print-area">

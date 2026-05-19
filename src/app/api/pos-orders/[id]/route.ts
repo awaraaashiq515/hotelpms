@@ -40,11 +40,16 @@ export async function PUT(
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { status } = body;
+    const { status, driverId } = body;
+
+    const dataToUpdate: any = {};
+    if (status !== undefined) dataToUpdate.status = status;
+    if (driverId !== undefined) dataToUpdate.driverId = driverId || null;
 
     const order = await prisma.posOrder.update({
       where: { id },
-      data: { status },
+      data: dataToUpdate,
+      include: { driver: true }
     });
 
     // --- Incentive Engine Integration ---

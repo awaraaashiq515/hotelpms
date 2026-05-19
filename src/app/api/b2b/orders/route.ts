@@ -98,10 +98,26 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { orderId, status, note } = body;
+    const { orderId, status, note, rating, comments } = body;
 
-    if (!orderId || !status) {
-      return NextResponse.json({ error: 'Order ID and status are required' }, { status: 400 });
+    if (!orderId) {
+      return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
+    }
+
+    // Handle Restaurant rating and feedback submission
+    if (rating !== undefined) {
+      const updatedOrder = await prisma.b2BOrder.update({
+        where: { id: orderId },
+        data: {
+          rating: Number(rating),
+          comments: comments || null
+        }
+      });
+      return NextResponse.json(updatedOrder);
+    }
+
+    if (!status) {
+      return NextResponse.json({ error: 'Status is required' }, { status: 400 });
     }
 
     const updatedOrder = await prisma.$transaction(async (tx: any) => {

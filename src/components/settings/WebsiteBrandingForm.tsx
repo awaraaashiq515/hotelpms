@@ -11,6 +11,7 @@ export const WebsiteBrandingForm = () => {
   const [settings, setSettings] = useState<any>({
     hotelName: '',
     logoUrl: '',
+    logoScrolledUrl: '',
     storyTitle: '',
     storyContent: '',
     storyImage1: '',
@@ -82,7 +83,7 @@ export const WebsiteBrandingForm = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          <div className="space-y-6">
+          <div className="space-y-6 md:col-span-2">
             <div>
               <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-3">Platform Name (e.g. OrderMint Solutions)</label>
               <input 
@@ -94,7 +95,7 @@ export const WebsiteBrandingForm = () => {
               />
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div>
                   <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-2 text-pos-primary">Support Email</label>
                   <input 
@@ -116,56 +117,97 @@ export const WebsiteBrandingForm = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-5">
-            <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">Website Logo</h3>
-            <div className="flex items-center gap-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-pos-primary/40 transition-colors">
-              {/* Logo Preview */}
-              <div className="w-48 h-48 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-2xl flex-shrink-0 relative group">
-                {settings.logoUrl ? (
-                  <>
-                    <img 
-                      src={settings.logoUrl} 
-                      alt="Website Logo"
-                      className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-110"
-                      onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = '1'; }}
-                      onError={(e) => { 
-                        const img = e.target as HTMLImageElement;
-                        img.style.display = 'none';
-                        const fallback = img.nextElementSibling as HTMLElement;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                      style={{ opacity: 1 }}
-                    />
-                    <div className="w-20 h-20 bg-pos-primary rounded-3xl items-center justify-center shadow-lg" style={{ display: 'none' }}>
-                      <span className="text-white font-black text-4xl italic">O</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-20 h-20 bg-pos-primary rounded-3xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-black text-4xl italic">O</span>
+          {/* ── TWO-LOGO SECTION ── */}
+          <div className="md:col-span-2 border-t border-gray-100 dark:border-slate-800 pt-8 space-y-6">
+            <div>
+              <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-widest">Website Logos</h3>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter mt-1">Configure both logos for transparent & scrolled light headers</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Logo 1: Main Logo (For Dark Background) */}
+              <div className="flex flex-col gap-4 p-6 bg-slate-900/40 rounded-3xl border border-white/5 shadow-inner">
+                <div>
+                  <h4 className="text-[11px] font-black uppercase text-gray-200 tracking-wider">Primary Logo (Dark Background)</h4>
+                  <p className="text-[9px] text-slate-400 font-medium leading-relaxed mt-0.5">Used at the top of the homepage on dark transparent sections.</p>
+                </div>
+                <div className="flex items-center gap-6">
+                  {/* Preview */}
+                  <div className="w-36 h-36 bg-slate-950 rounded-2xl border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl flex-shrink-0 relative group">
+                    {settings.logoUrl ? (
+                      <img 
+                        src={settings.logoUrl} 
+                        alt="Primary Logo Preview"
+                        className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-pos-primary rounded-2xl flex items-center justify-center">
+                        <span className="text-white font-black text-xl italic">O</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                  {/* Upload Controls */}
+                  <div className="flex-1 space-y-2">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">transparent PNG/SVG recommended</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="cursor-pointer px-4 py-2 bg-pos-primary text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-850 transition-all shadow-md">
+                        Upload Logo
+                        <input type="file" className="hidden" accept="image/*,image/svg+xml" onChange={(e) => handleFileUpload(e, 'logoUrl')} />
+                      </label>
+                      {settings.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, logoUrl: '' })}
+                          className="text-[9px] font-black uppercase text-red-500 hover:text-red-700 tracking-widest transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-              {/* Upload Controls */}
-              <div className="flex-1 space-y-2">
-                <p className="text-sm font-bold text-gray-700 dark:text-slate-200">
-                  {settings.logoUrl ? 'Change your logo' : 'Upload a high-quality logo for your website.'}
-                </p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Recommended format is transparent PNG/SVG.</p>
-                <div className="flex items-center gap-3 mt-3">
-                  <label className="cursor-pointer px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pos-primary transition-all shadow-md">
-                    Upload New Logo
-                    <input type="file" className="hidden" accept="image/*,image/svg+xml" onChange={(e) => handleFileUpload(e, 'logoUrl')} />
-                  </label>
-                  {settings.logoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setSettings({ ...settings, logoUrl: '' })}
-                      className="text-[10px] font-black uppercase text-red-500 hover:text-red-700 tracking-widest transition-colors"
-                    >
-                      Remove
-                    </button>
-                  )}
+
+              {/* Logo 2: Scrolled Logo (For Light Background) */}
+              <div className="flex flex-col gap-4 p-6 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-inner">
+                <div>
+                  <h4 className="text-[11px] font-black uppercase text-gray-800 dark:text-gray-200 tracking-wider">Scrolled Logo (Light Background)</h4>
+                  <p className="text-[9px] text-gray-500 dark:text-slate-400 font-medium leading-relaxed mt-0.5">Used when scrolling down and on simple light themed pages.</p>
+                </div>
+                <div className="flex items-center gap-6">
+                  {/* Preview */}
+                  <div className="w-36 h-36 bg-white rounded-2xl border border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-2xl flex-shrink-0 relative group">
+                    {settings.logoScrolledUrl ? (
+                      <img 
+                        src={settings.logoScrolledUrl} 
+                        alt="Scrolled Logo Preview"
+                        className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center">
+                        <span className="text-white font-black text-xl italic">O</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Upload Controls */}
+                  <div className="flex-1 space-y-2">
+                    <p className="text-[10px] text-gray-500 dark:text-slate-400 font-bold uppercase tracking-widest">transparent PNG/SVG recommended</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="cursor-pointer px-4 py-2 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pos-primary transition-all shadow-md">
+                        Upload Logo
+                        <input type="file" className="hidden" accept="image/*,image/svg+xml" onChange={(e) => handleFileUpload(e, 'logoScrolledUrl')} />
+                      </label>
+                      {settings.logoScrolledUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, logoScrolledUrl: '' })}
+                          className="text-[9px] font-black uppercase text-red-500 hover:text-red-700 tracking-widest transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

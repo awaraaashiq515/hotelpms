@@ -9,14 +9,30 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { items, tableId, propertyId, guestName, guestPhone, paymentMethod, isPrepaid, rating, comments } = body;
+    const { 
+      items, 
+      tableId, 
+      propertyId, 
+      guestName, 
+      guestPhone, 
+      paymentMethod, 
+      isPrepaid, 
+      rating, 
+      comments,
+      orderType,
+      deliveryCustomerName,
+      deliveryPhone,
+      deliveryAddress,
+      deliveryInstructions 
+    } = body;
+
+    const orderTypeParam = orderType === 'PICKUP' ? 'TAKEAWAY' : (orderType || 'DINE_IN');
 
     if (!tableId || !propertyId || !items || items.length === 0) {
       return apiError(new Error('Missing required fields (tableId, propertyId, items)'), 400);
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
-      // ... (existing verification and guest handling code)
       const property = await tx.property.findUnique({
         where: { id: propertyId },
         select: { id: true, organizationId: true }
@@ -48,15 +64,18 @@ export async function POST(request: NextRequest) {
       if (!outlet) throw new Error('POS Outlet not found');
 
       // 2. Find or create the PosOrder
-      let order = await tx.posOrder.findFirst({
-        where: { 
-          restaurantTableId: tableId,
-          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
-          orderType: 'DINE_IN',
-          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-        },
-        include: { items: true }
-      });
+      let order = null;
+      if (orderTypeParam === 'DINE_IN') {
+        order = await tx.posOrder.findFirst({
+          where: { 
+            restaurantTableId: tableId,
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
+            orderType: 'DINE_IN',
+            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          },
+          include: { items: true }
+        });
+      }
 
       if (!order) {
         order = await tx.posOrder.create({
@@ -64,21 +83,21 @@ export async function POST(request: NextRequest) {
             propertyId,
             outletId: outlet.id,
             orderNo: `QR-${Date.now()}`,
-            orderType: 'DINE_IN',
+            orderType: orderTypeParam,
             status: isPrepaid ? 'PAYMENT_AWAITING_APPROVAL' : 'OPEN',
-            restaurantTableId: tableId,
-            tableNo: table.name,
+            restaurantTableId: orderTypeParam === 'DINE_IN' ? tableId : null,
+            tableNo: orderTypeParam === 'DINE_IN' ? table.name : (orderTypeParam === 'DELIVERY' ? 'Delivery' : 'Take Away'),
             guestId: guestId,
+            deliveryCustomerName: deliveryCustomerName || guestName || null,
+            deliveryPhone: deliveryPhone || guestPhone || null,
+            deliveryAddress: deliveryAddress || null,
+            deliveryInstructions: deliveryInstructions || null,
           },
           include: { items: true }
         });
       } else {
         if (guestId && !order.guestId) {
           await tx.posOrder.update({ where: { id: order.id }, data: { guestId } });
-        }
-        if (isPrepaid) {
-           // If prepaid, we might want to mark it as settled or just keep track of the payment
-           // For simplicity, let's keep it as is but add the payment record later
         }
       }
 
@@ -217,26 +236,31 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      await (tx as any).table.update({
-        where: { id: tableId },
-        data: { status: 'KOT_RUNNING' }
-      });
+      if (orderTypeParam === 'DINE_IN') {
+        await (tx as any).table.update({
+          where: { id: tableId },
+          data: { status: 'KOT_RUNNING' }
+        });
+      }
 
       // 8. Create Real-Time Notifications for Dashboard
       const itemSummary = newItemsForKot.map(i => `${i.quantity}x ${i.name}`).join(', ');
       const { createNotification } = await import('@/lib/notificationService');
 
+      const orderLabel = orderTypeParam === 'DELIVERY' ? 'Home Delivery' : (orderTypeParam === 'TAKEAWAY' ? 'Take Away' : `Table ${table.name}`);
+      const locationLabel = orderTypeParam === 'DINE_IN' ? `Table ${table.name} (${table.floor.name})` : (orderTypeParam === 'DELIVERY' ? `Home Delivery (${deliveryCustomerName || guestName || 'Guest'})` : `Take Away (${deliveryCustomerName || guestName || 'Guest'})`);
+
       // Always create an ORDER notification
       await createNotification({
         propertyId,
-        title: 'New QR Order Received',
-        message: `New order from Table ${table.name} (${table.floor.name}): ${itemSummary}`,
+        title: `New ${orderTypeParam === 'DELIVERY' ? 'Delivery' : orderTypeParam === 'TAKEAWAY' ? 'Pickup' : 'Table'} QR Order`,
+        message: `New order from ${locationLabel}: ${itemSummary}`,
         type: 'ORDER',
         priority: 'MEDIUM',
         metadata: {
-          tableId,
-          tableName: table.name,
-          floorName: table.floor.name,
+          tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
+          tableName: orderTypeParam === 'DINE_IN' ? table.name : (orderTypeParam === 'DELIVERY' ? 'Delivery' : 'Take Away'),
+          floorName: orderTypeParam === 'DINE_IN' ? table.floor.name : null,
           amount: grandTotal,
           orderId: order!.id,
           orderNo: order!.orderNo,
@@ -250,13 +274,13 @@ export async function POST(request: NextRequest) {
         await createNotification({
           propertyId,
           title: 'Online Payment Received',
-          message: `Payment of ₹${grandTotal.toFixed(2)} received from Table ${table.name} (${table.floor.name})`,
+          message: `Payment of ₹${grandTotal.toFixed(2)} received from ${locationLabel}`,
           type: 'PAYMENT',
           priority: 'URGENT',
           metadata: {
-            tableId,
-            tableName: table.name,
-            floorName: table.floor.name,
+            tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
+            tableName: orderTypeParam === 'DINE_IN' ? table.name : (orderTypeParam === 'DELIVERY' ? 'Delivery' : 'Take Away'),
+            floorName: orderTypeParam === 'DINE_IN' ? table.floor.name : null,
             amount: grandTotal,
             orderId: order!.id,
             orderNo: order!.orderNo,

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { History, Clock, CheckCircle, ChefHat, ChevronRight, Plus, CreditCard, QrCode, X, Smartphone, Wallet, IndianRupee, Store, ArrowLeft } from 'lucide-react';
+import { History, Clock, CheckCircle, ChefHat, ChevronRight, Plus, CreditCard, QrCode, X, Smartphone, Wallet, IndianRupee, Store, ArrowLeft, Truck, Phone, Navigation, MapPin } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
@@ -14,6 +14,232 @@ interface ActiveOrdersProps {
   setActiveTab: (tab: 'menu' | 'orders') => void;
   onPaymentSuccess?: () => void;
 }
+
+const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
+  const [pct, setPct] = useState(15);
+  const [simulating, setSimulating] = useState(true);
+  const [showCallScreen, setShowCallScreen] = useState(false);
+
+  useEffect(() => {
+    if (!simulating) return;
+    const interval = setInterval(() => {
+      setPct((prev) => {
+        if (prev >= 95) return 10;
+        return prev + 1.5;
+      });
+    }, 400);
+    return () => clearInterval(interval);
+  }, [simulating]);
+
+  const getCoordinates = (p: number) => {
+    const x = 10 + (p * 0.8);
+    const y = 40 + Math.sin((p / 100) * Math.PI * 2.5) * 20;
+    return { x, y };
+  };
+
+  const { x, y } = getCoordinates(pct);
+  const dist = (1.8 * (1 - pct / 100)).toFixed(1);
+  const mins = Math.ceil(12 * (1 - pct / 100));
+
+  const hasDriver = !!order.driver;
+  const driverName = order.driver?.name || "";
+  const driverPhone = order.driver?.phone || "";
+  const vehicleNumber = order.driver?.vehicleNumber || "";
+  const vehicleType = order.driver?.vehicleType || "BIKE";
+
+  if (!hasDriver) {
+    return (
+      <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 overflow-hidden relative">
+        {/* Curved Tracking Map Banner - Radar Mode */}
+        <div className="relative h-44 w-full bg-slate-950 dark:bg-black rounded-2xl overflow-hidden border border-slate-800/80 shadow-md flex flex-col items-center justify-center text-center p-4">
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff11 1px, transparent 1px), linear-gradient(to bottom, #ffffff11 1px, transparent 1px)',
+            backgroundSize: '20px 20px',
+          }} />
+
+          {/* Pulsing Radar rings */}
+          <div className="relative w-14 h-14 flex items-center justify-center mb-2 z-10">
+            <div className="absolute inset-0 rounded-full bg-indigo-500/10 animate-ping border border-indigo-500/20" />
+            <div className="absolute inset-2 rounded-full bg-indigo-500/25 border border-indigo-500/30 animate-pulse" />
+            <div className="w-9 h-9 rounded-full bg-indigo-650 flex items-center justify-center text-indigo-100 shadow-lg shadow-indigo-500/30">
+              <ChefHat size={18} className="animate-bounce" />
+            </div>
+          </div>
+
+          <div className="space-y-1 z-10">
+            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Order Preparing</p>
+            <h4 className="text-xs font-black text-slate-100 uppercase tracking-tight">Waiting for Delivery Partner</h4>
+            <p className="text-[9px] font-bold text-slate-400 max-w-[240px] mx-auto leading-relaxed mt-0.5">
+              Our kitchen is preparing your delicious meal. A delivery rider will be assigned shortly once your order is ready for dispatch!
+            </p>
+          </div>
+        </div>
+
+        {/* Status Indicator */}
+        <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <Clock size={18} className="animate-spin" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-1">Status</span>
+              <p className="text-xs font-black text-amber-500">Awaiting Rider Assignment</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 overflow-hidden relative">
+      {/* Curved Tracking Map Banner */}
+      <div className="relative h-44 w-full bg-slate-950 dark:bg-black rounded-2xl overflow-hidden border border-slate-800/80 shadow-md">
+        <div className="absolute inset-0 opacity-15" style={{
+          backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff11 1px, transparent 1px), linear-gradient(to bottom, #ffffff11 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+        }} />
+
+        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+          <path
+            d="M 40,70 Q 120,20 200,90 T 360,70"
+            fill="none"
+            stroke="#4f46e5"
+            strokeWidth="3"
+            strokeDasharray="6 4"
+            className="opacity-40 animate-[dash_2s_linear_infinite]"
+          />
+          <style>{`
+            @keyframes dash {
+              to {
+                stroke-dashoffset: -20;
+              }
+            }
+          `}</style>
+        </svg>
+
+        {/* Restaurant Pin Marker */}
+        <div className="absolute left-[10%] top-[40%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 z-10">
+          <div className="w-8 h-8 rounded-full bg-rose-500 border-2 border-white flex items-center justify-center shadow-lg shadow-rose-500/50">
+            <Store size={14} className="text-white" />
+          </div>
+          <span className="text-[8px] font-black text-rose-300 uppercase tracking-widest bg-slate-900/80 px-1 py-0.5 rounded border border-slate-800">Kitchen</span>
+        </div>
+
+        {/* Home Pin Marker */}
+        <div className="absolute left-[90%] top-[60%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 z-10">
+          <div className="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-lg shadow-emerald-500/50">
+            <MapPin size={14} className="text-white animate-bounce" />
+          </div>
+          <span className="text-[8px] font-black text-emerald-300 uppercase tracking-widest bg-slate-900/80 px-1 py-0.5 rounded border border-slate-800">Home</span>
+        </div>
+
+        {/* Moving Delivery Boy Icon */}
+        <div
+          style={{ left: `${x}%`, top: `${y}%` }}
+          className="absolute -translate-x-1/2 -translate-y-1/2 z-20 transition-all duration-300 ease-out"
+        >
+          <div className="relative">
+            <div className="absolute -inset-3 bg-indigo-500/30 rounded-full animate-ping opacity-75" />
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 border border-indigo-400 flex items-center justify-center shadow-xl text-white">
+              <Truck size={16} className="animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        {/* Live HUD Floating Panel */}
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800/80 flex items-center justify-between z-30">
+          <div className="flex items-center gap-2">
+            <Navigation size={12} className="text-indigo-400 animate-spin" />
+            <span className="text-[10px] font-black text-slate-200 uppercase tracking-wider">
+              {pct >= 90 ? "Arrived!" : "Out for Delivery"}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] font-mono font-bold text-slate-400">
+            <span>{dist} km away</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <span className="text-indigo-300 font-extrabold">{mins} mins left</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Driver Information Card */}
+      <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-sm shadow-inner uppercase">
+              {driverName.slice(0, 2)}
+            </div>
+            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center" title="Active">
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+            </span>
+          </div>
+          <div>
+            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block leading-none mb-1">Assigned Delivery Rider</span>
+            <h4 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-tight">{driverName}</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
+              <span>{vehicleNumber}</span>
+              <span className="w-1 h-1 rounded-full bg-slate-300" />
+              <span>{vehicleType}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCallScreen(true)}
+            className="w-11 h-11 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-xl flex items-center justify-center transition-colors shadow-sm active:scale-95"
+            title="Call Rider"
+          >
+            <Phone size={16} />
+          </button>
+          <button
+            onClick={() => setSimulating(!simulating)}
+            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors shadow-sm active:scale-95 ${
+              simulating
+                ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
+            }`}
+            title={simulating ? "Pause Simulation" : "Resume Simulation"}
+          >
+            <Navigation size={16} className={simulating ? "animate-pulse" : ""} />
+          </button>
+        </div>
+      </div>
+
+      {/* Simulated Phone Call Interface Overlay */}
+      <AnimatePresence>
+        {showCallScreen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 bg-slate-900/95 backdrop-blur-md rounded-[2rem] z-30 p-6 flex flex-col justify-between text-white animate-in fade-in duration-200"
+          >
+            <div className="text-center pt-8 space-y-2">
+              <div className="w-20 h-20 rounded-full bg-white/10 mx-auto flex items-center justify-center text-emerald-400 border border-white/20 animate-pulse">
+                <Phone size={36} />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Calling Rider...</p>
+              <h3 className="text-xl font-black uppercase tracking-tight">{driverName}</h3>
+              <p className="text-xs text-slate-400 font-bold">{driverPhone}</p>
+            </div>
+
+            <div className="text-center pb-8 space-y-4">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Simulating Call Connection</p>
+              <button
+                onClick={() => setShowCallScreen(false)}
+                className="w-16 h-16 bg-rose-600 rounded-full flex items-center justify-center shadow-lg shadow-rose-600/30 active:scale-90 transition-transform mx-auto"
+              >
+                <X size={24} className="text-white" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, upiId, upiName, setActiveTab, onPaymentSuccess }) => {
   const { showToast } = useToast();
@@ -268,6 +494,10 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
               </div>
             );
           })()}
+
+          {order.orderType === 'DELIVERY' && (
+            <DeliveryTrackingCard order={order} />
+          )}
 
           <div className="space-y-4">
             {order.items.map((item: any) => (

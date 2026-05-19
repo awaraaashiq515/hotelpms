@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, description, discountPercent, isActive, color, features = [], permissions = [] } = body;
+  const { name, description, discountPercent, priceUSD, priceINR, isActive, color, features = [], permissions = [] } = body;
 
   if (!name) {
     return NextResponse.json({ success: false, error: 'Package name is required' }, { status: 400 });
@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
       name,
       description,
       discountPercent: discountPercent ?? 0,
+      priceUSD: priceUSD ?? 0,
+      priceINR: priceINR ?? 0,
       isActive: isActive ?? true,
       color: color ?? '#6366f1',
       features: {
@@ -66,7 +68,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, name, description, discountPercent, isActive, color, features = [], permissions = [] } = body;
+  const { id, name, description, discountPercent, priceUSD, priceINR, isActive, color, features = [], permissions = [] } = body;
 
   if (!id) {
     return NextResponse.json({ success: false, error: 'Package ID is required' }, { status: 400 });
@@ -82,6 +84,8 @@ export async function PUT(req: NextRequest) {
       name,
       description,
       discountPercent: discountPercent ?? 0,
+      priceUSD: priceUSD ?? 0,
+      priceINR: priceINR ?? 0,
       isActive: isActive ?? true,
       color: color ?? '#6366f1',
       features: {

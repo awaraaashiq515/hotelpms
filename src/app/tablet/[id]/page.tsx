@@ -287,7 +287,6 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: tablet?.propertyId,
-          outletId: 'default-pos-outlet',
           orderType: selectedDriver ? 'DELIVERY' : 'DINE_IN',
           restaurantTableId: selectedTableId,
           guestId: selectedCustomer?.id,
@@ -389,12 +388,12 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                    {tables.map(table => (
                      <button 
                        key={table.id}
-                       onClick={() => { setSelectedTableId(table.id); setSessionStage('PAX'); }}
-                       className="aspect-square rounded-[32px] bg-slate-900 border border-white/5 flex flex-col items-center justify-center transition-all hover:border-indigo-500 hover:-translate-y-2 group shadow-2xl"
+                       onClick={() => { setSelectedTableId(table.id); if ((table as any).status && (table as any).status !== 'VACANT') { setSessionStage('MENU'); } else { setSessionStage('PAX'); } }}
+                       className={`aspect-square rounded-[32px] border flex flex-col items-center justify-center transition-all hover:-translate-y-2 group shadow-2xl ${((table as any).status && (table as any).status !== 'VACANT') ? 'bg-indigo-950/40 border-indigo-500/40 hover:border-indigo-400' : 'bg-slate-900 border-white/5 hover:border-indigo-500'}`}
                      >
-                       <TableIcon size={24} className="text-slate-700 mb-3 group-hover:text-indigo-400" />
+                       <TableIcon size={24} className={`mb-3 ${((table as any).status && (table as any).status !== 'VACANT') ? 'text-indigo-400' : 'text-slate-700 group-hover:text-indigo-400'}`} />
                        <span className="text-2xl font-black">{table.name}</span>
-                       <div className="mt-2 px-3 py-1 bg-white/5 rounded-full text-[8px] font-black uppercase tracking-widest text-slate-500">Ready</div>
+                       <div className={`mt-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${((table as any).status && (table as any).status !== 'VACANT') ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-slate-500'}`}>{((table as any).status && (table as any).status !== 'VACANT') ? (table as any).status.replace('_', ' ') : 'Ready'}</div>
                      </button>
                    ))}
                 </div>
@@ -516,9 +515,9 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                 const hasVariants = (product.variants && product.variants.length > 0) || product.halfPrice;
                 
                 return (
-                   <div 
+                   <motion.div whileTap={!hasVariants ? { scale: 0.95 } : undefined} 
                      key={product.id} 
-                     className="relative group transform active:scale-95 transition-transform duration-200"
+                     className="relative group transition-all duration-200"
                    >
                      <div 
                        onClick={() => !hasVariants && addToCart(product)}
@@ -599,7 +598,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                          <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
                        )}
                      </div>
-                    </div>
+                    </motion.div>
                 );
               })}
             </div>

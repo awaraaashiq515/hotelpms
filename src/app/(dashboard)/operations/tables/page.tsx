@@ -7,7 +7,7 @@ import {
   Search, Filter, ChevronRight,
   Map, Monitor, Utensils,
   Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft,
-  CarFront
+  CarFront, Home
 } from 'lucide-react';
 import { QRModal } from '@/components/tables/QRModal';
 import { Button } from '@/components/ui/Button';
@@ -270,8 +270,13 @@ export default function TableManagementPage() {
           }
         }
         
-        prevFloorsRef.current = newFloors;
-        setFloors(newFloors);
+        const cleanedFloors = newFloors.map(floor => ({
+          ...floor,
+          tables: floor.tables.filter((t: any) => t.name.toLowerCase() !== 'home delivery')
+        }));
+
+        prevFloorsRef.current = cleanedFloors;
+        setFloors(cleanedFloors);
 
         const currentValid = newFloors.find((f: any) => f.id === activeFloorIdRef.current);
         if (!currentValid && newFloors.length > 0) {

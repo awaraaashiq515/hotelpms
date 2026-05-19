@@ -44,6 +44,8 @@ export default function B2BOrdersPage() {
   const [trackingOrder, setTrackingOrder] = useState<any>(null);
   const [ratingOrder, setRatingOrder] = useState<any>(null);
   const [ratedOrders, setRatedOrders] = useState<string[]>([]);
+  const [ratingValue, setRatingValue] = useState<number>(5);
+  const [ratingComments, setRatingComments] = useState<string>('');
 
   useEffect(() => {
     fetchOrders();
@@ -58,6 +60,10 @@ export default function B2BOrdersPage() {
         const res = await fetch(`/api/b2b/orders?propertyId=${sessionData.user.propertyId}`);
         const data = await res.json();
         setOrders(data);
+
+        // Pre-populate already rated orders
+        const rated = data.filter((o: any) => o.rating !== null).map((o: any) => o.id);
+        setRatedOrders(rated);
       }
       setLoading(false);
     } catch (error) {
@@ -78,14 +84,33 @@ export default function B2BOrdersPage() {
 
   const handleRateSupplier = (order: any) => {
     setRatingOrder(order);
+    setRatingValue(5);
+    setRatingComments('');
   };
 
-  const submitRating = async (ratingData: any) => {
-    // Simulated API call
-    console.log('Submitting Rating:', ratingData);
-    setRatedOrders([...ratedOrders, ratingOrder.id]);
-    setRatingOrder(null);
-    // toast.success('Rating submitted successfully!');
+  const submitRating = async () => {
+    if (!ratingOrder) return;
+    try {
+      const res = await fetch('/api/b2b/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: ratingOrder.id,
+          rating: ratingValue,
+          comments: ratingComments
+        })
+      });
+      if (res.ok) {
+        setRatedOrders([...ratedOrders, ratingOrder.id]);
+        setRatingOrder(null);
+        fetchOrders();
+      } else {
+        alert('Failed to submit rating');
+      }
+    } catch (err) {
+      console.error('Error submitting rating:', err);
+      alert('An error occurred');
+    }
   };
 
   const filteredOrders = orders.filter(o => 
@@ -120,28 +145,45 @@ export default function B2BOrdersPage() {
               </div>
 
               <div className="space-y-6">
-                 {['Product Quality', 'Delivery Speed', 'Packaging', 'Service'].map((metric) => (
-                    <div key={metric} className="flex flex-col items-center gap-2">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{metric}</p>
-                       <div className="flex gap-2">
-                          {[1,2,3,4,5].map((s) => (
-                             <button 
-                                key={s} 
-                                className="hover:scale-110 transition-transform p-1"
-                                onClick={() => {}} // In real app, update state
-                             >
-                                <Star size={24} className="text-amber-400 hover:fill-amber-400" />
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                 ))}
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Overall Experience</p>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button 
+                        key={s} 
+                        type="button"
+                        className="hover:scale-125 transition-transform p-1"
+                        onClick={() => setRatingValue(s)}
+                      >
+                        <Star 
+                          size={32} 
+                          className={`transition-colors ${
+                            s <= ratingValue 
+                              ? 'text-amber-400 fill-amber-400' 
+                              : 'text-slate-200 dark:text-slate-800'
+                          }`} 
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Comments & Suggestions</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Tell us about the quality, delivery or packaging..."
+                    value={ratingComments}
+                    onChange={(e) => setRatingComments(e.target.value)}
+                    className="w-full p-4 text-xs font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-pos-primary resize-none text-slate-800 dark:text-white"
+                  />
+                </div>
               </div>
 
-              <div className="mt-10 space-y-3">
+              <div className="mt-8 space-y-3">
                  <Button 
-                   onClick={() => submitRating({})} 
-                   className="w-full bg-slate-900 text-white h-14 rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all"
+                   onClick={submitRating} 
+                   className="w-full bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-700 text-white h-14 rounded-2xl font-black uppercase tracking-widest transition-all"
                  >
                     Submit Feedback
                  </Button>

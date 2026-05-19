@@ -510,6 +510,10 @@ model PosOrder {
   parkingSlotId      String?
   vehicleNumber      String?
   parkingSlot        ParkingSlot?    @relation("ParkingOrders", fields: [parkingSlotId], references: [id])
+  deliveryCustomerName String?
+  deliveryPhone        String?
+  deliveryAddress      String?
+  deliveryInstructions String?
 
   @@index([propertyId])
   @@index([status])
@@ -1154,6 +1158,7 @@ model WebsiteSettings {
   id                       String   @id @default(cuid())
   hotelName                String   @default("Avasa Hotels")
   logoUrl                  String?
+  logoScrolledUrl          String?
   address                  String?
   email                    String?
   phone                    String?
@@ -1504,6 +1509,8 @@ model Package {
   name            String              @unique
   description     String?
   discountPercent Float               @default(0)
+  priceUSD        Float               @default(0)
+  priceINR        Float               @default(0)
   isActive        Boolean             @default(true)
   color           String?             @default("#6366f1")
   createdAt       DateTime            @default(now())
@@ -1761,6 +1768,8 @@ model B2BOrder {
   statusLogs      B2BOrderLog[]
   property        Property?      @relation(fields: [propertyId], references: [id])
   supplier        B2BSupplier    @relation(fields: [supplierId], references: [id])
+  rating          Int?
+  comments        String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }

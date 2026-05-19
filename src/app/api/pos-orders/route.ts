@@ -30,6 +30,10 @@ const posOrderSchema = z.object({
   driverId: z.string().nullable().optional(),
   guestId: z.string().nullable().optional(),
   guestCount: z.number().int().optional().default(1),
+  deliveryCustomerName: z.string().nullable().optional(),
+  deliveryPhone: z.string().nullable().optional(),
+  deliveryAddress: z.string().nullable().optional(),
+  deliveryInstructions: z.string().nullable().optional(),
   items: z.array(orderItemSchema).optional(),
   orderId: z.string().optional(),
 })
@@ -106,7 +110,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             restaurantTableId: orderData.restaurantTableId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
             orderType: 'DINE_IN'
           },
           include: { items: true }
@@ -115,7 +119,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             parkingSlotId: orderData.parkingSlotId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
             orderType: 'PARKING'
           },
           include: { items: true }
@@ -218,7 +222,11 @@ export async function POST(request: NextRequest) {
           grandTotal,
           guestId: orderData.guestId || undefined,
           guestCount: orderData.guestCount,
-          driverId: orderData.driverId || undefined
+          driverId: orderData.driverId || undefined,
+          deliveryCustomerName: orderData.deliveryCustomerName || undefined,
+          deliveryPhone: orderData.deliveryPhone || undefined,
+          deliveryAddress: orderData.deliveryAddress || undefined,
+          deliveryInstructions: orderData.deliveryInstructions || undefined,
         }
       })
 
@@ -428,7 +436,7 @@ export async function GET(request: NextRequest) {
     // Handle status filtering
     let statusFilter = undefined;
     if (status === 'in_progress') {
-      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'PAYMENT_AWAITING_APPROVAL'] };
+      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] };
     } else if (status?.includes(',')) {
       statusFilter = { in: status.split(',') };
     } else if (status) {
@@ -450,7 +458,8 @@ export async function GET(request: NextRequest) {
         },
         membershipCard: {
           include: { membershipPlan: true }
-        }
+        },
+        driver: true
       },
       orderBy: { createdAt: 'desc' },
       take: (orderId || restaurantTableId || parkingSlotId) ? undefined : 50 

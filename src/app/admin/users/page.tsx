@@ -6,17 +6,29 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
-import { Plus, UserPlus, Eye, EyeOff, Edit, Trash2 } from 'lucide-react';
+import { Plus, UserPlus, Eye, EyeOff, Edit, Trash2, Search, Shield, Store, Users, Smartphone } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [supplierSubmitting, setSupplierSubmitting] = useState(false);
+  const [supplierFormData, setSupplierFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    category: '',
+    address: '',
+  });
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('ALL');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -24,6 +36,7 @@ export default function UsersPage() {
     password: '',
     roleName: '',
     propertyId: '',
+    supplierId: '',
   });
 
   useEffect(() => {
@@ -33,15 +46,21 @@ export default function UsersPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [uRes, rRes, pRes] = await Promise.all([
+      const [uRes, rRes, pRes, sRes] = await Promise.all([
         fetch('/api/admin/users?global=true').then(r => r.json()),
         fetch('/api/admin/roles').then(r => r.json()),
         fetch('/api/admin/properties?global=true').then(r => r.json()),
+        fetch('/api/b2b/suppliers').then(r => r.json()),
       ]);
 
       if (uRes.success) setUsers(uRes.data);
       if (rRes.success) setRoles(rRes.data);
       if (pRes.success) setProperties(pRes.data);
+      if (Array.isArray(sRes)) {
+        setSuppliers(sRes);
+      } else if (sRes && sRes.success) {
+        setSuppliers(sRes.data);
+      }
     } catch (error) {
       console.error('Failed to fetch admin data', error);
     } finally {
@@ -51,7 +70,7 @@ export default function UsersPage() {
 
   const openCreateModal = () => {
     setEditingUserId(null);
-    setFormData({ fullName: '', email: '', password: '', roleName: '', propertyId: '' });
+    setFormData({ fullName: '', email: '', password: '', roleName: '', propertyId: '', supplierId: '' });
     setIsModalOpen(true);
   };
 
@@ -63,6 +82,7 @@ export default function UsersPage() {
       password: '', // Leave blank unless they want to change it
       roleName: user.role?.name || '',
       propertyId: user.propertyId || '',
+      supplierId: user.supplierId || '',
     });
     setIsModalOpen(true);
   };
@@ -84,7 +104,7 @@ export default function UsersPage() {
       const data = await res.json();
       if (data.success) {
         setIsModalOpen(false);
-        setFormData({ fullName: '', email: '', password: '', roleName: '', propertyId: '' });
+        setFormData({ fullName: '', email: '', password: '', roleName: '', propertyId: '', supplierId: '' });
         setEditingUserId(null);
         fetchData(); // Refresh
       } else {
@@ -152,6 +172,53 @@ export default function UsersPage() {
     }
   };
 
+  const handleCreateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSupplierSubmitting(true);
+    try {
+      const res = await fetch('/api/b2b/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supplierFormData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Add new supplier to the local list of suppliers
+        const newSup = data.data;
+        setSuppliers((prev) => [newSup, ...prev]);
+        // Set this supplier as selected in the user form
+        setFormData((prev) => ({ ...prev, supplierId: newSup.id }));
+        // Close modal and reset form
+        setIsSupplierModalOpen(false);
+        setSupplierFormData({ name: '', email: '', phone: '', category: '', address: '' });
+      } else {
+        alert(data.error || 'Failed to create supplier');
+      }
+    } catch (err) {
+      alert('An error occurred while creating supplier');
+    } finally {
+      setSupplierSubmitting(false);
+    }
+  };
+
+  const tabs = [
+    { id: 'ALL', label: 'All Users', count: users.length, icon: Users },
+    { id: 'SUPER_ADMIN', label: 'Super Admins', count: users.filter(u => u.role?.name === 'SUPER_ADMIN').length, icon: Shield },
+    { id: 'RESTAURANTS_ADMIN', label: 'Restaurant Admins', count: users.filter(u => u.role?.name === 'RESTAURANTS_ADMIN').length, icon: Shield },
+    { id: 'POSSYSTEM', label: 'POS Staff', count: users.filter(u => u.role?.name === 'POSSYSTEM').length, icon: Smartphone },
+    { id: 'B2B_SUPPLIER', label: 'B2B Suppliers', count: users.filter(u => u.role?.name === 'B2B_SUPPLIER').length, icon: Store },
+  ];
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesTab = activeTab === 'ALL' || user.role?.name === activeTab;
+    
+    return matchesSearch && matchesTab;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -162,6 +229,57 @@ export default function UsersPage() {
         <Button onClick={openCreateModal} icon={<UserPlus size={16} />} className="w-full sm:w-auto bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl shadow-lg shadow-pos-primary/10 transition-all font-bold text-[11px] tracking-widest px-6 h-11">
           Add User
         </Button>
+      </div>
+
+      {/* Premium Search and Tabs Filter Panel */}
+      <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 hover:shadow-md">
+        {/* Horizontal scrollable role tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full xl:w-auto pb-2 xl:pb-0">
+          {tabs.map((tab) => {
+            const TabIcon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all duration-200 border ${
+                  isActive
+                    ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/15 scale-[1.02]'
+                    : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                <TabIcon size={14} className={isActive ? 'text-white' : 'text-slate-400'} />
+                <span>{tab.label}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-slate-150 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Dynamic search bar */}
+        <div className="relative w-full xl:w-80">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+          <input
+            type="text"
+            placeholder="Search users by name or email..."
+            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 text-xs font-bold transition-all"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-widest px-2"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -191,7 +309,17 @@ export default function UsersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {users.map((user) => (
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-16 text-center">
+                          <Users size={32} className="mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                            No users found in this category
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="px-6 py-4 font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[150px]">{user.fullName}</td>
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{user.email}</td>
@@ -204,7 +332,15 @@ export default function UsersPage() {
                           </Badge>
                         </td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {user.property?.name || <span className="text-slate-400 italic">Global</span>}
+                          {user.role?.name === 'B2B_SUPPLIER' ? (
+                            user.supplier?.name ? (
+                              <span className="text-emerald-650 dark:text-emerald-400 font-black bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-lg text-[10px] border border-emerald-100/50 dark:border-emerald-900/30 uppercase tracking-tight">Supplier: {user.supplier.name}</span>
+                            ) : (
+                              <span className="text-slate-400 italic text-xs">No Supplier Linked</span>
+                            )
+                          ) : (
+                            user.property?.name || <span className="text-slate-400 italic">Global</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
                           ₹{user.totalSales?.toLocaleString() || '0'}
@@ -229,7 +365,7 @@ export default function UsersPage() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
@@ -237,7 +373,15 @@ export default function UsersPage() {
 
             {/* Mobile Card View */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-4">
-              {users.map((user) => (
+              {filteredUsers.length === 0 ? (
+                <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-150/60 dark:border-slate-800">
+                  <Users size={32} className="mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    No users found in this category
+                  </p>
+                </div>
+              ) : (
+                filteredUsers.map((user) => (
                 <div key={user.id} className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col">
@@ -251,8 +395,15 @@ export default function UsersPage() {
                   
                   <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-100 dark:border-slate-800">
                     <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Property</span>
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">{user.property?.name || 'Global'}</span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                        {user.role?.name === 'B2B_SUPPLIER' ? 'Supplier' : 'Property'}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">
+                        {user.role?.name === 'B2B_SUPPLIER' 
+                          ? (user.supplier?.name || 'Not Linked') 
+                          : (user.property?.name || 'Global')
+                        }
+                      </span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Sales</span>
@@ -279,14 +430,9 @@ export default function UsersPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+               )))}
             </div>
             
-            {users.length === 0 && (
-              <div className="p-12 text-center bg-white dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <p className="text-sm font-medium text-slate-500">No users found.</p>
-              </div>
-            )}
           </>
         )}
       </div>
@@ -363,12 +509,101 @@ export default function UsersPage() {
             </div>
           )}
 
+          {formData.roleName === 'B2B_SUPPLIER' && (
+            <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">Link B2B Supplier</label>
+                <button
+                  type="button"
+                  onClick={() => setIsSupplierModalOpen(true)}
+                  className="text-[10px] font-black text-pos-primary hover:underline uppercase tracking-wider transition-all"
+                >
+                  + Add New Supplier Shop
+                </button>
+              </div>
+              <select
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
+                value={formData.supplierId}
+                onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
+                required={formData.roleName === 'B2B_SUPPLIER'}
+              >
+                <option value="">Select Supplier</option>
+                {suppliers.map((sup) => (
+                  <option key={sup.id} value={sup.id}>
+                    {sup.name} ({sup.category || 'General'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)} type="button">
               Cancel
             </Button>
             <Button type="submit" isLoading={submitting} className="bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl shadow-lg shadow-pos-primary/10 transition-all font-black uppercase text-[10px] tracking-widest px-8 h-12">
               {editingUserId ? "Save Changes" : "Create User"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title="Create New B2B Supplier Shop">
+        <form onSubmit={handleCreateSupplier} className="space-y-4">
+          <Input
+            label="Supplier / Shop Name"
+            placeholder="e.g. Fresh Veggies Co."
+            value={supplierFormData.name}
+            onChange={(e) => setSupplierFormData({ ...supplierFormData, name: e.target.value })}
+            required
+          />
+          
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="e.g. contact@freshveggies.com"
+            value={supplierFormData.email}
+            onChange={(e) => setSupplierFormData({ ...supplierFormData, email: e.target.value })}
+            required
+          />
+
+          <Input
+            label="Phone Number"
+            placeholder="e.g. 9876543210"
+            value={supplierFormData.phone}
+            onChange={(e) => setSupplierFormData({ ...supplierFormData, phone: e.target.value })}
+          />
+
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">Category</label>
+            <select
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
+              value={supplierFormData.category}
+              onChange={(e) => setSupplierFormData({ ...supplierFormData, category: e.target.value })}
+            >
+              <option value="">Select Category</option>
+              <option value="Vegetables">Vegetables</option>
+              <option value="Dairy">Dairy</option>
+              <option value="Meat">Meat</option>
+              <option value="Grocery">Grocery</option>
+              <option value="Packaging">Packaging</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <Input
+            label="Address"
+            placeholder="e.g. Sector 4, Market Yard"
+            value={supplierFormData.address}
+            onChange={(e) => setSupplierFormData({ ...supplierFormData, address: e.target.value })}
+          />
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="secondary" onClick={() => setIsSupplierModalOpen(false)} type="button">
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={supplierSubmitting} className="bg-pos-primary hover:bg-pos-primary-dark text-white rounded-xl shadow-lg shadow-pos-primary/10 transition-all font-black uppercase text-[10px] tracking-widest px-8 h-12">
+              Create Supplier
             </Button>
           </div>
         </form>

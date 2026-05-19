@@ -68,6 +68,8 @@ type Pkg = {
   name: string;
   description: string | null;
   discountPercent: number;
+  priceUSD: number;
+  priceINR: number;
   isActive: boolean;
   color: string | null;
   features: Feature[];
@@ -81,6 +83,8 @@ const emptyForm = () => ({
   name: '',
   description: '',
   discountPercent: 0,
+  priceUSD: 0,
+  priceINR: 0,
   isActive: true,
   color: '#6366f1',
   features: [] as string[],
@@ -136,7 +140,7 @@ function PackageCard({
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center transition-colors">
             <p className="text-2xl font-black text-slate-900 dark:text-white transition-colors">{pkg.discountPercent}%</p>
             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 transition-colors">Discount</p>
@@ -148,6 +152,18 @@ function PackageCard({
           <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3 text-center transition-colors">
             <p className="text-2xl font-black text-slate-900 dark:text-white transition-colors">{pkg._count.organizations}</p>
             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 transition-colors">Orgs</p>
+          </div>
+        </div>
+
+        {/* Pricing Info */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100/30 dark:border-indigo-900/30 p-2.5 text-center">
+            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">${pkg.priceUSD ?? 0}</p>
+            <p className="text-[9px] font-bold text-indigo-400/80 dark:text-indigo-400/60 uppercase tracking-wider mt-0.5">Price (USD)</p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100/30 dark:border-emerald-900/30 p-2.5 text-center">
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{pkg.priceINR ?? 0}</p>
+            <p className="text-[9px] font-bold text-emerald-400/80 dark:text-emerald-400/60 uppercase tracking-wider mt-0.5">Price (INR)</p>
           </div>
         </div>
 
@@ -222,6 +238,8 @@ function PackageFormModal({
         name: editing.name,
         description: editing.description || '',
         discountPercent: editing.discountPercent,
+        priceUSD: editing.priceUSD || 0,
+        priceINR: editing.priceINR || 0,
         isActive: editing.isActive,
         color: editing.color || '#6366f1',
         features: editing.features.map((f) => f.feature),
@@ -316,6 +334,34 @@ function PackageFormModal({
                   placeholder="Brief description of this package..."
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all resize-none"
                 />
+              </div>
+
+              {/* Pricing in USD and INR */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Price (USD - $) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={form.priceUSD}
+                    onChange={(e) => setForm({ ...form, priceUSD: Number(e.target.value) })}
+                    placeholder="e.g. 29"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Price (INR - ₹) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={form.priceINR}
+                    onChange={(e) => setForm({ ...form, priceINR: Number(e.target.value) })}
+                    placeholder="e.g. 2499"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

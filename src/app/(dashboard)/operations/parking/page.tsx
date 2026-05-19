@@ -7,7 +7,7 @@ import {
   Search, Filter, ChevronRight,
   Map, Monitor, Utensils,
   Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft,
-  CarFront
+  CarFront, Home
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';

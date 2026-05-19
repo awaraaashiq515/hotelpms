@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest) {
       // Create a dynamic data object based on what's provided in body
       const updateData: any = {};
       const fields = [
-        'hotelName', 'logoUrl', 'tagline', 'address', 'email', 'phone', 
+        'hotelName', 'logoUrl', 'logoScrolledUrl', 'tagline', 'address', 'email', 'phone', 
         'storyTitle', 'storyContent', 'storyImage1', 'storyImage2',
         'mapIframe', 'facebookUrl', 'instagramUrl', 'twitterUrl',
         'heroTitle', 'heroSubtitle', 'heroVideo', 'heroImage',

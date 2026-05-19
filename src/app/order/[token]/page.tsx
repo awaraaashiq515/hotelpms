@@ -51,7 +51,8 @@ interface CartItem extends Product {
 
 type PageState = 'catalog' | 'cart' | 'checkout' | 'success';
 
-export default function PublicOrderPage({ params }: { params: { token: string } }) {
+export default function PublicOrderPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = React.use(params);
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,7 +70,7 @@ export default function PublicOrderPage({ params }: { params: { token: string } 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/b2b/qr/${params.token}`);
+        const res = await fetch(`/api/b2b/qr/${token}`);
         if (!res.ok) {
           const err = await res.json();
           setError(err.message || 'Invalid QR code');
@@ -84,7 +85,7 @@ export default function PublicOrderPage({ params }: { params: { token: string } 
       }
     };
     load();
-  }, [params.token]);
+  }, [token]);
 
   const categories = ['All', ...Array.from(new Set(supplier?.products.map(p => p.category || 'General').filter(Boolean)))];
 
@@ -137,7 +138,7 @@ export default function PublicOrderPage({ params }: { params: { token: string } 
 
     setPlacing(true);
     try {
-      const res = await fetch(`/api/b2b/qr/${params.token}/order`, {
+      const res = await fetch(`/api/b2b/qr/${token}/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

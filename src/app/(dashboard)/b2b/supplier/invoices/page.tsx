@@ -125,7 +125,7 @@ export default function SupplierInvoicesPage() {
                              <span className="text-[10px] font-black uppercase">{order.orderNo.replace('B2B-', 'INV-')}</span>
                           </div>
                        </td>
-                       <td className="px-6 py-4 text-[10px] font-black uppercase text-slate-600">{order.property.name}</td>
+                       <td className="px-6 py-4 text-[10px] font-black uppercase text-slate-600">{order.property?.name || order.buyerRestaurant || 'Direct QR Client'}</td>
                        <td className="px-6 py-4">
                           <Badge className="text-[7px] h-4 uppercase">{order.status === 'DELIVERED' ? 'PAID' : 'PENDING'}</Badge>
                        </td>

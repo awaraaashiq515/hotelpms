@@ -25,6 +25,7 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
 import { printerService } from '@/lib/printer-service';
 import { ProductIcon } from '@/components/shared/product-icon';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface CartItem extends Product {
   quantity: number;
@@ -129,6 +130,11 @@ export default function BillingPage() {
   const [customerMutationLoading, setCustomerMutationLoading] = useState(false);
   // Order type toggle
   const [orderType, setOrderType] = useState<'DINE_IN' | 'DELIVERY' | 'PICKUP'>('DINE_IN');
+  // Delivery details states
+  const [deliveryCustomerName, setDeliveryCustomerName] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
   // Number of guests/customers at the table
   const [guestCount, setGuestCount] = useState<number>(1);
   // Membership Card state
@@ -304,7 +310,29 @@ export default function BillingPage() {
         const allOrders = Array.isArray(result.data) ? result.data : [result.data];
         
         // Use the first order as the "active" one for metadata purposes
-        setActiveOrder(allOrders[0]);
+        const firstOrder = allOrders[0];
+        setActiveOrder(firstOrder);
+        
+        if (firstOrder.orderType) {
+          setOrderType(firstOrder.orderType === 'TAKEAWAY' ? 'PICKUP' : firstOrder.orderType);
+        }
+        if (firstOrder.guestId) {
+          setSelectedGuestId(firstOrder.guestId);
+        }
+        if (firstOrder.driverId) {
+          const matchedDriver = drivers.find((d: any) => d.id === firstOrder.driverId);
+          if (matchedDriver) {
+            setSelectedDriver(matchedDriver);
+          } else if (firstOrder.driver) {
+            setSelectedDriver(firstOrder.driver);
+          }
+        } else {
+          setSelectedDriver(null);
+        }
+        setDeliveryCustomerName(firstOrder.deliveryCustomerName || '');
+        setDeliveryPhone(firstOrder.deliveryPhone || '');
+        setDeliveryAddress(firstOrder.deliveryAddress || '');
+        setDeliveryInstructions(firstOrder.deliveryInstructions || '');
 
         const mergedItems: any[] = [];
         
@@ -337,6 +365,10 @@ export default function BillingPage() {
       } else {
         setActiveOrder(null);
         setCart([]);
+        setDeliveryCustomerName('');
+        setDeliveryPhone('');
+        setDeliveryAddress('');
+        setDeliveryInstructions('');
       }
     } catch (err) {
       console.error('Failed to fetch active order:', err);
@@ -499,7 +531,11 @@ export default function BillingPage() {
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined,
-        orderId: orderIdParam || activeOrder?.id || undefined
+        orderId: orderIdParam || activeOrder?.id || undefined,
+        deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
+        deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
+        deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
+        deliveryInstructions: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryInstructions || undefined : undefined
       };
 
       const response = await fetch('/api/pos-orders', {
@@ -560,7 +596,11 @@ export default function BillingPage() {
         guestId: selectedGuestId || undefined,
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined,
-        orderId: orderIdParam || activeOrder?.id || undefined
+        orderId: orderIdParam || activeOrder?.id || undefined,
+        deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
+        deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
+        deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
+        deliveryInstructions: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryInstructions || undefined : undefined
       };
 
       const response = await fetch('/api/pos-orders', {
@@ -681,7 +721,11 @@ export default function BillingPage() {
           }),
           guestId: selectedGuestId || undefined,
           guestCount: orderType === 'DINE_IN' ? guestCount : 1,
-          driverId: selectedDriver?.id || undefined
+          driverId: selectedDriver?.id || undefined,
+          deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
+          deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
+          deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
+          deliveryInstructions: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryInstructions || undefined : undefined
         };
 
         const response = await fetch('/api/pos-orders', {
@@ -853,13 +897,22 @@ export default function BillingPage() {
   useEffect(() => {
     if (selectedGuestId) {
       const guest = customers.find(c => c.id === selectedGuestId);
-      if (guest && guest.mobile) {
-        validateMembership(null, guest.mobile);
+      if (guest) {
+        setDeliveryCustomerName(guest.firstName + (guest.lastName ? ' ' + guest.lastName : ''));
+        setDeliveryPhone(guest.mobile || '');
+        setDeliveryAddress(guest.address || '');
+        if (guest.mobile) {
+          validateMembership(null, guest.mobile);
+        }
       }
     } else {
       setMembershipCard(null);
+      setDeliveryCustomerName('');
+      setDeliveryPhone('');
+      setDeliveryAddress('');
+      setDeliveryInstructions('');
     }
-  }, [selectedGuestId]);
+  }, [selectedGuestId, customers]);
 
 
 
@@ -938,6 +991,26 @@ export default function BillingPage() {
 
   const tax = totalTax;
   const grandTotal = totalPayable;
+
+  const getOrderQrValue = () => {
+    if (!activeOrder) return '';
+    const itemsText = cart.map((i: any) => `- ${i.quantity}x ${i.name} (₹${(i.sellingPrice * i.quantity).toFixed(2)})`).join('\n');
+    return `=== POS ORDER DETAILS ===
+Order No: ${activeOrder.orderNo || 'N/A'}
+Location: ${property?.brandName || property?.name || 'Restaurant'}
+Delivery Type: ${orderType === 'DELIVERY' ? 'Home Delivery' : 'Pickup'}
+Customer Name: ${deliveryCustomerName || 'Guest'}
+Phone: ${deliveryPhone || 'N/A'}
+${orderType === 'DELIVERY' ? `Address: ${deliveryAddress || 'N/A'}` : ''}
+${deliveryInstructions ? `Instructions: ${deliveryInstructions}` : ''}
+
+Items:
+${itemsText}
+
+Total Amount: ₹${grandTotal.toFixed(2)}
+=========================`;
+  };
+
   const displayedSubtotal = grossSubtotal; // Show gross subtotal before tax and discount for better UX? 
   // Wait, let's show gross subtotal as the "Sub-Total" line in the UI, then show discount, then tax.
   // In the current UI, it shows "Sub-Total" and then "Taxes" and "Total Payable".
@@ -1582,6 +1655,7 @@ export default function BillingPage() {
 
       {/* RIGHT SIDEBAR - Cart & Checkout (Dark/Sleek) */}
       <div className={`w-[420px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full sticky top-0 shadow-2xl z-10 transition-all duration-300`}>
+        {/* Fixed Header */}
         <div className="p-3 pb-1 flex flex-col gap-2">
            <div className="flex items-center justify-between">
               <div>
@@ -1613,57 +1687,160 @@ export default function BillingPage() {
                 </div>
               )}
            </div>
+        </div>
 
-           {/* ── CUSTOMER & DRIVER BUTTONS (Premium Integrated) ── */}
-           <div className="grid grid-cols-2 gap-2">
-             {/* Customer Button */}
-             <div className="relative group">
-                <button 
-                  onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); }}
-                  className={`w-full flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <UserIcon size={12} className={selectedGuestId ? 'text-white' : 'text-pos-primary'} />
-                    <span className="text-[10px] font-black uppercase tracking-wider truncate">
-                      {selectedGuestId ? (customers.find(c => c.id === selectedGuestId)?.firstName || 'Guest') : 'Customer'}
-                    </span>
-                  </div>
-                  {selectedGuestId && (
-                    <div 
-                      onClick={(e) => { e.stopPropagation(); setSelectedGuestId(''); }}
-                      className="p-1 hover:bg-white/20 rounded-md transition-colors"
-                    >
-                      <Trash2 size={10} />
-                    </div>
-                  )}
-                </button>
+        {/* Scrollable Container Body - Unified Scroll View */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-2 scroll-smooth no-scrollbar space-y-4">
+           
+           {/* 🛒 1. CART ITEMS LIST (Prioritized at Top) */}
+           <div className="space-y-2">
+             <div className="flex items-center justify-between ml-1">
+               <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                 🛒 Items in Cart
+               </span>
+               {cart.length > 0 && (
+                 <span className="text-[9px] font-black uppercase tracking-wider text-pos-primary bg-pos-primary/10 px-2 py-0.5 rounded-md">
+                   {cart.length} {cart.length === 1 ? 'Item' : 'Items'}
+                 </span>
+               )}
              </div>
-             
-             {/* Driver Button */}
-             <div className="relative group">
-                <button 
-                  onClick={() => { setShowDriverDropdown(!showDriverDropdown); setShowCustomerDropdown(false); }}
-                  className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-2xl border transition-all duration-300 ${selectedDriver ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-amber-500/40'}`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CarFront size={12} className={selectedDriver ? 'text-white' : 'text-amber-500'} />
-                    <span className="text-[10px] font-black uppercase tracking-wider truncate">
-                      {selectedDriver ? selectedDriver.name : 'Driver'}
-                    </span>
-                  </div>
-                  {selectedDriver && (
-                    <div 
-                      onClick={(e) => { e.stopPropagation(); setSelectedDriver(null); }}
-                      className="p-1 hover:bg-white/20 rounded-md transition-colors"
-                    >
-                      <Trash2 size={10} />
+
+             {cart.length === 0 ? (
+               <div className={`py-12 flex flex-col items-center justify-center text-center gap-4 ${theme === 'dark' ? 'opacity-20' : 'opacity-30'}`}>
+                 <div className="w-12 h-12 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-500/20">
+                   <ShoppingBag size={24} className="text-slate-400" />
+                 </div>
+                 <p className="font-black text-[9px] uppercase tracking-[0.2em] text-slate-400">Your Cart is Empty</p>
+               </div>
+             ) : (
+               <div className="space-y-2">
+                  {cart.map((item: any) => (
+                   <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
+                     <div className="flex flex-col gap-0.5 relative z-10">
+                       {/* Compact Header: Name, Price, Qty & Trash */}
+                       <div className="flex justify-between items-start">
+                         <div className="flex-1 min-w-0 pr-2">
+                           <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
+                             {item.name.split('(')[0].trim()}
+                           </h4>
+                           <div className="flex items-center gap-1.5 mt-0.5">
+                             <span className="text-[12px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
+                             <span className="text-[8px] text-slate-500 font-bold opacity-40">/ ₹{item.sellingPrice.toFixed(0)}</span>
+                           </div>
+                         </div>
+                         
+                         <div className="flex items-center gap-1">
+                           <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
+                             <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
+                               <Minus size={10} strokeWidth={4} />
+                             </button>
+                             <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
+                             <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
+                               <Plus size={10} strokeWidth={4} />
+                             </button>
+                           </div>
+                           <button 
+                             onClick={() => removeFromCart(item.cartItemId)}
+                             className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                           >
+                             <Trash2 size={10} />
+                           </button>
+                         </div>
+                       </div>
+
+                       {/* Compact Grid: Sizes/Variants */}
+                       <div className="grid grid-cols-2 gap-1.5">
+                         {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
+                           <>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
+                               className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                             >
+                               Half
+                             </button>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
+                               className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                             >
+                               Full
+                             </button>
+                           </>
+                         )}
+
+                         {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
+                           <button 
+                             key={v.id}
+                             onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
+                             className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                           >
+                             {v.name}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+           </div>
+
+           {/* 👤 2. CUSTOMER & DRIVER BUTTONS */}
+           <div className="space-y-2">
+             <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 ml-1">
+               ⚙️ Assignment & Settings
+             </span>
+             <div className={orderType === 'DELIVERY' ? "grid grid-cols-1" : "grid grid-cols-2 gap-2"}>
+               {/* Customer Button */}
+               <div className="relative group">
+                  <button 
+                    onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); }}
+                    className={`w-full flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserIcon size={12} className={selectedGuestId ? 'text-white' : 'text-pos-primary'} />
+                      <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                        {selectedGuestId ? (customers.find(c => c.id === selectedGuestId)?.firstName || 'Guest') : 'Customer'}
+                      </span>
                     </div>
-                  )}
-                </button>
+                    {selectedGuestId && (
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); setSelectedGuestId(''); }}
+                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                      >
+                        <Trash2 size={10} />
+                      </div>
+                    )}
+                  </button>
+               </div>
+               
+               {/* Driver Button */}
+               {orderType !== 'DELIVERY' && (
+                 <div className="relative group">
+                    <button 
+                      onClick={() => { setShowDriverDropdown(!showDriverDropdown); setShowCustomerDropdown(false); }}
+                      className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-2xl border transition-all duration-300 ${selectedDriver ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-amber-500/40'}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CarFront size={12} className={selectedDriver ? 'text-white' : 'text-amber-500'} />
+                        <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                          {selectedDriver ? selectedDriver.name : 'Driver'}
+                        </span>
+                      </div>
+                      {selectedDriver && (
+                        <div 
+                          onClick={(e) => { e.stopPropagation(); setSelectedDriver(null); }}
+                          className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        >
+                          <Trash2 size={10} />
+                        </div>
+                      )}
+                    </button>
+                 </div>
+               )}
              </div>
            </div>
 
-           {/* ── SEARCH INTERFACES (Toggled) ── */}
+           {/* 🔍 3. SEARCH INTERFACES (Toggled) */}
            {(showCustomerDropdown && !selectedGuestId) && (
              <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
                 <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
@@ -1676,12 +1853,6 @@ export default function BillingPage() {
                      onChange={(e) => setCustomerSearch(e.target.value)}
                      className="bg-transparent text-[11px] font-bold outline-none flex-1"
                    />
-                   <button 
-                     onClick={() => setIsCustomerModalOpen(true)}
-                     className="p-1.5 bg-pos-primary/10 text-pos-primary rounded-lg hover:bg-pos-primary hover:text-white transition-all"
-                   >
-                      <UserPlus size={14} />
-                   </button>
                 </div>
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
                   {customers
@@ -1701,127 +1872,146 @@ export default function BillingPage() {
              </div>
            )}
 
-           {(showDriverDropdown && !selectedDriver) && (
-             <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
-                <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
-                   <Search size={14} className="text-slate-500" />
-                   <input
-                     type="text"
-                     placeholder="Search driver..."
-                     autoFocus
-                     value={driverSearch}
-                     onChange={(e) => setDriverSearch(e.target.value)}
-                     className="bg-transparent text-[11px] font-bold outline-none flex-1"
+           {/* 🚚 4. HOME DELIVERY DETAILS CARD */}
+           {(orderType === 'DELIVERY' || orderType === 'PICKUP') && (
+             <div className={`rounded-2xl p-3.5 space-y-3 transition-all duration-300 ${
+               theme === 'dark' 
+                 ? 'bg-rose-500/5 border-rose-500/10' 
+                 : 'bg-rose-50/40 border-rose-100'
+             } border`}>
+               <div className="flex items-center justify-between border-b border-rose-500/10 pb-1.5">
+                 <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 flex items-center gap-1.5">
+                   {orderType === 'DELIVERY' ? '🚚 Home Delivery Details' : '🛍️ Pickup/Takeaway Details'}
+                 </span>
+               </div>
+
+               <div className="space-y-2">
+                 {/* Name Input */}
+                 <div className="relative">
+                   <input 
+                     type="text" 
+                     placeholder="Customer Name" 
+                     value={deliveryCustomerName}
+                     onChange={(e) => setDeliveryCustomerName(e.target.value)}
+                     className={`w-full text-[11px] font-bold px-3 py-2 rounded-xl transition-all ${
+                       theme === 'dark' 
+                         ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
+                         : 'bg-white border-slate-200 focus:border-rose-500'
+                     } border outline-none text-slate-800 dark:text-slate-100`}
                    />
-                </div>
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
-                  {drivers
-                    .filter(d => !driverSearch || d.name.toLowerCase().includes(driverSearch.toLowerCase()))
-                    .map(driver => (
-                      <button
-                        key={driver.id}
-                        onMouseDown={() => { setSelectedDriver(driver); setShowDriverDropdown(false); setDriverSearch(''); }}
-                        className="w-full px-4 py-3 text-left hover:bg-amber-500 hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
-                      >
-                         <p className="text-[12px] font-black">{driver.name}</p>
-                         <p className="text-[10px] font-bold opacity-60 group-hover:opacity-100">{driver.phone || 'No phone'}</p>
-                      </button>
-                    ))
-                  }
-                </div>
+                 </div>
+
+                 {/* Phone Input */}
+                 <div className="relative">
+                   <input 
+                     type="text" 
+                     placeholder="Phone Number" 
+                     value={deliveryPhone}
+                     onChange={(e) => setDeliveryPhone(e.target.value)}
+                     className={`w-full text-[11px] font-bold px-3 py-2 rounded-xl transition-all ${
+                       theme === 'dark' 
+                         ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
+                         : 'bg-white border-slate-200 focus:border-rose-500'
+                     } border outline-none text-slate-800 dark:text-slate-100`}
+                   />
+                 </div>
+
+                 {/* Address Input (Only for Home Delivery) */}
+                 {orderType === 'DELIVERY' && (
+                   <>
+                     <div className="relative">
+                       <textarea 
+                         placeholder="Full Delivery Address" 
+                         value={deliveryAddress}
+                         onChange={(e) => setDeliveryAddress(e.target.value)}
+                         className={`w-full text-[11px] font-bold px-3 py-2 rounded-xl transition-all min-h-[50px] resize-none ${
+                           theme === 'dark' 
+                             ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
+                             : 'bg-white border-slate-200 focus:border-rose-500'
+                         } border outline-none text-slate-800 dark:text-slate-100`}
+                       />
+                     </div>
+
+                     {/* Dynamic Rider Select (Delivery Boy) */}
+                     <div className="relative">
+                       <select 
+                         value={selectedDriver?.id || ''}
+                         onChange={(e) => {
+                           const driverId = e.target.value;
+                           const driver = drivers.find(d => d.id === driverId);
+                           setSelectedDriver(driver || null);
+                         }}
+                         className={`w-full text-[11px] font-bold px-3 py-2.5 rounded-xl transition-all appearance-none cursor-pointer ${
+                           theme === 'dark' 
+                             ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
+                             : 'bg-white border-slate-200 focus:border-rose-500'
+                         } border outline-none text-slate-800 dark:text-slate-100`}
+                       >
+                         <option value="" className="text-slate-400">🚴 Choose Delivery Rider</option>
+                         {drivers
+                           .filter(d => d.vehicleType === 'BIKE' && d.isActive)
+                           .map(d => (
+                             <option key={d.id} value={d.id} className="text-slate-800 dark:text-slate-100 font-semibold">
+                               {d.name} ({d.phone || 'No phone'})
+                             </option>
+                           ))
+                         }
+                       </select>
+                       <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                         ▼
+                       </div>
+                     </div>
+                   </>
+                 )}
+
+                 {/* Delivery Instructions */}
+                 <div className="relative">
+                   <input 
+                     type="text" 
+                     placeholder={orderType === 'DELIVERY' ? "Delivery instructions (optional)..." : "Special instructions (optional)..."}
+                     value={deliveryInstructions}
+                     onChange={(e) => setDeliveryInstructions(e.target.value)}
+                     className={`w-full text-[11px] font-bold px-3 py-2 rounded-xl transition-all ${
+                       theme === 'dark' 
+                         ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
+                         : 'bg-white border-slate-200 focus:border-rose-500'
+                     } border outline-none text-slate-800 dark:text-slate-100`}
+                   />
+                 </div>
+               </div>
              </div>
            )}
 
-           {/* Delivery/Pickup Info (Compact) */}
-           {orderType === 'DELIVERY' && (
-             <div className="rounded-2xl p-3 space-y-2 mt-0.5" style={{ backgroundColor: theme === 'dark' ? '#e91e6308' : '#fff0f5', border: '1px solid #e91e6320' }}>
-               <input type="text" placeholder="Delivery address..." className="w-full bg-transparent text-[11px] font-bold outline-none border-b border-[#e91e6315] pb-1" />
-               <input type="text" placeholder="Phone..." className="w-full bg-transparent text-[11px] font-bold outline-none" />
+           {/* 📱 5. ORDER DETAILS QR CODE CARD */}
+           {activeOrder && (
+             <div className={`rounded-2xl p-3.5 space-y-2 transition-all duration-300 ${
+               theme === 'dark' 
+                 ? 'bg-indigo-500/5 border-indigo-500/10' 
+                 : 'bg-indigo-50/40 border-indigo-100'
+             } border`}>
+               <div className="flex items-center justify-between border-b border-indigo-500/10 pb-1.5">
+                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500 flex items-center gap-1.5">
+                   <QrCode size={11} /> Order Details QR Code
+                 </span>
+               </div>
+               
+               <div className="flex flex-col items-center justify-center gap-2.5 py-1.5 bg-white dark:bg-[#121212] rounded-xl p-2.5 border border-indigo-500/5">
+                 <QRCodeSVG 
+                   value={getOrderQrValue()} 
+                   size={110}
+                   level="M"
+                   includeMargin={true}
+                   className="rounded-lg shadow-sm"
+                 />
+                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 text-center max-w-[170px]">
+                   Scan to view/share full order & customer details instantly
+                 </p>
+               </div>
              </div>
            )}
+
         </div>
-
-        {/* Cart Items List */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-2 scroll-smooth no-scrollbar">
-          {cart.length === 0 ? (
-            <div className={`h-full flex flex-col items-center justify-center text-center gap-4 ${theme === 'dark' ? 'opacity-20' : 'opacity-30'}`}>
-              <div className="w-14 h-14 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-500/20">
-                <ShoppingBag size={28} className="text-slate-400" />
-              </div>
-              <p className="font-black text-[9px] uppercase tracking-[0.2em] text-slate-400">Your Cart is Empty</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-               {cart.map((item: any) => (
-                <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
-                  <div className="flex flex-col gap-0.5 relative z-10">
-                    {/* Compact Header: Name, Price, Qty & Trash */}
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0 pr-2">
-                        <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
-                          {item.name.split('(')[0].trim()}
-                        </h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[12px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
-                          <span className="text-[8px] text-slate-500 font-bold opacity-40">/ ₹{item.sellingPrice.toFixed(0)}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
-                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
-                            <Minus size={10} strokeWidth={4} />
-                          </button>
-                          <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
-                            <Plus size={10} strokeWidth={4} />
-                          </button>
-                        </div>
-                        <button 
-                          onClick={() => removeFromCart(item.cartItemId)}
-                          className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
-                        >
-                          <Trash2 size={10} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Compact Grid: Sizes/Variants */}
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
-                        <>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
-                            className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                          >
-                            Half
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
-                            className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                          >
-                            Full
-                          </button>
-                        </>
-                      )}
-
-                      {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
-                        <button 
-                          key={v.id}
-                          onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
-                          className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                        >
-                          {v.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        
         {/* Totals & Checkout Section */}
         <div className={`p-2 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-1 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
           <div className="space-y-1">

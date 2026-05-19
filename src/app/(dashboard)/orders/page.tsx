@@ -7,6 +7,7 @@ import {
   Filter, Package, User, Truck, Hash, Clock
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
+import { useToast } from '@/components/ui/Toast';
 
 interface OrderItem {
   id: string;
@@ -30,6 +31,10 @@ interface Bill {
   items: OrderItem[];
   staffMember?: { id: string; name: string };
   driver?: { id: string; name: string };
+  deliveryCustomerName?: string;
+  deliveryPhone?: string;
+  deliveryAddress?: string;
+  deliveryInstructions?: string;
 }
 
 interface BillSummary {
@@ -48,6 +53,18 @@ import { useSearchParams } from 'next/navigation';
 export default function OrdersPage() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get('search') || '';
+
+  const { showToast } = useToast();
+  const [drivers, setDrivers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/drivers')
+      .then(res => res.json())
+      .then(json => {
+        if (json.success) setDrivers(json.data);
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   const [bills, setBills] = useState<Bill[]>([]);
   const [summary, setSummary] = useState<BillSummary | null>(null);
@@ -362,37 +379,217 @@ export default function OrdersPage() {
 
                     {/* Expanded Items Row */}
                     {expandedId === bill.id && (
-                      <tr className="bg-gray-50/60">
+                      <tr className="bg-gray-50/60 dark:bg-slate-900/50">
                         <td colSpan={10} className="px-8 py-4">
-                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                            <div className="px-4 py-2.5 bg-pos-primary/5 dark:bg-pos-primary/10 border-b border-pos-primary/10 dark:border-pos-primary/20 flex items-center gap-2">
-                              <Package size={12} className="text-pos-primary" />
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-pos-primary">
-                                Order Items — {bill.orderNo}
-                              </span>
-                            </div>
-                            <table className="w-full">
-                              <thead>
-                                <tr className="border-b border-gray-100 dark:border-slate-800">
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-left">#</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-left">Item Name</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-center">Qty</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Rate</th>
-                                  <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Amount</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
-                                {bill.items?.map((item, idx) => (
-                                  <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-400 dark:text-slate-500">{idx + 1}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-800 dark:text-slate-200">{item.product?.name || 'Unknown'}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-900 dark:text-white text-center">{item.quantity}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-600 dark:text-slate-400 text-right">₹{item.unitPrice.toFixed(2)}</td>
-                                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-900 dark:text-white text-right">₹{item.totalAmount.toFixed(2)}</td>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Items Table */}
+                            <div className="md:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
+                              <div className="px-4 py-2.5 bg-pos-primary/5 dark:bg-pos-primary/10 border-b border-pos-primary/10 dark:border-pos-primary/20 flex items-center gap-2">
+                                <Package size={12} className="text-pos-primary" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-pos-primary">
+                                  Order Items — {bill.orderNo}
+                                </span>
+                              </div>
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="border-b border-gray-100 dark:border-slate-800">
+                                    <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-left">#</th>
+                                    <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-left">Item Name</th>
+                                    <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-center">Qty</th>
+                                    <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Rate</th>
+                                    <th className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 text-right">Amount</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
+                                  {bill.items?.map((item, idx) => (
+                                    <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
+                                      <td className="px-4 py-2.5 text-[11px] font-bold text-gray-400 dark:text-slate-500">{idx + 1}</td>
+                                      <td className="px-4 py-2.5 text-[11px] font-bold text-gray-800 dark:text-slate-200">{item.product?.name || 'Unknown'}</td>
+                                      <td className="px-4 py-2.5 text-[11px] font-bold text-gray-900 dark:text-white text-center">{item.quantity}</td>
+                                      <td className="px-4 py-2.5 text-[11px] font-bold text-gray-600 dark:text-slate-400 text-right">₹{item.unitPrice.toFixed(2)}</td>
+                                      <td className="px-4 py-2.5 text-[11px] font-bold text-gray-900 dark:text-white text-right">₹{item.totalAmount.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Customer & Delivery Card */}
+                            {(bill.orderType === 'DELIVERY' || bill.orderType === 'TAKEAWAY' || bill.deliveryCustomerName) && (
+                              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                                <div className="px-4 py-2.5 bg-rose-500/5 dark:bg-rose-500/10 border-b border-rose-500/10 dark:border-rose-500/20 flex items-center gap-2">
+                                  <Truck size={12} className="text-rose-500" />
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500">
+                                    {bill.orderType === 'DELIVERY' ? 'Delivery Details' : 'Pickup Details'}
+                                  </span>
+                                </div>
+                                <div className="p-4 space-y-3.5 flex-1">
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Customer Name</span>
+                                    <span className="text-xs font-black text-slate-800 dark:text-slate-100 block">{bill.deliveryCustomerName || 'Guest'}</span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Phone Number</span>
+                                    <span className="text-xs font-black text-slate-800 dark:text-slate-100 block">{bill.deliveryPhone || 'N/A'}</span>
+                                  </div>
+                                  {bill.orderType === 'DELIVERY' && (
+                                    <div className="space-y-1">
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Delivery Address</span>
+                                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block whitespace-pre-wrap leading-relaxed">{bill.deliveryAddress || 'N/A'}</span>
+                                    </div>
+                                  )}
+                                  {bill.deliveryInstructions && (
+                                    <div className="space-y-1">
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Special Instructions</span>
+                                      <span className="text-xs font-semibold text-rose-500 block italic">"{bill.deliveryInstructions}"</span>
+                                    </div>
+                                  )}
+
+                                  {/* Delivery & Rider Management Section */}
+                                  {bill.orderType === 'DELIVERY' && (
+                                    <div className="space-y-4 pt-3.5 border-t border-slate-100 dark:border-slate-850">
+                                      {/* Driver Selector */}
+                                      <div className="space-y-1.5">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Assign Delivery Rider</span>
+                                        <select
+                                          value={bill.driver?.id || ''}
+                                          onChange={async (e) => {
+                                            const dId = e.target.value;
+                                            try {
+                                              const res = await fetch(`/api/pos-orders/${bill.id}`, {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ driverId: dId }),
+                                              });
+                                              if (res.ok) {
+                                                fetchBills();
+                                                showToast('Delivery rider assigned successfully', 'success');
+                                              }
+                                            } catch (err) {
+                                              showToast('Failed to assign rider', 'error');
+                                            }
+                                          }}
+                                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl px-3 py-2 text-slate-850 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-pos-primary"
+                                        >
+                                          <option value="">No Rider Assigned</option>
+                                          {drivers.map((drv: any) => (
+                                            <option key={drv.id} value={drv.id}>
+                                              {drv.name} ({drv.vehicleNumber || 'No Vehicle'})
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Status Action Buttons */}
+                                      <div className="space-y-1.5">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Order Status Controls</span>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                const res = await fetch(`/api/pos-orders/${bill.id}`, {
+                                                  method: 'PUT',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ status: 'IN_KITCHEN' }),
+                                                });
+                                                if (res.ok) {
+                                                  fetchBills();
+                                                  showToast('Order moved to kitchen preparation', 'success');
+                                                }
+                                              } catch (err) {
+                                                showToast('Failed to update status', 'error');
+                                              }
+                                            }}
+                                            className={`px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+                                              bill.status === 'IN_KITCHEN'
+                                                ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            }`}
+                                          >
+                                            Preparing
+                                          </button>
+
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                const res = await fetch(`/api/pos-orders/${bill.id}`, {
+                                                  method: 'PUT',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ status: 'READY' }),
+                                                });
+                                                if (res.ok) {
+                                                  fetchBills();
+                                                  showToast('Order marked as ready', 'success');
+                                                }
+                                              } catch (err) {
+                                                showToast('Failed to update status', 'error');
+                                              }
+                                            }}
+                                            className={`px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+                                              bill.status === 'READY'
+                                                ? 'bg-amber-500 border-amber-500 text-white shadow-md'
+                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            }`}
+                                          >
+                                            Ready
+                                          </button>
+
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                const res = await fetch(`/api/pos-orders/${bill.id}`, {
+                                                  method: 'PUT',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ status: 'SETTLED' }),
+                                                });
+                                                if (res.ok) {
+                                                  fetchBills();
+                                                  showToast('Order dispatched (Out for Delivery)', 'success');
+                                                }
+                                              } catch (err) {
+                                                showToast('Failed to update status', 'error');
+                                              }
+                                            }}
+                                            className={`px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+                                              bill.status === 'SETTLED'
+                                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            }`}
+                                          >
+                                            Dispatched
+                                          </button>
+
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                const res = await fetch(`/api/pos-orders/${bill.id}`, {
+                                                  method: 'PUT',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ status: 'COMPLETED' }),
+                                                });
+                                                if (res.ok) {
+                                                  fetchBills();
+                                                  showToast('Order marked as delivered/completed', 'success');
+                                                }
+                                              } catch (err) {
+                                                showToast('Failed to update status', 'error');
+                                              }
+                                            }}
+                                            className={`px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+                                              bill.status === 'COMPLETED'
+                                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
+                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            }`}
+                                          >
+                                            Delivered
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         property: { select: { id: true, name: true, code: true } },
         role: { select: { id: true, name: true, description: true } },
         servedOrders: { select: { grandTotal: true } },
+        supplier: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fullName, email, password, roleName, propertyId, floorId } = body;
+    const { fullName, email, password, roleName, propertyId, floorId, supplierId } = body;
 
     // Validation
     if (!fullName || !email || !password || !roleName) {
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     const autoRefinedPropertyId = (roleName === 'SUPER_ADMIN' || roleName === 'RESTAURANTS_ADMIN') ? null : (propertyId || null);
+    const autoRefinedSupplierId = roleName === 'B2B_SUPPLIER' ? (supplierId || null) : null;
 
     const newUser = await prisma.user.create({
       data: {
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
         passwordHash,
         organizationId: targetOrgId as string,
         propertyId: autoRefinedPropertyId,
+        supplierId: autoRefinedSupplierId,
         roleId: role.id,
         isActive: true,
         posPin: body.posPin || null,
@@ -166,7 +169,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, fullName, email, password, roleName, propertyId } = body;
+    const { id, fullName, email, password, roleName, propertyId, supplierId } = body;
 
     if (!id || !fullName || !email || !roleName) {
       return apiError(new Error('Missing required fields: id, fullName, email, roleName'), 400);
@@ -191,6 +194,7 @@ export async function PUT(request: NextRequest) {
       email,
       roleId: role.id,
       propertyId: (roleName === 'SUPER_ADMIN' || roleName === 'RESTAURANTS_ADMIN') ? null : (propertyId || null),
+      supplierId: roleName === 'B2B_SUPPLIER' ? (supplierId || null) : null,
     };
 
     if (session.role === 'SUPER_ADMIN' && dataToUpdate.propertyId) {

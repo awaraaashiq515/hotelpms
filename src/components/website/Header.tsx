@@ -8,6 +8,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
   const [isSticky, setIsSticky] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoScrolledUrl, setLogoScrolledUrl] = useState<string | null>(null);
   const [hotelName, setHotelName] = useState<string>('OrderMint');
   const [tagline, setTagline] = useState<string>('POS Solutions');
 
@@ -23,6 +24,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
       .then(json => {
         if (json.success) {
           if (json.data.logoUrl) setLogoUrl(json.data.logoUrl);
+          if (json.data.logoScrolledUrl) setLogoScrolledUrl(json.data.logoScrolledUrl);
           if (json.data.hotelName) setHotelName(json.data.hotelName);
           if (json.data.tagline) setTagline(json.data.tagline);
         }
@@ -34,6 +36,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
 
   const navLinks = [
     { name: 'Features', href: '/features' },
+    { name: 'Pricing', href: '/pricing' },
     { name: 'About', href: '/about' },
     { name: 'Blog', href: '/blog' },
     { name: 'Contact', href: '/contact' },
@@ -56,7 +59,14 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
             {/* ── LOGO ── */}
             <Link href="/" className="flex-shrink-0 group relative z-[60]">
               <div className="flex items-center gap-4">
-                {logoUrl ? (
+                {(isSticky && logoScrolledUrl) ? (
+                  <img
+                    src={logoScrolledUrl}
+                    alt="Website Scrolled Logo"
+                    className="h-10 md:h-12 lg:h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105"
+                    style={{ mixBlendMode: 'normal', maxWidth: '250px' }}
+                  />
+                ) : logoUrl ? (
                   <img
                     src={logoUrl}
                     alt="Website Logo"
@@ -134,7 +144,13 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
           <div className="lg:hidden fixed inset-0 bg-white z-[60] flex flex-col p-8">
             <div className="flex justify-between items-center mb-12">
               <div className="flex items-center gap-3">
-                {logoUrl ? (
+                {logoScrolledUrl ? (
+                  <img
+                    src={logoScrolledUrl}
+                    alt="Website Logo"
+                    className="h-10 md:h-12 w-auto max-w-[200px] object-contain drop-shadow-sm"
+                  />
+                ) : logoUrl ? (
                   <img
                     src={logoUrl}
                     alt="Website Logo"

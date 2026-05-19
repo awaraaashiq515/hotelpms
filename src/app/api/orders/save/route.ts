@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       let order = await tx.posOrder.findFirst({
         where: { 
           restaurantTableId: restaurantTableId,
-          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED'] },
+          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
           orderType: 'DINE_IN'
         },
         include: { items: true }

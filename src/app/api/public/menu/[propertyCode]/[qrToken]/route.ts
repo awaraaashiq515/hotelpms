@@ -8,6 +8,8 @@ export async function GET(
 ) {
   try {
     const { propertyCode, qrToken } = await params;
+    const { searchParams } = new URL(request.url);
+    const guestPhone = searchParams.get('phone') || undefined;
 
     // 1. Find the table by qrToken or ID and include its property details
     const tableData = await prisma.table.findFirst({
@@ -98,16 +100,31 @@ export async function GET(
     (property as any).upiName = activeUpiName;
     const table = { id: tableData.id, name: tableData.name };
 
-    // 2. Fetch Active Orders for this table (Dine-in)
+    // 2. Fetch Active Orders for this table (Dine-in) AND delivery/pickup orders for this phone number
     const activeOrders = await prisma.posOrder.findMany({
       where: {
-        restaurantTableId: table.id,
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'PAYMENT_AWAITING_APPROVAL'] },
-        orderType: 'DINE_IN',
+        OR: [
+          {
+            restaurantTableId: table.id,
+            orderType: 'DINE_IN',
+          },
+          ...(guestPhone ? [
+            {
+              deliveryPhone: guestPhone,
+              orderType: { in: ['DELIVERY', 'TAKEAWAY'] }
+            },
+            {
+              guest: { mobile: guestPhone },
+              orderType: { in: ['DELIVERY', 'TAKEAWAY'] }
+            }
+          ] : [])
+        ],
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       },
       include: {
         guest: true,
+        driver: true,
         items: {
           include: {
             product: {

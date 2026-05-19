@@ -47,9 +47,21 @@ export default function PublicMenuPage() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   
-  const [guestInfo, setGuestInfo] = useState<{ name: string; phone: string } | null>(null);
+  const [guestInfo, setGuestInfo] = useState<{ 
+    name: string; 
+    phone: string; 
+    orderType?: 'DINE_IN' | 'DELIVERY' | 'PICKUP';
+    deliveryAddress?: string;
+    deliveryInstructions?: string;
+  } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingForm, setOnboardingForm] = useState({ name: '', phone: '' });
+  const [onboardingForm, setOnboardingForm] = useState({ 
+    name: '', 
+    phone: '', 
+    orderType: 'DINE_IN' as 'DINE_IN' | 'DELIVERY' | 'PICKUP',
+    deliveryAddress: '',
+    deliveryInstructions: ''
+  });
   
   const [activeTab, setActiveTab] = useState<'menu' | 'bar' | 'orders' | 'profile'>('menu');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -115,7 +127,8 @@ export default function PublicMenuPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch(`/api/public/menu/${propertyCode}/${qrToken}`);
+        const queryParams = guestInfo?.phone ? `?phone=${encodeURIComponent(guestInfo.phone)}` : '';
+        const res = await fetch(`/api/public/menu/${propertyCode}/${qrToken}${queryParams}`);
         const json = await res.json();
         if (json.success) {
           setData((prev: any) => {
@@ -167,7 +180,7 @@ export default function PublicMenuPage() {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [propertyCode, qrToken, activeTab]);
+  }, [propertyCode, qrToken, activeTab, guestInfo?.phone]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
@@ -230,7 +243,13 @@ export default function PublicMenuPage() {
   const handleOnboardingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onboardingForm.name || !onboardingForm.phone) return;
-    const info = { name: onboardingForm.name, phone: onboardingForm.phone };
+    const info = { 
+      name: onboardingForm.name, 
+      phone: onboardingForm.phone,
+      orderType: onboardingForm.orderType,
+      deliveryAddress: onboardingForm.deliveryAddress,
+      deliveryInstructions: onboardingForm.deliveryInstructions
+    };
     setGuestInfo(info);
     sessionStorage.setItem('guest_info', JSON.stringify(info));
     setShowOnboarding(false);
@@ -239,7 +258,13 @@ export default function PublicMenuPage() {
   const resetGuestSession = () => {
     sessionStorage.removeItem('guest_info');
     setGuestInfo(null);
-    setOnboardingForm({ name: '', phone: '' });
+    setOnboardingForm({ 
+      name: '', 
+      phone: '', 
+      orderType: 'DINE_IN',
+      deliveryAddress: '',
+      deliveryInstructions: ''
+    });
     setShowOnboarding(true);
     setCart([]);
     setActiveTab('menu');
@@ -278,7 +303,12 @@ export default function PublicMenuPage() {
           guestPhone: guestInfo?.phone,
           items: cart,
           paymentMethod: selectedMethod,
-          isPrepaid: selectedMethod === 'UPI'
+          isPrepaid: selectedMethod === 'UPI',
+          orderType: guestInfo?.orderType || 'DINE_IN',
+          deliveryCustomerName: guestInfo?.name,
+          deliveryPhone: guestInfo?.phone,
+          deliveryAddress: guestInfo?.deliveryAddress,
+          deliveryInstructions: guestInfo?.deliveryInstructions,
         })
       });
       const json = await res.json();

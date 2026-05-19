@@ -10,6 +10,7 @@ export default function WebsiteSettingsPage() {
     hotelName: '',
     tagline: '',
     logoUrl: '',
+    logoScrolledUrl: '',
     address: '',
     email: '',
     phone: '',
@@ -42,6 +43,7 @@ export default function WebsiteSettingsPage() {
             hotelName: fetchedData.hotelName || '',
             tagline: fetchedData.tagline || '',
             logoUrl: fetchedData.logoUrl || '',
+            logoScrolledUrl: fetchedData.logoScrolledUrl || '',
             address: fetchedData.address || '',
             email: fetchedData.email || '',
             phone: fetchedData.phone || '',
@@ -145,120 +147,193 @@ export default function WebsiteSettingsPage() {
           </div>
         </div>
 
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Website Logo / Site Icon</h3>
-        <div className="flex items-center gap-8">
-          <div className="relative w-40 h-40 bg-slate-50 dark:bg-slate-800 rounded-[32px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-            {settings.logoUrl ? (
-              <img 
-                src={`${settings.logoUrl}?t=${Date.now()}`} 
-                alt="Logo Preview" 
-                className="w-full h-full object-contain p-4" 
-                onError={(e) => {
-                  // Fallback for broken images
-                  (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f8fafc/64748b?text=Broken+Image';
-                }}
-              />
-            ) : (
-              <div className="text-center p-4">
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest leading-tight">No Logo<br/>Uploaded</p>
-              </div>
-            )}
-            {loading && (
-              <div className="absolute inset-0 bg-white/60 dark:bg-black/60 flex items-center justify-center">
-                <div className="w-6 h-6 border-4 border-pos-primary border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            )}
-          </div>
-          <div className="space-y-4">
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-              Upload a high-quality logo for your website. Recommended format is transparent PNG/SVG.
-            </p>
-            <div className="flex items-center gap-4">
-              <input
-                type="file"
-                id="logo-upload"
-                className="hidden"
-                accept="image/*"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 uppercase tracking-widest text-xs">Website Logos</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+           {/* Logo 1: Primary Logo (Dark Background) */}
+           <div className="flex items-center gap-6 p-6 bg-slate-900/40 rounded-3xl border border-white/5 shadow-inner">
+             <div className="relative w-36 h-36 bg-slate-950 rounded-2xl border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+               {settings.logoUrl ? (
+                 <img 
+                   src={`${settings.logoUrl}?t=${Date.now()}`} 
+                   alt="Primary Logo Preview" 
+                   className="w-full h-full object-contain p-3" 
+                   onError={(e) => {
+                     (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f8fafc/64748b?text=Broken+Image';
+                   }}
+                 />
+               ) : (
+                 <div className="text-center p-4">
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest leading-tight">No Logo<br/>Uploaded</p>
+                 </div>
+               )}
+               {loading && (
+                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                   <div className="w-6 h-6 border-4 border-pos-primary border-t-transparent rounded-full animate-spin"></div>
+                 </div>
+               )}
+             </div>
+             
+             <div className="space-y-3 flex-1">
+               <h4 className="text-xs font-bold text-slate-250 uppercase tracking-wider">Primary Logo (Dark Background)</h4>
+               <p className="text-[11px] text-slate-400">Used at the top of the homepage on dark transparent sections.</p>
+               <div className="flex items-center gap-3">
+                 <input
+                   type="file"
+                   id="logo-upload-primary"
+                   className="hidden"
+                   accept="image/*"
+                   onChange={async (e) => {
+                     const file = e.target.files?.[0];
+                     if (!file) return;
 
-                  const formData = new FormData();
-                  formData.append('file', file);
+                     const formData = new FormData();
+                     formData.append('file', file);
 
-                  setLoading(true);
-                  try {
-                    const res = await fetch('/api/upload', {
-                      method: 'POST',
-                      body: formData,
-                    });
-                    const json = await res.json();
-                    
-                    if (!res.ok) throw new Error(json.error || 'Upload failed');
-                    
-                    if (json.success) {
-                      const newSettings = { ...settings, logoUrl: json.url };
-                      setSettings(newSettings);
-                      
-                      // Auto-save the logo to the database
-                      const saveRes = await fetch('/api/website/settings', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newSettings),
-                      });
-                      
-                      if (saveRes.ok) {
-                        alert('Logo uploaded and saved successfully!');
-                      } else {
-                        alert('Logo uploaded but failed to save settings. Please click "Save Changes" manually.');
-                      }
-                    }
-                  } catch (err: any) {
-                    console.error('Upload failed:', err);
-                    alert(`Error: ${err.message || 'Upload failed'}`);
-                  } finally {
-                    setLoading(false);
-                    // Reset input
-                    e.target.value = '';
-                  }
-                }}
-              />
-              <label
-                htmlFor="logo-upload"
-                className={`
-                  bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-bold cursor-pointer transition-all
-                  ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-pos-primary'}
-                `}
-              >
-                {loading ? 'Processing...' : 'Upload New Logo'}
-              </label>
-              {settings.logoUrl && (
-                <button
-                  disabled={loading}
-                  onClick={async () => {
-                    if (!confirm('Are you sure you want to remove the logo?')) return;
-                    
-                    const newSettings = { ...settings, logoUrl: '' };
-                    setSettings(newSettings);
-                    
-                    try {
-                      await fetch('/api/website/settings', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newSettings),
-                      });
-                      alert('Logo removed and saved successfully!');
-                    } catch (err) {
-                      alert('Failed to remove logo from database.');
-                    }
-                  }}
-                  className="text-red-500 text-xs font-bold hover:underline disabled:opacity-50"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
+                     setLoading(true);
+                     try {
+                       const res = await fetch('/api/upload', {
+                         method: 'POST',
+                         body: formData,
+                       });
+                       const json = await res.json();
+                       if (!res.ok) throw new Error(json.error || 'Upload failed');
+                       if (json.success) {
+                         const newSettings = { ...settings, logoUrl: json.url };
+                         setSettings(newSettings);
+                         const saveRes = await fetch('/api/website/settings', {
+                           method: 'PUT',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify(newSettings),
+                         });
+                         if (saveRes.ok) alert('Logo uploaded successfully!');
+                       }
+                     } catch (err: any) {
+                       alert(`Error: ${err.message}`);
+                     } finally {
+                       setLoading(false);
+                       e.target.value = '';
+                     }
+                   }}
+                 />
+                 <label
+                   htmlFor="logo-upload-primary"
+                   className="bg-pos-primary text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-850 transition-all shadow-md"
+                 >
+                   Upload
+                 </label>
+                 {settings.logoUrl && (
+                   <button
+                     onClick={async () => {
+                       if (!confirm('Are you sure you want to remove this logo?')) return;
+                       const newSettings = { ...settings, logoUrl: '' };
+                       setSettings(newSettings);
+                       await fetch('/api/website/settings', {
+                         method: 'PUT',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify(newSettings),
+                       });
+                     }}
+                     className="text-red-500 text-[9px] font-black uppercase tracking-widest hover:underline"
+                   >
+                     Remove
+                   </button>
+                 )}
+               </div>
+             </div>
+           </div>
+
+           {/* Logo 2: Scrolled Logo (Light Background) */}
+           <div className="flex items-center gap-6 p-6 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-inner">
+             <div className="relative w-36 h-36 bg-white rounded-2xl border border-gray-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+               {settings.logoScrolledUrl ? (
+                 <img 
+                   src={`${settings.logoScrolledUrl}?t=${Date.now()}`} 
+                   alt="Scrolled Logo Preview" 
+                   className="w-full h-full object-contain p-3" 
+                   onError={(e) => {
+                     (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f8fafc/64748b?text=Broken+Image';
+                   }}
+                 />
+               ) : (
+                 <div className="text-center p-4">
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest leading-tight">No Logo<br/>Uploaded</p>
+                 </div>
+               )}
+               {loading && (
+                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                   <div className="w-6 h-6 border-4 border-pos-primary border-t-transparent rounded-full animate-spin"></div>
+                 </div>
+               )}
+             </div>
+             
+             <div className="space-y-3 flex-1">
+               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Scrolled Logo (Light Background)</h4>
+               <p className="text-[11px] text-gray-500 dark:text-slate-400">Used when scrolling down and on simple light themed pages.</p>
+               <div className="flex items-center gap-3">
+                 <input
+                   type="file"
+                   id="logo-upload-scrolled"
+                   className="hidden"
+                   accept="image/*"
+                   onChange={async (e) => {
+                     const file = e.target.files?.[0];
+                     if (!file) return;
+
+                     const formData = new FormData();
+                     formData.append('file', file);
+
+                     setLoading(true);
+                     try {
+                       const res = await fetch('/api/upload', {
+                         method: 'POST',
+                         body: formData,
+                       });
+                       const json = await res.json();
+                       if (!res.ok) throw new Error(json.error || 'Upload failed');
+                       if (json.success) {
+                         const newSettings = { ...settings, logoScrolledUrl: json.url };
+                         setSettings(newSettings);
+                         const saveRes = await fetch('/api/website/settings', {
+                           method: 'PUT',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify(newSettings),
+                         });
+                         if (saveRes.ok) alert('Scrolled logo uploaded successfully!');
+                       }
+                     } catch (err: any) {
+                       alert(`Error: ${err.message}`);
+                     } finally {
+                       setLoading(false);
+                       e.target.value = '';
+                     }
+                   }}
+                 />
+                 <label
+                   htmlFor="logo-upload-scrolled"
+                   className="bg-slate-900 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-pos-primary transition-all shadow-md"
+                 >
+                   Upload
+                 </label>
+                 {settings.logoScrolledUrl && (
+                   <button
+                     onClick={async () => {
+                       if (!confirm('Are you sure you want to remove this logo?')) return;
+                       const newSettings = { ...settings, logoScrolledUrl: '' };
+                       setSettings(newSettings);
+                       await fetch('/api/website/settings', {
+                         method: 'PUT',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify(newSettings),
+                       });
+                     }}
+                     className="text-red-500 text-[9px] font-black uppercase tracking-widest hover:underline"
+                   >
+                     Remove
+                   </button>
+                 )}
+               </div>
+             </div>
+           </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -21,6 +21,49 @@ import {
 
 export function SupplierSidebar() {
   const pathname = usePathname();
+  const [session, setSession] = useState<any>(null);
+  const [supplierName, setSupplierName] = useState<string>('John Supplier');
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const sessionRes = await fetch('/api/auth/session');
+        const sessionData = await sessionRes.json();
+        if (sessionData.authenticated && sessionData.user) {
+          setSession(sessionData.user);
+          if (sessionData.user.supplierId) {
+            const res = await fetch(`/api/b2b/suppliers`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              const current = data.find((s: any) => s.id === sessionData.user.supplierId);
+              if (current) {
+                setSupplierName(current.name);
+              } else if (sessionData.user.fullName) {
+                setSupplierName(sessionData.user.fullName);
+              }
+            } else if (sessionData.user.fullName) {
+              setSupplierName(sessionData.user.fullName);
+            }
+          } else if (sessionData.user.fullName) {
+            setSupplierName(sessionData.user.fullName);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load session:', err);
+      }
+    }
+    loadSession();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout failed:', err);
+      window.location.href = '/login';
+    }
+  };
 
   const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/b2b/supplier' },
@@ -70,14 +113,21 @@ export function SupplierSidebar() {
       <div className="p-4 mt-auto">
         <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 mb-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">JD</div>
-            <div>
-              <p className="text-[10px] font-bold">John Supplier</p>
-              <p className="text-[9px] text-slate-500">Verified Partner</p>
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+              {supplierName
+                .split(' ')
+                .map((n: string) => n[0])
+                .join('')
+                .substring(0, 2)
+                .toUpperCase() || 'SP'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold truncate leading-tight">{supplierName}</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Verified Partner</p>
             </div>
           </div>
           <button 
-            onClick={() => window.location.href = '/login'}
+            onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-700 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 text-[10px] font-bold transition-all"
           >
             <LogOut size={14} /> Logout

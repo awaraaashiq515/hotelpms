@@ -130,8 +130,9 @@ export default function SupplierDashboard() {
   // Get Top Restaurants
   const restaurantMap: any = {};
   orders.forEach(o => {
-    if (!restaurantMap[o.property.name]) restaurantMap[o.property.name] = 0;
-    restaurantMap[o.property.name] += o.totalAmount;
+    const rName = o.property?.name || o.buyerRestaurant || 'Direct QR Client';
+    if (!restaurantMap[rName]) restaurantMap[rName] = 0;
+    restaurantMap[rName] += o.totalAmount;
   });
   const topRestaurants = Object.entries(restaurantMap)
     .sort(([, a]: any, [, b]: any) => b - a)
@@ -297,7 +298,7 @@ export default function SupplierDashboard() {
                        <div key={order.id} className="p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between group cursor-pointer hover:bg-white/10 transition-all">
                           <div>
                              <p className="text-xs font-black tracking-tight">{order.orderNo}</p>
-                             <p className="text-[8px] text-white/40 font-bold uppercase mt-1">{order.property.name}</p>
+                             <p className="text-[8px] text-white/40 font-bold uppercase mt-1">{order.property?.name || order.buyerRestaurant || 'Direct QR Client'}</p>
                           </div>
                           <Link href="/b2b/supplier/orders">
                              <ArrowUpRight size={16} className="text-emerald-400 group-hover:scale-125 transition-transform" />
