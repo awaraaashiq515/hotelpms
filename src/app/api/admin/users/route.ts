@@ -70,7 +70,15 @@ export async function POST(request: NextRequest) {
     if (existing) return apiError(new Error('User with this email already exists'), 400);
 
     // Look up role
-    const role = await prisma.role.findUnique({ where: { name: roleName } });
+    let role = await prisma.role.findUnique({ where: { name: roleName } });
+    if (!role && roleName === 'DELIVERY_RIDER') {
+      role = await prisma.role.create({
+        data: {
+          name: 'DELIVERY_RIDER',
+          description: 'Delivery Rider'
+        }
+      });
+    }
     if (!role) return apiError(new Error(`Role '${roleName}' not found`), 400);
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -114,6 +122,13 @@ export async function POST(request: NextRequest) {
         isActive: true,
         posPin: body.posPin || null,
         onboardingCompleted: true, // Bypass onboarding for provisioned users
+        phone: body.phone || null,
+        vehicleNumber: body.vehicleNumber || null,
+        vehicleType: body.vehicleType || 'BIKE',
+        deliveryLocation: body.deliveryLocation || null,
+        deliveryLat: body.deliveryLat !== undefined && body.deliveryLat !== null ? parseFloat(body.deliveryLat) : null,
+        deliveryLng: body.deliveryLng !== undefined && body.deliveryLng !== null ? parseFloat(body.deliveryLng) : null,
+        deliveryRadius: body.deliveryRadius !== undefined && body.deliveryRadius !== null ? parseFloat(body.deliveryRadius) : 5.0,
       },
     });
 
@@ -186,7 +201,15 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const role = await prisma.role.findUnique({ where: { name: roleName } });
+    let role = await prisma.role.findUnique({ where: { name: roleName } });
+    if (!role && roleName === 'DELIVERY_RIDER') {
+      role = await prisma.role.create({
+        data: {
+          name: 'DELIVERY_RIDER',
+          description: 'Delivery Rider'
+        }
+      });
+    }
     if (!role) return apiError(new Error(`Role '${roleName}' not found`), 400);
 
     const dataToUpdate: any = {
@@ -195,6 +218,13 @@ export async function PUT(request: NextRequest) {
       roleId: role.id,
       propertyId: (roleName === 'SUPER_ADMIN' || roleName === 'RESTAURANTS_ADMIN') ? null : (propertyId || null),
       supplierId: roleName === 'B2B_SUPPLIER' ? (supplierId || null) : null,
+      phone: body.phone !== undefined ? body.phone : undefined,
+      vehicleNumber: body.vehicleNumber !== undefined ? body.vehicleNumber : undefined,
+      vehicleType: body.vehicleType !== undefined ? body.vehicleType : undefined,
+      deliveryLocation: body.deliveryLocation !== undefined ? body.deliveryLocation : undefined,
+      deliveryLat: body.deliveryLat !== undefined ? (body.deliveryLat !== null ? parseFloat(body.deliveryLat) : null) : undefined,
+      deliveryLng: body.deliveryLng !== undefined ? (body.deliveryLng !== null ? parseFloat(body.deliveryLng) : null) : undefined,
+      deliveryRadius: body.deliveryRadius !== undefined ? (body.deliveryRadius !== null ? parseFloat(body.deliveryRadius) : 5.0) : undefined,
     };
 
     if (session.role === 'SUPER_ADMIN' && dataToUpdate.propertyId) {

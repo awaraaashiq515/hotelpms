@@ -1692,7 +1692,96 @@ Total Amount: ₹${grandTotal.toFixed(2)}
         {/* Scrollable Container Body - Unified Scroll View */}
         <div className="flex-1 overflow-y-auto min-h-0 px-4 py-2 scroll-smooth no-scrollbar space-y-4">
            
-           {/* 🛒 1. CART ITEMS LIST (Prioritized at Top) */}
+           {/* 👤 1. CUSTOMER & DRIVER BUTTONS */}
+           <div className="space-y-2">
+             <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 ml-1">
+               ⚙️ Assignment & Settings
+             </span>
+             <div className={orderType === 'DELIVERY' ? "grid grid-cols-1" : "grid grid-cols-2 gap-2"}>
+               {/* Customer Button */}
+               <div className="relative group">
+                  <button 
+                    onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); }}
+                    className={`w-full flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserIcon size={12} className={selectedGuestId ? 'text-white' : 'text-pos-primary'} />
+                      <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                        {selectedGuestId ? (customers.find(c => c.id === selectedGuestId)?.firstName || 'Guest') : 'Customer'}
+                      </span>
+                    </div>
+                    {selectedGuestId && (
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); setSelectedGuestId(''); }}
+                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                      >
+                        <Trash2 size={10} />
+                      </div>
+                    )}
+                  </button>
+               </div>
+               
+               {/* Driver Button */}
+               {orderType !== 'DELIVERY' && (
+                 <div className="relative group">
+                    <button 
+                      onClick={() => { setShowDriverDropdown(!showDriverDropdown); setShowCustomerDropdown(false); }}
+                      className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-2xl border transition-all duration-300 ${selectedDriver ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-amber-500/40'}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CarFront size={12} className={selectedDriver ? 'text-white' : 'text-amber-500'} />
+                        <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                          {selectedDriver ? selectedDriver.name : 'Driver'}
+                        </span>
+                      </div>
+                      {selectedDriver && (
+                        <div 
+                          onClick={(e) => { e.stopPropagation(); setSelectedDriver(null); }}
+                          className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        >
+                          <Trash2 size={10} />
+                        </div>
+                      )}
+                    </button>
+                 </div>
+               )}
+             </div>
+           </div>
+
+           {/* 🔍 2. SEARCH INTERFACES (Toggled) */}
+           {(showCustomerDropdown && !selectedGuestId) && (
+             <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
+                <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
+                   <Search size={14} className="text-slate-500" />
+                   <input
+                     type="text"
+                     placeholder="Search customer..."
+                     autoFocus
+                     value={customerSearch}
+                     onChange={(e) => setCustomerSearch(e.target.value)}
+                     className="bg-transparent text-[11px] font-bold outline-none flex-1"
+                   />
+                </div>
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
+                  {customers
+                    .filter(c => !customerSearch || c.firstName?.toLowerCase().includes(customerSearch.toLowerCase()) || (c.mobile || '').includes(customerSearch))
+                    .map(customer => (
+                      <button
+                        key={customer.id}
+                        onMouseDown={() => { setSelectedGuestId(customer.id); setShowCustomerDropdown(false); setCustomerSearch(''); }}
+                        className="w-full px-4 py-3 text-left hover:bg-pos-primary hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
+                      >
+                         <p className="text-[12px] font-black">{customer.firstName} {customer.lastName || ''}</p>
+                         <p className="text-[10px] font-bold opacity-60 group-hover:opacity-100">{customer.mobile || 'No phone'}</p>
+                      </button>
+                    ))
+                  }
+                </div>
+             </div>
+           )}
+
+
+           {/* 🛒 3. CART ITEMS LIST */}
            <div className="space-y-2">
              <div className="flex items-center justify-between ml-1">
                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
@@ -1783,94 +1872,6 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                </div>
              )}
            </div>
-
-           {/* 👤 2. CUSTOMER & DRIVER BUTTONS */}
-           <div className="space-y-2">
-             <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 ml-1">
-               ⚙️ Assignment & Settings
-             </span>
-             <div className={orderType === 'DELIVERY' ? "grid grid-cols-1" : "grid grid-cols-2 gap-2"}>
-               {/* Customer Button */}
-               <div className="relative group">
-                  <button 
-                    onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); }}
-                    className={`w-full flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <UserIcon size={12} className={selectedGuestId ? 'text-white' : 'text-pos-primary'} />
-                      <span className="text-[10px] font-black uppercase tracking-wider truncate">
-                        {selectedGuestId ? (customers.find(c => c.id === selectedGuestId)?.firstName || 'Guest') : 'Customer'}
-                      </span>
-                    </div>
-                    {selectedGuestId && (
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); setSelectedGuestId(''); }}
-                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
-                      >
-                        <Trash2 size={10} />
-                      </div>
-                    )}
-                  </button>
-               </div>
-               
-               {/* Driver Button */}
-               {orderType !== 'DELIVERY' && (
-                 <div className="relative group">
-                    <button 
-                      onClick={() => { setShowDriverDropdown(!showDriverDropdown); setShowCustomerDropdown(false); }}
-                      className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-2xl border transition-all duration-300 ${selectedDriver ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-amber-500/40'}`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <CarFront size={12} className={selectedDriver ? 'text-white' : 'text-amber-500'} />
-                        <span className="text-[10px] font-black uppercase tracking-wider truncate">
-                          {selectedDriver ? selectedDriver.name : 'Driver'}
-                        </span>
-                      </div>
-                      {selectedDriver && (
-                        <div 
-                          onClick={(e) => { e.stopPropagation(); setSelectedDriver(null); }}
-                          className="p-1 hover:bg-white/20 rounded-md transition-colors"
-                        >
-                          <Trash2 size={10} />
-                        </div>
-                      )}
-                    </button>
-                 </div>
-               )}
-             </div>
-           </div>
-
-           {/* 🔍 3. SEARCH INTERFACES (Toggled) */}
-           {(showCustomerDropdown && !selectedGuestId) && (
-             <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
-                <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
-                   <Search size={14} className="text-slate-500" />
-                   <input
-                     type="text"
-                     placeholder="Search customer..."
-                     autoFocus
-                     value={customerSearch}
-                     onChange={(e) => setCustomerSearch(e.target.value)}
-                     className="bg-transparent text-[11px] font-bold outline-none flex-1"
-                   />
-                </div>
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
-                  {customers
-                    .filter(c => !customerSearch || c.firstName?.toLowerCase().includes(customerSearch.toLowerCase()) || (c.mobile || '').includes(customerSearch))
-                    .map(customer => (
-                      <button
-                        key={customer.id}
-                        onMouseDown={() => { setSelectedGuestId(customer.id); setShowCustomerDropdown(false); setCustomerSearch(''); }}
-                        className="w-full px-4 py-3 text-left hover:bg-pos-primary hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
-                      >
-                         <p className="text-[12px] font-black">{customer.firstName} {customer.lastName || ''}</p>
-                         <p className="text-[10px] font-bold opacity-60 group-hover:opacity-100">{customer.mobile || 'No phone'}</p>
-                      </button>
-                    ))
-                  }
-                </div>
-             </div>
-           )}
 
            {/* 🚚 4. HOME DELIVERY DETAILS CARD */}
            {(orderType === 'DELIVERY' || orderType === 'PICKUP') && (

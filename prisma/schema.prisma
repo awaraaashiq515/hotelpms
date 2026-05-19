@@ -160,6 +160,13 @@ model User {
   attendance          Attendance[]
   supplierId          String?
   supplier            B2BSupplier? @relation(fields: [supplierId], references: [id])
+  vehicleNumber       String?
+  vehicleType         String?      @default("BIKE")
+  deliveryOrders      PosOrder[]   @relation("DeliveryRiderOrders")
+  deliveryLocation    String?
+  deliveryLat         Float?
+  deliveryLng         Float?
+  deliveryRadius      Float?       @default(5.0)
 
   @@index([organizationId])
   @@index([propertyId])
@@ -498,6 +505,8 @@ model PosOrder {
   staffMember        StaffMember?    @relation(fields: [staffMemberId], references: [id])
   servedBy           User?           @relation("ServedOrders", fields: [servedById], references: [id])
   driver             Driver?         @relation(fields: [driverId], references: [id])
+  deliveryRiderId    String?
+  deliveryRider      User?           @relation("DeliveryRiderOrders", fields: [deliveryRiderId], references: [id])
   table              Table?          @relation(fields: [restaurantTableId], references: [id])
   guest              Guest?          @relation(fields: [guestId], references: [id])
   folio              Folio?          @relation(fields: [folioId], references: [id])
@@ -514,6 +523,8 @@ model PosOrder {
   deliveryPhone        String?
   deliveryAddress      String?
   deliveryInstructions String?
+  deliveryLat          Float?
+  deliveryLng          Float?
 
   @@index([propertyId])
   @@index([status])

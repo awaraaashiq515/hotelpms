@@ -42,14 +42,28 @@ export async function PUT(
     const body = await request.json();
     const { status, driverId } = body;
 
+    const existingOrder = await prisma.posOrder.findUnique({
+      where: { id }
+    });
+    const isDelivery = existingOrder?.orderType === 'DELIVERY';
+
     const dataToUpdate: any = {};
     if (status !== undefined) dataToUpdate.status = status;
-    if (driverId !== undefined) dataToUpdate.driverId = driverId || null;
+    
+    if (driverId !== undefined) {
+      if (isDelivery) {
+        dataToUpdate.deliveryRiderId = driverId || null;
+        dataToUpdate.driverId = null;
+      } else {
+        dataToUpdate.driverId = driverId || null;
+        dataToUpdate.deliveryRiderId = null;
+      }
+    }
 
     const order = await prisma.posOrder.update({
       where: { id },
       data: dataToUpdate,
-      include: { driver: true }
+      include: { driver: true, deliveryRider: true }
     });
 
     // --- Incentive Engine Integration ---

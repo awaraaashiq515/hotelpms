@@ -54,51 +54,97 @@ interface PosOrder {
 }
 
 export default function DriverPortalPage() {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-  const [orders, setOrders] = useState<PosOrder[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [assignedOrders, setAssignedOrders] = useState<PosOrder[]>([]);
+  const [unassignedOrders, setUnassignedOrders] = useState<PosOrder[]>([]);
+  const [portalTab, setPortalTab] = useState<'MY_DELIVERIES' | 'AVAILABLE'>('MY_DELIVERIES');
   const [fetchingOrders, setFetchingOrders] = useState(false);
   
+  // Login Form States
+  const [phone, setPhone] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loggingIn, setLoggingIn] = useState(false);
+ 
   // OTP Modal states
   const [activeOrder, setActiveOrder] = useState<PosOrder | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [submittingOtp, setSubmittingOtp] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [deliverySuccess, setDeliverySuccess] = useState(false);
-
-  // 1. Fetch riders list on mount
-  useEffect(() => {
-    async function fetchDrivers() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/public/driver?action=list-drivers');
-        const json = await res.json();
-        if (json.success) {
-          setDrivers(json.data || []);
-        }
-      } catch (err) {
-        console.error('Failed to load riders:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchDrivers();
-  }, []);
-
-  // 2. Fetch assigned orders when driver changes or on pull-to-refresh
+ 
+  // 1. Fetch assigned & unassigned orders
   const fetchAssignedOrders = async (driverId: string) => {
     setFetchingOrders(true);
     try {
       const res = await fetch(`/api/public/driver?action=active-orders&driverId=${driverId}`);
       const json = await res.json();
-      if (json.success) {
-        setOrders(json.data || []);
+      if (json.success && json.data) {
+        setAssignedOrders(json.data.assigned || []);
+        setUnassignedOrders(json.data.unassigned || []);
       }
     } catch (err) {
       console.error('Failed to load assigned orders:', err);
     } finally {
       setFetchingOrders(false);
+    }
+  };
+
+  // 1b. Claim an available unassigned order
+  const handleClaimOrder = async (orderId: string) => {
+    if (!selectedDriver) return;
+    setFetchingOrders(true);
+    try {
+      const res = await fetch('/api/public/driver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'claim',
+          orderId,
+          driverId: selectedDriver.id
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchAssignedOrders(selectedDriver.id);
+        setPortalTab('MY_DELIVERIES');
+      } else {
+        alert(json.message || 'Failed to claim delivery');
+      }
+    } catch (err) {
+      console.error('Claim order error:', err);
+    } finally {
+      setFetchingOrders(false);
+    }
+  };
+
+  // 2. Handle Login Submission
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || !vehicleNumber) return;
+
+    setLoggingIn(true);
+    setLoginError(null);
+    try {
+      const res = await fetch('/api/public/driver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'login',
+          phone,
+          vehicleNumber
+        })
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setSelectedDriver(json.data);
+      } else {
+        setLoginError(json.message || 'Login failed. Please verify details.');
+      }
+    } catch (err) {
+      setLoginError('A network error occurred. Please try again.');
+    } finally {
+      setLoggingIn(false);
     }
   };
 
@@ -108,7 +154,8 @@ export default function DriverPortalPage() {
       // Save rider session
       localStorage.setItem('active_rider', JSON.stringify(selectedDriver));
     } else {
-      setOrders([]);
+      setAssignedOrders([]);
+      setUnassignedOrders([]);
       localStorage.removeItem('active_rider');
     }
   }, [selectedDriver]);
@@ -195,57 +242,76 @@ export default function DriverPortalPage() {
       {/* Main Body */}
       <main className="p-5 max-w-md mx-auto space-y-6">
         
-        {/* STEP 1: Profile Selection */}
+        {/* STEP 1: Secure Rider Login */}
         {!selectedDriver ? (
-          <div className="space-y-6 pt-6">
+          <div className="space-y-6 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase">Who is Delivering?</h2>
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase">Rider Sign In</h2>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest max-w-[280px] mx-auto leading-relaxed">
-                Choose your active Bike Rider profile from the list below to access your assigned home deliveries.
+                Enter your registered mobile number and vehicle plate details to securely access your home delivery portal.
               </p>
             </div>
 
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                <div className="w-10 h-10 border-4 border-rose-500/20 rounded-full animate-spin border-t-rose-500"></div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Loading active riders...</p>
-              </div>
-            ) : drivers.length === 0 ? (
-              <div className="text-center py-16 bg-[#0f172a] rounded-3xl border border-[#1e293b] p-6 space-y-4">
-                <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mx-auto border border-[#334155]">
-                  <HelpCircle size={24} />
+            <form onSubmit={handleLogin} className="space-y-5 bg-[#0f172a] border border-[#1e293b] rounded-[2.2rem] p-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-xl" />
+
+              {/* Mobile Phone Number */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                  Mobile Number
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-500">
+                    <Phone size={14} />
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Enter registered mobile number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    className="w-full h-12 pl-12 pr-4 rounded-2xl bg-[#070b12] border border-[#1e293b] text-white placeholder-slate-600 focus:border-rose-500 outline-none transition-all text-xs font-bold font-mono tracking-wider"
+                  />
                 </div>
-                <div className="space-y-1">
-                  <h4 className="font-bold text-white text-sm">No Active Riders</h4>
-                  <p className="text-xs text-slate-500 max-w-[220px] mx-auto leading-relaxed">
-                    There are no drivers registered with Vehicle Type "BIKE" in the admin dashboard right now.
-                  </p>
+              </div>
+
+              {/* Vehicle License Plate / PIN */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                  Vehicle Plate Number
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-500">
+                    <Lock size={14} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. DL-3C-1234 or plate ID"
+                    value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value)}
+                    className="w-full h-12 pl-12 pr-4 rounded-2xl bg-[#070b12] border border-[#1e293b] text-white placeholder-slate-600 focus:border-rose-500 outline-none transition-all text-xs font-bold uppercase tracking-wider"
+                  />
                 </div>
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block ml-1">
+                  * Note: Use the exact vehicle number registered by the admin.
+                </span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {drivers.map(driver => (
-                  <button
-                    key={driver.id}
-                    onClick={() => setSelectedDriver(driver)}
-                    className="w-full flex items-center justify-between p-4.5 bg-gradient-to-br from-[#0f172a] to-[#1e293b]/40 border border-[#1e293b] hover:border-rose-500/30 rounded-2xl transition-all active:scale-[0.99] text-left group"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-sm font-black uppercase shadow-inner group-hover:scale-105 transition-transform">
-                        {driver.name.slice(0, 2)}
-                      </div>
-                      <div>
-                        <h3 className="font-black text-sm text-slate-100 uppercase tracking-tight">{driver.name}</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{driver.vehicleNumber || 'No plate No.'}</p>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded-lg bg-[#0f172a] border border-[#1e293b] flex items-center justify-center text-slate-400 group-hover:text-rose-500 group-hover:border-rose-500/20 transition-all">
-                      <ArrowRight size={14} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+
+              {loginError && (
+                <div className="text-[9px] text-red-500 font-extrabold uppercase tracking-wide leading-relaxed bg-red-500/10 border border-red-500/20 py-2.5 px-3.5 rounded-xl">
+                  ❌ {loginError}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                loading={loggingIn}
+                className="w-full h-13 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                Sign In & Launch Portal <ArrowRight size={12} />
+              </Button>
+            </form>
           </div>
         ) : (
           /* STEP 2: Assigned Active Deliveries */
@@ -275,49 +341,186 @@ export default function DriverPortalPage() {
               </button>
             </div>
 
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  🛵 Assigned Deliveries
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-md leading-none">
-                  {orders.length} Active
-                </span>
-              </div>
+            {/* Elegant slider tabs */}
+            <div className="flex bg-[#0f172a] p-1 rounded-2xl border border-[#1e293b] gap-1">
+              <button
+                type="button"
+                onClick={() => setPortalTab('MY_DELIVERIES')}
+                className={`flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
+                  portalTab === 'MY_DELIVERIES'
+                    ? 'bg-rose-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                My Deliveries ({assignedOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPortalTab('AVAILABLE')}
+                className={`flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
+                  portalTab === 'AVAILABLE'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Available Nearby ({unassignedOrders.length})
+              </button>
+            </div>
 
-              {fetchingOrders && orders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 space-y-4">
-                  <div className="w-8 h-8 border-3 border-rose-500/20 rounded-full animate-spin border-t-rose-500"></div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Checking assignments...</p>
-                </div>
-              ) : orders.length === 0 ? (
-                <div className="text-center py-20 bg-[#0f172a] rounded-[2.2rem] border border-[#1e293b] p-6 space-y-4">
-                  <div className="w-12 h-12 bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-500 mx-auto border border-rose-500/20">
-                    <CheckCircle2 size={24} className="animate-pulse" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-white text-sm uppercase tracking-tight">All Deliveries Done!</h4>
-                    <p className="text-xs text-slate-500 max-w-[200px] mx-auto leading-relaxed">
-                      You don't have any pending delivery assignments right now. Relax!
-                    </p>
-                  </div>
+            <div className="space-y-2.5">
+              {portalTab === 'MY_DELIVERIES' ? (
+                <div className="space-y-4">
+                  {fetchingOrders && assignedOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                      <div className="w-8 h-8 border-3 border-rose-500/20 rounded-full animate-spin border-t-rose-500"></div>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Checking assignments...</p>
+                    </div>
+                  ) : assignedOrders.length === 0 ? (
+                    <div className="text-center py-20 bg-[#0f172a] rounded-[2.2rem] border border-[#1e293b] p-6 space-y-4">
+                      <div className="w-12 h-12 bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-500 mx-auto border border-rose-500/20">
+                        <CheckCircle2 size={24} className="animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-white text-sm uppercase tracking-tight">All Deliveries Done!</h4>
+                        <p className="text-xs text-slate-500 max-w-[200px] mx-auto leading-relaxed">
+                          You don't have any pending delivery assignments right now. Relax!
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    assignedOrders.map(order => {
+                      const isFoodReady = order.status === 'READY';
+                      return (
+                        <div 
+                          key={order.id}
+                          className={`bg-[#0f172a] border ${isFoodReady ? 'border-rose-500/25 shadow-rose-500/5' : 'border-[#1e293b]'} rounded-[2.2rem] p-5 shadow-lg space-y-5 relative overflow-hidden transition-all duration-300 hover:border-[#334155]`}
+                        >
+                          {/* Compact Ready HUD Indicator */}
+                          {isFoodReady && (
+                            <div className="absolute top-0 right-5 bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-b-xl shadow-md flex items-center gap-1.5 animate-pulse">
+                              <Sparkles size={8} /> Ready for Pickup
+                            </div>
+                          )}
+
+                          {/* Order Header */}
+                          <div className="flex items-start justify-between border-b border-[#1e293b] pb-3.5">
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Order Number</span>
+                              <h4 className="text-sm font-black text-white leading-none font-mono tracking-tight">{order.orderNo}</h4>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none block mb-0.5">Grand Total</span>
+                              <span className="text-md font-black text-rose-500 leading-none">₹{order.grandTotal.toFixed(0)}</span>
+                            </div>
+                          </div>
+
+                          {/* Customer Information Section */}
+                          <div className="space-y-3.5">
+                            <div className="flex items-center justify-between bg-[#070b12] px-4 py-3 rounded-2xl border border-[#1e293b]/60">
+                              <div className="min-w-0 pr-3">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5 leading-none">Customer</span>
+                                <h4 className="text-xs font-black text-slate-100 uppercase tracking-tight truncate">{order.deliveryCustomerName || 'Guest'}</h4>
+                                <p className="text-[10px] font-mono font-bold text-slate-400 mt-1 block leading-none">{order.deliveryPhone || 'No Phone'}</p>
+                              </div>
+                              {order.deliveryPhone && (
+                                <a
+                                  href={`tel:${order.deliveryPhone}`}
+                                  className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 hover:bg-emerald-500 hover:text-white transition-all shadow-md active:scale-95"
+                                >
+                                  <Phone size={14} />
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Delivery Address & Directions Link */}
+                            <div className="flex items-start gap-3 bg-[#070b12] px-4 py-3.5 rounded-2xl border border-[#1e293b]/60">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
+                                <MapPin size={13} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1 leading-none">Delivery Address</span>
+                                <p className="text-[11px] font-bold text-slate-200 leading-relaxed uppercase">
+                                  {order.deliveryAddress || 'No Address Provided'}
+                                </p>
+                                {order.deliveryInstructions && (
+                                  <p className="text-[9px] text-amber-500 font-extrabold uppercase mt-1">
+                                    ⚠️ Notes: {order.deliveryInstructions}
+                                  </p>
+                                )}
+                                {order.deliveryAddress && (
+                                  <a
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-2 hover:text-indigo-300 transition-colors"
+                                  >
+                                    <Navigation size={9} /> Open Directions map
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Order Items Summary Drawer */}
+                          <div className="space-y-1.5">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block ml-1">Items Summary</span>
+                            <div className="bg-[#070b12]/30 rounded-2xl p-3 border border-[#1e293b]/40 divide-y divide-[#1e293b]/60">
+                              {order.items.map(item => (
+                                <div key={item.id} className="flex justify-between items-center py-1.5 first:pt-0 last:pb-0 text-[11px] font-bold text-slate-350">
+                                  <span>{item.product.name}</span>
+                                  <span className="text-slate-400">Qty {item.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Delivery Verification Action Button */}
+                          <div className="pt-2">
+                            <button
+                              onClick={() => {
+                                setActiveOrder(order);
+                                setOtpValue('');
+                                setOtpError(null);
+                              }}
+                              className={`w-full h-13 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                                isFoodReady 
+                                  ? 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-rose-500/20' 
+                                  : 'bg-[#1e293b] hover:bg-[#28354c] text-slate-300 border border-[#334155]/60'
+                              }`}
+                            >
+                              <Lock size={12} /> Confirm Delivery (Enter OTP)
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {orders.map(order => {
-                    const isFoodReady = order.status === 'READY';
-                    return (
+                  {fetchingOrders && unassignedOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                      <div className="w-8 h-8 border-3 border-indigo-500/20 rounded-full animate-spin border-t-indigo-500"></div>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Checking available deliveries...</p>
+                    </div>
+                  ) : unassignedOrders.length === 0 ? (
+                    <div className="text-center py-20 bg-[#0f172a] rounded-[2.2rem] border border-[#1e293b] p-6 space-y-4">
+                      <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 mx-auto border border-indigo-500/20">
+                        <HelpCircle size={24} className="animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-white text-sm uppercase tracking-tight">No Nearby Orders</h4>
+                        <p className="text-xs text-slate-500 max-w-[200px] mx-auto leading-relaxed">
+                          There are no open delivery orders matching your branch location or geofence coverage area right now.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    unassignedOrders.map(order => (
                       <div 
                         key={order.id}
-                        className={`bg-[#0f172a] border ${isFoodReady ? 'border-rose-500/25 shadow-rose-500/5' : 'border-[#1e293b]'} rounded-[2.2rem] p-5 shadow-lg space-y-5 relative overflow-hidden transition-all duration-300 hover:border-[#334155]`}
+                        className="bg-[#0f172a] border border-[#1e293b] rounded-[2.2rem] p-5 shadow-lg space-y-5 relative overflow-hidden transition-all duration-300 hover:border-[#334155]"
                       >
-                        {/* Compact Ready HUD Indicator */}
-                        {isFoodReady && (
-                          <div className="absolute top-0 right-5 bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-b-xl shadow-md flex items-center gap-1.5">
-                            <Sparkles size={8} /> Ready for Pickup
-                          </div>
-                        )}
-
                         {/* Order Header */}
                         <div className="flex items-start justify-between border-b border-[#1e293b] pb-3.5">
                           <div className="space-y-0.5">
@@ -326,90 +529,37 @@ export default function DriverPortalPage() {
                           </div>
                           <div className="text-right">
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none block mb-0.5">Grand Total</span>
-                            <span className="text-md font-black text-rose-500 leading-none">₹{order.grandTotal.toFixed(0)}</span>
+                            <span className="text-md font-black text-indigo-400 leading-none">₹{order.grandTotal.toFixed(0)}</span>
                           </div>
                         </div>
 
-                        {/* Customer Information Section */}
+                        {/* Customer & Destination Destination */}
                         <div className="space-y-3.5">
-                          <div className="flex items-center justify-between bg-[#070b12] px-4 py-3 rounded-2xl border border-[#1e293b]/60">
-                            <div className="min-w-0 pr-3">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5 leading-none">Customer</span>
-                              <h4 className="text-xs font-black text-slate-100 uppercase tracking-tight truncate">{order.deliveryCustomerName || 'Guest'}</h4>
-                              <p className="text-[10px] font-mono font-bold text-slate-400 mt-1 block leading-none">{order.deliveryPhone || 'No Phone'}</p>
-                            </div>
-                            {order.deliveryPhone && (
-                              <a
-                                href={`tel:${order.deliveryPhone}`}
-                                className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 hover:bg-emerald-500 hover:text-white transition-all shadow-md active:scale-95"
-                              >
-                                <Phone size={14} />
-                              </a>
-                            )}
-                          </div>
-
-                          {/* Delivery Address & Directions Link */}
                           <div className="flex items-start gap-3 bg-[#070b12] px-4 py-3.5 rounded-2xl border border-[#1e293b]/60">
                             <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
                               <MapPin size={13} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1 leading-none">Delivery Address</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1 leading-none">Delivery Destination</span>
                               <p className="text-[11px] font-bold text-slate-200 leading-relaxed uppercase">
                                 {order.deliveryAddress || 'No Address Provided'}
                               </p>
-                              {order.deliveryInstructions && (
-                                <p className="text-[9px] text-amber-500 font-extrabold uppercase mt-1">
-                                  ⚠️ Notes: {order.deliveryInstructions}
-                                </p>
-                              )}
-                              {order.deliveryAddress && (
-                                <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-2 hover:text-indigo-300 transition-colors"
-                                >
-                                  <Navigation size={9} /> Open Directions map
-                                </a>
-                              )}
                             </div>
                           </div>
                         </div>
 
-                        {/* Order Items Summary Drawer */}
-                        <div className="space-y-1.5">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block ml-1">Items Summary</span>
-                          <div className="bg-[#070b12]/30 rounded-2xl p-3 border border-[#1e293b]/40 divide-y divide-[#1e293b]/60">
-                            {order.items.map(item => (
-                              <div key={item.id} className="flex justify-between items-center py-1.5 first:pt-0 last:pb-0 text-[11px] font-bold text-slate-350">
-                                <span>{item.product.name}</span>
-                                <span className="text-slate-400">Qty {item.quantity}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Delivery Verification Action Button */}
+                        {/* Claim Button */}
                         <div className="pt-2">
                           <button
-                            onClick={() => {
-                              setActiveOrder(order);
-                              setOtpValue('');
-                              setOtpError(null);
-                            }}
-                            className={`w-full h-13 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-                              isFoodReady 
-                                ? 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-rose-500/20' 
-                                : 'bg-[#1e293b] hover:bg-[#28354c] text-slate-300 border border-[#334155]/60'
-                            }`}
+                            onClick={() => handleClaimOrder(order.id)}
+                            className="w-full h-13 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/10 bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                           >
-                            <Lock size={12} /> Confirm Delivery (Enter OTP)
+                            <Bike size={12} /> Claim & Deliver Order
                           </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))
+                  )}
                 </div>
               )}
             </div>

@@ -28,6 +28,7 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
   const [pct, setPct] = useState(15);
   const [simulating, setSimulating] = useState(true);
   const [showCallScreen, setShowCallScreen] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
     if (!simulating) return;
@@ -40,33 +41,121 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
     return () => clearInterval(interval);
   }, [simulating]);
 
-  const getCoordinates = (p: number) => {
-    const x = 10 + (p * 0.8);
-    const y = 40 + Math.sin((p / 100) * Math.PI * 2.5) * 20;
-    return { x, y };
-  };
+  useEffect(() => {
+    if ((window as any).L) {
+      setMapLoaded(true);
+      return;
+    }
 
-  const { x, y } = getCoordinates(pct);
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    if (!document.getElementById('leaflet-js')) {
+      const script = document.createElement('script');
+      script.id = 'leaflet-js';
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => setMapLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      const checkInterval = setInterval(() => {
+        if ((window as any).L) {
+          setMapLoaded(true);
+          clearInterval(checkInterval);
+        }
+      }, 100);
+      return () => clearInterval(checkInterval);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mapLoaded || !(window as any).L || !document.getElementById('leaflet-live-tracking-map')) return;
+
+    const L = (window as any).L;
+
+    // Beautiful coordinates near Chandigarh center
+    const restaurantCoords: [number, number] = [30.7333, 76.7794];
+    const customerCoords: [number, number] = [30.7420, 76.7875];
+
+    const map = L.map('leaflet-live-tracking-map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView(restaurantCoords, 14);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20
+    }).addTo(map);
+
+    const restaurantIcon = L.divIcon({
+      className: 'custom-leaflet-icon',
+      html: `<div style="background-color: #ef4444; border: 2px solid white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.4);"><span style="font-size: 14px;">🏪</span></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    const homeIcon = L.divIcon({
+      className: 'custom-leaflet-icon',
+      html: `<div style="background-color: #10b981; border: 2px solid white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.4);"><span style="font-size: 14px;">🏠</span></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    const riderIcon = L.divIcon({
+      className: 'custom-leaflet-icon-rider',
+      html: `<div style="position: relative;"><div style="position: absolute; inset: -4px; background-color: #6366f1; border-radius: 50%; opacity: 0.3; transform: scale(1.5);"></div><div style="background-color: #4f46e5; border: 2px solid #818cf8; border-radius: 12px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(79, 70, 229, 0.5);"><span style="font-size: 16px;">🛵</span></div></div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    });
+
+    L.marker(restaurantCoords, { icon: restaurantIcon }).addTo(map);
+    L.marker(customerCoords, { icon: homeIcon }).addTo(map);
+
+    const riderMarker = L.marker(restaurantCoords, { icon: riderIcon }).addTo(map);
+
+    L.polyline([restaurantCoords, customerCoords], {
+      color: '#6366f1',
+      weight: 3,
+      dashArray: '6, 6',
+      opacity: 0.8
+    }).addTo(map);
+
+    map.fitBounds([restaurantCoords, customerCoords], { padding: [30, 30] });
+
+    // Interpolate rider coordinates based on current percentage
+    const currentPct = Math.min(100, Math.max(0, pct));
+    const interpCoords = [
+      restaurantCoords[0] + (customerCoords[0] - restaurantCoords[0]) * (currentPct / 100),
+      restaurantCoords[1] + (customerCoords[1] - restaurantCoords[1]) * (currentPct / 100)
+    ];
+    riderMarker.setLatLng(interpCoords as [number, number]);
+
+    return () => {
+      map.remove();
+    };
+  }, [mapLoaded, pct]);
+
   const dist = (1.8 * (1 - pct / 100)).toFixed(1);
   const mins = Math.ceil(12 * (1 - pct / 100));
 
-  const hasDriver = !!order.driver;
-  const driverName = order.driver?.name || "";
-  const driverPhone = order.driver?.phone || "";
-  const vehicleNumber = order.driver?.vehicleNumber || "";
-  const vehicleType = order.driver?.vehicleType || "BIKE";
+  const activeRider = order.deliveryRider || order.driver;
+  const hasDriver = !!activeRider;
+  const driverName = activeRider?.fullName || activeRider?.name || "";
+  const driverPhone = activeRider?.phone || "";
+  const vehicleNumber = activeRider?.vehicleNumber || "";
+  const vehicleType = activeRider?.vehicleType || "BIKE";
 
   if (!hasDriver) {
     return (
       <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 overflow-hidden relative">
-        {/* Curved Tracking Map Banner - Radar Mode */}
         <div className="relative h-44 w-full bg-slate-950 dark:bg-black rounded-2xl overflow-hidden border border-slate-800/80 shadow-md flex flex-col items-center justify-center text-center p-4">
           <div className="absolute inset-0 opacity-10" style={{
             backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff11 1px, transparent 1px), linear-gradient(to bottom, #ffffff11 1px, transparent 1px)',
             backgroundSize: '20px 20px',
           }} />
-
-          {/* Pulsing Radar rings */}
           <div className="relative w-14 h-14 flex items-center justify-center mb-2 z-10">
             <div className="absolute inset-0 rounded-full bg-indigo-500/10 animate-ping border border-indigo-500/20" />
             <div className="absolute inset-2 rounded-full bg-indigo-500/25 border border-indigo-500/30 animate-pulse" />
@@ -74,7 +163,6 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
               <ChefHat size={18} className="animate-bounce" />
             </div>
           </div>
-
           <div className="space-y-1 z-10">
             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Order Preparing</p>
             <h4 className="text-xs font-black text-slate-100 uppercase tracking-tight">Waiting for Delivery Partner</h4>
@@ -83,8 +171,6 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
             </p>
           </div>
         </div>
-
-        {/* Status Indicator */}
         <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
@@ -96,8 +182,6 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
             </div>
           </div>
         </div>
-
-        {/* 🔑 Customer Delivery OTP Security Card */}
         {order.status !== 'SETTLED' && (
           <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center space-y-2.5 shadow-sm">
             <div className="flex items-center justify-center gap-1.5 text-indigo-500 dark:text-indigo-400">
@@ -120,61 +204,17 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
 
   return (
     <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 overflow-hidden relative">
-      {/* Curved Tracking Map Banner */}
       <div className="relative h-44 w-full bg-slate-950 dark:bg-black rounded-2xl overflow-hidden border border-slate-800/80 shadow-md">
-        <div className="absolute inset-0 opacity-15" style={{
-          backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff11 1px, transparent 1px), linear-gradient(to bottom, #ffffff11 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-        }} />
-
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
-          <path
-            d="M 40,70 Q 120,20 200,90 T 360,70"
-            fill="none"
-            stroke="#4f46e5"
-            strokeWidth="3"
-            strokeDasharray="6 4"
-            className="opacity-40 animate-[dash_2s_linear_infinite]"
-          />
-          <style>{`
-            @keyframes dash {
-              to {
-                stroke-dashoffset: -20;
-              }
-            }
-          `}</style>
-        </svg>
-
-        {/* Restaurant Pin Marker */}
-        <div className="absolute left-[10%] top-[40%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 z-10">
-          <div className="w-8 h-8 rounded-full bg-rose-500 border-2 border-white flex items-center justify-center shadow-lg shadow-rose-500/50">
-            <Store size={14} className="text-white" />
-          </div>
-          <span className="text-[8px] font-black text-rose-300 uppercase tracking-widest bg-slate-900/80 px-1 py-0.5 rounded border border-slate-800">Kitchen</span>
-        </div>
-
-        {/* Home Pin Marker */}
-        <div className="absolute left-[90%] top-[60%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 z-10">
-          <div className="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-lg shadow-emerald-500/50">
-            <MapPin size={14} className="text-white animate-bounce" />
-          </div>
-          <span className="text-[8px] font-black text-emerald-300 uppercase tracking-widest bg-slate-900/80 px-1 py-0.5 rounded border border-slate-800">Home</span>
-        </div>
-
-        {/* Moving Delivery Boy Icon */}
-        <div
-          style={{ left: `${x}%`, top: `${y}%` }}
-          className="absolute -translate-x-1/2 -translate-y-1/2 z-20 transition-all duration-300 ease-out"
-        >
-          <div className="relative">
-            <div className="absolute -inset-3 bg-indigo-500/30 rounded-full animate-ping opacity-75" />
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 border border-indigo-400 flex items-center justify-center shadow-xl text-white">
-              <Truck size={16} className="animate-pulse" />
+        <div id="leaflet-live-tracking-map" className="w-full h-full z-0" />
+        {!mapLoaded && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+            <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center border border-indigo-500/20 mb-2 relative">
+              <div className="absolute -inset-2 bg-indigo-500/5 rounded-full animate-ping" />
+              <Navigation size={20} className="text-indigo-400 animate-pulse" />
             </div>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none">Connecting live tracker...</p>
           </div>
-        </div>
-
-        {/* Live HUD Floating Panel */}
+        )}
         <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800/80 flex items-center justify-between z-30">
           <div className="flex items-center gap-2">
             <Navigation size={12} className="text-indigo-400 animate-spin" />
@@ -190,7 +230,6 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
         </div>
       </div>
 
-      {/* Driver Information Card */}
       <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -492,6 +531,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
 
           {(() => {
             const allStatuses = order.items.flatMap((i: any) => i.kotItems?.map((ki: any) => ki.status) || []);
+            const activeRider = order.deliveryRider || order.driver;
             const isReady = (order.status === 'READY') || (allStatuses.every((s: string) => s === 'READY') && allStatuses.length > 0);
             const isCooking = (order.status === 'IN_KITCHEN' || order.status === 'PREPARING') || allStatuses.some((s: string) => s === 'PREPARING' || s === 'IN_KITCHEN');
             const isNew = order.status === 'OPEN' || order.status === 'PLACED' || allStatuses.some((s: string) => s === 'NEW');
@@ -508,11 +548,11 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                 iconBg = "bg-emerald-500/10";
                 iconColor = "text-emerald-500";
                 description = "Order Delivered! Enjoy your meal!";
-              } else if (order.driver) {
+              } else if (activeRider) {
                 icon = <Truck size={20} />;
                 iconBg = "bg-indigo-500/10";
                 iconColor = "text-indigo-500";
-                description = `Out for Delivery (${order.driver.name} is on the way)`;
+                description = `Out for Delivery (${activeRider.fullName || activeRider.name} is on the way)`;
               } else if (isReady) {
                 icon = <CheckCircle size={20} />;
                 iconBg = "bg-emerald-500/10";

@@ -82,6 +82,8 @@ export default function LoginPage() {
         router.push('/dashboard');
       } else if (role === 'B2B_SUPPLIER') {
         router.push('/b2b/supplier');
+      } else if (role === 'DELIVERY_RIDER') {
+        router.push('/driver-portal');
       } else {
         router.push('/operations');
       }

@@ -46,6 +46,8 @@ import {
   Bike
 } from 'lucide-react';
 
+import { useRouter } from 'next/navigation';
+
 interface DashboardAction {
   label: string;
   path?: string;
@@ -57,6 +59,7 @@ interface DashboardAction {
 }
 
 export default function OperationsPage() {
+  const router = useRouter();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [debug, setDebug] = useState(false);
@@ -65,7 +68,12 @@ export default function OperationsPage() {
     fetch('/api/auth/session')
       .then(res => res.json())
       .then(data => {
-        if (data.authenticated) setSession(data.user);
+        if (data.authenticated) {
+          setSession(data.user);
+          if (data.user.role === 'DELIVERY_RIDER') {
+            router.push('/driver-portal');
+          }
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));

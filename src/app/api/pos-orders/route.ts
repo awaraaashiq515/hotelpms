@@ -34,6 +34,8 @@ const posOrderSchema = z.object({
   deliveryPhone: z.string().nullable().optional(),
   deliveryAddress: z.string().nullable().optional(),
   deliveryInstructions: z.string().nullable().optional(),
+  deliveryLat: z.number().nullable().optional(),
+  deliveryLng: z.number().nullable().optional(),
   items: z.array(orderItemSchema).optional(),
   orderId: z.string().optional(),
 })
@@ -62,13 +64,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean up driverId — treat null as undefined
-    const driverId = parsedData.driverId || undefined;
+    const isDelivery = parsedData.orderType === 'DELIVERY';
+    const driverId = isDelivery ? undefined : (parsedData.driverId || undefined);
+    const deliveryRiderId = isDelivery ? (parsedData.driverId || undefined) : undefined;
 
     const orderData = {
       ...parsedData,
       propertyId,
       outletId,
       driverId,
+      deliveryRiderId,
     };
 
     // Calculate Totals ensuring no manipulation
@@ -227,6 +232,8 @@ export async function POST(request: NextRequest) {
           deliveryPhone: orderData.deliveryPhone || undefined,
           deliveryAddress: orderData.deliveryAddress || undefined,
           deliveryInstructions: orderData.deliveryInstructions || undefined,
+          deliveryLat: orderData.deliveryLat,
+          deliveryLng: orderData.deliveryLng,
         }
       })
 
@@ -459,7 +466,8 @@ export async function GET(request: NextRequest) {
         membershipCard: {
           include: { membershipPlan: true }
         },
-        driver: true
+        driver: true,
+        deliveryRider: true
       },
       orderBy: { createdAt: 'desc' },
       take: (orderId || restaurantTableId || parkingSlotId) ? undefined : 50 
