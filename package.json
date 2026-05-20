@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma generate && NODE_OPTIONS='--max-old-space-size=2048' next build",
+    "build": "npx prisma generate && cross-env NODE_OPTIONS='--max-old-space-size=2048' next build",
     "export": "next build && next export",
     "start": "next start",
     "lint": "eslint",
@@ -60,6 +60,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^41.3.0",
     "electron-builder": "^26.8.1",
     "eslint": "^9",
