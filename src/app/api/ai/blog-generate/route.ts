@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
+import { withGeminiRetry, getGeminiErrorMessage } from '@/lib/gemini-retry';
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
       - keywords: 5-10 comma-separated keywords`;
     }
 
-    const result = await model.generateContent(prompt);
+    const result = await withGeminiRetry(() => model.generateContent(prompt));
     const response = await result.response;
     const text = response.text();
 
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
     return apiResponse(data);
   } catch (error: any) {
     console.error('AI Generation Error:', error);
-    return apiError(error.message || 'Failed to generate content', 500);
+    const message = getGeminiErrorMessage(error);
+    return apiError(message, error?.status === 503 || error?.status === 429 ? 503 : 500);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { History, Clock, CheckCircle, ChefHat, ChevronRight, Plus, CreditCard, QrCode, X, Smartphone, Wallet, IndianRupee, Store, ArrowLeft, Truck, Phone, Navigation, MapPin } from 'lucide-react';
+import { History, Clock, CheckCircle, ChefHat, ChevronRight, Plus, CreditCard, QrCode, X, Smartphone, Wallet, IndianRupee, Store, ArrowLeft, Truck, Phone, Navigation, MapPin, Maximize2, Minimize2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
@@ -9,6 +9,7 @@ interface ActiveOrdersProps {
   orders: any[];
   tableName: string;
   propertyId?: string;
+  propertyAddress?: string;
   upiId?: string;
   upiName?: string;
   setActiveTab: (tab: 'menu' | 'orders') => void;
@@ -24,153 +25,478 @@ function getDeliveryOtp(orderId: string): string {
   return otp.toString();
 }
 
-const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
+const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> = ({ order, propertyAddress }) => {
   const [pct, setPct] = useState(15);
   const [simulating, setSimulating] = useState(true);
   const [showCallScreen, setShowCallScreen] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [markers, setMarkers] = useState<{
+    restaurant: any;
+    customer: any;
+    rider: any;
+  } | null>(null);
+
+  const activeRider = order.deliveryRider || order.driver;
+  const hasDriver = !!activeRider;
+  const driverName = activeRider?.fullName || activeRider?.name || '';
+  const driverPhone = activeRider?.phone || '';
+  const vehicleNumber = activeRider?.vehicleNumber || '';
+  const vehicleType = activeRider?.vehicleType || 'BIKE';
+
+  // Read live coordinates if available
+  const riderLat = (activeRider && activeRider.deliveryLat) ? Number(activeRider.deliveryLat) : null;
+  const riderLng = (activeRider && activeRider.deliveryLng) ? Number(activeRider.deliveryLng) : null;
+  const hasLiveCoords = riderLat !== null && riderLng !== null && !isNaN(riderLat) && !isNaN(riderLng) && riderLat !== 0 && riderLng !== 0;
+
+  // Pause simulation if live coordinates are active
   useEffect(() => {
+    if (hasLiveCoords) {
+      setSimulating(false);
+      return;
+    }
     if (!simulating) return;
     const interval = setInterval(() => {
       setPct((prev) => {
-        if (prev >= 95) return 10;
+        if (prev >= 95) { setSimulating(false); return 95; }
         return prev + 1.5;
       });
     }, 400);
     return () => clearInterval(interval);
-  }, [simulating]);
+  }, [simulating, hasLiveCoords]);
 
+  // Coordinates
+  const customerLat = order.deliveryLat ? Number(order.deliveryLat) : 30.7420;
+  const customerLng = order.deliveryLng ? Number(order.deliveryLng) : 76.7875;
+
+  const [restaurantLat, setRestaurantLat] = useState(customerLat - 0.007);
+  const [restaurantLng, setRestaurantLng] = useState(customerLng - 0.009);
+
+  // Client-side geocoding for restaurant address
   useEffect(() => {
-    if ((window as any).L) {
-      setMapLoaded(true);
+    if (!propertyAddress) return;
+
+    const geocodeRestaurant = async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(propertyAddress)}&limit=1`
+        );
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const lat = parseFloat(data[0].lat);
+          const lng = parseFloat(data[0].lon);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setRestaurantLat(lat);
+            setRestaurantLng(lng);
+          }
+        }
+      } catch (err) {
+        console.error('Restaurant address geocoding failed:', err);
+      }
+    };
+
+    geocodeRestaurant();
+  }, [propertyAddress]);
+
+  // Haversine formula for distance between rider and customer
+  const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in km
+  };
+
+  const dist = hasLiveCoords && riderLat !== null && riderLng !== null
+    ? getDistanceKm(riderLat, riderLng, customerLat, customerLng).toFixed(1)
+    : (1.8 * (1 - pct / 100)).toFixed(1);
+
+  // Minutes calculated assuming average speed of 25 km/h + 2 mins buffer, or at least 1 min
+  const mins = hasLiveCoords && riderLat !== null && riderLng !== null
+    ? Math.max(1, Math.ceil((Number(dist) / 25) * 60 + 2))
+    : Math.ceil(12 * (1 - pct / 100));
+
+  const hasArrived = hasLiveCoords ? (Number(dist) <= 0.05) : (pct >= 90);
+
+  // Dynamic Leaflet Loader from CDN
+  useEffect(() => {
+    if (window.hasOwnProperty('L')) {
+      setLeafletLoaded(true);
       return;
     }
 
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
 
-    if (!document.getElementById('leaflet-js')) {
-      const script = document.createElement('script');
-      script.id = 'leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setMapLoaded(true);
-      document.head.appendChild(script);
-    } else {
-      const checkInterval = setInterval(() => {
-        if ((window as any).L) {
-          setMapLoaded(true);
-          clearInterval(checkInterval);
-        }
-      }, 100);
-      return () => clearInterval(checkInterval);
-    }
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    script.onload = () => setLeafletLoaded(true);
+    document.body.appendChild(script);
   }, []);
 
+  // Initialize Map
   useEffect(() => {
-    if (!mapLoaded || !(window as any).L || !document.getElementById('leaflet-live-tracking-map')) return;
+    if (!leafletLoaded || !mapContainerRef.current || mapInstance) return;
 
     const L = (window as any).L;
 
-    // Beautiful coordinates near Chandigarh center
-    const restaurantCoords: [number, number] = [30.7333, 76.7794];
-    const customerCoords: [number, number] = [30.7420, 76.7875];
-
-    const map = L.map('leaflet-live-tracking-map', {
+    // Create Map Instance
+    const map = L.map(mapContainerRef.current, {
       zoomControl: false,
       attributionControl: false
-    }).setView(restaurantCoords, 14);
+    }).setView([customerLat, customerLng], 14);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // CartoDB Voyager tiles fit premium app designs perfectly
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 20
     }).addTo(map);
 
-    const restaurantIcon = L.divIcon({
-      className: 'custom-leaflet-icon',
-      html: `<div style="background-color: #ef4444; border: 2px solid white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.4);"><span style="font-size: 14px;">🏪</span></div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+    // DivIcon designs with premium glowing effects and standard labels
+    const restIcon = L.divIcon({
+      className: 'custom-leaflet-pin',
+      html: `
+        <div class="flex flex-col items-center" style="transform: translate(-18px, -40px); font-family: system-ui, -apple-system, sans-serif;">
+          <div class="w-9 h-9 rounded-full bg-rose-500 border-2 border-white flex items-center justify-center shadow-lg" style="box-shadow: 0 4px 12px rgba(244, 63, 94, 0.65);">
+            <span style="font-size: 16px;">🏪</span>
+          </div>
+          <div class="bg-slate-900/90 text-white text-[8px] font-black tracking-widest px-2 py-0.5 rounded shadow-sm mt-1 uppercase" style="white-space: nowrap; letter-spacing: 0.1em;">STORE</div>
+        </div>
+      `,
+      iconSize: [36, 50],
+      iconAnchor: [18, 50]
     });
 
-    const homeIcon = L.divIcon({
-      className: 'custom-leaflet-icon',
-      html: `<div style="background-color: #10b981; border: 2px solid white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.4);"><span style="font-size: 14px;">🏠</span></div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+    const custIcon = L.divIcon({
+      className: 'custom-leaflet-pin',
+      html: `
+        <div class="flex flex-col items-center" style="transform: translate(-18px, -40px); font-family: system-ui, -apple-system, sans-serif;">
+          <div class="w-9 h-9 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-lg" style="box-shadow: 0 4px 12px rgba(16, 185, 129, 0.65);">
+            <span style="font-size: 16px;">🏠</span>
+          </div>
+          <div class="bg-slate-900/90 text-white text-[8px] font-black tracking-widest px-2 py-0.5 rounded shadow-sm mt-1 uppercase" style="white-space: nowrap; letter-spacing: 0.1em;">HOME</div>
+        </div>
+      `,
+      iconSize: [36, 50],
+      iconAnchor: [18, 50]
     });
 
-    const riderIcon = L.divIcon({
-      className: 'custom-leaflet-icon-rider',
-      html: `<div style="position: relative;"><div style="position: absolute; inset: -4px; background-color: #6366f1; border-radius: 50%; opacity: 0.3; transform: scale(1.5);"></div><div style="background-color: #4f46e5; border: 2px solid #818cf8; border-radius: 12px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(79, 70, 229, 0.5);"><span style="font-size: 16px;">🛵</span></div></div>`,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17]
+    const rdIcon = L.divIcon({
+      className: 'custom-leaflet-pin-rider',
+      html: `
+        <div class="flex flex-col items-center animate-bounce" style="transform: translate(-20px, -46px); font-family: system-ui, -apple-system, sans-serif;">
+          <div class="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center shadow-lg relative" style="box-shadow: 0 4px 16px rgba(79, 70, 229, 0.85);">
+            <div class="absolute -inset-1.5 rounded-full bg-indigo-500/30 animate-ping"></div>
+            <span style="font-size: 18px;">🛵</span>
+          </div>
+          <div class="bg-indigo-600 text-white text-[8px] font-black tracking-widest px-2 py-0.5 rounded shadow-sm mt-1 uppercase" style="white-space: nowrap; letter-spacing: 0.1em;">RIDER</div>
+        </div>
+      `,
+      iconSize: [40, 56],
+      iconAnchor: [20, 56]
     });
 
-    L.marker(restaurantCoords, { icon: restaurantIcon }).addTo(map);
-    L.marker(customerCoords, { icon: homeIcon }).addTo(map);
+    // Add Restaurant and Customer markers
+    const restMarker = L.marker([restaurantLat, restaurantLng], { icon: restIcon }).addTo(map);
+    const custMarker = L.marker([customerLat, customerLng], { icon: custIcon }).addTo(map);
 
-    const riderMarker = L.marker(restaurantCoords, { icon: riderIcon }).addTo(map);
+    // Initial rider marker position
+    let rdMarker = null;
+    if (hasDriver) {
+      const initialRiderLat = hasLiveCoords && riderLat !== null ? riderLat : restaurantLat;
+      const initialRiderLng = hasLiveCoords && riderLng !== null ? riderLng : restaurantLng;
+      rdMarker = L.marker([initialRiderLat, initialRiderLng], { icon: rdIcon }).addTo(map);
+    }
 
-    L.polyline([restaurantCoords, customerCoords], {
-      color: '#6366f1',
-      weight: 3,
-      dashArray: '6, 6',
-      opacity: 0.8
-    }).addTo(map);
+    setMapInstance(map);
+    setMarkers({
+      restaurant: restMarker,
+      customer: custMarker,
+      rider: rdMarker
+    });
 
-    map.fitBounds([restaurantCoords, customerCoords], { padding: [30, 30] });
+    // Zoom to fit Restaurant and Customer home pins
+    const bounds = L.latLngBounds([
+      [restaurantLat, restaurantLng],
+      [customerLat, customerLng]
+    ]);
+    if (hasDriver) {
+      const initialRiderLat = hasLiveCoords && riderLat !== null ? riderLat : restaurantLat;
+      const initialRiderLng = hasLiveCoords && riderLng !== null ? riderLng : restaurantLng;
+      bounds.extend([initialRiderLat, initialRiderLng]);
+    }
+    map.fitBounds(bounds, { padding: [40, 40] });
 
-    // Interpolate rider coordinates based on current percentage
-    const currentPct = Math.min(100, Math.max(0, pct));
-    const interpCoords = [
-      restaurantCoords[0] + (customerCoords[0] - restaurantCoords[0]) * (currentPct / 100),
-      restaurantCoords[1] + (customerCoords[1] - restaurantCoords[1]) * (currentPct / 100)
-    ];
-    riderMarker.setLatLng(interpCoords as [number, number]);
+  }, [leafletLoaded, restaurantLat, restaurantLng]);
 
-    return () => {
-      map.remove();
-    };
-  }, [mapLoaded, pct]);
+  // Update rider position smoothly as coordinates or percentages shift
+  useEffect(() => {
+    if (!mapInstance || !markers) return;
 
-  const dist = (1.8 * (1 - pct / 100)).toFixed(1);
-  const mins = Math.ceil(12 * (1 - pct / 100));
+    const L = (window as any).L;
 
-  const activeRider = order.deliveryRider || order.driver;
-  const hasDriver = !!activeRider;
-  const driverName = activeRider?.fullName || activeRider?.name || "";
-  const driverPhone = activeRider?.phone || "";
-  const vehicleNumber = activeRider?.vehicleNumber || "";
-  const vehicleType = activeRider?.vehicleType || "BIKE";
+    let currentRiderLat = restaurantLat;
+    let currentRiderLng = restaurantLng;
+
+    if (hasLiveCoords && riderLat !== null && riderLng !== null) {
+      currentRiderLat = riderLat;
+      currentRiderLng = riderLng;
+    } else {
+      const t = pct / 100;
+      currentRiderLat = restaurantLat + (customerLat - restaurantLat) * t;
+      currentRiderLng = restaurantLng + (customerLng - restaurantLng) * t;
+    }
+
+    if (hasDriver) {
+      if (markers.rider) {
+        markers.rider.setLatLng([currentRiderLat, currentRiderLng]);
+      } else {
+        const rdIcon = L.divIcon({
+          className: 'custom-leaflet-pin-rider',
+          html: `
+            <div class="flex flex-col items-center animate-bounce" style="transform: translate(-20px, -46px); font-family: system-ui, -apple-system, sans-serif;">
+              <div class="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center shadow-lg relative" style="box-shadow: 0 4px 16px rgba(79, 70, 229, 0.85);">
+                <div class="absolute -inset-1.5 rounded-full bg-indigo-500/30 animate-ping"></div>
+                <span style="font-size: 18px;">🛵</span>
+              </div>
+              <div class="bg-indigo-600 text-white text-[8px] font-black tracking-widest px-2 py-0.5 rounded shadow-sm mt-1 uppercase" style="white-space: nowrap; letter-spacing: 0.1em;">RIDER</div>
+            </div>
+          `,
+          iconSize: [40, 56],
+          iconAnchor: [20, 56]
+        });
+        const newRiderMarker = L.marker([currentRiderLat, currentRiderLng], { icon: rdIcon }).addTo(mapInstance);
+        setMarkers(prev => prev ? { ...prev, rider: newRiderMarker } : null);
+      }
+    } else if (markers.rider) {
+      markers.rider.remove();
+      setMarkers(prev => prev ? { ...prev, rider: null } : null);
+    }
+
+    markers.restaurant.setLatLng([restaurantLat, restaurantLng]);
+    markers.customer.setLatLng([customerLat, customerLng]);
+
+    // Recenter/Fit Bounds smoothly to follow current path
+    const bounds = L.latLngBounds([
+      [restaurantLat, restaurantLng],
+      [customerLat, customerLng]
+    ]);
+    if (hasDriver) {
+      bounds.extend([currentRiderLat, currentRiderLng]);
+    }
+    mapInstance.fitBounds(bounds, { padding: [40, 40] });
+
+  }, [mapInstance, markers, riderLat, riderLng, pct, hasDriver, hasLiveCoords, customerLat, customerLng, restaurantLat, restaurantLng]);
+
+  // Recalculate dimensions on Full Page toggle transitions
+  useEffect(() => {
+    if (!mapInstance) return;
+    
+    setTimeout(() => {
+      mapInstance.invalidateSize({ animate: true });
+      
+      const L = (window as any).L;
+      let currentRiderLat = restaurantLat;
+      let currentRiderLng = restaurantLng;
+
+      if (hasLiveCoords && riderLat !== null && riderLng !== null) {
+        currentRiderLat = riderLat;
+        currentRiderLng = riderLng;
+      } else {
+        const t = pct / 100;
+        currentRiderLat = restaurantLat + (customerLat - restaurantLat) * t;
+        currentRiderLng = restaurantLng + (customerLng - restaurantLng) * t;
+      }
+
+      const bounds = L.latLngBounds([
+        [restaurantLat, restaurantLng],
+        [customerLat, customerLng]
+      ]);
+      if (hasDriver) {
+        bounds.extend([currentRiderLat, currentRiderLng]);
+      }
+      mapInstance.fitBounds(bounds, { padding: [60, 60] });
+    }, 200);
+  }, [isExpanded, mapInstance, restaurantLat, restaurantLng]);
+
+  const recenterMap = () => {
+    if (!mapInstance) return;
+    const L = (window as any).L;
+    let currentRiderLat = restaurantLat;
+    let currentRiderLng = restaurantLng;
+
+    if (hasLiveCoords && riderLat !== null && riderLng !== null) {
+      currentRiderLat = riderLat;
+      currentRiderLng = riderLng;
+    } else {
+      const t = pct / 100;
+      currentRiderLat = restaurantLat + (customerLat - restaurantLat) * t;
+      currentRiderLng = restaurantLng + (customerLng - restaurantLng) * t;
+    }
+
+    const bounds = L.latLngBounds([
+      [restaurantLat, restaurantLng],
+      [customerLat, customerLng]
+    ]);
+    if (hasDriver) {
+      bounds.extend([currentRiderLat, currentRiderLng]);
+    }
+    mapInstance.fitBounds(bounds, { padding: [50, 50] });
+  };
+
+  const renderMapBlock = () => (
+    <div 
+      className={`transition-all duration-300 ${
+        isExpanded 
+          ? 'fixed inset-0 z-[120] bg-slate-950 flex flex-col w-screen h-screen' 
+          : 'relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-md w-full h-[210px]'
+      }`}
+    >
+      {/* Dynamic Leaflet Map Area */}
+      <div ref={mapContainerRef} className="w-full h-full z-10" />
+
+      {/* Loading Overlay */}
+      {!leafletLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-900 z-20">
+          <div className="w-8 h-8 border-4 border-pos-accent/25 rounded-full animate-spin border-t-pos-accent" />
+        </div>
+      )}
+
+      {/* Floating Header (Only in Full-Screen mode) */}
+      {isExpanded && (
+        <div className="absolute top-4 left-4 right-4 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-5 py-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-2xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors shadow-sm"
+            >
+              <ArrowLeft size={18} className="text-slate-700 dark:text-slate-350" />
+            </button>
+            <div>
+              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none block mb-0.5">Live Delivery GPS</span>
+              <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-tight">Order {order.orderNo}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={recenterMap}
+              className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95"
+            >
+              Recenter
+            </button>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors shadow-sm"
+              title="Exit Fullscreen"
+            >
+              <Minimize2 size={18} className="text-slate-700 dark:text-slate-350" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Icons (Inline Map Corner Control) */}
+      {!isExpanded && leafletLoaded && (
+        <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            className="w-9 h-9 bg-white/90 hover:bg-white text-slate-700 dark:bg-slate-900/90 dark:text-white rounded-xl flex items-center justify-center transition-all shadow-md border border-slate-100 dark:border-slate-800 active:scale-90"
+            title="Full Page Map"
+          >
+            <Maximize2 size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={recenterMap}
+            className="w-9 h-9 bg-white/90 hover:bg-white text-slate-700 dark:bg-slate-900/90 dark:text-white rounded-xl flex items-center justify-center transition-all shadow-md border border-slate-100 dark:border-slate-800 active:scale-90"
+            title="Recenter"
+          >
+            <Navigation size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Bottom Floating Stats Panel */}
+      <div 
+        className={`absolute left-3 right-3 bg-slate-900/90 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 flex items-center justify-between z-20 transition-all ${
+          isExpanded ? 'bottom-20 shadow-2xl' : 'bottom-3 shadow-md'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          {hasLiveCoords ? (
+            <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+              <span className="text-[8.5px] font-black text-emerald-400 uppercase tracking-widest leading-none">
+                LIVE GPS ACTIVE
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Navigation size={12} className="text-indigo-400 animate-spin" />
+              <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                {hasArrived ? '🎉 Arrived!' : hasDriver ? 'Out for Delivery' : 'Awaiting Assignment'}
+              </span>
+            </div>
+          )}
+        </div>
+        {hasDriver && (
+          <div className="flex items-center gap-3 text-[10.5px] font-mono font-bold text-slate-350">
+            <span>{dist} km</span>
+            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+            <span className="text-indigo-300 font-black">{hasArrived ? 'ARRIVED' : `${mins} MIN`}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded Mode Floating Bottom Driver Details HUD */}
+      {isExpanded && hasDriver && (
+        <div className="absolute bottom-4 left-4 right-4 z-20 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-4 shadow-2xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-sm uppercase">
+                {driverName.slice(0, 2)}
+              </div>
+              <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+              </span>
+            </div>
+            <div>
+              <span className="text-[8.5px] font-black text-indigo-500 uppercase tracking-widest block leading-none mb-0.5">Your Delivery Executive</span>
+              <h4 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-tight">{driverName}</h4>
+              <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
+                <span>{vehicleNumber}</span>
+                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                <span>{vehicleType}</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCallScreen(true)}
+              className="w-11 h-11 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-xl flex items-center justify-center transition-all shadow-sm active:scale-95"
+            >
+              <Phone size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   if (!hasDriver) {
     return (
-      <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 overflow-hidden relative">
-        <div className="relative h-44 w-full bg-slate-950 dark:bg-black rounded-2xl overflow-hidden border border-slate-800/80 shadow-md flex flex-col items-center justify-center text-center p-4">
-          <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff11 1px, transparent 1px), linear-gradient(to bottom, #ffffff11 1px, transparent 1px)',
-            backgroundSize: '20px 20px',
-          }} />
-          <div className="relative w-14 h-14 flex items-center justify-center mb-2 z-10">
-            <div className="absolute inset-0 rounded-full bg-indigo-500/10 animate-ping border border-indigo-500/20" />
-            <div className="absolute inset-2 rounded-full bg-indigo-500/25 border border-indigo-500/30 animate-pulse" />
-            <div className="w-9 h-9 rounded-full bg-indigo-650 flex items-center justify-center text-indigo-100 shadow-lg shadow-indigo-500/30">
-              <ChefHat size={18} className="animate-bounce" />
-            </div>
-          </div>
-          <div className="space-y-1 z-10">
-            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Order Preparing</p>
-            <h4 className="text-xs font-black text-slate-100 uppercase tracking-tight">Waiting for Delivery Partner</h4>
-            <p className="text-[9px] font-bold text-slate-400 max-w-[240px] mx-auto leading-relaxed mt-0.5">
-              Our kitchen is preparing your delicious meal. A delivery rider will be assigned shortly once your order is ready for dispatch!
-            </p>
-          </div>
-        </div>
+      <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 relative">
+        {renderMapBlock()}
         <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
@@ -203,32 +529,8 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
   }
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 overflow-hidden relative">
-      <div className="relative h-44 w-full bg-slate-950 dark:bg-black rounded-2xl overflow-hidden border border-slate-800/80 shadow-md">
-        <div id="leaflet-live-tracking-map" className="w-full h-full z-0" />
-        {!mapLoaded && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
-            <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center border border-indigo-500/20 mb-2 relative">
-              <div className="absolute -inset-2 bg-indigo-500/5 rounded-full animate-ping" />
-              <Navigation size={20} className="text-indigo-400 animate-pulse" />
-            </div>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none">Connecting live tracker...</p>
-          </div>
-        )}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800/80 flex items-center justify-between z-30">
-          <div className="flex items-center gap-2">
-            <Navigation size={12} className="text-indigo-400 animate-spin" />
-            <span className="text-[10px] font-black text-slate-200 uppercase tracking-wider">
-              {pct >= 90 ? "Arrived!" : "Out for Delivery"}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-[10px] font-mono font-bold text-slate-400">
-            <span>{dist} km away</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-            <span className="text-indigo-300 font-extrabold">{mins} mins left</span>
-          </div>
-        </div>
-      </div>
+    <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-inner space-y-5 relative">
+      {renderMapBlock()}
 
       <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
@@ -266,9 +568,9 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
                 ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
             }`}
-            title={simulating ? "Pause Simulation" : "Resume Simulation"}
+            title={simulating ? 'Pause' : 'Resume'}
           >
-            <Navigation size={16} className={simulating ? "animate-pulse" : ""} />
+            <Navigation size={16} className={simulating ? 'animate-pulse' : ''} />
           </button>
         </div>
       </div>
@@ -280,7 +582,7 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute inset-0 bg-slate-900/95 backdrop-blur-md rounded-[2rem] z-30 p-6 flex flex-col justify-between text-white animate-in fade-in duration-200"
+            className="absolute inset-0 bg-slate-900/95 backdrop-blur-md rounded-[2rem] z-30 p-6 flex flex-col justify-between text-white"
           >
             <div className="text-center pt-8 space-y-2">
               <div className="w-20 h-20 rounded-full bg-white/10 mx-auto flex items-center justify-center text-emerald-400 border border-white/20 animate-pulse">
@@ -290,7 +592,6 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
               <h3 className="text-xl font-black uppercase tracking-tight">{driverName}</h3>
               <p className="text-xs text-slate-400 font-bold">{driverPhone}</p>
             </div>
-
             <div className="text-center pb-8 space-y-4">
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Simulating Call Connection</p>
               <button
@@ -302,29 +603,38 @@ const DeliveryTrackingCard: React.FC<{ order: any }> = ({ order }) => {
             </div>
           </motion.div>
         )}
-      {/* 🔑 Customer Delivery OTP Security Card */}
-      {order.status !== 'SETTLED' && (
-        <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center space-y-2.5 shadow-sm mt-4">
-          <div className="flex items-center justify-center gap-1.5 text-indigo-500 dark:text-indigo-400">
-            <Smartphone size={16} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Delivery OTP Verification</span>
+        {/* 🔑 Customer Delivery OTP Security Card */}
+        {order.status !== 'SETTLED' && (
+          <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center space-y-2.5 shadow-sm mt-4">
+            <div className="flex items-center justify-center gap-1.5 text-indigo-500 dark:text-indigo-400">
+              <Smartphone size={16} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Delivery OTP Verification</span>
+            </div>
+            <div>
+              <span className="text-2xl font-black text-slate-800 dark:text-white tracking-widest bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-5 py-1.5 rounded-2xl shadow-sm font-mono inline-block">
+                {getDeliveryOtp(order.id)}
+              </span>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider max-w-[260px] mx-auto leading-relaxed">
+              Please share this 4-digit security code with the rider when they arrive to complete your delivery safely.
+            </p>
           </div>
-          <div>
-            <span className="text-2xl font-black text-slate-800 dark:text-white tracking-widest bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-5 py-1.5 rounded-2xl shadow-sm font-mono inline-block">
-              {getDeliveryOtp(order.id)}
-            </span>
-          </div>
-          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider max-w-[260px] mx-auto leading-relaxed">
-            Please share this 4-digit security code with the rider when they arrive to complete your delivery safely.
-          </p>
-        </div>
-      )}
+        )}
       </AnimatePresence>
     </div>
   );
 };
 
-export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, upiId, upiName, setActiveTab, onPaymentSuccess }) => {
+
+
+
+
+
+
+
+
+
+export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, propertyAddress, upiId, upiName, setActiveTab, onPaymentSuccess }) => {
   const { showToast } = useToast();
   const prevStatusesRef = useRef<Record<string, string>>({});
   const audioAcceptedRef = useRef<HTMLAudioElement | null>(null);
@@ -542,7 +852,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
             let iconColor = "text-orange-500";
             let description = "Order placed";
 
-            if (order.orderType === 'DELIVERY') {
+             if (order.orderType === 'DELIVERY') {
               if (order.status === 'SETTLED') {
                 icon = <CheckCircle size={20} />;
                 iconBg = "bg-emerald-500/10";
@@ -558,6 +868,11 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                 iconBg = "bg-emerald-500/10";
                 iconColor = "text-emerald-500";
                 description = "Accepted & Food is Ready! Awaiting Rider";
+              } else if (order.status === 'ACCEPTED') {
+                icon = <ChefHat size={20} />;
+                iconBg = "bg-indigo-500/10";
+                iconColor = "text-indigo-500";
+                description = "Order Accepted by Kitchen";
               } else if (isCooking) {
                 icon = <ChefHat size={20} />;
                 iconBg = "bg-blue-500/10";
@@ -580,6 +895,11 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                 iconBg = "bg-emerald-500/10";
                 iconColor = "text-emerald-500";
                 description = "Order Ready to Serve!";
+              } else if (order.status === 'ACCEPTED') {
+                icon = <ChefHat size={20} />;
+                iconBg = "bg-blue-500/10";
+                iconColor = "text-blue-500";
+                description = "Order Accepted";
               } else if (isCooking) {
                 icon = <ChefHat size={20} />;
                 iconBg = "bg-blue-500/10";
@@ -609,7 +929,7 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
           })()}
 
           {order.orderType === 'DELIVERY' && (
-            <DeliveryTrackingCard order={order} />
+            <DeliveryTrackingCard order={order} propertyAddress={propertyAddress} />
           )}
 
           <div className="space-y-4">
@@ -683,20 +1003,31 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                     >
                       <Smartphone size={16} /> Pay Online
                     </button>
-                    <button 
-                      onClick={() => { setPayingOrder(order); setPayMode('counter'); }}
-                      className="h-14 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                    >
-                      <Store size={16} /> Pay at Counter
-                    </button>
+                    {order.orderType === 'DELIVERY' ? (
+                      <button 
+                        onClick={() => { setPayingOrder(order); setPayMode('counter'); }}
+                        className="h-14 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                      >
+                        <Wallet size={16} /> Cash on Delivery
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => { setPayingOrder(order); setPayMode('counter'); }}
+                        className="h-14 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                      >
+                        <Store size={16} /> Pay at Counter
+                      </button>
+                    )}
                   </div>
                   
-                  <button 
-                    onClick={() => handleBillRequest(order)}
-                    className="w-full h-12 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <QrCode size={14} /> Request Bill
-                  </button>
+                  {order.orderType !== 'DELIVERY' && (
+                    <button 
+                      onClick={() => handleBillRequest(order)}
+                      className="w-full h-12 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    >
+                      <QrCode size={14} /> Request Bill
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -854,18 +1185,37 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
               {/* ── COUNTER REQUESTED ── */}
               {paymentStatus === 'counter_requested' && (
                 <div className="py-10 text-center space-y-5">
-                  <div className="w-20 h-20 bg-orange-50 dark:bg-orange-950/30 text-orange-500 rounded-3xl flex items-center justify-center mx-auto shadow-xl animate-bounce">
-                    <Store size={40} />
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-xl font-bold text-slate-900 dark:text-white">Please Visit the Counter</h4>
-                    <p className="text-sm text-slate-500 max-w-xs mx-auto">Your order <span className="font-black text-slate-700 dark:text-white">{payingOrder.orderNo}</span> is noted. Please pay at the billing counter.</p>
-                  </div>
-                  <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-2xl p-4 mx-2 space-y-2">
-                    <p className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">Amount Due</p>
-                    <p className="text-3xl font-black text-slate-900 dark:text-white">₹{payingOrder.grandTotal?.toFixed(2)}</p>
-                    <p className="text-[9px] text-slate-400 font-bold">Show this screen to the cashier</p>
-                  </div>
+                  {payingOrder.orderType === 'DELIVERY' ? (
+                    <>
+                      <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto shadow-xl animate-bounce">
+                        <Truck size={40} />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xl font-bold text-slate-900 dark:text-white">Cash on Delivery</h4>
+                        <p className="text-sm text-slate-500 max-w-xs mx-auto">Your order <span className="font-black text-slate-700 dark:text-white">{payingOrder.orderNo}</span> is set for Cash payment.</p>
+                      </div>
+                      <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 mx-2 space-y-2">
+                        <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Amount to Pay Rider</p>
+                        <p className="text-3xl font-black text-slate-900 dark:text-white">₹{payingOrder.grandTotal?.toFixed(2)}</p>
+                        <p className="text-[9px] text-slate-400 font-bold">Please pay this cash to our delivery rider when they reach your doorstep.</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-20 h-20 bg-orange-50 dark:bg-orange-950/30 text-orange-500 rounded-3xl flex items-center justify-center mx-auto shadow-xl animate-bounce">
+                        <Store size={40} />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xl font-bold text-slate-900 dark:text-white">Please Visit the Counter</h4>
+                        <p className="text-sm text-slate-500 max-w-xs mx-auto">Your order <span className="font-black text-slate-700 dark:text-white">{payingOrder.orderNo}</span> is noted. Please pay at the billing counter.</p>
+                      </div>
+                      <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-2xl p-4 mx-2 space-y-2">
+                        <p className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">Amount Due</p>
+                        <p className="text-3xl font-black text-slate-900 dark:text-white">₹{payingOrder.grandTotal?.toFixed(2)}</p>
+                        <p className="text-[9px] text-slate-400 font-bold">Show this screen to the cashier</p>
+                      </div>
+                    </>
+                  )}
                   <button onClick={resetPayModal} className="w-full h-12 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-bold text-xs uppercase tracking-widest">Close</button>
                 </div>
               )}
@@ -894,20 +1244,36 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
                     <ChevronRight size={20} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
                   </button>
 
-                  {/* Counter Option */}
-                  <button
-                    onClick={() => setPayMode('counter')}
-                    className="w-full flex items-center gap-5 p-5 bg-orange-50 dark:bg-orange-950/20 border-2 border-orange-100 dark:border-orange-900/30 hover:border-orange-400 rounded-3xl transition-all active:scale-[0.98] group"
-                  >
-                    <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-200 dark:shadow-none group-hover:scale-110 transition-transform">
-                      <Store size={26} className="text-white" />
-                    </div>
-                    <div className="text-left flex-1">
-                      <p className="font-black text-slate-900 dark:text-white uppercase tracking-wide text-sm">Pay at Counter</p>
-                      <p className="text-[10px] text-orange-500 font-bold mt-0.5">Cash • Card • Any Method</p>
-                    </div>
-                    <ChevronRight size={20} className="text-slate-300 group-hover:text-orange-500 transition-colors" />
-                  </button>
+                  {/* Counter / Cash on Delivery Option */}
+                  {payingOrder.orderType === 'DELIVERY' ? (
+                    <button
+                      onClick={() => setPayMode('counter')}
+                      className="w-full flex items-center gap-5 p-5 bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-400 rounded-3xl transition-all active:scale-[0.98] group"
+                    >
+                      <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200 dark:shadow-none group-hover:scale-110 transition-transform">
+                        <Wallet size={26} className="text-white" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="font-black text-slate-900 dark:text-white uppercase tracking-wide text-sm">Cash on Delivery</p>
+                        <p className="text-[10px] text-emerald-500 font-bold mt-0.5">Pay Rider in Cash at Doorstep</p>
+                      </div>
+                      <ChevronRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setPayMode('counter')}
+                      className="w-full flex items-center gap-5 p-5 bg-orange-50 dark:bg-orange-950/20 border-2 border-orange-100 dark:border-orange-900/30 hover:border-orange-400 rounded-3xl transition-all active:scale-[0.98] group"
+                    >
+                      <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-200 dark:shadow-none group-hover:scale-110 transition-transform">
+                        <Store size={26} className="text-white" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="font-black text-slate-900 dark:text-white uppercase tracking-wide text-sm">Pay at Counter</p>
+                        <p className="text-[10px] text-orange-500 font-bold mt-0.5">Cash • Card • Any Method</p>
+                      </div>
+                      <ChevronRight size={20} className="text-slate-300 group-hover:text-orange-500 transition-colors" />
+                    </button>
+                  )}
 
                   <button onClick={resetPayModal} className="w-full h-11 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl font-bold text-xs uppercase tracking-widest">Cancel</button>
                 </div>
@@ -993,29 +1359,49 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
               {/* ── COUNTER FLOW ── */}
               {paymentStatus === 'idle' && payMode === 'counter' && (
                 <div className="space-y-5 pb-4">
-                  <div className="bg-orange-50 dark:bg-orange-950/20 rounded-3xl p-6 text-center space-y-4 border border-orange-100 dark:border-orange-900/30">
-                    <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-orange-200 dark:shadow-none">
-                      <Store size={32} className="text-white" />
+                  {payingOrder.orderType === 'DELIVERY' ? (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-3xl p-6 text-center space-y-4 border border-emerald-100 dark:border-emerald-900/30">
+                      <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-200 dark:shadow-none">
+                        <Wallet size={32} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-black text-slate-900 dark:text-white">₹{payingOrder.grandTotal?.toFixed(2)}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1">Order {payingOrder.orderNo}</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 space-y-1">
+                        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">What happens next?</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                          Tap "Confirm Cash on Delivery" — our delivery rider will collect cash when they reach your doorstep.
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">₹{payingOrder.grandTotal?.toFixed(2)}</p>
-                      <p className="text-[10px] text-slate-400 font-bold mt-1">Order {payingOrder.orderNo}</p>
+                  ) : (
+                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-3xl p-6 text-center space-y-4 border border-orange-100 dark:border-orange-900/30">
+                      <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-orange-200 dark:shadow-none">
+                        <Store size={32} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-black text-slate-900 dark:text-white">₹{payingOrder.grandTotal?.toFixed(2)}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1">Order {payingOrder.orderNo}</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 space-y-1">
+                        <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">What happens next?</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                          Tap "Request Counter Payment" — our staff will be notified and you can proceed to the billing counter to pay via Cash, Card or any method.
+                        </p>
+                      </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 space-y-1">
-                      <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">What happens next?</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                        Tap "Request Counter Payment" — our staff will be notified and you can proceed to the billing counter to pay via Cash, Card or any method.
-                      </p>
-                    </div>
-                  </div>
+                  )}
 
                   <button
                     onClick={() => handleCounterRequest(payingOrder.id)}
                     disabled={isSubmitting}
-                    className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-orange-200 dark:shadow-none flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50"
+                    className={`w-full h-14 ${payingOrder.orderType === 'DELIVERY' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-250 text-white' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-200 text-white'} rounded-2xl font-black text-sm shadow-xl dark:shadow-none flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50`}
                   >
-                    <Store size={18} />
-                    {isSubmitting ? 'Notifying Staff...' : 'Request Counter Payment'}
+                    {payingOrder.orderType === 'DELIVERY' ? <Truck size={18} /> : <Store size={18} />}
+                    {isSubmitting 
+                      ? 'Notifying...' 
+                      : (payingOrder.orderType === 'DELIVERY' ? 'Confirm Cash on Delivery' : 'Request Counter Payment')}
                   </button>
                   <button onClick={() => setPayMode('select')} className="w-full h-12 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl font-bold text-xs uppercase tracking-widest">← Go Back</button>
                 </div>

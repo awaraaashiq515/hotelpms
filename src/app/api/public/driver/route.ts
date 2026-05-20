@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         where: {
           deliveryRiderId: driverId,
           status: {
-            in: ['IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL']
+            in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL']
           }
         },
         include: {
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
             deliveryRiderId: null,
             propertyId: driverUser.propertyId,
             status: {
-              in: ['IN_KITCHEN', 'READY', 'KOT_RUNNING']
+              in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL']
             }
           },
           include: {
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
             orderType: 'DELIVERY',
             deliveryRiderId: null,
             status: {
-              in: ['IN_KITCHEN', 'READY', 'KOT_RUNNING']
+              in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL']
             }
           },
           include: {
@@ -161,6 +161,23 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action } = body;
+
+    if (action === 'update-location') {
+      const { driverId, lat, lng } = body;
+      if (!driverId || lat === undefined || lng === undefined) {
+        return apiError(new Error('driverId, lat, and lng are required'), 400);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: driverId },
+        data: {
+          deliveryLat: parseFloat(lat),
+          deliveryLng: parseFloat(lng)
+        }
+      });
+
+      return apiResponse(updatedUser, 'Driver location updated successfully');
+    }
 
     if (action === 'claim') {
       const { orderId, driverId } = body;

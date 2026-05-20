@@ -52,7 +52,12 @@ export default function PublicMenuPage() {
     phone: string; 
     orderType?: 'DINE_IN' | 'DELIVERY' | 'PICKUP';
     deliveryAddress?: string;
+    houseNo?: string;
+    area?: string;
+    landmark?: string;
     deliveryInstructions?: string;
+    deliveryLat?: number;
+    deliveryLng?: number;
   } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({ 
@@ -60,7 +65,12 @@ export default function PublicMenuPage() {
     phone: '', 
     orderType: 'DINE_IN' as 'DINE_IN' | 'DELIVERY' | 'PICKUP',
     deliveryAddress: '',
-    deliveryInstructions: ''
+    houseNo: '',
+    area: '',
+    landmark: '',
+    deliveryInstructions: '',
+    deliveryLat: undefined as number | undefined,
+    deliveryLng: undefined as number | undefined
   });
   
   const [activeTab, setActiveTab] = useState<'menu' | 'bar' | 'orders' | 'profile'>('menu');
@@ -248,7 +258,12 @@ export default function PublicMenuPage() {
       phone: onboardingForm.phone,
       orderType: onboardingForm.orderType,
       deliveryAddress: onboardingForm.deliveryAddress,
-      deliveryInstructions: onboardingForm.deliveryInstructions
+      houseNo: onboardingForm.houseNo,
+      area: onboardingForm.area,
+      landmark: onboardingForm.landmark,
+      deliveryInstructions: onboardingForm.deliveryInstructions,
+      deliveryLat: onboardingForm.deliveryLat,
+      deliveryLng: onboardingForm.deliveryLng
     };
     setGuestInfo(info);
     sessionStorage.setItem('guest_info', JSON.stringify(info));
@@ -263,7 +278,12 @@ export default function PublicMenuPage() {
       phone: '', 
       orderType: 'DINE_IN',
       deliveryAddress: '',
-      deliveryInstructions: ''
+      houseNo: '',
+      area: '',
+      landmark: '',
+      deliveryInstructions: '',
+      deliveryLat: undefined,
+      deliveryLng: undefined
     });
     setShowOnboarding(true);
     setCart([]);
@@ -307,8 +327,10 @@ export default function PublicMenuPage() {
           orderType: guestInfo?.orderType || 'DINE_IN',
           deliveryCustomerName: guestInfo?.name,
           deliveryPhone: guestInfo?.phone,
-          deliveryAddress: guestInfo?.deliveryAddress,
+          deliveryAddress: [guestInfo?.houseNo, guestInfo?.area, guestInfo?.landmark, guestInfo?.deliveryAddress].filter(Boolean).join(', '),
           deliveryInstructions: guestInfo?.deliveryInstructions,
+          deliveryLat: guestInfo?.deliveryLat,
+          deliveryLng: guestInfo?.deliveryLng,
         })
       });
       const json = await res.json();
@@ -418,6 +440,7 @@ export default function PublicMenuPage() {
           orders={data.activeOrders} 
           tableName={data.table.name} 
           propertyId={data.property.id}
+          propertyAddress={data.property.address || ''}
           upiId={data.property.upiId || ''}
           upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab} 

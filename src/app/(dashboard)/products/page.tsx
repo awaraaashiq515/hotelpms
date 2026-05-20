@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers } from 'lucide-react';
+import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers, Download } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
 import { DataTable } from '@/components/shared/data-table';
@@ -15,6 +15,8 @@ import { ComboForm } from '@/components/forms/combo-form';
 import { combosApi, Combo } from '@/lib/api/combos';
 import { ConfirmDeleteModal } from '@/components/modals/confirm-delete-modal';
 import { ProductIcon } from '@/components/shared/product-icon';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -178,6 +180,35 @@ export default function ProductsPage() {
   const filteredCombos = (combos || []).filter((c: Combo) => {
     return c.name.toLowerCase().includes(search.toLowerCase());
   });
+
+  const handleExportPdf = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text('Products List', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 22);
+
+    const tableData = filteredProducts.map((p) => [
+      p.sku || '---',
+      p.name,
+      p.category?.name || 'Uncategorized',
+      `Rs. ${p.sellingPrice.toFixed(2)}`,
+      p.menuType || 'RESTAURANT',
+      p.isActive !== false ? 'Active' : 'Inactive',
+    ]);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['SKU', 'Name', 'Category', 'Price', 'Type', 'Status']],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
+    });
+
+    doc.save('products-list.pdf');
+  };
 
 
   const columns = [
@@ -414,11 +445,11 @@ export default function ProductsPage() {
       if (data.success) {
         setScannedData(data.data);
       } else {
-        alert(data.error || 'Failed to scan menu');
+        alert(data.message || data.error || 'Failed to scan menu');
       }
     } catch (error) {
       console.error('Scan failed:', error);
-      alert('An error occurred during scanning');
+      alert('Network error. Please check your connection and try again.');
     } finally {
       setScanning(false);
     }
@@ -468,6 +499,14 @@ export default function ProductsPage() {
               className="font-black text-[9px] tracking-widest px-3 py-2 rounded-lg border border-gray-200"
             >
               MINT AI SCAN
+            </Button>
+            <Button
+              onClick={handleExportPdf}
+              variant="secondary"
+              className="font-black text-[9px] tracking-widest px-3 py-2 rounded-lg border border-gray-200"
+            >
+              <Download size={14} className="mr-1.5" />
+              EXPORT PDF
             </Button>
             <Button
               onClick={() => setIsBulkTaxOpen(true)}
@@ -703,19 +742,19 @@ export default function ProductsPage() {
 
             {!scannedData ? (
               <form onSubmit={handleAiScan} className="space-y-4">
-                <p className="text-sm text-gray-500">Upload an image of your menu card to automatically extract and create products & categories.</p>
+                <p className="text-sm text-gray-500">Upload an image or PDF of your menu card to automatically extract and create products & categories.</p>
                 <div className="border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-xl p-8 text-center cursor-pointer hover:border-pos-primary transition-colors">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf,.pdf"
                     className="hidden"
                     id="menuImage"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                   />
                   <label htmlFor="menuImage" className="cursor-pointer flex flex-col items-center">
                     <Package size={32} className="text-gray-400 mb-2" />
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{file ? file.name : 'Select Image Click to Browse'}</span>
-                    <span className="text-xs text-gray-400 mt-1">Supports JPEG, PNG</span>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{file ? file.name : 'Select Image/PDF Click to Browse'}</span>
+                    <span className="text-xs text-gray-400 mt-1">Supports JPEG, PNG, PDF</span>
                   </label>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

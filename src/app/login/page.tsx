@@ -589,6 +589,20 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Sign Up Link */}
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500 font-medium">
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => router.push('/signup')}
+                className="text-red-700 font-bold hover:underline cursor-pointer"
+              >
+                Create one now
+              </button>
+            </p>
+          </div>
+
           {/* Divider */}
           <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-center gap-2">
             <div className="w-5 h-5 bg-red-50 rounded-lg flex items-center justify-center">

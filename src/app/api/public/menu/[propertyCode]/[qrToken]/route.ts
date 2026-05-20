@@ -118,7 +118,7 @@ export async function GET(
                 orderType: { in: ['DELIVERY', 'TAKEAWAY'] }
               }
             ],
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL', 'SETTLED'] },
             createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
           },
           include: {
@@ -144,7 +144,7 @@ export async function GET(
         where: {
           restaurantTableId: table.id,
           orderType: 'DINE_IN',
-          status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
+          status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
           createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
         },
         include: {

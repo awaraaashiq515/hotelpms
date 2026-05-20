@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
       deliveryCustomerName,
       deliveryPhone,
       deliveryAddress,
-      deliveryInstructions 
+      deliveryInstructions,
+      deliveryLat,
+      deliveryLng
     } = body;
 
     const orderTypeParam = orderType === 'PICKUP' ? 'TAKEAWAY' : (orderType || 'DINE_IN');
@@ -92,6 +94,8 @@ export async function POST(request: NextRequest) {
             deliveryPhone: deliveryPhone || guestPhone || null,
             deliveryAddress: deliveryAddress || null,
             deliveryInstructions: deliveryInstructions || null,
+            deliveryLat: deliveryLat ? parseFloat(deliveryLat) : null,
+            deliveryLng: deliveryLng ? parseFloat(deliveryLng) : null,
           },
           include: { items: true }
         });

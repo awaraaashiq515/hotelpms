@@ -356,6 +356,7 @@ export default function ParkingMenuPage() {
           orders={data.activeOrders || []} 
           tableName={data.slot.name} 
           propertyId={data.property.id}
+          propertyAddress={data.property.address || ''}
           upiId={data.property.upiId || ''}
           upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab as any} 

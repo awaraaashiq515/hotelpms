@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Phone, UtensilsCrossed, MapPin, MessageSquare, Truck, Store, Coffee } from 'lucide-react';
+import { MapPicker } from './MapPicker';
 
 interface OnboardingProps {
   show: boolean;
@@ -9,6 +10,9 @@ interface OnboardingProps {
     phone: string; 
     orderType: 'DINE_IN' | 'DELIVERY' | 'PICKUP';
     deliveryAddress?: string;
+    houseNo?: string;
+    area?: string;
+    landmark?: string;
     deliveryInstructions?: string;
   };
   setForm: (form: any) => void;
@@ -103,14 +107,52 @@ export const Onboarding: React.FC<OnboardingProps> = ({ show, form, setForm, onS
                   animate={{ opacity: 1, height: 'auto' }}
                   className="space-y-4 overflow-hidden pt-1"
                 >
+                  {/* Google Map Picker */}
+                  <MapPicker
+                    initialAddress={form.deliveryAddress}
+                    onAddressSelect={(address, lat, lng) => {
+                      setForm((prev: any) => ({
+                        ...prev,
+                        deliveryAddress: address,
+                        deliveryLat: lat,
+                        deliveryLng: lng
+                      }));
+                    }}
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        required
+                        type="text"
+                        placeholder="House / Flat No."
+                        value={form.houseNo || ''}
+                        onChange={(e) => setForm((prev: any) => ({ ...prev, houseNo: e.target.value }))}
+                        className="w-full h-14 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-11 pr-4 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-pos-accent transition-all"
+                      />
+                    </div>
+                    <div className="relative">
+                      <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        required
+                        type="text"
+                        placeholder="Sector / Lane"
+                        value={form.area || ''}
+                        onChange={(e) => setForm((prev: any) => ({ ...prev, area: e.target.value }))}
+                        className="w-full h-14 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-11 pr-4 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-pos-accent transition-all"
+                      />
+                    </div>
+                  </div>
+
                   <div className="relative">
-                    <MapPin size={18} className="absolute left-5 top-5 text-slate-400" />
-                    <textarea 
-                      required
-                      placeholder="Full Delivery Address (House No, Street, Landmark)"
-                      value={form.deliveryAddress || ''}
-                      onChange={(e) => setForm((prev: any) => ({ ...prev, deliveryAddress: e.target.value }))}
-                      className="w-full min-h-[90px] pt-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-14 pr-6 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-pos-accent dark:focus:border-pos-accent/50 focus:bg-white dark:focus:bg-slate-800 transition-all resize-none"
+                    <MapPin size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text"
+                      placeholder="Landmark (Optional)"
+                      value={form.landmark || ''}
+                      onChange={(e) => setForm((prev: any) => ({ ...prev, landmark: e.target.value }))}
+                      className="w-full h-14 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-14 pr-6 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-pos-accent transition-all"
                     />
                   </div>
                   

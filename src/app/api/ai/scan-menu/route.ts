@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
+import { withGeminiRetry, getGeminiErrorMessage } from '@/lib/gemini-retry';
 import { getSession } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     const includeHsn = formData.get('includeHsn') === 'true';
 
     if (!file) {
-      return apiError(new Error('No image file uploaded'), 400);
+      return apiError(new Error('No image or PDF file uploaded'), 400);
     }
 
     // Convert File to ArrayBuffer then to Base64 Part for Gemini
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     const model = ai.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
     const prompt = `
-      Analyze this menu image and extract all food/beverage items.
+      Analyze this menu image or PDF and extract all food/beverage items.
       Group items into logical categories. If the menu does NOT have visible categories, **intelligently categorize** them based on their names (e.g., 'Starters', 'Main Course', 'Beverages', 'Desserts').
 
       For each item, provide the following fields:
@@ -84,15 +85,17 @@ export async function POST(request: NextRequest) {
       3. Result must be ONLY the JSON object.
     `;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Image,
-          mimeType: file.type
+    const result = await withGeminiRetry(() =>
+      model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: base64Image,
+            mimeType: file.type
+          }
         }
-      }
-    ]);
+      ])
+    );
 
     const text = result.response.text();
     
@@ -102,8 +105,9 @@ export async function POST(request: NextRequest) {
 
     return apiResponse(parsedData, 'Menu scanned successfully');
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI Scan Error:', error);
-    return apiError(error);
+    const message = getGeminiErrorMessage(error);
+    return apiError(new Error(message), error?.status === 503 || error?.status === 429 ? 503 : 500);
   }
 }

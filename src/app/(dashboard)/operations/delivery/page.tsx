@@ -31,10 +31,16 @@ interface Order {
   deliveryAddress: string | null;
   deliveryInstructions: string | null;
   driverId: string | null;
+  deliveryRiderId?: string | null;
   driver?: {
     id: string;
     name: string;
     vehicleNumber: string | null;
+  } | null;
+  deliveryRider?: {
+    id: string;
+    fullName: string;
+    phone: string | null;
   } | null;
   items: any[];
 }
@@ -65,7 +71,7 @@ export default function DeliveryOperationsPage() {
     try {
       const [ordersRes, driversRes, pmRes, custRes, propRes] = await Promise.all([
         fetch('/api/pos-orders?status=in_progress'),
-        fetch('/api/drivers'),
+        fetch('/api/public/driver?action=list-drivers'),
         fetch('/api/payment-modes'),
         fetch('/api/customers'),
         fetch('/api/admin/properties')
@@ -397,6 +403,16 @@ export default function DeliveryOperationsPage() {
               {/* Status controls */}
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'ACCEPTED')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    selectedOrder.status === 'ACCEPTED'
+                      ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/25 animate-pulse'
+                      : 'bg-white/10 hover:bg-white/20 text-white'
+                  }`}
+                >
+                  Accept
+                </button>
+                <button
                   onClick={() => handleUpdateStatus(selectedOrder.id, 'IN_KITCHEN')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     selectedOrder.status === 'IN_KITCHEN' || selectedOrder.status === 'KOT_RUNNING'
@@ -431,7 +447,7 @@ export default function DeliveryOperationsPage() {
 
                 {/* Rider Selector inside toolbar */}
                 <select
-                  value={selectedOrder.driverId || ''}
+                  value={selectedOrder.deliveryRiderId || selectedOrder.driverId || ''}
                   onChange={(e) => handleAssignRider(selectedOrder.id, e.target.value)}
                   className="bg-white/10 border border-white/20 text-xs font-bold rounded-xl px-3 py-1.5 text-white focus:outline-none focus:ring-2 focus:ring-pos-primary"
                 >
@@ -501,6 +517,7 @@ export default function DeliveryOperationsPage() {
         <div className="px-6 py-3 bg-[#0a0c10] flex flex-wrap gap-6 border-b border-white/5">
           {[
             { label: 'Placed / Pending', color: 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' },
+            { label: 'Accepted', color: 'bg-indigo-400 shadow-[0_0_8px_#818cf8]' },
             { label: 'In Kitchen / Preparing', color: 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' },
             { label: 'Ready to Deliver', color: 'bg-teal-400 shadow-[0_0_8px_#2dd4bf]' },
             { label: 'Dispatched / On The Way', color: 'bg-green-400 shadow-[0_0_8px_#34d399]' },
@@ -565,6 +582,19 @@ export default function DeliveryOperationsPage() {
                         <Clock size={11} className="text-amber-400" />
                         <span>Placed {getElapsedTime(order.createdAt)}</span>
                       </div>
+                      
+                      {/* Quick Accept Order Button */}
+                      {(order.status === 'OPEN' || order.status === 'PENDING' || order.status === 'PLACED') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateStatus(order.id, 'ACCEPTED');
+                          }}
+                          className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all text-white font-black uppercase tracking-widest text-[9px] rounded-xl shadow-[0_0_10px_rgba(99,102,241,0.25)] flex items-center justify-center gap-1.5 animate-pulse"
+                        >
+                          ✓ Accept Order
+                        </button>
+                      )}
                     </div>
 
                     <div className="h-px bg-white/5 w-full" />
@@ -574,7 +604,7 @@ export default function DeliveryOperationsPage() {
                       <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400">
                         <Truck size={12} className="text-indigo-400" />
                         <span className="truncate max-w-[110px]">
-                          {order.driver?.name ? `${order.driver.name}` : 'Unassigned'}
+                          {order.deliveryRider?.fullName || order.driver?.name || 'Unassigned'}
                         </span>
                       </div>
                       <span className="text-xs font-black text-indigo-300">

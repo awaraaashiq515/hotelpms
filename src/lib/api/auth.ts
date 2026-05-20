@@ -6,6 +6,14 @@ export interface LoginCredentials {
   captchaText?: string | null;
 }
 
+export interface RegisterCredentials {
+  fullName: string;
+  email: string;
+  password: string;
+  businessName?: string | null;
+  captchaText: string;
+}
+
 export interface User {
   id: string;
   fullName: string;
@@ -30,6 +38,10 @@ export const authApi = {
     return apiClient.post('/api/auth/login', credentials);
   },
 
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    return apiClient.post('/api/auth/register', credentials);
+  },
+
   async logout(): Promise<void> {
     return apiClient.post('/api/auth/logout');
   },
@@ -38,3 +50,4 @@ export const authApi = {
     return apiClient.get('/api/auth/me'); // Assuming this endpoint exists or will be added
   },
 };
+

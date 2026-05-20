@@ -49,8 +49,103 @@ interface PosOrder {
   deliveryPhone: string | null;
   deliveryAddress: string | null;
   deliveryInstructions: string | null;
+  deliveryLat: number | null;
+  deliveryLng: number | null;
   items: OrderItem[];
   createdAt: string;
+}
+
+// ─── Embedded customer-location mini-map ──────────────────────────────────────
+function CustomerLocationMap({ order }: { order: PosOrder }) {
+  const mapId = React.useRef(`driver-map-${order.id}`).current;
+  const mapRef = React.useRef<any>(null);
+  const [loaded, setLoaded] = React.useState(false);
+
+  // Load Leaflet CSS + JS once
+  React.useEffect(() => {
+    if ((window as any).L) { setLoaded(true); return; }
+    if (!document.getElementById('leaflet-css')) {
+      const l = document.createElement('link');
+      l.id = 'leaflet-css'; l.rel = 'stylesheet';
+      l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(l);
+    }
+    if (!document.getElementById('leaflet-js')) {
+      const s = document.createElement('script');
+      s.id = 'leaflet-js';
+      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      s.onload = () => setLoaded(true);
+      document.head.appendChild(s);
+    } else {
+      const ci = setInterval(() => { if ((window as any).L) { setLoaded(true); clearInterval(ci); } }, 100);
+      return () => clearInterval(ci);
+    }
+  }, []);
+
+  // Build map once
+  React.useEffect(() => {
+    if (!loaded || !(window as any).L) return;
+    const el = document.getElementById(mapId);
+    if (!el || mapRef.current) return;
+
+    const L = (window as any).L;
+    const lat = order.deliveryLat ? Number(order.deliveryLat) : 30.7420;
+    const lng = order.deliveryLng ? Number(order.deliveryLng) : 76.7875;
+
+    const map = L.map(mapId, { zoomControl: false, attributionControl: false }).setView([lat, lng], 15);
+
+    // OpenStreetMap — reliable, no token needed
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      crossOrigin: true
+    }).addTo(map);
+
+    const homeIcon = L.divIcon({
+      className: '',
+      html: `<div style="position:relative;">
+        <div style="position:absolute;inset:-8px;background:#10b981;border-radius:50%;opacity:.2;"></div>
+        <div style="background:#10b981;border:3px solid white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(16,185,129,.6);font-size:18px;">🏠</div>
+      </div>`,
+      iconSize: [36, 36], iconAnchor: [18, 18]
+    });
+
+    L.marker([lat, lng], { icon: homeIcon }).addTo(map)
+      .bindPopup(`<b>🏠 ${order.deliveryCustomerName || 'Customer'}</b><br/><small>${order.deliveryAddress || ''}</small>`, { closeButton: false })
+      .openPopup();
+    L.circle([lat, lng], { radius: 60, color: '#10b981', fillColor: '#10b981', fillOpacity: 0.12, weight: 2, dashArray: '5,4' }).addTo(map);
+
+    // CRITICAL: force tile repaint after container is sized
+    setTimeout(() => { map.invalidateSize(); }, 200);
+
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; };
+  }, [loaded, mapId]);
+
+  const mapsUrl = (order.deliveryLat && order.deliveryLng)
+    ? `https://www.google.com/maps/dir/?api=1&destination=${order.deliveryLat},${order.deliveryLng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress || '')}`;
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-[#1e293b]/70 shadow-md relative">
+      {/* Map canvas */}
+      <div id={mapId} style={{ height: 160, width: '100%' }} />
+      {/* Overlay bottom pill */}
+      <div className="absolute bottom-2 left-2 right-2 bg-[#090b10]/80 backdrop-blur-sm border border-[#1e293b] rounded-xl px-3 py-1.5 flex items-center justify-between">
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest truncate flex-1 mr-2">
+          {order.deliveryAddress || 'Address not set'}
+        </p>
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg transition-colors"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+          Navigate
+        </a>
+      </div>
+    </div>
+  );
 }
 
 export default function DriverPortalPage() {
@@ -171,6 +266,52 @@ export default function DriverPortalPage() {
       }
     }
   }, []);
+
+  // Live GPS tracking when driver is logged in and has active deliveries
+  useEffect(() => {
+    if (!selectedDriver || assignedOrders.length === 0) return;
+
+    if (!navigator.geolocation) {
+      console.warn('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    const reportLocation = async (lat: number, lng: number) => {
+      try {
+        await fetch('/api/public/driver', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update-location',
+            driverId: selectedDriver.id,
+            lat,
+            lng
+          })
+        });
+      } catch (err) {
+        console.error('Error reporting rider location:', err);
+      }
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        reportLocation(latitude, longitude);
+      },
+      (err) => {
+        console.error('GPS tracking error:', err);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [selectedDriver, assignedOrders]);
 
   // 3. Handle OTP Submission
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -328,6 +469,12 @@ export default function DriverPortalPage() {
                   <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest leading-none block mb-1">Signed in Rider</span>
                   <h3 className="text-sm font-black text-white uppercase tracking-tight leading-none">{selectedDriver.name}</h3>
                   <p className="text-[9px] font-mono font-bold text-slate-400 uppercase mt-1 leading-none">{selectedDriver.vehicleNumber}</p>
+                  {assignedOrders.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-2 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full w-fit">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                      <span className="text-[7.5px] font-black text-emerald-400 uppercase tracking-widest leading-none">GPS ACTIVE</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -433,30 +580,31 @@ export default function DriverPortalPage() {
                             </div>
 
                             {/* Delivery Address & Directions Link */}
-                            <div className="flex items-start gap-3 bg-[#070b12] px-4 py-3.5 rounded-2xl border border-[#1e293b]/60">
-                              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
-                                <MapPin size={13} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1 leading-none">Delivery Address</span>
-                                <p className="text-[11px] font-bold text-slate-200 leading-relaxed uppercase">
-                                  {order.deliveryAddress || 'No Address Provided'}
-                                </p>
-                                {order.deliveryInstructions && (
-                                  <p className="text-[9px] text-amber-500 font-extrabold uppercase mt-1">
-                                    ⚠️ Notes: {order.deliveryInstructions}
+                            <div className="bg-[#070b12] p-4 rounded-2xl border border-[#1e293b]/60">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-3 leading-none">Delivery Location</span>
+                              <CustomerLocationMap order={order} />
+                              <div className="flex items-start gap-3">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
+                                  <MapPin size={13} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-bold text-slate-200 leading-relaxed uppercase">
+                                    {order.deliveryAddress || 'No Address Provided'}
                                   </p>
-                                )}
-                                {order.deliveryAddress && (
+                                  {order.deliveryInstructions && (
+                                    <p className="text-[9px] text-amber-500 font-extrabold uppercase mt-1">
+                                      ⚠️ Notes: {order.deliveryInstructions}
+                                    </p>
+                                  )}
                                   <a
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`}
+                                    href={`https://www.google.com/maps/dir/?api=1&destination=${order.deliveryLat},${order.deliveryLng}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-2 hover:text-indigo-300 transition-colors"
                                   >
-                                    <Navigation size={9} /> Open Directions map
+                                    <Navigation size={9} /> Get Directions
                                   </a>
-                                )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -535,15 +683,26 @@ export default function DriverPortalPage() {
 
                         {/* Customer & Destination Destination */}
                         <div className="space-y-3.5">
-                          <div className="flex items-start gap-3 bg-[#070b12] px-4 py-3.5 rounded-2xl border border-[#1e293b]/60">
-                            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
-                              <MapPin size={13} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1 leading-none">Delivery Destination</span>
-                              <p className="text-[11px] font-bold text-slate-200 leading-relaxed uppercase">
-                                {order.deliveryAddress || 'No Address Provided'}
-                              </p>
+                          <div className="bg-[#070b12] p-4 rounded-2xl border border-[#1e293b]/60">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-3 leading-none">Delivery Destination</span>
+                            <CustomerLocationMap order={order} />
+                            <div className="flex items-start gap-3">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
+                                <MapPin size={13} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold text-slate-200 leading-relaxed uppercase">
+                                  {order.deliveryAddress || 'No Address Provided'}
+                                </p>
+                                <a
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${order.deliveryLat},${order.deliveryLng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-2 hover:text-indigo-300 transition-colors"
+                                >
+                                  <Navigation size={9} /> View on Map
+                                </a>
+                              </div>
                             </div>
                           </div>
                         </div>

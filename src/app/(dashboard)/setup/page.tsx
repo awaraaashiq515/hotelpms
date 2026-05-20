@@ -712,19 +712,19 @@ export default function UnifiedSetupPage() {
 
           {!scannedData ? (
             <form onSubmit={handleAiScan} className="space-y-4">
-             <p className="text-sm text-gray-500">Upload an image of your menu card to automatically extract and create products & categories.</p>
+             <p className="text-sm text-gray-500">Upload an image or PDF of your menu card to automatically extract and create products & categories.</p>
              <div className="border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-xl p-8 text-center cursor-pointer hover:border-pos-primary transition-colors">
                <input 
                  type="file" 
-                 accept="image/*" 
+                 accept="image/*,application/pdf,.pdf"
                  className="hidden" 
                  id="menuImage" 
                  onChange={(e) => setFile(e.target.files?.[0] || null)}
                />
                <label htmlFor="menuImage" className="cursor-pointer flex flex-col items-center">
                   <Package size={32} className="text-gray-400 mb-2" />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{file ? file.name : 'Select Image Click to Browse'}</span>
-                  <span className="text-xs text-gray-400 mt-1">Supports JPEG, PNG</span>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{file ? file.name : 'Select Image/PDF Click to Browse'}</span>
+                  <span className="text-xs text-gray-400 mt-1">Supports JPEG, PNG, PDF</span>
                </label>
              </div>
               <div className="grid grid-cols-2 gap-3">

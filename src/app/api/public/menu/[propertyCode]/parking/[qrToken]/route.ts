@@ -87,7 +87,7 @@ export async function GET(
         parkingSlotId: slot.id,
         orderType: { in: ['PARKING', 'TAKEAWAY'] },
         status: {
-          in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'PAYMENT_AWAITING_APPROVAL'],
+          in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'],
         },
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
