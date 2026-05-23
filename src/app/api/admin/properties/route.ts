@@ -79,26 +79,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 2. Create Default Outlet
-      const outlet = await tx.outlet.create({
-        data: {
-          name: 'Main POS Outlet',
-          type: 'RESTAURANT',
-          propertyId: prop.id,
-        },
-      });
-
-      // 2b. Create Default Floor
-      const floor = await tx.floor.create({
-        data: {
-          name: 'Ground Floor',
-          order: 1,
-          propertyId: prop.id,
-          outletId: outlet.id,
-        },
-      });
-
-      // 3. Create Default Payment Modes
+      // 2. Create Default Payment Modes
       const paymentModes = [
         { name: 'Cash', type: 'CASH' },
         { name: 'Credit Card', type: 'CARD' },
@@ -116,7 +97,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 4. Create/Get Account Group for Cash
+      // 3. Create/Get Account Group for Cash
       let assetGroup = await tx.accountGroup.findFirst({
         where: { name: 'Cash & Bank', organizationId: finalOrgId },
       });
@@ -131,7 +112,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 5. Create Cash Account
+      // 4. Create Cash Account
       await tx.account.create({
         data: {
           id: `cash-${prop.id}`, // Unique ID convention matching seed.ts
@@ -144,53 +125,319 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 6. Default Categories Seeding
-      const categories = ['Starters', 'Main Course', 'Beverages', 'Desserts'];
-      const catRecords = [];
-      for (const catName of categories) {
-        const cat = await tx.category.create({
+      if (type === 'HOTEL') {
+        // Create Default Outlet for Hotel
+        await tx.outlet.create({
           data: {
-            name: catName,
+            name: 'Main Hotel Outlet',
+            type: 'HOTEL',
             propertyId: prop.id,
           }
         });
-        catRecords.push(cat);
-      }
 
-      // 7. Default Products Seeding
-      const products = [
-        { name: 'Mineral Water', category: 'Beverages', price: 20 },
-        { name: 'Masala Tea', category: 'Beverages', price: 30 },
-      ];
+        // 1. Seed Room Types
+        const deluxeType = await tx.roomType.create({
+          data: {
+            propertyId: prop.id,
+            name: 'Deluxe Room',
+            code: 'DELUXE',
+            baseRate: 3500.0,
+            maxOccupancy: 2,
+          }
+        });
 
-      for (const prod of products) {
-        const cat = catRecords.find(c => c.name === prod.category);
-        if (cat) {
-          await tx.product.create({
+        const superDeluxeType = await tx.roomType.create({
+          data: {
+            propertyId: prop.id,
+            name: 'Super Deluxe Room',
+            code: 'SDELUXE',
+            baseRate: 5000.0,
+            maxOccupancy: 3,
+          }
+        });
+
+        const suiteType = await tx.roomType.create({
+          data: {
+            propertyId: prop.id,
+            name: 'Suite Room',
+            code: 'SUITE',
+            baseRate: 8000.0,
+            maxOccupancy: 4,
+          }
+        });
+
+        // 2. Seed Rooms
+        const room101 = await tx.room.create({
+          data: {
+            propertyId: prop.id,
+            roomTypeId: deluxeType.id,
+            roomNumber: '101',
+            floor: '1',
+            status: 'OCCUPIED',
+            housekeepingStatus: 'CLEAN',
+          }
+        });
+
+        const room102 = await tx.room.create({
+          data: {
+            propertyId: prop.id,
+            roomTypeId: deluxeType.id,
+            roomNumber: '102',
+            floor: '1',
+            status: 'AVAILABLE',
+            housekeepingStatus: 'CLEAN',
+          }
+        });
+
+        const room103 = await tx.room.create({
+          data: {
+            propertyId: prop.id,
+            roomTypeId: superDeluxeType.id,
+            roomNumber: '103',
+            floor: '1',
+            status: 'AVAILABLE',
+            housekeepingStatus: 'DIRTY',
+          }
+        });
+
+        const room201 = await tx.room.create({
+          data: {
+            propertyId: prop.id,
+            roomTypeId: deluxeType.id,
+            roomNumber: '201',
+            floor: '2',
+            status: 'AVAILABLE',
+            housekeepingStatus: 'CLEAN',
+          }
+        });
+
+        const room202 = await tx.room.create({
+          data: {
+            propertyId: prop.id,
+            roomTypeId: superDeluxeType.id,
+            roomNumber: '202',
+            floor: '2',
+            status: 'AVAILABLE',
+            housekeepingStatus: 'CLEAN',
+          }
+        });
+
+        const room203 = await tx.room.create({
+          data: {
+            propertyId: prop.id,
+            roomTypeId: suiteType.id,
+            roomNumber: '203',
+            floor: '2',
+            status: 'AVAILABLE',
+            housekeepingStatus: 'CLEAN',
+          }
+        });
+
+        // 3. Seed Guests
+        const guest1 = await tx.guest.create({
+          data: {
+            organizationId: finalOrgId,
+            firstName: 'Tarun',
+            lastName: 'Sharma',
+            mobile: '9876543210',
+            email: 'tarun@example.com',
+            idType: 'Aadhaar',
+            idNumber: '1234-5678-9012',
+          }
+        });
+
+        const guest2 = await tx.guest.create({
+          data: {
+            organizationId: finalOrgId,
+            firstName: 'Priya',
+            lastName: 'Patel',
+            mobile: '9876543211',
+            email: 'priya@example.com',
+            idType: 'Passport',
+            idNumber: 'Z1234567',
+          }
+        });
+
+        // 4. Seed Reservations & Check-Ins
+        const today = new Date();
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+        // Reservation 1 (Checked-In, Expected Departure Today)
+        const res1 = await tx.reservation.create({
+          data: {
+            propertyId: prop.id,
+            guestId: guest1.id,
+            bookingNo: `RES-${Date.now().toString().slice(-6)}-101`,
+            arrivalDate: yesterday,
+            departureDate: today,
+            adults: 2,
+            children: 0,
+            roomTypeId: deluxeType.id,
+            assignedRoomId: room101.id,
+            status: 'CHECKED_IN',
+            totalAmount: 3500.0,
+            advanceAmount: 1000.0,
+            dueAmount: 2500.0,
+            rooms: {
+              create: {
+                roomId: room101.id,
+                ratePerNight: 3500.0,
+                adults: 2,
+                children: 0,
+              }
+            }
+          }
+        });
+
+        // Create CheckIn record for Reservation 1
+        await tx.checkIn.create({
+          data: {
+            reservationId: res1.id,
+            guestId: guest1.id,
+            roomId: room101.id,
+            checkedInAt: yesterday,
+            expectedCheckoutAt: today,
+            status: 'ACTIVE',
+          }
+        });
+
+        // Create Folio for CheckIn 1
+        const folioNo1 = `FOL-${Date.now().toString().slice(-6)}-101`;
+        const folio1 = await tx.folio.create({
+          data: {
+            reservationId: res1.id,
+            guestId: guest1.id,
+            folioNo: folioNo1,
+            openingBalance: 0,
+            totalCharges: 3500.0,
+            totalPayments: 1000.0,
+            closingBalance: 2500.0,
+            status: 'OPEN',
+          }
+        });
+
+        // Folio transactions
+        await tx.folioTransaction.create({
+          data: {
+            folioId: folio1.id,
+            txnDate: yesterday,
+            txnType: 'DEBIT',
+            sourceModule: 'HMS',
+            description: 'Room Rent Charges - 1 Night',
+            debitAmount: 3500.0,
+            creditAmount: 0,
+            netAmount: 3500.0,
+          }
+        });
+
+        await tx.folioTransaction.create({
+          data: {
+            folioId: folio1.id,
+            txnDate: yesterday,
+            txnType: 'CREDIT',
+            sourceModule: 'HMS',
+            description: 'Advance Paid at Booking',
+            debitAmount: 0,
+            creditAmount: 1000.0,
+            netAmount: -1000.0,
+          }
+        });
+
+        // Reservation 2 (Expected Arrival Today, Confirmed)
+        await tx.reservation.create({
+          data: {
+            propertyId: prop.id,
+            guestId: guest2.id,
+            bookingNo: `RES-${Date.now().toString().slice(-6)}-103`,
+            arrivalDate: today,
+            departureDate: threeDaysLater,
+            adults: 2,
+            children: 1,
+            roomTypeId: superDeluxeType.id,
+            assignedRoomId: room103.id,
+            status: 'CONFIRMED',
+            totalAmount: 15000.0,
+            advanceAmount: 3000.0,
+            dueAmount: 12000.0,
+            rooms: {
+              create: {
+                roomId: room103.id,
+                ratePerNight: 5000.0,
+                adults: 2,
+                children: 1,
+              }
+            }
+          }
+        });
+      } else {
+        // Create Default Outlet for Restaurant
+        const outlet = await tx.outlet.create({
+          data: {
+            name: 'Main POS Outlet',
+            type: 'RESTAURANT',
+            propertyId: prop.id,
+          },
+        });
+
+        // Create Default Floor
+        const floor = await tx.floor.create({
+          data: {
+            name: 'Ground Floor',
+            order: 1,
+            propertyId: prop.id,
+            outletId: outlet.id,
+          },
+        });
+
+        // Default Categories Seeding
+        const categories = ['Starters', 'Main Course', 'Beverages', 'Desserts'];
+        const catRecords = [];
+        for (const catName of categories) {
+          const cat = await tx.category.create({
             data: {
-              name: prod.name,
-              sellingPrice: prod.price,
+              name: catName,
               propertyId: prop.id,
-              categoryId: cat.id,
-              outletId: outlet.id,
-              productType: 'REVENUE',
+            }
+          });
+          catRecords.push(cat);
+        }
+
+        // Default Products Seeding
+        const products = [
+          { name: 'Mineral Water', category: 'Beverages', price: 20 },
+          { name: 'Masala Tea', category: 'Beverages', price: 30 },
+        ];
+
+        for (const prod of products) {
+          const cat = catRecords.find(c => c.name === prod.category);
+          if (cat) {
+            await tx.product.create({
+              data: {
+                name: prod.name,
+                sellingPrice: prod.price,
+                propertyId: prop.id,
+                categoryId: cat.id,
+                outletId: outlet.id,
+                productType: 'REVENUE',
+              }
+            });
+          }
+        }
+
+        // Default Tables Seeding
+        const tables = ['Table 1', 'Table 2', 'Table 3', 'Table 4'];
+        for (const tableName of tables) {
+          await tx.table.create({
+            data: {
+              name: tableName,
+              floorId: floor.id,
+              propertyId: prop.id,
+              capacity: 4,
+              status: 'VACANT',
             }
           });
         }
-      }
-
-      // 8. Default Tables Seeding
-      const tables = ['Table 1', 'Table 2', 'Table 3', 'Table 4'];
-      for (const tableName of tables) {
-        await tx.table.create({
-          data: {
-            name: tableName,
-            floorId: floor.id,
-            propertyId: prop.id,
-            capacity: 4,
-            status: 'VACANT',
-          }
-        });
       }
 
       return prop;

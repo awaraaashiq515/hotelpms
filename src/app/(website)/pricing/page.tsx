@@ -380,7 +380,7 @@ export default function PricingPage() {
 
                   {/* CTA Button */}
                   <Link 
-                    href={`/onboarding?packageId=${pkg.id}`}
+                    href={`/signup?packageId=${pkg.id}`}
                     className="w-full py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 shadow-xl"
                     style={{ 
                       backgroundColor: isPopular ? color : 'transparent',

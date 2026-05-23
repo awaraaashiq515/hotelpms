@@ -44,8 +44,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       where: { id: id },
       data: {
         ...data,
-        tableId: data.tableId === undefined ? undefined : data.tableId,
-        waiterId: data.waiterId === undefined ? undefined : data.waiterId,
+        tableId: data.tableId === undefined ? undefined : (data.tableId || null),
+        waiterId: data.waiterId === undefined ? undefined : (data.waiterId || null),
       }
     })
 

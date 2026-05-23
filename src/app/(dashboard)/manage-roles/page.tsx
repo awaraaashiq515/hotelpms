@@ -10,47 +10,47 @@ import { PageHeader } from '@/components/shared/page-header';
 
 const AVAILABLE_MODULES = [
   { id: 'Dashboard', name: 'Dashboard', description: 'Main analytics dashboard' },
-  { id: 'POS Home', name: 'POS Home', description: 'Operations landing page' },
+  { id: 'POS Home', name: 'POS Home', description: 'Operations landing page', feature: 'POS' },
   { id: 'Businesses', name: 'Businesses', description: 'Manage properties/outlets' },
-  { id: 'POS Terminal', name: 'POS Terminal', description: 'Billing and order taking' },
-  { id: 'Invoices', name: 'Invoices', description: 'View and manage invoices' },
-  { id: 'Payments', name: 'Payments', description: 'View and manage payments' },
-  { id: 'Inventory', name: 'Inventory', description: 'Product and stock management' },
-  { id: 'KOTs', name: 'KOTs', description: 'Kitchen Order Tickets' },
-  { id: 'Kitchen Display', name: 'Kitchen Display', description: 'Live kitchen view' },
-  { id: 'Day Closing', name: 'Day Closing', description: 'Daily settlement' },
+  { id: 'POS Terminal', name: 'POS Terminal', description: 'Billing and order taking', feature: 'POS' },
+  { id: 'Invoices', name: 'Invoices', description: 'View and manage invoices', feature: 'POS' },
+  { id: 'Payments', name: 'Payments', description: 'View and manage payments', feature: 'POS' },
+  { id: 'Inventory', name: 'Inventory', description: 'Product and stock management', feature: 'INVENTORY' },
+  { id: 'KOTs', name: 'KOTs', description: 'Kitchen Order Tickets', feature: 'POS' },
+  { id: 'Kitchen Display', name: 'Kitchen Display', description: 'Live kitchen view', feature: 'POS' },
+  { id: 'Day Closing', name: 'Day Closing', description: 'Daily settlement', feature: 'POS' },
   
   // Expenses Group
-  { id: 'Expenses', name: 'Expenses', description: 'Expense management section' },
-  { id: 'All Expenses', name: 'All Expenses', description: 'View all expenses list' },
-  { id: 'New Expense', name: 'New Expense', description: 'Create new expense entries' },
-  { id: 'Categories', name: 'Categories', description: 'Manage expense categories' },
+  { id: 'Expenses', name: 'Expenses', description: 'Expense management section', feature: 'ACCOUNTING' },
+  { id: 'All Expenses', name: 'All Expenses', description: 'View all expenses list', feature: 'ACCOUNTING' },
+  { id: 'New Expense', name: 'New Expense', description: 'Create new expense entries', feature: 'ACCOUNTING' },
+  { id: 'Categories', name: 'Categories', description: 'Manage expense categories', feature: 'ACCOUNTING' },
 
   // Accounting Group
-  { id: 'Accounting', name: 'Accounting', description: 'Accounting and Vouchers' },
-  { id: 'Voucher List', name: 'Voucher List', description: 'View all accounting vouchers' },
-  { id: 'Cash Book', name: 'Cash Book', description: 'View cash transactions' },
-  { id: 'Day Book', name: 'Day Book', description: 'View daily ledger' },
-  { id: 'Ledger', name: 'Ledger', description: 'Full accounting ledger' },
+  { id: 'Accounting', name: 'Accounting', description: 'Accounting and Vouchers', feature: 'ACCOUNTING' },
+  { id: 'Voucher List', name: 'Voucher List', description: 'View all accounting vouchers', feature: 'ACCOUNTING' },
+  { id: 'Cash Book', name: 'Cash Book', description: 'View cash transactions', feature: 'ACCOUNTING' },
+  { id: 'Day Book', name: 'Day Book', description: 'View daily ledger', feature: 'ACCOUNTING' },
+  { id: 'Ledger', name: 'Ledger', description: 'Full accounting ledger', feature: 'ACCOUNTING' },
 
   // Operations Group
   { id: 'Operations', name: 'Operations', description: 'Main operations section' },
-  { id: 'Table Layout', name: 'Table Layout', description: 'Floor and table management' },
-  { id: 'Orders Control', name: 'Orders Control', description: 'Manage active/pending orders' },
-  { id: 'Live Occupancy', name: 'Live Occupancy', description: 'Real-time table status' },
-  { id: 'Table Bookings', name: 'Table Bookings', description: 'Manage reservations' },
-  { id: 'Drivers', name: 'Drivers', description: 'Manage delivery drivers' },
-  { id: 'POS Staff', name: 'POS Staff', description: 'Manage operational staff' },
+  { id: 'Table Layout', name: 'Table Layout', description: 'Floor and table management', feature: 'TABLES' },
+  { id: 'Orders Control', name: 'Orders Control', description: 'Manage active/pending orders', feature: 'POS' },
+  { id: 'Live Occupancy', name: 'Live Occupancy', description: 'Real-time table status', feature: 'HMS' },
+  { id: 'Table Bookings', name: 'Table Bookings', description: 'Manage reservations', feature: 'TABLES' },
+  { id: 'Drivers', name: 'Drivers', description: 'Manage delivery drivers', feature: 'DRIVERS' },
+  { id: 'POS Staff', name: 'POS Staff', description: 'Manage operational staff', feature: 'STAFF' },
 
   // Reports Group
-  { id: 'Reports', name: 'Reports', description: 'Reports & Analytics' },
-  { id: 'Sales Summary', name: 'Sales Summary', description: 'General sales reports' },
-  { id: 'Order Summary', name: 'Order Summary', description: 'Order level history' },
-  { id: 'Executive Sales', name: 'Executive Sales', description: 'Staff performance reports' },
+  { id: 'Reports', name: 'Reports', description: 'Reports & Analytics', feature: 'REPORTS' },
+  { id: 'Sales Summary', name: 'Sales Summary', description: 'General sales reports', feature: 'REPORTS' },
+  { id: 'Order Summary', name: 'Order Summary', description: 'Order level history', feature: 'REPORTS' },
+  { id: 'Executive Sales', name: 'Executive Sales', description: 'Staff performance reports', feature: 'REPORTS' },
 
   // Access & Settings
-  { id: 'POS Access', name: 'POS Access', description: 'Manage terminal users' },
-  { id: 'Settings', name: 'Settings', description: 'System configurations' }
+  { id: 'POS Access', name: 'POS Access', description: 'Manage terminal users', feature: 'POS' },
+  { id: 'Settings', name: 'Settings', description: 'System configurations', feature: 'POS' }
 ];
 
 export default function RolesPage() {
@@ -59,6 +59,8 @@ export default function RolesPage() {
   const [selectedRole, setSelectedRole] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [packageFeatures, setPackageFeatures] = useState<string[]>([]);
   
   // Array of module IDs currently granted
   const [grantedModules, setGrantedModules] = useState<string[]>([]);
@@ -66,6 +68,14 @@ export default function RolesPage() {
 
   useEffect(() => {
     fetchRoles();
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(d => {
+        if (d.authenticated) {
+          setSession(d.user);
+          setPackageFeatures(d.user.packageFeatures || []);
+        }
+      });
   }, []);
 
   const fetchRoles = async () => {
@@ -205,7 +215,13 @@ export default function RolesPage() {
               </div>
            ) : (
              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                {AVAILABLE_MODULES.map(module => {
+                {AVAILABLE_MODULES.filter(module => {
+                  if (session?.role === 'SUPER_ADMIN') return true;
+                  if (packageFeatures.length > 0 && module.feature && !packageFeatures.includes(module.feature)) {
+                    return false;
+                  }
+                  return true;
+                }).map(module => {
                   const isGranted = grantedModules.includes(module.id);
                   return (
                     <div 

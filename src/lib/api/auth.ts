@@ -12,6 +12,31 @@ export interface RegisterCredentials {
   password: string;
   businessName?: string | null;
   captchaText: string;
+  packageId?: string | null;
+  roleName?: string;
+  paymentReference?: string | null;
+  paymentAmount?: number | null;
+  // Branch configuration
+  branchName?: string | null;
+  branchCode?: string | null;
+  branchCity?: string | null;
+  branchAddress?: string | null;
+  branchPhone?: string | null;
+  // POS cashier configuration
+  posFullName?: string | null;
+  posEmail?: string | null;
+  posPassword?: string | null;
+  // Rider & Supplier extra configuration
+  phone?: string | null;
+  vehicleType?: string | null;
+  vehicleNumber?: string | null;
+  deliveryLocation?: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  deliveryRadius?: number | null;
+  gstNumber?: string | null;
+  category?: string | null;
+  address?: string | null;
 }
 
 export interface User {

@@ -43,7 +43,8 @@ import {
   Trash2,
   Truck,
   Home,
-  Bike
+  Bike,
+  Tablet
 } from 'lucide-react';
 
 import { useRouter } from 'next/navigation';
@@ -101,6 +102,7 @@ export default function OperationsPage() {
 
   const managementActions: DashboardAction[] = [
     { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Tablet Setup', perm: 'Settings', icon: Tablet, path: '/settings/tablets', feature: 'TABLETS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: '/manage-users', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: '/pos-staff', feature: 'STAFF' },
@@ -111,7 +113,7 @@ export default function OperationsPage() {
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: '/operations/tables/qr-gallery', feature: 'TABLES' },
     { label: 'Notification Settings', perm: 'Settings', icon: Settings, path: '/settings/notifications', feature: 'POS' },
-    { label: 'Customers', icon: Contact, path: '/customers' },
+    { label: 'Customers', icon: Contact, path: '/customers', feature: 'CRM' },
     { label: 'Customer Feedback', icon: Star, path: '/reports/ratings', feature: 'REPORTS' },
   ];
 
@@ -127,6 +129,7 @@ export default function OperationsPage() {
   ];
 
   const operationalActions: DashboardAction[] = [
+    { label: 'Hotel Portal',      icon: Home,              path: '/hotel',             roles: ['HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: '/billing',           feature: 'POS' },
     { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: '/counter-payments',  feature: 'POS' },
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
@@ -143,9 +146,9 @@ export default function OperationsPage() {
   ];
 
   const b2bActions: DashboardAction[] = [
-    { label: 'B2B Marketplace',   icon: ShoppingBag,    path: '/b2b/market',   roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Order History',    icon: Truck,          path: '/b2b/orders',   roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Supplier Hub',     icon: Store,          path: '/b2b/supplier', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'B2B Marketplace',   icon: ShoppingBag,    path: '/b2b/market',   feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Order History',    icon: Truck,          path: '/b2b/orders',   feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Supplier Hub',     icon: Store,          path: '/b2b/supplier', feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const isVisible = (a: DashboardAction) => {
@@ -169,17 +172,19 @@ export default function OperationsPage() {
       />
 
       {/* B2B Marketplace Quick Access */}
-      <section className="space-y-8">
-        <div className="flex items-center gap-4">
-          <div className="h-6 w-1 bg-amber-500 rounded-full"></div>
-          <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">B2B Supply Chain</h2>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {visibleB2B.map((action) => (
-            <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
-          ))}
-        </div>
-      </section>
+      {visibleB2B.length > 0 && (
+        <section className="space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="h-6 w-1 bg-amber-500 rounded-full"></div>
+            <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">B2B Supply Chain</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {visibleB2B.map((action) => (
+              <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-8">
         <div className="flex items-center gap-4">

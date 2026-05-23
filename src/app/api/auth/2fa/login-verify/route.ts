@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as OTPAuth from 'otpauth';
 import { prisma } from '@/lib/prisma';
-import { encrypt, SessionPayload } from '@/lib/session';
+import { encrypt, SessionPayload, slugify } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { apiError, apiResponse } from '@/lib/api-utils';
 
@@ -95,12 +95,15 @@ export async function POST(request: NextRequest) {
       roleId: user.roleId,
       role: user.role.name,
       organizationId: user.organizationId,
+      organizationName: user.organization?.name ?? null,
+      organizationSlug: user.organization?.name ? slugify(user.organization.name) : null,
       propertyId: user.propertyId,
       onboardingCompleted: user.onboardingCompleted,
       permissions,
       packageFeatures,
       discountPercent,
       packageEndDate: user.organization?.packageEndDate?.toISOString() ?? null,
+      subscriptionStatus: user.organization?.subscriptionStatus ?? 'TRIAL',
     };
 
     const sessionToken = await encrypt(sessionData);

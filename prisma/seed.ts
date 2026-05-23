@@ -55,6 +55,15 @@ async function main() {
     },
   });
 
+  await prisma.role.upsert({
+    where: { name: 'HOTEL_ADMIN' },
+    update: {},
+    create: {
+      name: 'HOTEL_ADMIN',
+      description: 'Hotel Property Owner & Manager Access',
+    },
+  });
+
 
   // 4. Upsert User
   const user = await prisma.user.upsert({

@@ -15,11 +15,13 @@ import { categoriesApi, Category } from '@/lib/api/categories';
 import { ordersApi } from '@/lib/api/orders';
 import { paymentModesApi, PaymentMode } from '@/lib/api/payment-modes';
 import { customersApi, Customer } from '@/lib/api/customers';
+import { driversApi } from '@/lib/api/drivers';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { KotSlipModal } from '@/components/kots/KotSlipModal';
 import { BillModal, BillData } from '@/components/billing/BillModal';
 import { CustomerForm } from '@/components/forms/customer-form';
+import { DriverForm } from '@/components/forms/driver-form';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -128,6 +130,8 @@ export default function BillingPage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerMutationLoading, setCustomerMutationLoading] = useState(false);
+  const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
+  const [driverMutationLoading, setDriverMutationLoading] = useState(false);
   // Order type toggle
   const [orderType, setOrderType] = useState<'DINE_IN' | 'DELIVERY' | 'PICKUP'>('DINE_IN');
   // Delivery details states
@@ -868,6 +872,25 @@ export default function BillingPage() {
       addToast('error', 'Failed to add customer');
     } finally {
       setCustomerMutationLoading(false);
+    }
+  };
+
+  const handleCreateDriver = async (data: any) => {
+    setDriverMutationLoading(true);
+    try {
+      const payload = {
+        ...data,
+        propertyId: currentPropertyId || undefined,
+      };
+      const result = await driversApi.create(payload);
+      setDrivers(prev => [...prev, result]);
+      setSelectedDriver(result);
+      setIsDriverModalOpen(false);
+      addToast('success', 'Driver added');
+    } catch (err) {
+      addToast('error', 'Failed to add driver');
+    } finally {
+      setDriverMutationLoading(false);
     }
   };
 
@@ -1748,37 +1771,82 @@ Total Amount: ₹${grandTotal.toFixed(2)}
              </div>
            </div>
 
-           {/* 🔍 2. SEARCH INTERFACES (Toggled) */}
-           {(showCustomerDropdown && !selectedGuestId) && (
-             <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
-                <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
-                   <Search size={14} className="text-slate-500" />
-                   <input
-                     type="text"
-                     placeholder="Search customer..."
-                     autoFocus
-                     value={customerSearch}
-                     onChange={(e) => setCustomerSearch(e.target.value)}
-                     className="bg-transparent text-[11px] font-bold outline-none flex-1"
-                   />
-                </div>
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
-                  {customers
-                    .filter(c => !customerSearch || c.firstName?.toLowerCase().includes(customerSearch.toLowerCase()) || (c.mobile || '').includes(customerSearch))
-                    .map(customer => (
-                      <button
-                        key={customer.id}
-                        onMouseDown={() => { setSelectedGuestId(customer.id); setShowCustomerDropdown(false); setCustomerSearch(''); }}
-                        className="w-full px-4 py-3 text-left hover:bg-pos-primary hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
-                      >
-                         <p className="text-[12px] font-black">{customer.firstName} {customer.lastName || ''}</p>
-                         <p className="text-[10px] font-bold opacity-60 group-hover:opacity-100">{customer.mobile || 'No phone'}</p>
-                      </button>
-                    ))
-                  }
-                </div>
-             </div>
-           )}
+            {/* 🔍 2. SEARCH INTERFACES (Toggled) */}
+            {(showCustomerDropdown && !selectedGuestId) && (
+              <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
+                 <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
+                    <Search size={14} className="text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search customer..."
+                      autoFocus
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      className="bg-transparent text-[11px] font-bold outline-none flex-1"
+                    />
+                 </div>
+                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
+                   <button
+                     onMouseDown={() => { setIsCustomerModalOpen(true); setShowCustomerDropdown(false); }}
+                     className="w-full px-4 py-3 text-left bg-pos-primary/10 hover:bg-pos-primary hover:text-white text-pos-primary transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-white/5"
+                   >
+                     <Plus size={14} />
+                     <span className="text-[12px] font-black uppercase">Add New Customer</span>
+                   </button>
+                   {customers
+                     .filter(c => !customerSearch || c.firstName?.toLowerCase().includes(customerSearch.toLowerCase()) || (c.mobile || '').includes(customerSearch))
+                     .map(customer => (
+                       <button
+                         key={customer.id}
+                         onMouseDown={() => { setSelectedGuestId(customer.id); setShowCustomerDropdown(false); setCustomerSearch(''); }}
+                         className="w-full px-4 py-3 text-left hover:bg-pos-primary hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
+                       >
+                          <p className="text-[12px] font-black">{customer.firstName} {customer.lastName || ''}</p>
+                          <p className="text-[10px] font-bold opacity-60 group-hover:opacity-100">{customer.mobile || 'No phone'}</p>
+                       </button>
+                     ))
+                   }
+                 </div>
+              </div>
+            )}
+
+            {(showDriverDropdown && !selectedDriver) && (
+              <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
+                 <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
+                    <Search size={14} className="text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search driver..."
+                      autoFocus
+                      value={driverSearch}
+                      onChange={(e) => setDriverSearch(e.target.value)}
+                      className="bg-transparent text-[11px] font-bold outline-none flex-1"
+                    />
+                 </div>
+                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
+                   <button
+                     onMouseDown={() => { setIsDriverModalOpen(true); setShowDriverDropdown(false); }}
+                     className="w-full px-4 py-3 text-left bg-amber-500/10 hover:bg-amber-500 hover:text-white text-amber-500 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-white/5"
+                   >
+                     <Plus size={14} />
+                     <span className="text-[12px] font-black uppercase">Add New Driver</span>
+                   </button>
+                   {drivers
+                     .filter(d => d.isActive && (!driverSearch || d.name?.toLowerCase().includes(driverSearch.toLowerCase()) || (d.phone || '').includes(driverSearch)))
+                     .map(driver => (
+                       <button
+                         key={driver.id}
+                         onMouseDown={() => { setSelectedDriver(driver); setShowDriverDropdown(false); setDriverSearch(''); }}
+                         className="w-full px-4 py-3 text-left hover:bg-amber-500 hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
+                       >
+                          <p className="text-[12px] font-black">{driver.name}</p>
+                          <p className="text-[10px] font-bold opacity-60 group-hover:opacity-100">{driver.phone || 'No phone'} {driver.vehicleNumber ? `• ${driver.vehicleNumber}` : ''}</p>
+                       </button>
+                     ))
+                   }
+                 </div>
+              </div>
+            )}
 
 
            {/* 🛒 3. CART ITEMS LIST */}
@@ -1934,33 +2002,43 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                      </div>
 
                      {/* Dynamic Rider Select (Delivery Boy) */}
-                     <div className="relative">
-                       <select 
-                         value={selectedDriver?.id || ''}
-                         onChange={(e) => {
-                           const driverId = e.target.value;
-                           const driver = drivers.find(d => d.id === driverId);
-                           setSelectedDriver(driver || null);
-                         }}
-                         className={`w-full text-[11px] font-bold px-3 py-2.5 rounded-xl transition-all appearance-none cursor-pointer ${
-                           theme === 'dark' 
-                             ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
-                             : 'bg-white border-slate-200 focus:border-rose-500'
-                         } border outline-none text-slate-800 dark:text-slate-100`}
-                       >
-                         <option value="" className="text-slate-400">🚴 Choose Delivery Rider</option>
-                         {drivers
-                           .filter(d => d.vehicleType === 'BIKE' && d.isActive)
-                           .map(d => (
-                             <option key={d.id} value={d.id} className="text-slate-800 dark:text-slate-100 font-semibold">
-                               {d.name} ({d.phone || 'No phone'})
-                             </option>
-                           ))
-                         }
-                       </select>
-                       <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                         ▼
+                     <div className="flex gap-2">
+                       <div className="relative flex-1">
+                         <select 
+                           value={selectedDriver?.id || ''}
+                           onChange={(e) => {
+                             const driverId = e.target.value;
+                             const driver = drivers.find(d => d.id === driverId);
+                             setSelectedDriver(driver || null);
+                           }}
+                           className={`w-full text-[11px] font-bold px-3 py-2.5 rounded-xl transition-all appearance-none cursor-pointer ${
+                             theme === 'dark' 
+                               ? 'bg-[#121212] border-white/5 focus:border-rose-500/50' 
+                               : 'bg-white border-slate-200 focus:border-rose-500'
+                           } border outline-none text-slate-800 dark:text-slate-100`}
+                         >
+                           <option value="" className="text-slate-400">🚴 Choose Delivery Rider</option>
+                           {drivers
+                             .filter(d => d.vehicleType === 'BIKE' && d.isActive)
+                             .map(d => (
+                               <option key={d.id} value={d.id} className="text-slate-800 dark:text-slate-100 font-semibold">
+                                 {d.name} ({d.phone || 'No phone'})
+                               </option>
+                             ))
+                           }
+                         </select>
+                         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                           ▼
+                         </div>
                        </div>
+                       <button
+                         type="button"
+                         onClick={() => setIsDriverModalOpen(true)}
+                         className="flex-shrink-0 px-3 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 transition-colors flex items-center justify-center"
+                         title="Add New Rider"
+                       >
+                         <Plus size={16} />
+                       </button>
                      </div>
                    </>
                  )}
@@ -1984,7 +2062,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
            )}
 
            {/* 📱 5. ORDER DETAILS QR CODE CARD */}
-           {activeOrder && (
+           {activeOrder && !tableId && !activeOrder.restaurantTableId && orderType !== 'DINE_IN' && (
              <div className={`rounded-2xl p-3.5 space-y-2 transition-all duration-300 ${
                theme === 'dark' 
                  ? 'bg-indigo-500/5 border-indigo-500/10' 
@@ -2176,6 +2254,18 @@ Total Amount: ₹${grandTotal.toFixed(2)}
           onSubmit={handleCreateCustomer}
           onCancel={() => setIsCustomerModalOpen(false)}
           loading={customerMutationLoading}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={isDriverModalOpen}
+        onClose={() => setIsDriverModalOpen(false)}
+        title="New Driver Registration"
+      >
+        <DriverForm 
+          onSubmit={handleCreateDriver}
+          onCancel={() => setIsDriverModalOpen(false)}
+          loading={driverMutationLoading}
         />
       </Modal>
     </div>

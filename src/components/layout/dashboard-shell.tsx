@@ -22,7 +22,19 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   // SPECIAL OVERRIDE: Kitchen Display always uses POS Layout
   const isKitchenDisplay = pathname.startsWith('/kitchen-display');
   
-  const showAdminLayout = isAdminRole && !isKitchenDisplay;
+  // Switch to POS layout for operational pages even for admins
+  const isPosPage = 
+    pathname === '/operations' || pathname.startsWith('/operations/') ||
+    pathname === '/billing' || pathname.startsWith('/billing/') ||
+    pathname === '/counter-payments' || pathname.startsWith('/counter-payments/') ||
+    pathname === '/bar-pos' || pathname.startsWith('/bar-pos/') ||
+    pathname === '/kots' || pathname.startsWith('/kots/') ||
+    pathname === '/day-closing' || pathname.startsWith('/day-closing/') ||
+    pathname === '/inventory' || pathname.startsWith('/inventory/') ||
+    pathname === '/products' || pathname.startsWith('/products/') ||
+    pathname === '/categories' || pathname.startsWith('/categories/');
+
+  const showAdminLayout = isAdminRole && !isKitchenDisplay && !isPosPage;
   const isPos = !showAdminLayout;
 
   if (session.role === 'B2B_SUPPLIER') {

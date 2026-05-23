@@ -28,9 +28,25 @@ export const DashboardAdminSidebar: React.FC = () => {
   }, []);
 
   // Filter menu based on role and dynamic paths
-  const menu = session ? getSidebarMenu(session.role) : [];
+  const menu = session ? getSidebarMenu(session.role, session.organizationSlug) : [];
+
+  const operationalNames = [
+    'POS Home',
+    'POS Terminal',
+    'Counter Payments',
+    '🍺 Bar POS',
+    'Inventory',
+    'Products',
+    'Categories',
+    'KOTs',
+    'Kitchen Display',
+    'Day Closing'
+  ];
 
   const filteredMenu = menu.filter(item => {
+    // Filter out operational POS items from the Admin Sidebar
+    if (operationalNames.includes(item.name)) return false;
+
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;
 
@@ -66,42 +82,46 @@ export const DashboardAdminSidebar: React.FC = () => {
     return true;
   }).map((item: any) => {
     if (item.subItems) {
-      return {
-        ...item,
-        subItems: item.subItems.filter((sub: any) => {
-          if (session.role === 'SUPER_ADMIN') return true;
+      const filteredSubs = item.subItems.filter((sub: any) => {
+        if (session.role === 'SUPER_ADMIN') return true;
 
-          // 1. Sub-item feature gating (Strict Enforcement for all except SUPER_ADMIN)
-          if (sub.feature) {
-            const hasFeature = session.packageFeatures?.includes(sub.feature);
-            if (!hasFeature) return false;
-          }
+        // 1. Sub-item feature gating (Strict Enforcement for all except SUPER_ADMIN)
+        if (sub.feature) {
+          const hasFeature = session.packageFeatures?.includes(sub.feature);
+          if (!hasFeature) return false;
+        }
 
-          // ADMIN & POSSYSTEM see all sub-items of permitted parents
-          if (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM') {
-            if (!sub.roles) return true;
-            return sub.roles.includes(session.role);
-          }
-          const isRoleListed = sub.roles?.includes(session.role);
+        // ADMIN & POSSYSTEM see all sub-items of permitted parents
+        if (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM') {
+          if (!sub.roles) return true;
+          return sub.roles.includes(session.role);
+        }
+        const isRoleListed = sub.roles?.includes(session.role);
 
-          if (session.permissions) {
-            const hasSpecificPerm = session.permissions.some((p: string) => p.toLowerCase() === sub.name.toLowerCase());
-            if (hasSpecificPerm) return true;
+        if (session.permissions) {
+          const hasSpecificPerm = session.permissions.some((p: string) => p.toLowerCase() === sub.name.toLowerCase());
+          if (hasSpecificPerm) return true;
 
-            const parentPerm = (item.perm || item.name).toLowerCase();
-            const hasParentPerm = session.permissions.some((p: string) => p.toLowerCase() === parentPerm);
-            if (hasParentPerm && !sub.roles) return true;
+          const parentPerm = (item.perm || item.name).toLowerCase();
+          const hasParentPerm = session.permissions.some((p: string) => p.toLowerCase() === parentPerm);
+          if (hasParentPerm && !sub.roles) return true;
 
-            if (!isRoleListed) return false;
-            return false;
-          }
+          if (!isRoleListed) return false;
+          return false;
+        }
 
-          if (sub.roles && !isRoleListed) return false;
-          return true;
-        })
-      };
+        if (sub.roles && !isRoleListed) return false;
+        return true;
+      });
+      return { ...item, subItems: filteredSubs };
     }
     return item;
+  // ── Strict Parent Gating: hide groups where ALL sub-items are filtered out ──
+  }).filter((item: any) => {
+    if (item.subItems) {
+      return item.subItems.length > 0;
+    }
+    return true;
   });
 
   // Track which grouped menus are open

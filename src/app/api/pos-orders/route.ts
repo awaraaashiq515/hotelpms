@@ -38,6 +38,7 @@ const posOrderSchema = z.object({
   deliveryLng: z.number().nullable().optional(),
   items: z.array(orderItemSchema).optional(),
   orderId: z.string().optional(),
+  staffMemberId: z.string().nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -234,6 +235,7 @@ export async function POST(request: NextRequest) {
           deliveryInstructions: orderData.deliveryInstructions || undefined,
           deliveryLat: orderData.deliveryLat,
           deliveryLng: orderData.deliveryLng,
+          staffMemberId: orderData.staffMemberId || undefined,
         }
       })
 

@@ -69,7 +69,16 @@ export const DashboardAdminTopNavbar: React.FC = () => {
           
           <div 
             className="flex items-center gap-2.5 group cursor-pointer" 
-            onClick={() => router.push(session?.role === 'SUPER_ADMIN' ? '/admin/dashboard' : '/dashboard')}
+            onClick={() => {
+              if (session?.role === 'SUPER_ADMIN') {
+                router.push('/admin/dashboard');
+              } else if (session?.role === 'RESTAURANTS_ADMIN') {
+                const slug = session?.organizationSlug;
+                router.push(slug ? `/restaurantadmin/${slug}` : '/dashboard');
+              } else {
+                router.push('/dashboard');
+              }
+            }}
           >
             <div className="relative">
               <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">

@@ -4,10 +4,12 @@ import { MapPin, Navigation, Search, Check, Maximize2, X, ArrowLeft } from 'luci
 interface MapPickerProps {
   onAddressSelect: (address: string, lat: number, lng: number) => void;
   initialAddress?: string;
+  deliveryRadius?: number; // Optional radius in km
 }
 
-export const MapPicker: React.FC<MapPickerProps> = ({ onAddressSelect, initialAddress = '' }) => {
+export const MapPicker: React.FC<MapPickerProps> = ({ onAddressSelect, initialAddress = '', deliveryRadius }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const circleRef = useRef<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [markerInstance, setMarkerInstance] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +18,37 @@ export const MapPicker: React.FC<MapPickerProps> = ({ onAddressSelect, initialAd
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Manage Radius Circle dynamically
+  useEffect(() => {
+    if (!leafletLoaded || !mapInstance || !coordinates) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    if (deliveryRadius === undefined) {
+      if (circleRef.current) {
+        mapInstance.removeLayer(circleRef.current);
+        circleRef.current = null;
+      }
+      return;
+    }
+
+    if (circleRef.current) {
+      // Update existing circle's center and radius
+      circleRef.current.setLatLng([coordinates.lat, coordinates.lng]);
+      circleRef.current.setRadius(deliveryRadius * 1000);
+    } else {
+      // Draw new circle representing the coverage zone
+      circleRef.current = L.circle([coordinates.lat, coordinates.lng], {
+        color: '#e11d48', // premium rose-600 color
+        fillColor: '#e11d48',
+        fillOpacity: 0.12,
+        radius: deliveryRadius * 1000,
+        weight: 1.5,
+      }).addTo(mapInstance);
+    }
+  }, [leafletLoaded, mapInstance, coordinates, deliveryRadius]);
 
   // Load Leaflet dynamically from CDN
   useEffect(() => {
@@ -132,11 +165,44 @@ export const MapPicker: React.FC<MapPickerProps> = ({ onAddressSelect, initialAd
     }
   };
 
+  // Locate User via IP Geolocation fallback
+  const locateUserByIP = async (targetMap = mapInstance, targetMarker = markerInstance) => {
+    try {
+      const response = await fetch('https://ipapi.co/json/');
+      if (!response.ok) throw new Error('IP geolocation request failed');
+      const data = await response.json();
+      if (data && data.latitude && data.longitude) {
+        const L = (window as any).L;
+        if (!L || !targetMap || !targetMarker) return;
+        const latLng = new L.LatLng(data.latitude, data.longitude);
+        
+        targetMap.setView(latLng, 16);
+        targetMarker.setLatLng(latLng);
+        setCoordinates({ lat: data.latitude, lng: data.longitude });
+        
+        const cleanAddress = [data.city, data.region, data.country_name].filter(Boolean).join(', ');
+        if (cleanAddress) {
+          setSelectedAddress(cleanAddress);
+          onAddressSelect(cleanAddress, data.latitude, data.longitude);
+        } else {
+          await reverseGeocode(data.latitude, data.longitude);
+        }
+      }
+    } catch (error) {
+      console.error('IP Geolocation error:', error);
+    }
+  };
+
   // Locate User GPS
   const locateUser = (targetMap = mapInstance, targetMarker = markerInstance) => {
-    if (!navigator.geolocation || !targetMap || !targetMarker) return;
+    if (!targetMap || !targetMarker) return;
     
     setLoading(true);
+    if (!navigator.geolocation) {
+      locateUserByIP(targetMap, targetMarker).finally(() => setLoading(false));
+      return;
+    }
+    
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
@@ -150,8 +216,9 @@ export const MapPicker: React.FC<MapPickerProps> = ({ onAddressSelect, initialAd
         await reverseGeocode(latitude, longitude);
         setLoading(false);
       },
-      (error) => {
-        console.error('GPS error:', error);
+      async (error) => {
+        console.error('GPS error, falling back to IP Geolocation:', error);
+        await locateUserByIP(targetMap, targetMarker);
         setLoading(false);
       },
       { enableHighAccuracy: true, timeout: 5000 }

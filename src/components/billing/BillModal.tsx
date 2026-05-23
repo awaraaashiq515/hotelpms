@@ -413,52 +413,52 @@ Thank you! Visit again.`;
 
   return (
     <Modal isOpen={!!bill} onClose={onClose} title={isProforma ? "Order Settlement" : "Bill Details"} maxWidth="4xl">
-      <div className="mx-auto">
+      <div className="mx-auto text-slate-900 dark:text-slate-100">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           
           {/* LEFT: THE BILL (Visual) - 5 Cols */}
-          <div className="lg:col-span-5 bg-white p-8 border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden relative flex flex-col" id="printable-bill">
-            <div className="absolute top-6 right-6 flex gap-2 print:hidden z-20">
+          <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/60 p-6 border border-slate-200/60 dark:border-slate-800 rounded-2xl overflow-hidden relative flex flex-col" id="printable-bill">
+            <div className="absolute top-5 right-5 flex gap-2 print:hidden z-20">
               <button 
                 onClick={() => handleWhatsApp()} 
-                className="p-2 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors text-emerald-500 hover:text-emerald-700"
+                className="p-2 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-full transition-colors text-emerald-600 dark:text-emerald-400"
                 title="Send via WhatsApp"
               >
-                <MessageCircle size={16} />
+                <MessageCircle size={15} />
               </button>
               <button 
                 onClick={() => handlePrint()} 
-                className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-900"
+                className="p-2 bg-slate-200/50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-705 rounded-full transition-colors text-slate-600 dark:text-slate-400"
                 title="Print Bill"
               >
-                <Printer size={16} />
+                <Printer size={15} />
               </button>
             </div>
             
-            <div className="text-center mb-10 mt-4 relative z-10">
-              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none">
+            <div className="text-center mb-6 mt-2 relative z-10">
+              <h2 className="text-xl font-bold uppercase tracking-tight text-slate-800 dark:text-slate-100 leading-none">
                 {property?.name || 'POS RESTAURANT'}
               </h2>
               {property?.address && (
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-2 max-w-[220px] mx-auto leading-relaxed">
+                <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-tight mt-1.5 max-w-[200px] mx-auto leading-relaxed">
                     {property.address}
                 </p>
               )}
-              <div className="w-16 h-1.5 bg-indigo-600 mx-auto mt-8 rounded-full shadow-[0_0_15px_rgba(79,70,229,0.3)]"></div>
+              <div className="w-12 h-1 bg-indigo-600 dark:bg-indigo-500/80 mx-auto mt-4 rounded-full"></div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 mb-10 relative z-10">
-              <div className="flex justify-between items-end border-b border-slate-100 pb-3">
-                <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Order ID</span>
-                <span className="font-black text-slate-900 text-sm tracking-tight">{bill.orderNo}</span>
+            <div className="grid grid-cols-1 gap-2.5 mb-6 relative z-10">
+              <div className="flex justify-between items-end border-b border-slate-200/60 dark:border-slate-800/80 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Order ID</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">{bill.orderNo}</span>
               </div>
-              <div className="flex justify-between items-end border-b border-slate-100 pb-3">
-                <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Table Name</span>
-                <span className="font-black text-indigo-600 text-sm uppercase">{bill.tableNo ? `Table ${bill.tableNo}` : 'Walk-in'}</span>
+              <div className="flex justify-between items-end border-b border-slate-200/60 dark:border-slate-800/80 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Table Name</span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400 text-xs uppercase">{bill.tableNo ? `Table ${bill.tableNo}` : 'Walk-in'}</span>
               </div>
-              <div className="flex justify-between items-end border-b border-slate-100 pb-3">
-                <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Timestamp</span>
-                <span className="font-black text-slate-900 text-xs">
+              <div className="flex justify-between items-end border-b border-slate-200/60 dark:border-slate-800/80 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Timestamp</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
                   {(() => {
                     const d = bill.createdAt ? new Date(bill.createdAt) : new Date();
                     return format(isValid(d) ? d : new Date(), 'dd/MM/yyyy HH:mm');
@@ -468,56 +468,56 @@ Thank you! Visit again.`;
             </div>
 
             <div className="mb-4 relative z-10 flex-1 flex flex-col min-h-[220px]">
-              <div className="grid grid-cols-[1fr_85px_75px] gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-3 border-b-2 border-slate-100 pb-3 px-1">
+              <div className="grid grid-cols-[1fr_80px_70px] gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2.5 border-b border-slate-200/60 dark:border-slate-800/85 pb-2 px-1">
                 <span>Description</span>
                 <span className="text-center">Qty × Price</span>
                 <span className="text-right">Total</span>
               </div>
-              <div className="space-y-4 overflow-y-auto no-scrollbar max-h-[350px] px-1">
+              <div className="space-y-3 overflow-y-auto no-scrollbar max-h-[350px] px-1">
                 {bill.items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_85px_75px] gap-2 items-start py-0.5 group">
+                  <div key={idx} className="grid grid-cols-[1fr_80px_70px] gap-2 items-start py-0.5 group">
                     <div className="min-w-0">
-                      <p className="text-[12px] font-black text-slate-900 leading-tight uppercase group-hover:text-indigo-600 transition-colors">{item.name}</p>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-350 leading-tight uppercase group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{item.name}</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-[10px] font-bold text-slate-400 tabular-nums">{item.quantity} × {(item.price || 0).toFixed(0)}</p>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-450 tabular-nums">{item.quantity} × {(item.price || 0).toFixed(0)}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-[12px] font-black text-slate-900 tabular-nums tracking-tighter">₹{(item.quantity * (item.price || 0)).toFixed(0)}</p>
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 tabular-nums">₹{(item.quantity * (item.price || 0)).toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="border-t border-dashed border-slate-200 pt-6 space-y-2 relative z-10 mt-auto">
-              <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            <div className="border-t border-dashed border-slate-200 dark:border-slate-800 pt-4 space-y-1.5 relative z-10 mt-auto">
+              <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <span>Subtotal</span>
-                <span className="text-slate-900 font-black">₹{(bill.subtotal || 0).toFixed(0)}</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">₹{(bill.subtotal || 0).toFixed(0)}</span>
               </div>
               {bill.membershipDiscount && bill.membershipDiscount > 0 ? (
-                <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest pb-1">
+                <div className="flex justify-between text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                   <span>Membership Discount</span>
-                  <span className="font-black">-₹{membershipDiscount.toFixed(0)}</span>
+                  <span className="font-semibold">-₹{membershipDiscount.toFixed(0)}</span>
                 </div>
               ) : null}
               {bill.manualDiscount && bill.manualDiscount > 0 ? (
-                <div className="flex justify-between text-[10px] font-black text-blue-600 uppercase tracking-widest pb-1">
+                <div className="flex justify-between text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                   <span>Discount</span>
-                  <span className="font-black">-₹{(bill.manualDiscount || 0).toFixed(0)}</span>
+                  <span className="font-semibold">-₹{(bill.manualDiscount || 0).toFixed(0)}</span>
                 </div>
               ) : null}
-              <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest pb-3 border-b border-slate-100">
+              <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-200/60 dark:border-slate-800/80">
                 <span>{bill.taxLabel || 'Tax'}</span>
-                <span className="text-slate-900 font-black">₹{(bill.tax || 0).toFixed(0)}</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">₹{(bill.tax || 0).toFixed(0)}</span>
               </div>
-              <div className="flex justify-between items-center bg-slate-900 text-white p-5 rounded-2xl mt-4 shadow-xl print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">
+              <div className="flex justify-between items-center bg-slate-900 dark:bg-slate-950/80 text-white p-4 rounded-xl mt-3 shadow-md print:border-t-2 print:border-black print:bg-white print:text-black print:rounded-none">
                 <div>
-                    <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-40 block mb-0.5 print:text-[8px] print:font-bold">Payable</span>
-                    <span className="text-2xl font-black text-white leading-none print:text-black">₹{currentGrandTotal.toFixed(0)}</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5 print:text-[8px] print:font-bold">Payable</span>
+                    <span className="text-xl font-bold text-white leading-none print:text-black">₹{currentGrandTotal.toFixed(0)}</span>
                 </div>
-                <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center border border-white/5 print:hidden">
-                    <ReceiptText size={18} className="text-indigo-400" />
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/5 print:hidden">
+                    <ReceiptText size={16} className="text-indigo-400" />
                 </div>
               </div>
             </div>
@@ -526,71 +526,71 @@ Thank you! Visit again.`;
           <div className="lg:col-span-7 flex flex-col gap-5 print:hidden">
             
             {isProforma && onSettle && (
-              <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col">
-                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+              <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 shadow-sm overflow-hidden flex flex-col">
+                <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20">
                   <div className="flex items-center gap-2">
-                    <User size={16} className="text-gray-400" />
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700">Select Customer</h4>
+                    <User size={15} className="text-slate-400 dark:text-slate-500" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Select Customer</h4>
                   </div>
                   {!showAddCustomer && (
                     <button 
                       type="button" 
                       onClick={() => setShowAddCustomer(true)}
-                      className="px-3 py-1.5 bg-white text-[9px] font-black uppercase text-indigo-600 rounded-lg border border-indigo-50 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95"
+                      className="px-2.5 py-1 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95"
                     >
                       + New
                     </button>
                   )}
                 </div>
 
-                <div className="p-6">
+                <div className="p-5">
                   {showAddCustomer ? (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-[10px] font-black uppercase text-indigo-600 tracking-widest">New Guest Profile</span>
-                        <button type="button" onClick={() => setShowAddCustomer(false)} className="text-gray-300 hover:text-red-500">
-                          <X size={18} />
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">New Guest Profile</span>
+                        <button type="button" onClick={() => setShowAddCustomer(false)} className="text-slate-400 hover:text-rose-500">
+                          <X size={16} />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-2 gap-3 mb-3">
                         <input 
                           placeholder="First Name" 
                           value={newCustFirst} 
                           onChange={e => setNewCustFirst(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:border-indigo-500 focus:bg-white transition-all uppercase"
+                          className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800/85 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500/50 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-950 transition-all uppercase"
                         />
                         <input 
                           placeholder="Last Name" 
                           value={newCustLast} 
                           onChange={e => setNewCustLast(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:border-indigo-500 focus:bg-white transition-all uppercase"
+                          className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800/85 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500/50 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-950 transition-all uppercase"
                         />
                       </div>
                       <input 
                         placeholder="Mobile Contact" 
                         value={newCustMobile} 
                         onChange={e => setNewCustMobile(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:border-indigo-500 focus:bg-white transition-all mb-4"
+                        className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800/85 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500/50 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-950 transition-all mb-3"
                       />
                       <Button 
                         loading={isAddingCustomer}
                         onClick={handleAddCustomer}
-                        className="w-full h-12 bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg shadow-indigo-50"
+                        className="w-full h-10 bg-indigo-600 text-white font-semibold uppercase text-xs tracking-wider rounded-xl shadow-md"
                       >
                         Create Profile
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div className="relative group">
                         <input 
                           type="text"
                           placeholder="Find customer..."
                           value={customerSearch}
                           onChange={(e) => setCustomerSearch(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-6 py-4 text-sm font-black outline-none focus:border-indigo-500 focus:bg-white transition-all uppercase"
+                          className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200/65 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500/50 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-950 transition-all uppercase"
                         />
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto no-scrollbar">
                         {filteredCustomers.map(c => (
@@ -601,20 +601,20 @@ Thank you! Visit again.`;
                               setSelectedGuestId(selectedGuestId === c.id ? '' : c.id);
                               setCustomerSearch(selectedGuestId === c.id ? '' : `${c.firstName} ${c.lastName || ''}`);
                             }}
-                            className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${
+                            className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
                               selectedGuestId === c.id 
-                              ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' 
-                              : 'border-transparent bg-gray-50 group hover:border-indigo-100'
+                              ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 shadow-sm' 
+                              : 'border-transparent bg-slate-50 dark:bg-slate-950/40 hover:border-slate-200 dark:hover:border-slate-800'
                             }`}
                           >
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] ${
-                              selectedGuestId === c.id ? 'bg-indigo-600 text-white' : 'bg-white text-gray-400 border border-gray-100'
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                              selectedGuestId === c.id ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-800'
                             }`}>
                               {c.firstName[0]}{c.lastName?.[0]}
                             </div>
                             <div className="text-left min-w-0">
-                                <p className="text-[12px] font-black truncate uppercase text-gray-900 leading-none mb-1">{c.firstName} {c.lastName}</p>
-                                <p className="text-[10px] font-bold text-gray-400 opacity-60">+{c.mobile}</p>
+                                <p className="text-xs font-semibold truncate uppercase text-slate-800 dark:text-slate-200 leading-none mb-1">{c.firstName} {c.lastName}</p>
+                                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">+{c.mobile}</p>
                             </div>
                           </button>
                         ))}
@@ -626,57 +626,58 @@ Thank you! Visit again.`;
             )}
 
             {isProforma && onSettle && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                 <div className="flex items-center gap-2 mb-4">
-                    <Star size={16} className="text-gray-400" />
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700">Promo & Membership</h4>
+              <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 p-4">
+                 <div className="flex items-center gap-2 mb-3">
+                    <Star size={15} className="text-slate-400 dark:text-slate-505" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Promo & Membership</h4>
                   </div>
 
                   {membershipCard ? (
                     <div 
-                      className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 border border-emerald-100 bg-emerald-50/50"
+                      className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20"
                       onClick={() => { setMembershipCard(null); setMembershipDiscount(0); }}
                     >
                       <div className="flex items-center gap-2.5">
                          <Star size={14} className="text-emerald-500" />
                          <div>
-                           <span className="text-[11px] font-black uppercase text-emerald-600 tracking-wider block leading-none">{membershipCard.membershipPlan.name}</span>
-                           <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter">Card: {membershipCard.cardNumber}</span>
+                           <span className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 tracking-wide block leading-none">{membershipCard.membershipPlan.name}</span>
+                           <span className="text-[9px] font-semibold text-emerald-550 dark:text-emerald-500 uppercase tracking-tighter mt-1 block">Card: {membershipCard.cardNumber}</span>
                          </div>
                       </div>
                       <div className="flex items-center gap-2">
-                         <span className="text-[12px] font-black text-emerald-600">-{membershipCard.membershipPlan.discountValue}{membershipCard.membershipPlan.discountType === 'PERCENTAGE' ? '%' : ''}</span>
-                         <X size={14} className="text-rose-400 cursor-pointer" />
+                         <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">-{membershipCard.membershipPlan.discountValue}{membershipCard.membershipPlan.discountType === 'PERCENTAGE' ? '%' : ''}</span>
+                         <X size={14} className="text-rose-450 cursor-pointer" />
                       </div>
                     </div>
                   ) : (
-                    <div className="relative flex items-center gap-3 bg-gray-50 border border-gray-100 px-4 py-2.5 rounded-xl group focus-within:bg-white focus-within:border-indigo-500/30 transition-all">
-                       <QrCode className="text-gray-300" size={16} />
+                    <div className="relative flex items-center gap-3 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-xl px-3 py-2 group focus-within:bg-white dark:focus-within:bg-slate-955 focus-within:border-indigo-500/30 transition-all">
+                       <QrCode className="text-slate-400 dark:text-slate-500" size={14} />
                        <input 
                          type="text"
                          placeholder="Enter Membership ID / Phone..."
                          value={membershipSearch}
                          onChange={(e) => setMembershipSearch(e.target.value)}
                          onKeyDown={(e) => e.key === 'Enter' && membershipSearch.trim() && validateMembership(membershipSearch.trim())}
-                         className="w-full bg-transparent text-[11px] font-black outline-none placeholder:text-gray-300 uppercase"
+                         className="w-full bg-transparent text-xs font-medium outline-none placeholder:text-slate-400 text-slate-800 dark:text-slate-200 uppercase"
                        />
                        {isValidatingMembership && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
                        {!isValidatingMembership && membershipSearch.trim() && (
-                          <button onClick={() => validateMembership(membershipSearch.trim())} className="text-[10px] font-black uppercase text-indigo-600">Apply</button>
+                          <button onClick={() => validateMembership(membershipSearch.trim())} className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700">Apply</button>
                        )}
                     </div>
                   )}
               </div>
             )}
 
+
             {isProforma && onSettle && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5 flex-1 flex flex-col">
-                <div className="flex items-center gap-2 mb-4">
-                  <CreditCard size={16} className="text-gray-400" />
-                  <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700">Payment Method</h4>
+              <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 p-4 flex-1 flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard size={15} className="text-slate-400 dark:text-slate-500" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Payment Method</h4>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                   {paymentModes?.map(mode => {
                     const isSelected = selectedModeId === mode.id;
                     let Icon = Banknote;
@@ -689,14 +690,14 @@ Thank you! Visit again.`;
                         key={mode.id} 
                         type="button"
                         onClick={() => setSelectedModeId(isSelected ? null : mode.id)}
-                        className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+                        className={`p-2 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
                           isSelected 
-                          ? 'border-indigo-600 bg-indigo-50/30 text-indigo-600' 
-                          : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100 text-gray-400'
+                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                          : 'border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 hover:bg-slate-100 dark:hover:bg-slate-850/80 text-slate-500 dark:text-slate-400'
                         }`}
                       >
-                        <Icon size={18} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">{mode.name}</span>
+                        <Icon size={16} />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider">{mode.name}</span>
                       </button>
                     );
                   })}
@@ -704,59 +705,60 @@ Thank you! Visit again.`;
                   <button 
                     type="button"
                     onClick={() => setSelectedModeId(selectedModeId === 'PAY_LATER' ? null : 'PAY_LATER')}
-                    className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+                    className={`p-2 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
                       selectedModeId === 'PAY_LATER'
-                      ? 'border-orange-500 bg-orange-50/30 text-orange-600' 
-                      : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100 text-gray-400'
+                      ? 'border-orange-500 dark:border-orange-500/80 bg-orange-50/30 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 shadow-sm' 
+                      : 'border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 hover:bg-slate-100 dark:hover:bg-slate-850/80 text-slate-500 dark:text-slate-400'
                     }`}
                   >
-                    <span className="text-base">⏳</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest">Pay Later</span>
+                    <span className="text-xs">⏳</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider">Pay Later</span>
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3 mb-6 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-3 mb-4 bg-slate-50 dark:bg-slate-950/45 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800/80">
                     <button 
                       type="button"
                       onClick={() => setSendWhatsApp(!sendWhatsApp)}
-                      className={`relative w-10 h-5 rounded-full transition-all duration-300 ${sendWhatsApp ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                      className={`relative w-9 h-5 rounded-full transition-all duration-300 ${sendWhatsApp ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
                     >
-                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${sendWhatsApp ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${sendWhatsApp ? 'translate-x-4' : 'translate-x-0'}`} />
                     </button>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase text-gray-700 tracking-tight leading-none mb-1">WhatsApp Receipt</span>
-                      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Send automated message</span>
+                      <span className="text-xs font-semibold text-slate-750 dark:text-slate-300 tracking-wide mb-0.5">WhatsApp Receipt</span>
+                      <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Send automated message</span>
                     </div>
                 </div>
 
                 <div className="mt-auto">
-                  <Button 
-                    loading={isSettling}
-                    disabled={!selectedModeId}
+                  <button 
+                    disabled={!selectedModeId || isSettling}
                     onClick={handleSettle}
-                    className={`w-full h-16 text-white font-black uppercase rounded-2xl transition-all flex items-center justify-between overflow-hidden shadow-xl active:scale-[0.98] ${
+                    className={`w-full h-13 rounded-xl transition-all flex items-center justify-between border shadow-sm active:scale-[0.98] ${
                       selectedModeId 
-                      ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' 
-                      : 'bg-gray-50 border border-gray-100 cursor-not-allowed opacity-50'
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white font-semibold border-indigo-700/20 cursor-pointer' 
+                      : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 font-semibold border-slate-200 dark:border-slate-800/60 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center gap-3 pl-6">
-                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${selectedModeId ? 'bg-white/20' : 'bg-gray-200'}`}>
-                         <Printer size={18} className={selectedModeId ? 'text-white' : 'text-gray-400'} />
-                       </div>
-                       <div className="text-left">
-                         <p className="text-[7px] uppercase tracking-[0.2em] opacity-60">Complete</p>
-                         <p className="text-sm font-black tracking-tight">Save & Print</p>
-                       </div>
+                    <div className="flex items-center gap-2.5 pl-4">
+                       {isSettling ? (
+                          <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2500/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                       ) : (
+                          <Printer size={16} />
+                       )}
+                       <span className="text-xs font-bold tracking-wider uppercase">Save & Print Bill</span>
                     </div>
-                    <div className={`h-full flex flex-col justify-center items-end px-6 border-l transition-colors ${selectedModeId ? 'bg-black/10 border-white/10' : 'bg-gray-50 border-gray-100'}`}>
-                       <span className={`text-[7px] uppercase tracking-widest ${selectedModeId ? 'text-white/40' : 'text-gray-400'}`}>Payable</span>
-                       <span className={`text-xl font-black ${selectedModeId ? 'text-white' : 'text-gray-300'}`}>₹{currentGrandTotal.toFixed(0)}</span>
+                    <div className="pr-4 flex items-center gap-1.5">
+                       <span className="text-[9px] uppercase tracking-wider opacity-60">Payable:</span>
+                       <span className="text-sm font-bold">₹{currentGrandTotal.toFixed(0)}</span>
                     </div>
-                  </Button>
+                  </button>
                   
                   <div className="flex justify-center mt-3">
-                    <button onClick={onClose} className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-300 hover:text-red-500 transition-colors py-1 px-4">
+                    <button onClick={onClose} className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors py-1">
                         Cancel & Return
                     </button>
                   </div>
@@ -769,23 +771,23 @@ Thank you! Visit again.`;
 
       {showRating && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-6">
-              <CheckCircle2 size={40} />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-200/60 dark:border-slate-800 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+            <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 size={30} />
             </div>
-            <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter mb-2">Order Settled!</h3>
-            <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-8">How was the customer's experience?</p>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-1">Order Settled!</h3>
+            <p className="text-slate-400 dark:text-slate-500 font-medium text-xs mb-6">How was the customer's experience?</p>
             
-            <div className="flex gap-2 mb-8">
+            <div className="flex gap-2 mb-6">
               {[1, 2, 3, 4, 5].map(star => (
                 <button 
                   key={star} 
                   onClick={() => setRating(star)}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                    rating >= star ? 'bg-amber-400 text-white shadow-lg shadow-amber-200' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                    rating >= star ? 'bg-amber-400 text-white shadow-md shadow-amber-200' : 'bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Star size={24} fill={rating >= star ? 'currentColor' : 'none'} />
+                  <Star size={20} fill={rating >= star ? 'currentColor' : 'none'} />
                 </button>
               ))}
             </div>
@@ -794,26 +796,26 @@ Thank you! Visit again.`;
               placeholder="Any feedback or comments? (Optional)"
               value={ratingComments}
               onChange={e => setRatingComments(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold text-gray-900 outline-none focus:border-indigo-500 focus:bg-white transition-all min-h-[100px] mb-8"
+              className="w-full bg-slate-55 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-3 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500/50 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-950 transition-all min-h-[80px] mb-6"
             />
 
-            <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col gap-2.5 w-full">
               <Button 
                 onClick={submitRating}
-                className="w-full h-14 bg-indigo-600 text-white font-black uppercase rounded-2xl shadow-xl shadow-indigo-100"
+                className="w-full h-11 bg-indigo-600 text-white font-semibold text-xs tracking-wider rounded-xl shadow-md"
               >
                 Submit & Print Bill
               </Button>
               <Button 
                 onClick={handleWhatsApp}
-                className="w-full h-14 bg-emerald-600 text-white font-black uppercase rounded-2xl shadow-xl shadow-emerald-100 flex items-center justify-center gap-2"
+                className="w-full h-11 bg-emerald-600 text-white font-semibold text-xs tracking-wider rounded-xl shadow-md flex items-center justify-center gap-2"
               >
-                <MessageCircle size={20} />
+                <MessageCircle size={16} />
                 Send via WhatsApp
               </Button>
               <button 
                 onClick={() => { handlePrint(); onClose(); }}
-                className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-indigo-600 transition-colors py-2"
+                className="text-xs font-semibold text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1"
               >
                 Skip Rating
               </button>

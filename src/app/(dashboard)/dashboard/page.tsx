@@ -76,10 +76,10 @@ export default function DashboardPage() {
     <div className="space-y-6 lg:space-y-8 h-full pb-10 lg:pb-0">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <PageHeader
-          title={`${session?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Restaurants Admin'} Dashboard`}
+          title={`${session?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'User'} Dashboard`}
           description={session?.role === 'SUPER_ADMIN'
             ? "Global oversight of all organizations."
-            : "Manage your restaurant portfolio."}
+            : "Manage your business portfolio."}
         />
         <div className="flex items-center gap-3">
           {isAdmin && (

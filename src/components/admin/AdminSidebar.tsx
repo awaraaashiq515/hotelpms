@@ -23,7 +23,8 @@ import {
   Sun,
   Moon,
   Boxes,
-  X
+  X,
+  CreditCard,
 } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -47,6 +48,8 @@ export const AdminSidebar = () => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Packages', path: '/admin/packages', icon: Boxes },
+    { name: 'Subscription Approvals', path: '/admin/subscription-approvals', icon: CreditCard },
+    { name: 'Payment/UPI Settings', path: '/admin/settings/billing', icon: Settings },
     { name: 'Package Assigns', path: '/admin/packages/assignments', icon: Users },
     { name: 'Properties / POS', path: '/admin/properties', icon: Home },
     { name: 'Website Settings', path: '/admin/settings', icon: Settings },

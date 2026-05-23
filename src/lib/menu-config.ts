@@ -51,14 +51,19 @@ export interface MenuItem {
   subItems?: SubMenuItem[];
 }
 
-export const getSidebarMenu = (role: string): MenuItem[] => {
+export const getSidebarMenu = (role: string, organizationSlug?: string | null): MenuItem[] => {
   const isSuper = role === 'SUPER_ADMIN';
   const isAdmin = role === 'RESTAURANTS_ADMIN';
+
+  // Build the branded dashboard path for restaurant admins
+  const adminDashPath = organizationSlug
+    ? `/restaurantadmin/${organizationSlug}`
+    : '/dashboard';
 
   return [
     {
       name: 'Dashboard',
-      path: isSuper ? '/admin/dashboard' : '/dashboard',
+      path: isSuper ? '/admin/dashboard' : adminDashPath,
       icon: LayoutDashboard,
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'],
       // No feature key — dashboard always accessible
@@ -67,7 +72,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       name: 'POS Home',
       path: '/operations',
       icon: LayoutDashboard,
-      roles: ['POSSYSTEM'],
+      roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'],
       feature: 'POS',
     },
     {
@@ -86,7 +91,7 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
     { name: 'Products',    path: '/products',  icon: Tag,       feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
     { name: 'Categories',  path: '/categories',icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
     { name: 'KOTs',        path: '/kots',      icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Kitchen Display', path: '/kitchen-display', icon: Eye, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], target: '_blank' },
+    { name: 'Kitchen Display', path: '/kitchen-display', icon: Eye, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Kitchen Display', target: '_blank' },
     { name: 'Day Closing', path: '/day-closing', icon: Layers,  feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Day Closing' },
     {
       name: 'Expenses',
@@ -146,11 +151,12 @@ export const getSidebarMenu = (role: string): MenuItem[] => {
       name: 'B2B Marketplace',
       path: '/b2b/market',
       icon: ShoppingBag,
+      feature: 'B2B',
       roles: ['RESTAURANTS_ADMIN', 'POSSYSTEM', 'SUPER_ADMIN'],
       subItems: [
-        { name: 'Browse Market', path: '/b2b/market' },
-        { name: 'My B2B Orders',  path: '/b2b/orders' },
-        { name: 'Supplier Hub',   path: '/b2b/supplier', roles: ['SUPER_ADMIN', 'RESTAURANTS_ADMIN'] },
+        { name: 'Browse Market', path: '/b2b/market', feature: 'B2B' },
+        { name: 'My B2B Orders',  path: '/b2b/orders', feature: 'B2B' },
+        { name: 'Supplier Hub',   path: '/b2b/supplier', feature: 'B2B', roles: ['SUPER_ADMIN', 'RESTAURANTS_ADMIN'] },
       ],
     },
     {

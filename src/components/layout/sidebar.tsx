@@ -34,7 +34,7 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   // Filter menu based on role
-  const menu = session ? getSidebarMenu(session.role) : [];
+  const menu = session ? getSidebarMenu(session.role, session.organizationSlug) : [];
   
   const filteredMenu = menu.filter(item => {
     // Hide Bar POS menu item when barPosEnabled is false
@@ -65,24 +65,28 @@ export const Sidebar: React.FC = () => {
     return true;
   }).map((item: any) => {
     if (item.subItems) {
-      return {
-        ...item,
-        subItems: item.subItems.filter((sub: any) => {
-          if (session.role === 'SUPER_ADMIN') return true;
-          
-          // Sub-item feature gating
-          if (sub.feature) {
-            const hasFeature = session.packageFeatures?.includes(sub.feature);
-            if (!hasFeature) return false;
-          }
+      const filteredSubs = item.subItems.filter((sub: any) => {
+        if (session.role === 'SUPER_ADMIN') return true;
 
-          if (sub.roles && !sub.roles.includes(session.role)) return false;
-          
-          return true;
-        })
-      };
+        // Sub-item feature gating
+        if (sub.feature) {
+          const hasFeature = session.packageFeatures?.includes(sub.feature);
+          if (!hasFeature) return false;
+        }
+
+        if (sub.roles && !sub.roles.includes(session.role)) return false;
+
+        return true;
+      });
+      return { ...item, subItems: filteredSubs };
     }
     return item;
+  // ── Strict Parent Gating: hide groups where ALL sub-items are filtered out ──
+  }).filter((item: any) => {
+    if (item.subItems) {
+      return item.subItems.length > 0;
+    }
+    return true;
   });
 
 

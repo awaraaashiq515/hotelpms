@@ -22,6 +22,11 @@ model Organization {
   packageId           String?
   packageEndDate      DateTime?
   packageStartDate    DateTime?
+  subscriptionStatus  String         @default("TRIAL")
+  paymentReference    String?
+  paymentAmount       Float?
+  paymentDate         DateTime?
+  pendingPackageId    String?
   accounts            Account[]
   accountGroups       AccountGroup[]
   guests              Guest[]
@@ -1804,3 +1809,16 @@ model B2BOrderLog {
   createdAt DateTime       @default(now())
   order     B2BOrder       @relation(fields: [orderId], references: [id])
 }
+
+model PaymentSetting {
+  id          String   @id @default("system")
+  upiId       String   @default("pay@ordermint")
+  upiName     String   @default("OrderMint")
+  bankName    String   @default("OrderMint Global Bank")
+  bankAccount String   @default("1200384819283")
+  bankIfsc    String   @default("ORDM0001092")
+  bankSwift   String   @default("ORDMININBB")
+  updatedAt   DateTime @updatedAt
+}
+
+

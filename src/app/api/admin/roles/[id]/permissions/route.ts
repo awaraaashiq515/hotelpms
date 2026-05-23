@@ -64,9 +64,66 @@ export async function PUT(
     const body = await request.json();
     const modules: string[] = body.modules || [];
 
+    // Retrieve organization's package features for sanitization
+    let packageFeatures: string[] = [];
+    if (session.role !== 'SUPER_ADMIN' && session.organizationId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: session.organizationId },
+        include: {
+          package: {
+            include: { features: true }
+          }
+        }
+      });
+      if (org?.package) {
+        packageFeatures = org.package.features.map((f: any) => f.feature);
+      }
+    }
+
+    const MODULE_FEATURE_MAP: Record<string, string> = {
+      'POS Home': 'POS',
+      'POS Terminal': 'POS',
+      'Invoices': 'POS',
+      'Payments': 'POS',
+      'Inventory': 'INVENTORY',
+      'KOTs': 'POS',
+      'Kitchen Display': 'POS',
+      'Day Closing': 'POS',
+      'Expenses': 'ACCOUNTING',
+      'All Expenses': 'ACCOUNTING',
+      'New Expense': 'ACCOUNTING',
+      'Categories': 'ACCOUNTING',
+      'Accounting': 'ACCOUNTING',
+      'Voucher List': 'ACCOUNTING',
+      'Cash Book': 'ACCOUNTING',
+      'Day Book': 'ACCOUNTING',
+      'Ledger': 'ACCOUNTING',
+      'Table Layout': 'TABLES',
+      'Orders Control': 'POS',
+      'Live Occupancy': 'HMS',
+      'Table Bookings': 'TABLES',
+      'Drivers': 'DRIVERS',
+      'POS Staff': 'STAFF',
+      'Reports': 'REPORTS',
+      'Sales Summary': 'REPORTS',
+      'Order Summary': 'REPORTS',
+      'Executive Sales': 'REPORTS',
+      'POS Access': 'POS',
+      'Settings': 'POS'
+    };
+
+    // Filter out modules that are not allowed by the organization's package features
+    const sanitizedModules = modules.filter((m) => {
+      if (session.role === 'SUPER_ADMIN') return true;
+      if (packageFeatures.length === 0) return true; // Grace mode / no package
+      const reqFeature = MODULE_FEATURE_MAP[m];
+      if (!reqFeature) return true; // Modules without mapped features are core
+      return packageFeatures.includes(reqFeature);
+    });
+
     // Ensure permissions exist
     const permissionIds: string[] = [];
-    for (const module of modules) {
+    for (const module of sanitizedModules) {
       let perm = await prisma.permission.findFirst({ where: { module, action: 'ACCESS' } });
       if (!perm) {
         perm = await prisma.permission.create({ data: { module, action: 'ACCESS' } });

@@ -20,7 +20,7 @@ export async function GET(
     const propertyId = tablet.propertyId;
 
     // Fetch all data in parallel using the tablet's propertyId
-    const [products, categories, tables] = await Promise.all([
+    const [products, categories, tables, waiter, websiteSettings, activeOrders] = await Promise.all([
       prisma.product.findMany({
         where: { propertyId, isActive: true },
         include: { category: true, variants: true },
@@ -32,11 +32,38 @@ export async function GET(
       }),
       prisma.table.findMany({
         where: { propertyId },
+        include: { floor: true },
         orderBy: { name: 'asc' },
       }),
+      tablet.waiterId
+        ? prisma.staffMember.findUnique({
+            where: { id: tablet.waiterId },
+            select: { id: true, name: true, designation: true },
+          })
+        : null,
+      prisma.websiteSettings.findFirst({
+        select: { logoUrl: true }
+      }),
+      prisma.posOrder.findMany({
+        where: {
+          propertyId,
+          status: { in: ['KOT_RUNNING', 'IN_KITCHEN', 'READY', 'PAYMENT_AWAITING_APPROVAL'] }
+        },
+        select: {
+          id: true,
+          status: true,
+          restaurantTableId: true,
+          tableNo: true,
+          orderNo: true,
+          table: {
+            select: { name: true }
+          }
+        },
+        orderBy: { updatedAt: 'desc' }
+      })
     ]);
 
-    return apiResponse({ products, categories, tables, property: tablet.property });
+    return apiResponse({ products, categories, tables, property: tablet.property, waiter, websiteSettings, activeOrders });
   } catch (error) {
     return apiError(error);
   }

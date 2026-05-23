@@ -109,15 +109,31 @@ export default function WebsiteSettingsPage() {
         </button>
       </div>
 
-      {/* Added Link to SMS Notifications Settings */}
-      <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 p-6 rounded-3xl flex items-center justify-between transition-colors">
-        <div>
-          <h2 className="font-bold text-lg mb-1 text-pos-primary dark:text-pos-primary-light">SMS & WhatsApp Configurations</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Manage API Keys and templates for automated bill printing notifications.</p>
+      {/* Links to SMS & Payments Settings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 p-6 rounded-3xl flex flex-col justify-between transition-colors min-h-[160px]">
+          <div>
+            <h2 className="font-bold text-lg mb-1 text-pos-primary dark:text-pos-primary-light">SMS & WhatsApp Configurations</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Manage API Keys and templates for automated bill printing notifications.</p>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <a href="/admin/settings/notifications" className="text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow-md shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark">
+              Go to Notification Settings →
+            </a>
+          </div>
         </div>
-        <a href="/admin/settings/notifications" className="text-white px-6 py-2 rounded-full font-bold text-xs transition-all shadow-md shadow-pos-primary/20 bg-pos-primary hover:bg-pos-primary-dark">
-          Go to Notification Settings →
-        </a>
+
+        <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 p-6 rounded-3xl flex flex-col justify-between transition-colors min-h-[160px]">
+          <div>
+            <h2 className="font-bold text-lg mb-1 text-indigo-600 dark:text-indigo-400">Subscription Billing Settings</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Configure global target UPI IDs, merchant details, and bank transfer credentials for new client payments.</p>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <a href="/admin/settings/billing" className="text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700">
+              Configure Payments Gateways →
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* General Settings Section */}

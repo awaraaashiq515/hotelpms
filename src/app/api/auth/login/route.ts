@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { comparePassword } from '@/lib/auth'
 import { apiError, apiResponse } from '@/lib/api-utils'
-import { encrypt, decrypt, SessionPayload } from '@/lib/session'
+import { encrypt, decrypt, SessionPayload, slugify } from '@/lib/session'
 import { cookies } from 'next/headers'
 
 const loginSchema = z.object({
@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
       roleId: user.roleId,
       role: user.role.name,
       organizationId: user.organizationId,
+      organizationName: user.organization?.name ?? null,
+      organizationSlug: user.organization?.name ? slugify(user.organization.name) : null,
       propertyId: user.propertyId,
       supplierId: user.supplierId,
       onboardingCompleted: user.onboardingCompleted,
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
       packageFeatures,
       discountPercent,
       packageEndDate: user.organization?.packageEndDate?.toISOString() ?? null,
+      subscriptionStatus: user.organization?.subscriptionStatus ?? 'TRIAL',
     }
 
     const token = await encrypt(sessionData)

@@ -29,6 +29,13 @@ interface Table {
   name: string;
 }
 
+interface StaffMember {
+  id: string;
+  name: string;
+  isActive: boolean;
+  designation?: string | null;
+}
+
 export default function TabletSettingsPage() {
   const [tablets, setTablets] = useState<TabletDevice[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -36,12 +43,14 @@ export default function TabletSettingsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTablet, setEditingTablet] = useState<TabletDevice | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
 
   // Form State
   const [formData, setFormData] = useState({
     name: '',
     mode: 'WAITER' as 'WAITER' | 'TABLE',
     tableId: '',
+    waiterId: '',
     propertyId: ''
   });
 
@@ -62,15 +71,18 @@ export default function TabletSettingsPage() {
       const currentPropertyId = propData.data.id;
       setFormData(prev => ({ ...prev, propertyId: currentPropertyId }));
 
-      const [tabRes, tableRes] = await Promise.all([
+      const [tabRes, tableRes, staffRes] = await Promise.all([
         fetch(`/api/tablets?propertyId=${currentPropertyId}`),
-        fetch(`/api/tables?propertyId=${currentPropertyId}`)
+        fetch(`/api/tables?propertyId=${currentPropertyId}`),
+        fetch(`/api/staff-members?propertyId=${currentPropertyId}`)
       ]);
       const tabData = await tabRes.json();
       const tableData = await tableRes.json();
+      const staffData = await staffRes.json();
       
       if (tabData.success) setTablets(tabData.data);
       if (tableData.success) setTables(tableData.data);
+      if (staffData.success) setStaffMembers(staffData.data);
     } catch (e) {
       addToast('error', 'Failed to load data');
     } finally {
@@ -89,6 +101,7 @@ export default function TabletSettingsPage() {
         name: tablet.name,
         mode: tablet.mode,
         tableId: tablet.tableId || '',
+        waiterId: tablet.waiterId || '',
         propertyId: tablet.propertyId
       });
     } else {
@@ -98,6 +111,7 @@ export default function TabletSettingsPage() {
         name: '',
         mode: 'WAITER',
         tableId: '',
+        waiterId: '',
       }));
     }
     setIsModalOpen(true);
@@ -193,8 +207,8 @@ export default function TabletSettingsPage() {
                   <span className="text-gray-400 dark:text-slate-500 font-bold uppercase text-[10px] tracking-widest">Linked To</span>
                   <span className="text-gray-900 dark:text-white font-black">
                     {tablet.mode === 'TABLE' 
-                      ? (tables.find(t => t.id === tablet.tableId)?.name || 'Not Linked') 
-                      : 'Assigned to Staff'}
+                      ? `Table ${tables.find(t => t.id === tablet.tableId)?.name || 'Not Linked'}` 
+                      : (staffMembers.find(s => s.id === tablet.waiterId)?.name || 'No Staff Assigned')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -249,6 +263,20 @@ export default function TabletSettingsPage() {
               options={tables.map(t => ({ label: `Table ${t.name}`, value: t.id }))}
               value={formData.tableId}
               onChange={(e) => setFormData(prev => ({ ...prev, tableId: e.target.value }))}
+            />
+          )}
+
+          {formData.mode === 'WAITER' && (
+            <Select 
+              label="Assign to Staff Member (Waiter)"
+              options={[
+                { label: 'Do Not Assign / Open for All', value: '' },
+                ...staffMembers
+                  .filter(s => s.isActive)
+                  .map(s => ({ label: `${s.name} (${s.designation || 'Staff'})`, value: s.id }))
+              ]}
+              value={formData.waiterId}
+              onChange={(e) => setFormData(prev => ({ ...prev, waiterId: e.target.value }))}
             />
           )}
 

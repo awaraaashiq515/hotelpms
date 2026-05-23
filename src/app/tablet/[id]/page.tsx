@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Utensils, ShoppingCart, User, Table as TableIcon, 
-  CheckCircle, Clock, ChevronRight, Star, 
+import {
+  Utensils, ShoppingCart, User, Table as TableIcon,
+  CheckCircle, Clock, ChevronRight, Star,
   Menu, X, Search, Filter, ArrowLeft, Plus, Minus,
   ChefHat, ShoppingBag, Bell, CreditCard, ReceiptIndianRupee,
   Volume2, VolumeX, Smartphone, Zap, CarFront, UserPlus
@@ -23,6 +23,7 @@ interface TabletConfig {
   name: string;
   mode: 'WAITER' | 'TABLE';
   tableId?: string | null;
+  waiterId?: string | null;
   propertyId: string;
   property: {
     name: string;
@@ -108,10 +109,26 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [tablet, setTablet] = useState<TabletConfig | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tables, setTables] = useState<{id: string, name: string}[]>([]);
+  const [tables, setTables] = useState<any[]>([]);
+  const tablesByFloor = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    tables.forEach(table => {
+      const floorName = table.floor?.name || 'Main Hall';
+      if (!groups[floorName]) {
+        groups[floorName] = [];
+      }
+      groups[floorName].push(table);
+    });
+    return groups;
+  }, [tables]);
   const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [waiter, setWaiter] = useState<{ id: string; name: string } | null>(null);
+  const [websiteSettings, setWebsiteSettings] = useState<{ logoUrl: string | null } | null>(null);
+  const [activeOrders, setActiveOrders] = useState<any[]>([]);
+  const [notificationHistory, setNotificationHistory] = useState<Array<{ id: string; message: string; timestamp: Date; type: 'success' | 'info' }>>([]);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
   // UI State
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,10 +138,11 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showTableSelector, setShowTableSelector] = useState(false);
-  
+
   const [pax, setPax] = useState<number>(1);
   const [sessionStage, setSessionStage] = useState<'TABLE' | 'PAX' | 'MENU'>('TABLE');
   const [isStatusVisible, setIsStatusVisible] = useState(false);
+  const [activeFloorFilter, setActiveFloorFilter] = useState('all');
 
   // --- Order Calculation States ---
   const [discountAmount, setDiscountAmount] = useState<number>(0);
@@ -164,7 +182,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           fetch('/api/customers'),
           fetch('/api/drivers'),
         ]);
-        
+
         const tabData = await tabRes.json();
         const data = await dataRes.json();
         const custData = await custRes.json();
@@ -177,13 +195,16 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             setSessionStage('MENU');
           }
         }
-         if (data.success) {
-           const { products: prodData, categories: catData, tables: tableData, property: propData } = data.data;
-           setProducts(prodData);
-           setCategories(catData);
-           setTables(tableData);
-           setProperty(propData);
-         }
+        if (data.success) {
+          const { products: prodData, categories: catData, tables: tableData, property: propData, waiter: waiterData, websiteSettings: webSettingsData, activeOrders: activeOrdersData } = data.data;
+          setProducts(prodData);
+          setCategories(catData);
+          setTables(tableData);
+          setProperty(propData);
+          setWaiter(waiterData || null);
+          setWebsiteSettings(webSettingsData || null);
+          setActiveOrders(activeOrdersData || []);
+        }
         if (custData) setCustomers(Array.isArray(custData) ? custData : custData.data || []);
         if (drivData.success) setDrivers(drivData.data);
       } catch (error) {
@@ -194,6 +215,70 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     };
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    const fetchKitchenStatus = async () => {
+      try {
+        const res = await fetch(`/api/tablets/${id}/data`);
+        const data = await res.json();
+        if (data.success && data.data.activeOrders) {
+          setActiveOrders(data.data.activeOrders);
+        }
+      } catch (e) {
+        console.error('Failed to fetch kitchen status:', e);
+      }
+    };
+
+    const interval = setInterval(fetchKitchenStatus, 15000);
+    return () => clearInterval(interval);
+  }, [id]);
+
+  const prevStatusesRef = useRef<Record<string, string>>({});
+  const isFirstLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (activeOrders.length === 0) return;
+
+    if (isFirstLoadRef.current) {
+      activeOrders.forEach(order => {
+        prevStatusesRef.current[order.id] = order.status;
+      });
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    activeOrders.forEach(order => {
+      const prevStatus = prevStatusesRef.current[order.id];
+      if (prevStatus && prevStatus !== order.status) {
+        const tableName = order.table?.name || `Table ${order.tableNo || '?'}`;
+        let message = '';
+        let type: 'success' | 'info' = 'info';
+
+        if (order.status === 'READY') {
+          message = `${tableName}: Order is READY to serve!`;
+          type = 'success';
+          addToast('success', `🔔 ${message}`);
+          try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
+            audio.volume = 0.5;
+            audio.play();
+          } catch (e) { }
+        } else if (order.status === 'KOT_RUNNING' || order.status === 'IN_KITCHEN') {
+          message = `${tableName}: Order is being prepared in kitchen.`;
+          type = 'info';
+          addToast('info', `🍳 ${message}`);
+        }
+
+        if (message) {
+          setNotificationHistory(prev => [
+            { id: `${order.id}-${Date.now()}`, message, timestamp: new Date(), type },
+            ...prev.slice(0, 19)
+          ]);
+        }
+      }
+      prevStatusesRef.current[order.id] = order.status;
+    });
+  }, [activeOrders, addToast]);
 
   useEffect(() => {
     const fetchActiveOrder = async () => {
@@ -222,7 +307,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     if (selectedTableId) {
       fetchActiveOrder();
       const pollInterval = isWaitingApproval ? 5000 : 10000;
-      const interval = setInterval(fetchActiveOrder, pollInterval); 
+      const interval = setInterval(fetchActiveOrder, pollInterval);
       return () => clearInterval(interval);
     }
   }, [selectedTableId, isWaitingApproval]);
@@ -291,6 +376,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           restaurantTableId: selectedTableId,
           guestId: selectedCustomer?.id,
           driverId: selectedDriver?.id,
+          staffMemberId: tablet?.waiterId || null,
           discountAmount: discountAmount || 0,
           discountType: discountType,
           items: cart.map(i => ({
@@ -306,12 +392,12 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
       const data = await res.json();
       if (data.success) {
-         addToast('success', 'Order sent to kitchen!');
-         setActiveOrder(data.data);
-         setIsStatusVisible(true);
-         // Clear the local cart because items are now in activeOrder.items
-         // But the UI will still show them and the total will reflect them.
-         setCart([]); 
+        addToast('success', 'Order sent to kitchen!');
+        setActiveOrder(data.data);
+        setIsStatusVisible(true);
+        // Clear the local cart because items are now in activeOrder.items
+        // But the UI will still show them and the total will reflect them.
+        setCart([]);
       } else {
         addToast('error', data.message || 'Failed to place order');
       }
@@ -334,7 +420,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     return inCartTax + orderedTax;
   }, [cart, activeOrder]);
 
-  const cartTotal = cartSubtotal + cartTax 
+  const cartTotal = cartSubtotal + cartTax
     - (discountType === 'PERCENT' ? (cartSubtotal * discountAmount / 100) : discountAmount)
     - (activeOrder?.discountAmount || 0)
     - (activeOrder?.membershipDiscount || 0);
@@ -346,6 +432,8 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
       return matchesCategory && matchesSearch;
     });
   }, [products, activeCategory, searchQuery]);
+
+  const displayLogo = property?.logoUrl || websiteSettings?.logoUrl;
 
   if (loading) return (
     <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0F172A]">
@@ -365,52 +453,241 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   if (tablet.mode === 'WAITER' && sessionStage !== 'MENU') {
     return (
       <div className="h-screen w-screen bg-[#0F172A] text-white flex flex-col overflow-hidden font-sans">
+        {/* Live Kitchen Status Ticker */}
+        <div className="h-10 shrink-0 bg-slate-950/90 border-b border-white/5 flex items-center justify-between px-10 select-none overflow-hidden text-[9px] font-black tracking-widest uppercase">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+            <span className="text-emerald-400 font-black">Live Kitchen Status</span>
+          </div>
+          <div className="flex-1 flex items-center gap-6 overflow-x-auto no-scrollbar ml-8 mr-4 py-1">
+            {activeOrders.length === 0 ? (
+              <span className="text-slate-500 font-semibold tracking-normal normal-case">All orders served. Kitchen is clear.</span>
+            ) : (
+              activeOrders.map(order => {
+                const tableName = order.table?.name || `Table ${order.tableNo || '?'}`;
+                const isReady = order.status === 'READY';
+                const isAwaiting = order.status === 'PAYMENT_AWAITING_APPROVAL';
+
+                let statusLabel = 'In Kitchen';
+                let badgeColor = 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+                let pulseClass = '';
+
+                if (isReady) {
+                  statusLabel = 'Ready to Serve';
+                  badgeColor = 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400';
+                  pulseClass = 'animate-pulse';
+                } else if (isAwaiting) {
+                  statusLabel = 'Awaiting Settle';
+                  badgeColor = 'bg-blue-500/10 border-blue-500/20 text-blue-400';
+                }
+
+                return (
+                  <div key={order.id} className={`flex items-center gap-2 px-3 py-1 rounded-full border ${badgeColor} ${pulseClass} shrink-0`}>
+                    <span>{tableName}</span>
+                    <span className="opacity-40">•</span>
+                    <span>{statusLabel}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
         <header className="h-20 shrink-0 flex items-center justify-between px-10 border-b border-white/5 bg-slate-900/50">
-           <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
+            {displayLogo ? (
+              <img src={displayLogo} alt="Logo" className="h-10 w-auto object-contain rounded-xl" />
+            ) : (
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                 <ChefHat size={20} className="text-white" />
+                <ChefHat size={20} className="text-white" />
               </div>
-              <div>
-                 <h1 className="text-lg font-black tracking-tight uppercase">OrderMint <span className="text-indigo-500">Tablet</span></h1>
-                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{tablet.name} • WAITER STATION</p>
-              </div>
-           </div>
+            )}
+            <div>
+              {!displayLogo && (
+                <h1 className="text-lg font-black tracking-tight uppercase">
+                  {property?.brandName || property?.name || 'OrderMint'} <span className="text-indigo-500">Tablet</span>
+                </h1>
+              )}
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{tablet.name} • WAITER STATION {waiter ? `(${waiter.name})` : ''}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsNotificationOpen(true)}
+              className="relative w-10 h-10 bg-slate-800/80 hover:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all"
+            >
+              <Bell size={18} />
+              {notificationHistory.filter(n => n.type === 'success').length > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center text-[8px] font-black text-white animate-pulse">
+                  {notificationHistory.filter(n => n.type === 'success').length}
+                </div>
+              )}
+            </button>
+          </div>
         </header>
 
-        <main className="flex-1 flex items-center justify-center p-10">
-           {sessionStage === 'TABLE' ? (
-             <div className="w-full max-w-5xl">
-                <div className="text-center mb-12">
-                   <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Select Station</h2>
-                   <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Identify the table to begin service</p>
+        <main className="flex-1 overflow-y-auto p-10 no-scrollbar select-none">
+          {sessionStage === 'TABLE' ? (
+            <div className="w-full max-w-5xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Select Station</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Identify the table to begin service</p>
+              </div>
+              {/* 🏢 Floor Tab Selector */}
+              <div className="flex flex-wrap items-center justify-center gap-3 mb-10 overflow-x-auto no-scrollbar py-2">
+                <button
+                  onClick={() => setActiveFloorFilter('all')}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 ${activeFloorFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-105 border border-indigo-500'
+                    : 'bg-slate-900/60 border border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                    }`}
+                >
+                  🏢 All Stations
+                </button>
+                {Object.keys(tablesByFloor).map(floorName => (
+                  <button
+                    key={floorName}
+                    onClick={() => setActiveFloorFilter(floorName)}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 ${activeFloorFilter === floorName
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-105 border border-indigo-500'
+                      : 'bg-slate-900/60 border border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                      }`}
+                  >
+                    📍 {floorName}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-12 pb-20">
+                {Object.entries(tablesByFloor)
+                  .filter(([floorName]) => activeFloorFilter === 'all' || activeFloorFilter === floorName)
+                  .map(([floorName, floorTables]) => (
+                    <div key={floorName} className="space-y-6">
+                      {/* Section Title with glowing indicator */}
+                      <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                        <div className="flex items-center gap-3">
+                          <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+                          <h3 className="text-sm font-black uppercase tracking-wider text-slate-200">
+                            {floorName}
+                          </h3>
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/10">
+                          {floorTables.length} {floorTables.length === 1 ? 'Table' : 'Tables'}
+                        </span>
+                      </div>
+
+                      {/* Grid of premium cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                        {floorTables.map(table => {
+                          const tableActiveOrder = activeOrders.find(order => order.restaurantTableId === table.id);
+                          const isOccupied = ((table as any).status && (table as any).status !== 'VACANT') || !!tableActiveOrder;
+
+                          // Soft glowing aesthetic shadows based on status
+                          let borderStyle = 'border-white/5 hover:border-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.05)]';
+                          let bgStyle = 'bg-slate-900/60 backdrop-blur-sm';
+                          let iconColor = 'text-slate-600 group-hover:text-emerald-400';
+
+                          if (isOccupied) {
+                            borderStyle = 'border-indigo-500/30 hover:border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.05)]';
+                            bgStyle = 'bg-indigo-950/20 backdrop-blur-md';
+                            iconColor = 'text-indigo-400';
+
+                            if (tableActiveOrder?.status === 'READY') {
+                              borderStyle = 'border-emerald-500/50 hover:border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)] animate-pulse';
+                              bgStyle = 'bg-emerald-950/20 backdrop-blur-md';
+                              iconColor = 'text-emerald-400';
+                            } else if (tableActiveOrder?.status === 'PAYMENT_AWAITING_APPROVAL') {
+                              borderStyle = 'border-blue-500/30 hover:border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]';
+                              bgStyle = 'bg-blue-950/20 backdrop-blur-md';
+                              iconColor = 'text-blue-400';
+                            }
+                          }
+
+                          let badgeStyle = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10';
+                          let statusLabel = 'Vacant / Ready';
+
+                          if (isOccupied) {
+                            statusLabel = (table as any).status.replace('_', ' ');
+                            badgeStyle = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/20';
+
+                            if (tableActiveOrder) {
+                              if (tableActiveOrder.status === 'READY') {
+                                statusLabel = 'Ready to Serve';
+                                badgeStyle = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)] animate-pulse';
+                              } else if (tableActiveOrder.status === 'PAYMENT_AWAITING_APPROVAL') {
+                                statusLabel = 'Awaiting Settle';
+                                badgeStyle = 'bg-blue-500/20 text-blue-300 border border-blue-500/20';
+                              } else {
+                                statusLabel = 'In Kitchen';
+                                badgeStyle = 'bg-amber-500/20 text-amber-300 border border-amber-500/20';
+                              }
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={table.id}
+                              onClick={() => {
+                                setSelectedTableId(table.id);
+                                if (isOccupied) {
+                                  setSessionStage('MENU');
+                                } else {
+                                  setSessionStage('PAX');
+                                }
+                              }}
+                              className={`aspect-square rounded-[32px] border ${borderStyle} ${bgStyle} flex flex-col items-center justify-between p-6 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] active:scale-[0.98] group`}
+                            >
+                              {/* Top Row inside card - Capacity info */}
+                              <div className="w-full flex justify-between items-center opacity-60">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
+                                  MAX {table.capacity || 4} PAX
+                                </span>
+                                <User size={10} className="text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                              </div>
+
+                              {/* Middle content */}
+                              <div className="flex flex-col items-center my-auto">
+                                <TableIcon size={28} className={`mb-2.5 transition-all duration-300 transform group-hover:scale-110 ${iconColor}`} />
+                                <span className="text-2xl font-black tracking-tight text-white group-hover:text-indigo-300 transition-colors">
+                                  {table.name}
+                                </span>
+                                {tableActiveOrder && (
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mt-1">
+                                    #{tableActiveOrder.orderNo}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Bottom Status pill */}
+                              <div className={`w-full py-1.5 rounded-2xl text-[8px] font-black uppercase tracking-widest text-center transition-all duration-300 ${badgeStyle}`}>
+                                {statusLabel}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : (
+            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+              <div className="w-full max-w-xl text-center">
+                <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Kitne Customer Hain?</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-8">Select Total Number of Guests / Pax</p>
+                <div className="bg-slate-900/60 backdrop-blur rounded-[40px] p-12 border border-white/5 shadow-2xl mb-12">
+                  <div className="flex items-center justify-center gap-12">
+                    <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Minus size={32} /></button>
+                    <span className="text-8xl font-black tabular-nums">{pax}</span>
+                    <button onClick={() => setPax(pax + 1)} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Plus size={32} /></button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                   {tables.map(table => (
-                     <button 
-                       key={table.id}
-                       onClick={() => { setSelectedTableId(table.id); if ((table as any).status && (table as any).status !== 'VACANT') { setSessionStage('MENU'); } else { setSessionStage('PAX'); } }}
-                       className={`aspect-square rounded-[32px] border flex flex-col items-center justify-center transition-all hover:-translate-y-2 group shadow-2xl ${((table as any).status && (table as any).status !== 'VACANT') ? 'bg-indigo-950/40 border-indigo-500/40 hover:border-indigo-400' : 'bg-slate-900 border-white/5 hover:border-indigo-500'}`}
-                     >
-                       <TableIcon size={24} className={`mb-3 ${((table as any).status && (table as any).status !== 'VACANT') ? 'text-indigo-400' : 'text-slate-700 group-hover:text-indigo-400'}`} />
-                       <span className="text-2xl font-black">{table.name}</span>
-                       <div className={`mt-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${((table as any).status && (table as any).status !== 'VACANT') ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-slate-500'}`}>{((table as any).status && (table as any).status !== 'VACANT') ? (table as any).status.replace('_', ' ') : 'Ready'}</div>
-                     </button>
-                   ))}
-                </div>
-             </div>
-           ) : (
-             <div className="w-full max-w-xl text-center">
-                <h2 className="text-3xl font-black uppercase tracking-tight mb-12">Guest Count</h2>
-                <div className="bg-slate-900 rounded-[40px] p-12 border border-white/5 shadow-2xl mb-12">
-                   <div className="flex items-center justify-center gap-12">
-                      <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Minus size={32} /></button>
-                      <span className="text-8xl font-black tabular-nums">{pax}</span>
-                      <button onClick={() => setPax(pax + 1)} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Plus size={32} /></button>
-                   </div>
-                </div>
-                <button onClick={() => setSessionStage('MENU')} className="w-full py-6 bg-indigo-600 rounded-[24px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all">Launch Service Protocol</button>
-             </div>
-           )}
+                <button onClick={() => setSessionStage('MENU')} className="w-full py-6 bg-indigo-600 rounded-[24px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2">
+                  <span>Start Order</span>
+                </button>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     );
@@ -418,567 +695,623 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
   return (
     <div className="h-screen w-screen bg-[#020617] text-white flex flex-col overflow-hidden font-sans select-none">
+      {/* Live Kitchen Status Ticker */}
+      <div className="h-10 shrink-0 bg-slate-950/90 border-b border-white/5 flex items-center justify-between px-6 select-none overflow-hidden text-[9px] font-black tracking-widest uppercase">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+          <span className="text-emerald-400 font-black">Live Kitchen Status</span>
+        </div>
+        <div className="flex-1 flex items-center gap-6 overflow-x-auto no-scrollbar ml-8 mr-4 py-1">
+          {activeOrders.length === 0 ? (
+            <span className="text-slate-500 font-semibold tracking-normal normal-case">All orders served. Kitchen is clear.</span>
+          ) : (
+            activeOrders.map(order => {
+              const tableName = order.table?.name || `Table ${order.tableNo || '?'}`;
+              const isReady = order.status === 'READY';
+              const isAwaiting = order.status === 'PAYMENT_AWAITING_APPROVAL';
+
+              let statusLabel = 'In Kitchen';
+              let badgeColor = 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+              let pulseClass = '';
+
+              if (isReady) {
+                statusLabel = 'Ready to Serve';
+                badgeColor = 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400';
+                pulseClass = 'animate-pulse';
+              } else if (isAwaiting) {
+                statusLabel = 'Awaiting Settle';
+                badgeColor = 'bg-blue-500/10 border-blue-500/20 text-blue-400';
+              }
+
+              return (
+                <div key={order.id} className={`flex items-center gap-2 px-3 py-1 rounded-full border ${badgeColor} ${pulseClass} shrink-0`}>
+                  <span>{tableName}</span>
+                  <span className="opacity-40">•</span>
+                  <span>{statusLabel}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
       {/* Top Header - Unified Terminal Header */}
       <header className="h-16 shrink-0 flex items-center justify-between px-6 bg-slate-900/80 backdrop-blur-md border-b border-white/5 z-50">
         <div className="flex items-center gap-4">
-           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+          {displayLogo ? (
+            <img src={displayLogo} alt="Logo" className="h-8 w-auto object-contain" />
+          ) : (
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
               <Utensils size={18} />
-           </div>
-           <div>
-              <h1 className="font-black uppercase tracking-tight text-sm">OrderMint <span className="text-indigo-500">POS</span></h1>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                 {tablet.name} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'}
-              </p>
-           </div>
+            </div>
+          )}
+          <div>
+            {!displayLogo && (
+              <h1 className="font-black uppercase tracking-tight text-sm">
+                {property?.brandName || property?.name || 'OrderMint'} <span className="text-indigo-500">POS</span>
+              </h1>
+            )}
+            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+              {tablet.name} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'} {waiter ? `• Waiter: ${waiter.name}` : ''}
+            </p>
+          </div>
         </div>
 
         {activeOrder && (
           <div className="hidden md:flex items-center gap-3 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 animate-in fade-in zoom-in duration-500">
-             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-             <div className="flex flex-col">
-                <span className="text-[7px] font-black uppercase text-indigo-400 tracking-widest leading-none">Active Order</span>
-                <span className="text-[9px] font-black leading-tight text-white/90">#{activeOrder.orderNo}</span>
-             </div>
-             <button 
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <div className="flex flex-col">
+              <span className="text-[7px] font-black uppercase text-indigo-400 tracking-widest leading-none">Active Order</span>
+              <span className="text-[9px] font-black leading-tight text-white/90">#{activeOrder.orderNo}</span>
+            </div>
+            <button
               onClick={() => setIsStatusVisible(true)}
               className="text-[7px] font-black uppercase bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 ml-2 border border-white/5 transition-all"
-             >
-               Track Status
-             </button>
+            >
+              Track Status
+            </button>
           </div>
         )}
 
         <div className="flex items-center gap-4">
-           <div className="relative w-64 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={14} />
-              <input 
-                type="text" 
-                placeholder="Search Menu..."
-                className="w-full h-10 bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500/50 transition-all"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-           </div>
+          <div className="relative w-64 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={14} />
+            <input
+              type="text"
+              placeholder="Search Menu..."
+              className="w-full h-10 bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500/50 transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
-           {tablet.mode === 'WAITER' && (
-             <button 
-               onClick={() => setSessionStage('TABLE')}
-               className="h-10 px-4 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-[9px] font-black uppercase tracking-widest"
-             >
-               <TableIcon size={14} className="text-indigo-400" />
-               Change Table
-             </button>
-           )}
+          {tablet.mode === 'WAITER' && (
+            <button
+              onClick={() => setSessionStage('TABLE')}
+              className="h-10 px-4 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-[9px] font-black uppercase tracking-widest"
+            >
+              <TableIcon size={14} className="text-indigo-400" />
+              Switch Table
+            </button>
+          )}
 
-           <button className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all">
-              <Bell size={18} />
-           </button>
+          <button
+            onClick={() => setIsNotificationOpen(true)}
+            className="relative w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all"
+          >
+            <Bell size={18} />
+            {notificationHistory.filter(n => n.type === 'success').length > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center text-[8px] font-black text-white animate-pulse">
+                {notificationHistory.filter(n => n.type === 'success').length}
+              </div>
+            )}
+          </button>
         </div>
       </header>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        
+
         {/* Left Side: Product Grid & Categories (Billing Style) */}
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-950/50">
-           {/* Category Bar */}
-           <div className="h-20 shrink-0 border-b border-white/5 flex items-center px-4 gap-3 overflow-x-auto no-scrollbar">
-              <button 
-                onClick={() => setActiveCategory('all')}
-                className={`flex flex-col items-center justify-center min-w-[80px] h-14 rounded-xl transition-all ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
-              >
-                 <span className="text-[10px] font-black uppercase tracking-widest">All Items</span>
-                 <span className="text-[8px] font-bold opacity-60 mt-0.5">{products.length} Items</span>
-              </button>
+          {/* Category Bar */}
+          <div className="h-20 shrink-0 border-b border-white/5 flex items-center px-4 gap-3 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveCategory('all')}
+              className={`flex flex-col items-center justify-center min-w-[80px] h-14 rounded-xl transition-all ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest">All Items</span>
+              <span className="text-[8px] font-bold opacity-60 mt-0.5">{products.length} Items</span>
+            </button>
 
-              {categories.map((cat, idx) => {
-                const colorClass = CATEGORY_COLORS_DARK[idx % 8];
-                return (
-                  <button 
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`flex flex-col items-center justify-center min-w-[100px] h-14 rounded-xl transition-all ${activeCategory === cat.id ? `${colorClass} shadow-lg scale-105` : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
+            {categories.map((cat, idx) => {
+              const colorClass = CATEGORY_COLORS_DARK[idx % 8];
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`flex flex-col items-center justify-center min-w-[100px] h-14 rounded-xl transition-all ${activeCategory === cat.id ? `${colorClass} shadow-lg scale-105` : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
+                >
+                  <span className="text-[10px] font-black uppercase tracking-widest truncate w-full px-2 text-center">{cat.name}</span>
+                  <span className="text-[8px] font-bold opacity-60 mt-0.5">Category</span>
+                </button>
+              );
+            })}
+          </div>
+
+
+          {/* High Density Product Grid */}
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3 content-start no-scrollbar">
+            {filteredProducts.map((product, idx) => {
+              const palette = PRODUCT_PALETTE_DARK[idx % PRODUCT_PALETTE_DARK.length];
+              const inCart = cart.find(item => item.id === product.id);
+              const hasVariants = (product.variants && product.variants.length > 0) || product.halfPrice;
+
+              return (
+                <motion.div whileTap={!hasVariants ? { scale: 0.95 } : undefined}
+                  key={product.id}
+                  className="relative group transition-all duration-200"
+                >
+                  <div
+                    onClick={() => !hasVariants && addToCart(product)}
+                    className={`relative w-full rounded-[16px] p-2.5 flex flex-col justify-between transition-all hover:brightness-110 shadow-md overflow-hidden border border-black/5 ${hasVariants ? 'cursor-default' : 'cursor-pointer'}`}
+                    style={{ backgroundColor: palette.bg, aspectRatio: '1/1' }}
                   >
-                     <span className="text-[10px] font-black uppercase tracking-widest truncate w-full px-2 text-center">{cat.name}</span>
-                     <span className="text-[8px] font-bold opacity-60 mt-0.5">Category</span>
-                  </button>
-                );
-              })}
-           </div>
+                    <div className="flex justify-between items-start">
+                      <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
+                        {product.hsnCode || '2106'}
+                      </span>
+                      <div className="text-right">
+                        <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>Price</span>
+                        <span className="text-[12px] font-black leading-none" style={{ color: palette.textSub }}>₹{product.sellingPrice}</span>
+                      </div>
+                    </div>
 
+                    <div className="flex-1 flex items-center py-1">
+                      <h3 className="text-[11px] font-black uppercase tracking-tighter leading-[1.1] line-clamp-3 w-full text-left" style={{ color: palette.text }}>
+                        {product.name}
+                      </h3>
+                    </div>
 
-           {/* High Density Product Grid */}
-           <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3 content-start no-scrollbar">
-              {filteredProducts.map((product, idx) => {
-                const palette = PRODUCT_PALETTE_DARK[idx % PRODUCT_PALETTE_DARK.length];
-                const inCart = cart.find(item => item.id === product.id);
-                const hasVariants = (product.variants && product.variants.length > 0) || product.halfPrice;
-                
-                return (
-                   <motion.div whileTap={!hasVariants ? { scale: 0.95 } : undefined} 
-                     key={product.id} 
-                     className="relative group transition-all duration-200"
-                   >
-                     <div 
-                       onClick={() => !hasVariants && addToCart(product)}
-                       className={`relative w-full rounded-[16px] p-2.5 flex flex-col justify-between transition-all hover:brightness-110 shadow-md overflow-hidden border border-black/5 ${hasVariants ? 'cursor-default' : 'cursor-pointer'}`}
-                       style={{ backgroundColor: palette.bg, aspectRatio: '1/1' }}
-                     >
-                       <div className="flex justify-between items-start">
-                          <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
-                             {product.hsnCode || '2106'}
+                    {!hasVariants ? (
+                      <div className="flex justify-between items-end border-t border-black/5 pt-1.5 mt-auto">
+                        <div className="text-left space-y-0">
+                          <span className="block text-[8px] font-black uppercase opacity-50 leading-none" style={{ color: palette.textSub }}>
+                            {categoryMap[product.categoryId] || 'Menu'}
                           </span>
-                          <div className="text-right">
-                             <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>Price</span>
-                             <span className="text-[12px] font-black leading-none" style={{ color: palette.textSub }}>₹{product.sellingPrice}</span>
-                          </div>
-                       </div>
+                          <span className="block text-[6px] font-bold opacity-30 uppercase leading-none" style={{ color: palette.textSub }}>GST 5%</span>
+                        </div>
 
-                       <div className="flex-1 flex items-center py-1">
-                          <h3 className="text-[11px] font-black uppercase tracking-tighter leading-[1.1] line-clamp-3 w-full text-left" style={{ color: palette.text }}>
-                             {product.name}
-                          </h3>
-                       </div>
+                        <div className="flex items-center">
+                          {inCart ? (
+                            <div className="w-5 h-5 rounded-lg bg-black/10 flex items-center justify-center font-black text-[10px]" style={{ color: palette.text }}>
+                              {inCart.quantity}
+                            </div>
+                          ) : (
+                            <div className={`w-2 h-2 rounded-full ${product.productType === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-x-0 bottom-0 flex flex-col z-10">
+                        {/* Show 'Full' button ONLY if there are no variants OR if halfPrice exists without variants */}
+                        {(!product.variants || product.variants.length === 0) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
+                            className="w-full py-3 bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 transition-colors border-t border-white/10"
+                          >
+                            Full Price
+                          </button>
+                        )}
 
-                       {!hasVariants ? (
-                         <div className="flex justify-between items-end border-t border-black/5 pt-1.5 mt-auto">
-                            <div className="text-left space-y-0">
-                               <span className="block text-[8px] font-black uppercase opacity-50 leading-none" style={{ color: palette.textSub }}>
-                                  {categoryMap[product.categoryId] || 'Menu'}
-                               </span>
-                               <span className="block text-[6px] font-bold opacity-30 uppercase leading-none" style={{ color: palette.textSub }}>GST 5%</span>
-                            </div>
-                            
-                            <div className="flex items-center">
-                               {inCart ? (
-                                  <div className="w-5 h-5 rounded-lg bg-black/10 flex items-center justify-center font-black text-[10px]" style={{ color: palette.text }}>
-                                     {inCart.quantity}
-                                  </div>
-                               ) : (
-                                  <div className={`w-2 h-2 rounded-full ${product.productType === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                               )}
-                            </div>
-                         </div>
-                       ) : (
-                         <div className="absolute inset-x-0 bottom-0 flex flex-col z-10">
-                            {/* Show 'Full' button ONLY if there are no variants OR if halfPrice exists without variants */}
-                            {(!product.variants || product.variants.length === 0) && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
-                                className="w-full py-3 bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 transition-colors border-t border-white/10"
-                              >
-                                Full Price
-                              </button>
-                            )}
-                            
-                            {/* Variants Grid - 2 per row */}
-                            <div className="grid grid-cols-2 w-full border-t border-white/10">
-                               {product.variants?.map((v: any, vIdx: number) => (
-                                 <button 
-                                   key={v.id}
-                                   onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
-                                   className={`py-2.5 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest hover:bg-rose-500 active:bg-rose-700 transition-colors ${vIdx % 2 === 0 ? 'border-r border-white/10' : ''} border-b border-white/5`}
-                                 >
-                                   {v.name}
-                                 </button>
-                               ))}
-                               {product.halfPrice && (
-                                 <button 
-                                   onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice!); }}
-                                   className={`py-2.5 bg-amber-500 text-white font-black text-[9px] uppercase tracking-widest hover:bg-amber-400 active:bg-amber-700 transition-colors ${(product.variants?.length || 0) % 2 === 0 ? 'col-span-2' : ''} border-b border-white/5`}
-                                 >
-                                   Half
-                                 </button>
-                               )}
-                            </div>
-                         </div>
-                       )}
+                        {/* Variants Grid - 2 per row */}
+                        <div className="grid grid-cols-2 w-full border-t border-white/10">
+                          {product.variants?.map((v: any, vIdx: number) => (
+                            <button
+                              key={v.id}
+                              onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                              className={`py-2.5 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest hover:bg-rose-500 active:bg-rose-700 transition-colors ${vIdx % 2 === 0 ? 'border-r border-white/10' : ''} border-b border-white/5`}
+                            >
+                              {v.name}
+                            </button>
+                          ))}
+                          {product.halfPrice && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice!); }}
+                              className={`py-2.5 bg-amber-500 text-white font-black text-[9px] uppercase tracking-widest hover:bg-amber-400 active:bg-amber-700 transition-colors ${(product.variants?.length || 0) % 2 === 0 ? 'col-span-2' : ''} border-b border-white/5`}
+                            >
+                              Half
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                       {!hasVariants && inCart && (
-                         <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
-                       )}
-                     </div>
-                    </motion.div>
-                );
-              })}
-            </div>
-         </div>
+                    {!hasVariants && inCart && (
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Right Side: Order Tray (Billing Style) */}
         <aside className="w-[380px] shrink-0 border-l border-white/5 bg-slate-900/30 flex flex-col overflow-hidden">
-           {/* Tray Header */}
-           <div className="p-6 border-b border-white/5 space-y-4">
-              <div className="flex items-start justify-between">
-                 <div>
-                    <h2 className="text-xl font-black uppercase tracking-tighter mb-0.5">Order <span className="text-indigo-500">Details</span></h2>
-                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                       {tablet.mode === 'WAITER' ? 'WAITER SERVICE' : 'COUNTER SERVICE'} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'}
-                    </p>
-                 </div>
-                 <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
-                    <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Minus size={14} /></button>
-                    <div className="px-3 flex flex-col items-center">
-                       <span className="text-xs font-black leading-none">{pax}</span>
-                       <span className="text-[6px] font-black text-slate-500 uppercase">Pax</span>
-                    </div>
-                    <button onClick={() => setPax(pax + 1)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Plus size={14} /></button>
-                 </div>
+          {/* Tray Header */}
+          <div className="p-6 border-b border-white/5 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-tighter mb-0.5">Order <span className="text-indigo-500">Details</span></h2>
+                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                  {tablet.mode === 'WAITER' ? 'WAITER SERVICE' : 'COUNTER SERVICE'} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'} {waiter ? `(${waiter.name})` : ''}
+                </p>
               </div>
-
-              {/* Customer/Driver Selection */}
-              <div className="space-y-3">
-                 {!(selectedCustomer || selectedDriver) ? (
-                    <>
-                       <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => setSearchMode('CUSTOMER')}
-                            className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'CUSTOMER' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
-                          >
-                             <User size={13} />
-                             <span className="text-[9px] font-black uppercase tracking-widest">Customer</span>
-                          </button>
-                          <button 
-                            onClick={() => setSearchMode('DRIVER')}
-                            className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'DRIVER' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
-                          >
-                             <CarFront size={13} />
-                             <span className="text-[9px] font-black uppercase tracking-widest">Driver</span>
-                          </button>
-                       </div>
-
-                       {searchMode && (
-                          <div className="relative animate-in slide-in-from-top-2 duration-300">
-                             <div className="relative group">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={13} />
-                                <input 
-                                  type="text"
-                                  placeholder={searchMode === 'CUSTOMER' ? "Search guest..." : "Search driver..."}
-                                  value={searchMode === 'CUSTOMER' ? customerSearch : driverSearch}
-                                  onChange={(e) => searchMode === 'CUSTOMER' ? setCustomerSearch(e.target.value) : setDriverSearch(e.target.value)}
-                                  className="w-full h-9 bg-white/5 border border-white/10 rounded-xl pl-9 pr-9 text-[9px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-indigo-500/50 transition-all"
-                                  autoFocus
-                                />
-                                {searchMode === 'CUSTOMER' && (
-                                   <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center hover:bg-indigo-500/30 transition-all">
-                                      <UserPlus size={12} />
-                                   </button>
-                                )}
-                             </div>
-
-                             {/* Search Results Dropdown */}
-                             {(searchMode === 'CUSTOMER' ? customerSearch : driverSearch) && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden max-h-40 overflow-y-auto no-scrollbar">
-                                   {searchMode === 'CUSTOMER' ? (
-                                      customers.filter(c => 
-                                        c.firstName.toLowerCase().includes(customerSearch.toLowerCase()) || 
-                                        c.lastName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                                        c.mobile?.includes(customerSearch)
-                                      ).map(c => (
-                                         <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-3 py-2 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
-                                            <span className="text-[9px] font-bold text-white">{c.firstName} {c.lastName}</span>
-                                            <span className="text-[7px] text-slate-500 uppercase font-black">{c.mobile || 'No Mobile'}</span>
-                                         </button>
-                                      ))
-                                   ) : (
-                                      drivers.filter(d => 
-                                        d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                                        d.phone?.includes(driverSearch)
-                                      ).map(d => (
-                                         <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-3 py-2 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
-                                            <span className="text-[9px] font-bold text-white">{d.name}</span>
-                                            <span className="text-[7px] text-slate-500 uppercase font-black">{d.phone || 'No Phone'}</span>
-                                         </button>
-                                      ))
-                                   )}
-                                </div>
-                             )}
-                          </div>
-                       )}
-                    </>
-                 ) : (
-                    /* Selected Entity Indicator */
-                    <div className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center justify-between group">
-                       <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                             {selectedCustomer ? <User size={18} /> : <CarFront size={18} />}
-                          </div>
-                          <div>
-                             <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
-                             <p className="text-[10px] font-black text-white uppercase">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
-                          </div>
-                       </div>
-                       <button 
-                         onClick={() => { setSelectedCustomer(null); setSelectedDriver(null); }}
-                         className="h-8 px-3 bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-500 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
-                       >
-                          Change
-                       </button>
-                    </div>
-                 )}
-              </div>
-           </div>
-
-           {/* Tray Items List */}
-           <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-              {cart.length === 0 && (!activeOrder || !activeOrder.items || activeOrder.items.length === 0) ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20">
-                   <ShoppingCart size={48} strokeWidth={1} className="mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em]">Tray is Empty</p>
+              <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
+                <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Minus size={14} /></button>
+                <div className="px-3 flex flex-col items-center">
+                  <span className="text-xs font-black leading-none">{pax}</span>
+                  <span className="text-[6px] font-black text-slate-500 uppercase">Pax</span>
                 </div>
-              ) : (
-                 <>
-                  {cart.map(item => (
-                   <div key={(item as any).cartItemId || item.id} className="bg-slate-800/40 rounded-2xl p-3 flex flex-col gap-3 animate-in slide-in-from-right-2 duration-300 border border-white/5">
-                      <div className="flex gap-4">
-                         <div className="w-11 h-11 bg-white/5 rounded-xl flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
-                            {item.image ? (
-                              <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" />
-                            ) : (
-                              <Utensils size={24} className="text-slate-600" />
-                            )}
-                         </div>
-                         <div className="flex-1 min-w-0">
-                            <h4 className="text-[10px] font-black uppercase tracking-tight text-white/90 truncate">{item.name}</h4>
-                            <div className="flex items-center justify-between mt-2">
-                               <div className="flex flex-col">
-                                  <span className="text-[11px] font-black text-indigo-400">₹{item.sellingPrice * item.quantity}</span>
-                                  <span className="text-[7px] font-bold text-slate-500 uppercase">₹{item.sellingPrice} / unit</span>
-                               </div>
-                               <div className="flex items-center gap-3 bg-black/20 p-1 rounded-lg border border-white/5">
-                                  <button onClick={() => updateQuantity((item as any).cartItemId || item.id, -1)} className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all"><Minus size={12} /></button>
-                                  <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
-                                  <button onClick={() => updateQuantity((item as any).cartItemId || item.id, 1)} className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center hover:bg-indigo-500/20 hover:text-indigo-400 transition-all"><Plus size={12} /></button>
-                               </div>
-                            </div>
-                         </div>
+                <button onClick={() => setPax(pax + 1)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Plus size={14} /></button>
+              </div>
+            </div>
+
+            {/* Customer/Driver Selection */}
+            <div className="space-y-3">
+              {!(selectedCustomer || selectedDriver) ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSearchMode('CUSTOMER')}
+                      className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'CUSTOMER' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+                    >
+                      <User size={13} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Customer</span>
+                    </button>
+                    <button
+                      onClick={() => setSearchMode('DRIVER')}
+                      className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'DRIVER' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+                    >
+                      <CarFront size={13} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Driver</span>
+                    </button>
+                  </div>
+
+                  {searchMode && (
+                    <div className="relative animate-in slide-in-from-top-2 duration-300">
+                      <div className="relative group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={13} />
+                        <input
+                          type="text"
+                          placeholder={searchMode === 'CUSTOMER' ? "Search guest..." : "Search driver..."}
+                          value={searchMode === 'CUSTOMER' ? customerSearch : driverSearch}
+                          onChange={(e) => searchMode === 'CUSTOMER' ? setCustomerSearch(e.target.value) : setDriverSearch(e.target.value)}
+                          className="w-full h-9 bg-white/5 border border-white/10 rounded-xl pl-9 pr-9 text-[9px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-indigo-500/50 transition-all"
+                          autoFocus
+                        />
+                        {searchMode === 'CUSTOMER' && (
+                          <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center hover:bg-indigo-500/30 transition-all">
+                            <UserPlus size={12} />
+                          </button>
+                        )}
                       </div>
 
-                      {/* Quick Variant Switch in Tray */}
-                      {((item.variants && item.variants.length > 0) || item.halfPrice) && (
-                         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                            {item.variants?.map((v: any) => (
-                               <button 
-                                 key={v.id}
-                                 onClick={() => {
-                                    removeFromCart((item as any).cartItemId);
-                                    addToCart(item, v.name, v.price);
-                                 }}
-                                 className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${ (item as any).size === v.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10' }`}
-                               >
-                                  {v.name}
-                               </button>
-                            ))}
-                            {item.halfPrice && (
-                               <button 
-                                 onClick={() => {
-                                    removeFromCart((item as any).cartItemId);
-                                    addToCart(item, 'Half', item.halfPrice!);
-                                 }}
-                                 className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${ (item as any).size === 'Half' ? 'bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10' }`}
-                               >
-                                  Half
-                               </button>
-                            )}
-                         </div>
+                      {/* Search Results Dropdown */}
+                      {(searchMode === 'CUSTOMER' ? customerSearch : driverSearch) && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden max-h-40 overflow-y-auto no-scrollbar">
+                          {searchMode === 'CUSTOMER' ? (
+                            customers.filter(c =>
+                              c.firstName.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                              c.lastName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                              c.mobile?.includes(customerSearch)
+                            ).map(c => (
+                              <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-3 py-2 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
+                                <span className="text-[9px] font-bold text-white">{c.firstName} {c.lastName}</span>
+                                <span className="text-[7px] text-slate-500 uppercase font-black">{c.mobile || 'No Mobile'}</span>
+                              </button>
+                            ))
+                          ) : (
+                            drivers.filter(d =>
+                              d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                              d.phone?.includes(driverSearch)
+                            ).map(d => (
+                              <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-3 py-2 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
+                                <span className="text-[9px] font-bold text-white">{d.name}</span>
+                                <span className="text-[7px] text-slate-500 uppercase font-black">{d.phone || 'No Phone'}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
                       )}
-                   </div>
-                 ))}
-                 </>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Selected Entity Indicator */
+                <div className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                      {selectedCustomer ? <User size={18} /> : <CarFront size={18} />}
+                    </div>
+                    <div>
+                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
+                      <p className="text-[10px] font-black text-white uppercase">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setSelectedCustomer(null); setSelectedDriver(null); }}
+                    className="h-8 px-3 bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-500 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Change
+                  </button>
+                </div>
               )}
-           </div>
+            </div>
+          </div>
 
-           {/* Active Order Items (Already Sent) */}
-           {activeOrder && activeOrder.items && activeOrder.items.length > 0 && (
-              <div className="px-4 pb-4 space-y-3 max-h-[300px] overflow-y-auto no-scrollbar border-t border-white/5 pt-4">
-                 <div className="flex items-center gap-2 mb-2 opacity-50">
-                    <div className="h-px flex-1 bg-white/10" />
-                    <span className="text-[7px] font-black uppercase tracking-[0.2em]">Already Ordered</span>
-                    <div className="h-px flex-1 bg-white/10" />
-                 </div>
-                 {activeOrder.items.map((item: any) => (
-                   <div key={item.id} className="bg-white/5 rounded-2xl p-3 flex items-center gap-4 border border-white/5 opacity-60">
-                      <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center shrink-0">
-                         <CheckCircle size={16} className="text-emerald-500" />
+          {/* Tray Items List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+            {cart.length === 0 && (!activeOrder || !activeOrder.items || activeOrder.items.length === 0) ? (
+              <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20">
+                <ShoppingCart size={48} strokeWidth={1} className="mb-4" />
+                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Tray is Empty</p>
+              </div>
+            ) : (
+              <>
+                {cart.map(item => (
+                  <div key={(item as any).cartItemId || item.id} className="bg-slate-800/40 rounded-2xl p-3 flex flex-col gap-3 animate-in slide-in-from-right-2 duration-300 border border-white/5">
+                    <div className="flex gap-4">
+                      <div className="w-11 h-11 bg-white/5 rounded-xl flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                        ) : (
+                          <Utensils size={24} className="text-slate-600" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                         <h4 className="text-[9px] font-black uppercase tracking-tight text-white/80 truncate">{item.product?.name || 'Item'}</h4>
-                         <p className="text-[8px] font-bold text-slate-500 mt-0.5">{item.quantity} x ₹{item.unitPrice}</p>
+                        <h4 className="text-[10px] font-black uppercase tracking-tight text-white/90 truncate">{item.name}</h4>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-black text-indigo-400">₹{item.sellingPrice * item.quantity}</span>
+                            <span className="text-[7px] font-bold text-slate-500 uppercase">₹{item.sellingPrice} / unit</span>
+                          </div>
+                          <div className="flex items-center gap-3 bg-black/20 p-1 rounded-lg border border-white/5">
+                            <button onClick={() => updateQuantity((item as any).cartItemId || item.id, -1)} className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all"><Minus size={12} /></button>
+                            <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
+                            <button onClick={() => updateQuantity((item as any).cartItemId || item.id, 1)} className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center hover:bg-indigo-500/20 hover:text-indigo-400 transition-all"><Plus size={12} /></button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right flex flex-col items-end">
-                         <span className="text-[9px] font-black text-emerald-400">ORDERED</span>
-                         <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">KITCHEN</span>
+                    </div>
+
+                    {/* Quick Variant Switch in Tray */}
+                    {((item.variants && item.variants.length > 0) || item.halfPrice) && (
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                        {item.variants?.map((v: any) => (
+                          <button
+                            key={v.id}
+                            onClick={() => {
+                              removeFromCart((item as any).cartItemId);
+                              addToCart(item, v.name, v.price);
+                            }}
+                            className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${(item as any).size === v.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'}`}
+                          >
+                            {v.name}
+                          </button>
+                        ))}
+                        {item.halfPrice && (
+                          <button
+                            onClick={() => {
+                              removeFromCart((item as any).cartItemId);
+                              addToCart(item, 'Half', item.halfPrice!);
+                            }}
+                            className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${(item as any).size === 'Half' ? 'bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'}`}
+                          >
+                            Half
+                          </button>
+                        )}
                       </div>
-                   </div>
-                 ))}
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Active Order Items (Already Sent) */}
+          {activeOrder && activeOrder.items && activeOrder.items.length > 0 && (
+            <div className="px-4 pb-4 space-y-3 max-h-[300px] overflow-y-auto no-scrollbar border-t border-white/5 pt-4">
+              <div className="flex items-center gap-2 mb-2 opacity-50">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-[7px] font-black uppercase tracking-[0.2em]">Already Ordered</span>
+                <div className="h-px flex-1 bg-white/10" />
               </div>
-           )}
-
-            {/* Totals & Actions */}
-            <div className="p-4 bg-slate-900 border-t border-white/10 space-y-3">
-                <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                       <span>Subtotal</span>
-                       <span>₹{cartSubtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                       <span>Estimated Tax (5%)</span>
-                       <span>₹{cartTax.toFixed(2)}</span>
-                    </div>
-
-                   <div className="pt-1.5 border-t border-white/5 space-y-2">
-                      <div className="flex items-center justify-between">
-                         <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Discount</span>
-                         <div className="flex bg-black/20 rounded-lg p-0.5 border border-white/5">
-                            <button onClick={() => setDiscountType('FLAT')} className={`px-2 py-0.5 text-[7px] font-black rounded ${discountType === 'FLAT' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>₹</button>
-                            <button onClick={() => setDiscountType('PERCENT')} className={`px-2 py-0.5 text-[7px] font-black rounded ${discountType === 'PERCENT' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>%</button>
-                         </div>
-                      </div>
-                      <div className="relative">
-                         <input 
-                            type="number"
-                            value={discountAmount || ''}
-                            onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                            placeholder="0.00"
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black outline-none focus:border-indigo-500/50"
-                         />
-                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-500">{discountType === 'PERCENT' ? '%' : '₹'}</span>
-                      </div>
-                   </div>
-
-                   <div className="pt-3 border-t border-white/5 flex justify-between items-end">
-                      <div className="flex flex-col">
-                         <span className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.3em]">Total Amount</span>
-                         <span className="text-2xl font-black tracking-tighter text-white">
-                            ₹{cartTotal.toFixed(2)}
-                         </span>
-                      </div>
-                      {cart.length > 0 && (
-                        <button 
-                          onClick={() => { setCart([]); setDiscountAmount(0); }}
-                          className="text-[7px] font-black text-rose-500 uppercase tracking-widest hover:underline mb-1"
-                        >
-                          Clear Tray
-                        </button>
-                      )}
-                   </div>
+              {activeOrder.items.map((item: any) => (
+                <div key={item.id} className="bg-white/5 rounded-2xl p-3 flex items-center gap-4 border border-white/5 opacity-60">
+                  <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center shrink-0">
+                    <CheckCircle size={16} className="text-emerald-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[9px] font-black uppercase tracking-tight text-white/80 truncate">{item.product?.name || 'Item'}</h4>
+                    <p className="text-[8px] font-bold text-slate-500 mt-0.5">{item.quantity} x ₹{item.unitPrice}</p>
+                  </div>
+                  <div className="text-right flex flex-col items-end">
+                    <span className="text-[9px] font-black text-emerald-400">ORDERED</span>
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">KITCHEN</span>
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
 
-               {/* Payment Mode Selector */}
-               <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    onClick={() => setPaymentMode('CASH')}
-                    className={`h-9 rounded-xl flex items-center justify-center gap-2 border transition-all ${paymentMode === 'CASH' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
-                  >
-                     <ReceiptIndianRupee size={12} />
-                     <span className="text-[9px] font-black uppercase tracking-widest">Cash</span>
-                  </button>
-                  <button 
-                    onClick={() => setPaymentMode('UPI')}
-                    className={`h-9 rounded-xl flex items-center justify-center gap-2 border transition-all ${paymentMode === 'UPI' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
-                  >
-                     <Zap size={12} />
-                     <span className="text-[9px] font-black uppercase tracking-widest">UPI QR</span>
-                  </button>
-               </div>
+          {/* Totals & Actions */}
+          <div className="p-4 bg-slate-900 border-t border-white/10 space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                <span>Subtotal</span>
+                <span>₹{cartSubtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                <span>Estimated Tax (5%)</span>
+                <span>₹{cartTax.toFixed(2)}</span>
+              </div>
 
-               <div className="grid grid-cols-2 gap-2.5">
-                  <button className="py-2.5 bg-slate-800 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-slate-700 transition-all border border-white/5 text-slate-400">
-                     Save Draft
-                  </button>
-                  <button 
-                    disabled={isPlacingOrder || (cart.length === 0 && !activeOrder)}
-                    onClick={() => paymentMode === 'UPI' ? setIsPaymentModalOpen(true) : handlePlaceOrder()}
-                    className="py-2.5 bg-indigo-600 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                     {isPlacingOrder ? 'Processing...' : 
-                        (paymentMode === 'UPI' ? 
-                          (cart.length > 0 ? 'Pay & Order' : 'Pay for Current Order') : 
-                          (cart.length > 0 ? 'Confirm Order' : 'Order Placed')
-                        )
-                      }
-                  </button>
-               </div>
+              <div className="pt-1.5 border-t border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Discount</span>
+                  <div className="flex bg-black/20 rounded-lg p-0.5 border border-white/5">
+                    <button onClick={() => setDiscountType('FLAT')} className={`px-2 py-0.5 text-[7px] font-black rounded ${discountType === 'FLAT' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>₹</button>
+                    <button onClick={() => setDiscountType('PERCENT')} className={`px-2 py-0.5 text-[7px] font-black rounded ${discountType === 'PERCENT' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>%</button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={discountAmount || ''}
+                    onChange={(e) => setDiscountAmount(Number(e.target.value))}
+                    placeholder="0.00"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black outline-none focus:border-indigo-500/50"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-500">{discountType === 'PERCENT' ? '%' : '₹'}</span>
+                </div>
+              </div>
 
-           </div>
+              <div className="pt-3 border-t border-white/5 flex justify-between items-end">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.3em]">Total Amount</span>
+                  <span className="text-2xl font-black tracking-tighter text-white">
+                    ₹{cartTotal.toFixed(2)}
+                  </span>
+                </div>
+                {cart.length > 0 && (
+                  <button
+                    onClick={() => { setCart([]); setDiscountAmount(0); }}
+                    className="text-[7px] font-black text-rose-500 uppercase tracking-widest hover:underline mb-1"
+                  >
+                    Clear Tray
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Payment Mode Selector */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setPaymentMode('CASH')}
+                className={`h-9 rounded-xl flex items-center justify-center gap-2 border transition-all ${paymentMode === 'CASH' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+              >
+                <ReceiptIndianRupee size={12} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Cash</span>
+              </button>
+              <button
+                onClick={() => setPaymentMode('UPI')}
+                className={`h-9 rounded-xl flex items-center justify-center gap-2 border transition-all ${paymentMode === 'UPI' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
+              >
+                <Zap size={12} />
+                <span className="text-[9px] font-black uppercase tracking-widest">UPI QR</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button className="py-2.5 bg-slate-800 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-slate-700 transition-all border border-white/5 text-slate-400">
+                Save Draft
+              </button>
+              <button
+                disabled={isPlacingOrder || (cart.length === 0 && !activeOrder)}
+                onClick={() => paymentMode === 'UPI' ? setIsPaymentModalOpen(true) : handlePlaceOrder()}
+                className="py-2.5 bg-indigo-600 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isPlacingOrder ? 'Processing...' :
+                  (paymentMode === 'UPI' ?
+                    (cart.length > 0 ? 'Pay & Order' : 'Pay for Current Order') :
+                    (cart.length > 0 ? 'Confirm Order' : 'Order Placed')
+                  )
+                }
+              </button>
+            </div>
+
+          </div>
         </aside>
       </div>
 
       {/* Payment Modal Overlay */}
       <AnimatePresence>
         {isPaymentModalOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl"
           >
-             <motion.div 
+            <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               className="w-full max-w-md bg-slate-900 rounded-[40px] border border-white/10 shadow-3xl overflow-hidden"
-             >
-                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-indigo-600/10">
-                   <div>
-                      <h2 className="text-2xl font-black uppercase tracking-tight">Scan to <span className="text-indigo-400">Pay</span></h2>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Dynamic UPI Generator</p>
-                   </div>
-                   <button onClick={() => setIsPaymentModalOpen(false)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all">
-                      <X size={20} />
-                   </button>
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-indigo-600/10">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-tight">Scan to <span className="text-indigo-400">Pay</span></h2>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Dynamic UPI Generator</p>
+                </div>
+                <button onClick={() => setIsPaymentModalOpen(false)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 flex flex-col items-center gap-6">
+                {/* QR Code Container */}
+                <div className="relative p-6 bg-white rounded-[32px] shadow-2xl">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${property?.upiId || '7296969566@ybl'}&pn=${encodeURIComponent(property?.upiName || property?.brandName || 'OrderMint')}&am=${(cartTotal * 1.05 - (discountType === 'PERCENT' ? (cartTotal * discountAmount / 100) : discountAmount)).toFixed(2)}&cu=INR`)}`}
+                    alt="Payment QR"
+                    className="w-48 h-48"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+                    <Zap size={60} className="text-indigo-600" />
+                  </div>
                 </div>
 
-                <div className="p-8 flex flex-col items-center gap-6">
-                   {/* QR Code Container */}
-                   <div className="relative p-6 bg-white rounded-[32px] shadow-2xl">
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${property?.upiId || '7296969566@ybl'}&pn=${encodeURIComponent(property?.upiName || property?.brandName || 'OrderMint')}&am=${(cartTotal * 1.05 - (discountType === 'PERCENT' ? (cartTotal * discountAmount / 100) : discountAmount)).toFixed(2)}&cu=INR`)}`}
-                        alt="Payment QR"
-                        className="w-48 h-48"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-                         <Zap size={60} className="text-indigo-600" />
-                      </div>
-                   </div>
-
-                   <div className="text-center">
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total to Pay</span>
-                      <p className="text-4xl font-black text-white">₹{(cartTotal * 1.05 - (discountType === 'PERCENT' ? (cartTotal * discountAmount / 100) : discountAmount)).toFixed(2)}</p>
-                   </div>
-
-                   <div className="w-full space-y-4">
-                      <div className="space-y-2">
-                         <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest ml-1">Last 4 Digits of Transaction</label>
-                         <input 
-                            type="text"
-                            maxLength={4}
-                            value={transactionLast4}
-                            onChange={(e) => setTransactionLast4(e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="Ex: 5821"
-                            className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-xl font-black tracking-[0.5em] text-center outline-none focus:border-indigo-500/50"
-                         />
-                      </div>
-
-                      <button 
-                        disabled={transactionLast4.length !== 4 || isProcessingPayment}
-                        onClick={async () => {
-                          setIsProcessingPayment(true);
-                          // Here we would call handlePlaceOrder with payment metadata
-                          // For now we just call it and it will handle the creation
-                          await handlePlaceOrder();
-                          setIsProcessingPayment(false);
-                          setIsPaymentModalOpen(false);
-                          setIsWaitingApproval(true);
-                          setTransactionLast4('');
-                        }}
-                        className="w-full h-14 bg-indigo-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                      >
-                         {isProcessingPayment ? 'Validating...' : 'Confirm & Place Order'}
-                         <ChevronRight size={18} />
-                      </button>
-                      <p className="text-[8px] text-center text-slate-500 font-bold uppercase tracking-widest">Payment will be sent to admin for approval</p>
-                   </div>
+                <div className="text-center">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total to Pay</span>
+                  <p className="text-4xl font-black text-white">₹{(cartTotal * 1.05 - (discountType === 'PERCENT' ? (cartTotal * discountAmount / 100) : discountAmount)).toFixed(2)}</p>
                 </div>
-             </motion.div>
+
+                <div className="w-full space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest ml-1">Last 4 Digits of Transaction</label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={transactionLast4}
+                      onChange={(e) => setTransactionLast4(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="Ex: 5821"
+                      className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-xl font-black tracking-[0.5em] text-center outline-none focus:border-indigo-500/50"
+                    />
+                  </div>
+
+                  <button
+                    disabled={transactionLast4.length !== 4 || isProcessingPayment}
+                    onClick={async () => {
+                      setIsProcessingPayment(true);
+                      // Here we would call handlePlaceOrder with payment metadata
+                      // For now we just call it and it will handle the creation
+                      await handlePlaceOrder();
+                      setIsProcessingPayment(false);
+                      setIsPaymentModalOpen(false);
+                      setIsWaitingApproval(true);
+                      setTransactionLast4('');
+                    }}
+                    className="w-full h-14 bg-indigo-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                  >
+                    {isProcessingPayment ? 'Validating...' : 'Confirm & Place Order'}
+                    <ChevronRight size={18} />
+                  </button>
+                  <p className="text-[8px] text-center text-slate-500 font-bold uppercase tracking-widest">Payment will be sent to admin for approval</p>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -986,36 +1319,36 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
       {/* Waiting for Approval Status Popup */}
       <AnimatePresence>
         {isWaitingApproval && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[120] w-full max-w-sm"
           >
-             <div className="bg-slate-900 border border-indigo-500/30 rounded-[32px] p-6 shadow-3xl shadow-indigo-500/20 backdrop-blur-xl flex items-center gap-5">
-                <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center relative">
-                   <div className="absolute inset-0 bg-indigo-500/20 rounded-2xl animate-ping" />
-                   <Clock className="text-indigo-400 relative z-10" size={24} />
-                </div>
-                <div className="flex-1">
-                   <h3 className="text-xs font-black uppercase tracking-widest text-white">Sent for Approval</h3>
-                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                      Wait for counter verification.
-                   </p>
-                </div>
-                <button 
-                  onClick={() => setIsPaymentModalOpen(true)}
-                  className="h-10 px-4 bg-indigo-500/20 text-indigo-400 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-indigo-500/30 transition-all border border-indigo-500/10"
-                 >
-                   Show QR
-                 </button>
-                <button 
-                  onClick={() => setIsWaitingApproval(false)}
-                  className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all"
-                >
-                   <X size={18} />
-                </button>
-             </div>
+            <div className="bg-slate-900 border border-indigo-500/30 rounded-[32px] p-6 shadow-3xl shadow-indigo-500/20 backdrop-blur-xl flex items-center gap-5">
+              <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center relative">
+                <div className="absolute inset-0 bg-indigo-500/20 rounded-2xl animate-ping" />
+                <Clock className="text-indigo-400 relative z-10" size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xs font-black uppercase tracking-widest text-white">Sent for Approval</h3>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                  Wait for counter verification.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="h-10 px-4 bg-indigo-500/20 text-indigo-400 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-indigo-500/30 transition-all border border-indigo-500/10"
+              >
+                Show QR
+              </button>
+              <button
+                onClick={() => setIsWaitingApproval(false)}
+                className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1055,6 +1388,35 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             }}
             onCancel={() => setIsCustomerModalOpen(false)}
           />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+        title="Notification Center"
+      >
+        <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto no-scrollbar">
+          {notificationHistory.length === 0 ? (
+            <div className="text-center py-10 opacity-30">
+              <Bell size={48} className="mx-auto mb-4" />
+              <p className="text-xs font-black uppercase tracking-widest">No notifications yet</p>
+            </div>
+          ) : (
+            notificationHistory.map(notif => (
+              <div key={notif.id} className={`p-4 rounded-2xl border ${notif.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-800 border-white/5 text-slate-300'} flex items-start gap-4`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${notif.type === 'success' ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
+                  <Bell size={14} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold leading-normal">{notif.message}</p>
+                  <p className="text-[8px] opacity-40 font-black uppercase mt-1">
+                    {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Modal>
     </div>

@@ -80,6 +80,10 @@ export default function PublicMenuPage() {
   const [comments, setComments] = useState<string>('');
   const [showFeedback, setShowFeedback] = useState(false);
 
+  const isHomeDelivery = useMemo(() => {
+    return data?.table?.name?.toLowerCase() === 'home delivery';
+  }, [data]);
+
   // Handle Theme
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
@@ -127,6 +131,11 @@ export default function PublicMenuPage() {
       const hasActiveOrders = data.activeOrders?.length > 0;
       if (!hasActiveOrders && !guestInfo) {
         setShowOnboarding(true);
+        const homeDel = data.table?.name?.toLowerCase() === 'home delivery';
+        setOnboardingForm(prev => ({
+          ...prev,
+          orderType: homeDel ? 'DELIVERY' : 'DINE_IN'
+        }));
       } else {
         setShowOnboarding(false);
       }
@@ -324,7 +333,7 @@ export default function PublicMenuPage() {
           items: cart,
           paymentMethod: selectedMethod,
           isPrepaid: selectedMethod === 'UPI',
-          orderType: guestInfo?.orderType || 'DINE_IN',
+          orderType: guestInfo?.orderType || (isHomeDelivery ? 'DELIVERY' : 'DINE_IN'),
           deliveryCustomerName: guestInfo?.name,
           deliveryPhone: guestInfo?.phone,
           deliveryAddress: [guestInfo?.houseNo, guestInfo?.area, guestInfo?.landmark, guestInfo?.deliveryAddress].filter(Boolean).join(', '),
@@ -468,7 +477,22 @@ export default function PublicMenuPage() {
 
             <Button 
               variant="secondary" 
-              onClick={() => setShowOnboarding(true)}
+              onClick={() => {
+                const homeDel = data?.table?.name?.toLowerCase() === 'home delivery';
+                setOnboardingForm({
+                  name: guestInfo?.name || '',
+                  phone: guestInfo?.phone || '',
+                  orderType: guestInfo?.orderType || (homeDel ? 'DELIVERY' : 'DINE_IN'),
+                  deliveryAddress: guestInfo?.deliveryAddress || '',
+                  houseNo: guestInfo?.houseNo || '',
+                  area: guestInfo?.area || '',
+                  landmark: guestInfo?.landmark || '',
+                  deliveryInstructions: guestInfo?.deliveryInstructions || '',
+                  deliveryLat: guestInfo?.deliveryLat,
+                  deliveryLng: guestInfo?.deliveryLng
+                });
+                setShowOnboarding(true);
+              }}
               className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest"
             >
               Edit Details
@@ -563,6 +587,7 @@ export default function PublicMenuPage() {
         form={onboardingForm}
         setForm={setOnboardingForm}
         onSubmit={handleOnboardingSubmit}
+        isHomeDelivery={isHomeDelivery}
       />
 
       <FeedbackModal 

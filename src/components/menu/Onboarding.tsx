@@ -17,9 +17,17 @@ interface OnboardingProps {
   };
   setForm: (form: any) => void;
   onSubmit: (e: React.FormEvent) => void;
+  isHomeDelivery?: boolean;
 }
 
-export const Onboarding: React.FC<OnboardingProps> = ({ show, form, setForm, onSubmit }) => {
+export const Onboarding: React.FC<OnboardingProps> = ({ show, form, setForm, onSubmit, isHomeDelivery = false }) => {
+  const allowedTabs = isHomeDelivery 
+    ? [
+        { id: 'DELIVERY', label: 'Delivery', icon: Truck },
+        { id: 'PICKUP', label: 'Pickup', icon: Store }
+      ]
+    : [];
+
   return (
     <AnimatePresence>
       {show && (
@@ -49,31 +57,29 @@ export const Onboarding: React.FC<OnboardingProps> = ({ show, form, setForm, onS
             </div>
 
             {/* Order Type Tabs */}
-            <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl mb-6">
-              {[
-                { id: 'DINE_IN', label: 'Dine In', icon: Coffee },
-                { id: 'PICKUP', label: 'Pickup', icon: Store },
-                { id: 'DELIVERY', label: 'Delivery', icon: Truck }
-              ].map(type => {
-                const IconComponent = type.icon;
-                const isActive = (form.orderType || 'DINE_IN') === type.id;
-                return (
-                  <button
-                    key={type.id}
-                    type="button"
-                    onClick={() => setForm((prev: any) => ({ ...prev, orderType: type.id }))}
-                    className={`py-3.5 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1.5 ${
-                      isActive
-                        ? 'bg-pos-accent text-white shadow-lg shadow-pos-accent/25 scale-[1.03]'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <IconComponent size={18} />
-                    <span>{type.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {allowedTabs.length > 0 && (
+              <div className={`grid ${allowedTabs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl mb-6`}>
+                {allowedTabs.map(type => {
+                  const IconComponent = type.icon;
+                  const isActive = (form.orderType || 'DELIVERY') === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setForm((prev: any) => ({ ...prev, orderType: type.id }))}
+                      className={`py-3.5 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1.5 ${
+                        isActive
+                          ? 'bg-pos-accent text-white shadow-lg shadow-pos-accent/25 scale-[1.03]'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      <IconComponent size={18} />
+                      <span>{type.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="relative">
