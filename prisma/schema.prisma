@@ -1379,17 +1379,18 @@ model SystemSetting {
 }
 
 model Tablet {
-  id         String   @id @default(cuid())
-  propertyId String
-  name       String
-  mode       String   @default("WAITER")
-  tableId    String?
-  waiterId   String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  table      Table?   @relation(fields: [tableId], references: [id])
-  property   Property @relation(fields: [propertyId], references: [id])
+  id               String   @id @default(cuid())
+  propertyId       String
+  name             String
+  mode             String   @default("WAITER")
+  tableId          String?
+  assignedTableIds String?  
+  waiterId         String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  table            Table?   @relation(fields: [tableId], references: [id])
+  property         Property @relation(fields: [propertyId], references: [id])
 }
 
 model OrderRating {

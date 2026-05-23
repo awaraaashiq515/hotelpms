@@ -7,10 +7,22 @@ import { processDriverReferral } from '@/lib/driverOfferEngine';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    let organizationId = session?.organizationId;
+    
+    if (!session) {
+      const tabletId = request.nextUrl.searchParams.get('tabletId');
+      if (tabletId) {
+        const tablet = await prisma.tablet.findUnique({ where: { id: tabletId }, include: { property: true } });
+        if (tablet) {
+           organizationId = tablet.property.organizationId;
+        }
+      }
+    }
+
+    if (!organizationId) return apiError(new Error('Unauthorized'), 401);
 
     const customers = await prisma.guest.findMany({
-      where: { organizationId: session.organizationId },
+      where: { organizationId },
       orderBy: { createdAt: 'desc' },
       include: {
         settlements: {
@@ -34,9 +46,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
-
     const body = await request.json();
+    let organizationId = session?.organizationId;
+    
+    if (!session) {
+      const tabletId = body.tabletId || request.nextUrl.searchParams.get('tabletId');
+      if (tabletId) {
+        const tablet = await prisma.tablet.findUnique({ where: { id: tabletId }, include: { property: true } });
+        if (tablet) {
+           organizationId = tablet.property.organizationId;
+        }
+      }
+    }
+
+    if (!organizationId) return apiError(new Error('Unauthorized'), 401);
+
     const { firstName, lastName, email, mobile, address, gender, driverId } = body;
 
     const customer = await prisma.guest.create({
@@ -47,7 +71,7 @@ export async function POST(request: NextRequest) {
         mobile,
         address,
         gender,
-        organizationId: session.organizationId,
+        organizationId,
         ...(driverId && { driverId })
       },
     });

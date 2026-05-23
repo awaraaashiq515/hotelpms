@@ -19,6 +19,18 @@ export async function GET(
 
     const propertyId = tablet.propertyId;
 
+    let tableWhere: any = { propertyId };
+    if (tablet.assignedTableIds) {
+      try {
+        const ids = JSON.parse(tablet.assignedTableIds);
+        if (Array.isArray(ids) && ids.length > 0) {
+          tableWhere.id = { in: ids };
+        }
+      } catch (e) {
+        console.error('Failed to parse assignedTableIds', e);
+      }
+    }
+
     // Fetch all data in parallel using the tablet's propertyId
     const [products, categories, tables, waiter, websiteSettings, activeOrders] = await Promise.all([
       prisma.product.findMany({
@@ -31,7 +43,7 @@ export async function GET(
         orderBy: { name: 'asc' },
       }),
       prisma.table.findMany({
-        where: { propertyId },
+        where: tableWhere,
         include: { floor: true },
         orderBy: { name: 'asc' },
       }),

@@ -20,6 +20,7 @@ interface TabletDevice {
   mode: 'WAITER' | 'TABLE';
   tableId?: string | null;
   waiterId?: string | null;
+  assignedTableIds?: string | null;
   propertyId: string;
   isActive: boolean;
 }
@@ -50,6 +51,7 @@ export default function TabletSettingsPage() {
     name: '',
     mode: 'WAITER' as 'WAITER' | 'TABLE',
     tableId: '',
+    assignedTableIds: '[]',
     waiterId: '',
     propertyId: ''
   });
@@ -101,6 +103,7 @@ export default function TabletSettingsPage() {
         name: tablet.name,
         mode: tablet.mode,
         tableId: tablet.tableId || '',
+        assignedTableIds: tablet.assignedTableIds || '[]',
         waiterId: tablet.waiterId || '',
         propertyId: tablet.propertyId
       });
@@ -111,6 +114,7 @@ export default function TabletSettingsPage() {
         name: '',
         mode: 'WAITER',
         tableId: '',
+        assignedTableIds: '[]',
         waiterId: '',
       }));
     }
@@ -267,17 +271,58 @@ export default function TabletSettingsPage() {
           )}
 
           {formData.mode === 'WAITER' && (
-            <Select 
-              label="Assign to Staff Member (Waiter)"
-              options={[
-                { label: 'Do Not Assign / Open for All', value: '' },
-                ...staffMembers
-                  .filter(s => s.isActive)
-                  .map(s => ({ label: `${s.name} (${s.designation || 'Staff'})`, value: s.id }))
-              ]}
-              value={formData.waiterId}
-              onChange={(e) => setFormData(prev => ({ ...prev, waiterId: e.target.value }))}
-            />
+            <div className="space-y-4">
+              <Select 
+                label="Assign to Staff Member (Waiter)"
+                options={[
+                  { label: 'Do Not Assign / Open for All', value: '' },
+                  ...staffMembers
+                    .filter(s => s.isActive)
+                    .map(s => ({ label: `${s.name} (${s.designation || 'Staff'})`, value: s.id }))
+                ]}
+                value={formData.waiterId}
+                onChange={(e) => setFormData(prev => ({ ...prev, waiterId: e.target.value }))}
+              />
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Assign Tables to this Tablet</label>
+                <div className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-2">Select which tables this tablet can access. Leave empty to allow access to all tables.</div>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border border-gray-100 dark:border-slate-700 rounded-2xl bg-gray-50 dark:bg-slate-900/50">
+                  {tables.map(table => {
+                    const assigned = (() => {
+                      try {
+                        return JSON.parse(formData.assignedTableIds || '[]').includes(table.id);
+                      } catch { return false; }
+                    })();
+                    
+                    return (
+                      <label key={table.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-slate-600">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded text-pos-primary focus:ring-pos-primary border-gray-300 dark:border-slate-600 dark:bg-slate-900"
+                          checked={assigned}
+                          onChange={(e) => {
+                            let current: string[] = [];
+                            try {
+                              current = JSON.parse(formData.assignedTableIds || '[]');
+                              if (!Array.isArray(current)) current = [];
+                            } catch {}
+                            
+                            if (e.target.checked) {
+                              if (!current.includes(table.id)) current.push(table.id);
+                            } else {
+                              current = current.filter((id: string) => id !== table.id);
+                            }
+                            setFormData(prev => ({ ...prev, assignedTableIds: JSON.stringify(current) }));
+                          }}
+                        />
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{table.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="bg-amber-50 p-4 rounded-3xl border border-amber-100">

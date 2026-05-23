@@ -6,10 +6,19 @@ import { getSession } from '@/lib/session';
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
-
     const body = await request.json();
-    const { sourceTableId, targetTableId } = body;
+    const { sourceTableId, targetTableId, tabletId } = body;
+
+    let isAuthenticated = !!session;
+    
+    if (!session && tabletId) {
+      const tablet = await prisma.tablet.findUnique({ where: { id: tabletId } });
+      if (tablet) {
+        isAuthenticated = true;
+      }
+    }
+
+    if (!isAuthenticated) return apiError(new Error('Unauthorized'), 401);
 
     if (!sourceTableId || !targetTableId) {
       return apiError(new Error('Source and target table IDs are required'), 400);

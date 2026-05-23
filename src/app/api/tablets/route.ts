@@ -9,6 +9,7 @@ const tabletSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   mode: z.enum(['WAITER', 'TABLE']).default('WAITER'),
   tableId: z.string().optional().nullable(),
+  assignedTableIds: z.string().optional().nullable(),
   waiterId: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
 })
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...data,
         tableId: data.tableId || null,
+        assignedTableIds: data.assignedTableIds || null,
         waiterId: data.waiterId || null,
       }
     })

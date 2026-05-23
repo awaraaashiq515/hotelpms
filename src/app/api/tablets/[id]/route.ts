@@ -8,6 +8,7 @@ const tabletUpdateSchema = z.object({
   name: z.string().optional(),
   mode: z.enum(['WAITER', 'TABLE']).optional(),
   tableId: z.string().optional().nullable(),
+  assignedTableIds: z.string().optional().nullable(),
   waiterId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
 })
@@ -45,6 +46,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       data: {
         ...data,
         tableId: data.tableId === undefined ? undefined : (data.tableId || null),
+        assignedTableIds: data.assignedTableIds === undefined ? undefined : (data.assignedTableIds || null),
         waiterId: data.waiterId === undefined ? undefined : (data.waiterId || null),
       }
     })

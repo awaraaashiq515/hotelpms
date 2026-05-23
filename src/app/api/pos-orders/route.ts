@@ -44,16 +44,26 @@ const posOrderSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
-
     const body = await request.json()
+    const tabletId = body.tabletId;
+
+    let isAuthenticated = !!session;
+    if (!session && tabletId) {
+      const tablet = await prisma.tablet.findUnique({ where: { id: tabletId } });
+      if (tablet) {
+        isAuthenticated = true;
+      }
+    }
+
+    if (!isAuthenticated) return apiError(new Error('Unauthorized'), 401);
+
     // Map PICKUP to TAKEAWAY for compatibility with the billing page
     if (body.orderType === 'PICKUP') body.orderType = 'TAKEAWAY';
     const parsed = posOrderSchema.parse(body)
     const { items = [], ...parsedData } = parsed;
 
     // Auto-fill propertyId from session if not provided
-    const propertyId = parsedData.propertyId || session.propertyId;
+    const propertyId = parsedData.propertyId || session?.propertyId;
     if (!propertyId) return apiError(new Error('Property ID could not be determined'), 400);
 
     // Auto-fill outletId from DB if not provided
