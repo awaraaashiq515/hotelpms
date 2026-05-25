@@ -17,8 +17,10 @@ import { Modal } from '@/components/ui/Modal';
 import { CustomerForm } from '@/components/forms/customer-form';
 import { SwitchTableModal } from '@/components/tables/SwitchTableModal';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
+import TabletModals from '@/components/tablet/TabletModals';
 import { useToast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- Types ---
 interface TabletConfig {
@@ -31,6 +33,8 @@ interface TabletConfig {
   property: {
     name: string;
     code: string;
+    upiId?: string | null;
+    upiName?: string | null;
   };
   table?: {
     id: string;
@@ -169,8 +173,13 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
   // Switch Table & KOT Modals
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
-  const [sourceTableForSwitch, setSourceTableForSwitch] = useState<any | null>(null);
+  const [sourceTableForSwitch, setSourceTableForSwitch] = useState<any>(null);
   const [switchLoading, setSwitchLoading] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [qrModalOrder, setQrModalOrder] = useState<any>(null);
+  const [localDiscountAmount, setLocalDiscountAmount] = useState<number>(0);
+  const [activeTableActionId, setActiveTableActionId] = useState<string | null>(null);
+  
   const [kotSlip, setKotSlip] = useState<KotSlipData | null>(null);
 
   const categoryMap = useMemo(() => {
@@ -218,13 +227,15 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
   const handlePrintKOT = async (tableId: string) => {
     const table = tables.find(t => t.id === tableId);
-    if (!table?.activeOrder?.id) {
+    const currentOrder = activeOrders.find(o => o.restaurantTableId === tableId) || activeOrder;
+    const orderId = currentOrder?.id;
+    if (!orderId) {
        addToast('error', 'No active order found for this table');
        return;
     }
     
     try {
-      const res = await fetch(`/api/orders/${table.activeOrder.id}/print`);
+      const res = await fetch(`/api/orders/${orderId}/print`);
       const result = await res.json();
       const order = result.success ? result.data : null;
       if (!order || !order.kotTickets?.length) {
@@ -253,7 +264,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
       setKotSlip({
         kotNo: latestKot.kotNo,
         orderNo: order.orderNo,
-        tableNo: table.name,
+        tableNo: table?.name || order.tableNo || '',
         roomId: order.roomId || undefined,
         orderType: order.orderType,
         createdAt: latestKot.createdAt,
@@ -546,8 +557,9 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   // Waiter Station Selection
   if (tablet.mode === 'WAITER' && sessionStage !== 'MENU') {
     return (
-      <div className="h-screen w-screen bg-[#0F172A] text-white flex flex-col overflow-hidden font-sans">
-        {/* Live Kitchen Status Ticker */}
+      <>
+        <div className="h-screen w-screen bg-[#0F172A] text-white flex flex-col overflow-hidden font-sans">
+          {/* Live Kitchen Status Ticker */}
         <div className="h-10 shrink-0 bg-slate-950/90 border-b border-white/5 flex items-center justify-between px-10 select-none overflow-hidden text-[9px] font-black tracking-widest uppercase">
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
@@ -718,6 +730,14 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                           return (
                             <div className="relative" key={table.id}>
                                 <button
+                                onClick={() => {
+                                  if (isOccupied) {
+                                    setActiveTableActionId(activeTableActionId === table.id ? null : table.id);
+                                  } else {
+                                    setSelectedTableId(table.id);
+                                    setSessionStage('PAX');
+                                  }
+                                }}
                                 onDoubleClick={() => {
                                   setSelectedTableId(table.id);
                                   if (isOccupied) {
@@ -755,6 +775,55 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                               </button>
 
+                              <AnimatePresence>
+                                {activeTableActionId === table.id && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    className="absolute top-[105%] left-1/2 -translate-x-1/2 z-[100] w-[220px] bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl p-3 flex flex-col gap-2"
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const order = activeOrders.find(o => o.restaurantTableId === table.id);
+                                        setQrModalOrder(order || null);
+                                        setIsQRModalOpen(true);
+                                        setActiveTableActionId(null);
+                                      }}
+                                      className="w-full py-3 bg-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-all flex items-center justify-center gap-2"
+                                    >
+                                      <ReceiptIndianRupee size={16} />
+                                      Pay Bill
+                                    </button>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePrintKOT(table.id);
+                                          setActiveTableActionId(null);
+                                        }}
+                                        className="flex-1 py-3 bg-white/5 border border-white/5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                                      >
+                                        <Printer size={16} />
+                                        Print KOT
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSourceTableForSwitch(table);
+                                          setIsSwitchModalOpen(true);
+                                          setActiveTableActionId(null);
+                                        }}
+                                        className="flex-1 py-3 bg-white/5 border border-white/5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                                      >
+                                        <ArrowLeftRight size={16} />
+                                        Switch
+                                      </button>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </div>
                           );
                         })}
@@ -764,16 +833,28 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
           ) : (
-            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
-              <div className="w-full max-w-xl text-center">
-                <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Enter Guest Details</h2>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-8">Select Guest, Driver, and Number of Pax</p>
+            <div className="w-full flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500 relative">
+              {/* Subtle ambient background glow */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px]" />
+              </div>
+
+              <div className="w-full max-w-lg text-center relative z-10">
+                <div className="mb-8">
+                  <h2 className="text-4xl font-black uppercase tracking-tight bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent mb-3">Service Details</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Select guest, driver, and number of PAX</p>
+                </div>
                 
-                <div className="bg-slate-900/60 backdrop-blur rounded-[40px] p-8 border border-white/5 shadow-2xl mb-12 flex flex-col gap-8">
+                <div className="bg-slate-900/80 backdrop-blur-xl rounded-[40px] p-8 sm:p-10 border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] shadow-indigo-500/10 mb-8 flex flex-col gap-8 relative overflow-hidden">
+                  {/* Inner shine */}
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
                   {isCustomerModalOpen ? (
-                    <div className="bg-white/5 rounded-3xl p-6 border border-white/10 text-left animate-in zoom-in-95 duration-200">
+                    <div className="bg-slate-950/80 rounded-3xl p-6 border border-white/10 text-left animate-in zoom-in-95 duration-200 shadow-2xl">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400">New Guest Registration</h3>
+                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                          <UserPlus size={16} /> New Guest Registration
+                        </h3>
                       </div>
                       <CustomerForm
                         onSubmit={async (data) => {
@@ -803,119 +884,180 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   ) : (
                     <>
                       {/* Customer/Driver Selection */}
-                      <div className="space-y-3 text-left">
-                    {!(selectedCustomer || selectedDriver) ? (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setSearchMode('CUSTOMER')}
-                            className={`flex-1 h-12 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'CUSTOMER' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
-                          >
-                            <User size={16} />
-                            <span className="text-xs font-black uppercase tracking-widest">Select Customer</span>
-                          </button>
-                          <button
-                            onClick={() => setSearchMode('DRIVER')}
-                            className={`flex-1 h-12 rounded-xl flex items-center justify-center gap-2 transition-all border ${searchMode === 'DRIVER' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-sm' : 'bg-white/5 border-white/10 text-slate-500'}`}
-                          >
-                            <CarFront size={16} />
-                            <span className="text-xs font-black uppercase tracking-widest">Select Driver</span>
-                          </button>
-                        </div>
-
-                        {searchMode && (
-                          <div className="relative animate-in slide-in-from-top-2 duration-300">
-                            <div className="relative group">
-                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
-                              <input
-                                type="text"
-                                placeholder={searchMode === 'CUSTOMER' ? "Search guest..." : "Search driver..."}
-                                value={searchMode === 'CUSTOMER' ? customerSearch : driverSearch}
-                                onChange={(e) => searchMode === 'CUSTOMER' ? setCustomerSearch(e.target.value) : setDriverSearch(e.target.value)}
-                                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl pl-12 pr-12 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-indigo-500/50 transition-all"
-                                autoFocus
-                              />
-                              {searchMode === 'CUSTOMER' && (
-                                <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center hover:bg-indigo-500/30 transition-all">
-                                  <UserPlus size={16} />
-                                </button>
-                              )}
+                      <div className="space-y-6 text-left">
+                        {!(selectedCustomer || selectedDriver) ? (
+                          <>
+                            <div className="p-1.5 bg-slate-950/80 rounded-3xl border border-white/5 shadow-inner flex gap-2">
+                              <button
+                                onClick={() => setSearchMode('CUSTOMER')}
+                                className={`flex-1 h-14 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 ${searchMode === 'CUSTOMER' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_-10px_rgba(79,70,229,0.8)] border border-indigo-400/50' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                              >
+                                <User size={18} />
+                                <span className="text-xs font-black uppercase tracking-widest">Guest</span>
+                              </button>
+                              <button
+                                onClick={() => setSearchMode('DRIVER')}
+                                className={`flex-1 h-14 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 ${searchMode === 'DRIVER' ? 'bg-amber-600 text-white shadow-[0_10px_20px_-10px_rgba(217,119,6,0.8)] border border-amber-400/50' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                              >
+                                <CarFront size={18} />
+                                <span className="text-xs font-black uppercase tracking-widest">Driver</span>
+                              </button>
                             </div>
 
-                            {/* Search Results Dropdown */}
-                            {(searchMode === 'CUSTOMER' ? customerSearch : driverSearch) && (
-                              <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden max-h-48 overflow-y-auto no-scrollbar">
-                                {searchMode === 'CUSTOMER' ? (
-                                  customers.filter(c =>
-                                    c.firstName.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                                    c.lastName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                                    c.mobile?.includes(customerSearch)
-                                  ).map(c => (
-                                    <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-4 py-3 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
-                                      <span className="text-xs font-bold text-white">{c.firstName} {c.lastName}</span>
-                                      <span className="text-[10px] text-slate-500 uppercase font-black">{c.mobile || 'No Mobile'}</span>
-                                    </button>
-                                  ))
-                                ) : (
-                                  drivers.filter(d =>
-                                    d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                                    d.phone?.includes(driverSearch)
-                                  ).map(d => (
-                                    <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-4 py-3 flex flex-col items-start hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left">
-                                      <span className="text-xs font-bold text-white">{d.name}</span>
-                                      <span className="text-[10px] text-slate-500 uppercase font-black">{d.phone || 'No Phone'}</span>
-                                    </button>
-                                  ))
-                                )}
+                            <AnimatePresence>
+                              {searchMode && (
+                                <motion.div 
+                                  initial={{ opacity: 0, height: 0, y: -10 }}
+                                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                                  exit={{ opacity: 0, height: 0, y: -10 }}
+                                  className="relative overflow-visible"
+                                >
+                                  <div className="relative group mt-4">
+                                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={20} />
+                                    <input
+                                      type="text"
+                                      placeholder={searchMode === 'CUSTOMER' ? "Search guest name/mobile..." : "Search driver name..."}
+                                      value={searchMode === 'CUSTOMER' ? customerSearch : driverSearch}
+                                      onChange={(e) => searchMode === 'CUSTOMER' ? setCustomerSearch(e.target.value) : setDriverSearch(e.target.value)}
+                                      className="w-full h-16 bg-slate-950/80 border border-white/10 rounded-2xl pl-16 pr-16 text-sm font-bold text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/20 transition-all shadow-inner"
+                                      autoFocus
+                                    />
+                                    {searchMode === 'CUSTOMER' && (
+                                      <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center hover:bg-indigo-500 hover:text-white hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all" title="Add New Guest">
+                                        <UserPlus size={18} />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Search Results Dropdown */}
+                                  {(searchMode === 'CUSTOMER' ? customerSearch : driverSearch) && (
+                                    <div className="absolute top-full left-0 right-0 mt-3 bg-slate-800/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-[100] overflow-hidden max-h-64 overflow-y-auto no-scrollbar">
+                                      {searchMode === 'CUSTOMER' ? (
+                                        customers.filter(c =>
+                                          c.firstName.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                                          c.lastName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                                          c.mobile?.includes(customerSearch)
+                                        ).map(c => (
+                                          <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-6 py-4 flex flex-col items-start hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 text-left group">
+                                            <span className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors">{c.firstName} {c.lastName}</span>
+                                            <span className="text-[10px] text-indigo-400 uppercase font-black mt-1 tracking-widest">{c.mobile || 'No Mobile'}</span>
+                                          </button>
+                                        ))
+                                      ) : (
+                                        drivers.filter(d =>
+                                          d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                                          d.phone?.includes(driverSearch)
+                                        ).map(d => (
+                                          <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-6 py-4 flex flex-col items-start hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 text-left group">
+                                            <span className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">{d.name}</span>
+                                            <span className="text-[10px] text-amber-400 uppercase font-black mt-1 tracking-widest">{d.phone || 'No Phone'}</span>
+                                          </button>
+                                        ))
+                                      )}
+                                    </div>
+                                  )}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </>
+                        ) : (
+                          /* Selected Entity Indicator */
+                          <div className="bg-slate-950/80 border border-indigo-500/30 rounded-3xl p-6 flex items-center justify-between group shadow-inner">
+                            <div className="flex items-center gap-6">
+                              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${selectedCustomer ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20' : 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20'}`}>
+                                {selectedCustomer ? <User size={28} /> : <CarFront size={28} />}
                               </div>
-                            )}
+                              <div>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
+                                <p className="text-xl font-black text-white uppercase tracking-tight">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => { setSelectedCustomer(null); setSelectedDriver(null); }}
+                              className="h-12 px-6 bg-white/5 hover:bg-rose-500 hover:text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.4)] text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                            >
+                              Change
+                            </button>
                           </div>
                         )}
-                      </>
-                    ) : (
-                      /* Selected Entity Indicator */
-                      <div className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedCustomer ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                            {selectedCustomer ? <User size={24} /> : <CarFront size={24} />}
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
-                            <p className="text-sm font-black text-white uppercase">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => { setSelectedCustomer(null); setSelectedDriver(null); }}
-                          className="h-10 px-4 bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
-                        >
-                          Change
-                        </button>
                       </div>
-                    )}
-                  </div>
-                </>
-              )}
+                    </>
+                  )}
 
-                  <div className="h-px bg-white/5 w-full" />
+                  <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full my-4" />
 
-                  <div className="flex items-center justify-center gap-12">
-                    <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Minus size={32} /></button>
-                    <div className="flex flex-col items-center">
-                      <span className="text-8xl font-black tabular-nums leading-none">{pax}</span>
-                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest mt-2">PAX</span>
+                  <div className="flex flex-col items-center gap-6">
+                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em]">Number of PAX</p>
+                    
+                    {/* Unibody PAX Selector */}
+                    <div className="flex items-center justify-between bg-slate-950/80 border border-white/10 rounded-full p-2 w-full max-w-[320px] shadow-inner relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+                      
+                      <button 
+                        onClick={() => setPax(Math.max(1, pax - 1))} 
+                        className="w-16 h-16 shrink-0 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all hover:scale-105 active:scale-95 z-10"
+                      >
+                        <Minus size={24} />
+                      </button>
+                      
+                      <div className="flex-1 flex flex-col items-center justify-center z-10">
+                        <span className="text-[5rem] font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] leading-none">{pax}</span>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setPax(pax + 1)} 
+                        className="w-16 h-16 shrink-0 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-indigo-500 hover:text-white transition-all hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(99,102,241,0)] hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] z-10"
+                      >
+                        <Plus size={24} />
+                      </button>
                     </div>
-                    <button onClick={() => setPax(pax + 1)} className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all"><Plus size={32} /></button>
                   </div>
                 </div>
-                <button onClick={() => setSessionStage('MENU')} className="w-full py-6 bg-indigo-600 rounded-[24px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2">
-                  <span>Start Order</span>
+
+                <button 
+                  onClick={() => setSessionStage('MENU')} 
+                  className="w-full h-24 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500 rounded-[32px] font-black uppercase tracking-[0.3em] shadow-[0_20px_50px_-15px_rgba(79,70,229,0.7)] hover:shadow-[0_30px_60px_-15px_rgba(79,70,229,0.9)] transition-all hover:-translate-y-2 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-4 group relative overflow-hidden text-xl border border-indigo-400/30"
+                  style={{ backgroundSize: '200% 100%' }}
+                >
+                  {/* Animated sheen */}
+                  <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)] -translate-x-[150%] group-hover:translate-x-[150%] transition-transform duration-1000 ease-in-out" />
+                  
+                  <span className="relative z-10 text-white drop-shadow-md">Confirm & Start</span>
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center relative z-10 group-hover:bg-white group-hover:text-indigo-600 transition-colors">
+                    <ChevronRight size={24} className="group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </button>
               </div>
             </div>
           )}
         </main>
 
+      <TabletModals
+        isNotificationOpen={isNotificationOpen}
+        setIsNotificationOpen={setIsNotificationOpen}
+        notificationHistory={notificationHistory}
+        kotSlip={kotSlip}
+        setKotSlip={setKotSlip}
+        isQRModalOpen={isQRModalOpen}
+        setIsQRModalOpen={setIsQRModalOpen}
+        qrModalOrder={qrModalOrder}
+        setQrModalOrder={setQrModalOrder}
+        activeOrder={activeOrder}
+        cartSubtotal={cartSubtotal}
+        cartTax={cartTax}
+        localDiscountAmount={localDiscountAmount}
+        setLocalDiscountAmount={setLocalDiscountAmount}
+        tablet={tablet}
+        isSwitchModalOpen={isSwitchModalOpen}
+        setIsSwitchModalOpen={setIsSwitchModalOpen}
+        sourceTableForSwitch={sourceTableForSwitch}
+        setSourceTableForSwitch={setSourceTableForSwitch}
+        tables={tables}
+        handleConfirmSwitchTable={handleConfirmSwitchTable}
+        switchLoading={switchLoading}
+      />
       </div>
+      </>
     );
   }
 
@@ -1164,7 +1306,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         </div>
 
         {/* Right Side: Order Tray (Billing Style) */}
-        <aside className="w-[380px] shrink-0 border-l border-white/5 bg-slate-900/30 flex flex-col overflow-hidden">
+        <aside className="w-[420px] shrink-0 border-l border-white/5 bg-slate-900/30 flex flex-col overflow-hidden">
           {/* Tray Header */}
           <div className="p-6 border-b border-white/5 space-y-4">
             <div className="flex items-start justify-between">
@@ -1322,25 +1464,39 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   {isPlacingOrder ? 'Processing...' : 'Place Order'}
                 </button>
               ) : activeOrder ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePrintKOT(selectedTableId!)}
-                    className="flex-1 py-4 bg-indigo-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
-                  >
-                    <Printer size={16} />
-                    Print KOT
-                  </button>
-                  <button
-                    onClick={() => {
-                      const activeTable = tables.find(t => t.id === selectedTableId);
-                      setSourceTableForSwitch(activeTable);
-                      setIsSwitchModalOpen(true);
-                    }}
-                    className="flex-1 py-4 bg-white/10 border border-white/10 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2"
-                  >
-                    <ArrowLeftRight size={16} />
-                    Switch
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setQrModalOrder(activeOrder);
+                        setIsQRModalOpen(true);
+                      }}
+                      className="flex-1 py-3 bg-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                    >
+                      <ReceiptIndianRupee size={16} />
+                      Pay Bill
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePrintKOT(selectedTableId!)}
+                      className="flex-1 py-3 bg-white/10 border border-white/10 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Printer size={16} />
+                      Print KOT
+                    </button>
+                    <button
+                      onClick={() => {
+                        const activeTable = tables.find(t => t.id === selectedTableId);
+                        setSourceTableForSwitch(activeTable);
+                        setIsSwitchModalOpen(true);
+                      }}
+                      className="flex-1 py-3 bg-white/10 border border-white/10 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <ArrowLeftRight size={16} />
+                      Switch
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -1356,60 +1512,34 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         </aside>
       </div>
 
-
-
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-
-
-      <Modal
-        isOpen={isNotificationOpen}
-        onClose={() => setIsNotificationOpen(false)}
-        title="Notification Center"
-      >
-        <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto no-scrollbar">
-          {notificationHistory.length === 0 ? (
-            <div className="text-center py-10 opacity-30">
-              <Bell size={48} className="mx-auto mb-4" />
-              <p className="text-xs font-black uppercase tracking-widest">No notifications yet</p>
-            </div>
-          ) : (
-            notificationHistory.map(notif => (
-              <div key={notif.id} className={`p-4 rounded-2xl border ${notif.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-800 border-white/5 text-slate-300'} flex items-start gap-4`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${notif.type === 'success' ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
-                  <Bell size={14} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold leading-normal">{notif.message}</p>
-                  <p className="text-[8px] opacity-40 font-black uppercase mt-1">
-                    {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </Modal>
-      {kotSlip && (
-        <KotSlipModal
-          kot={kotSlip}
-          onClose={() => setKotSlip(null)}
-        />
-      )}
-
-      <SwitchTableModal
-        isOpen={isSwitchModalOpen}
-        onClose={() => {
-          setIsSwitchModalOpen(false);
-          setSourceTableForSwitch(null);
-        }}
-        sourceTable={sourceTableForSwitch}
-        vacantTables={tables.filter(t => t.status === 'VACANT')}
-        onConfirm={handleConfirmSwitchTable}
-        loading={switchLoading}
+      <TabletModals
+        isNotificationOpen={isNotificationOpen}
+        setIsNotificationOpen={setIsNotificationOpen}
+        notificationHistory={notificationHistory}
+        kotSlip={kotSlip}
+        setKotSlip={setKotSlip}
+        isQRModalOpen={isQRModalOpen}
+        setIsQRModalOpen={setIsQRModalOpen}
+        qrModalOrder={qrModalOrder}
+        setQrModalOrder={setQrModalOrder}
+        activeOrder={activeOrder}
+        cartSubtotal={cartSubtotal}
+        cartTax={cartTax}
+        localDiscountAmount={localDiscountAmount}
+        setLocalDiscountAmount={setLocalDiscountAmount}
+        tablet={tablet}
+        isSwitchModalOpen={isSwitchModalOpen}
+        setIsSwitchModalOpen={setIsSwitchModalOpen}
+        sourceTableForSwitch={sourceTableForSwitch}
+        setSourceTableForSwitch={setSourceTableForSwitch}
+        tables={tables}
+        handleConfirmSwitchTable={handleConfirmSwitchTable}
+        switchLoading={switchLoading}
       />
     </div>
   );

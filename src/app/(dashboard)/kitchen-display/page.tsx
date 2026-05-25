@@ -592,6 +592,17 @@ export default function KitchenDisplayPage() {
     );
   }
 
+  if (!mounted) {
+    return (
+      <div className="h-screen w-screen bg-[#080d1a] flex flex-col items-center justify-center">
+        <RefreshCw size={40} className="animate-spin text-pos-primary mb-4" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600">
+          Initializing System...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full bg-[#080d1a] text-white flex flex-col overflow-hidden">
 
