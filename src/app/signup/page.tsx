@@ -160,6 +160,7 @@ function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [logoUrl, setLogoUrl]           = useState<string | null>(null);
+  const [hotelEnabled, setHotelEnabled] = useState(false);
 
   // ── Delivery Rider / B2B Supplier state
   const [phone, setPhone]                       = useState('');
@@ -184,7 +185,7 @@ function SignupForm() {
   const [paymentRef, setPaymentRef]               = useState('');
   const [paymentAmount, setPaymentAmount]         = useState('');
 
-  // ── Branch & POS Cashier state
+  // ── Branch & POS Operator state
   const [branchName, setBranchName]       = useState('');
   const [branchCode, setBranchCode]       = useState('');
   const [branchCity, setBranchCity]       = useState('');
@@ -219,7 +220,12 @@ function SignupForm() {
   useEffect(() => {
     fetch('/api/website/settings')
       .then(r => r.json())
-      .then(j => { if (j.success && j.data.logoUrl) setLogoUrl(j.data.logoUrl); })
+      .then(j => { 
+        if (j.success) {
+          if (j.data.logoUrl) setLogoUrl(j.data.logoUrl);
+          if (typeof j.data.hotelEnabled === 'boolean') setHotelEnabled(j.data.hotelEnabled);
+        }
+      })
       .catch(() => {});
     refreshCaptcha();
   }, []);
@@ -279,7 +285,7 @@ function SignupForm() {
       setBranchCode(generateBranchCode(businessName || fullName));
     }
     if (!posFullName) {
-      setPosFullName(`${fullName.trim()}'s Cashier`);
+      setPosFullName(`${fullName.trim()}'s Operator`);
     }
     // NOTE: posEmail is intentionally NOT auto-filled to avoid unique constraint conflicts
     
@@ -307,7 +313,7 @@ function SignupForm() {
       setBranchCode(generateBranchCode(businessName || fullName));
     }
     if (!posFullName) {
-      setPosFullName(`${fullName.trim()}'s Cashier`);
+      setPosFullName(`${fullName.trim()}'s Operator`);
     }
     // NOTE: posEmail is intentionally NOT auto-filled to avoid unique constraint conflicts
     setStep(4); // Paid plan goes to Branch & POS
@@ -745,7 +751,7 @@ function SignupForm() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STEP 4 — Branch & POS Cashier Setup
+  // STEP 4 — Branch & POS Operator Setup
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentStepLabel === 'Branch & POS') {
     const handleBranchAndPOSSubmit = async (e: React.FormEvent) => {
@@ -762,7 +768,7 @@ function SignupForm() {
       }
       
       const isHotel = businessType === 'HOTEL';
-      const subUserLabel = isHotel ? 'Receptionist' : 'Cashier';
+      const subUserLabel = isHotel ? 'Receptionist' : 'Operator';
       const hasPOSDetails = posFullName.trim() || posEmail.trim() || posPassword.trim();
       if (hasPOSDetails) {
         if (!posFullName.trim()) {
@@ -813,7 +819,7 @@ function SignupForm() {
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mb-4">
               What type of business are you setting up?
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${hotelEnabled ? 'grid-cols-2' : 'grid-cols-1 max-w-md mx-auto'}`}>
               {/* Restaurant Option */}
               <button
                 type="button"
@@ -843,32 +849,34 @@ function SignupForm() {
               </button>
 
               {/* Hotel Option */}
-              <button
-                type="button"
-                onClick={() => { setBusinessType('HOTEL'); setRoleName('HOTEL_ADMIN'); }}
-                className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all duration-200 ${
-                  businessType === 'HOTEL'
-                    ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
-                    : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  businessType === 'HOTEL' ? 'bg-indigo-500/20' : 'bg-white/10'
-                }`}>
-                  <Hotel size={22} className={businessType === 'HOTEL' ? 'text-indigo-400' : 'text-slate-400'} />
-                </div>
-                <div className="text-center">
-                  <p className={`font-black text-sm ${
-                    businessType === 'HOTEL' ? 'text-white' : 'text-slate-300'
-                  }`}>Hotel / Guest House</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Bookings, rooms & billing</p>
-                </div>
-                {businessType === 'HOTEL' && (
-                  <div className="flex items-center gap-1 text-[10px] font-black text-indigo-400 uppercase tracking-wider">
-                    <CheckCircle2 size={12} /> Selected
+              {hotelEnabled && (
+                <button
+                  type="button"
+                  onClick={() => { setBusinessType('HOTEL'); setRoleName('HOTEL_ADMIN'); }}
+                  className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all duration-200 ${
+                    businessType === 'HOTEL'
+                      ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+                      : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]'
+                  }`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    businessType === 'HOTEL' ? 'bg-indigo-500/20' : 'bg-white/10'
+                  }`}>
+                    <Hotel size={22} className={businessType === 'HOTEL' ? 'text-indigo-400' : 'text-slate-400'} />
                   </div>
-                )}
-              </button>
+                  <div className="text-center">
+                    <p className={`font-black text-sm ${
+                      businessType === 'HOTEL' ? 'text-white' : 'text-slate-300'
+                    }`}>Hotel / Guest House</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Bookings, rooms & billing</p>
+                  </div>
+                  {businessType === 'HOTEL' && (
+                    <div className="flex items-center gap-1 text-[10px] font-black text-indigo-400 uppercase tracking-wider">
+                      <CheckCircle2 size={12} /> Selected
+                    </div>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -947,7 +955,7 @@ function SignupForm() {
                 </div>
               </div>
 
-              {/* Right Column — POS Cashier or Hotel Receptionist */}
+              {/* Right Column — POS Panel or Hotel Receptionist */}
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-sm p-6 space-y-4 flex flex-col justify-between">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 pb-2 border-b border-white/10">
@@ -958,13 +966,13 @@ function SignupForm() {
                     </div>
                     <div>
                       <h3 className="text-white font-bold text-sm">
-                        {businessType === 'HOTEL' ? 'Hotel Receptionist' : 'POS Cashier User'}{' '}
+                        {businessType === 'HOTEL' ? 'Hotel Receptionist' : 'POS Panel'}{' '}
                         <span className="text-slate-500 font-normal text-[11px]">(Optional)</span>
                       </h3>
                       <p className="text-slate-400 text-[11px]">
                         {businessType === 'HOTEL'
                           ? 'Front desk receptionist login credentials'
-                          : 'Primary billing desk cashier credentials'}
+                          : 'Primary billing desk operator credentials'}
                       </p>
                     </div>
                   </div>
@@ -972,31 +980,31 @@ function SignupForm() {
                   <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 text-[11px] text-slate-300 leading-relaxed">
                     {businessType === 'HOTEL'
                       ? <>💡 <strong>Tip:</strong> Create a receptionist account so your front desk staff can check-in guests, manage bookings, and process hotel payments. Skip if you prefer to add staff later.</>
-                      : <>💡 <strong>Tip:</strong> Fill these fields to create an instant POS Operator terminal profile linked to this branch. Your cashier can use this to process orders immediately. Keep it blank if you want to set this up later from your admin panel.</>
+                      : <>💡 <strong>Tip:</strong> Fill these fields to create an instant POS Operator terminal profile linked to this branch. Your operator can use this to process orders immediately. Keep it blank if you want to set this up later from your admin panel.</>
                     }
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 ml-1">
-                      {businessType === 'HOTEL' ? 'Receptionist Full Name' : 'Cashier Full Name'}
+                      {businessType === 'HOTEL' ? 'Receptionist Full Name' : 'Operator Full Name'}
                     </label>
                     <input type="text" value={posFullName} onChange={e => setPosFullName(e.target.value)}
                       className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white text-sm placeholder:text-slate-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none transition-all"
-                      placeholder={businessType === 'HOTEL' ? 'e.g. Priya Receptionist' : 'e.g. Jack Cashier'} />
+                      placeholder={businessType === 'HOTEL' ? 'e.g. Priya Receptionist' : 'e.g. Jack Operator'} />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 ml-1">
-                      {businessType === 'HOTEL' ? 'Receptionist Email' : 'Cashier Email'}
+                      {businessType === 'HOTEL' ? 'Receptionist Email' : 'Operator Email'}
                     </label>
                     <input type="email" value={posEmail} onChange={e => setPosEmail(e.target.value)}
                       className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white text-sm placeholder:text-slate-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none transition-all"
-                      placeholder={businessType === 'HOTEL' ? 'e.g. reception@hotel.com' : 'e.g. CP_cashier@business.com'} />
+                      placeholder={businessType === 'HOTEL' ? 'e.g. reception@hotel.com' : 'e.g. operator@business.com'} />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 ml-1">
-                      {businessType === 'HOTEL' ? 'Receptionist Password' : 'Cashier Password'}
+                      {businessType === 'HOTEL' ? 'Receptionist Password' : 'Operator Password'}
                     </label>
                     <input type="password" value={posPassword} onChange={e => setPosPassword(e.target.value)}
                       className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white text-sm placeholder:text-slate-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none transition-all"

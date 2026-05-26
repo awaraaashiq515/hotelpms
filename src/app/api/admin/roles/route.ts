@@ -20,9 +20,15 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
-    const roles = await prisma.role.findMany({
+    let roles = await prisma.role.findMany({
       orderBy: { name: 'asc' },
     });
+
+    const settings = await prisma.websiteSettings.findFirst();
+    const hotelEnabled = settings?.hotelEnabled ?? false;
+    if (!hotelEnabled) {
+      roles = roles.filter((r: any) => !r.name.toUpperCase().includes('HOTEL'));
+    }
 
     return apiResponse(roles, 'Roles fetched successfully');
   } catch (error) {

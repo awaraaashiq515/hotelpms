@@ -68,6 +68,16 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Invalid credentials or account inactive'), 401)
     }
 
+    // 2.5 Block login if Hotel features are disabled
+    const isHotelRole = user.role.name.toUpperCase().includes('HOTEL');
+    if (isHotelRole) {
+      const settings = await prisma.websiteSettings.findFirst();
+      const hotelEnabled = settings?.hotelEnabled ?? false;
+      if (!hotelEnabled) {
+        return apiError(new Error('Hotel features are currently disabled by the system administrator.'), 403)
+      }
+    }
+
     // 3. Check for 2FA
     if (user.twoFactorEnabled) {
       return apiResponse(

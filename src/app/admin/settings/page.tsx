@@ -32,6 +32,7 @@ export default function WebsiteSettingsPage() {
     macComingSoon: false,
     androidComingSoon: false,
     maintenanceMode: false,
+    hotelEnabled: false,
   });
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function WebsiteSettingsPage() {
             macComingSoon: fetchedData.macComingSoon ?? false,
             androidComingSoon: fetchedData.androidComingSoon ?? false,
             maintenanceMode: fetchedData.maintenanceMode ?? false,
+            hotelEnabled: fetchedData.hotelEnabled ?? false,
           });
         }
       });
@@ -143,7 +145,7 @@ export default function WebsiteSettingsPage() {
         <h2 className="text-lg font-bold text-slate-900 dark:text-white border-b dark:border-slate-800 pb-4 mb-6">General Information</h2>
         
         {/* Maintenance Mode Configuration */}
-        <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl flex items-center justify-between mb-8">
+        <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl flex items-center justify-between mb-6">
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse" />
@@ -159,6 +161,26 @@ export default function WebsiteSettingsPage() {
             className={`relative w-16 h-8 rounded-full transition-all duration-300 ${settings.maintenanceMode ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
           >
             <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ${settings.maintenanceMode ? 'translate-x-8' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
+        {/* Hotel Features Configuration */}
+        <div className="bg-indigo-500/10 border border-indigo-500/20 p-6 rounded-3xl flex items-center justify-between mb-8">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tight flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${settings.hotelEnabled ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
+              Hotel & Guest House Features
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Enable hotel bookings, room calendars, front-desk modules, receptionist access, and hotel administration across the platform.
+            </p>
+          </div>
+          <button 
+            type="button"
+            onClick={() => setSettings({ ...settings, hotelEnabled: !settings.hotelEnabled })}
+            className={`relative w-16 h-8 rounded-full transition-all duration-300 ${settings.hotelEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+          >
+            <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ${settings.hotelEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
           </button>
         </div>
 
