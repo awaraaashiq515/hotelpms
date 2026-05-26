@@ -43,7 +43,7 @@ export async function PUT(req: NextRequest) {
         'heroTitle', 'heroSubtitle', 'heroVideo', 'heroImage',
         'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact',
         'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail',
-        'windowsComingSoon', 'macComingSoon', 'androidComingSoon', 'geminiApiKey'
+        'windowsComingSoon', 'macComingSoon', 'androidComingSoon', 'geminiApiKey', 'maintenanceMode'
       ];
       
       fields.forEach(field => {

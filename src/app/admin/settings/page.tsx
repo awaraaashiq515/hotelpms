@@ -31,6 +31,7 @@ export default function WebsiteSettingsPage() {
     windowsComingSoon: false,
     macComingSoon: false,
     androidComingSoon: false,
+    maintenanceMode: false,
   });
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function WebsiteSettingsPage() {
             windowsComingSoon: fetchedData.windowsComingSoon ?? false,
             macComingSoon: fetchedData.macComingSoon ?? false,
             androidComingSoon: fetchedData.androidComingSoon ?? false,
+            maintenanceMode: fetchedData.maintenanceMode ?? false,
           });
         }
       });
@@ -140,6 +142,26 @@ export default function WebsiteSettingsPage() {
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white border-b dark:border-slate-800 pb-4 mb-6">General Information</h2>
         
+        {/* Maintenance Mode Configuration */}
+        <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl flex items-center justify-between mb-8">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight flex items-center gap-2">
+              <span className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse" />
+              Website Maintenance Mode
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Activate this to show a friendly "Under Construction" page to all visitors while you update the website.
+            </p>
+          </div>
+          <button 
+            type="button"
+            onClick={() => setSettings({ ...settings, maintenanceMode: !settings.maintenanceMode })}
+            className={`relative w-16 h-8 rounded-full transition-all duration-300 ${settings.maintenanceMode ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+          >
+            <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ${settings.maintenanceMode ? 'translate-x-8' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">Site Title</label>

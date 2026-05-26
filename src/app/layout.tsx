@@ -78,7 +78,7 @@ export default function RootLayout({
   const projectStatus = getProjectStatus();
   
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bebasNeue.variable} antialiased`}
       >

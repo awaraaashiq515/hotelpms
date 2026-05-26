@@ -24,6 +24,7 @@ const restaurantProductSchema = z.object({
   image: z.string().optional(),
   trackInventory: z.boolean().default(false),
   isActive: z.boolean().default(true),
+  isVeg: z.boolean().default(true),
   menuType: z.literal('RESTAURANT').default('RESTAURANT'),
   variants: z.array(z.object({
     name: z.string().min(1, 'Name required'),
@@ -63,6 +64,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
     image: initialData?.image || '',
     trackInventory: initialData?.trackInventory ?? false,
     isActive: initialData?.isActive ?? true,
+    isVeg: initialData?.isVeg ?? true,
     menuType: 'RESTAURANT' as const,
     unit: (initialData as any)?.unit || '',
     kitchenMapping: (initialData as any)?.kitchenMapping || '',
@@ -199,6 +201,40 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <option value="COMPLIMENTARY">Complimentary</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Dietary Preference</label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, isVeg: true })}
+            className={`flex items-center justify-center gap-2.5 py-3 rounded-2xl border-2 transition-all ${
+              formData.isVeg
+                ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600 shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <div className="w-3.5 h-3.5 border-2 border-emerald-600 rounded-sm flex items-center justify-center bg-white shrink-0">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest">VEG (Vegetarian)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, isVeg: false })}
+            className={`flex items-center justify-center gap-2.5 py-3 rounded-2xl border-2 transition-all ${
+              !formData.isVeg
+                ? 'border-rose-500 bg-rose-500/5 text-rose-600 shadow-sm'
+                : 'border-gray-100 dark:border-slate-800 text-gray-400 grayscale hover:grayscale-0'
+            }`}
+          >
+            <div className="w-3.5 h-3.5 border-2 border-rose-600 rounded-sm flex items-center justify-center bg-white shrink-0">
+              <div className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest">NON-VEG (Non-Vegetarian)</span>
+          </button>
         </div>
       </div>
 

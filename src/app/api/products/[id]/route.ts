@@ -61,7 +61,8 @@ export async function PUT(
       pegPrice,
       stockItemId,
       halfPrice,
-      variants
+      variants,
+      isVeg
     } = body;
 
     // Use transaction to sync variants
@@ -89,6 +90,7 @@ export async function PUT(
           image,
           trackInventory: trackInventory === true,
           isActive: isActive !== false,
+          isVeg: isVeg !== undefined ? (isVeg === true) : undefined,
           menuType: menuType !== undefined ? menuType : undefined,
           pegSize: pegSize !== undefined ? (pegSize ? Number(pegSize) : null) : undefined,
           pegUnit: pegUnit !== undefined ? pegUnit : undefined,

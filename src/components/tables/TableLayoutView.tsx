@@ -20,108 +20,64 @@ interface TableLayoutViewProps {
 }
 
 // ─── Status config ────────────────────────────────────────────
-const STATUS_CFG: Record<string, {
-  surface: string;
-  rim: string;
-  glow: string;
+const SIMPLE_STATUS_CFG: Record<string, {
+  bg: string;
+  border: string;
+  text: string;
   label: string;
-  accent: string;
-  gradient: string;
-  shadow: string;
 }> = {
   VACANT: {
-    surface: 'rgba(16, 40, 26, 0.75)',
-    rim: 'rgba(34, 197, 94, 0.5)',
-    glow: 'rgba(34, 197, 94, 0.4)',
+    bg: '#ecfdf5', // emerald-50
+    border: '#10b981', // emerald-500
+    text: '#047857', // emerald-700
     label: 'Vacant',
-    accent: '#34d399',
-    gradient: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(6,30,16,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(34,197,94,0.15), 0 0 20px rgba(34,197,94,0.1)'
   },
   OCCUPIED: {
-    surface: 'rgba(60, 16, 20, 0.75)',
-    rim: 'rgba(239, 68, 68, 0.5)',
-    glow: 'rgba(239, 68, 68, 0.4)',
+    bg: '#fef2f2', // red-50
+    border: '#ef4444', // red-500
+    text: '#b91c1c', // red-700
     label: 'Occupied',
-    accent: '#f87171',
-    gradient: 'linear-gradient(145deg, rgba(239,68,68,0.15) 0%, rgba(40,10,10,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(239,68,68,0.2), 0 0 20px rgba(239,68,68,0.15)'
   },
   KOT_RUNNING: {
-    surface: 'rgba(60, 35, 10, 0.75)',
-    rim: 'rgba(245, 158, 11, 0.5)',
-    glow: 'rgba(245, 158, 11, 0.4)',
+    bg: '#fffbeb', // amber-50
+    border: '#f59e0b', // amber-500
+    text: '#b45309', // amber-700
     label: 'KOT Running',
-    accent: '#fbbf24',
-    gradient: 'linear-gradient(145deg, rgba(245,158,11,0.15) 0%, rgba(40,20,5,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(245,158,11,0.2), 0 0 20px rgba(245,158,11,0.15)'
   },
   READY: {
-    surface: 'rgba(13, 40, 45, 0.75)',
-    rim: 'rgba(45, 212, 191, 0.5)',
-    glow: 'rgba(45, 212, 191, 0.4)',
-    label: 'Ready to Serve',
-    accent: '#2dd4bf', // teal-400
-    gradient: 'linear-gradient(145deg, rgba(45,212,191,0.15) 0%, rgba(10,35,40,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(45,212,191,0.2), 0 0 20px rgba(45,212,191,0.15)'
+    bg: '#f0fdfa', // teal-50
+    border: '#14b8a6', // teal-500
+    text: '#0f766e', // teal-700
+    label: 'Ready',
   },
   SERVED: {
-    surface: 'rgba(30, 30, 40, 0.75)',
-    rim: 'rgba(148, 163, 184, 0.5)',
-    glow: 'rgba(148, 163, 184, 0.4)',
+    bg: '#f8fafc', // slate-50
+    border: '#64748b', // slate-500
+    text: '#334155', // slate-700
     label: 'Served',
-    accent: '#94a3b8', // slate-400
-    gradient: 'linear-gradient(145deg, rgba(148,163,184,0.15) 0%, rgba(20,20,30,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(148,163,184,0.2), 0 0 20px rgba(148,163,184,0.15)'
   },
   BILL_PRINTED: {
-    surface: 'rgba(15, 25, 55, 0.75)',
-    rim: 'rgba(59, 130, 246, 0.5)',
-    glow: 'rgba(59, 130, 246, 0.4)',
+    bg: '#eff6ff', // blue-50
+    border: '#3b82f6', // blue-500
+    text: '#1d4ed8', // blue-700
     label: 'Bill Printed',
-    accent: '#60a5fa',
-    gradient: 'linear-gradient(145deg, rgba(59,130,246,0.15) 0%, rgba(10,15,40,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.15)'
   },
   BILLING_PENDING: {
-    surface: 'rgba(35, 15, 55, 0.75)',
-    rim: 'rgba(139, 92, 246, 0.5)',
-    glow: 'rgba(139, 92, 246, 0.4)',
+    bg: '#f5f3ff', // violet-50
+    border: '#8b5cf6', // violet-500
+    text: '#6d28d9', // violet-700
     label: 'Pending',
-    accent: '#a78bfa',
-    gradient: 'linear-gradient(145deg, rgba(139,92,246,0.15) 0%, rgba(20,10,40,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(139,92,246,0.2), 0 0 20px rgba(139,92,246,0.15)'
   },
   CLEANING: {
-    surface: 'rgba(30, 35, 45, 0.75)',
-    rim: 'rgba(148, 163, 184, 0.4)',
-    glow: 'rgba(148, 163, 184, 0.2)',
+    bg: '#f1f5f9', // slate-100
+    border: '#94a3b8', // slate-400
+    text: '#475569', // slate-600
     label: 'Cleaning',
-    accent: '#94a3b8',
-    gradient: 'linear-gradient(145deg, rgba(148,163,184,0.1) 0%, rgba(15,20,30,0.8) 100%)',
-    shadow: '0 20px 40px -10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)'
   },
 };
 
-// ─── Distribute chairs ────────────────────────────────────────
-function distributeChairs(cap: number) {
-  const n = Math.min(Math.max(cap, 1), 12);
-  if (n === 1) return { top: 1, bottom: 0, left: 0, right: 0 };
-  if (n === 2) return { top: 1, bottom: 1, left: 0, right: 0 };
-  if (n === 3) return { top: 1, bottom: 1, left: 1, right: 0 };
-  if (n === 4) return { top: 1, bottom: 1, left: 1, right: 1 };
-  if (n === 5) return { top: 2, bottom: 2, left: 1, right: 0 };
-  if (n === 6) return { top: 2, bottom: 2, left: 1, right: 1 };
-  if (n === 7) return { top: 3, bottom: 2, left: 1, right: 1 };
-  if (n === 8) return { top: 3, bottom: 3, left: 1, right: 1 };
-  if (n === 9) return { top: 3, bottom: 3, left: 2, right: 1 };
-  if (n === 10) return { top: 3, bottom: 3, left: 2, right: 2 };
-  if (n === 11) return { top: 4, bottom: 3, left: 2, right: 2 };
-  return { top: 4, bottom: 4, left: 2, right: 2 };
-}
-
-// ─── 2.5D Premium Table Card ─────────────────────────────────────────
-const TableVisualPremium: React.FC<{
+// ─── Simple Flat Table Card ─────────────────────────────────────────
+const TableVisualSimple: React.FC<{
   table: Table;
   w: number;
   h: number;
@@ -132,218 +88,108 @@ const TableVisualPremium: React.FC<{
     ? table.activeOrder.status
     : table.status;
   
-  const cfg = STATUS_CFG[effectiveStatus] || STATUS_CFG.VACANT;
+  const cfg = SIMPLE_STATUS_CFG[effectiveStatus] || SIMPLE_STATUS_CFG.VACANT;
   const occupied = !!table.activeOrder && effectiveStatus !== 'VACANT' && effectiveStatus !== 'CLEANING';
-  const dist = distributeChairs(table.capacity);
-
-  // Dynamic Chair Sizes
-  const CW = Math.max(24, Math.min(32, w * 0.2));
-  const CH = Math.max(12, Math.min(16, h * 0.15));
-  const GAP = 12;
-
-  const padX = CW + GAP;
-  const padY = CH + GAP;
-
-  const chairBase = isSelected ? '#4f46e5' : '#1e202e';
-  const chairTop = isSelected ? '#6366f1' : '#2a2d3d';
-
-  const chairs: React.ReactNode[] = [];
-  let k = 0;
-
-  const renderChair = (x: number, y: number, w: number, h: number, pos: 'top'|'bottom'|'left'|'right') => {
-    const seatColor = isSelected ? '#3730a3' : '#1a1d27';
-    const backrestColor = isSelected ? '#4f46e5' : '#2d3142';
-    const highlightColor = isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)';
-    
-    // The thick border represents the wooden/metal backrest wrapping around the seat.
-    // The background represents the plush cushion.
-    const backThickness = '4px';
-
-    let style: React.CSSProperties = {
-      position: 'absolute',
-      left: x, top: y, width: w, height: h,
-      background: seatColor,
-      transition: 'all 0.3s ease',
-      boxShadow: `inset 0 0 8px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.5)`,
-      border: `solid ${backrestColor}`,
-    };
-
-    if (pos === 'top') {
-      style.borderWidth = `${backThickness} ${backThickness} 0 ${backThickness}`;
-      style.borderRadius = '12px 12px 4px 4px';
-      style.borderTopColor = highlightColor; // light catching the top rim
-    } else if (pos === 'bottom') {
-      style.borderWidth = `0 ${backThickness} ${backThickness} ${backThickness}`;
-      style.borderRadius = '4px 4px 12px 12px';
-      style.borderBottomColor = highlightColor;
-    } else if (pos === 'left') {
-      style.borderWidth = `${backThickness} 0 ${backThickness} ${backThickness}`;
-      style.borderRadius = '12px 4px 4px 12px';
-      style.borderLeftColor = highlightColor;
-    } else if (pos === 'right') {
-      style.borderWidth = `${backThickness} ${backThickness} ${backThickness} 0`;
-      style.borderRadius = '4px 12px 12px 4px';
-      style.borderRightColor = highlightColor;
-    }
-
-    return (
-      <div key={k++} style={style} />
-    );
-  };
-
-  // TOP
-  for (let i = 0; i < dist.top; i++) {
-    const sp = w / (dist.top + 1);
-    chairs.push(renderChair(padX + sp * (i + 1) - CW / 2, padY - GAP - CH, CW, CH, 'top'));
-  }
-  // BOTTOM
-  for (let i = 0; i < dist.bottom; i++) {
-    const sp = w / (dist.bottom + 1);
-    chairs.push(renderChair(padX + sp * (i + 1) - CW / 2, padY + h + GAP, CW, CH, 'bottom'));
-  }
-  // LEFT
-  for (let i = 0; i < dist.left; i++) {
-    const sp = h / (dist.left + 1);
-    chairs.push(renderChair(padX - GAP - CH, padY + sp * (i + 1) - CW / 2, CH, CW, 'left'));
-  }
-  // RIGHT
-  for (let i = 0; i < dist.right; i++) {
-    const sp = h / (dist.right + 1);
-    chairs.push(renderChair(padX + w + GAP, padY + sp * (i + 1) - CW / 2, CH, CW, 'right'));
-  }
 
   return (
-    <div style={{ position: 'relative', width: w + padX * 2, height: h + padY * 2 }}>
-      
-      {/* Chairs */}
-      {chairs}
-
-      {/* Main Table Body (Extruded 3D Base) */}
+    <div style={{ position: 'relative', width: w, height: h }}>
+      {/* Main Table Body */}
       <div style={{
         position: 'absolute',
-        left: padX, top: padY, width: w, height: h,
-        background: '#0a0c10', // Dark base color for the extrusion
-        borderRadius: '16px',
-        boxShadow: cfg.shadow, // Massive floor shadow
-        transition: 'all 0.3s ease'
+        inset: 0,
+        background: cfg.bg,
+        borderRadius: '12px',
+        border: `2px solid ${isSelected ? '#4f46e5' : cfg.border}`,
+        boxShadow: isSelected ? '0 0 0 4px rgba(79, 70, 229, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)',
+        transition: 'all 0.2s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: cfg.text,
+        overflow: 'hidden',
       }}>
-        {/* Table Top Surface */}
+        
+        {/* Status Badge */}
         <div style={{
           position: 'absolute',
-          inset: 0,
-          background: cfg.surface,
-          backgroundImage: cfg.gradient,
-          borderRadius: '16px',
-          border: `1.5px solid ${cfg.rim}`,
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          transform: isEditMode ? 'translateY(0)' : 'translateY(-6px)', // Lifts up when not editing
-          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          top: '6px', left: '8px',
+          background: 'rgba(255,255,255,0.8)',
+          borderRadius: '12px',
+          padding: '2px 6px',
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          overflow: 'hidden',
-          boxShadow: isSelected 
-            ? `0 0 0 3px ${cfg.accent}, inset 0 0 30px ${cfg.glow}` 
-            : `inset 0 1px 1px rgba(255,255,255,0.15)`
+          gap: '4px',
+          fontSize: '10px',
+          fontWeight: 600,
+          color: cfg.text,
+          border: `1px solid ${cfg.border}`,
         }}>
-          
-          {/* Subtle Top Inner Glow */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: '40%',
-            background: 'linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)',
-            pointerEvents: 'none'
+          <div style={{ 
+            width: '6px', height: '6px', borderRadius: '50%', background: cfg.text 
           }} />
+          {cfg.label}
+        </div>
 
-          {/* Status Badge */}
+        {/* Seats Info (Top Right) */}
+        <div style={{
+          position: 'absolute',
+          top: '6px', right: '8px',
+          fontSize: '10px',
+          fontWeight: 600,
+          color: cfg.text,
+          opacity: 0.8
+        }}>
+          {table.capacity} <span style={{ fontSize: '8px', opacity: 0.6 }}>SEATS</span>
+        </div>
+
+        {/* Table Name */}
+        <h3 style={{
+          fontSize: occupied ? Math.max(14, Math.min(20, w * 0.12)) : Math.max(16, Math.min(24, w * 0.15)),
+          fontWeight: 700,
+          margin: 0,
+          marginTop: occupied ? '-8px' : '8px',
+          color: cfg.text,
+        }}>
+          {table.name}
+        </h3>
+
+        {/* Active Order Info */}
+        {occupied && table.activeOrder && (
           <div style={{
             position: 'absolute',
-            top: '8px', left: '10px',
-            background: 'rgba(0,0,0,0.4)',
-            border: `1px solid ${cfg.rim}`,
-            borderRadius: '20px',
-            padding: '3px 8px',
+            bottom: '8px',
+            width: '100%',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '6px',
-            fontSize: '9px',
-            fontWeight: 800,
-            letterSpacing: '0.05em',
-            color: cfg.accent,
-            textTransform: 'uppercase',
-            boxShadow: `0 2px 10px rgba(0,0,0,0.5)`
+            gap: '2px'
           }}>
-            <div style={{ 
-              width: '6px', height: '6px', borderRadius: '50%', background: cfg.accent, 
-              boxShadow: `0 0 8px ${cfg.accent}` 
-            }} />
-            {cfg.label}
-          </div>
-
-          {/* Table Name */}
-          <h3 style={{
-            fontSize: occupied ? Math.max(14, Math.min(18, w * 0.1)) : Math.max(16, Math.min(22, w * 0.12)),
-            fontWeight: 800,
-            margin: 0,
-            marginTop: occupied ? '-12px' : '0',
-            textShadow: '0 2px 8px rgba(0,0,0,0.8)',
-            color: 'rgba(255,255,255,0.95)',
-            letterSpacing: '0.5px'
-          }}>
-            {table.name}
-          </h3>
-
-          {/* Seats */}
-          <div style={{
-            fontSize: '10px',
-            fontWeight: 800,
-            color: 'rgba(255,255,255,0.4)',
-            letterSpacing: '1.5px',
-            marginTop: '4px'
-          }}>
-            {table.capacity} SEATS
-          </div>
-
-          {/* Active Order Info */}
-          {occupied && table.activeOrder && (
             <div style={{
-              position: 'absolute',
-              bottom: '10px',
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '2px'
+              fontSize: Math.max(14, Math.min(18, w * 0.12)),
+              fontWeight: 800,
+              color: cfg.text,
             }}>
-              <div style={{
-                fontSize: Math.max(13, Math.min(16, w * 0.1)),
-                fontWeight: 900,
-                color: 'white',
-                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
-              }}>
-                ₹{table.activeOrder.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-              </div>
-              <div style={{
-                fontSize: '8px',
-                fontWeight: 700,
-                color: 'rgba(255,255,255,0.8)',
-                background: 'rgba(0,0,0,0.4)',
-                padding: '2px 6px',
-                borderRadius: '6px',
-                border: '1px solid rgba(255,255,255,0.1)'
-              }}>
-                {table.activeOrder.itemCount} items · {table.activeOrder.elapsedTime}m
-              </div>
+              ₹{table.activeOrder.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </div>
-          )}
+            <div style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: cfg.text,
+              opacity: 0.9,
+              background: 'rgba(255,255,255,0.5)',
+              padding: '2px 8px',
+              borderRadius: '8px',
+            }}>
+              {table.activeOrder.itemCount} items · {table.activeOrder.elapsedTime}m
+            </div>
+          </div>
+        )}
 
-          {/* Edit mode hint */}
-          {isEditMode && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.05)', border: '2px dashed rgba(99,102,241,0.6)', pointerEvents: 'none' }} />
-          )}
-        </div>
+        {/* Edit mode hint */}
+        {isEditMode && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(79,70,229,0.05)', border: '2px dashed rgba(79,70,229,0.5)', pointerEvents: 'none' }} />
+        )}
       </div>
     </div>
   );
@@ -352,8 +198,8 @@ const TableVisualPremium: React.FC<{
 // ─── Main TableLayoutView ─────────────────────────────────────
 const MIN_W = 120;
 const MIN_H = 90;
-const DEFAULT_W = 160;
-const DEFAULT_H = 110;
+const DEFAULT_W = 240;
+const DEFAULT_H = 150;
 const SNAP = 10;
 
 export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
@@ -392,9 +238,12 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
       tables.forEach((t, idx) => {
         if (!next[t.id]) {
           const cols = 4;
+          // SQLite/Prisma defaults newly created tables to x: 0, y: 0.
+          // Treat these (or any nullish values) as unpositioned and lay them out in a 4-column grid.
+          const isUnpositioned = t.x === null || t.x === undefined || t.y === null || t.y === undefined || (t.x === 0 && t.y === 0);
           next[t.id] = {
-            x: t.x ?? (idx % cols) * 250 + 80,
-            y: t.y ?? Math.floor(idx / cols) * 220 + 80,
+            x: isUnpositioned ? (idx % cols) * 280 + 60 : (t.x ?? 0),
+            y: isUnpositioned ? Math.floor(idx / cols) * 190 + 60 : (t.y ?? 0),
           };
         }
       });
@@ -404,7 +253,14 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
       const next = { ...prev };
       tables.forEach(t => {
         if (!next[t.id]) {
-          next[t.id] = { w: t.width ?? DEFAULT_W, h: t.height ?? DEFAULT_H };
+          // If width and height match the database defaults (256 and 176) or are nullish,
+          // treat them as unedited and enforce our uniform DEFAULT_W and DEFAULT_H.
+          // Otherwise, respect the user's manual resizing choices.
+          const hasCustomSize = t.width !== null && t.width !== undefined && t.height !== null && t.height !== undefined && (t.width !== 256 || t.height !== 176);
+          next[t.id] = { 
+            w: hasCustomSize ? (t.width ?? DEFAULT_W) : DEFAULT_W, 
+            h: hasCustomSize ? (t.height ?? DEFAULT_H) : DEFAULT_H 
+          };
         }
       });
       return next;
@@ -514,10 +370,8 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
           const isDragging = dragRef.current?.id === table.id;
           const isResizing = resizeRef.current?.id === table.id;
 
-          const CW = Math.max(24, Math.min(32, sz.w * 0.2));
-          const CH = Math.max(12, Math.min(16, sz.h * 0.15));
-          const padX = CW + 12;
-          const padY = CH + 12;
+          const padX = 0;
+          const padY = 0;
 
           return (
             <div
@@ -544,7 +398,7 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
                   userSelect: 'none',
                 }}
               >
-                <TableVisualPremium
+                <TableVisualSimple
                   table={table}
                   w={sz.w}
                   h={sz.h}

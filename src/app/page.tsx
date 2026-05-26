@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { WebsiteHeader } from '@/components/website/Header';
 import { PremiumFooter } from '@/components/website/PremiumFooter';
+import { MaintenanceView } from '@/components/website/MaintenanceView';
 import { VectorBackground } from '@/components/website/VectorBackground';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import {
@@ -73,8 +74,10 @@ const primaryBtn: React.CSSProperties = {
 export default function HomePage() {
   const containerRef = useRef(null);
   const [settings, setSettings] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const fetchSettings = async () => {
       try {
         const res = await fetch('/api/website/settings');
@@ -120,6 +123,15 @@ export default function HomePage() {
       link: '/downloads/ordermint.dmg',
     },
   ];
+
+  if (mounted && settings?.maintenanceMode) {
+    return (
+      <MaintenanceView 
+        hotelName={settings.hotelName} 
+        logoUrl={settings.logoUrl} 
+      />
+    );
+  }
 
   return (
     <main

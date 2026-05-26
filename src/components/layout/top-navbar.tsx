@@ -178,7 +178,7 @@ export const TopNavbar: React.FC = () => {
           >
             <div className="relative">
               <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
-                {session?.role === 'SUPER_ADMIN' && property?.logoUrl ? (
+                {property?.logoUrl ? (
                   <img 
                     src={property.logoUrl} 
                     alt={property?.name || 'Logo'} 
@@ -195,7 +195,7 @@ export const TopNavbar: React.FC = () => {
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
-                {session?.role === 'SUPER_ADMIN' && property?.name ? (
+                {property?.name ? (
                   <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
                 ) : (
                   <>Order<span className="text-pos-primary font-light">Mint</span></>

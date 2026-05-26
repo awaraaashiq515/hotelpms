@@ -55,6 +55,7 @@ interface Product {
   hsnCode?: string;
   halfPrice?: number | null;
   variants?: any[];
+  isVeg?: boolean;
 }
 
 interface Category {
@@ -833,27 +834,27 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
           ) : (
-            <div className="w-full flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500 relative">
+            <div className="w-full flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500 relative py-8">
               {/* Subtle ambient background glow */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px]" />
+                <div className="w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px]" />
               </div>
 
-              <div className="w-full max-w-lg text-center relative z-10">
-                <div className="mb-8">
-                  <h2 className="text-4xl font-black uppercase tracking-tight bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent mb-3">Service Details</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Select guest, driver, and number of PAX</p>
+              <div className="w-full max-w-md text-center relative z-10 px-4">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-black uppercase tracking-tight bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent mb-1.5">Service Details</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[9px]">Select guest, driver, and number of PAX</p>
                 </div>
                 
-                <div className="bg-slate-900/80 backdrop-blur-xl rounded-[40px] p-8 sm:p-10 border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] shadow-indigo-500/10 mb-8 flex flex-col gap-8 relative overflow-hidden">
+                <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl p-6 sm:p-7 border border-white/10 shadow-[0_15px_40px_-10px_rgba(0,0,0,0.5)] shadow-indigo-500/5 mb-6 flex flex-col gap-6 relative overflow-hidden">
                   {/* Inner shine */}
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
                   {isCustomerModalOpen ? (
-                    <div className="bg-slate-950/80 rounded-3xl p-6 border border-white/10 text-left animate-in zoom-in-95 duration-200 shadow-2xl">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-                          <UserPlus size={16} /> New Guest Registration
+                    <div className="bg-slate-950/80 rounded-2xl p-5 border border-white/10 text-left animate-in zoom-in-95 duration-200 shadow-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-[11px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                          <UserPlus size={14} /> New Guest Registration
                         </h3>
                       </div>
                       <CustomerForm
@@ -884,23 +885,23 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   ) : (
                     <>
                       {/* Customer/Driver Selection */}
-                      <div className="space-y-6 text-left">
+                      <div className="space-y-4 text-left">
                         {!(selectedCustomer || selectedDriver) ? (
                           <>
-                            <div className="p-1.5 bg-slate-950/80 rounded-3xl border border-white/5 shadow-inner flex gap-2">
+                            <div className="p-1 bg-slate-950/80 rounded-2xl border border-white/5 shadow-inner flex gap-1.5">
                               <button
                                 onClick={() => setSearchMode('CUSTOMER')}
-                                className={`flex-1 h-14 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 ${searchMode === 'CUSTOMER' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_-10px_rgba(79,70,229,0.8)] border border-indigo-400/50' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                                className={`flex-1 h-11 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${searchMode === 'CUSTOMER' ? 'bg-indigo-600 text-white shadow-[0_5px_15px_-5px_rgba(79,70,229,0.8)] border border-indigo-400/50' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
                               >
-                                <User size={18} />
-                                <span className="text-xs font-black uppercase tracking-widest">Guest</span>
+                                <User size={16} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Guest</span>
                               </button>
                               <button
                                 onClick={() => setSearchMode('DRIVER')}
-                                className={`flex-1 h-14 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 ${searchMode === 'DRIVER' ? 'bg-amber-600 text-white shadow-[0_10px_20px_-10px_rgba(217,119,6,0.8)] border border-amber-400/50' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                                className={`flex-1 h-11 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${searchMode === 'DRIVER' ? 'bg-amber-600 text-white shadow-[0_5px_15px_-5px_rgba(217,119,6,0.8)] border border-amber-400/50' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
                               >
-                                <CarFront size={18} />
-                                <span className="text-xs font-black uppercase tracking-widest">Driver</span>
+                                <CarFront size={16} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Driver</span>
                               </button>
                             </div>
 
@@ -912,35 +913,35 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                   exit={{ opacity: 0, height: 0, y: -10 }}
                                   className="relative overflow-visible"
                                 >
-                                  <div className="relative group mt-4">
-                                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={20} />
+                                  <div className="relative group mt-3">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
                                     <input
                                       type="text"
                                       placeholder={searchMode === 'CUSTOMER' ? "Search guest name/mobile..." : "Search driver name..."}
                                       value={searchMode === 'CUSTOMER' ? customerSearch : driverSearch}
                                       onChange={(e) => searchMode === 'CUSTOMER' ? setCustomerSearch(e.target.value) : setDriverSearch(e.target.value)}
-                                      className="w-full h-16 bg-slate-950/80 border border-white/10 rounded-2xl pl-16 pr-16 text-sm font-bold text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/20 transition-all shadow-inner"
+                                      className="w-full h-12 bg-slate-950/80 border border-white/10 rounded-xl pl-12 pr-12 text-xs font-bold text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/20 transition-all shadow-inner"
                                       autoFocus
                                     />
                                     {searchMode === 'CUSTOMER' && (
-                                      <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center hover:bg-indigo-500 hover:text-white hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all" title="Add New Guest">
-                                        <UserPlus size={18} />
+                                      <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all" title="Add New Guest">
+                                        <UserPlus size={14} />
                                       </button>
                                     )}
                                   </div>
 
                                   {/* Search Results Dropdown */}
                                   {(searchMode === 'CUSTOMER' ? customerSearch : driverSearch) && (
-                                    <div className="absolute top-full left-0 right-0 mt-3 bg-slate-800/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-[100] overflow-hidden max-h-64 overflow-y-auto no-scrollbar">
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden max-h-48 overflow-y-auto no-scrollbar">
                                       {searchMode === 'CUSTOMER' ? (
                                         customers.filter(c =>
                                           c.firstName.toLowerCase().includes(customerSearch.toLowerCase()) ||
                                           c.lastName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
                                           c.mobile?.includes(customerSearch)
                                         ).map(c => (
-                                          <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-6 py-4 flex flex-col items-start hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 text-left group">
-                                            <span className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors">{c.firstName} {c.lastName}</span>
-                                            <span className="text-[10px] text-indigo-400 uppercase font-black mt-1 tracking-widest">{c.mobile || 'No Mobile'}</span>
+                                          <button key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setSearchMode(null); }} className="w-full px-5 py-3 flex flex-col items-start hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 text-left group">
+                                            <span className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">{c.firstName} {c.lastName}</span>
+                                            <span className="text-[9px] text-indigo-400 uppercase font-black mt-0.5 tracking-widest">{c.mobile || 'No Mobile'}</span>
                                           </button>
                                         ))
                                       ) : (
@@ -948,9 +949,9 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                           d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
                                           d.phone?.includes(driverSearch)
                                         ).map(d => (
-                                          <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-6 py-4 flex flex-col items-start hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 text-left group">
-                                            <span className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">{d.name}</span>
-                                            <span className="text-[10px] text-amber-400 uppercase font-black mt-1 tracking-widest">{d.phone || 'No Phone'}</span>
+                                          <button key={d.id} onClick={() => { setSelectedDriver(d); setDriverSearch(''); setSearchMode(null); }} className="w-full px-5 py-3 flex flex-col items-start hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 text-left group">
+                                            <span className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">{d.name}</span>
+                                            <span className="text-[9px] text-amber-400 uppercase font-black mt-0.5 tracking-widest">{d.phone || 'No Phone'}</span>
                                           </button>
                                         ))
                                       )}
@@ -962,19 +963,19 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                           </>
                         ) : (
                           /* Selected Entity Indicator */
-                          <div className="bg-slate-950/80 border border-indigo-500/30 rounded-3xl p-6 flex items-center justify-between group shadow-inner">
-                            <div className="flex items-center gap-6">
-                              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${selectedCustomer ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20' : 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20'}`}>
-                                {selectedCustomer ? <User size={28} /> : <CarFront size={28} />}
+                          <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-4 flex items-center justify-between group shadow-inner">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${selectedCustomer ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20' : 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20'}`}>
+                                {selectedCustomer ? <User size={20} /> : <CarFront size={20} />}
                               </div>
                               <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
-                                <p className="text-xl font-black text-white uppercase tracking-tight">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{selectedCustomer ? 'Selected Guest' : 'Assigned Driver'}</p>
+                                <p className="text-base font-black text-white uppercase tracking-tight">{selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}` : selectedDriver.name}</p>
                               </div>
                             </div>
                             <button
                               onClick={() => { setSelectedCustomer(null); setSelectedDriver(null); }}
-                              className="h-12 px-6 bg-white/5 hover:bg-rose-500 hover:text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.4)] text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                              className="h-9 px-4 bg-white/5 hover:bg-rose-500 hover:text-white hover:shadow-[0_0_15px_rgba(244,63,94,0.4)] text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
                             >
                               Change
                             </button>
@@ -984,31 +985,31 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                     </>
                   )}
 
-                  <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full my-4" />
+                  <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full my-2" />
 
-                  <div className="flex flex-col items-center gap-6">
-                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em]">Number of PAX</p>
+                  <div className="flex flex-col items-center gap-4">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Number of PAX</p>
                     
                     {/* Unibody PAX Selector */}
-                    <div className="flex items-center justify-between bg-slate-950/80 border border-white/10 rounded-full p-2 w-full max-w-[320px] shadow-inner relative overflow-hidden">
+                    <div className="flex items-center justify-between bg-slate-950/80 border border-white/10 rounded-full p-1.5 w-full max-w-[260px] shadow-inner relative overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
                       
                       <button 
                         onClick={() => setPax(Math.max(1, pax - 1))} 
-                        className="w-16 h-16 shrink-0 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all hover:scale-105 active:scale-95 z-10"
+                        className="w-12 h-12 shrink-0 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all hover:scale-105 active:scale-95 z-10"
                       >
-                        <Minus size={24} />
+                        <Minus size={18} />
                       </button>
                       
                       <div className="flex-1 flex flex-col items-center justify-center z-10">
-                        <span className="text-[5rem] font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] leading-none">{pax}</span>
+                        <span className="text-[3.5rem] font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] leading-none">{pax}</span>
                       </div>
                       
                       <button 
                         onClick={() => setPax(pax + 1)} 
-                        className="w-16 h-16 shrink-0 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-indigo-500 hover:text-white transition-all hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(99,102,241,0)] hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] z-10"
+                        className="w-12 h-12 shrink-0 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-indigo-500 hover:text-white transition-all hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(99,102,241,0)] hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] z-10"
                       >
-                        <Plus size={24} />
+                        <Plus size={18} />
                       </button>
                     </div>
                   </div>
@@ -1016,15 +1017,15 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
                 <button 
                   onClick={() => setSessionStage('MENU')} 
-                  className="w-full h-24 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500 rounded-[32px] font-black uppercase tracking-[0.3em] shadow-[0_20px_50px_-15px_rgba(79,70,229,0.7)] hover:shadow-[0_30px_60px_-15px_rgba(79,70,229,0.9)] transition-all hover:-translate-y-2 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-4 group relative overflow-hidden text-xl border border-indigo-400/30"
+                  className="w-full h-16 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_10px_30px_-10px_rgba(79,70,229,0.7)] hover:shadow-[0_20px_40px_-10px_rgba(79,70,229,0.9)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-3 group relative overflow-hidden text-base border border-indigo-400/30"
                   style={{ backgroundSize: '200% 100%' }}
                 >
                   {/* Animated sheen */}
                   <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)] -translate-x-[150%] group-hover:translate-x-[150%] transition-transform duration-1000 ease-in-out" />
                   
                   <span className="relative z-10 text-white drop-shadow-md">Confirm & Start</span>
-                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center relative z-10 group-hover:bg-white group-hover:text-indigo-600 transition-colors">
-                    <ChevronRight size={24} className="group-hover:translate-x-0.5 transition-transform" />
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center relative z-10 group-hover:bg-white group-hover:text-indigo-600 transition-colors">
+                    <ChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </button>
               </div>
@@ -1256,7 +1257,9 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                               {inCart.quantity}
                             </div>
                           ) : (
-                            <div className={`w-2 h-2 rounded-full ${product.productType === 'NON_VEG' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                            <div className={`w-3.5 h-3.5 border border-current rounded-[3px] flex items-center justify-center bg-white/90 shrink-0 shadow-sm ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                            </div>
                           )}
                         </div>
                       </div>

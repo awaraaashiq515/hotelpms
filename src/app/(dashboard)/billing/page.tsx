@@ -1103,6 +1103,23 @@ Total Amount: ₹${grandTotal.toFixed(2)}
               >
                 Combos
               </button>
+
+              {/* Dietary Legend (Veg/Non-Veg) */}
+              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 flex-shrink-0 shadow-sm">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 border border-emerald-600 rounded-sm flex items-center justify-center bg-white shrink-0">
+                    <div className="w-1.2 h-1.2 rounded-full bg-emerald-600" />
+                  </div>
+                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-wider">VEG</span>
+                </div>
+                <div className="w-[1px] h-3 bg-slate-200 dark:bg-white/10" />
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 border border-rose-600 rounded-sm flex items-center justify-center bg-white shrink-0">
+                    <div className="w-1.2 h-1.2 rounded-full bg-rose-600" />
+                  </div>
+                  <span className="text-[8px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">NON-VEG</span>
+                </div>
+              </div>
            </div>
            <div className="flex items-center gap-3">
               <div className={`${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/10'} p-0.5 rounded-xl flex border`}>
@@ -1333,16 +1350,21 @@ Total Amount: ₹${grandTotal.toFixed(2)}
 
                       {/* Top Row: HSN & Price */}
                       <div className="flex justify-between items-start w-full relative z-10">
-                        <span 
-                          className="text-[8px] font-black uppercase tracking-widest"
-                          style={{
-                            color: isColored ? cardColor.text : darkText,
-                            transition: transitionStr('color'),
-                            opacity: theme === 'light' ? 0.7 : 0.6
-                          }}
-                        >
-                          HSN {product.hsnCode || '2106'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-3.5 h-3.5 border-2 border-current rounded-sm flex items-center justify-center bg-white shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                          </div>
+                          <span 
+                            className="text-[8px] font-black uppercase tracking-widest"
+                            style={{
+                              color: isColored ? cardColor.text : darkText,
+                              transition: transitionStr('color'),
+                              opacity: theme === 'light' ? 0.7 : 0.6
+                            }}
+                          >
+                            HSN {product.hsnCode || '2106'}
+                          </span>
+                        </div>
                         <div className="text-right">
                           <p className="text-[7px] font-black uppercase opacity-40 leading-none mb-0.5">Price</p>
                           <span 
@@ -1517,8 +1539,13 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                     {product.image ? <img src={product.image} alt={product.name} className="w-full h-full object-cover" /> : <Utensils className={`${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`} size={24} />}
                   </div>
                   <div className="flex-1">
-                    <h3 className={`font-black text-[13px] md:text-sm ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{product.name}</h3>
-                    <p className={`text-[10px] md:text-[11px] font-bold mt-0.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>{product.category?.name || 'Uncategorized'}</p>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3.5 h-3.5 border-2 border-current rounded-sm flex items-center justify-center bg-white shrink-0 shadow-sm ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                      </div>
+                      <h3 className={`font-black text-[13px] md:text-sm uppercase tracking-tight ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{product.name}</h3>
+                    </div>
+                    <p className={`text-[10px] md:text-[11px] font-bold mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>{product.category?.name || 'Uncategorized'}</p>
                   </div>
                   <div className="text-right flex flex-col items-end">
                     <p className={`font-black text-[15px] md:text-lg ${theme === 'dark' ? 'text-pos-primary' : 'text-pos-primary'}`}>₹{product.sellingPrice.toFixed(2)}</p>

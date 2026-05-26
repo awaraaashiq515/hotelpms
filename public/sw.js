@@ -54,12 +54,11 @@ self.addEventListener('fetch', (event) => {
 
   // Assets and other requests
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // If found in cache, return it. Otherwise, fetch from network.
-      return response || fetch(event.request).catch(() => {
-        // If fetch fails, we don't return null, we just let it fail naturally 
-        // to avoid "Failed to convert value to Response"
-      });
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request);
     })
   );
 });

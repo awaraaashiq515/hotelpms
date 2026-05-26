@@ -22,6 +22,7 @@ export interface Product {
   bottlePrice?: number | null;
   pegPrice?: number | null;
   image?: string;
+  isVeg?: boolean;
   createdAt?: string;
   updatedAt?: string;
   category?: {

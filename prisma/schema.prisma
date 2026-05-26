@@ -432,6 +432,7 @@ model Product {
   ingredients        ProductIngredient[]
   comboItems         ComboItem[]
   wastes             Waste[]
+  isVeg              Boolean             @default(true)
 
 
   @@index([propertyId])
@@ -1204,6 +1205,7 @@ model WebsiteSettings {
   macComingSoon            Boolean  @default(false)
   androidComingSoon        Boolean  @default(false)
   geminiApiKey             String?
+  maintenanceMode          Boolean  @default(false)
 }
 
 model WebsiteGalleryImage {

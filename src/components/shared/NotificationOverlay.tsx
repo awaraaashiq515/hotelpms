@@ -19,9 +19,7 @@ import {
   ReceiptIndianRupee,
   Utensils,
   ChevronDown,
-  ChevronUp,
-  Volume2,
-  VolumeX
+  ChevronUp
 } from 'lucide-react';
 
 interface Notification {
@@ -151,15 +149,6 @@ export function NotificationOverlay() {
 
   return (
     <div className="fixed top-20 right-6 z-[9999] flex flex-col gap-2 w-72 pointer-events-none">
-      <div className="flex justify-end mb-1 pointer-events-auto">
-        <button 
-          onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-          className={`p-2 rounded-full backdrop-blur-md border transition-all ${isAudioEnabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'}`}
-          title={isAudioEnabled ? 'Sound On' : 'Sound Off'}
-        >
-          {isAudioEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-        </button>
-      </div>
       <AnimatePresence>
         {notifications.map((notification) => {
           let metadata = {};
