@@ -12,11 +12,13 @@ const customerSchema = z.object({
   mobile: z.string().min(10, 'Mobile must be at least 10 digits').max(15).optional().or(z.literal('')),
   address: z.string().max(200).optional(),
   gender: z.string().optional(),
+  birthDate: z.string().optional().or(z.literal('')),
+  referredByCode: z.string().optional().or(z.literal('')),
 });
 
 interface CustomerFormProps {
-  initialData?: Customer;
-  onSubmit: (data: Partial<Customer>) => Promise<void>;
+  initialData?: Customer & { birthDate?: string };
+  onSubmit: (data: Partial<Customer & { birthDate?: string | null; referredByCode?: string }>) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
 }
@@ -34,6 +36,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     mobile: initialData?.mobile || '',
     address: initialData?.address || '',
     gender: initialData?.gender || 'not_specified',
+    birthDate: initialData?.birthDate ? new Date(initialData.birthDate).toISOString().split('T')[0] : '',
+    referredByCode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -43,7 +47,10 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     
     try {
       const validated = customerSchema.parse(formData);
-      await onSubmit(validated);
+      await onSubmit({
+        ...validated,
+        birthDate: validated.birthDate ? new Date(validated.birthDate).toISOString() : null,
+      });
     } catch (err) {
       if (err instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -114,6 +121,35 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest ml-1">
+            Gender
+          </label>
+          <select
+            value={formData.gender}
+            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-slate-600 rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all cursor-pointer"
+          >
+            <option value="not_specified">Not Specified</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest ml-1">
+            Birth Date
+          </label>
+          <input
+            type="date"
+            value={formData.birthDate}
+            onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-slate-600 rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all cursor-pointer"
+          />
+        </div>
+      </div>
+
       <div className="space-y-2">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
           Address
@@ -126,6 +162,21 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
           className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-slate-600 rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all resize-none"
         />
       </div>
+
+      {!initialData && (
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+            Referral Code (Optional)
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. REF-ABCDEF"
+            value={formData.referredByCode}
+            onChange={(e) => setFormData({ ...formData, referredByCode: e.target.value })}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 dark:text-white border border-transparent dark:border-slate-600 rounded-xl text-sm font-semibold focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all"
+          />
+        </div>
+      )}
 
       <div className="flex gap-3 pt-4">
         <Button

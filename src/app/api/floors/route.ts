@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const openOrders = await (prisma as any).posOrder.findMany({
       where: { 
         ...where,
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] }
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] }
       },
       include: {
         items: { 
@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
           } 
         },
         kotTickets: { select: { id: true } },
+        staffMember: { select: { id: true, name: true } }
       },
     });
 
@@ -85,12 +86,17 @@ export async function GET(request: NextRequest) {
             
             const elapsedTime = Math.round((Date.now() - new Date((primaryOrder as any).createdAt).getTime()) / 60000);
             
-            // Prioritize status: BILL_PRINTED > IN_KITCHEN > READY > SERVED > others
             let displayStatus = primaryOrder.status;
+            let readyAt = null;
+
             if (tableOrders.some((o: any) => o.status === 'BILL_PRINTED')) displayStatus = 'BILL_PRINTED';
-            else if (tableOrders.some((o: any) => o.status === 'IN_KITCHEN' || o.status === 'KOT_RUNNING')) displayStatus = 'IN_KITCHEN';
-            else if (tableOrders.some((o: any) => o.status === 'READY')) displayStatus = 'READY';
+            else if (tableOrders.some((o: any) => o.status === 'IN_KITCHEN' || o.status === 'KOT_RUNNING')) displayStatus = 'KOT_RUNNING';
+            else if (tableOrders.some((o: any) => o.status === 'READY')) {
+              displayStatus = 'READY';
+              readyAt = tableOrders.find((o: any) => o.status === 'READY')?.updatedAt || null;
+            }
             else if (tableOrders.some((o: any) => o.status === 'SERVED')) displayStatus = 'SERVED';
+            else if (tableOrders.some((o: any) => o.status === 'HOLD')) displayStatus = 'HOLD';
 
             activeOrder = {
               id: primaryOrder.id,
@@ -102,7 +108,10 @@ export async function GET(request: NextRequest) {
               kotCount: tableOrders.reduce((sum: number, o: any) => sum + (o.kotTickets?.length || 0), 0),
               elapsedTime: Math.max(0, elapsedTime),
               status: displayStatus,
-              orderCount: tableOrders.length
+              orderCount: tableOrders.length,
+              waiterName: primaryOrder.staffMember?.name || null,
+              preparationTime: primaryOrder.preparationTime || 15,
+              readyAt
             };
           }
 

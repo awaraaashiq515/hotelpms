@@ -81,28 +81,28 @@ export default function AttendanceHubSection() {
   );
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
       {staff.map((s: any) => (
         <div 
           key={s.id}
-          className={`relative group bg-white dark:bg-slate-900 rounded-[40px] p-8 border transition-all duration-500 overflow-hidden ${
+          className={`relative group bg-white dark:bg-slate-900 rounded-2xl p-3.5 border transition-all duration-500 overflow-hidden ${
             s.activeSession 
-              ? 'border-emerald-500/30 shadow-[0_20px_50px_-12px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/10' 
+              ? 'border-emerald-500/30 shadow-[0_10px_30px_-12px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/10' 
               : 'border-slate-100 dark:border-white/5 shadow-sm hover:shadow-xl hover:-translate-y-1'
           }`}
         >
           {/* Status Glow */}
           {s.activeSession && (
-            <div className="absolute top-0 right-0 p-3">
-               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/20">
+            <div className="absolute top-0 right-0 p-2">
+               <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/20">
                   <span className="w-1 h-1 bg-white rounded-full animate-ping" />
-                  <span className="text-[7px] font-black text-white uppercase tracking-widest">Live</span>
+                  <span className="text-[6.5px] font-black text-white uppercase tracking-widest">Live</span>
                </div>
             </div>
           )}
 
-          <div className="flex flex-col items-center space-y-5">
-            <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-xl font-black shadow-inner transition-all duration-500 ${
+          <div className="flex flex-col items-center space-y-2.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shadow-inner transition-all duration-500 ${
               s.activeSession 
                 ? 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white rotate-3' 
                 : 'bg-slate-50 dark:bg-slate-800 text-slate-300'
@@ -111,30 +111,30 @@ export default function AttendanceHubSection() {
             </div>
             
             <div className="text-center">
-              <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{s.fullName}</h4>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center justify-center gap-1.5">
-                <Monitor size={8} className={s.type === 'USER' ? 'text-indigo-500' : 'text-amber-500'} />
+              <h4 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{s.fullName}</h4>
+              <p className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest mt-0.5 flex items-center justify-center gap-1">
+                <Monitor size={7} className={s.type === 'USER' ? 'text-indigo-500' : 'text-amber-500'} />
                 {s.role?.name || 'Personnel'}
               </p>
             </div>
 
-            <div className="w-full pt-2">
+            <div className="w-full pt-0.5">
               {s.activeSession ? (
                 <button
                   onClick={() => handleAttendance(s.id, 'clock-out')}
                   disabled={punchingId === s.id}
-                  className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-[9px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-black text-[8px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
-                  {punchingId === s.id ? <Loader2 className="animate-spin" size={12} /> : <LogOut size={14} />}
+                  {punchingId === s.id ? <Loader2 className="animate-spin" size={10} /> : <LogOut size={10} />}
                   Clock Out
                 </button>
               ) : (
                 <button
                   onClick={() => handleAttendance(s.id, 'clock-in')}
                   disabled={punchingId === s.id}
-                  className="w-full py-4 bg-pos-primary hover:bg-pos-primary-dark text-white rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-pos-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-pos-primary hover:bg-pos-primary-dark text-white rounded-lg font-black text-[8px] uppercase tracking-widest shadow-lg shadow-pos-primary/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
-                  {punchingId === s.id ? <Loader2 className="animate-spin" size={12} /> : <LogIn size={14} />}
+                  {punchingId === s.id ? <Loader2 className="animate-spin" size={10} /> : <LogIn size={10} />}
                   Clock In
                 </button>
               )}

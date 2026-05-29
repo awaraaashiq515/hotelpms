@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 
 import { useRouter } from 'next/navigation';
+import { useSidebar } from '@/context/sidebar-context';
 
 interface DashboardAction {
   label: string;
@@ -63,10 +64,16 @@ interface DashboardAction {
 
 export default function OperationsPage() {
   const router = useRouter();
+  const { setOpen } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [debug, setDebug] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    setOpen(false);
+    return () => setOpen(true);
+  }, [setOpen]);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -100,11 +107,11 @@ export default function OperationsPage() {
   const hasFeature = (feature?: string) => {
     if (role === 'SUPER_ADMIN') return true;
     if (!feature) return true;
-    return session?.packageFeatures?.includes(feature);
+    const isCrmBypass = feature === 'CRM' && (role === 'RESTAURANTS_ADMIN' || role === 'POSSYSTEM');
+    return isCrmBypass || session?.packageFeatures?.includes(feature);
   };
 
   const managementActions: DashboardAction[] = [
-    { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'Inventory', perm: 'Inventory', icon: Package, path: '/inventory', feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
@@ -132,8 +139,10 @@ export default function OperationsPage() {
   ];
 
   const operationalActions: DashboardAction[] = [
+    { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: '/billing',           feature: 'POS' },
     { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: '/counter-payments',  feature: 'POS' },
+    { label: 'Customers',         icon: Contact,           path: '/customers',         feature: 'CRM',             roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: '/kitchen-display',   feature: 'POS' },

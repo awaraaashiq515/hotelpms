@@ -18,10 +18,27 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2 } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage } = body;
+    const isSuperAdmin = session.role === 'SUPER_ADMIN';
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
+    if (whatsAppEnabled !== undefined) updateData.whatsAppEnabled = whatsAppEnabled;
+    if (whatsAppProvider !== undefined) updateData.whatsAppProvider = whatsAppProvider;
+    if (whatsAppApiKey !== undefined) updateData.whatsAppApiKey = whatsAppApiKey;
+    if (whatsAppInstanceId !== undefined) updateData.whatsAppInstanceId = whatsAppInstanceId;
+    if (whatsAppTemplate !== undefined) updateData.whatsAppTemplate = whatsAppTemplate;
+    if (whatsAppWelcomeMessage !== undefined) updateData.whatsAppWelcomeMessage = whatsAppWelcomeMessage;
+
+    // Only SUPER_ADMIN is allowed to update global platform developer keys
+    if (isSuperAdmin) {
+      if (metaAccessToken !== undefined) updateData.metaAccessToken = metaAccessToken;
+      if (metaPhoneId !== undefined) updateData.metaPhoneId = metaPhoneId;
+      if (metaVerifyToken !== undefined) updateData.metaVerifyToken = metaVerifyToken;
+      if (twilioAccountSid !== undefined) updateData.twilioAccountSid = twilioAccountSid;
+      if (twilioAuthToken !== undefined) updateData.twilioAuthToken = twilioAuthToken;
+      if (twilioFromNumber !== undefined) updateData.twilioFromNumber = twilioFromNumber;
+    }
     if (brandName !== undefined) updateData.brandName = brandName;
     if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
     if (city !== undefined) updateData.city = city;
@@ -61,6 +78,15 @@ export async function PUT(
 
     const property = await prisma.property.findUnique({ where: { id } });
 
+    if (property && !isSuperAdmin) {
+      (property as any).metaAccessToken = null;
+      (property as any).metaPhoneId = null;
+      (property as any).metaVerifyToken = null;
+      (property as any).twilioAccountSid = null;
+      (property as any).twilioAuthToken = null;
+      (property as any).twilioFromNumber = null;
+    }
+
     return apiResponse(property, 'Branding settings updated successfully');
   } catch (error: any) {
     console.error('Property update error [ID:', id, ']:', error);
@@ -82,6 +108,16 @@ export async function GET(
     });
 
     if (!property) return apiError(new Error('Property not found'), 404);
+
+    const isSuperAdmin = session.role === 'SUPER_ADMIN';
+    if (!isSuperAdmin) {
+      (property as any).metaAccessToken = null;
+      (property as any).metaPhoneId = null;
+      (property as any).metaVerifyToken = null;
+      (property as any).twilioAccountSid = null;
+      (property as any).twilioAuthToken = null;
+      (property as any).twilioFromNumber = null;
+    }
 
     return apiResponse(property);
   } catch (error) {

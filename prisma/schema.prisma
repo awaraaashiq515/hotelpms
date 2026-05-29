@@ -66,6 +66,14 @@ model Property {
   whatsAppApiKey       String?
   whatsAppInstanceId   String?
   whatsAppTemplate     String?
+  whatsAppWelcomeMessage String?
+  whatsAppProvider     String              @default("META") // "META" | "TWILIO" | "ULTRAMSG"
+  metaAccessToken      String?
+  metaPhoneId          String?
+  metaVerifyToken      String?
+  twilioAccountSid     String?
+  twilioAuthToken      String?
+  twilioFromNumber     String?
   barPosEnabled        Boolean             @default(false)
   showBarInQrMenu      Boolean             @default(true)
   upiId                String?
@@ -131,6 +139,8 @@ model Property {
   printers             Printer[]
   wastes               Waste[]
   b2bOrders            B2BOrder[]
+  coupons              Coupon[]
+  campaigns            Campaign[]
 
 
   @@index([organizationId])
@@ -214,6 +224,10 @@ model Guest {
   idNumber        String?
   address         String?
   loyaltyPoints   Int              @default(0)
+  segment         String           @default("REGULAR")
+  birthDate       DateTime?
+  referralCode    String?          @unique
+  referredById    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   driverId        String?
@@ -227,6 +241,10 @@ model Guest {
   posOrders       PosOrder[]
   reservations    Reservation[]
   settlements     Settlement[]
+  referredBy      Guest?           @relation("GuestReferral", fields: [referredById], references: [id])
+  referrals       Guest[]          @relation("GuestReferral")
+  loyaltyLogs     LoyaltyLog[]
+  coupons         Coupon[]
 }
 
 model GuestDocument {
@@ -531,6 +549,12 @@ model PosOrder {
   deliveryInstructions String?
   deliveryLat          Float?
   deliveryLng          Float?
+  couponId             String?
+  coupon               Coupon?         @relation(fields: [couponId], references: [id])
+  loyaltyPointsEarned  Int             @default(0)
+  loyaltyPointsRedeemed Int            @default(0)
+  loyaltyDiscount      Float           @default(0)
+  preparationTime      Int             @default(15)
 
   @@index([propertyId])
   @@index([status])
@@ -1823,6 +1847,70 @@ model PaymentSetting {
   bankIfsc    String   @default("ORDM0001092")
   bankSwift   String   @default("ORDMININBB")
   updatedAt   DateTime @updatedAt
+}
+
+model WhatsAppSession {
+  id        String   @id @default(cuid())
+  phone     String   @unique                  // Customer's WhatsApp Number
+  state     String   @default("GREETING")     // GREETING, ORDERING, CONFIRMING, AWAITING_PAYMENT
+  cart      String   @default("[]")           // Temporary cart items stored as JSON String
+  metadata  String?                           // Modifiers, Address, Name, Table ID
+  propertyId String?                           // Binds session to a specific property (restaurant)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LoyaltyLog {
+  id         String   @id @default(cuid())
+  guestId    String
+  points     Int
+  reason     String
+  createdAt  DateTime @default(now())
+  guest      Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([guestId])
+}
+
+model Coupon {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  discountType    String         // PERCENTAGE or FIXED
+  discountValue   Float
+  minOrderValue   Float          @default(0)
+  maxDiscount     Float?
+  expiryDate      DateTime
+  isActive        Boolean        @default(true)
+  assignedGuestId String?
+  propertyId      String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assignedGuest   Guest?         @relation(fields: [assignedGuestId], references: [id], onDelete: Cascade)
+  property        Property       @relation(fields: [propertyId], references: [id])
+  posOrders       PosOrder[]
+  campaigns       Campaign[]
+
+  @@index([assignedGuestId])
+  @@index([propertyId])
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  propertyId  String
+  name        String
+  type        String   // PROMOTIONAL, BIRTHDAY
+  targetGroup String   // ALL, VIP, REGULAR, BIRTHDAY_TODAY, INACTIVE, etc.
+  message     String
+  status      String   @default("DRAFT") // DRAFT, SENT, FAILED
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  couponId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  property    Property @relation(fields: [propertyId], references: [id])
+  coupon      Coupon?  @relation(fields: [couponId], references: [id])
+
+  @@index([propertyId])
+  @@index([couponId])
 }
 
 

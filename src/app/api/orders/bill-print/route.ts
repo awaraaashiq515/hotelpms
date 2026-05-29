@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const activeOrder = await (prisma as any).posOrder.findFirst({
       where: { 
         restaurantTableId, 
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL', 'BILL_PRINTED'] } 
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL', 'BILL_PRINTED'] } 
       }
     });
 
@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 3. Update table status to VACANT (as requested)
+    // 3. Update table status to BILL_PRINTED
     const table = await (prisma as any).table.update({
       where: { id: restaurantTableId },
-      data: { status: 'VACANT' }
+      data: { status: 'BILL_PRINTED' }
     });
 
     return apiResponse(table, 'Bill printed and table cleared successfully');

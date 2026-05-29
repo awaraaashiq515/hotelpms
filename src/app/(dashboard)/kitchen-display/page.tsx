@@ -131,6 +131,15 @@ const AUTO_READY_OPTIONS = [
   { label: '30m', value: 1800 },
 ];
 
+const READY_PICKUP_OPTIONS = [
+  { label: 'No Limit', value: 0 },
+  { label: '1m', value: 1 },
+  { label: '2m', value: 2 },
+  { label: '3m', value: 3 },
+  { label: '5m', value: 5 },
+  { label: '10m', value: 10 },
+];
+
 // ─── SERVED HIDE OPTIONS ──────────────────────────────────────────────────────
 // value = minutes after which served order is hidden; 0 = keep all day; -1 = today only (no timer)
 const SERVED_HIDE_OPTIONS = [
@@ -165,11 +174,15 @@ export default function KitchenDisplayPage() {
   // Served-Hide Settings (minutes; 0 = show all day, hide next day only)
   const [servedHideMinutes, setServedHideMinutes] = useState<number>(0);
 
+  // Ready to Pickup Time Limit Settings (minutes)
+  const [readyPickupLimit, setReadyPickupLimit] = useState<number>(0);
+
   // Refs for current settings to avoid localStorage in interval
   const settingsRef = useRef({
     autoAccept: 0,
     autoReady: 0,
-    servedHide: 0
+    servedHide: 0,
+    readyPickupLimit: 0
   });
 
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -203,11 +216,16 @@ export default function KitchenDisplayPage() {
     const savedHide = localStorage.getItem('kds_served_hide_minutes');
     const hideVal = savedHide ? parseInt(savedHide, 10) : 0;
     setServedHideMinutes(hideVal);
+    
+    const savedPickupLimit = localStorage.getItem('kds_ready_pickup_time');
+    const pickupVal = savedPickupLimit ? parseInt(savedPickupLimit, 10) : 5; // Default 5 mins
+    setReadyPickupLimit(pickupVal);
 
     settingsRef.current = {
       autoAccept: acceptVal,
       autoReady: readyVal,
-      servedHide: hideVal
+      servedHide: hideVal,
+      readyPickupLimit: pickupVal
     };
 
     const savedVoice = localStorage.getItem('kds_voice_enabled');
@@ -258,6 +276,12 @@ export default function KitchenDisplayPage() {
     localStorage.setItem('kds_served_hide_minutes', val.toString());
     const label = SERVED_HIDE_OPTIONS.find(o => o.value === val)?.label || 'All Day';
     showToast(`Served Hide: ${label}`, 'success');
+  };
+
+  const handleReadyPickupChange = (val: number) => {
+    setReadyPickupLimit(val);
+    settingsRef.current.readyPickupLimit = val;
+    localStorage.setItem('kds_ready_pickup_time', val.toString());
   };
 
   const playVoice = useCallback((text: string) => {
@@ -688,6 +712,26 @@ export default function KitchenDisplayPage() {
             )}
           </div>
 
+          {/* Ready Pickup Settings */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/20 rounded-xl border border-blue-500/20">
+            <Clock size={11} className="text-blue-400 shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-widest text-blue-400">Pickup Limit</span>
+              <select
+                value={readyPickupLimit}
+                onChange={(e) => handleReadyPickupChange(parseInt(e.target.value, 10))}
+                className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-blue-300"
+              >
+                {READY_PICKUP_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            {readyPickupLimit > 0 && (
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse mt-3" />
+            )}
+          </div>
+
           {/* Last refresh */}
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-800/60 rounded-lg border border-slate-700 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
             <Clock size={10} />
@@ -825,20 +869,42 @@ export default function KitchenDisplayPage() {
                       ? `Room ${kot.roomId}`
                       : kot.order?.orderType || 'Takeaway';
 
+                    const prepLimit = kot.order?.preparationTime || 15;
+                    const isLate = kot.status === 'PREPARING' && waitMin >= prepLimit;
+                    
+                    const readyWaitMin = Math.floor((new Date().getTime() - new Date(kot.updatedAt).getTime()) / 60000);
+                    const isPickupLate = kot.status === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
+
                     return (
                       <div
                         key={kot.id}
-                        className={`bg-slate-800/80 border-2 rounded-2xl overflow-hidden transition-all ${col.borderCls} ${isUpdating ? 'opacity-60' : ''}`}
+                        className={`border-2 rounded-2xl overflow-hidden transition-all ${
+                          isLate 
+                            ? 'bg-black border-rose-600 animate-blink-late shadow-[0_0_20px_rgba(225,29,72,0.5)]' 
+                            : isPickupLate
+                            ? 'bg-black border-blue-500 animate-blink-late shadow-[0_0_20px_rgba(59,130,246,0.5)]'
+                            : `bg-slate-800/80 ${col.borderCls}`
+                        } ${isUpdating ? 'opacity-60' : ''}`}
                       >
                         {/* Card Header */}
                         <div className="px-4 py-3 border-b border-slate-700/50 flex items-start gap-2">
-                          <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${col.dotColor}`} />
+                          <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${isLate ? 'bg-rose-500 animate-pulse shadow-rose-450/50' : isPickupLate ? 'bg-blue-500 animate-pulse shadow-blue-450/50' : col.dotColor}`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-black tracking-tight">{kot.kotNo}</span>
                               {allReady && col.status === 'PREPARING' && (
                                 <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-emerald-700 text-white rounded-full">
                                   All Ready!
+                                </span>
+                              )}
+                              {isLate && (
+                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-rose-700 text-white rounded-full animate-pulse">
+                                  Late Kitchen
+                                </span>
+                              )}
+                              {isPickupLate && (
+                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-blue-700 text-white rounded-full animate-pulse">
+                                  Late Pickup
                                 </span>
                               )}
                             </div>
@@ -852,12 +918,49 @@ export default function KitchenDisplayPage() {
                                 </span>
                               )}
                             </div>
+                            
+                            {/* Prep Limit Selector */}
+                            {kot.status === 'PREPARING' && (
+                              <div className="flex items-center gap-1.5 mt-2">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Prep Limit:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="180"
+                                  value={prepLimit}
+                                  onChange={async (e) => {
+                                    const val = parseInt(e.target.value, 10) || 15;
+                                    if (!kot.orderId) return;
+                                    try {
+                                      const response = await fetch(`/api/pos-orders/${kot.orderId}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ preparationTime: val })
+                                      });
+                                      const result = await response.json();
+                                      if (result.success) {
+                                        showToast(`Prep limit set to ${val}m`, 'success');
+                                        fetchKots(true);
+                                      }
+                                    } catch (e) {
+                                      console.error('Failed to update prep limit', e);
+                                    }
+                                  }}
+                                  className="w-10 h-5 bg-slate-900 border border-slate-700 rounded text-center text-[9px] font-bold text-white outline-none focus:border-pos-primary"
+                                />
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">mins</span>
+                              </div>
+                            )}
                           </div>
                           {/* Wait time badge */}
-                          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-black shrink-0 ${URGENCY_STYLES[urgency]}`}>
-                            {urgency === 'high' && <AlertTriangle size={9} />}
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-black shrink-0 ${
+                            isLate 
+                              ? 'text-rose-450 bg-rose-950/40 border-rose-700/30 animate-pulse' 
+                              : URGENCY_STYLES[urgency]
+                          }`}>
+                            {(isLate || urgency === 'high') && <AlertTriangle size={9} />}
                             <Clock size={9} />
-                            {waitMin}m
+                            {waitMin}m / {prepLimit}m
                           </div>
                         </div>
 
@@ -983,6 +1086,24 @@ export default function KitchenDisplayPage() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes blink-late-glow {
+          0%, 100% {
+            border-color: rgba(225, 29, 72, 0.4);
+            box-shadow: 0 0 10px rgba(225, 29, 72, 0.2);
+            opacity: 0.9;
+          }
+          50% {
+            border-color: rgba(244, 63, 94, 1);
+            box-shadow: 0 0 25px rgba(244, 63, 94, 0.8), inset 0 0 10px rgba(244, 63, 94, 0.3);
+            opacity: 1;
+          }
+        }
+        .animate-blink-late {
+          animation: blink-late-glow 1.2s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }

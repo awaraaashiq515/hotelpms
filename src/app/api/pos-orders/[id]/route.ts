@@ -40,7 +40,7 @@ export async function PUT(
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { status, driverId } = body;
+    const { status, driverId, preparationTime } = body;
 
     const existingOrder = await prisma.posOrder.findUnique({
       where: { id }
@@ -49,6 +49,9 @@ export async function PUT(
 
     const dataToUpdate: any = {};
     if (status !== undefined) dataToUpdate.status = status;
+    if (preparationTime !== undefined) {
+      dataToUpdate.preparationTime = parseInt(preparationTime, 10) || 15;
+    }
     
     if (driverId !== undefined) {
       if (isDelivery) {

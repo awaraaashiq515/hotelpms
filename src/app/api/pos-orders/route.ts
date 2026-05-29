@@ -30,6 +30,7 @@ const posOrderSchema = z.object({
   driverId: z.string().nullable().optional(),
   guestId: z.string().nullable().optional(),
   guestCount: z.number().int().optional().default(1),
+  preparationTime: z.number().int().optional().default(15),
   deliveryCustomerName: z.string().nullable().optional(),
   deliveryPhone: z.string().nullable().optional(),
   deliveryAddress: z.string().nullable().optional(),
@@ -87,6 +88,32 @@ export async function POST(request: NextRequest) {
       deliveryRiderId,
     };
 
+    // ── VALIDATE FOREIGN KEYS before creation to prevent FK constraint errors ──
+    // Verify guestId exists
+    if (orderData.guestId) {
+      const guestExists = await prisma.guest.findUnique({ where: { id: orderData.guestId }, select: { id: true } });
+      if (!guestExists) {
+        console.warn(`[POS Order] guestId ${orderData.guestId} not found — dropping to null`);
+        orderData.guestId = null;
+      }
+    }
+    // Verify driverId exists
+    if (orderData.driverId) {
+      const driverExists = await prisma.driver.findUnique({ where: { id: orderData.driverId }, select: { id: true } });
+      if (!driverExists) {
+        console.warn(`[POS Order] driverId ${orderData.driverId} not found — dropping to null`);
+        orderData.driverId = undefined;
+      }
+    }
+    // Verify staffMemberId exists
+    if (orderData.staffMemberId) {
+      const staffExists = await prisma.staffMember.findUnique({ where: { id: orderData.staffMemberId }, select: { id: true } });
+      if (!staffExists) {
+        console.warn(`[POS Order] staffMemberId ${orderData.staffMemberId} not found — dropping to null`);
+        orderData.staffMemberId = null;
+      }
+    }
+
     // Calculate Totals ensuring no manipulation
     let computedSubtotal = 0
     let computedTax = 0
@@ -126,7 +153,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             restaurantTableId: orderData.restaurantTableId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
             orderType: 'DINE_IN'
           },
           include: { items: true }
@@ -135,7 +162,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             parkingSlotId: orderData.parkingSlotId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
             orderType: 'PARKING'
           },
           include: { items: true }
@@ -148,7 +175,7 @@ export async function POST(request: NextRequest) {
           data: {
             ...orderData,
             orderNo: `POS-${Date.now()}`,
-            status: body.paymentMode === 'UPI' ? 'PAYMENT_AWAITING_APPROVAL' : 'KOT_RUNNING',
+            status: body.holdOrder ? 'HOLD' : (body.paymentMode === 'UPI' ? 'PAYMENT_AWAITING_APPROVAL' : 'KOT_RUNNING'),
             paymentRequested: body.paymentMode === 'UPI',
             onlinePaymentReference: body.transactionLast4 || null,
             onlinePaymentMethod: body.paymentMode || null,
@@ -232,6 +259,7 @@ export async function POST(request: NextRequest) {
       await tx.posOrder.update({
         where: { id: order.id },
         data: { 
+          status: body.holdOrder ? 'HOLD' : (order.status === 'HOLD' ? 'KOT_RUNNING' : order.status),
           subtotal, 
           taxAmount, 
           discountAmount,
@@ -253,7 +281,7 @@ export async function POST(request: NextRequest) {
       if (orderData.restaurantTableId) {
         await (tx as any).table.update({
           where: { id: orderData.restaurantTableId },
-          data: { status: 'KOT_RUNNING' }
+          data: { status: body.holdOrder ? 'HOLD' : 'KOT_RUNNING' }
         })
       } else if (orderData.parkingSlotId) {
         await (tx as any).parkingSlot.update({
@@ -294,9 +322,9 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // 5. Create KOT Ticket ONLY if there are new items
+      // 5. Create KOT Ticket ONLY if there are new items AND it's not a hold order
       let kotTicket: any = null;
-      if (kotItemsToCreate.length > 0) {
+      if (kotItemsToCreate.length > 0 && !body.holdOrder) {
         const kotNo = `KOT-${Date.now()}`;
         kotTicket = await (tx as any).kotTicket.create({
           data: {
@@ -308,7 +336,7 @@ export async function POST(request: NextRequest) {
             parkingSlotId: orderData.parkingSlotId || null,
             tableNo: orderData.tableNo || null,
             roomId: orderData.roomId,
-            status: 'NEW',
+            status: body.skipKitchen ? 'PRINTED_ONLY' : 'NEW',
           }
         });
 
@@ -321,7 +349,8 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 6. Handle Inventory Deduction
+      // 6. Handle Inventory Deduction (skip for hold orders - will deduct when KOT is cut)
+      if (!body.holdOrder) {
       let warehouse = await tx.warehouse.findFirst({
         where: { propertyId: orderData.propertyId },
       });
@@ -384,6 +413,7 @@ export async function POST(request: NextRequest) {
             }
           });
         }
+      }
       }
 
       return await (tx as any).posOrder.findUnique({
@@ -455,7 +485,7 @@ export async function GET(request: NextRequest) {
     // Handle status filtering
     let statusFilter = undefined;
     if (status === 'in_progress') {
-      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] };
+      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] };
     } else if (status?.includes(',')) {
       statusFilter = { in: status.split(',') };
     } else if (status) {

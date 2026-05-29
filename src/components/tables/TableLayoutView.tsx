@@ -74,6 +74,12 @@ const SIMPLE_STATUS_CFG: Record<string, {
     text: '#475569', // slate-600
     label: 'Cleaning',
   },
+  HOLD: {
+    bg: '#faf5ff', // purple-50
+    border: '#a855f7', // purple-500
+    text: '#7e22ce', // purple-700
+    label: 'Hold',
+  },
 };
 
 // ─── Simple Flat Table Card ─────────────────────────────────────────
@@ -91,30 +97,45 @@ const TableVisualSimple: React.FC<{
   const cfg = SIMPLE_STATUS_CFG[effectiveStatus] || SIMPLE_STATUS_CFG.VACANT;
   const occupied = !!table.activeOrder && effectiveStatus !== 'VACANT' && effectiveStatus !== 'CLEANING';
 
+  const elapsedMins = table.activeOrder?.elapsedTime || 0;
+  const limit = table.activeOrder?.preparationTime || 15;
+  const isLate = occupied && effectiveStatus === 'KOT_RUNNING' && elapsedMins >= limit;
+
+  const readyPickupLimit = typeof window !== 'undefined' ? parseInt(localStorage.getItem('kds_ready_pickup_time') || '5', 10) : 5;
+  const readyWaitMin = (table.activeOrder as any)?.readyAt ? Math.floor((Date.now() - new Date((table.activeOrder as any).readyAt).getTime()) / 60000) : 0;
+  const isPickupLate = occupied && effectiveStatus === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
+
+  const cardBg = isLate || isPickupLate ? '#000000' : cfg.bg;
+  const cardBorder = isLate ? '#e11d48' : isPickupLate ? '#3b82f6' : (isSelected ? '#4f46e5' : cfg.border);
+  const borderClass = isLate ? 'animate-blink-late' : isPickupLate ? 'animate-blink-ready' : '';
+
   return (
     <div style={{ position: 'relative', width: w, height: h }}>
       {/* Main Table Body */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: cfg.bg,
-        borderRadius: '12px',
-        border: `2px solid ${isSelected ? '#4f46e5' : cfg.border}`,
-        boxShadow: isSelected ? '0 0 0 4px rgba(79, 70, 229, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)',
-        transition: 'all 0.2s ease',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: cfg.text,
-        overflow: 'hidden',
-      }}>
+      <div 
+        className={borderClass}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: cardBg,
+          borderRadius: '12px',
+          border: `2px solid ${cardBorder}`,
+          boxShadow: isLate ? '0 0 20px rgba(225, 29, 72, 0.5)' : (isSelected ? '0 0 0 4px rgba(79, 70, 229, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)'),
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: isLate ? '#f43f5e' : isPickupLate ? '#60a5fa' : cfg.text,
+          overflow: 'hidden',
+        }}
+      >
         
         {/* Status Badge */}
         <div style={{
           position: 'absolute',
           top: '6px', left: '8px',
-          background: 'rgba(255,255,255,0.8)',
+          background: isLate ? 'rgba(225, 29, 72, 0.15)' : isPickupLate ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.8)',
           borderRadius: '12px',
           padding: '2px 6px',
           display: 'flex',
@@ -122,13 +143,13 @@ const TableVisualSimple: React.FC<{
           gap: '4px',
           fontSize: '10px',
           fontWeight: 600,
-          color: cfg.text,
-          border: `1px solid ${cfg.border}`,
+          color: isLate ? '#fb7185' : isPickupLate ? '#60a5fa' : cfg.text,
+          border: `1px solid ${isLate ? '#f43f5e' : isPickupLate ? '#3b82f6' : cfg.border}`,
         }}>
           <div style={{ 
-            width: '6px', height: '6px', borderRadius: '50%', background: cfg.text 
+            width: '6px', height: '6px', borderRadius: '50%', background: isLate ? '#fb7185' : isPickupLate ? '#60a5fa' : cfg.text 
           }} />
-          {cfg.label}
+          {isLate ? 'LATE KITCHEN' : isPickupLate ? 'LATE PICKUP' : cfg.label}
         </div>
 
         {/* Seats Info (Top Right) */}
@@ -137,7 +158,7 @@ const TableVisualSimple: React.FC<{
           top: '6px', right: '8px',
           fontSize: '10px',
           fontWeight: 600,
-          color: cfg.text,
+          color: isLate ? '#fb7185' : isPickupLate ? '#60a5fa' : cfg.text,
           opacity: 0.8
         }}>
           {table.capacity} <span style={{ fontSize: '8px', opacity: 0.6 }}>SEATS</span>
@@ -149,7 +170,7 @@ const TableVisualSimple: React.FC<{
           fontWeight: 700,
           margin: 0,
           marginTop: occupied ? '-8px' : '8px',
-          color: cfg.text,
+          color: isLate ? '#f43f5e' : isPickupLate ? '#60a5fa' : cfg.text,
         }}>
           {table.name}
         </h3>
@@ -168,21 +189,44 @@ const TableVisualSimple: React.FC<{
             <div style={{
               fontSize: Math.max(14, Math.min(18, w * 0.12)),
               fontWeight: 800,
-              color: cfg.text,
+              color: isLate ? '#fb7185' : isPickupLate ? '#60a5fa' : cfg.text,
             }}>
               ₹{table.activeOrder.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </div>
             <div style={{
               fontSize: '10px',
               fontWeight: 600,
-              color: cfg.text,
+              color: isLate ? '#fb7185' : isPickupLate ? '#60a5fa' : cfg.text,
               opacity: 0.9,
-              background: 'rgba(255,255,255,0.5)',
+              background: isLate ? 'rgba(225, 29, 72, 0.1)' : isPickupLate ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255,255,255,0.5)',
               padding: '2px 8px',
               borderRadius: '8px',
             }}>
-              {table.activeOrder.itemCount} items · {table.activeOrder.elapsedTime}m
+              {table.activeOrder.itemCount} items · {table.activeOrder.elapsedTime}m / {limit}m
             </div>
+            {table.activeOrder.waiterName && (
+              <div style={{
+                fontSize: '9px',
+                fontWeight: 750,
+                color: isLate ? '#fb7185' : isPickupLate ? '#60a5fa' : cfg.text,
+                opacity: 0.9,
+                background: isLate ? 'rgba(225, 29, 72, 0.15)' : isPickupLate ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.65)',
+                padding: '2.5px 8px',
+                borderRadius: '8px',
+                marginTop: '2px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                maxWidth: '90%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}>
+                👤 {table.activeOrder.waiterName}
+              </div>
+            )}
           </div>
         )}
 

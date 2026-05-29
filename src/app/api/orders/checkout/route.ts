@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp } = body;
+    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp, couponCode, loyaltyPointsRedeemed } = body;
 
     // --- COMBO EXPANSION ---
     const expandedItems: any[] = [];
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         posOrders = await (tx as any).posOrder.findMany({
           where: { 
             restaurantTableId, 
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL'] } 
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] } 
           }
         });
         posOrder = posOrders.length > 0 ? posOrders[0] : null;
@@ -89,13 +89,51 @@ export async function POST(request: NextRequest) {
       let grandTotal = 0;
       const totalRaw = items.reduce((acc: number, item: any) => acc + ((item.sellingPrice || item.unitPrice || 0) * (item.quantity || item.qty || 1)), 0);
 
+      // --- CRM CUSTOM DISCOUNTS ---
+      let couponDiscountCalculated = 0;
+      let couponRecord = null;
+      if (couponCode) {
+        couponRecord = await tx.coupon.findUnique({
+          where: { code: couponCode.toUpperCase() }
+        });
+        if (couponRecord && couponRecord.isActive && new Date(couponRecord.expiryDate) >= new Date() && totalRaw >= couponRecord.minOrderValue) {
+          if (!couponRecord.assignedGuestId || couponRecord.assignedGuestId === guestId) {
+            if (couponRecord.discountType === 'PERCENTAGE') {
+              couponDiscountCalculated = (totalRaw * couponRecord.discountValue) / 100;
+              if (couponRecord.maxDiscount) {
+                couponDiscountCalculated = Math.min(couponDiscountCalculated, couponRecord.maxDiscount);
+              }
+            } else {
+              couponDiscountCalculated = couponRecord.discountValue;
+            }
+          }
+        }
+      }
+
+      let loyaltyDiscountCalculated = 0;
+      let redeemPoints = 0;
+      let guestRecord = null;
+      if (guestId) {
+        guestRecord = await tx.guest.findUnique({ where: { id: guestId } });
+        if (guestRecord && loyaltyPointsRedeemed > 0) {
+          redeemPoints = Math.min(guestRecord.loyaltyPoints, Number(loyaltyPointsRedeemed));
+          if (redeemPoints > 0) {
+            const redeemRateSetting = await tx.systemSetting.findUnique({ where: { key: 'loyalty_redeem_value' } });
+            const redeemRate = redeemRateSetting ? Number(redeemRateSetting.value) : 1.0;
+            loyaltyDiscountCalculated = redeemPoints * redeemRate;
+          }
+        }
+      }
+
+      const totalDiscount = (membershipDiscount || 0) + (manualDiscount || 0) + (couponDiscountCalculated || 0) + (loyaltyDiscountCalculated || 0);
+      // ----------------------------
+
       const itemsWithTax = items.map((item: any) => {
         const detail = productDetails.find((p: any) => p.id === item.id);
         const unitPrice = item.sellingPrice || item.unitPrice || item.basePrice || 0;
         const qty = item.quantity || item.qty || 1;
         const lineTotalRaw = unitPrice * qty;
 
-        const totalDiscount = (membershipDiscount || 0) + (manualDiscount || 0);
         const lineDiscount = totalRaw > 0 ? (lineTotalRaw / totalRaw) * totalDiscount : 0;
         const lineNetAfterDiscount = Math.max(0, lineTotalRaw - lineDiscount);
 
@@ -131,17 +169,29 @@ export async function POST(request: NextRequest) {
         };
       });
 
+      // Calculate points earned
+      let pointsEarned = 0;
+      if (guestId) {
+        const earnRateSetting = await tx.systemSetting.findUnique({ where: { key: 'loyalty_earn_rate' } });
+        const earnRate = earnRateSetting ? Number(earnRateSetting.value) : 0.1;
+        pointsEarned = Math.floor(grandTotal * earnRate);
+      }
+
       if (posOrders.length > 0) {
         // Update all existing orders for this table to SETTLED
         await tx.posOrder.updateMany({
           where: { id: { in: posOrders.map((o: any) => o.id) } },
           data: {
             status: 'SETTLED',
-            discountAmount: (membershipDiscount || 0) + (manualDiscount || 0),
+            discountAmount: totalDiscount,
             ...(driverId && { driverId }),
             ...(staffMemberId && { staffMemberId }),
             membershipCardId: membershipCardId || null,
-            membershipDiscount: membershipDiscount || 0
+            membershipDiscount: membershipDiscount || 0,
+            couponId: couponRecord?.id || null,
+            loyaltyPointsEarned: pointsEarned,
+            loyaltyPointsRedeemed: redeemPoints,
+            loyaltyDiscount: loyaltyDiscountCalculated,
           }
         });
         
@@ -152,6 +202,10 @@ export async function POST(request: NextRequest) {
             subtotal: subtotal,
             taxAmount: taxAmount,
             grandTotal: grandTotal,
+            couponId: couponRecord?.id || null,
+            loyaltyPointsEarned: pointsEarned,
+            loyaltyPointsRedeemed: redeemPoints,
+            loyaltyDiscount: loyaltyDiscountCalculated,
           }
         });
       } else {
@@ -172,7 +226,7 @@ export async function POST(request: NextRequest) {
               status: 'SETTLED',
               subtotal: subtotal,
               taxAmount: taxAmount,
-              discountAmount: (membershipDiscount || 0) + (manualDiscount || 0),
+              discountAmount: totalDiscount,
               grandTotal: grandTotal,
               restaurantTableId: restaurantTableId || null,
               tableNo: table?.name || null,
@@ -180,6 +234,10 @@ export async function POST(request: NextRequest) {
               staffMemberId: staffMemberId || null,
               membershipCardId: membershipCardId || null,
               membershipDiscount: membershipDiscount || 0,
+              couponId: couponRecord?.id || null,
+              loyaltyPointsEarned: pointsEarned,
+              loyaltyPointsRedeemed: redeemPoints,
+              loyaltyDiscount: loyaltyDiscountCalculated,
               items: {
                 create: items.map((item: any) => {
                   const mappedItem = itemsWithTax.find((i: any) => i.id === item.id);
@@ -195,6 +253,85 @@ export async function POST(request: NextRequest) {
               }
           }
         });
+      }
+
+      // --- LOGIC FOR UPDATING COUPON & LOYALTY & REFERRALS ---
+      if (couponRecord) {
+        if (couponRecord.assignedGuestId) {
+          // One-time personalized coupon, deactivate it
+          await tx.coupon.update({
+            where: { id: couponRecord.id },
+            data: { isActive: false }
+          });
+        }
+      }
+
+      if (guestId) {
+        // 1. Loyalty updates
+        let pointsDiff = pointsEarned - redeemPoints;
+        if (pointsDiff !== 0) {
+          await tx.guest.update({
+            where: { id: guestId },
+            data: {
+              loyaltyPoints: {
+                increment: pointsDiff
+              }
+            }
+          });
+
+          if (redeemPoints > 0) {
+            await tx.loyaltyLog.create({
+              data: {
+                guestId,
+                points: -redeemPoints,
+                reason: `Redeemed on Order #${posOrder.orderNo}`
+              }
+            });
+          }
+          if (pointsEarned > 0) {
+            await tx.loyaltyLog.create({
+              data: {
+                guestId,
+                points: pointsEarned,
+                reason: `Earned from Order #${posOrder.orderNo}`
+              }
+            });
+          }
+        }
+
+        // 2. Referral system check
+        // Count previous settled orders for this guest
+        const prevOrders = await tx.posOrder.count({
+          where: {
+            guestId,
+            status: 'SETTLED',
+            id: { not: posOrder.id } // Exclude current order
+          }
+        });
+
+        if (prevOrders === 0 && guestRecord?.referredById) {
+          const bonusSetting = await tx.systemSetting.findUnique({ where: { key: 'referral_bonus_points' } });
+          const referralBonus = bonusSetting ? Number(bonusSetting.value) : 50;
+
+          // Credit points to referrer
+          await tx.guest.update({
+            where: { id: guestRecord.referredById },
+            data: {
+              loyaltyPoints: {
+                increment: referralBonus
+              }
+            }
+          });
+
+          // Log loyalty log for referrer
+          await tx.loyaltyLog.create({
+            data: {
+              guestId: guestRecord.referredById,
+              points: referralBonus,
+              reason: `Referral reward for inviting ${guestRecord.firstName}`
+            }
+          });
+        }
       }
 
 
@@ -220,7 +357,7 @@ export async function POST(request: NextRequest) {
           propertyId: session.propertyId!,
           guestId: guestId || null,
           subtotal: subtotal,
-          discountAmount: (membershipDiscount || 0) + (manualDiscount || 0),
+          discountAmount: totalDiscount,
           taxAmount: taxAmount,
           totalAmount: grandTotal,
           paymentStatus: isPayLater ? 'UNPAID' : 'PAID',

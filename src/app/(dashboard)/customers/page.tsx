@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Filter, Edit, Trash2, User, Wallet, CheckCircle2 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
@@ -68,12 +69,15 @@ export default function CustomerListingPage() {
     try {
       if (selectedCustomer) {
         await customersApi.update(selectedCustomer.id, data);
+        showToast('Customer updated successfully', 'success');
       } else {
         await customersApi.create(data);
+        showToast('Customer added successfully', 'success');
       }
       setIsFormOpen(false);
       fetchCustomers();
-    } catch (error) {
+    } catch (error: any) {
+      showToast(error.message || 'Operation failed', 'error');
       console.error('Operation failed:', error);
     } finally {
       setMutationLoading(false);
@@ -85,9 +89,11 @@ export default function CustomerListingPage() {
     setMutationLoading(true);
     try {
       await customersApi.delete(selectedCustomer.id);
+      showToast('Customer deleted successfully', 'success');
       setIsDeleteOpen(false);
       fetchCustomers();
-    } catch (error) {
+    } catch (error: any) {
+      showToast(error.message || 'Delete failed', 'error');
       console.error('Delete failed:', error);
     } finally {
       setMutationLoading(false);
@@ -115,17 +121,17 @@ export default function CustomerListingPage() {
     { 
       header: 'Guest Detail', 
       cell: (row: Customer) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-pos-primary/10 flex items-center justify-center text-pos-primary">
+        <Link href={`/customers/${row.id}`} className="flex items-center gap-3 hover:text-pos-primary transition-all">
+          <div className="w-8 h-8 rounded-lg bg-pos-primary/10 flex items-center justify-center text-pos-primary shrink-0">
              <User size={14} />
           </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-tight">
-              {row.firstName} {row.lastName}
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-tight truncate hover:underline">
+              {row.firstName} {row.lastName || ''}
             </span>
-            <span className="text-[11px] text-gray-400 dark:text-slate-400 font-medium">{row.email || 'No email'}</span>
+            <span className="text-[11px] text-gray-400 dark:text-slate-400 font-medium truncate">{row.email || 'No email'}</span>
           </div>
-        </div>
+        </Link>
       ),
       width: '300px'
     },
@@ -220,6 +226,34 @@ export default function CustomerListingPage() {
           </Button>
         }
       />
+
+      {/* CRM Navigation Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-white/10 pb-4">
+        <Link
+          href="/customers"
+          className="px-4 py-2 bg-pos-primary text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-md"
+        >
+          Guests List
+        </Link>
+        <Link
+          href="/customers/campaigns"
+          className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 text-slate-500 hover:text-slate-800 dark:hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+        >
+          Marketing Campaigns
+        </Link>
+        <Link
+          href="/customers/coupons"
+          className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 text-slate-500 hover:text-slate-800 dark:hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+        >
+          Smart Coupons
+        </Link>
+        <Link
+          href="/customers/loyalty-settings"
+          className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 text-slate-500 hover:text-slate-800 dark:hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+        >
+          Loyalty Rules
+        </Link>
+      </div>
 
       <SearchToolbar 
         value={search}

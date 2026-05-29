@@ -32,7 +32,7 @@ export async function GET(
     }
 
     // Fetch all data in parallel using the tablet's propertyId
-    const [products, categories, tables, waiter, websiteSettings, activeOrders] = await Promise.all([
+    const [products, categories, tables, waiter, websiteSettings, activeOrders, waiterCalls] = await Promise.all([
       prisma.product.findMany({
         where: { propertyId, isActive: true },
         include: { category: true, variants: true },
@@ -59,7 +59,7 @@ export async function GET(
       prisma.posOrder.findMany({
         where: {
           propertyId,
-          status: { in: ['KOT_RUNNING', 'IN_KITCHEN', 'READY', 'PAYMENT_AWAITING_APPROVAL'] }
+          status: { in: ['KOT_RUNNING', 'IN_KITCHEN', 'READY', 'PAYMENT_AWAITING_APPROVAL', 'HOLD', 'SERVED', 'BILL_PRINTED'] }
         },
         select: {
           id: true,
@@ -67,15 +67,32 @@ export async function GET(
           restaurantTableId: true,
           tableNo: true,
           orderNo: true,
+          grandTotal: true,
+          subtotal: true,
+          guestCount: true,
+          createdAt: true,
+          updatedAt: true,
+          preparationTime: true,
           table: {
             select: { name: true }
+          },
+          guest: {
+            select: { firstName: true, lastName: true, mobile: true }
           }
         },
         orderBy: { updatedAt: 'desc' }
+      }),
+      prisma.notification.findMany({
+        where: {
+          propertyId,
+          type: 'ASSISTANCE',
+          status: 'UNREAD'
+        },
+        orderBy: { createdAt: 'desc' }
       })
     ]);
 
-    return apiResponse({ products, categories, tables, property: tablet.property, waiter, websiteSettings, activeOrders });
+    return apiResponse({ products, categories, tables, property: tablet.property, waiter, websiteSettings, activeOrders, waiterCalls });
   } catch (error) {
     return apiError(error);
   }

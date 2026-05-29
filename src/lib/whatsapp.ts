@@ -17,51 +17,32 @@ export async function sendWhatsAppMessage({
   }
 
   try {
-    let config: any = {};
-
+    let property: any = null;
     if (propertyId) {
-      const property = await prisma.property.findUnique({
+      property = await prisma.property.findUnique({
         where: { id: propertyId }
       });
-      if (property && property.whatsAppEnabled) {
-        config = {
-          WHATSAPP_ENABLED: 'true',
-          WHATSAPP_API_KEY: property.whatsAppApiKey,
-          WHATSAPP_INSTANCE_ID: property.whatsAppInstanceId,
-          WHATSAPP_PROVIDER: 'ULTRAMSG' // Default to UltraMsg for now
-        };
-      }
     }
 
-    // Fallback to Global Settings if property-specific is not enabled/found
-    if (config.WHATSAPP_ENABLED !== 'true' || !config.WHATSAPP_API_KEY) {
-      const settings = await prisma.systemSetting.findMany({
-        where: { key: { startsWith: 'WHATSAPP_' } }
-      });
-
-      config = settings.reduce((acc: any, s: any) => {
-        acc[s.key] = s.value;
-        return acc;
-      }, {});
-    }
-
-    if (config.WHATSAPP_ENABLED !== 'true' || !config.WHATSAPP_API_KEY) {
+    if (!property || !property.whatsAppEnabled) {
+      // Fallback to manual wa.me link
       const encodedMessage = encodeURIComponent(message);
       return { success: true, url: `https://wa.me/${mobile}?text=${encodedMessage}`, mode: 'MANUAL' };
     }
 
-    const provider = config.WHATSAPP_PROVIDER || 'ULTRAMSG';
-    const apiKey = config.WHATSAPP_API_KEY;
-    const instanceId = config.WHATSAPP_INSTANCE_ID;
+    const provider = property.whatsAppProvider || 'META';
 
     if (provider === 'ULTRAMSG') {
-      const url = `https://api.ultramsg.com/${instanceId}/messages/chat`;
+      if (!property.whatsAppApiKey || !property.whatsAppInstanceId) {
+        throw new Error('UltraMsg credentials not configured');
+      }
+      const url = `https://api.ultramsg.com/${property.whatsAppInstanceId}/messages/chat`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          token: apiKey,
-          to: mobile,
+          token: property.whatsAppApiKey,
+          to: mobile.startsWith('+') ? mobile : `+${mobile}`,
           body: message
         })
       });
@@ -69,14 +50,72 @@ export async function sendWhatsAppMessage({
       return { success: !!data.sent || data.success, data, mode: 'API' };
     }
 
-    // Fallback for unknown provider
+    if (provider === 'TWILIO') {
+      if (!property.twilioAccountSid || !property.twilioAuthToken || !property.twilioFromNumber) {
+        throw new Error('Twilio credentials not configured');
+      }
+      const url = `https://api.twilio.com/2010-04-01/Accounts/${property.twilioAccountSid}/Messages.json`;
+      const auth = Buffer.from(`${property.twilioAccountSid}:${property.twilioAuthToken}`).toString('base64');
+      const params = new URLSearchParams();
+      params.append('To', mobile.startsWith('whatsapp:') ? mobile : `whatsapp:+${mobile}`);
+      params.append('From', property.twilioFromNumber.startsWith('whatsapp:') ? property.twilioFromNumber : `whatsapp:${property.twilioFromNumber}`);
+      params.append('Body', message);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(`Twilio error: ${errData.message}`);
+      }
+
+      const data = await res.json();
+      return { success: true, data, mode: 'API' };
+    }
+
+    if (provider === 'META') {
+      if (!property.metaAccessToken || !property.metaPhoneId) {
+        throw new Error('Meta Graph credentials not configured');
+      }
+      const url = `https://graph.facebook.com/v20.0/${property.metaPhoneId}/messages`;
+      const cleanMobile = mobile.replace(/[^0-9]/g, ''); // strip leading '+' for Meta API
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${property.metaAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanMobile,
+          type: 'text',
+          text: { body: message },
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(`Meta error: ${errData.error?.message || 'Unknown'}`);
+      }
+
+      const data = await res.json();
+      return { success: true, data, mode: 'API' };
+    }
+
     const encodedMessage = encodeURIComponent(message);
     return { success: true, url: `https://wa.me/${mobile}?text=${encodedMessage}`, mode: 'MANUAL' };
 
   } catch (error) {
-    console.error('WhatsApp API Error:', error);
+    console.error('WhatsApp Outbound API Error:', error);
     const encodedMessage = encodeURIComponent(message);
-    return { success: true, url: `https://wa.me/${mobile}?text=${encodedMessage}`, mode: 'MANUAL' };
+    return { success: false, url: `https://wa.me/${mobile}?text=${encodedMessage}`, mode: 'MANUAL', error };
   }
 }
 

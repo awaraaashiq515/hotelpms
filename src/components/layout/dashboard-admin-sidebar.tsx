@@ -52,7 +52,8 @@ export const DashboardAdminSidebar: React.FC = () => {
 
     // 2. Package Feature Gating (Strict Enforcement for all except SUPER_ADMIN)
     if (item.feature) {
-      const hasFeature = session.packageFeatures?.includes(item.feature);
+      const isCrmBypass = item.feature === 'CRM' && (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM');
+      const hasFeature = isCrmBypass || session.packageFeatures?.includes(item.feature);
       if (!hasFeature) return false;
     }
 
@@ -87,7 +88,8 @@ export const DashboardAdminSidebar: React.FC = () => {
 
         // 1. Sub-item feature gating (Strict Enforcement for all except SUPER_ADMIN)
         if (sub.feature) {
-          const hasFeature = session.packageFeatures?.includes(sub.feature);
+          const isSubCrmBypass = sub.feature === 'CRM' && (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM');
+          const hasFeature = isSubCrmBypass || session.packageFeatures?.includes(sub.feature);
           if (!hasFeature) return false;
         }
 

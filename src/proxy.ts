@@ -287,7 +287,11 @@ export async function proxy(request: NextRequest) {
         // Only block if the org has a package assigned (packageFeatures.length > 0)
         // If no package is assigned, let them through (grace mode)
         if (packageFeatures.length > 0 && !packageFeatures.includes(requiredFeature)) {
-          return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
+          // Special bypass for CRM module for standard POS roles to prevent stale JWT cookie issues
+          const isCrmBypass = requiredFeature === 'CRM' && (role === 'RESTAURANTS_ADMIN' || role === 'POSSYSTEM')
+          if (!isCrmBypass) {
+            return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
+          }
         }
       }
     }

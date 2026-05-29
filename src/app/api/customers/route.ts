@@ -61,17 +61,34 @@ export async function POST(request: NextRequest) {
 
     if (!organizationId) return apiError(new Error('Unauthorized'), 401);
 
-    const { firstName, lastName, email, mobile, address, gender, driverId } = body;
+    const { firstName, lastName, email, mobile, address, gender, birthDate, driverId, referredByCode } = body;
+
+    // Generate unique referral code
+    const referralCode = 'REF-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // Check if referred by another customer
+    let referredById = undefined;
+    if (referredByCode) {
+      const referrer = await prisma.guest.findUnique({
+        where: { referralCode: referredByCode.trim().toUpperCase() }
+      });
+      if (referrer) {
+        referredById = referrer.id;
+      }
+    }
 
     const customer = await prisma.guest.create({
       data: {
         firstName,
         lastName,
-        email,
-        mobile,
+        email: email || null,
+        mobile: mobile || null,
         address,
         gender,
+        birthDate: birthDate ? new Date(birthDate) : null,
         organizationId,
+        referralCode,
+        ...(referredById && { referredById }),
         ...(driverId && { driverId })
       },
     });

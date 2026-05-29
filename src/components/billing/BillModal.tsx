@@ -8,7 +8,7 @@ import {
   X, Search, User, ReceiptText, 
   Printer, CreditCard, CheckCircle2,
   Banknote, QrCode, Smartphone, Star,
-  MessageCircle
+  MessageCircle, Gift, Tag
 } from 'lucide-react';
 import { printerService } from '@/lib/printer-service';
 
@@ -37,6 +37,7 @@ export interface BillData {
   };
   taxLabel?: string;
   propertyId?: string;
+  staffMemberId?: string;
 }
 
 interface BillModalProps {
@@ -69,25 +70,61 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [newCustMobile, setNewCustMobile] = React.useState('');
   const [isAddingCustomer, setIsAddingCustomer] = React.useState(false);
 
+  // CRM Loyalty Points & Coupon States
+  const [redeemPointsInput, setRedeemPointsInput] = React.useState<number>(0);
+  const [couponCodeInput, setCouponCodeInput] = React.useState('');
+  const [appliedCoupon, setAppliedCoupon] = React.useState<any>(null);
+  const [couponError, setCouponError] = React.useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput) return;
+    setIsValidatingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/marketing/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: couponCodeInput.trim().toUpperCase(),
+          guestId: selectedGuestId || undefined,
+          orderTotal: bill?.subtotal || 0
+        })
+      });
+      const result = await res.json();
+      if (result.success) {
+        setAppliedCoupon(result.data);
+      } else {
+        setCouponError(result.message || 'Invalid coupon code');
+      }
+    } catch (err) {
+      console.error(err);
+      setCouponError('Error validating coupon');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCodeInput('');
+    setCouponError('');
+  };
+
+  // Reset coupon & loyalty inputs when active guest changes
+  React.useEffect(() => {
+    setRedeemPointsInput(0);
+    setAppliedCoupon(null);
+    setCouponCodeInput('');
+    setCouponError('');
+  }, [selectedGuestId]);
+
   const [membershipSearch, setMembershipSearch] = React.useState('');
   const [isValidatingMembership, setIsValidatingMembership] = React.useState(false);
   const [membershipCard, setMembershipCard] = React.useState<any>(bill?.membershipCard || null);
   const [membershipDiscount, setMembershipDiscount] = React.useState(bill?.membershipDiscount || 0);
 
   const [property, setProperty] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    if (guestId) {
-      setSelectedGuestId(guestId);
-      const guest = customers.find(c => c.id === guestId);
-      if (guest) {
-        setCustomerSearch(`${guest.firstName} ${guest.lastName || ''}`);
-        if (guest.mobile && !membershipCard) {
-          validateMembership(null, guest.mobile);
-        }
-      }
-    }
-  }, [guestId, customers]);
 
   const validateMembership = async (cardNumber: string | null, mobile?: string) => {
     setIsValidatingMembership(true);
@@ -110,6 +147,56 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
       setIsValidatingMembership(false);
     }
   };
+
+  // Reset all modal/settlement states and synchronize customer data whenever the modal opens or the active bill changes
+  React.useEffect(() => {
+    if (bill) {
+      // 1. Settlement Rating states
+      setShowRating(false);
+      setRating(0);
+      setRatingComments('');
+      setSettledInvoiceId(null);
+      
+      // 2. Payment modes & active flags
+      setSelectedModeId(null);
+      setIsSettling(false);
+      setSendWhatsApp(true);
+      
+      // 3. Customer states
+      setShowAddCustomer(false);
+      setNewCustFirst('');
+      setNewCustLast('');
+      setNewCustMobile('');
+      setIsAddingCustomer(false);
+      
+      const activeGuestId = guestId || '';
+      setSelectedGuestId(activeGuestId);
+      if (activeGuestId) {
+        const guest = customers.find(c => c.id === activeGuestId);
+        if (guest) {
+          setCustomerSearch(`${guest.firstName} ${guest.lastName || ''}`);
+          if (guest.mobile && !membershipCard) {
+            validateMembership(null, guest.mobile);
+          }
+        } else {
+          setCustomerSearch('');
+        }
+      } else {
+        setCustomerSearch('');
+      }
+      
+      // 4. CRM & Membership states
+      setRedeemPointsInput(0);
+      setCouponCodeInput('');
+      setAppliedCoupon(null);
+      setCouponError('');
+      setIsValidatingCoupon(false);
+      setMembershipSearch('');
+      setIsValidatingMembership(false);
+      setMembershipCard(bill?.membershipCard || null);
+      setMembershipDiscount(bill?.membershipDiscount || 0);
+    }
+  }, [bill?.orderId, bill?.orderNo, guestId, customers]);
 
   React.useEffect(() => {
     if (membershipCard && bill) {
@@ -155,9 +242,23 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     ).slice(0, 10);
   }, [customers, customerSearch]);
 
+  const couponDiscount = React.useMemo(() => {
+    if (!bill || !appliedCoupon) return 0;
+    if (appliedCoupon.discountType === 'PERCENTAGE') {
+      let disc = (bill.subtotal * appliedCoupon.discountValue) / 100;
+      if (appliedCoupon.maxDiscount) {
+        disc = Math.min(disc, appliedCoupon.maxDiscount);
+      }
+      return disc;
+    }
+    return appliedCoupon.discountValue;
+  }, [appliedCoupon, bill?.subtotal]);
+
   if (!bill) return null;
 
-  const currentGrandTotal = bill.grandTotal || (bill.subtotal - membershipDiscount - (bill.manualDiscount || 0) + bill.tax);
+  const loyaltyDiscount = Number(redeemPointsInput || 0) * 1.0;
+
+  const currentGrandTotal = Math.max(0, bill.subtotal - membershipDiscount - (bill.manualDiscount || 0) - couponDiscount - loyaltyDiscount + bill.tax);
 
   const handleSettle = async () => {
     if (!onSettle || !selectedModeId) return;
@@ -177,6 +278,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               membershipCardId: membershipCard?.id || null,
               membershipDiscount: membershipDiscount,
               manualDiscount: bill.manualDiscount || 0,
+              couponCode: appliedCoupon?.code || undefined,
+              loyaltyPointsRedeemed: redeemPointsInput || undefined,
               items: bill.items.map(i => ({ 
                 id: i.id, 
                 name: i.name, 
@@ -184,7 +287,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                 sellingPrice: i.price,
                 isCombo: (i as any).isCombo || false
               })),
-              sendWhatsApp: sendWhatsApp
+              sendWhatsApp: sendWhatsApp,
+              staffMemberId: bill.staffMemberId || undefined
           })
       });
       const result = await response.json();
@@ -243,10 +347,12 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!printWindow) return;
 
     const subtotalAmt = bill.subtotal || 0;
-    const membershipDiscountAmt = bill.membershipDiscount || 0;
+    const membershipDiscountAmt = membershipDiscount || 0;
     const manualDiscountAmt = bill.manualDiscount || 0;
+    const couponDiscountAmt = couponDiscount || 0;
+    const loyaltyDiscountAmt = loyaltyDiscount || 0;
     const taxAmt = bill.tax || 0;
-    const grandTotalAmt = bill.grandTotal || (subtotalAmt - membershipDiscountAmt - manualDiscountAmt + taxAmt);
+    const grandTotalAmt = Math.max(0, subtotalAmt - membershipDiscountAmt - manualDiscountAmt - couponDiscountAmt - loyaltyDiscountAmt + taxAmt);
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -332,6 +438,8 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
             <div class="total-row"><span>SUB-TOTAL:</span> <span>₹${subtotalAmt.toFixed(2)}</span></div>
             ${membershipDiscountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>MEMBERSHIP DISCOUNT:</span> <span>-₹${membershipDiscountAmt.toFixed(2)}</span></div>` : ''}
             ${manualDiscountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>DISCOUNT:</span> <span>-₹${manualDiscountAmt.toFixed(2)}</span></div>` : ''}
+            ${couponDiscountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>COUPON (${appliedCoupon?.code}):</span> <span>-₹${couponDiscountAmt.toFixed(2)}</span></div>` : ''}
+            ${loyaltyDiscountAmt > 0 ? `<div class="total-row" style="color: #000;"><span>LOYALTY DISCOUNT (${redeemPointsInput} PTS):</span> <span>-₹${loyaltyDiscountAmt.toFixed(2)}</span></div>` : ''}
             <div class="total-row"><span>${bill.taxLabel || 'TAX'}:</span> <span>₹${taxAmt.toFixed(2)}</span></div>
             <div class="total-row" style="font-size: 8px; opacity: 0.6;"><span>(GST Breakdown)</span></div>
           </div>
@@ -495,7 +603,7 @@ Thank you! Visit again.`;
                 <span>Subtotal</span>
                 <span className="text-slate-800 dark:text-slate-200 font-semibold">₹{(bill.subtotal || 0).toFixed(0)}</span>
               </div>
-              {bill.membershipDiscount && bill.membershipDiscount > 0 ? (
+              {membershipDiscount > 0 ? (
                 <div className="flex justify-between text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                   <span>Membership Discount</span>
                   <span className="font-semibold">-₹{membershipDiscount.toFixed(0)}</span>
@@ -505,6 +613,18 @@ Thank you! Visit again.`;
                 <div className="flex justify-between text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                   <span>Discount</span>
                   <span className="font-semibold">-₹{(bill.manualDiscount || 0).toFixed(0)}</span>
+                </div>
+              ) : null}
+              {couponDiscount > 0 ? (
+                <div className="flex justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider animate-in fade-in duration-300">
+                  <span>Coupon ({appliedCoupon?.code})</span>
+                  <span className="font-semibold">-₹{couponDiscount.toFixed(0)}</span>
+                </div>
+              ) : null}
+              {loyaltyDiscount > 0 ? (
+                <div className="flex justify-between text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider animate-in fade-in duration-300">
+                  <span>Points Redeemed ({redeemPointsInput} PTS)</span>
+                  <span className="font-semibold">-₹{loyaltyDiscount.toFixed(0)}</span>
                 </div>
               ) : null}
               <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-200/60 dark:border-slate-800/80">
@@ -666,6 +786,86 @@ Thank you! Visit again.`;
                        )}
                     </div>
                   )}
+
+                  {/* Loyalty Points Section */}
+                  {selectedGuestId && (() => {
+                    const guest = customers.find(c => c.id === selectedGuestId);
+                    if (!guest) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+                        <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                          <div>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Points Balance</p>
+                            <p className="text-[11px] font-black text-slate-700 dark:text-slate-350 uppercase tracking-wider">{guest.loyaltyPoints || 0} Points</p>
+                          </div>
+                          {guest.loyaltyPoints > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max={guest.loyaltyPoints}
+                                value={redeemPointsInput || ''}
+                                onChange={(e) => {
+                                  const val = Math.min(guest.loyaltyPoints, Math.max(0, parseInt(e.target.value) || 0));
+                                  setRedeemPointsInput(val);
+                                }}
+                                placeholder="Redeem"
+                                className="w-20 px-2.5 py-1.5 text-center bg-white dark:bg-slate-900 dark:text-white border border-slate-200 dark:border-slate-750 rounded-lg text-xs font-bold outline-none"
+                              />
+                              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">₹{redeemPointsInput * 1.0} off</span>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] font-black text-slate-450 dark:text-slate-550 uppercase tracking-wider">No points to redeem</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Coupon Code Section */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Promo / Coupon Code</p>
+                    {appliedCoupon ? (
+                      <div className="flex justify-between items-center bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-250/20 dark:border-emerald-800/40 p-3 rounded-xl">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Tag size={13} className="text-emerald-600 dark:text-emerald-450" />
+                          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider truncate">
+                            Code: {appliedCoupon.code} ({appliedCoupon.discountType === 'PERCENTAGE' ? `${appliedCoupon.discountValue}%` : `₹${appliedCoupon.discountValue}`} Off)
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase hover:underline tracking-wider"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="ENTER COUPON CODE"
+                            value={couponCodeInput}
+                            onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                            className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-950/40 dark:text-white border border-slate-200/60 dark:border-slate-800 rounded-xl text-xs font-bold outline-none uppercase tracking-wider placeholder:text-slate-400 focus:border-indigo-500/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={!couponCodeInput || isValidatingCoupon}
+                            className="bg-indigo-600 text-white text-xs font-bold uppercase px-4 rounded-xl hover:bg-indigo-700 disabled:opacity-50 tracking-wider transition-colors"
+                          >
+                            {isValidatingCoupon ? '...' : 'APPLY'}
+                          </button>
+                        </div>
+                        {couponError && (
+                          <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wider ml-1 mt-1">{couponError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
               </div>
             )}
 

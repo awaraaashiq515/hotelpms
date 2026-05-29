@@ -63,7 +63,7 @@ async function seedPackages() {
       discountPercent: 20,
       isActive: true,
       color: '#f59e0b',
-      features: ['POS', 'HMS', 'INVENTORY', 'REPORTS', 'STAFF', 'TABLES', 'TABLETS', 'GST', 'ACCOUNTING', 'DRIVERS', 'OFFERS', 'WEBSITE'],
+      features: ['POS', 'HMS', 'INVENTORY', 'REPORTS', 'STAFF', 'TABLES', 'TABLETS', 'GST', 'ACCOUNTING', 'DRIVERS', 'OFFERS', 'WEBSITE', 'CRM', 'B2B'],
       permissions: [
         { module: 'orders', action: 'read' },
         { module: 'orders', action: 'create' },

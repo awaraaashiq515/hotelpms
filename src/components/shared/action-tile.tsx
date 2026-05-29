@@ -52,16 +52,16 @@ export const ActionTile: React.FC<ActionTileProps> = ({
     <button 
       type="button"
       onClick={handleClick}
-      className="group flex flex-col items-center justify-center gap-3 p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md hover:border-pos-primary/40 dark:hover:border-pos-primary/40 transition-all active:scale-95 text-center min-h-[120px] w-full cursor-pointer outline-none focus:ring-2 focus:ring-pos-primary/20"
+      className="group flex flex-col items-center justify-center gap-2.5 p-3.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md hover:border-pos-primary/40 dark:hover:border-pos-primary/40 transition-all active:scale-95 text-center min-h-[105px] w-full cursor-pointer outline-none focus:ring-2 focus:ring-pos-primary/20"
     >
-      <div className={`p-3 rounded-xl transition-all duration-300 ${
+      <div className={`p-2.5 rounded-xl transition-all duration-300 ${
         variant === 'config' 
           ? 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500 group-hover:bg-pos-primary group-hover:text-white' 
           : 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 group-hover:bg-pos-primary group-hover:text-white'
       }`}>
-        <Icon size={24} strokeWidth={1.5} />
+        <Icon size={20} strokeWidth={1.5} />
       </div>
-      <span className="text-[12px] font-semibold text-gray-700 dark:text-white group-hover:text-pos-primary leading-tight px-1 uppercase tracking-tight">
+      <span className="text-[11px] font-semibold text-gray-700 dark:text-white group-hover:text-pos-primary leading-tight px-1 uppercase tracking-tight">
         {label}
       </span>
     </button>

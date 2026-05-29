@@ -6,17 +6,29 @@ import { getMultiTenantWhere } from '@/lib/api-utils';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) {
+    const { searchParams } = new URL(request.url);
+    const tabletId = searchParams.get('tabletId');
+
+    let propertyId: string | null = null;
+
+    if (session) {
+      let propertyIdParam = searchParams.get('propertyId');
+      if (propertyIdParam === 'null' || propertyIdParam === 'undefined' || !propertyIdParam) {
+        propertyIdParam = null;
+      }
+      const where = getMultiTenantWhere(session, propertyIdParam);
+      propertyId = where.propertyId || null;
+    } else if (tabletId) {
+      // Tablet-based auth: resolve propertyId from the tablet
+      const tablet = await prisma.tablet.findUnique({ where: { id: tabletId }, include: { property: true } });
+      if (tablet) propertyId = tablet.propertyId;
+    }
+
+    if (!propertyId && !session) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    let propertyIdParam = searchParams.get('propertyId');
-    if (propertyIdParam === 'null' || propertyIdParam === 'undefined' || !propertyIdParam) {
-      propertyIdParam = null;
-    }
-    const where = getMultiTenantWhere(session, propertyIdParam);
-
+    const where = propertyId ? { propertyId, isActive: true } : getMultiTenantWhere(session!, null);
     console.log('[API Drivers] GET Fetching with where:', JSON.stringify(where));
 
     const drivers = await prisma.driver.findMany({

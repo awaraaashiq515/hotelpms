@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       where: {
         ...where,
         ...(outletId ? { outletId } : {}),
-        ...(status ? { status } : {}),
+        ...(status ? { status } : { status: { not: 'PRINTED_ONLY' } }),
         ...(date ? dateFilter : {}),
       },
       include: {
@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
             orderType: true,
             tableNo: true,
             roomId: true,
+            preparationTime: true,
           }
         },
         items: {

@@ -34,17 +34,18 @@ export async function PUT(
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { firstName, lastName, email, mobile, address, gender } = body;
+    const { firstName, lastName, email, mobile, address, gender, birthDate } = body;
 
     const customer = await prisma.guest.update({
       where: { id },
       data: {
         firstName,
         lastName,
-        email,
-        mobile,
+        email: email || null,
+        mobile: mobile || null,
         address,
         gender,
+        birthDate: birthDate ? new Date(birthDate) : null,
       },
     });
 

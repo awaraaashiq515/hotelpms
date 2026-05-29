@@ -7,7 +7,7 @@ import {
   Search, Filter, ChevronRight,
   Map, Monitor, Utensils,
   Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft,
-  CarFront, Home
+  CarFront, Home, Settings, User as UserIcon
 } from 'lucide-react';
 import { QRModal } from '@/components/tables/QRModal';
 import { Button } from '@/components/ui/Button';
@@ -48,17 +48,13 @@ export default function TableManagementPage() {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [activeFloorId, setActiveFloorId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('pos_active_floor_id');
-    }
-    return null;
-  });
+  const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isSettingsView, setIsSettingsView] = useState(false);
   const [isFinalInvoice, setIsFinalInvoice] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [propertyData, setPropertyData] = useState<any>(null);
@@ -124,6 +120,12 @@ export default function TableManagementPage() {
   const [isWasteModalOpen, setIsWasteModalOpen] = useState(false);
   const [wasteOrderData, setWasteOrderData] = useState<any | null>(null);
   const [wasteLoading, setWasteLoading] = useState(false);
+
+  // Waiter/Staff selection
+  const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  const [showWaiterDropdown, setShowWaiterDropdown] = useState(false);
+  const [waiterSearchQuery, setWaiterSearchQuery] = useState('');
+  const [selectedWaiterFilter, setSelectedWaiterFilter] = useState<string>('');
 
   const fetchOrderPrintData = async (orderId: string) => {
     try {
@@ -228,17 +230,29 @@ export default function TableManagementPage() {
 
 
 
-  const fetchData = async () => {
+  const fetchStaticData = async () => {
     try {
-      const [floorsRes, pmRes, custRes] = await Promise.all([
-        fetch('/api/floors'),
+      const [pmRes, custRes] = await Promise.all([
         fetch('/api/payment-modes'),
         fetch('/api/customers')
       ]);
-
-      const fData = await floorsRes.json();
       const pData = await pmRes.json();
       const cData = await custRes.json();
+      if (pData.success) {
+        setPaymentModes(pData.data);
+      }
+      if (cData.success || Array.isArray(cData)) {
+        setCustomers(Array.isArray(cData) ? cData : cData.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch static data:', err);
+    }
+  };
+
+  const fetchData = async () => {
+    try {
+      const floorsRes = await fetch('/api/floors');
+      const fData = await floorsRes.json();
 
       if (fData.success) {
         const newFloors = fData.data as Floor[];
@@ -285,16 +299,8 @@ export default function TableManagementPage() {
           localStorage.setItem('pos_active_floor_id', firstId);
         }
       }
-
-      if (pData.success) {
-        setPaymentModes(pData.data);
-      }
-
-      if (cData.success || Array.isArray(cData)) {
-        setCustomers(Array.isArray(cData) ? cData : cData.data || []);
-      }
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('Failed to fetch floors data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -363,10 +369,26 @@ export default function TableManagementPage() {
     setOpen(false);
   }, []);
 
+  const fetchStaffMembers = async () => {
+    try {
+      const res = await fetch('/api/staff-members');
+      const data = await res.json();
+      if (data.success) setStaffMembers(data.data);
+    } catch (err) {
+      console.error('Failed to fetch staff:', err);
+    }
+  };
+
   useEffect(() => {
+    const saved = localStorage.getItem('pos_active_floor_id');
+    if (saved) {
+      setActiveFloorId(saved);
+    }
+    fetchStaticData();
     fetchData();
     fetchPropertyData();
-    // Auto-refresh every 5 seconds
+    fetchStaffMembers();
+    // Auto-refresh floors data every 5 seconds (not static customer/payment mode data)
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -676,97 +698,19 @@ export default function TableManagementPage() {
       background: 'radial-gradient(circle at top right, #13141f, #050505 70%)',
       boxShadow: 'inset 0 0 100px rgba(0,0,0,0.8)'
     }}>
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in duration-300">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => router.push('/operations')}
-            className="rounded-2xl h-10 w-10 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <ChevronLeft size={18} />
-          </Button>
-          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-colors">
-            <Map size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-white tracking-tight transition-colors drop-shadow-md leading-none">Floor Operations</h1>
-            <p className="text-[9px] font-bold text-indigo-300/70 uppercase tracking-[0.2em] mt-1 transition-colors">Real-time Table Management</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-2xl border border-white/5 shadow-inner transition-colors">
-            <div className="px-3 py-1 text-center border-r border-white/10">
-              <p className="text-[8px] font-black text-white/40 uppercase tracking-wider transition-colors">Total</p>
-              <p className="text-xs font-black text-white transition-colors leading-none mt-0.5">{stats.total}</p>
-            </div>
-            <div className="px-3 py-1 text-center border-r border-white/10">
-              <p className="text-[8px] font-black text-emerald-400/80 uppercase tracking-wider transition-colors">Free</p>
-              <p className="text-xs font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)] transition-colors leading-none mt-0.5">{stats.vacant}</p>
-            </div>
-            <div className="px-3 py-1 text-center border-r border-white/10">
-              <p className="text-[8px] font-black text-red-400/80 uppercase tracking-wider transition-colors">Live</p>
-              <p className="text-xs font-black text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] transition-colors leading-none mt-0.5">{stats.occupied}</p>
-            </div>
-            <div className="px-3 py-1 text-center">
-              <p className="text-[8px] font-black text-blue-400/80 uppercase tracking-wider transition-colors">Billed</p>
-              <p className="text-xs font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] transition-colors leading-none mt-0.5">{stats.billed}</p>
-            </div>
-          </div>
-
-          <Button
-            variant={isEditMode ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`rounded-2xl h-10 px-4 font-black uppercase text-[10px] tracking-widest flex items-center shadow-lg transition-all ${isEditMode ? 'bg-pos-primary shadow-pos-primary/20 text-white' : ''}`}
-          >
-            {isEditMode ? 'Done Editing' : 'Edit Layout'}
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleRefresh}
-            loading={refreshing}
-            className="rounded-2xl h-10 w-10 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
-          </Button>
-
-          <Button
-            variant="secondary"
-            className="rounded-2xl h-10 px-4 font-black uppercase text-[9px] tracking-widest gap-1.5 flex items-center bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
-            onClick={handleNewFloor}
-          >
-            <Plus size={14} />
-            New Floor
-          </Button>
-
-          <Button
-            className="rounded-2xl h-10 px-4 font-black uppercase text-[9px] tracking-widest gap-1.5 flex items-center shadow-[0_0_20px_rgba(99,102,241,0.4)] bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 transition-all"
-            onClick={handleNewTable}
-          >
-            <Plus size={14} />
-            New Table
-          </Button>
-
-          <Button
-            variant="secondary"
-            className="rounded-2xl h-10 px-4 font-black uppercase text-[9px] tracking-widest gap-1.5 flex items-center bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
-            onClick={() => router.push('/operations/tables/qr-gallery')}
-          >
-            <QrCode size={14} />
-            QR Gallery
-          </Button>
-        </div>
-      </div>
-
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 bg-black/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden transition-colors relative z-10">
         {/* Floor Tabs */}
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 overflow-x-auto no-scrollbar transition-colors">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push('/operations')}
+            className="rounded-xl h-8 w-8 p-0 flex items-center justify-center bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
+          >
+            <ChevronLeft size={14} />
+          </Button>
+
           {loading ? (
             <Skeleton className="h-8 w-24 rounded-lg" count={3} />
           ) : (
@@ -779,6 +723,8 @@ export default function TableManagementPage() {
                   onClick={() => {
                     setActiveFloorId(floor.id);
                     localStorage.setItem('pos_active_floor_id', floor.id);
+                    setIsSettingsView(false);
+                    setIsEditMode(false);
                   }}
                   className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 ${activeFloorId === floor.id
                       ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
@@ -910,51 +856,319 @@ export default function TableManagementPage() {
           </div>
         )}
 
-        {/* Legend */}
-        <div className="px-6 py-3 bg-[#0a0c10] flex flex-wrap gap-6 border-b border-white/5">
-          {[
-            { label: 'Vacant', color: 'bg-emerald-400' },
-            { label: 'Occupied', color: 'bg-red-400' },
-            { label: 'KOT Running', color: 'bg-amber-400' },
-            { label: 'Ready', color: 'bg-teal-400' },
-            { label: 'Served', color: 'bg-slate-400' },
-            { label: 'Bill Printed', color: 'bg-blue-400' },
-            { label: 'Cleaning', color: 'bg-slate-600' },
-          ].map((item: any) => (
-            <div key={item.label} className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{item.label}</span>
+        {isSettingsView ? (
+          <div className="flex-1 p-6 overflow-y-auto space-y-8 animate-in fade-in slide-in-from-bottom duration-300">
+            {/* Header / Intro */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
+              <div>
+                <h2 className="text-lg font-black text-white tracking-tight">Layout Settings & Configurations</h2>
+                <p className="text-xs text-white/50 mt-1">Manage dining areas, design table layouts, and configure system properties.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={handleNewFloor}
+                  className="rounded-2xl h-10 px-4 font-black uppercase text-[10px] tracking-widest gap-1.5 flex items-center bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all shadow-lg"
+                >
+                  <Plus size={14} />
+                  New Floor
+                </Button>
+                <Button
+                  onClick={handleNewTable}
+                  className="rounded-2xl h-10 px-4 font-black uppercase text-[10px] tracking-widest gap-1.5 flex items-center bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+                >
+                  <Plus size={14} />
+                  New Table
+                </Button>
+              </div>
             </div>
-          ))}
-        </div>
 
-        {/* Grid / Layout View */}
-        <div className="flex-1 p-0 relative">
-          {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 p-6">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Designer Card */}
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 flex flex-col justify-between group shadow-xl">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] group-hover:scale-110 transition-transform">
+                    <Map size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Interactive Layout Designer</h3>
+                    <p className="text-xs text-white/40 mt-1.5 leading-relaxed">
+                      Rearrange, reposition, and resize dining tables visually for the active floor using drag-and-drop.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 pt-4 border-t border-white/5">
+                  <Button
+                    onClick={() => {
+                      setIsSettingsView(false);
+                      setIsEditMode(true);
+                    }}
+                    className="w-full rounded-2xl h-11 font-black uppercase text-[10px] tracking-widest bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 shadow-lg hover:shadow-indigo-500/20 transition-all"
+                  >
+                    Start Designing
+                  </Button>
+                </div>
+              </div>
+
+              {/* QR Codes Card */}
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 flex flex-col justify-between group shadow-xl">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)] group-hover:scale-110 transition-transform">
+                    <QrCode size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">QR Code Gallery</h3>
+                    <p className="text-xs text-white/40 mt-1.5 leading-relaxed">
+                      Access QR code scanner assets and pre-generated scan-to-order QR codes for all dining tables across floors.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 pt-4 border-t border-white/5">
+                  <Button
+                    onClick={() => router.push('/operations/tables/qr-gallery')}
+                    className="w-full rounded-2xl h-11 font-black uppercase text-[10px] tracking-widest bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-all shadow-lg"
+                  >
+                    Open QR Gallery
+                  </Button>
+                </div>
+              </div>
             </div>
-          ) : (
-            <TableLayoutView
-              tables={activeFloor?.tables || []}
-              onTableClick={handleTableClick}
-              onTableDoubleClick={handleTableDoubleClick}
-              selectedTableId={selectedTable?.id}
-              isEditMode={isEditMode}
-              onTablePositionChange={handleTablePositionChange}
-              onTableResize={handleTableResize}
-              onPrintKOT={handlePrintKOT}
-              onPrintBill={handlePrintBill}
-              onEditTable={(table) => {
-                setEditingTable(table);
-                setIsTableFormOpen(true);
-              }}
-              onDeleteTable={handleDeleteTable}
-              onSwitchTable={handleTableSwitch}
-              onResetTable={handleResetTable}
-            />
-          )}
-        </div>
+
+            {/* Detailed Lists */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Floors List Panel */}
+              <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-3xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                  <div>
+                    <h3 className="text-xs font-black text-white uppercase tracking-widest">Active Floors</h3>
+                    <p className="text-[10px] text-white/40 mt-0.5">Manage custom floors and order sequences.</p>
+                  </div>
+                  <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    {floors.length} Floors
+                  </span>
+                </div>
+                <div className="divide-y divide-white/5 max-h-[250px] overflow-y-auto no-scrollbar pr-1">
+                  {floors.map((floor, index) => (
+                    <div key={floor.id} className="flex items-center justify-between py-3 group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-white/60">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors">{floor.name}</p>
+                          <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Sequence Order: {floor.order}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            setEditingFloor(floor);
+                            setIsFloorEditModalOpen(true);
+                          }}
+                          className="w-8 h-8 rounded-lg hover:bg-white/10 border border-transparent hover:border-white/15 flex items-center justify-center text-white/60 hover:text-white transition-all"
+                          title="Edit Floor"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFloor(floor)}
+                          className="w-8 h-8 rounded-lg hover:bg-red-500/20 border border-transparent hover:border-red-500/30 flex items-center justify-center text-red-400/80 hover:text-red-400 transition-all"
+                          title="Delete Floor"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats & Info Card */}
+              <div className="bg-[#0b0c13] border border-white/10 rounded-3xl p-6 shadow-xl space-y-6 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-4">Floor Statistics</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
+                      <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Total Floors</p>
+                      <p className="text-xl font-black text-white mt-1">{floors.length}</p>
+                    </div>
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
+                      <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Total Tables</p>
+                      <p className="text-xl font-black text-indigo-400 mt-1">{stats.total}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 space-y-2">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Pro Tip</p>
+                  <p className="text-[11px] text-white/60 leading-relaxed">
+                    Double-clicking any vacant table directly on the floor maps will route you straight to the POS terminal billing with the table pre-selected.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Legend */}
+            <div className="px-6 py-2.5 bg-[#0a0c10] flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5">
+              <div className="flex flex-wrap gap-2.5 items-center">
+                {[
+                  { label: 'Vacant', color: 'bg-emerald-400' },
+                  { label: 'Occupied', color: 'bg-red-400' },
+                  { label: 'KOT Running', color: 'bg-amber-400' },
+                  { label: 'Ready', color: 'bg-teal-400' },
+                  { label: 'Served', color: 'bg-slate-400' },
+                  { label: 'Bill Printed', color: 'bg-blue-400' },
+                  { label: 'Cleaning', color: 'bg-slate-600' },
+                  { label: 'Hold', color: 'bg-purple-400' },
+                ].map((item: any) => (
+                  <div key={item.label} className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${item.color}`}></div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-white/40">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Waiter Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowWaiterDropdown(!showWaiterDropdown)}
+                    className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 border shadow-sm ${
+                      selectedWaiterFilter
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                    }`}
+                    title="Filter by Waiter"
+                  >
+                    <UserIcon size={12} />
+                    <span className="truncate max-w-[70px]">{selectedWaiterFilter ? (staffMembers.find(s => s.id === selectedWaiterFilter)?.name || 'Waiter') : 'Waiter'}</span>
+                    <span className="text-[6px]">▼</span>
+                  </button>
+                  {showWaiterDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowWaiterDropdown(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl p-2.5 border shadow-2xl animate-in fade-in slide-in-from-top-1 duration-200 z-40 bg-[#1a1a1a] border-white/10 text-slate-200 shadow-black/80">
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-black/20 rounded-lg border border-white/5 mb-1.5">
+                          <Search size={10} className="text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search waiter..."
+                            value={waiterSearchQuery}
+                            onChange={(e) => setWaiterSearchQuery(e.target.value)}
+                            className="bg-transparent text-[9px] font-bold outline-none text-white w-full placeholder:text-slate-500"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-36 overflow-y-auto no-scrollbar space-y-0.5">
+                          <button
+                            onClick={() => { setSelectedWaiterFilter(''); setShowWaiterDropdown(false); setWaiterSearchQuery(''); }}
+                            className="w-full text-left px-2 py-1 rounded text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-1"
+                          >
+                            ❌ All Waiters
+                          </button>
+                          {staffMembers
+                            .filter(s => s.isActive && (!waiterSearchQuery || s.name.toLowerCase().includes(waiterSearchQuery.toLowerCase())))
+                            .map(s => (
+                              <button
+                                key={s.id}
+                                onClick={() => { setSelectedWaiterFilter(s.id); setShowWaiterDropdown(false); setWaiterSearchQuery(''); }}
+                                className={`w-full text-left px-2 py-1 rounded text-[9px] font-black uppercase transition-colors truncate ${
+                                  selectedWaiterFilter === s.id
+                                    ? 'bg-emerald-500 text-white shadow-md'
+                                    : 'hover:bg-white/5 text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                {s.name}
+                              </button>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl shadow-md gap-3">
+                  <div className="text-center">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Total: </span>
+                    <span className="text-[11px] font-black text-white">{stats.total}</span>
+                  </div>
+                  <div className="h-3 w-[1px] bg-white/10" />
+                  <div className="text-center">
+                    <span className="text-[8px] font-black text-emerald-400/80 uppercase tracking-widest">Free: </span>
+                    <span className="text-[11px] font-black text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.4)]">{stats.vacant}</span>
+                  </div>
+                  <div className="h-3 w-[1px] bg-white/10" />
+                  <div className="text-center">
+                    <span className="text-[8px] font-black text-red-400/80 uppercase tracking-widest">Live: </span>
+                    <span className="text-[11px] font-black text-red-400 drop-shadow-[0_0_6px_rgba(248,113,113,0.4)]">{stats.occupied}</span>
+                  </div>
+                  <div className="h-3 w-[1px] bg-white/10" />
+                  <div className="text-center">
+                    <span className="text-[8px] font-black text-blue-400/80 uppercase tracking-widest">Billed: </span>
+                    <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_0_6px_rgba(96,165,250,0.4)]">{stats.billed}</span>
+                  </div>
+                </div>
+
+                {isEditMode ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsEditMode(false)}
+                    className="rounded-xl h-8 px-3.5 font-black uppercase text-[9px] tracking-widest flex items-center shadow-lg bg-pos-primary shadow-pos-primary/20 text-white animate-pulse"
+                  >
+                    Done Editing
+                  </Button>
+                ) : (
+                  <Button
+                    variant={isSettingsView ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => setIsSettingsView(!isSettingsView)}
+                    className={`rounded-xl h-8 px-3.5 font-black uppercase text-[9px] tracking-widest flex items-center gap-1.5 shadow-lg transition-all ${
+                      isSettingsView 
+                        ? 'bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400/50 shadow-indigo-500/20' 
+                        : 'bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <Settings size={12} />
+                    {isSettingsView ? 'View Floors' : 'Layout Settings'}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Grid / Layout View */}
+            <div className="flex-1 p-0 relative">
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 p-6">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+                </div>
+              ) : (
+                <TableLayoutView
+                  tables={activeFloor?.tables || []}
+                  onTableClick={handleTableClick}
+                  onTableDoubleClick={handleTableDoubleClick}
+                  selectedTableId={selectedTable?.id}
+                  isEditMode={isEditMode}
+                  onTablePositionChange={handleTablePositionChange}
+                  onTableResize={handleTableResize}
+                  onPrintKOT={handlePrintKOT}
+                  onPrintBill={handlePrintBill}
+                  onEditTable={(table) => {
+                    setEditingTable(table);
+                    setIsTableFormOpen(true);
+                  }}
+                  onDeleteTable={handleDeleteTable}
+                  onSwitchTable={handleTableSwitch}
+                  onResetTable={handleResetTable}
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
 
 
@@ -973,6 +1187,7 @@ export default function TableManagementPage() {
         onAddCustomer={async (data: { firstName: string; lastName: string; mobile: string }) => {
           const newGuest = await customersApi.create(data);
           if (newGuest) {
+            fetchStaticData();
             fetchData();
             return newGuest;
           }

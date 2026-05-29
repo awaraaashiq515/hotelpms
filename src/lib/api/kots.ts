@@ -44,6 +44,7 @@ export interface KotTicket {
     tableNo?: string;
     roomId?: string;
     createdAt?: string;
+    preparationTime?: number;
   };
   items: KotItem[];
   statusLogs?: KotStatusLog[];

@@ -5,9 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Plus, Search, Trash2, User as UserIcon, CreditCard, Percent, Pause, RotateCcw,
   Grid, List, ShoppingBag, Utensils, Minus, ChevronRight, ChevronLeft, Printer, 
-  Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode, Star,
+  Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode, Star, Receipt,
   Coffee, IceCream, Pizza, Soup, CookingPot, ChefHat, CupSoda,
-  Cake, Fish, Popcorn, Sandwich, Wine
+  Cake, Fish, Popcorn, Sandwich, Wine, Gift, Tag
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { productsApi, Product } from '@/lib/api/products';
@@ -33,6 +33,7 @@ interface CartItem extends Product {
   quantity: number;
   size?: string;
   cartItemId: string;
+  isComplimentary?: boolean;
 }
 
 // CosyPOS-style category colors — pastel for light mode, deep pastel for dark mode
@@ -110,6 +111,8 @@ export default function BillingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isOrderComplimentary, setIsOrderComplimentary] = useState(false);
+  const [isOrderPaid, setIsOrderPaid] = useState(false);
   const [loading, setLoading] = useState(true);
   const [settleLoading, setSettleLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -147,6 +150,19 @@ export default function BillingPage() {
   const [isValidatingMembership, setIsValidatingMembership] = useState(false);
   const [manualDiscount, setManualDiscount] = useState<number>(0);
   const [manualDiscountType, setManualDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  
+  // CRM Loyalty & Coupon states
+  const [redeemPointsInput, setRedeemPointsInput] = useState<number>(0);
+  const [couponCodeInput, setCouponCodeInput] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState<string>('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
+  const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const [showWaiterSearch, setShowWaiterSearch] = useState(false);
+  const [waiterSearchQuery, setWaiterSearchQuery] = useState('');
   // Driver selection for Delivery orders
   const [drivers, setDrivers] = useState<any[]>([]);
   const [driverSearch, setDriverSearch] = useState('');
@@ -229,6 +245,17 @@ export default function BillingPage() {
     }
   };
 
+  const fetchStaffMembers = async (propertyId?: string | null) => {
+    try {
+      const url = propertyId ? `/api/staff-members?propertyId=${propertyId}` : '/api/staff-members';
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) setStaffMembers(data.data);
+    } catch (err) {
+      console.error('Failed to fetch staff members:', err);
+    }
+  };
+
   const fetchAllActiveOrders = async () => {
     try {
       const res = await fetch('/api/floors');
@@ -239,6 +266,7 @@ export default function BillingPage() {
         if (propId && propId !== currentPropertyId) {
           setCurrentPropertyId(propId);
           fetchDrivers(propId); // fetch drivers scoped to THIS restaurant
+          fetchStaffMembers(propId); // fetch staff scoped to THIS restaurant
         }
 
         // Flatten all tables from all floors and get occupied ones
@@ -286,6 +314,7 @@ export default function BillingPage() {
       
       // Fetch drivers reliably on load
       fetchDrivers();
+      fetchStaffMembers();
     } catch (err) {
       addToast('error', 'Error loading POS data');
     } finally {
@@ -316,6 +345,7 @@ export default function BillingPage() {
         // Use the first order as the "active" one for metadata purposes
         const firstOrder = allOrders[0];
         setActiveOrder(firstOrder);
+        setSelectedStaffId(firstOrder.staffMemberId || '');
         
         if (firstOrder.orderType) {
           setOrderType(firstOrder.orderType === 'TAKEAWAY' ? 'PICKUP' : firstOrder.orderType);
@@ -498,7 +528,7 @@ export default function BillingPage() {
     });
   };
 
-  const handleSimpleSave = async () => {
+  const handleSimpleSave = async (actionType: 'SAVE' | 'HOLD' = 'SAVE') => {
     if (cart.length === 0) return;
     setSaveLoading(true);
     try {
@@ -506,8 +536,9 @@ export default function BillingPage() {
         restaurantTableId: tableId || undefined,
         parkingSlotId: parkingSlotId || undefined,
         orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
+        staffMemberId: selectedStaffId || undefined,
         items: cart.map((item: any) => {
-          const itemTotalGross = item.sellingPrice * item.quantity;
+          const itemTotalGross = isOrderComplimentary ? 0 : (item.sellingPrice * item.quantity);
           const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
           const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
           
@@ -524,7 +555,7 @@ export default function BillingPage() {
           return {
             productId: item.id,
             quantity: item.quantity,
-            unitPrice: item.sellingPrice,
+            unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
             taxAmount: itemTax,
             discountAmount: itemDiscount,
             portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
@@ -539,7 +570,8 @@ export default function BillingPage() {
         deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
         deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
         deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
-        deliveryInstructions: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryInstructions || undefined : undefined
+        deliveryInstructions: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryInstructions || undefined : undefined,
+        holdOrder: actionType === 'HOLD' ? true : undefined
       };
 
       const response = await fetch('/api/pos-orders', {
@@ -549,7 +581,7 @@ export default function BillingPage() {
       });
       const result = await response.json();
       if (result.success) {
-        addToast('success', 'Order saved successfully');
+        addToast('success', actionType === 'HOLD' ? 'Order held successfully' : 'Order saved successfully');
         // Refresh active order to sync (get core IDs, items properly linked)
         fetchActiveOrder();
         fetchAllActiveOrders();
@@ -557,7 +589,7 @@ export default function BillingPage() {
         router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
       }
     } catch (err) {
-      addToast('error', 'Failed to save order');
+      addToast('error', actionType === 'HOLD' ? 'Failed to hold order' : 'Failed to save order');
     } finally {
       setSaveLoading(false);
     }
@@ -571,8 +603,9 @@ export default function BillingPage() {
         restaurantTableId: tableId || undefined,
         parkingSlotId: parkingSlotId || undefined,
         orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
+        staffMemberId: selectedStaffId || undefined,
         items: cart.map((item: any) => {
-          const itemTotalGross = item.sellingPrice * item.quantity;
+          const itemTotalGross = isOrderComplimentary ? 0 : (item.sellingPrice * item.quantity);
           const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
           const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
           
@@ -589,7 +622,7 @@ export default function BillingPage() {
           return {
             productId: item.id,
             quantity: item.quantity,
-            unitPrice: item.sellingPrice,
+            unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
             taxAmount: itemTax,
             discountAmount: itemDiscount,
             portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
@@ -698,7 +731,7 @@ export default function BillingPage() {
           parkingSlotId: parkingSlotId || undefined,
           orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
           items: cart.map((item: any) => {
-            const itemTotalGross = item.sellingPrice * item.quantity;
+            const itemTotalGross = isOrderComplimentary ? 0 : (item.sellingPrice * item.quantity);
             const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
             const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
             
@@ -715,7 +748,7 @@ export default function BillingPage() {
             return {
               productId: item.id,
               quantity: item.quantity,
-              unitPrice: item.sellingPrice,
+              unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
               taxAmount: itemTax,
               discountAmount: itemDiscount,
               portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
@@ -757,12 +790,13 @@ export default function BillingPage() {
     const hasCartItems = cart.length > 0;
     
     const orderToPrint = hasCartItems ? {
+      id: activeOrder?.id,
       orderNo: activeOrder?.orderNo || `POS-${Date.now()}`,
       tableNo: slotName || tableName || activeOrder?.tableNo || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Take Away' : 'Walk-in'),
       items: cart.map((item: any) => ({
         product: item,
         quantity: item.quantity,
-        unitPrice: item.sellingPrice,
+        unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
         productId: item.id
       })),
       subtotal: displayedSubtotal,
@@ -791,6 +825,7 @@ export default function BillingPage() {
       orderId: orderToPrint.id,
       tableId: tableId || undefined,
       driverId: selectedDriver?.id || activeOrder?.driverId,
+      staffMemberId: selectedStaffId || activeOrder?.staffMemberId || undefined,
       membershipDiscount: membershipDiscountAmount || orderToPrint.membershipDiscount || 0,
       manualDiscount: manualDiscountAmount || orderToPrint.manualDiscount || 0,
       membershipCard: membershipCard || orderToPrint.membershipCard
@@ -812,6 +847,7 @@ export default function BillingPage() {
         restaurantTableId: tableId || undefined,
         parkingSlotId: parkingSlotId || undefined,
         orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
+        staffMemberId: selectedStaffId || undefined,
         paymentModeId: paymentModeId,
         guestId: guestId || selectedGuestId || undefined,
         driverId: driverId || selectedDriver?.id || undefined,
@@ -819,11 +855,13 @@ export default function BillingPage() {
         membershipCardId: membershipCard?.id || null,
         membershipDiscount: membershipDiscountAmount || 0,
         manualDiscount: manualDiscountAmount || 0,
+        couponCode: appliedCoupon?.code || undefined,
+        loyaltyPointsRedeemed: redeemPointsInput || undefined,
         items: cart.map((item: any) => ({
           id: item.id,
           name: item.name,
           quantity: item.quantity,
-          unitPrice: item.sellingPrice,
+          unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
           portion: item.size === 'Half' || item.size === 'Full' ? item.size : null,
           variantName: item.size !== 'Half' && item.size !== 'Full' ? item.size : null,
           variantId: item.variantId
@@ -917,6 +955,42 @@ export default function BillingPage() {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput) return;
+    setIsValidatingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/marketing/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: couponCodeInput,
+          guestId: selectedGuestId || undefined,
+          orderTotal: grossSubtotal
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAppliedCoupon(data.data);
+        addToast('success', 'Coupon applied successfully!');
+      } else {
+        setCouponError(data.message || 'Invalid coupon');
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      setCouponError('Error validating coupon');
+      setAppliedCoupon(null);
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCodeInput('');
+    setCouponError('');
+  };
+
   useEffect(() => {
     if (selectedGuestId) {
       const guest = customers.find(c => c.id === selectedGuestId);
@@ -952,7 +1026,7 @@ export default function BillingPage() {
     return matchesCategory && matchesSearch && c.isActive !== false;
   });
 
-  const grossSubtotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
+  const grossSubtotal = cart.reduce((acc, item) => acc + (isOrderComplimentary ? 0 : (item.sellingPrice * item.quantity)), 0);
   
   let membershipDiscountAmount = 0;
   if (membershipCard) {
@@ -975,11 +1049,28 @@ export default function BillingPage() {
     }
   }
 
-  const combinedDiscount = membershipDiscountAmount + manualDiscountAmount;
+  let couponDiscountCalculated = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === 'PERCENTAGE') {
+      couponDiscountCalculated = (grossSubtotal * appliedCoupon.discountValue) / 100;
+      if (appliedCoupon.maxDiscount) {
+        couponDiscountCalculated = Math.min(couponDiscountCalculated, appliedCoupon.maxDiscount);
+      }
+    } else {
+      couponDiscountCalculated = appliedCoupon.discountValue;
+    }
+  }
+
+  let loyaltyDiscountCalculated = 0;
+  if (selectedGuestId && redeemPointsInput > 0) {
+    loyaltyDiscountCalculated = Number(redeemPointsInput) * 1.0;
+  }
+
+  const combinedDiscount = membershipDiscountAmount + manualDiscountAmount + couponDiscountCalculated + loyaltyDiscountCalculated;
 
   // Calculate dynamic subtotal, taxes, and grand total based on product settings
   const { totalNetSubtotal, totalTax, totalPayable } = cart.reduce((acc, item) => {
-    const itemTotalGross = item.sellingPrice * item.quantity;
+    const itemTotalGross = isOrderComplimentary ? 0 : (item.sellingPrice * item.quantity);
     // Calculate proportional discount for this item based on its share of the total gross subtotal
     const itemDiscount = grossSubtotal > 0 ? (itemTotalGross / grossSubtotal) * combinedDiscount : 0;
     const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
@@ -1644,11 +1735,13 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                 (order.status === 'KOT_RUNNING' || order.status === 'IN_KITCHEN') ? '#f97316'
                 : order.status === 'BILL_PRINTED' ? '#3b82f6'
                 : order.status === 'OCCUPIED' ? '#22c55e'
+                : order.status === 'HOLD' ? '#a855f7'
                 : '#94a3b8';
               const statusLabel =
                 (order.status === 'KOT_RUNNING' || order.status === 'IN_KITCHEN') ? 'In Kitchen'
                 : order.status === 'BILL_PRINTED' ? 'Bill Printed'
                 : order.status === 'OCCUPIED' ? 'In process'
+                : order.status === 'HOLD' ? 'Hold'
                 : 'Open';
 
               return (
@@ -1704,7 +1797,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
       </div>
 
       {/* RIGHT SIDEBAR - Cart & Checkout (Dark/Sleek) */}
-      <div className={`w-[420px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full sticky top-0 shadow-2xl z-10 transition-all duration-300`}>
+      <div className={`w-[460px] ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/20'} border-l flex flex-col h-full sticky top-0 shadow-2xl z-10 transition-all duration-300`}>
         {/* Fixed Header */}
         <div className="p-3 pb-1 flex flex-col gap-2">
            <div className="flex items-center justify-between">
@@ -1715,27 +1808,110 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  </p>
               </div>
               
-              {/* ── Guests Counter (Header Integrated) ── */}
-              {orderType === 'DINE_IN' && (
-                <div className={`flex items-center gap-1 bg-black/20 dark:bg-white/5 rounded-2xl p-1 border border-white/5 shadow-inner`}>
-                  <button 
-                    onClick={() => setGuestCount(g => Math.max(1, g - 1))} 
-                    className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors text-slate-400"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <div className="px-2 flex flex-col items-center leading-none">
-                    <span className="text-[12px] font-black">{guestCount}</span>
-                    <span className="text-[7px] font-black uppercase opacity-40">Pax</span>
-                  </div>
-                  <button 
-                    onClick={() => setGuestCount(g => Math.min(30, g + 1))} 
-                    className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors text-slate-400"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-2 ml-auto">
+                 {/* Custom Searchable Waiter Dropdown Popover */}
+                 <div className="relative">
+                   <button
+                     onClick={() => setShowWaiterSearch(!showWaiterSearch)}
+                     className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 border shadow-sm ${
+                       selectedStaffId 
+                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 dark:text-emerald-450 hover:bg-emerald-500/20' 
+                         : theme === 'dark' 
+                           ? 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white' 
+                           : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                     }`}
+                     title="Select Order Waiter/Staff"
+                   >
+                     <span className="truncate max-w-[80px]">👤 {selectedStaffId ? (staffMembers.find(s => s.id === selectedStaffId)?.name || 'Waiter') : 'Waiter'}</span>
+                     <span className="text-[6px]">▼</span>
+                   </button>
+
+                   {showWaiterSearch && (
+                     <>
+                       <div className="fixed inset-0 z-30" onClick={() => setShowWaiterSearch(false)} />
+                       <div className={`absolute right-0 top-full mt-1.5 w-48 rounded-2xl p-2.5 border shadow-2xl animate-in fade-in slide-in-from-top-1 duration-200 z-40 ${
+                         theme === 'dark' 
+                           ? 'bg-[#1a1a1a] border-white/10 text-slate-200 shadow-black/80' 
+                           : 'bg-white border-slate-200 text-slate-800'
+                       }`}>
+                         {/* Search Input */}
+                         <div className={`flex items-center gap-1.5 px-2 py-1 bg-black/10 dark:bg-black/20 rounded-lg border border-white/5 mb-1.5`}>
+                           <Search size={10} className="text-slate-400" />
+                           <input
+                             type="text"
+                             placeholder="Search waiter..."
+                             value={waiterSearchQuery}
+                             onChange={(e) => setWaiterSearchQuery(e.target.value)}
+                             className="bg-transparent text-[9px] font-bold outline-none text-white w-full placeholder:text-slate-500"
+                             autoFocus
+                           />
+                         </div>
+
+                         {/* Options list */}
+                         <div className="max-h-36 overflow-y-auto no-scrollbar space-y-0.5">
+                           <button
+                             onClick={() => {
+                               setSelectedStaffId('');
+                               setShowWaiterSearch(false);
+                               setWaiterSearchQuery('');
+                             }}
+                             className="w-full text-left px-2 py-1 rounded text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-1"
+                           >
+                             ❌ Clear Selection
+                           </button>
+                           {staffMembers
+                             .filter(s => s.isActive && (!waiterSearchQuery || s.name.toLowerCase().includes(waiterSearchQuery.toLowerCase())))
+                             .map(s => (
+                               <button
+                                 key={s.id}
+                                 onClick={() => {
+                                   setSelectedStaffId(s.id);
+                                   setShowWaiterSearch(false);
+                                   setWaiterSearchQuery('');
+                                 }}
+                                 className={`w-full text-left px-2 py-1 rounded text-[9px] font-black uppercase transition-colors truncate ${
+                                   selectedStaffId === s.id 
+                                     ? 'bg-pos-primary text-white shadow-md' 
+                                     : theme === 'dark'
+                                       ? 'hover:bg-white/5 text-slate-400 hover:text-white'
+                                       : 'hover:bg-slate-50 text-slate-600 hover:text-slate-800'
+                                 }`}
+                               >
+                                 {s.name}
+                               </button>
+                             ))
+                           }
+                           {staffMembers.filter(s => s.isActive && (!waiterSearchQuery || s.name.toLowerCase().includes(waiterSearchQuery.toLowerCase()))).length === 0 && (
+                             <p className="text-[8px] text-slate-500 font-bold uppercase text-center py-2.5">No matching staff</p>
+                           )}
+                         </div>
+                       </div>
+                     </>
+                   )}
+                 </div>
+                  
+                  {/* ── Guests Counter (Header Integrated) ── */}
+                  {orderType === 'DINE_IN' && (
+                    <div className={`flex items-center gap-1 bg-black/20 dark:bg-white/5 rounded-2xl p-0.5 border border-white/5 shadow-inner`}>
+                      <button 
+                        onClick={() => setGuestCount(g => Math.max(1, g - 1))} 
+                        className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors text-slate-400"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <div className="px-1.5 flex flex-col items-center leading-none">
+                        <span className="text-[12px] font-black">{guestCount}</span>
+                        <span className="text-[7px] font-black uppercase opacity-40">Pax</span>
+                      </div>
+                      <button 
+                        onClick={() => setGuestCount(g => Math.min(30, g + 1))} 
+                        className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors text-slate-400"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  )}
+               </div>
            </div>
         </div>
 
@@ -1875,7 +2051,6 @@ Total Amount: ₹${grandTotal.toFixed(2)}
               </div>
             )}
 
-
            {/* 🛒 3. CART ITEMS LIST */}
            <div className="space-y-2">
              <div className="flex items-center justify-between ml-1">
@@ -1883,7 +2058,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  🛒 Items in Cart
                </span>
                {cart.length > 0 && (
-                 <span className="text-[9px] font-black uppercase tracking-wider text-pos-primary bg-pos-primary/10 px-2 py-0.5 rounded-md">
+                 <span className="text-[8px] font-black uppercase tracking-wider text-pos-primary bg-pos-primary/10 px-2 py-0.5 rounded-md">
                    {cart.length} {cart.length === 1 ? 'Item' : 'Items'}
                  </span>
                )}
@@ -1897,72 +2072,72 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  <p className="font-black text-[9px] uppercase tracking-[0.2em] text-slate-400">Your Cart is Empty</p>
                </div>
              ) : (
-               <div className="space-y-2">
+               <div className="space-y-1">
                   {cart.map((item: any) => (
-                   <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
-                     <div className="flex flex-col gap-0.5 relative z-10">
-                       {/* Compact Header: Name, Price, Qty & Trash */}
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1 min-w-0 pr-2">
-                           <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
-                             {item.name.split('(')[0].trim()}
-                           </h4>
-                           <div className="flex items-center gap-1.5 mt-0.5">
-                             <span className="text-[12px] text-pos-primary font-black">₹{(item.sellingPrice * item.quantity).toFixed(0)}</span>
-                             <span className="text-[8px] text-slate-500 font-bold opacity-40">/ ₹{item.sellingPrice.toFixed(0)}</span>
-                           </div>
-                         </div>
-                         
-                         <div className="flex items-center gap-1">
-                           <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
-                             <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
-                               <Minus size={10} strokeWidth={4} />
-                             </button>
-                             <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
-                             <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
-                               <Plus size={10} strokeWidth={4} />
-                             </button>
-                           </div>
-                           <button 
-                             onClick={() => removeFromCart(item.cartItemId)}
-                             className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
-                           >
-                             <Trash2 size={10} />
-                           </button>
-                         </div>
-                       </div>
+                    <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
+                      <div className="flex flex-col gap-0.5 relative z-10">
+                        {/* Compact Header: Name, Price, Qty & Trash */}
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
+                              {item.name.split('(')[0].trim()}
+                            </h4>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[12px] text-pos-primary font-black">₹{isOrderComplimentary ? '0' : (item.sellingPrice * item.quantity).toFixed(0)}</span>
+                              <span className="text-[8px] text-slate-500 font-bold opacity-40">/ ₹{isOrderComplimentary ? '0' : item.sellingPrice.toFixed(0)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
+                              <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
+                                <Minus size={10} strokeWidth={4} />
+                              </button>
+                              <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
+                              <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
+                                <Plus size={10} strokeWidth={4} />
+                              </button>
+                            </div>
+                            <button 
+                              onClick={() => removeFromCart(item.cartItemId)}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </div>
+                        </div>
 
-                       {/* Compact Grid: Sizes/Variants */}
-                       <div className="grid grid-cols-2 gap-1.5">
-                         {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
-                           <>
-                             <button
-                               onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
-                               className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                             >
-                               Half
-                             </button>
-                             <button
-                               onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
-                               className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                             >
-                               Full
-                             </button>
-                           </>
-                         )}
+                        {/* Compact Grid: Sizes/Variants */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
+                                className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                              >
+                                Half
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
+                                className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                              >
+                                Full
+                              </button>
+                            </>
+                          )}
 
-                         {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
-                           <button 
-                             key={v.id}
-                             onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
-                             className={`text-[9px] py-2 px-1 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                           >
-                             {v.name}
-                           </button>
-                         ))}
-                       </div>
-                     </div>
-                   </div>
+                          {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
+                            <button 
+                              key={v.id}
+                              onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
+                              className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                            >
+                              {v.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                  ))}
                </div>
              )}
@@ -2118,114 +2293,152 @@ Total Amount: ₹${grandTotal.toFixed(2)}
 
         </div>
         
+        {/* Discount Section - Separate */}
+        <div className={`px-3 py-1.5 ${theme === 'dark' ? 'bg-[#151515] border-white/5' : 'bg-emerald-50/50 border-emerald-100'} border-t`}>
+          {showDiscountInput ? (
+            <div className="flex items-center gap-2 animate-in slide-in-from-bottom-1 duration-200">
+              <Percent size={10} className="text-emerald-500 flex-shrink-0" />
+              <input 
+                type="number"
+                placeholder="Amount"
+                value={manualDiscount || ''}
+                onChange={(e) => setManualDiscount(Number(e.target.value))}
+                className="bg-transparent text-[10px] font-black outline-none text-slate-800 dark:text-slate-100 w-16 px-1.5 py-0.5 border-b border-emerald-500/30 focus:border-emerald-500"
+                autoFocus
+              />
+              <button
+                onClick={() => setManualDiscountType(manualDiscountType === 'PERCENTAGE' ? 'FIXED' : 'PERCENTAGE')}
+                className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-md text-[9px] font-black text-emerald-600 dark:text-emerald-400 transition-all border border-emerald-500/20"
+              >
+                {manualDiscountType === 'PERCENTAGE' ? '%' : '₹'}
+              </button>
+              <button 
+                onClick={() => setShowDiscountInput(false)}
+                className="text-[8px] font-black text-rose-500 hover:text-rose-400 uppercase tracking-widest ml-auto px-1.5 py-0.5 hover:bg-rose-500/10 rounded transition-all"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setShowDiscountInput(true)}
+              className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 transition-all hover:gap-2 py-0.5"
+            >
+              <Percent size={10} /> Add Discount {combinedDiscount > 0 && <span className="text-[8px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-md">-₹{combinedDiscount.toFixed(0)}</span>}
+            </button>
+          )}
+        </div>
+
         {/* Totals & Checkout Section */}
         <div className={`p-2 ${theme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-slate-50 border-slate-200'} border-t space-y-1 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]`}>
-          <div className="space-y-1">
-
-
-            {/* Manual Discount Field */}
-            <div className={`relative flex items-center gap-2.5 ${theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border-slate-200'} px-3 py-1.5 rounded-2xl border group transition-all focus-within:border-emerald-500/40 shadow-sm`}>
-               <div 
-                 onClick={() => setManualDiscountType(t => t === 'PERCENTAGE' ? 'FIXED' : 'PERCENTAGE')}
-                 className={`w-6 h-6 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${manualDiscountType === 'PERCENTAGE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}
-               >
-                 {manualDiscountType === 'PERCENTAGE' ? <Percent size={12} /> : <span className="text-[9px] font-black">₹</span>}
-               </div>
-               <input 
-                 type="number"
-                 placeholder="Add Discount..."
-                 value={manualDiscount || ''}
-                 onChange={(e) => setManualDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                 className="w-full bg-transparent text-[11px] font-bold outline-none placeholder:opacity-50"
-               />
-               {manualDiscount > 0 && (
-                 <button 
-                   onClick={() => setManualDiscount(0)}
-                   className="text-slate-500 hover:text-rose-500 transition-colors"
-                 >
-                   <Trash2 size={14} />
-                 </button>
-               )}
-            </div>
+          {/* Global Order Toggles */}
+          <div className="flex items-center gap-4 px-1 pb-1">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={isOrderComplimentary}
+                onChange={(e) => setIsOrderComplimentary(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-pos-primary focus:ring-pos-primary cursor-pointer"
+              />
+              <span className={`text-[10px] font-black uppercase tracking-wider ${isOrderComplimentary ? 'text-pos-primary' : 'text-slate-500'}`}>Complimentary</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={isOrderPaid}
+                onChange={(e) => setIsOrderPaid(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className={`text-[10px] font-black uppercase tracking-wider ${isOrderPaid ? 'text-emerald-500' : 'text-slate-500'}`}>It's Paid</span>
+            </label>
           </div>
 
           <div className="space-y-1">
-            <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest px-1">
-              <span>Sub-Total</span>
-              <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{displayedSubtotal.toFixed(2)}</span>
-            </div>
-            {combinedDiscount > 0 && (
-              <div className="flex justify-between items-center text-[11px] font-black text-rose-500 uppercase tracking-widest px-1">
-                <span>Discount</span>
-                <span>-₹{combinedDiscount.toFixed(2)}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center text-[11px] font-black text-slate-500 uppercase tracking-widest px-1">
-              <span>{taxLabel}</span>
-              <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}>₹{tax.toFixed(2)}</span>
-            </div>
-            <div className="h-px bg-slate-500/10 my-2" />
             <div className="flex justify-between items-end">
               <div>
-                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 block px-1">Total Payable</span>
+                 {membershipDiscountAmount > 0 && <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest block px-1">Card Disc: -₹{membershipDiscountAmount.toFixed(0)}</span>}
+                 {manualDiscountAmount > 0 && <span className="text-[8px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest block px-1">Manual Disc: -₹{manualDiscountAmount.toFixed(0)}</span>}
+                 {couponDiscountCalculated > 0 && <span className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest block px-1">Coupon ({appliedCoupon?.code}): -₹{couponDiscountCalculated.toFixed(0)}</span>}
+                 {loyaltyDiscountCalculated > 0 && <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block px-1">Loyalty Points: -₹{loyaltyDiscountCalculated.toFixed(0)}</span>}
+                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 block px-1">
+                   Total Payable (Incl. {taxLabel}: ₹{tax.toFixed(2)}{combinedDiscount > 0 ? `, Disc: -₹${combinedDiscount.toFixed(2)}` : ''})
+                 </span>
                  <p className="text-2xl font-black text-pos-primary tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
               </div>
               <div className="flex flex-col items-end">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
-                  <ShoppingBag size={24} />
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
+                  <ShoppingBag size={20} />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
-               onClick={() => handlePrintKOT(true)}
-               loading={saveLoading}
-               disabled={cart.length === 0}
-               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
-                 ${theme === 'dark' 
-                   ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-500' 
-                   : 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700/10 shadow-lg shadow-emerald-600/20'}`}
-            >
-              <Printer size={14} /> PRINT KOT
-            </Button>
-            <Button 
-               onClick={() => handlePrintKOT(false)}
-               loading={saveLoading}
-               disabled={cart.length === 0}
-               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
-                 ${theme === 'dark' 
-                   ? 'bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-500' 
-                   : 'bg-teal-600 text-white hover:bg-teal-700 border-teal-700/10 shadow-lg shadow-teal-600/20'}`}
-            >
-               <CheckCircle2 size={14} /> SAVE & KOT
-            </Button>
-            <Button 
-               onClick={handleSimpleSave}
-               loading={saveLoading}
-               disabled={cart.length === 0}
-               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
-                 ${theme === 'dark' 
-                   ? 'bg-blue-500/10 hover:bg-blue-500 hover:text-white border-blue-500/20 text-blue-500' 
-                   : 'bg-blue-600 text-white hover:bg-blue-700 border-blue-700/10 shadow-lg shadow-blue-600/20'}`}
-            >
-              <Save size={14} /> SAVE
-            </Button>
-            <Button 
-               disabled={cart.length === 0 && !activeOrder}
-               onClick={() => {
-                 setIsProforma(true);
-                 setAutoPrint(false); 
-                 handlePrintBill(false); 
-               }}
-               className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 border
-                 ${theme === 'dark' 
-                   ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-500' 
-                   : 'bg-rose-600 text-white hover:bg-rose-700 border-rose-700/10 shadow-lg shadow-rose-600/20'}`}
-            >
-               <CreditCard size={14} /> SETTLE (F1)
-            </Button>
+          <div className="flex flex-col gap-2 pt-1">
+            {/* Top Row: Exactly 2 Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                 onClick={() => handlePrintKOT(true)}
+                 loading={saveLoading}
+                 disabled={cart.length === 0}
+                 className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border
+                   ${theme === 'dark' 
+                     ? 'bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-455' 
+                     : 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700/10 shadow-lg shadow-emerald-600/15'}`}
+              >
+                <Printer size={13} /> PRINT KOT
+              </Button>
+              <Button 
+                 onClick={() => handlePrintKOT(false)}
+                 loading={saveLoading}
+                 disabled={cart.length === 0}
+                 className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border
+                   ${theme === 'dark' 
+                     ? 'bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-455' 
+                     : 'bg-teal-600 text-white hover:bg-teal-700 border-teal-700/10 shadow-lg shadow-teal-600/15'}`}
+              >
+                 <CheckCircle2 size={13} /> SAVE & KOT
+              </Button>
+            </div>
+
+            {/* Bottom Row: Exactly 3 Buttons */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
+                 onClick={() => handleSimpleSave('SAVE')}
+                 loading={saveLoading}
+                 disabled={cart.length === 0}
+                 className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border
+                   ${theme === 'dark' 
+                     ? 'bg-red-500/10 hover:bg-red-600 hover:text-white border-red-500/20 text-red-455' 
+                     : 'bg-red-700 text-white hover:bg-red-800 border-red-800/10 shadow-lg shadow-red-700/15'}`}
+              >
+                <Save size={13} /> SAVE
+              </Button>
+              <Button 
+                 onClick={() => handleSimpleSave('HOLD')}
+                 loading={saveLoading}
+                 disabled={cart.length === 0}
+                 className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border
+                   ${theme === 'dark' 
+                     ? 'bg-amber-500/10 hover:bg-amber-500 hover:text-white border-amber-500/20 text-amber-455' 
+                     : 'bg-amber-600 text-white hover:bg-amber-700 border-amber-700/10 shadow-lg shadow-amber-600/15'}`}
+              >
+                <Pause size={13} /> HOLD
+              </Button>
+              <Button 
+                 disabled={cart.length === 0 && !activeOrder}
+                 onClick={() => {
+                   setIsProforma(true);
+                   setAutoPrint(false); 
+                   handlePrintBill(false); 
+                 }}
+                 className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border
+                   ${theme === 'dark' 
+                     ? 'bg-rose-500/10 hover:bg-rose-500 hover:text-white border-rose-500/20 text-rose-455' 
+                     : 'bg-rose-600 text-white hover:bg-rose-700 border-rose-700/10 shadow-lg shadow-rose-600/20'}`}
+              >
+                 <CreditCard size={13} strokeWidth={2.5} /> SETTLE (F1)
+              </Button>
+            </div>
           </div>
         </div>
       </div>

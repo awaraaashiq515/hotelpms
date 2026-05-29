@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Printer, ShieldCheck, Globe, Wine, QrCode } from 'lucide-react';
+import { Printer, ShieldCheck, Globe, Wine, QrCode, MessageSquare } from 'lucide-react';
 
 // --- Extracted Components ---
 import { BusinessProfileForm } from '@/components/settings/BusinessProfileForm';
@@ -14,9 +14,10 @@ import { WebsiteBrandingForm } from '@/components/settings/WebsiteBrandingForm';
 import { BarPosSettingsForm } from '@/components/settings/BarPosSettingsForm';
 import { UpiPaymentForm } from '@/components/settings/UpiPaymentForm';
 import { TwoFactorSection } from '@/components/settings/TwoFactorSection';
+import { WhatsAppConfigForm } from '@/components/settings/WhatsAppConfigForm';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'branding' | 'admin' | 'website' | 'printers'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'branding' | 'admin' | 'website' | 'printers' | 'whatsapp'>('profile');
   const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function SettingsPage() {
     { id: 'profile', label: 'Business Profile', icon: ShieldCheck, color: 'text-pos-primary', bg: 'bg-pos-primary/10' },
     { id: 'printers', label: 'Printers', icon: Printer, color: 'text-blue-600', bg: 'bg-blue-50' },
     { id: 'payments', label: '💳 UPI Payments', icon: QrCode, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { id: 'whatsapp', label: '💬 WhatsApp Bot', icon: MessageSquare, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { id: 'bar', label: '🍺 Bar POS', icon: Wine, color: 'text-amber-600', bg: 'bg-amber-50' },
     { id: 'admin', label: 'Admin', icon: ShieldCheck, color: 'text-slate-900', bg: 'bg-slate-100' },
     ...(session?.role === 'SUPER_ADMIN' ? [{ id: 'website', label: 'Website (OrderMint)', icon: Globe, color: 'text-pos-primary', bg: 'bg-pos-primary/10' }] : []),
@@ -98,6 +100,12 @@ export default function SettingsPage() {
         {activeTab === 'payments' && (
           <div className="animate-in slide-in-from-bottom-4 duration-500">
             <UpiPaymentForm />
+          </div>
+        )}
+
+        {activeTab === 'whatsapp' && (
+          <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-4xl">
+            <WhatsAppConfigForm />
           </div>
         )}
 

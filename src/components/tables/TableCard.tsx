@@ -1,7 +1,7 @@
 import React from 'react';
-import { Users, Clock, ShoppingBag, Layers, Utensils, CheckCircle, AlertCircle, Loader2, Smartphone } from 'lucide-react';
+import { Users, Clock, ShoppingBag, Layers, Utensils, CheckCircle, AlertCircle, Loader2, Smartphone, Pause } from 'lucide-react';
 
-export type TableStatus = 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'READY' | 'SERVED' | 'BILL_PRINTED' | 'BILLING_PENDING' | 'CLEANING' | 'PAYMENT_AWAITING_APPROVAL';
+export type TableStatus = 'VACANT' | 'OCCUPIED' | 'KOT_RUNNING' | 'READY' | 'SERVED' | 'BILL_PRINTED' | 'BILLING_PENDING' | 'CLEANING' | 'PAYMENT_AWAITING_APPROVAL' | 'HOLD';
 
 export interface Table {
   id: string;
@@ -22,6 +22,8 @@ export interface Table {
     kotCount: number;
     elapsedTime: number; // minutes
     status: string;
+    waiterName?: string | null;
+    preparationTime?: number;
   } | null;
 }
 
@@ -125,6 +127,15 @@ const STATUS_CONFIG: Record<TableStatus, {
     dot: 'bg-amber-400 shadow-amber-400/60 animate-bounce',
     icon: <Smartphone size={13} className="text-black" />,
   },
+  HOLD: {
+    gradient: 'from-purple-900 via-violet-950 to-slate-950',
+    glow: 'shadow-purple-500/20',
+    badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    badgeText: 'Hold',
+    label: 'On Hold',
+    dot: 'bg-purple-400 shadow-purple-400/60',
+    icon: <Pause size={13} className="text-purple-400" />,
+  },
 };
 
 export const TableCard: React.FC<TableCardProps> = ({ 
@@ -138,6 +149,14 @@ export const TableCard: React.FC<TableCardProps> = ({
 }) => {
   const config = STATUS_CONFIG[table.status] || STATUS_CONFIG.VACANT;
   const isActive = !!table.activeOrder && table.status !== 'VACANT' && table.status !== 'CLEANING';
+  
+  const elapsedMins = table.activeOrder?.elapsedTime || 0;
+  const limit = table.activeOrder?.preparationTime || 15;
+  const isLate = isActive && table.status === 'KOT_RUNNING' && elapsedMins >= limit;
+
+  const readyPickupLimit = typeof window !== 'undefined' ? parseInt(localStorage.getItem('kds_ready_pickup_time') || '5', 10) : 5;
+  const readyWaitMin = (table.activeOrder as any)?.readyAt ? Math.floor((Date.now() - new Date((table.activeOrder as any).readyAt).getTime()) / 60000) : 0;
+  const isPickupLate = isActive && table.status === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
 
   const formatTime = (mins: number) => {
     if (mins < 60) return `${mins}m`;
@@ -156,12 +175,12 @@ export const TableCard: React.FC<TableCardProps> = ({
       {/* Card Shell */}
       <div
         className={`
-          w-full h-full rounded-2xl flex flex-col overflow-hidden
-          bg-gradient-to-br ${config.gradient}
-          border transition-all duration-300
-          ${isSelected 
-            ? 'border-indigo-400 ring-4 ring-indigo-500/30 shadow-2xl shadow-indigo-500/20' 
-            : `border-white/8 shadow-xl ${config.glow}`
+          w-full h-full rounded-2xl flex flex-col overflow-hidden transition-all duration-300
+          ${isLate 
+            ? 'bg-black border-rose-600 animate-blink-late shadow-[0_0_20px_rgba(225,29,72,0.5)]' 
+            : isPickupLate
+            ? 'bg-black border-blue-500 animate-blink-ready shadow-[0_0_20px_rgba(59,130,246,0.5)]'
+            : `bg-gradient-to-br ${config.gradient} border ${isSelected ? 'border-indigo-400 ring-4 ring-indigo-500/30 shadow-2xl shadow-indigo-500/20' : `border-white/8 shadow-xl ${config.glow}`}`
           }
         `}
         style={{
@@ -171,12 +190,17 @@ export const TableCard: React.FC<TableCardProps> = ({
       >
         {/* Top accent bar */}
         <div className={`h-[3px] w-full ${
+          isLate ? 'bg-rose-600 animate-pulse' :
+          isPickupLate ? 'bg-blue-500 animate-pulse' :
           table.status === 'VACANT' ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500' :
           table.status === 'OCCUPIED' ? 'bg-gradient-to-r from-red-400 via-rose-400 to-red-500' :
           table.status === 'KOT_RUNNING' ? 'bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500' :
+          table.status === 'READY' ? 'bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-500' :
+          table.status === 'SERVED' ? 'bg-gradient-to-r from-slate-400 via-gray-400 to-slate-500' :
           table.status === 'BILL_PRINTED' ? 'bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-500' :
           table.status === 'BILLING_PENDING' ? 'bg-gradient-to-r from-violet-400 via-purple-400 to-violet-500' :
           table.status === 'PAYMENT_AWAITING_APPROVAL' ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500' :
+          table.status === 'HOLD' ? 'bg-gradient-to-r from-purple-400 via-violet-400 to-purple-500' :
           'bg-gradient-to-r from-slate-400 via-gray-400 to-slate-500'
         }`} />
 
@@ -185,7 +209,7 @@ export const TableCard: React.FC<TableCardProps> = ({
           <div className="flex flex-col gap-1">
             {/* Table Number */}
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${config.dot} shadow-lg`} />
+              <div className={`w-2 h-2 rounded-full ${isLate ? 'bg-rose-500 shadow-rose-400/60 animate-pulse' : isPickupLate ? 'bg-blue-500 shadow-blue-400/60 animate-pulse' : config.dot} shadow-lg`} />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
                 Table
               </span>
@@ -196,9 +220,17 @@ export const TableCard: React.FC<TableCardProps> = ({
           </div>
 
           {/* Status Pill */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider ${config.badge}`}>
-            {config.icon}
-            {config.badgeText}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider ${
+            isLate ? 'bg-rose-950/40 border-rose-500/30 text-rose-350' : 
+            isPickupLate ? 'bg-blue-950/40 border-blue-500/30 text-blue-350' :
+            config.badge
+          }`}>
+            {isLate ? <Clock size={11} className="text-rose-400 animate-pulse" /> : 
+             isPickupLate ? <Clock size={11} className="text-blue-400 animate-pulse" /> : 
+             config.icon}
+            {isLate ? 'LATE KITCHEN' : 
+             isPickupLate ? 'LATE PICKUP' : 
+             config.badgeText}
           </div>
         </div>
 
@@ -231,9 +263,9 @@ export const TableCard: React.FC<TableCardProps> = ({
               {/* Footer Row */}
               <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 <div className="flex items-center gap-1.5">
-                  <Clock size={11} className="text-white/30" />
-                  <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                    {formatTime(table.activeOrder!.elapsedTime)}
+                  <Clock size={11} className={isLate ? 'text-rose-500 animate-pulse' : 'text-white/30'} />
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isLate ? 'text-rose-400 font-black animate-pulse' : 'text-white/50'}`}>
+                    {formatTime(table.activeOrder!.elapsedTime)} / {limit}m
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -263,7 +295,12 @@ export const TableCard: React.FC<TableCardProps> = ({
             <Users size={11} />
             <span className="text-[10px] font-bold">{table.capacity} seats</span>
           </div>
-          {isSelected && (
+          {table.activeOrder?.waiterName && (
+            <div className="flex items-center gap-1 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+              👤 {table.activeOrder.waiterName}
+            </div>
+          )}
+          {isSelected && !table.activeOrder?.waiterName && (
             <div className="flex items-center gap-1 text-indigo-300 text-[9px] font-black uppercase tracking-wider">
               <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
               Selected

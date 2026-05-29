@@ -71,6 +71,34 @@ html {
     66% { transform: translate(-20px, 20px) rotate(-5deg); }
     100% { transform: translate(0, 0) rotate(0deg); }
   }
+
+  --animate-blink-late: blink-late-glow 1.2s infinite ease-in-out;
+  @keyframes blink-late-glow {
+    0%, 100% {
+      border-color: rgba(225, 29, 72, 0.4);
+      box-shadow: 0 0 10px rgba(225, 29, 72, 0.2);
+      opacity: 0.9;
+    }
+    50% {
+      border-color: rgba(244, 63, 94, 1);
+      box-shadow: 0 0 25px rgba(244, 63, 94, 0.8), inset 0 0 10px rgba(244, 63, 94, 0.3);
+      opacity: 1;
+    }
+  }
+
+  --animate-blink-ready: blink-ready-glow 1.2s infinite ease-in-out;
+  @keyframes blink-ready-glow {
+    0%, 100% {
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+      opacity: 0.9;
+    }
+    50% {
+      border-color: rgba(96, 165, 250, 1);
+      box-shadow: 0 0 25px rgba(96, 165, 250, 0.8), inset 0 0 10px rgba(96, 165, 250, 0.3);
+      opacity: 1;
+    }
+  }
 }
 
 /* Premium Utility Classes */
