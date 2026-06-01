@@ -76,6 +76,8 @@ model Property {
   twilioFromNumber     String?
   barPosEnabled        Boolean             @default(false)
   showBarInQrMenu      Boolean             @default(true)
+  cafePosEnabled       Boolean             @default(false)
+  showCafeInQrMenu     Boolean             @default(true)
   upiId                String?
   upiName              String?
   upiLimit             Float               @default(100000)
@@ -451,6 +453,7 @@ model Product {
   comboItems         ComboItem[]
   wastes             Waste[]
   isVeg              Boolean             @default(true)
+  mealTimes          String?             @default("BREAKFAST,LUNCH,DINNER")
 
 
   @@index([propertyId])
@@ -1279,11 +1282,13 @@ model Floor {
   outletId   String?
   name       String
   order      Int      @default(0)
+  menuType   String   @default("RESTAURANT")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   property   Property @relation(fields: [propertyId], references: [id])
   outlet     Outlet?  @relation(fields: [outletId], references: [id])
   tables     Table[]
+  tablets    Tablet[]
 
   @@index([propertyId])
 }
@@ -1414,10 +1419,14 @@ model Tablet {
   assignedTableIds String?  
   waiterId         String?
   isActive         Boolean  @default(true)
+  floorId          String?
+  showBar          Boolean  @default(true)
+  showCafe         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   table            Table?   @relation(fields: [tableId], references: [id])
   property         Property @relation(fields: [propertyId], references: [id])
+  floor            Floor?   @relation(fields: [floorId], references: [id])
 }
 
 model OrderRating {

@@ -89,6 +89,11 @@ export default function CategoriesPage() {
           </div>
           <span className="text-sm font-bold section-heading uppercase tracking-tight">
             {row.name}
+            {row.parentId && (
+              <span className="ml-2 text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full">
+                Subcategory
+              </span>
+            )}
           </span>
         </div>
       ),
@@ -107,7 +112,9 @@ export default function CategoriesPage() {
         <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${
           row.menuType === 'BAR' 
             ? 'bg-amber-50 text-amber-600 border-amber-100' 
-            : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+            : row.menuType === 'CAFE'
+              ? 'bg-orange-50 text-orange-600 border-orange-100'
+              : 'bg-indigo-50 text-indigo-600 border-indigo-100'
         }`}>
           {row.menuType || 'RESTAURANT'}
         </span>
@@ -230,6 +237,16 @@ export default function CategoriesPage() {
             >
               Bar
             </button>
+            <button
+              onClick={() => setSelectedMenuTypeFilter('CAFE')}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedMenuTypeFilter === 'CAFE'
+                  ? 'bg-[#D2691E] text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+              }`}
+            >
+              Cafe
+            </button>
           </div>
         }
       />
@@ -248,6 +265,7 @@ export default function CategoriesPage() {
       >
         <CategoryForm
           initialData={selectedCategory || undefined}
+          parentCategories={categories.filter(c => !c.parentId && c.id !== selectedCategory?.id)}
           onSubmit={handleCreateOrUpdate}
           onCancel={() => setIsFormOpen(false)}
           loading={mutationLoading}

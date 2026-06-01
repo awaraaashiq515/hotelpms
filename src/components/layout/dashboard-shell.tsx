@@ -28,6 +28,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
     pathname === '/billing' || pathname.startsWith('/billing/') ||
     pathname === '/counter-payments' || pathname.startsWith('/counter-payments/') ||
     pathname === '/bar-pos' || pathname.startsWith('/bar-pos/') ||
+    pathname === '/cafe-pos' || pathname.startsWith('/cafe-pos/') ||
     pathname === '/kots' || pathname.startsWith('/kots/') ||
     pathname === '/day-closing' || pathname.startsWith('/day-closing/') ||
     pathname === '/inventory' || pathname.startsWith('/inventory/') ||
@@ -59,7 +60,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
         {isPos ? <Sidebar /> : <DashboardAdminSidebar />}
         
         <main className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-slate-900/50 no-scrollbar relative">
-          <div className={`h-full w-full ${pathname === '/billing' ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
+          <div className={`h-full w-full ${pathname === '/billing' || pathname === '/bar-pos' || pathname === '/cafe-pos' ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
             {children}
           </div>
         </main>

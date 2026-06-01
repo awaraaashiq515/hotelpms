@@ -1,18 +1,20 @@
 import React from 'react';
-import { Utensils, History, User, Wine } from 'lucide-react';
+import { Utensils, History, User, Wine, Coffee } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface BottomNavProps {
-  activeTab: 'menu' | 'bar' | 'orders' | 'profile';
-  setActiveTab: (tab: 'menu' | 'bar' | 'orders' | 'profile') => void;
+  activeTab: 'menu' | 'bar' | 'cafe' | 'orders' | 'profile';
+  setActiveTab: (tab: 'menu' | 'bar' | 'cafe' | 'orders' | 'profile') => void;
   orderCount?: number;
   showBar?: boolean;
+  showCafe?: boolean;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, orderCount = 0, showBar = false }) => {
+export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, orderCount = 0, showBar = false, showCafe = false }) => {
   const tabs = [
     { id: 'menu', label: 'Food', icon: Utensils },
     ...(showBar ? [{ id: 'bar', label: 'Bar', icon: Wine }] : []),
+    ...(showCafe ? [{ id: 'cafe', label: 'Cafe', icon: Coffee }] : []),
     { id: 'orders', label: 'Orders', icon: History, badge: orderCount > 0 ? orderCount : undefined },
     { id: 'profile', label: 'Profile', icon: User },
   ];

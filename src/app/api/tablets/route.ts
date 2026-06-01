@@ -12,6 +12,9 @@ const tabletSchema = z.object({
   assignedTableIds: z.string().optional().nullable(),
   waiterId: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
+  floorId: z.string().optional().nullable(),
+  showBar: z.boolean().default(true),
+  showCafe: z.boolean().default(true),
 })
 
 export async function POST(request: NextRequest) {
@@ -28,6 +31,9 @@ export async function POST(request: NextRequest) {
         tableId: data.tableId || null,
         assignedTableIds: data.assignedTableIds || null,
         waiterId: data.waiterId || null,
+        floorId: data.floorId || null,
+        showBar: data.showBar,
+        showCafe: data.showCafe,
       }
     })
 

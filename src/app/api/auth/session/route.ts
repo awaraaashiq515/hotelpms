@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSession, slugify } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
@@ -39,6 +39,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch propertyCode + propertySlug
+    let propertyCode = null;
+    let propertySlug = null;
+    if (session.propertyId) {
+      const prop = await prisma.property.findUnique({ where: { id: session.propertyId }, select: { code: true, name: true } });
+      propertyCode = prop?.code || null;
+      propertySlug = prop?.name ? slugify(prop.name) : session.propertySlug || null;
+    } else if (session.organizationId) {
+      const prop = await prisma.property.findFirst({ where: { organizationId: session.organizationId }, select: { code: true, name: true } });
+      propertyCode = prop?.code || null;
+      propertySlug = prop?.name ? slugify(prop.name) : session.propertySlug || null;
+    }
+
     return NextResponse.json({
       authenticated: true,
       user: {
@@ -46,6 +59,8 @@ export async function GET(request: NextRequest) {
         permissions: latestPermissions,
         packageFeatures,
         discountPercent,
+        propertyCode,
+        propertySlug,
       },
       // Also expose at top level for usePackage hook
       packageFeatures,

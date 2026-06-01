@@ -32,6 +32,7 @@ const productSchema = z.object({
   pegPrice: z.number().nullable().optional(),
   stockItemId: z.string().nullable().optional(),
   isVeg: z.boolean().default(true),
+  mealTimes: z.string().optional(),
   variants: z.array(z.object({
     name: z.string().min(1, 'Name required'),
     price: z.number().min(0, 'Price must be positive')
@@ -77,6 +78,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     pegPrice: (initialData as any)?.pegPrice ?? null,
     stockItemId: (initialData as any)?.stockItemId || '',
     isVeg: initialData?.isVeg ?? true,
+    mealTimes: initialData?.mealTimes ?? '',
     variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: v.price })) || [] as { name: string, price: number }[],
   });
 
@@ -320,6 +322,43 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
         </div>
       )}
+
+      {/* Meal Sessions */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1">Meal Sessions</label>
+        <div className="grid grid-cols-3 gap-2">
+          {['BREAKFAST', 'LUNCH', 'DINNER'].map((meal) => {
+            const currentMeals = formData.mealTimes ? formData.mealTimes.split(',') : [];
+            const isSelected = currentMeals.includes(meal);
+            const label = meal === 'BREAKFAST' ? 'Breakfast 🍳' : meal === 'LUNCH' ? 'Lunch 🍲' : 'Dinner 🕯️';
+            
+            const handleToggle = () => {
+              let updated: string[];
+              if (isSelected) {
+                updated = currentMeals.filter(m => m !== meal);
+              } else {
+                updated = [...currentMeals, meal];
+              }
+              setFormData({ ...formData, mealTimes: updated.join(',') });
+            };
+
+            return (
+              <button
+                key={meal}
+                type="button"
+                onClick={handleToggle}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border transition-all text-[11px] font-bold ${
+                  isSelected
+                    ? 'border-pos-primary bg-pos-primary/5 text-pos-primary shadow-sm font-black'
+                    : 'border-gray-200 dark:border-slate-800 text-gray-400 hover:border-gray-300 dark:hover:border-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Row 3: Prices */}
       <div className="grid grid-cols-3 gap-3">

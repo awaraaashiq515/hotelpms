@@ -5,10 +5,10 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Product } from '@/lib/api/products';
 import { categoriesApi, Category } from '@/lib/api/categories';
-import { Box, Tag, DollarSign, Barcode, Layers, FileText, FlaskConical, Droplets, Trash2, PlusCircle } from 'lucide-react';
+import { Box, Tag, DollarSign, Barcode, Layers, FileText, Coffee, Droplets, Trash2, PlusCircle } from 'lucide-react';
 import { inventoryApi, StockItem } from '@/lib/api/inventory';
 
-const barProductSchema = z.object({
+const cafeProductSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(100),
   description: z.string().max(500).optional(),
   categoryId: z.string().min(1, 'Category is required'),
@@ -24,7 +24,7 @@ const barProductSchema = z.object({
   trackInventory: z.boolean().default(false),
   isActive: z.boolean().default(true),
   mealTimes: z.string().optional(),
-  menuType: z.literal('BAR').default('BAR'),
+  menuType: z.literal('CAFE').default('CAFE'),
   bottleSize: z.number().nullable().optional(),
   bottlePrice: z.number().nullable().optional(),
   stockItemId: z.string().nullable().optional(),
@@ -34,14 +34,14 @@ const barProductSchema = z.object({
   })).optional(),
 });
 
-interface BarProductFormProps {
+interface CafeProductFormProps {
   initialData?: Product;
   onSubmit: (data: Partial<Product>) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
 }
 
-export const BarProductForm: React.FC<BarProductFormProps> = ({
+export const CafeProductForm: React.FC<CafeProductFormProps> = ({
   initialData,
   onSubmit,
   onCancel,
@@ -65,11 +65,11 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
     trackInventory: initialData?.trackInventory ?? false,
     isActive: initialData?.isActive ?? true,
     mealTimes: initialData?.mealTimes ?? '',
-    menuType: 'BAR' as const,
-    bottleSize: (initialData as any)?.bottleSize ?? 750,
+    menuType: 'CAFE' as const,
+    bottleSize: (initialData as any)?.bottleSize ?? 250,
     bottlePrice: (initialData as any)?.bottlePrice ?? 0,
     stockItemId: (initialData as any)?.stockItemId || '',
-    variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: v.price })) || [{ name: '30ml', price: 0 }] as { name: string, price: number }[],
+    variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: v.price })) || [{ name: 'Regular', price: 0 }] as { name: string, price: number }[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -81,7 +81,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
         categoriesApi.list(),
         inventoryApi.listStockItems()
       ]);
-      setCategories(cats?.filter(c => c.menuType === 'BAR') || []);
+      setCategories(cats?.filter(c => c.menuType === 'CAFE') || []);
       setStockItems(stocks || []);
     };
     fetchData();
@@ -90,13 +90,12 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Set sellingPrice to the first variant price if available
       const finalFormData = { ...formData };
       if (formData.variants.length > 0) {
         finalFormData.sellingPrice = formData.variants[0].price;
       }
       
-      const validated = barProductSchema.parse(finalFormData);
+      const validated = cafeProductSchema.parse(finalFormData);
       await onSubmit(validated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -107,19 +106,6 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
         setErrors(fieldErrors);
       }
     }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload });
-      const data = await res.json();
-      if (data.success) setFormData({ ...formData, image: data.url });
-    } catch (err) { console.error(err); } finally { setUploading(false); }
   };
 
   const addVariant = () => {
@@ -145,22 +131,21 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center gap-3 pb-4 border-b border-gray-100 dark:border-slate-800">
-        <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/30 rounded-xl flex items-center justify-center text-amber-600">
-           <FlaskConical size={20} />
+        <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-orange-600">
+           <Coffee size={20} />
         </div>
         <div>
-          <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Bar Menu Product</h3>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Manage liquor servings and bottle pricing</p>
+          <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Cafe Menu Product</h3>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Manage beverages, cup sizes and beans</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-8">
-         {/* Left Side: Basic Details & Cost */}
          <div className="space-y-5">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Product Name</label>
               <input
-                type="text" placeholder="e.g. Jack Daniels"
+                type="text" placeholder="e.g. Espresso"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.name ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-2xl text-sm font-bold dark:text-white focus:outline-none shadow-sm transition-all focus:bg-white dark:focus:bg-slate-700`}
@@ -180,7 +165,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cost Price (Purchase)</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cost Price</label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</div>
                   <input
@@ -275,18 +260,17 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
             </div>
          </div>
 
-         {/* Right Side: Peg Sizes & Bottle Config */}
          <div className="space-y-6">
-            <div className="p-6 bg-amber-50/50 dark:bg-amber-950/20 rounded-[2.5rem] border border-amber-100 dark:border-amber-900/50 space-y-6 shadow-sm">
+            <div className="p-6 bg-orange-50/50 dark:bg-orange-950/20 rounded-[2.5rem] border border-orange-100 dark:border-orange-900/50 space-y-6 shadow-sm">
                <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
-                   <Droplets size={16} className="text-amber-600" />
-                   <h4 className="text-[11px] font-black text-amber-900 dark:text-amber-400 uppercase tracking-widest">Peg Sizes & Pricing</h4>
+                   <Coffee size={16} className="text-orange-600" />
+                   <h4 className="text-[11px] font-black text-orange-900 dark:text-orange-400 uppercase tracking-widest">Cup Sizes & Pricing</h4>
                  </div>
                  <button 
                    type="button" 
                    onClick={addVariant}
-                   className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md shadow-amber-200"
+                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D2691E] hover:bg-[#B55A1A] text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md shadow-orange-200"
                  >
                    <PlusCircle size={12} />
                    Add Size
@@ -298,26 +282,26 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                    <div key={index} className="flex gap-3 items-center group animate-in fade-in slide-in-from-right-2">
                      <div className="flex-1 relative">
                        <input
-                         type="text" placeholder="Size (e.g. 30ml)"
+                         type="text" placeholder="Size (e.g. Regular, Large)"
                          value={variant.name}
                          onChange={(e) => updateVariant(index, 'name', e.target.value)}
-                         className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none"
+                         className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-orange-400/20 outline-none"
                        />
                      </div>
                      <div className="w-32 relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/50 font-bold text-[10px]">₹</div>
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-600/50 font-bold text-[10px]">₹</div>
                         <input
                           type="number" placeholder="Price"
                           value={variant.price || ''}
                           onChange={(e) => updateVariant(index, 'price', parseFloat(e.target.value) || 0)}
-                          className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-black dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none text-right"
+                          className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-800/50 rounded-2xl text-xs font-black dark:text-white focus:ring-2 focus:ring-orange-400/20 outline-none text-right"
                         />
                      </div>
                      {formData.variants.length > 1 && (
                        <button 
                          type="button" 
                          onClick={() => removeVariant(index)}
-                         className="p-2 text-amber-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                         className="p-2 text-orange-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                        >
                          <Trash2 size={14} />
                        </button>
@@ -326,37 +310,36 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                  ))}
                </div>
 
-               <div className="pt-4 border-t border-amber-100 dark:border-amber-900/30 space-y-4">
+               <div className="pt-4 border-t border-orange-100 dark:border-orange-900/30 space-y-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <FlaskConical size={14} className="text-amber-600" />
-                    <h4 className="text-[10px] font-black text-amber-800 dark:text-amber-500 uppercase tracking-widest">Bottle Inventory Mapping</h4>
+                    <Coffee size={14} className="text-orange-600" />
+                    <h4 className="text-[10px] font-black text-orange-800 dark:text-orange-500 uppercase tracking-widest">Bulk Inventory Mapping</h4>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-amber-800/60 uppercase ml-1">Bottle Size (ml)</label>
+                      <label className="text-[9px] font-black text-orange-800/60 uppercase ml-1">Bulk Size (g/ml)</label>
                       <div className="relative">
-                        <input type="number" value={formData.bottleSize || ''} onChange={(e) => setFormData({...formData, bottleSize: Number(e.target.value)})} className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none" />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-amber-600/40">ML</span>
+                        <input type="number" value={formData.bottleSize || ''} onChange={(e) => setFormData({...formData, bottleSize: Number(e.target.value)})} className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-orange-400/20 outline-none" />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-amber-800/60 uppercase ml-1">Bottle Selling Price</label>
+                      <label className="text-[9px] font-black text-orange-800/60 uppercase ml-1">Bulk Selling Price</label>
                       <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/50 font-bold text-[10px]">₹</div>
-                        <input type="number" value={formData.bottlePrice || ''} onChange={(e) => setFormData({...formData, bottlePrice: Number(e.target.value)})} className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none text-right" />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-600/50 font-bold text-[10px]">₹</div>
+                        <input type="number" value={formData.bottlePrice || ''} onChange={(e) => setFormData({...formData, bottlePrice: Number(e.target.value)})} className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-orange-400/20 outline-none text-right" />
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-amber-800/60 uppercase ml-1">Inventory Item (Deduction)</label>
+                    <label className="text-[9px] font-black text-orange-800/60 uppercase ml-1">Inventory Item (Deduction)</label>
                     <select
                       value={formData.stockItemId || ''}
                       onChange={(e) => setFormData({ ...formData, stockItemId: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white appearance-none focus:ring-2 focus:ring-amber-400/20 outline-none"
+                      className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-800/50 rounded-2xl text-xs font-bold dark:text-white appearance-none focus:ring-2 focus:ring-orange-400/20 outline-none"
                     >
-                      <option value="">Select Bottle Item from Stock</option>
+                      <option value="">Select Bulk Item from Stock</option>
                       {stockItems.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}
                     </select>
                   </div>
@@ -368,7 +351,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                   <div className={`w-2 h-2 rounded-full ${formData.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
                   <div>
                     <h4 className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest leading-none">Product Status</h4>
-                    <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Visible in Bar POS</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Visible in Cafe POS</p>
                   </div>
                </div>
                <button
@@ -383,7 +366,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
 
       <div className="flex gap-4 pt-8 border-t border-gray-100 dark:border-slate-800 mt-8">
         <Button type="button" variant="secondary" onClick={onCancel} className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] border-2">Cancel</Button>
-        <Button type="submit" disabled={loading} className="flex-[2] py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-amber-200/40">{loading ? 'Saving...' : initialData ? 'Update Bar Product' : 'Create Bar Product'}</Button>
+        <Button type="submit" disabled={loading} className="flex-[2] py-4 bg-[#D2691E] hover:bg-[#B55A1A] text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-200/40">{loading ? 'Saving...' : initialData ? 'Update Cafe Product' : 'Create Cafe Product'}</Button>
       </div>
     </form>
   );

@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { name, order, outletId } = body;
+    const { name, order, outletId, menuType } = body;
 
     if (!name) {
       return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
@@ -152,6 +152,7 @@ export async function POST(request: Request) {
         order: order || 0,
         propertyId: propertyId,
         outletId,
+        menuType: menuType || 'RESTAURANT',
       },
     });
     

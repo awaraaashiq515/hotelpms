@@ -35,12 +35,17 @@ interface TabletConfig {
     code: string;
     upiId?: string | null;
     upiName?: string | null;
+    barPosEnabled?: boolean;
+    cafePosEnabled?: boolean;
   };
   table?: {
     id: string;
     name: string;
     qrToken: string | null;
   } | null;
+  floorId?: string | null;
+  showBar?: boolean;
+  showCafe?: boolean;
 }
 
 interface Product {
@@ -56,11 +61,13 @@ interface Product {
   halfPrice?: number | null;
   variants?: any[];
   isVeg?: boolean;
+  menuType?: string;
 }
 
 interface Category {
   id: string;
   name: string;
+  menuType?: string;
 }
 
 interface CartItem extends Product {
@@ -140,6 +147,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   // UI State
   const [waiterCalls, setWaiterCalls] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [menuType, setMenuType] = useState<'RESTAURANT' | 'BAR' | 'CAFE'>('RESTAURANT');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
@@ -342,6 +350,15 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     };
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    if (selectedTableId && tables.length > 0) {
+      const selectedTable = tables.find(t => t.id === selectedTableId);
+      if (selectedTable?.floor?.menuType) {
+        setMenuType(selectedTable.floor.menuType as 'RESTAURANT' | 'BAR' | 'CAFE');
+      }
+    }
+  }, [selectedTableId, tables]);
 
   useEffect(() => {
     const fetchKitchenStatus = async () => {
@@ -687,13 +704,37 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     - (activeOrder?.discountAmount || 0)
     - (activeOrder?.membershipDiscount || 0);
 
-  const filteredProducts = useMemo(() => {
+  const showBarTab = useMemo(() => {
+    return !!(property?.barPosEnabled && tablet?.showBar);
+  }, [property, tablet]);
+
+  const showCafeTab = useMemo(() => {
+    return !!(property?.cafePosEnabled && tablet?.showCafe);
+  }, [property, tablet]);
+
+  const filteredProductsForMenuType = useMemo(() => {
     return products.filter(p => {
+      if (menuType === 'BAR') return p.menuType === 'BAR';
+      if (menuType === 'CAFE') return p.menuType === 'CAFE';
+      return p.menuType === 'RESTAURANT' || !p.menuType || (p.menuType !== 'BAR' && p.menuType !== 'CAFE');
+    });
+  }, [products, menuType]);
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter(cat => {
+      if (menuType === 'BAR') return cat.menuType === 'BAR';
+      if (menuType === 'CAFE') return cat.menuType === 'CAFE';
+      return cat.menuType === 'RESTAURANT' || !cat.menuType || (cat.menuType !== 'BAR' && cat.menuType !== 'CAFE');
+    });
+  }, [categories, menuType]);
+
+  const filteredProducts = useMemo(() => {
+    return filteredProductsForMenuType.filter(p => {
       const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [products, activeCategory, searchQuery]);
+  }, [filteredProductsForMenuType, activeCategory, searchQuery]);
 
   const displayLogo = property?.logoUrl || websiteSettings?.logoUrl;
 
@@ -1573,6 +1614,34 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         </div>
       </header>
 
+      {/* Menu Switcher (Restaurant / Bar / Cafe) */}
+      {(showBarTab || showCafeTab) && (
+        <div className="h-12 shrink-0 bg-slate-950/80 border-b border-white/5 flex items-center justify-center px-6 gap-2">
+          <button
+            onClick={() => { setMenuType('RESTAURANT'); setActiveCategory('all'); }}
+            className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'RESTAURANT' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+          >
+            🍽️ Restaurant
+          </button>
+          {showBarTab && (
+            <button
+              onClick={() => { setMenuType('BAR'); setActiveCategory('all'); }}
+              className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'BAR' ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+            >
+              🍺 Bar
+            </button>
+          )}
+          {showCafeTab && (
+            <button
+              onClick={() => { setMenuType('CAFE'); setActiveCategory('all'); }}
+              className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'CAFE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+            >
+              ☕ Cafe
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
 
@@ -1585,10 +1654,10 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               className={`flex flex-col items-center justify-center min-w-[80px] h-14 rounded-xl transition-all ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
             >
               <span className="text-[10px] font-black uppercase tracking-widest">All Items</span>
-              <span className="text-[8px] font-bold opacity-60 mt-0.5">{products.length} Items</span>
+              <span className="text-[8px] font-bold opacity-60 mt-0.5">{filteredProductsForMenuType.length} Items</span>
             </button>
 
-            {categories.map((cat, idx) => {
+            {filteredCategories.map((cat, idx) => {
               const colorClass = CATEGORY_COLORS_DARK[idx % 8];
               return (
                 <button

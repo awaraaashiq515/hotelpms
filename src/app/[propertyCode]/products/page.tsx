@@ -11,12 +11,12 @@ import { Building2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { RestaurantProductForm } from '@/components/forms/restaurant-product-form';
 import { BarProductForm } from '@/components/forms/bar-product-form';
+import { CafeProductForm } from '@/components/forms/cafe-product-form';
 import { ComboForm } from '@/components/forms/combo-form';
 import { combosApi, Combo } from '@/lib/api/combos';
 import { ConfirmDeleteModal } from '@/components/modals/confirm-delete-modal';
 import { ProductIcon } from '@/components/shared/product-icon';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -34,7 +34,7 @@ export default function ProductsPage() {
   const [isBulkTaxOpen, setIsBulkTaxOpen] = useState(false);
   const [selectedTaxType, setSelectedTaxType] = useState('EXCLUSIVE');
   const [selectedMenuTypeFilter, setSelectedMenuTypeFilter] = useState('all');
-  const [activeFormType, setActiveFormType] = useState<'RESTAURANT' | 'BAR' | 'COMBO'>('RESTAURANT');
+  const [activeFormType, setActiveFormType] = useState<'RESTAURANT' | 'BAR' | 'CAFE' | 'COMBO'>('RESTAURANT');
   const [combos, setCombos] = useState<Combo[]>([]);
   const [isComboDeleteOpen, setIsComboDeleteOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
@@ -181,34 +181,6 @@ export default function ProductsPage() {
     return c.name.toLowerCase().includes(search.toLowerCase());
   });
 
-  const handleExportPdf = () => {
-    const doc = new jsPDF();
-    
-    doc.setFontSize(16);
-    doc.text('Products List', 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 22);
-
-    const tableData = filteredProducts.map((p) => [
-      p.sku || '---',
-      p.name,
-      p.category?.name || 'Uncategorized',
-      `Rs. ${p.sellingPrice.toFixed(2)}`,
-      p.menuType || 'RESTAURANT',
-      p.isActive !== false ? 'Active' : 'Inactive',
-    ]);
-
-    autoTable(doc, {
-      startY: 28,
-      head: [['SKU', 'Name', 'Category', 'Price', 'Type', 'Status']],
-      body: tableData,
-      theme: 'grid',
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
-    });
-
-    doc.save('products-list.pdf');
-  };
 
 
   const columns = [
@@ -295,10 +267,13 @@ export default function ProductsPage() {
     {
       header: 'Menu Type',
       cell: (row: Product) => (
-        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${row.menuType === 'BAR'
-          ? 'bg-amber-50 text-amber-600 border-amber-100'
-          : 'bg-indigo-50 text-indigo-600 border-indigo-100'
-          }`}>
+        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${
+          row.menuType === 'BAR' 
+            ? 'bg-amber-50 text-amber-600 border-amber-100' 
+            : row.menuType === 'CAFE'
+              ? 'bg-orange-50 text-orange-600 border-orange-100'
+              : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+        }`}>
           {row.menuType || 'RESTAURANT'}
         </span>
       ),
@@ -321,7 +296,7 @@ export default function ProductsPage() {
           <button
             onClick={() => {
               setSelectedProduct(row);
-              setActiveFormType(row.menuType === 'BAR' ? 'BAR' : 'RESTAURANT');
+              setActiveFormType(row.menuType ? (row.menuType.toUpperCase() as any) : 'RESTAURANT');
               setIsFormOpen(true);
             }}
             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-gray-400 hover:text-pos-primary dark:hover:text-pos-primary/70 transition-colors"
@@ -500,14 +475,7 @@ export default function ProductsPage() {
             >
               MINT AI SCAN
             </Button>
-            <Button
-              onClick={handleExportPdf}
-              variant="secondary"
-              className="font-black text-[9px] tracking-widest px-3 py-2 rounded-lg border border-gray-200"
-            >
-              <Download size={14} className="mr-1.5" />
-              EXPORT PDF
-            </Button>
+
             <Button
               onClick={() => setIsBulkTaxOpen(true)}
               variant="secondary"
@@ -536,6 +504,17 @@ export default function ProductsPage() {
             >
               <Plus size={14} className="mr-1.5" />
               BAR
+            </Button>
+            <Button
+              onClick={() => {
+                setSelectedProduct(null);
+                setActiveFormType('CAFE');
+                setIsFormOpen(true);
+              }}
+              className="bg-[#D2691E] hover:bg-[#B55A1A] text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-orange-200"
+            >
+              <Plus size={14} className="mr-1.5" />
+              CAFE
             </Button>
             <Button
               onClick={() => {
@@ -602,6 +581,15 @@ export default function ProductsPage() {
                   }`}
               >
                 Bar
+              </button>
+              <button
+                onClick={() => setSelectedMenuTypeFilter('CAFE')}
+                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'CAFE'
+                  ? 'bg-[#D2691E] text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                  }`}
+              >
+                Cafe
               </button>
               <button
                 onClick={() => setSelectedMenuTypeFilter('COMBO')}
@@ -880,9 +868,9 @@ export default function ProductsPage() {
         title={
           activeFormType === 'COMBO'
             ? (selectedCombo ? 'Edit Combo' : 'New Combo')
-            : (selectedProduct ? `Edit ${activeFormType === 'BAR' ? 'Bar' : 'Restaurant'} Product` : `New ${activeFormType === 'BAR' ? 'Bar' : 'Restaurant'} Product`)
+            : (selectedProduct ? `Edit ${activeFormType === 'BAR' ? 'Bar' : activeFormType === 'CAFE' ? 'Cafe' : 'Restaurant'} Product` : `New ${activeFormType === 'BAR' ? 'Bar' : activeFormType === 'CAFE' ? 'Cafe' : 'Restaurant'} Product`)
         }
-        maxWidth={activeFormType === 'BAR' || activeFormType === 'COMBO' ? "4xl" : "2xl"}
+        maxWidth={activeFormType === 'BAR' || activeFormType === 'CAFE' || activeFormType === 'COMBO' ? "4xl" : "2xl"}
       >
         {activeFormType === 'RESTAURANT' ? (
           <RestaurantProductForm
@@ -893,6 +881,13 @@ export default function ProductsPage() {
           />
         ) : activeFormType === 'BAR' ? (
           <BarProductForm
+            initialData={selectedProduct || undefined}
+            onSubmit={handleCreateOrUpdate}
+            onCancel={() => setIsFormOpen(false)}
+            loading={mutationLoading}
+          />
+        ) : activeFormType === 'CAFE' ? (
+          <CafeProductForm
             initialData={selectedProduct || undefined}
             onSubmit={handleCreateOrUpdate}
             onCancel={() => setIsFormOpen(false)}

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { ActionTile } from '@/components/shared/action-tile';
-import { operationsGrid } from '@/lib/menu-config';
 import AttendanceHubSection from '@/components/staff/AttendanceHubSection';
 import {
   Menu,
@@ -49,7 +48,7 @@ import {
   X
 } from 'lucide-react';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useSidebar } from '@/context/sidebar-context';
 
 interface DashboardAction {
@@ -63,6 +62,10 @@ interface DashboardAction {
 }
 
 export default function OperationsPage() {
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string;
+  const p = propertyCode ? `/${propertyCode}` : '';
+
   const router = useRouter();
   const { setOpen } = useSidebar();
   const [session, setSession] = useState<any>(null);
@@ -112,54 +115,54 @@ export default function OperationsPage() {
   };
 
   const managementActions: DashboardAction[] = [
-    { label: 'Inventory', perm: 'Inventory', icon: Package, path: '/inventory', feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: '/products', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Categories', perm: 'Inventory', icon: Layers, path: '/categories', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Customers', icon: Contact, path: '/customers', feature: 'CRM' },
-    { label: 'Customer Feedback', icon: Star, path: '/reports/ratings', feature: 'REPORTS' },
-    { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: '/operations/tables', feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: '/operations/tables/qr-gallery', feature: 'TABLES' },
-    { label: 'Tablet Setup', perm: 'Settings', icon: Tablet, path: '/settings/tablets', feature: 'TABLETS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: '/pos-staff', feature: 'STAFF' },
-    { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: '/manage-users', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Payment Modes', perm: 'Settings', icon: CreditCard, path: '/payment-modes', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Notification Settings', perm: 'Settings', icon: Settings, path: '/settings/notifications', feature: 'POS' },
+    { label: 'Inventory', perm: 'Inventory', icon: Package, path: `${p}/inventory`, feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: `${p}/products`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Categories', perm: 'Inventory', icon: Layers, path: `${p}/categories`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Customers', icon: Contact, path: `${p}/customers`, feature: 'CRM' },
+    { label: 'Customer Feedback', icon: Star, path: `${p}/reports/ratings`, feature: 'REPORTS' },
+    { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: `${p}/operations/tables`, feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: `${p}/operations/tables/qr-gallery`, feature: 'TABLES' },
+    { label: 'Tablet Setup', perm: 'Settings', icon: Tablet, path: `${p}/settings/tablets`, feature: 'TABLETS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: `${p}/pos-staff`, feature: 'STAFF' },
+    { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: `${p}/manage-users`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Payment Modes', perm: 'Settings', icon: CreditCard, path: `${p}/payment-modes`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Notification Settings', perm: 'Settings', icon: Settings, path: `${p}/settings/notifications`, feature: 'POS' },
     { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const financialActions: DashboardAction[] = [
-    { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: '/day-closing', feature: 'POS' },
-    { label: 'Payments', perm: 'Payments', icon: CreditCard, path: '/payments', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Invoices', perm: 'Invoices', icon: FileText, path: '/invoices', feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: '/expenses', feature: 'ACCOUNTING', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Reports', perm: 'Reports', icon: PieChart, path: '/reports', feature: 'REPORTS' },
-    { label: 'Attendance Report', perm: 'Reports', icon: Users, path: '/reports/attendance', feature: 'REPORTS' },
-    { label: 'Accounting', perm: 'Accounting', icon: BookOpen, path: '/accounts', feature: 'ACCOUNTING' },
-    { label: 'GST Filing', perm: 'GST Filing', icon: FileJson, path: '/pos/gst-filing', feature: 'GST', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: `${p}/day-closing`, feature: 'POS' },
+    { label: 'Payments', perm: 'Payments', icon: CreditCard, path: `${p}/payments`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Invoices', perm: 'Invoices', icon: FileText, path: `${p}/invoices`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: `${p}/expenses`, feature: 'ACCOUNTING', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Reports', perm: 'Reports', icon: PieChart, path: `${p}/reports`, feature: 'REPORTS' },
+    { label: 'Attendance Report', perm: 'Reports', icon: Users, path: `${p}/reports/attendance`, feature: 'REPORTS' },
+    { label: 'Accounting', perm: 'Accounting', icon: BookOpen, path: `${p}/accounts`, feature: 'ACCOUNTING' },
+    { label: 'GST Filing', perm: 'GST Filing', icon: FileJson, path: `${p}/pos/gst-filing`, feature: 'GST', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const operationalActions: DashboardAction[] = [
-    { label: 'One-Page Setup', icon: LayoutGrid, path: '/setup', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: '/billing',           feature: 'POS' },
-    { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: '/counter-payments',  feature: 'POS' },
-    { label: 'Customers',         icon: Contact,           path: '/customers',         feature: 'CRM',             roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: '/orders',            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: '/kots',              feature: 'POS' },
-    { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: '/kitchen-display',   feature: 'POS' },
-    { label: 'Live Notifications', icon: Bell,             path: '/operations/notifications', feature: 'POS' },
-    { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: '/table-reservations', feature: 'TABLES', roles: ['POSSYSTEM'] },
-    { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: '/staff/attendance',  feature: 'STAFF' },
-    { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: '/drivers',           feature: 'DRIVERS' },
-    { label: 'Rider Portal',      perm: 'Drivers',         icon: Bike,           path: '/driver-portal',     feature: 'DRIVERS' },
-    { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: '/operations/waste-management', feature: 'POS' },
-    { label: 'Home Delivery Area', perm: 'Table Layout',    icon: Home,           path: '/operations/delivery',       feature: 'TABLES' },
-    { label: 'Home Delivery QR',   perm: 'Table Layout',    icon: Home,           path: '/operations/delivery-flyer', feature: 'TABLES' },
+    { label: 'One-Page Setup', icon: LayoutGrid, path: `${p}/setup`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: `${p}/billing`,           feature: 'POS' },
+    { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: `${p}/counter-payments`,  feature: 'POS' },
+    { label: 'Customers',         icon: Contact,           path: `${p}/customers`,         feature: 'CRM',             roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: `${p}/orders`,            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: `${p}/kots`,              feature: 'POS' },
+    { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: `${p}/kitchen-display`,   feature: 'POS' },
+    { label: 'Live Notifications', icon: Bell,             path: `${p}/operations/notifications`, feature: 'POS' },
+    { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: `${p}/table-reservations`, feature: 'TABLES', roles: ['POSSYSTEM'] },
+    { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: `${p}/staff/attendance`,  feature: 'STAFF' },
+    { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: `${p}/drivers`,           feature: 'DRIVERS' },
+    { label: 'Rider Portal',      perm: 'Drivers',         icon: Bike,           path: `${p}/driver-portal`,     feature: 'DRIVERS' },
+    { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: `${p}/operations/waste-management`, feature: 'POS' },
+    { label: 'Home Delivery Area', perm: 'Table Layout',    icon: Home,           path: `${p}/operations/delivery`,       feature: 'TABLES' },
+    { label: 'Home Delivery QR',   perm: 'Table Layout',    icon: Home,           path: `${p}/operations/delivery-flyer`, feature: 'TABLES' },
   ];
 
   const b2bActions: DashboardAction[] = [
-    { label: 'B2B Marketplace',   icon: ShoppingBag,    path: '/b2b/market',   feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Order History',    icon: Truck,          path: '/b2b/orders',   feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Supplier Hub',     icon: Store,          path: '/b2b/supplier', feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'B2B Marketplace',   icon: ShoppingBag,    path: `${p}/b2b/market`,   feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Order History',    icon: Truck,          path: `${p}/b2b/orders`,   feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Supplier Hub',     icon: Store,          path: `${p}/b2b/supplier`, feature: 'B2B', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const isVisible = (a: DashboardAction) => {

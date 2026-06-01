@@ -6,7 +6,8 @@ export interface Category {
   name: string;
   description?: string;
   isActive: boolean;
-  menuType?: 'RESTAURANT' | 'BAR';
+  menuType?: 'RESTAURANT' | 'BAR' | 'CAFE';
+  parentId?: string | null;
   _count?: {
     products: number;
   };

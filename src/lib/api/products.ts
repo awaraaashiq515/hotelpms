@@ -15,7 +15,7 @@ export interface Product {
   taxType?: 'INCLUSIVE' | 'EXCLUSIVE' | 'EXEMPT';
   trackInventory: boolean;
   isActive: boolean;
-  menuType?: 'RESTAURANT' | 'BAR';
+  menuType?: 'RESTAURANT' | 'BAR' | 'CAFE';
   pegSize?: number | null;
   pegUnit?: string;
   bottleSize?: number | null;
@@ -23,6 +23,7 @@ export interface Product {
   pegPrice?: number | null;
   image?: string;
   isVeg?: boolean;
+  mealTimes?: string;
   createdAt?: string;
   updatedAt?: string;
   category?: {

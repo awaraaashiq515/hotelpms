@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
     const packageFeatures = orgPackage?.features.map((f: any) => f.feature) ?? []
     const discountPercent = orgPackage?.discountPercent ?? 0
 
+    let propertyCode = null;
+    if (user.propertyId) {
+      const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true } });
+      propertyCode = prop?.code || null;
+    } else if (user.organizationId) {
+      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true } });
+      propertyCode = prop?.code || null;
+    }
+
     const sessionData: SessionPayload = {
       id: user.id,
       email: user.email,
@@ -60,6 +69,7 @@ export async function POST(request: NextRequest) {
       discountPercent,
       packageEndDate: user.organization?.packageEndDate?.toISOString() ?? null,
       subscriptionStatus: user.organization?.subscriptionStatus ?? 'TRIAL',
+      propertyCode,
     }
 
     const token = await encrypt(sessionData)

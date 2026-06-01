@@ -23,11 +23,15 @@ interface TabletDevice {
   assignedTableIds?: string | null;
   propertyId: string;
   isActive: boolean;
+  floorId?: string | null;
+  showBar: boolean;
+  showCafe: boolean;
 }
 
 interface Table {
   id: string;
   name: string;
+  floorId: string;
 }
 
 interface StaffMember {
@@ -45,6 +49,7 @@ export default function TabletSettingsPage() {
   const [editingTablet, setEditingTablet] = useState<TabletDevice | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [floors, setFloors] = useState<any[]>([]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -53,7 +58,10 @@ export default function TabletSettingsPage() {
     tableId: '',
     assignedTableIds: '[]',
     waiterId: '',
-    propertyId: ''
+    propertyId: '',
+    floorId: '',
+    showBar: true,
+    showCafe: true
   });
 
   const { addToast } = useToast();
@@ -73,18 +81,21 @@ export default function TabletSettingsPage() {
       const currentPropertyId = propData.data.id;
       setFormData(prev => ({ ...prev, propertyId: currentPropertyId }));
 
-      const [tabRes, tableRes, staffRes] = await Promise.all([
+      const [tabRes, tableRes, staffRes, floorsRes] = await Promise.all([
         fetch(`/api/tablets?propertyId=${currentPropertyId}`),
         fetch(`/api/tables?propertyId=${currentPropertyId}`),
-        fetch(`/api/staff-members?propertyId=${currentPropertyId}`)
+        fetch(`/api/staff-members?propertyId=${currentPropertyId}`),
+        fetch(`/api/floors?propertyId=${currentPropertyId}`)
       ]);
       const tabData = await tabRes.json();
       const tableData = await tableRes.json();
       const staffData = await staffRes.json();
+      const floorsData = await floorsRes.json();
       
       if (tabData.success) setTablets(tabData.data);
       if (tableData.success) setTables(tableData.data);
       if (staffData.success) setStaffMembers(staffData.data);
+      if (floorsData.success) setFloors(floorsData.data);
     } catch (e) {
       addToast('error', 'Failed to load data');
     } finally {
@@ -105,7 +116,10 @@ export default function TabletSettingsPage() {
         tableId: tablet.tableId || '',
         assignedTableIds: tablet.assignedTableIds || '[]',
         waiterId: tablet.waiterId || '',
-        propertyId: tablet.propertyId
+        propertyId: tablet.propertyId,
+        floorId: tablet.floorId || '',
+        showBar: tablet.showBar ?? true,
+        showCafe: tablet.showCafe ?? true
       });
     } else {
       setEditingTablet(null);
@@ -116,6 +130,9 @@ export default function TabletSettingsPage() {
         tableId: '',
         assignedTableIds: '[]',
         waiterId: '',
+        floorId: '',
+        showBar: true,
+        showCafe: true
       }));
     }
     setIsModalOpen(true);
@@ -215,6 +232,25 @@ export default function TabletSettingsPage() {
                       : (staffMembers.find(s => s.id === tablet.waiterId)?.name || 'No Staff Assigned')}
                   </span>
                 </div>
+                {tablet.floorId && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400 dark:text-slate-500 font-bold uppercase text-[10px] tracking-widest">Floor Filter</span>
+                    <span className="text-gray-900 dark:text-white font-black truncate max-w-[150px]">
+                      {floors.find(f => f.id === tablet.floorId)?.name || 'Unknown Floor'}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400 dark:text-slate-500 font-bold uppercase text-[10px] tracking-widest">Menus Enabled</span>
+                  <div className="flex gap-1.5">
+                    <Badge variant="neutral" className={`text-[8px] uppercase font-bold px-1.5 ${tablet.showBar ? 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5' : 'opacity-40 text-slate-400 border-slate-200'}`}>
+                      Bar: {tablet.showBar ? 'ON' : 'OFF'}
+                    </Badge>
+                    <Badge variant="neutral" className={`text-[8px] uppercase font-bold px-1.5 ${tablet.showCafe ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5' : 'opacity-40 text-slate-400 border-slate-200'}`}>
+                      Cafe: {tablet.showCafe ? 'ON' : 'OFF'}
+                    </Badge>
+                  </div>
+                </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400 dark:text-slate-500 font-bold uppercase text-[10px] tracking-widest">Device Status</span>
                   <Badge variant={tablet.isActive ? 'success' : 'neutral'} className="rounded-full h-2 w-2 p-0 animate-pulse">{''}</Badge>
@@ -261,10 +297,50 @@ export default function TabletSettingsPage() {
             onChange={(e) => setFormData(prev => ({ ...prev, mode: e.target.value as 'WAITER' | 'TABLE' }))}
           />
 
+          <Select 
+            label="Assign to Specific Floor (Optional)"
+            options={[
+              { label: 'All Floors', value: '' },
+              ...floors.map(f => ({ label: f.name, value: f.id }))
+            ]}
+            value={formData.floorId}
+            onChange={(e) => setFormData(prev => ({ ...prev, floorId: e.target.value }))}
+          />
+
+          <div className="space-y-3">
+            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Enabled Menus</label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={formData.showBar} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, showBar: e.target.checked }))}
+                  className="w-4 h-4 rounded text-pos-primary focus:ring-pos-primary border-gray-300 dark:border-slate-600 dark:bg-slate-900"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">🍺 Bar Menu</span>
+                  <span className="text-[9px] text-gray-500 font-medium">Show Bar categories & products</span>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={formData.showCafe} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, showCafe: e.target.checked }))}
+                  className="w-4 h-4 rounded text-pos-primary focus:ring-pos-primary border-gray-300 dark:border-slate-600 dark:bg-slate-900"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">☕ Cafe Menu</span>
+                  <span className="text-[9px] text-gray-500 font-medium">Show Cafe categories & products</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {formData.mode === 'TABLE' && (
             <Select 
               label="Assign to Physical Table"
-              options={tables.map(t => ({ label: `Table ${t.name}`, value: t.id }))}
+              options={tables.filter(t => !formData.floorId || t.floorId === formData.floorId).map(t => ({ label: `Table ${t.name}`, value: t.id }))}
               value={formData.tableId}
               onChange={(e) => setFormData(prev => ({ ...prev, tableId: e.target.value }))}
             />
@@ -288,7 +364,7 @@ export default function TabletSettingsPage() {
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Assign Tables to this Tablet</label>
                 <div className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-2">Select which tables this tablet can access. Leave empty to allow access to all tables.</div>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border border-gray-100 dark:border-slate-700 rounded-2xl bg-gray-50 dark:bg-slate-900/50">
-                  {tables.map(table => {
+                  {tables.filter(t => !formData.floorId || t.floorId === formData.floorId).map(table => {
                     const assigned = (() => {
                       try {
                         return JSON.parse(formData.assignedTableIds || '[]').includes(table.id);

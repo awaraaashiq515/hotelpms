@@ -43,11 +43,12 @@ interface PaymentMode {
 
 export default function TableManagementPage() {
   const router = useRouter();
-  const { setOpen } = useSidebar();
+  const { setHidden, isOpen, setOpen } = useSidebar();
 
   const [floors, setFloors] = useState<Floor[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [outlets, setOutlets] = useState<any[]>([]);
   const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -364,10 +365,24 @@ export default function TableManagementPage() {
     return fetchData();
   };
 
-  // Close sidebar only once when this page mounts
+  // Make sidebar hidden when closed, and visible when opened
+  useEffect(() => {
+    if (!isOpen) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+  }, [isOpen, setHidden]);
+
+  // Close and hide sidebar when this page mounts
   useEffect(() => {
     setOpen(false);
-  }, []);
+    setHidden(true);
+    return () => {
+      setOpen(true);
+      setHidden(false);
+    };
+  }, [setOpen, setHidden]);
 
   const fetchStaffMembers = async () => {
     try {
@@ -379,12 +394,25 @@ export default function TableManagementPage() {
     }
   };
 
+  const fetchOutlets = async () => {
+    try {
+      const res = await fetch('/api/outlets');
+      const data = await res.json();
+      if (data.success) {
+        setOutlets(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch outlets:', err);
+    }
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem('pos_active_floor_id');
     if (saved) {
       setActiveFloorId(saved);
     }
     fetchStaticData();
+    fetchOutlets();
     fetchData();
     fetchPropertyData();
     fetchStaffMembers();
@@ -402,7 +430,7 @@ export default function TableManagementPage() {
     setIsFloorFormOpen(true);
   };
 
-  const handleCreateFloorSubmit = async (data: { name: string; order: number }) => {
+  const handleCreateFloorSubmit = async (data: { name: string; order: number; menuType: 'RESTAURANT' | 'BAR' | 'CAFE'; outletId?: string | null }) => {
     setFloorFormLoading(true);
     try {
       if (editingFloor) {
@@ -413,6 +441,8 @@ export default function TableManagementPage() {
           body: JSON.stringify({
             name: data.name.trim(),
             order: data.order,
+            menuType: data.menuType,
+            outletId: data.outletId,
           }),
         });
         const result = await res.json();
@@ -431,6 +461,8 @@ export default function TableManagementPage() {
           body: JSON.stringify({
             name: data.name.trim(),
             order: data.order,
+            menuType: data.menuType,
+            outletId: data.outletId,
           }),
         });
         const result = await res.json();
@@ -598,7 +630,10 @@ export default function TableManagementPage() {
     
     if (isVacant) {
       // Empty table: Single click opens POS
-      router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
+      const targetUrl = (table as any).floor?.menuType === 'BAR' ? `/bar-pos?tableId=${table.id}&tableNo=${table.name}`
+                      : (table as any).floor?.menuType === 'CAFE' ? `/cafe-pos?tableId=${table.id}&tableNo=${table.name}`
+                      : `/billing?tableId=${table.id}&tableNo=${table.name}`;
+      router.push(targetUrl);
     } else {
       // Occupied table: Single click selects (shows KOT/Bill menu)
       if (selectedTable?.id === table.id) {
@@ -610,8 +645,11 @@ export default function TableManagementPage() {
   };
 
   const handleTableDoubleClick = (table: Table) => {
-    // Always navigate to billing on double click
-    router.push(`/billing?tableId=${table.id}&tableNo=${table.name}`);
+    // Always navigate to appropriate POS on double click
+    const targetUrl = (table as any).floor?.menuType === 'BAR' ? `/bar-pos?tableId=${table.id}&tableNo=${table.name}`
+                    : (table as any).floor?.menuType === 'CAFE' ? `/cafe-pos?tableId=${table.id}&tableNo=${table.name}`
+                    : `/billing?tableId=${table.id}&tableNo=${table.name}`;
+    router.push(targetUrl);
   };
 
   const handleResetTable = async (table: Table) => {
@@ -829,7 +867,10 @@ export default function TableManagementPage() {
                 <button
                   onClick={() => { 
                     const orderId = selectedTable.activeOrder?.id ? `&orderId=${selectedTable.activeOrder.id}` : '';
-                    router.push(`/billing?tableId=${selectedTable.id}&tableName=${selectedTable.name}${orderId}`); 
+                    const targetUrl = (selectedTable as any).floor?.menuType === 'BAR' ? `/bar-pos?tableId=${selectedTable.id}&tableNo=${selectedTable.name}${orderId}`
+                                    : (selectedTable as any).floor?.menuType === 'CAFE' ? `/cafe-pos?tableId=${selectedTable.id}&tableNo=${selectedTable.name}${orderId}`
+                                    : `/billing?tableId=${selectedTable.id}&tableName=${selectedTable.name}${orderId}`;
+                    router.push(targetUrl); 
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
                 >
@@ -1240,6 +1281,7 @@ export default function TableManagementPage() {
         title="Add New Floor"
       >
         <FloorForm
+          outlets={outlets}
           onSubmit={handleCreateFloorSubmit}
           onCancel={() => setIsFloorFormOpen(false)}
           loading={floorFormLoading}
@@ -1255,7 +1297,8 @@ export default function TableManagementPage() {
         title="Edit Floor"
       >
         <FloorForm
-          initialData={editingFloor ? { name: editingFloor.name, order: editingFloor.order } : undefined}
+          initialData={editingFloor ? { name: editingFloor.name, order: editingFloor.order, menuType: editingFloor.menuType, outletId: editingFloor.outletId } : undefined}
+          outlets={outlets}
           onSubmit={handleCreateFloorSubmit}
           onCancel={() => {
             setIsFloorEditModalOpen(false);

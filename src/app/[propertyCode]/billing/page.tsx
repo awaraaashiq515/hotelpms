@@ -34,6 +34,7 @@ interface CartItem extends Product {
   size?: string;
   cartItemId: string;
   isComplimentary?: boolean;
+  replacedFrom?: string; // name of original item before replacement
 }
 
 // CosyPOS-style category colors — pastel for light mode, deep pastel for dark mode
@@ -173,9 +174,12 @@ export default function BillingPage() {
   // Active orders from all tables — for bottom bar
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [property, setProperty] = useState<any>(null);
+  // Replace item state
+  const [replaceTarget, setReplaceTarget] = useState<any | null>(null);
+  const [replaceSearch, setReplaceSearch] = useState('');
 
   const { addToast } = useToast();
-  const { setOpen } = useSidebar();
+  const { setHidden, isOpen, setOpen } = useSidebar();
 
   useEffect(() => {
     // Role guard — RESTAURANTS_ADMIN should not access POS Terminal
@@ -189,11 +193,24 @@ export default function BillingPage() {
       .catch(() => {});
   }, []);
 
+  // Make sidebar hidden when closed, and visible when opened
   useEffect(() => {
-    // Automatically collapse the sidebar when on the billing page
+    if (!isOpen) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+  }, [isOpen, setHidden]);
+
+  useEffect(() => {
+    // Automatically hide the sidebar when on the billing page
     setOpen(false);
-    return () => setOpen(true);
-  }, [setOpen]);
+    setHidden(true);
+    return () => {
+      setOpen(true);
+      setHidden(false);
+    };
+  }, [setOpen, setHidden]);
 
   // Color animation: dark → scattered color pop-in
   useEffect(() => {
@@ -438,6 +455,53 @@ export default function BillingPage() {
 
   const removeFromCart = (cartItemId: string) => {
     setCart(prev => prev.filter(item => item.cartItemId !== cartItemId));
+  };
+
+  const replaceCartItem = (oldCartItemId: string, newProduct: Product, size: string = 'Full', price?: number) => {
+    const oldItem = cart.find(i => i.cartItemId === oldCartItemId);
+    if (oldItem) {
+      // Auto-log to waste management
+      fetch('/api/waste', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: oldItem.id,
+          productName: oldItem.name,
+          quantity: oldItem.quantity,
+          reason: 'Customer Return',
+          notes: `Replaced with ${newProduct.name}`,
+          orderNo: activeOrder?.orderNo || undefined,
+          tableNo: slotName || tableName || activeOrder?.tableNo || undefined,
+        })
+      }).catch(err => console.error('Failed to log waste:', err));
+    }
+
+    setCart(prev => {
+      const prevOld = prev.find(i => i.cartItemId === oldCartItemId);
+      if (!prevOld) return prev;
+      const oldName = prevOld.name; // capture original name
+      const newCartItemId = `${newProduct.id}-${size}`;
+      const newPrice = price ?? newProduct.sellingPrice;
+      const newName = size !== 'Full' ? `${newProduct.name} (${size})` : newProduct.name;
+      // Check if same product already exists elsewhere in cart
+      const existingIdx = prev.findIndex(i => i.cartItemId === newCartItemId && i.cartItemId !== oldCartItemId);
+      if (existingIdx >= 0) {
+        // Merge quantities
+        const updated = prev.map((i, idx) => idx === existingIdx ? { ...i, quantity: i.quantity + prevOld.quantity } : i);
+        return updated.filter(i => i.cartItemId !== oldCartItemId);
+      }
+      return prev.map(i => i.cartItemId === oldCartItemId ? {
+        ...newProduct,
+        name: newName,
+        sellingPrice: newPrice,
+        cartItemId: newCartItemId,
+        size,
+        quantity: prevOld.quantity,
+        replacedFrom: oldName, // store original name
+      } : i);
+    });
+    setReplaceTarget(null);
+    setReplaceSearch('');
   };
 
   const updateQuantity = (cartItemId: string, delta: number) => {
@@ -1014,7 +1078,18 @@ export default function BillingPage() {
 
 
   const filteredProducts = products.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.categoryId === selectedCategory;
+    let matchesCategory = false;
+    if (selectedCategory === 'all') {
+      matchesCategory = true;
+    } else if (selectedCategory === 'breakfast') {
+      matchesCategory = !!(p.mealTimes && p.mealTimes.split(',').includes('BREAKFAST'));
+    } else if (selectedCategory === 'lunch') {
+      matchesCategory = !!(p.mealTimes && p.mealTimes.split(',').includes('LUNCH'));
+    } else if (selectedCategory === 'dinner') {
+      matchesCategory = !!(p.mealTimes && p.mealTimes.split(',').includes('DINNER'));
+    } else {
+      matchesCategory = p.categoryId === selectedCategory;
+    }
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesMenuType = (p as any).menuType === 'RESTAURANT' || !(p as any).menuType;
     return matchesCategory && matchesSearch && matchesMenuType;
@@ -1232,6 +1307,66 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                <div className="text-center">
                  <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>All</h3>
                  <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{products.length} items</p>
+               </div>
+            </button>
+
+            {/* Breakfast Tile */}
+            <button
+               onClick={() => setSelectedCategory('breakfast')}
+               style={selectedCategory === 'breakfast' ? {} : {
+                 backgroundColor: theme === 'dark' ? '#3e2723' : '#FFF8E1',
+                 color: theme === 'dark' ? '#ffb74d' : '#FF8F00',
+               }}
+               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'breakfast' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+             >
+               <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-black/5 dark:bg-white/5">
+                 <Coffee size={14} />
+               </div>
+               <div className="text-center">
+                 <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Breakfast</h3>
+                 <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
+                   {products.filter(p => p.mealTimes && p.mealTimes.split(',').includes('BREAKFAST')).length} items
+                 </p>
+               </div>
+            </button>
+
+            {/* Lunch Tile */}
+            <button
+               onClick={() => setSelectedCategory('lunch')}
+               style={selectedCategory === 'lunch' ? {} : {
+                 backgroundColor: theme === 'dark' ? '#004d40' : '#E0F2F1',
+                 color: theme === 'dark' ? '#4db6ac' : '#00796B',
+               }}
+               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'lunch' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+             >
+               <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-black/5 dark:bg-white/5">
+                 <CookingPot size={14} />
+               </div>
+               <div className="text-center">
+                 <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Lunch</h3>
+                 <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
+                   {products.filter(p => p.mealTimes && p.mealTimes.split(',').includes('LUNCH')).length} items
+                 </p>
+               </div>
+            </button>
+
+            {/* Dinner Tile */}
+            <button
+               onClick={() => setSelectedCategory('dinner')}
+               style={selectedCategory === 'dinner' ? {} : {
+                 backgroundColor: theme === 'dark' ? '#1a237e' : '#E8EAF6',
+                 color: theme === 'dark' ? '#9fa8da' : '#3F51B5',
+               }}
+               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'dinner' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+             >
+               <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-black/5 dark:bg-white/5">
+                 <Utensils size={14} />
+               </div>
+               <div className="text-center">
+                 <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Dinner</h3>
+                 <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
+                   {products.filter(p => p.mealTimes && p.mealTimes.split(',').includes('DINNER')).length} items
+                 </p>
                </div>
             </button>
 
@@ -2071,73 +2206,95 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  </div>
                  <p className="font-black text-[9px] uppercase tracking-[0.2em] text-slate-400">Your Cart is Empty</p>
                </div>
-             ) : (
+              ) : (
                <div className="space-y-1">
-                  {cart.map((item: any) => (
-                    <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
-                      <div className="flex flex-col gap-0.5 relative z-10">
-                        {/* Compact Header: Name, Price, Qty & Trash */}
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1 min-w-0 pr-2">
-                            <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
-                              {item.name.split('(')[0].trim()}
-                            </h4>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[12px] text-pos-primary font-black">₹{isOrderComplimentary ? '0' : (item.sellingPrice * item.quantity).toFixed(0)}</span>
-                              <span className="text-[8px] text-slate-500 font-bold opacity-40">/ ₹{isOrderComplimentary ? '0' : item.sellingPrice.toFixed(0)}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-1">
-                            <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
-                              <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
-                                <Minus size={10} strokeWidth={4} />
-                              </button>
-                              <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
-                                <Plus size={10} strokeWidth={4} />
-                              </button>
-                            </div>
-                            <button 
-                              onClick={() => removeFromCart(item.cartItemId)}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
-                            >
-                              <Trash2 size={10} />
-                            </button>
-                          </div>
-                        </div>
+                 {cart.map((item: any) => (
+                   <div key={item.cartItemId} className={`group relative overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2a2a2a] shadow-lg' : 'bg-white border-slate-200 shadow-md'} rounded-xl p-1.5 border transition-all duration-300 mb-1`}>
+                     <div className="flex flex-col gap-0.5 relative z-10">
+                       {/* Main row: Name+Price | Replace | Qty+Delete */}
+                       <div className="flex items-center gap-1">
 
-                        {/* Compact Grid: Sizes/Variants */}
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
-                                className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                              >
-                                Half
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
-                                className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                              >
-                                Full
-                              </button>
-                            </>
-                          )}
+                         {/* LEFT: Name + Price */}
+                         <div className="flex-1 min-w-0">
+                           <h4 className={`text-[11px] font-black ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'} truncate tracking-tight uppercase leading-tight`}>
+                             {item.name.split('(')[0].trim()}
+                           </h4>
+                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                             <span className="text-[12px] text-pos-primary font-black">&#8377;{isOrderComplimentary ? '0' : (item.sellingPrice * item.quantity).toFixed(0)}</span>
+                             <span className="text-[8px] text-slate-500 font-bold opacity-40">/ &#8377;{isOrderComplimentary ? '0' : item.sellingPrice.toFixed(0)}</span>
+                             {(item as any).replacedFrom && (
+                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '8px', fontWeight: 700, color: '#54B8D8', background: 'rgba(84,184,216,0.1)', border: '1px solid rgba(84,184,216,0.25)', borderRadius: '999px', padding: '1px 6px', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                                 &#8617; {(item as any).replacedFrom}
+                               </span>
+                             )}
+                           </div>
+                         </div>
 
-                          {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
-                            <button 
-                              key={v.id}
-                              onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
-                              className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
-                            >
-                              {v.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                         {/* CENTER: Replace button */}
+                         <button
+                           onClick={() => { setReplaceTarget(item); setReplaceSearch(''); }}
+                           title="Replace item"
+                           className={`shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${
+                             theme === 'dark'
+                               ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500 hover:text-white hover:border-blue-500'
+                               : 'bg-blue-50 text-blue-500 border border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500'
+                           }`}
+                         >
+                           <RotateCcw size={9} strokeWidth={3} />
+                           Replace
+                         </button>
+
+                         {/* RIGHT: Qty + Delete */}
+                         <div className="flex items-center gap-1 shrink-0">
+                           <div className="flex items-center bg-black/30 dark:bg-black/40 rounded-lg p-0.5 border border-white/5">
+                             <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all">
+                               <Minus size={10} strokeWidth={4} />
+                             </button>
+                             <span className="w-4 text-center text-[11px] font-black">{item.quantity}</span>
+                             <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-pos-primary transition-all">
+                               <Plus size={10} strokeWidth={4} />
+                             </button>
+                           </div>
+                           <button
+                             onClick={() => removeFromCart(item.cartItemId)}
+                             className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                           >
+                             <Trash2 size={10} />
+                           </button>
+                         </div>
+                       </div>
+
+                       {/* Compact Grid: Sizes/Variants */}
+                       <div className="grid grid-cols-2 gap-1.5">
+                         {((item as any).menuType === 'RESTAURANT' || !(item as any).menuType) && (!item.variants || item.variants.length === 0) && (item as any).halfPrice > 0 && (
+                           <>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); item.size !== 'Half' && toggleSize(item.cartItemId); }}
+                               className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Half' ? 'bg-orange-500 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                             >
+                               Half
+                             </button>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); item.size !== 'Full' && toggleSize(item.cartItemId); }}
+                               className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === 'Full' || !item.size ? 'bg-rose-400 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                             >
+                               Full
+                             </button>
+                           </>
+                         )}
+
+                         {(products.find(p => p.id === item.id)?.variants || item.variants)?.map((v: any) => (
+                           <button
+                             key={v.id}
+                             onClick={(e) => { e.stopPropagation(); changeVariant(item.cartItemId, v.name, v.price); }}
+                             className={`text-[9px] py-1.5 px-1.5 rounded-lg font-black uppercase transition-all duration-300 ${item.size === v.name ? 'bg-indigo-600 text-white shadow-md' : 'bg-black/20 dark:bg-white/5 text-slate-500'}`}
+                           >
+                             {v.name}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
                  ))}
                </div>
              )}
@@ -2507,6 +2664,72 @@ Total Amount: ₹${grandTotal.toFixed(2)}
           onCancel={() => setIsDriverModalOpen(false)}
           loading={driverMutationLoading}
         />
+      </Modal>
+
+      {/* ═══ REPLACE ITEM MODAL ═══ */}
+      <Modal
+        isOpen={!!replaceTarget}
+        onClose={() => { setReplaceTarget(null); setReplaceSearch(''); }}
+        title={`Replace: ${replaceTarget?.name?.split('(')[0].trim() || ''}`}
+        maxWidth="md"
+      >
+        {replaceTarget && (
+          <div style={{ padding: '8px' }}>
+            <p className={`text-[11px] mb-3 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              Pick a product to replace this item (qty {replaceTarget.quantity} will be kept).
+            </p>
+            <div className="relative mb-3">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search product…"
+                value={replaceSearch}
+                onChange={e => setReplaceSearch(e.target.value)}
+                className={`w-full text-[12px] pl-8 pr-3 py-2 rounded-xl border outline-none transition-all ${
+                  theme === 'dark'
+                    ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-blue-500/50'
+                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-400'
+                }`}
+              />
+            </div>
+            <div style={{ maxHeight: '340px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {products
+                .filter(p => p.name.toLowerCase().includes(replaceSearch.toLowerCase()))
+                .slice(0, 40)
+                .map((p, idx) => (
+                  <button
+                    key={p.id}
+                    onClick={() => replaceCartItem(replaceTarget.cartItemId, p)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all ${
+                      theme === 'dark'
+                        ? 'bg-white/3 border-white/8 hover:bg-blue-500/10 hover:border-blue-500/30 text-slate-200'
+                        : 'bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-300 text-slate-800'
+                    }`}
+                  >
+                    <div>
+                      <p className="text-[12px] font-bold">{p.name}</p>
+                      {(p as any).categoryId && <p className="text-[10px] text-slate-500">{categories.find(c => c.id === (p as any).categoryId)?.name || ''}</p>}
+                    </div>
+                    <span className="text-[13px] font-black text-pos-primary ml-3 shrink-0">₹{p.sellingPrice.toFixed(0)}</span>
+                  </button>
+                ))}
+              {products.filter(p => p.name.toLowerCase().includes(replaceSearch.toLowerCase())).length === 0 && (
+                <p className="text-center text-[11px] text-slate-500 py-6">No products found</p>
+              )}
+            </div>
+            <button
+              onClick={() => { setReplaceTarget(null); setReplaceSearch(''); }}
+              className={`w-full mt-4 py-2.5 rounded-xl border text-[12px] font-bold transition-all ${
+                theme === 'dark'
+                  ? 'border-white/10 text-slate-400 hover:bg-white/5'
+                  : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   );

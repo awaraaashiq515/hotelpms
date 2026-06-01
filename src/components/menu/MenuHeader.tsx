@@ -3,8 +3,8 @@ import { useState } from 'react';
 
 interface MenuHeaderProps {
   data: any;
-  activeTab: 'menu' | 'bar' | 'orders' | 'profile';
-  setActiveTab: (tab: 'menu' | 'bar' | 'orders' | 'profile') => void;
+  activeTab: 'menu' | 'bar' | 'cafe' | 'orders' | 'profile';
+  setActiveTab: (tab: 'menu' | 'bar' | 'cafe' | 'orders' | 'profile') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -77,7 +77,7 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
         </button>
       </div>
 
-      {['menu', 'bar'].includes(activeTab) && (
+      {['menu', 'bar', 'cafe'].includes(activeTab) && (
         <div className="mt-4 relative animate-in slide-in-from-top-1 duration-300">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 

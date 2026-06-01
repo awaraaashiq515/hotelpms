@@ -27,6 +27,8 @@ export type SessionPayload = {
   organizationName?: string | null  // human-readable org name
   organizationSlug?: string | null  // URL-safe slug for branded routing
   propertyId: string | null
+  propertyCode?: string | null
+  propertySlug?: string | null      // URL-safe slug derived from property name
   supplierId?: string | null
   onboardingCompleted: boolean
   permissions?: string[]

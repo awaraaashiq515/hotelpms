@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useParams } from 'next/navigation';
 import { ChevronDown, ChevronRight, LogOut } from 'lucide-react';
 import { getSidebarMenu } from '@/lib/menu-config';
 import { useSidebar } from '@/context/sidebar-context';
@@ -10,10 +10,13 @@ import { useSidebar } from '@/context/sidebar-context';
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = typeof params?.propertyCode === 'string' ? params.propertyCode : null;
   const { isOpen, isHidden } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [barPosEnabled, setBarPosEnabled] = useState(false);
+  const [cafePosEnabled, setCafePosEnabled] = useState(false);
   const [property, setProperty] = useState<any>(null);
 
   React.useEffect(() => {
@@ -34,17 +37,20 @@ export const Sidebar: React.FC = () => {
         if (data.success) {
           setProperty(data.data);
           setBarPosEnabled(!!data.data.barPosEnabled);
+          setCafePosEnabled(!!data.data.cafePosEnabled);
         }
       })
       .catch(() => {});
   }, []);
 
   // Filter menu based on role
-  const menu = session ? getSidebarMenu(session.role, session.organizationSlug) : [];
+  const menu = session ? getSidebarMenu(session.role, session.organizationSlug, propertyCode) : [];
   
   const filteredMenu = menu.filter(item => {
     // Hide Bar POS menu item when barPosEnabled is false
-    if (item.path === '/bar-pos' && !barPosEnabled) return false;
+    if (item.path.includes('/bar-pos') && !barPosEnabled) return false;
+    // Hide Cafe POS menu item when cafePosEnabled is false
+    if (item.path.includes('/cafe-pos') && !cafePosEnabled) return false;
 
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;

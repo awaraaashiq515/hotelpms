@@ -38,7 +38,8 @@ export async function GET(
             upiLimit2: true,
             upiReceivedToday2: true,
             lastUpiResetDate: true,
-            showBarInQrMenu: true
+            showBarInQrMenu: true,
+            showCafeInQrMenu: true
           }
         }
       }
@@ -168,18 +169,22 @@ export async function GET(
 
     // 3. Fetch Menu (Categories + Products)
     // Filter by BAR menuType if showBarInQrMenu is false
+    const excludedMenuTypes = [];
+    if (!property.showBarInQrMenu) excludedMenuTypes.push('BAR');
+    if (!property.showCafeInQrMenu) excludedMenuTypes.push('CAFE');
+
     const categories = await prisma.category.findMany({
       where: {
         propertyId: property.id,
         isActive: true,
-        ...(property.showBarInQrMenu ? {} : { menuType: { not: 'BAR' } })
+        ...(excludedMenuTypes.length > 0 ? { menuType: { notIn: excludedMenuTypes } } : {})
       },
       include: {
         products: {
           where: {
             isActive: true,
             availabilityStatus: true,
-            ...(property.showBarInQrMenu ? {} : { menuType: { not: 'BAR' } })
+            ...(excludedMenuTypes.length > 0 ? { menuType: { notIn: excludedMenuTypes } } : {})
           },
           include: {
             variants: true

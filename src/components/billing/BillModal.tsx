@@ -24,6 +24,7 @@ export interface BillData {
     quantity: number;
     price: number;
     hsnCode?: string;
+    replacedFrom?: string;
   }[];
   subtotal: number;
   tax: number;
@@ -42,7 +43,7 @@ export interface BillData {
 
 interface BillModalProps {
   bill: BillData | null;
-  onClose: () => void;
+  onClose: (settled?: boolean) => void;
   onSettle?: (paymentModeId: string, guestId?: string, driverId?: string, membershipCardId?: string | null, manualDiscount?: number) => Promise<void>;
   paymentModes?: any[];
   customers?: any[];
@@ -229,9 +230,26 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   React.useEffect(() => {
     if (autoPrint && property && bill) {
       handlePrint();
-      onClose();
+      onClose(!!settledInvoiceId);
     }
   }, [autoPrint, property, !!bill]);
+
+  React.useEffect(() => {
+    if (!bill) {
+      setSettledInvoiceId(null);
+      setShowRating(false);
+      setRating(0);
+      setRatingComments('');
+      setSelectedModeId(null);
+      setRedeemPointsInput(0);
+      setCouponCodeInput('');
+      setAppliedCoupon(null);
+      setMembershipCard(null);
+      setMembershipDiscount(0);
+    } else {
+      setSelectedGuestId(guestId || '');
+    }
+  }, [bill, guestId]);
 
   const filteredCustomers = React.useMemo(() => {
     if (!customerSearch) return customers.slice(0, 5);
@@ -315,11 +333,11 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
             body: JSON.stringify({ rating, comments: ratingComments })
         });
         handlePrint();
-        onClose();
+        onClose(true);
     } catch (err) {
         console.error('Rating failed', err);
         handlePrint();
-        onClose();
+        onClose(true);
     }
   };
 
@@ -424,6 +442,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                   <td>${item.quantity}</td>
                   <td class="uppercase">
                     ${item.name}
+                    ${item.replacedFrom ? `<br/><span style="font-size: 8px; color: #555;">(Replaced from: ${item.replacedFrom})</span>` : ''}
                     ${item.hsnCode ? `<br/><span class="hsn">HSN: ${item.hsnCode}</span>` : ''}
                   </td>
                   <td class="text-right">₹${(item.quantity * (item.price || 0)).toFixed(2)}</td>
@@ -520,7 +539,7 @@ Thank you! Visit again.`;
   };
 
   return (
-    <Modal isOpen={!!bill} onClose={onClose} title={isProforma ? "Order Settlement" : "Bill Details"} maxWidth="4xl">
+    <Modal isOpen={!!bill} onClose={() => onClose(!!settledInvoiceId)} title={isProforma ? "Order Settlement" : "Bill Details"} maxWidth="4xl">
       <div className="mx-auto text-slate-900 dark:text-slate-100">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           
@@ -586,6 +605,9 @@ Thank you! Visit again.`;
                   <div key={idx} className="grid grid-cols-[1fr_80px_70px] gap-2 items-start py-0.5 group">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-350 leading-tight uppercase group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{item.name}</p>
+                      {item.replacedFrom && (
+                        <p className="text-[9px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">↩ Replaced: {item.replacedFrom}</p>
+                      )}
                     </div>
                     <div className="text-center">
                         <p className="text-xs font-medium text-slate-500 dark:text-slate-450 tabular-nums">{item.quantity} × {(item.price || 0).toFixed(0)}</p>
@@ -958,7 +980,7 @@ Thank you! Visit again.`;
                   </button>
                   
                   <div className="flex justify-center mt-3">
-                    <button onClick={onClose} className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors py-1">
+                    <button onClick={() => onClose(!!settledInvoiceId)} className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors py-1">
                         Cancel & Return
                     </button>
                   </div>
@@ -1014,8 +1036,8 @@ Thank you! Visit again.`;
                 Send via WhatsApp
               </Button>
               <button 
-                onClick={() => { handlePrint(); onClose(); }}
-                className="text-xs font-semibold text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1"
+                onClick={() => { handlePrint(); onClose(true); }}
+                className="text-xs font-semibold text-slate-400 dark:text-slate-505 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1"
               >
                 Skip Rating
               </button>

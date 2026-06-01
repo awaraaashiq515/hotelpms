@@ -6,51 +6,42 @@ const secretKey = process.env.JWT_SECRET || 'super-secret-default-key-change-it-
 const key = new TextEncoder().encode(secretKey)
 
 /**
- * Next.js 16 middleware (this project uses proxy.ts convention).
+ * Next.js 16 middleware.
  * Handles auth, paywalls, subscription expiry, dynamic slug routing,
  * and role/permission-based access control.
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value
   const { pathname } = request.nextUrl
 
-  const isDashboardRoute =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/restaurantadmin') ||
-    pathname.startsWith('/billing') ||
-    pathname.startsWith('/bar-pos') ||
-    pathname.startsWith('/counter-payments') ||
-    pathname.startsWith('/invoices') ||
-    pathname.startsWith('/payments') ||
-    pathname.startsWith('/inventory') ||
-    pathname.startsWith('/kots') ||
-    pathname.startsWith('/reports') ||
-    pathname.startsWith('/settings') ||
-    pathname.startsWith('/operations') ||
-    pathname.startsWith('/drivers') ||
-    pathname.startsWith('/pos-staff') ||
-    pathname.startsWith('/expenses') ||
-    pathname.startsWith('/accounts') ||
-    pathname.startsWith('/manage-properties') ||
-    pathname.startsWith('/manage-users') ||
-    pathname.startsWith('/manage-roles') ||
-    pathname.startsWith('/pos/gst-filing') ||
-    pathname.startsWith('/pos/gst-settings') ||
-    pathname.startsWith('/vouchers') ||
-    pathname.startsWith('/orders') ||
-    pathname.startsWith('/all-bills') ||
-    pathname.startsWith('/categories') ||
-    pathname.startsWith('/products') ||
-    pathname.startsWith('/day-closing') ||
-    pathname.startsWith('/table-reservations') ||
-    pathname.startsWith('/memberships') ||
-    pathname.startsWith('/customers') ||
-    pathname.startsWith('/b2b') ||
-    pathname.startsWith('/kitchen-display')
+  
+  const parts = pathname.split('/').filter(Boolean)
+  const dashboardRoots = [
+    'dashboard', 'billing', 'bar-pos', 'counter-payments', 'invoices', 'payments',
+    'inventory', 'kots', 'reports', 'settings', 'operations', 'drivers', 'pos-staff',
+    'expenses', 'accounts', 'manage-properties', 'manage-users', 'manage-roles',
+    'pos', 'vouchers', 'orders', 'all-bills', 'categories', 'products', 'day-closing',
+    'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display'
+  ]
 
+  let strippedPathname = pathname
+  let hasPropertyCode = false
+
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads'].includes(parts[0])) {
+    if (dashboardRoots.includes(parts[0])) {
+      // Legacy access without propertyCode
+      strippedPathname = pathname
+    } else {
+      hasPropertyCode = true
+      strippedPathname = '/' + parts.slice(1).join('/')
+    }
+  }
+
+  const isDashboardRoute = dashboardRoots.some(root => strippedPathname === `/${root}` || strippedPathname.startsWith(`/${root}/`))
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/')
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
   const isExpiredPage = pathname === '/expired'
+
 
   // Verify JWT once and reuse payload
   let payload: any = null
@@ -69,6 +60,12 @@ export async function proxy(request: NextRequest) {
     if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
+  }
+
+  
+  const getOperationsUrl = () => {
+    const urlKey = payload?.propertySlug || payload?.propertyCode
+    return urlKey ? `/${urlKey}/operations` : '/operations'
   }
 
   // ── Helper: build the branded dashboard URL from the current session ──
@@ -92,6 +89,11 @@ export async function proxy(request: NextRequest) {
 
   // Paywall Lock for PENDING_PAYMENT / PENDING_APPROVAL
   if (payload) {
+    if (isDashboardRoute && !hasPropertyCode && payload.propertyCode) {
+      const urlKey = payload.propertySlug || payload.propertyCode
+      return NextResponse.redirect(new URL(`/${urlKey}${pathname}`, request.url))
+    }
+
     const role = payload.role as string
     const status = payload.subscriptionStatus as string | null
 
@@ -105,7 +107,7 @@ export async function proxy(request: NextRequest) {
           if (role === 'RESTAURANTS_ADMIN') {
             return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
           }
-          return NextResponse.redirect(new URL('/operations', request.url))
+          return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
         }
       }
     }
@@ -136,7 +138,7 @@ export async function proxy(request: NextRequest) {
       if (role === 'RESTAURANTS_ADMIN') {
         return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
       }
-      return NextResponse.redirect(new URL('/operations', request.url))
+      return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
     }
 
     // Redirection for Auth Routes (if logged in, bypass login page)
@@ -147,7 +149,7 @@ export async function proxy(request: NextRequest) {
       if (role === 'RESTAURANTS_ADMIN') {
         return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
       }
-      return NextResponse.redirect(new URL('/operations', request.url))
+      return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
     }
 
     // ── Dynamic /dashboard → /restaurantadmin/[slug] redirect ──
@@ -172,13 +174,13 @@ export async function proxy(request: NextRequest) {
       if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN') {
         // Hard block for property management and restaurant admin path for non-admins
         if (pathname === '/manage-properties' || pathname.startsWith('/manage-properties/')) {
-          return NextResponse.redirect(new URL('/operations', request.url))
+          return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
         }
         if (pathname.startsWith('/restaurantadmin')) {
-          return NextResponse.redirect(new URL('/operations', request.url))
+          return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
         }
         if (pathname === '/all-bills' || pathname.startsWith('/all-bills/')) {
-          return NextResponse.redirect(new URL('/operations', request.url))
+          return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
         }
 
         const permissions = (payload.permissions as string[] || []).map((p: string) => p.toLowerCase())
@@ -209,7 +211,7 @@ export async function proxy(request: NextRequest) {
         }
 
         const matchedPath = Object.keys(pathPermissionMap).find(
-          p => pathname === p || pathname.startsWith(p + '/')
+          p => strippedPathname === p || strippedPathname.startsWith(p + '/')
         )
 
         if (matchedPath) {
@@ -217,13 +219,13 @@ export async function proxy(request: NextRequest) {
 
           // Special bypass for POSSYSTEM role for standard POS modules
           const isStandardPosPath = ['/payments', '/invoices', '/billing', '/kots', '/inventory', '/products', '/categories', '/pos/gst-filing', '/pos/gst-settings'].some(
-            p => pathname.startsWith(p)
+            p => strippedPathname.startsWith(p)
           )
           const shouldBypass = role === 'POSSYSTEM' && isStandardPosPath
 
           if (!permissions.includes(requiredPerm) && !shouldBypass) {
             if (pathname !== '/operations') {
-              return NextResponse.redirect(new URL('/operations', request.url))
+              return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
             }
           }
         }
@@ -280,7 +282,7 @@ export async function proxy(request: NextRequest) {
       }
 
       const matchedPath = Object.keys(pathToFeatureMap).find(
-        p => pathname === p || pathname.startsWith(p + '/')
+        p => strippedPathname === p || strippedPathname.startsWith(p + '/')
       )
       if (matchedPath) {
         const requiredFeature = pathToFeatureMap[matchedPath]

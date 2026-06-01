@@ -20,6 +20,9 @@ export async function GET(
     const propertyId = tablet.propertyId;
 
     let tableWhere: any = { propertyId };
+    if (tablet.floorId) {
+      tableWhere.floorId = tablet.floorId;
+    }
     if (tablet.assignedTableIds) {
       try {
         const ids = JSON.parse(tablet.assignedTableIds);

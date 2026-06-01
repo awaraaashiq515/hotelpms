@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Printer, ShieldCheck, Globe, Wine, QrCode, MessageSquare } from 'lucide-react';
+import { Printer, ShieldCheck, Globe, Wine, QrCode, MessageSquare, Coffee } from 'lucide-react';
 
 // --- Extracted Components ---
 import { BusinessProfileForm } from '@/components/settings/BusinessProfileForm';
@@ -12,12 +12,13 @@ import { PosSecurityForm } from '@/components/settings/PosSecurityForm';
 import { TabletSetupCard } from '@/components/settings/TabletSetupCard';
 import { WebsiteBrandingForm } from '@/components/settings/WebsiteBrandingForm';
 import { BarPosSettingsForm } from '@/components/settings/BarPosSettingsForm';
+import { CafePosSettingsForm } from '@/components/settings/CafePosSettingsForm';
 import { UpiPaymentForm } from '@/components/settings/UpiPaymentForm';
 import { TwoFactorSection } from '@/components/settings/TwoFactorSection';
 import { WhatsAppConfigForm } from '@/components/settings/WhatsAppConfigForm';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'branding' | 'admin' | 'website' | 'printers' | 'whatsapp'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'bar' | 'cafe' | 'branding' | 'admin' | 'website' | 'printers' | 'whatsapp'>('profile');
   const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function SettingsPage() {
     { id: 'payments', label: '💳 UPI Payments', icon: QrCode, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'whatsapp', label: '💬 WhatsApp Bot', icon: MessageSquare, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { id: 'bar', label: '🍺 Bar POS', icon: Wine, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { id: 'cafe', label: '☕ Cafe POS', icon: Coffee, color: 'text-[#D2691E]', bg: 'bg-[#D2691E]/10' },
     { id: 'admin', label: 'Admin', icon: ShieldCheck, color: 'text-slate-900', bg: 'bg-slate-100' },
     ...(session?.role === 'SUPER_ADMIN' ? [{ id: 'website', label: 'Website (OrderMint)', icon: Globe, color: 'text-pos-primary', bg: 'bg-pos-primary/10' }] : []),
   ];
@@ -112,6 +114,12 @@ export default function SettingsPage() {
         {activeTab === 'bar' && (
           <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-2xl">
             <BarPosSettingsForm />
+          </div>
+        )}
+
+        {activeTab === 'cafe' && (
+          <div className="animate-in slide-in-from-bottom-4 duration-500 max-w-2xl">
+            <CafePosSettingsForm />
           </div>
         )}
 

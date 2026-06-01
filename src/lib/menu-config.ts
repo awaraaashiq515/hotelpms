@@ -29,6 +29,7 @@ import {
   Store,
   Star,
   Trash2,
+  Coffee,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -51,7 +52,7 @@ export interface MenuItem {
   subItems?: SubMenuItem[];
 }
 
-export const getSidebarMenu = (role: string, organizationSlug?: string | null): MenuItem[] => {
+export const getSidebarMenu = (role: string, organizationSlug?: string | null, propertyCode?: string | null): MenuItem[] => {
   const isSuper = role === 'SUPER_ADMIN';
   const isAdmin = role === 'RESTAURANTS_ADMIN';
 
@@ -60,7 +61,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null): 
     ? `/restaurantadmin/${organizationSlug}`
     : '/dashboard';
 
-  return [
+  const rawMenu: MenuItem[] = [
     {
       name: 'Dashboard',
       path: isSuper ? '/admin/dashboard' : adminDashPath,
@@ -84,6 +85,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null): 
     { name: 'POS Terminal',       path: '/billing',           icon: CreditCard, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Counter Payments',   path: '/counter-payments',  icon: Store,      feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: '🍺 Bar POS',         path: '/bar-pos',           icon: Wine,       feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { name: '☕ Cafe POS',        path: '/cafe-pos',          icon: Coffee,     feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'All Bills',    path: '/all-bills', icon: Receipt,   feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { name: 'Payments',    path: '/payments',  icon: PaymentIcon, feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
@@ -211,19 +213,36 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null): 
       ]
     },
   ];
+
+  return rawMenu.map(item => {
+    // We don't prefix global admin routes
+    const isGlobal = item.path.startsWith('/admin') || item.path.startsWith('/restaurantadmin') || item.path === '/manage-properties';
+    if (!isGlobal && propertyCode) {
+      item.path = `/${propertyCode}${item.path}`;
+      if (item.subItems) {
+        item.subItems.forEach(sub => {
+          sub.path = `/${propertyCode}${sub.path}`;
+        });
+      }
+    }
+    return item;
+  });
 };
 
 // Quick Actions Grid for Operations Page
-export const operationsGrid = [
-  { label: 'Table Layout', icon: Layers, path: '/operations/tables' },
-  { label: 'Orders Control', icon: ShoppingBag, path: '/orders' },
-  { label: 'Live Occupancy', icon: Eye, path: '/operations/occupancy' },
-  { label: 'Table Bookings', icon: CalendarDays, path: '/table-reservations' },
-  { label: 'Drivers', icon: CarFront, path: '/drivers' },
-  { label: 'POS Staff', icon: Users, path: '/pos-staff' },
-  { label: 'Customer Feedback', icon: Star, path: '/reports/ratings' },
-  { label: 'Waste Management', icon: Trash2, path: '/operations/waste-management' },
-];
+export const getOperationsGrid = (propertyCode?: string | null) => {
+  const prefix = propertyCode ? `/${propertyCode}` : '';
+  return [
+    { label: 'Table Layout', icon: Layers, path: `${prefix}/operations/tables` },
+    { label: 'Orders Control', icon: ShoppingBag, path: `${prefix}/orders` },
+    { label: 'Live Occupancy', icon: Eye, path: `${prefix}/operations/occupancy` },
+    { label: 'Table Bookings', icon: CalendarDays, path: `${prefix}/table-reservations` },
+    { label: 'Drivers', icon: CarFront, path: `${prefix}/drivers` },
+    { label: 'POS Staff', icon: Users, path: `${prefix}/pos-staff` },
+    { label: 'Customer Feedback', icon: Star, path: `${prefix}/reports/ratings` },
+    { label: 'Waste Management', icon: Trash2, path: `${prefix}/operations/waste-management` },
+  ];
+};
 
 // Legacy Export for compatibility during migration
 export const sidebarMenu: MenuItem[] = []; 

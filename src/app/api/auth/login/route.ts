@@ -100,6 +100,18 @@ export async function POST(request: NextRequest) {
     const packageFeatures = orgPackage?.features.map((f: any) => f.feature) ?? []
     const discountPercent = orgPackage?.discountPercent ?? 0
 
+    let propertyCode = null;
+    let propertySlug = null;
+    if (user.propertyId) {
+      const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true, name: true } });
+      propertyCode = prop?.code || null;
+      propertySlug = prop?.name ? slugify(prop.name) : null;
+    } else if (user.organizationId) {
+      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true, name: true } });
+      propertyCode = prop?.code || null;
+      propertySlug = prop?.name ? slugify(prop.name) : null;
+    }
+
     const sessionData: SessionPayload = {
       id: user.id,
       email: user.email,
@@ -116,6 +128,8 @@ export async function POST(request: NextRequest) {
       discountPercent,
       packageEndDate: user.organization?.packageEndDate?.toISOString() ?? null,
       subscriptionStatus: user.organization?.subscriptionStatus ?? 'TRIAL',
+      propertyCode,
+      propertySlug,
     }
 
     const token = await encrypt(sessionData)
@@ -137,7 +151,7 @@ export async function POST(request: NextRequest) {
     const { passwordHash, ...safeUser } = user
 
     return apiResponse(
-      { user: safeUser, token },
+      { user: { ...safeUser, propertyCode }, token },
       'Logged in successfully'
     )
 

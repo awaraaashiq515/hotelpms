@@ -11,6 +11,9 @@ const tabletUpdateSchema = z.object({
   assignedTableIds: z.string().optional().nullable(),
   waiterId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
+  floorId: z.string().optional().nullable(),
+  showBar: z.boolean().optional(),
+  showCafe: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +23,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: { id: id },
       include: { 
         property: true,
-        table: true
+        table: true,
+        floor: true
       }
     })
 
@@ -48,6 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         tableId: data.tableId === undefined ? undefined : (data.tableId || null),
         assignedTableIds: data.assignedTableIds === undefined ? undefined : (data.assignedTableIds || null),
         waiterId: data.waiterId === undefined ? undefined : (data.waiterId || null),
+        floorId: data.floorId === undefined ? undefined : (data.floorId || null),
       }
     })
 

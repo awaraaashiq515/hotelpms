@@ -73,7 +73,7 @@ export default function PublicMenuPage() {
     deliveryLng: undefined as number | undefined
   });
   
-  const [activeTab, setActiveTab] = useState<'menu' | 'bar' | 'orders' | 'profile'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'bar' | 'cafe' | 'orders' | 'profile'>('menu');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   
   const [rating, setRating] = useState<number>(5);
@@ -178,7 +178,7 @@ export default function PublicMenuPage() {
           }
 
           const currentMenu = json.data.menu.filter((cat: any) =>
-            activeTab === 'bar' ? cat.menuType === 'BAR' : cat.menuType !== 'BAR'
+            activeTab === 'bar' ? cat.menuType === 'BAR' : activeTab === 'cafe' ? cat.menuType === 'CAFE' : (cat.menuType !== 'BAR' && cat.menuType !== 'CAFE')
           );
           setActiveCategory((prev: any) => {
             if (!prev || !currentMenu.find((c: any) => c.id === prev)) {
@@ -368,7 +368,7 @@ export default function PublicMenuPage() {
   const filteredMenu = useMemo(() => {
     if (!data?.menu) return [];
     return data.menu.filter((cat: any) => 
-      activeTab === 'bar' ? cat.menuType === 'BAR' : cat.menuType !== 'BAR'
+      activeTab === 'bar' ? cat.menuType === 'BAR' : activeTab === 'cafe' ? cat.menuType === 'CAFE' : (cat.menuType !== 'BAR' && cat.menuType !== 'CAFE')
     );
   }, [data?.menu, activeTab]);
 
@@ -412,7 +412,7 @@ export default function PublicMenuPage() {
 
       <div className="pt-2" />
 
-      {['menu', 'bar'].includes(activeTab) ? (
+      {['menu', 'bar', 'cafe'].includes(activeTab) ? (
         <>
           {/* Category Bar */}
           {!searchQuery && filteredMenu.length > 0 && (
@@ -531,12 +531,13 @@ export default function PublicMenuPage() {
           setActiveTab={setActiveTab} 
           orderCount={data.activeOrders?.length || 0}
           showBar={data.property.showBarInQrMenu}
+          showCafe={data.property.showCafeInQrMenu}
         />
       )}
 
       {/* Floating Cart Bar */}
       <AnimatePresence>
-        {cart.length > 0 && ['menu', 'bar'].includes(activeTab) && (
+        {cart.length > 0 && ['menu', 'bar', 'cafe'].includes(activeTab) && (
           <motion.div 
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, Search, Trash2, User as UserIcon, CreditCard,
   Minus, Grid, List, ShoppingBag,
@@ -51,6 +51,9 @@ const CAT_ICON_MAP: Record<string, string> = {
 
 export default function BarPosPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tableId = searchParams.get('tableId') || '';
+  const tableNo = searchParams.get('tableNo') || searchParams.get('tableName') || '';
   const { setOpen } = useSidebar();
   const { addToast } = useToast();
 
@@ -173,10 +176,21 @@ export default function BarPosPage() {
       }));
       const res = await fetch('/api/pos-orders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderType: 'DINE_IN', items, guestId: selectedGuestId || null }),
+        body: JSON.stringify({ 
+          orderType: 'DINE_IN', 
+          items, 
+          guestId: selectedGuestId || null,
+          restaurantTableId: tableId || undefined
+        }),
       });
       const data = await res.json();
-      if (data.success) { addToast('success', 'Bar order saved!'); setCart([]); }
+      if (data.success) { 
+        addToast('success', 'Bar order saved!'); 
+        setCart([]); 
+        if (tableId) {
+          router.push('/operations/tables');
+        }
+      }
       else addToast('error', data.message || 'Save failed');
     } catch { addToast('error', 'Failed to save order'); }
     finally { setSaveLoading(false); }
@@ -204,7 +218,8 @@ export default function BarPosPage() {
       grandTotal, 
       createdAt: new Date().toISOString(),
       guestId: selectedGuestId || null, 
-      guestName: customers.find(c => c.id === selectedGuestId)?.firstName || '' 
+      guestName: customers.find(c => c.id === selectedGuestId)?.firstName || '',
+      tableId: tableId || undefined
     } as any);
     setIsBillOpen(true);
   };
@@ -594,7 +609,9 @@ export default function BarPosPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>Bar Order</h2>
-              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '3px' }}>Counter Service</p>
+              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '3px' }}>
+                {tableId ? `Table ${tableNo}` : 'Counter Service'}
+              </p>
             </div>
             {cart.length > 0 && (
               <div style={{ padding: '4px 12px', borderRadius: '999px', background: 'rgba(232,168,56,0.12)', border: '1px solid rgba(232,168,56,0.25)', fontSize: '11px', fontWeight: 700, color: '#E8A838' }}>
@@ -654,6 +671,50 @@ export default function BarPosPage() {
               </div>
             )}
           </div>
+
+          {tableId && (
+            <div style={{
+              marginTop: '10px',
+              padding: '9px 13px',
+              borderRadius: '11px',
+              background: 'rgba(232,168,56,0.1)',
+              border: '1px solid rgba(232,168,56,0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '9px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px' }}>🍺</span>
+                <div>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#E8A838', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
+                    Linked to Table
+                  </span>
+                  <span style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#FFFFFF' }}>
+                    Table {tableNo}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push(window.location.pathname)}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.5)',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,96,122,0.15)'; e.currentTarget.style.color = '#E8607A'; e.currentTarget.style.borderColor = 'rgba(232,96,122,0.25)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+              >
+                Unlink
+              </button>
+            </div>
+          )}
         </div>
 
         {/* CART ITEMS */}
@@ -847,7 +908,16 @@ export default function BarPosPage() {
 
       <BillModal
         bill={billData}
-        onClose={() => { setIsBillOpen(false); setBillData(null); }}
+        onClose={(settled) => { 
+          setIsBillOpen(false); 
+          setBillData(null); 
+          if (settled) {
+            setCart([]);
+            if (tableId) {
+              router.push('/operations/tables');
+            }
+          }
+        }}
         onSettle={handleSettleNew}
         paymentModes={paymentModes}
         customers={customers}

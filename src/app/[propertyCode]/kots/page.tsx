@@ -177,11 +177,18 @@ export default function KotsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredKots.map((row) => (
+                filteredKots.map((row, index) => {
+                  const seqNum = filteredKots.length - index;
+                  return (
                   <tr key={row.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-black section-heading tracking-tight">{row.kotNo}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black section-heading tracking-tight">{row.kotNo}</span>
+                          <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
+                            #{seqNum}
+                          </span>
+                        </div>
                         <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5">
                           {row.order?.orderNo || 'POS-ORDER'}
                         </span>
@@ -225,7 +232,8 @@ export default function KotsPage() {
                       </Link>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

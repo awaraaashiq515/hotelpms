@@ -60,10 +60,11 @@ export default function LoginPage() {
       } else if (role === 'DELIVERY_RIDER') {
         router.push('/driver-portal');
       } else {
-        router.push('/operations');
+        const propCode = data.user.propertyCode;
+        router.push(propCode ? `/${propCode}/operations` : '/operations');
       }
     } else {
-      router.push('/operations');
+      router.push('/login');
     }
 
     router.refresh();

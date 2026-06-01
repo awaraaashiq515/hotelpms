@@ -62,7 +62,8 @@ export async function PUT(
       stockItemId,
       halfPrice,
       variants,
-      isVeg
+      isVeg,
+      mealTimes
     } = body;
 
     // Use transaction to sync variants
@@ -91,13 +92,14 @@ export async function PUT(
           trackInventory: trackInventory === true,
           isActive: isActive !== false,
           isVeg: isVeg !== undefined ? (isVeg === true) : undefined,
+          mealTimes: mealTimes !== undefined ? mealTimes : undefined,
           menuType: menuType !== undefined ? menuType : undefined,
           pegSize: pegSize !== undefined ? (pegSize ? Number(pegSize) : null) : undefined,
           pegUnit: pegUnit !== undefined ? pegUnit : undefined,
           bottleSize: bottleSize !== undefined ? (bottleSize ? Number(bottleSize) : null) : undefined,
           bottlePrice: bottlePrice !== undefined ? (bottlePrice ? Number(bottlePrice) : null) : undefined,
           pegPrice: pegPrice !== undefined ? (pegPrice ? Number(pegPrice) : null) : undefined,
-          stockItemId: stockItemId !== undefined ? stockItemId : undefined,
+          stockItemId: stockItemId !== undefined ? (stockItemId || null) : undefined,
           categoryId,
           variants: variants && variants.length > 0 ? {
             create: variants.map((v: any) => ({
