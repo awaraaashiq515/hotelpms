@@ -15,6 +15,7 @@ export const DashboardAdminTopNavbar: React.FC = () => {
   const { manuallyLock } = usePOSSecurity();
   const [session, setSession] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
+  const [websiteSettings, setWebsiteSettings] = useState<any>(null);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -34,6 +35,15 @@ export const DashboardAdminTopNavbar: React.FC = () => {
         }
       })
       .catch(err => console.error('Failed to fetch property branding', err));
+
+    fetch('/api/website/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setWebsiteSettings(data.data);
+        }
+      })
+      .catch(err => console.error('Failed to fetch website settings', err));
   }, []);
 
   const handleLogout = async () => {
@@ -80,33 +90,56 @@ export const DashboardAdminTopNavbar: React.FC = () => {
               }
             }}
           >
-            <div className="relative">
-              <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
-                {session?.role === 'SUPER_ADMIN' && property?.logoUrl ? (
-                  <img 
-                    src={property.logoUrl} 
-                    alt={property?.name || 'Logo'} 
-                    className="w-full h-full object-contain p-0.5"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="text-white font-black text-xl italic">O</span>
-                )}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
-                 <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
-              </div>
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
-                {session?.role === 'SUPER_ADMIN' && property?.name ? (
-                  <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
-                ) : (
-                  <>Order<span className="text-pos-primary font-light">Mint</span></>
-                )}
-              </span>
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">Management Hub</span>
-            </div>
+            {(() => {
+              const displayLogo = property?.logoUrl || (theme === 'dark' 
+                ? (websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) 
+                : (websiteSettings?.logoScrolledUrl || websiteSettings?.logoUrl));
+
+              if (displayLogo) {
+                return (
+                  <div className="relative flex items-center h-10 md:h-12 max-w-[250px] overflow-hidden">
+                    <img 
+                      src={displayLogo} 
+                      alt={property?.name || 'Logo'} 
+                      className="h-full w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  <div className="relative">
+                    <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
+                      {session?.role === 'SUPER_ADMIN' && property?.logoUrl ? (
+                        <img 
+                          src={property.logoUrl} 
+                          alt={property?.name || 'Logo'} 
+                          className="w-full h-full object-contain p-0.5"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="text-white font-black text-xl italic">O</span>
+                      )}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
+                       <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col leading-none">
+                    <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
+                      {session?.role === 'SUPER_ADMIN' && property?.name ? (
+                        <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
+                      ) : (
+                        <>Order<span className="text-pos-primary font-light">Mint</span></>
+                      )}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">Management Hub</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
         

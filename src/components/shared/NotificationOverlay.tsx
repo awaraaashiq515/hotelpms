@@ -70,7 +70,7 @@ export function NotificationOverlay() {
   }, [isAudioEnabled, preferences]);
 
   const fetchNotifications = useCallback(async () => {
-    if (pathname?.includes('kitchen-display')) return;
+    if (pathname?.includes('kitchen-display') || pathname?.includes('bar-display')) return;
     
     try {
       const res = await fetch('/api/notifications?status=UNREAD');
@@ -92,7 +92,7 @@ export function NotificationOverlay() {
 
   useEffect(() => {
     setMounted(true);
-    if (pathname?.includes('kitchen-display')) return;
+    if (pathname?.includes('kitchen-display') || pathname?.includes('bar-display')) return;
 
     fetchPrefs();
     fetchNotifications();
@@ -145,7 +145,7 @@ export function NotificationOverlay() {
   };
 
   if (!mounted) return null;
-  if (pathname?.includes('kitchen-display')) return null;
+  if (pathname?.includes('kitchen-display') || pathname?.includes('bar-display')) return null;
 
   return (
     <div className="fixed top-20 right-6 z-[9999] flex flex-col gap-2 w-72 pointer-events-none">

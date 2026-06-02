@@ -16,24 +16,30 @@ interface DashboardShellProps {
 export const DashboardShell: React.FC<DashboardShellProps> = ({ children, session }) => {
   const pathname = usePathname();
   
+  // Extract relative path without property code prefix (if present)
+  // e.g., /ashoka-dhaba/kitchen-display -> /kitchen-display
+  const segments = pathname.split('/').filter(Boolean);
+  const relativePath = segments.length > 1 ? '/' + segments.slice(1).join('/') : '/';
+  
   // Normal logic: Admins get Admin Hub, others get POS
   const isAdminRole = session.role === 'RESTAURANTS_ADMIN' || session.role === 'SUPER_ADMIN';
   
-  // SPECIAL OVERRIDE: Kitchen Display always uses POS Layout
-  const isKitchenDisplay = pathname.startsWith('/kitchen-display');
+  // SPECIAL OVERRIDE: Kitchen Display / Bar Display always uses POS Layout
+  const isKitchenDisplay = relativePath.startsWith('/kitchen-display') || pathname.includes('/kitchen-display') ||
+    relativePath.startsWith('/bar-display') || pathname.includes('/bar-display');
   
   // Switch to POS layout for operational pages even for admins
   const isPosPage = 
-    pathname === '/operations' || pathname.startsWith('/operations/') ||
-    pathname === '/billing' || pathname.startsWith('/billing/') ||
-    pathname === '/counter-payments' || pathname.startsWith('/counter-payments/') ||
-    pathname === '/bar-pos' || pathname.startsWith('/bar-pos/') ||
-    pathname === '/cafe-pos' || pathname.startsWith('/cafe-pos/') ||
-    pathname === '/kots' || pathname.startsWith('/kots/') ||
-    pathname === '/day-closing' || pathname.startsWith('/day-closing/') ||
-    pathname === '/inventory' || pathname.startsWith('/inventory/') ||
-    pathname === '/products' || pathname.startsWith('/products/') ||
-    pathname === '/categories' || pathname.startsWith('/categories/');
+    relativePath === '/operations' || relativePath.startsWith('/operations/') ||
+    relativePath === '/billing' || relativePath.startsWith('/billing/') ||
+    relativePath === '/counter-payments' || relativePath.startsWith('/counter-payments/') ||
+    relativePath === '/bar-pos' || relativePath.startsWith('/bar-pos/') ||
+    relativePath === '/cafe-pos' || relativePath.startsWith('/cafe-pos/') ||
+    relativePath === '/kots' || relativePath.startsWith('/kots/') ||
+    relativePath === '/day-closing' || relativePath.startsWith('/day-closing/') ||
+    relativePath === '/inventory' || relativePath.startsWith('/inventory/') ||
+    relativePath === '/products' || relativePath.startsWith('/products/') ||
+    relativePath === '/categories' || relativePath.startsWith('/categories/');
 
   const showAdminLayout = isAdminRole && !isKitchenDisplay && !isPosPage;
   const isPos = !showAdminLayout;
@@ -60,7 +66,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
         {isPos ? <Sidebar /> : <DashboardAdminSidebar />}
         
         <main className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-slate-900/50 no-scrollbar relative">
-          <div className={`h-full w-full ${pathname === '/billing' || pathname === '/bar-pos' || pathname === '/cafe-pos' ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
+          <div className={`h-full w-full ${relativePath === '/billing' || relativePath === '/bar-pos' || relativePath === '/cafe-pos' ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
             {children}
           </div>
         </main>

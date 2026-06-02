@@ -13,6 +13,7 @@ const staffSchema = z.object({
   emergencyContact: z.string().optional(),
   joiningDate: z.string().optional(),
   isActive: z.boolean().optional(),
+  shiftHours: z.number().min(0.1).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
         emergencyContact: parsedData.emergencyContact || null,
         joiningDate: parsedData.joiningDate ? new Date(parsedData.joiningDate) : new Date(),
         isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
+        shiftHours: parsedData.shiftHours !== undefined ? Number(parsedData.shiftHours) : 8,
         propertyId: session.propertyId!,
       },
     });

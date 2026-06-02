@@ -18,7 +18,7 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours } = body;
     const isSuperAdmin = session.role === 'SUPER_ADMIN';
 
     const updateData: any = {};
@@ -63,6 +63,7 @@ export async function PUT(
     if (upiId2 !== undefined) updateData.upiId2 = upiId2;
     if (upiName2 !== undefined) updateData.upiName2 = upiName2;
     if (upiLimit2 !== undefined) updateData.upiLimit2 = upiLimit2;
+    if (targetShiftHours !== undefined) updateData.targetShiftHours = Number(targetShiftHours);
 
     console.log('Processed Update Data:', updateData);
 

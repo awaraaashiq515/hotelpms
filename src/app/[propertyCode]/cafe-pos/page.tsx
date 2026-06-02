@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import {
   Coffee, Plus, Search, Trash2, User as UserIcon, CreditCard,
   Minus, Grid, List, ShoppingBag,
@@ -76,6 +76,9 @@ const ORDER_TYPES: { key: OrderType; label: string; icon: React.ReactNode; color
 export default function CafePosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const propertyCode = params?.propertyCode;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const tableId = searchParams.get('tableId') || '';
   const tableNo = searchParams.get('tableNo') || searchParams.get('tableName') || '';
   const { setHidden, isOpen, setOpen } = useSidebar();
@@ -321,7 +324,7 @@ export default function CafePosPage() {
         addToast('success', `Cafe order saved! Token: ${currentToken}`);
         clearCart();
         if (tableId) {
-          router.push('/operations/tables');
+          router.push(`${p}/operations/tables`);
         }
       } else addToast('error', data.message || 'Save failed');
     } catch { addToast('error', 'Failed to save order'); }
@@ -400,10 +403,10 @@ export default function CafePosPage() {
         </p>
       </div>
       <div style={{ display: 'flex', gap: '10px' }}>
-        <button onClick={() => router.push('/settings')} style={{ padding: '11px 24px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #D4956A, #E8AC6A)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={() => router.push(`${p}/settings`)} style={{ padding: '11px 24px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #D4956A, #E8AC6A)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
           Go to Settings
         </button>
-        <button onClick={() => router.push('/billing')} style={{ padding: '11px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={() => router.push(`${p}/billing`)} style={{ padding: '11px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
           Restaurant POS
         </button>
       </div>
@@ -428,7 +431,7 @@ export default function CafePosPage() {
         {/* TOP BAR */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', background: 'rgba(255,255,255,0.025)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(24px)', flexShrink: 0 }}>
 
-          <button onClick={() => router.push('/operations')} style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', transition: 'all 0.15s' }}
+          <button onClick={() => router.push(`${p}/operations`)} style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.09)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.35)'; }}
           >
@@ -467,7 +470,7 @@ export default function CafePosPage() {
             ))}
           </div>
 
-          <button onClick={() => router.push('/billing')} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 15px', borderRadius: '10px', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
+          <button onClick={() => router.push(`${p}/billing`)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 15px', borderRadius: '10px', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.75)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.4)'; }}
           >
@@ -988,7 +991,7 @@ export default function CafePosPage() {
           if (settled) {
             clearCart();
             if (tableId) {
-              router.push('/operations/tables');
+              router.push(`${p}/operations/tables`);
             }
           }
         }}

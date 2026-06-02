@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X } from 'lucide-react';
+import { useRouter, useParams } from 'next/navigation';
+import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X, Wine } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -11,11 +11,15 @@ import { GlobalSearch } from './global-search';
 
 export const TopNavbar: React.FC = () => {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const { toggle } = useSidebar();
   const { theme, toggleTheme } = useTheme();
   const { manuallyLock } = usePOSSecurity();
   const [session, setSession] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
+  const [websiteSettings, setWebsiteSettings] = useState<any>(null);
 
   // Notifications State
   const [unreadCount, setUnreadCount] = useState(0);
@@ -139,6 +143,15 @@ export const TopNavbar: React.FC = () => {
         }
       })
       .catch(err => console.error('Failed to fetch property branding', err));
+
+    fetch('/api/website/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setWebsiteSettings(data.data);
+        }
+      })
+      .catch(err => console.error('Failed to fetch website settings', err));
   }, []);
 
   const [showDisplayMenu, setShowDisplayMenu] = useState(false);
@@ -176,40 +189,63 @@ export const TopNavbar: React.FC = () => {
             className="flex items-center gap-2.5 group cursor-pointer" 
             onClick={() => router.push('/operations')}
           >
-            <div className="relative">
-              <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
-                {property?.logoUrl ? (
-                  <img 
-                    src={property.logoUrl} 
-                    alt={property?.name || 'Logo'} 
-                    className="w-full h-full object-contain p-0.5"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="text-white font-black text-xl italic">O</span>
-                )}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
-                 <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
-              </div>
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
-                {property?.name ? (
-                  <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
-                ) : (
-                  <>Order<span className="text-pos-primary font-light">Mint</span></>
-                )}
-              </span>
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">POS Terminal</span>
-            </div>
+            {(() => {
+              const displayLogo = property?.logoUrl || (theme === 'dark' 
+                ? (websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) 
+                : (websiteSettings?.logoScrolledUrl || websiteSettings?.logoUrl));
+
+              if (displayLogo) {
+                return (
+                  <div className="relative flex items-center h-10 md:h-12 max-w-[250px] overflow-hidden">
+                    <img 
+                      src={displayLogo} 
+                      alt={property?.name || 'Logo'} 
+                      className="h-full w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  <div className="relative">
+                    <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 rotate-3 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
+                      {property?.logoUrl ? (
+                        <img 
+                          src={property.logoUrl} 
+                          alt={property?.name || 'Logo'} 
+                          className="w-full h-full object-contain p-0.5"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="text-white font-black text-xl italic">O</span>
+                      )}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center shadow-sm">
+                       <div className="w-1.5 h-1.5 bg-pos-primary rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col leading-none">
+                    <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
+                      {property?.name ? (
+                        <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
+                      ) : (
+                        <>Order<span className="text-pos-primary font-light">Mint</span></>
+                      )}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">POS Terminal</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
         
         <div className="flex items-center gap-1.5 md:gap-2 ml-2 md:ml-4">
           <Button 
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
-            onClick={() => router.push('/operations/tables')}
+            onClick={() => router.push(`${p}/operations/tables`)}
             title="Dine In"
           >
             <Monitor size={16} className="md:mr-2" />
@@ -218,7 +254,7 @@ export const TopNavbar: React.FC = () => {
 
           <Button 
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
-            onClick={() => router.push('/billing')}
+            onClick={() => router.push(`${p}/billing`)}
             title="Take Away"
           >
             <Plus size={16} className="md:mr-2" />
@@ -294,7 +330,8 @@ export const TopNavbar: React.FC = () => {
               <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] py-1.5 z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => {
-                    window.open('/kitchen-display', '_blank');
+                    const path = propertyCode ? `/${propertyCode}/kitchen-display` : '/kitchen-display';
+                    window.open(path, '_blank');
                     setShowDisplayMenu(false);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors"
@@ -304,6 +341,21 @@ export const TopNavbar: React.FC = () => {
                   </div>
                   Kitchen Display (KDS)
                 </button>
+                {property?.barPosEnabled !== false && (
+                <button 
+                  onClick={() => {
+                    const path = propertyCode ? `/${propertyCode}/bar-display` : '/bar-display';
+                    window.open(path, '_blank');
+                    setShowDisplayMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
+                >
+                  <div className="w-7 h-7 bg-violet-500/10 rounded-lg flex items-center justify-center text-violet-500">
+                    <Wine size={14} />
+                  </div>
+                  Bar Display (BDS)
+                </button>
+                )}
                 <button 
                   onClick={() => {
                     window.open('/order-display', '_blank');

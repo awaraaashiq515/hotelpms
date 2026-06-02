@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   LayoutGrid, RefreshCcw, Plus,
   Search, Filter, ChevronRight,
@@ -35,6 +35,9 @@ interface ParkingSlot {
 
 export default function ParkingOperationsPage() {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -350,7 +353,7 @@ export default function ParkingOperationsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push('/operations')}
+            onClick={() => router.push(`${p}/operations`)}
             className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
           >
             <ChevronLeft size={20} />
@@ -418,7 +421,7 @@ export default function ParkingOperationsPage() {
         {/* Tabs Area */}
         <div className="flex items-center gap-2 px-6 py-4 border-b border-white/10 overflow-x-auto no-scrollbar">
           <button
-            onClick={() => router.push('/operations/tables')}
+            onClick={() => router.push(`${p}/operations/tables`)}
             className="px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-white/5 text-white/40 border-white/5 hover:border-indigo-500/50 hover:text-indigo-400"
           >
             <Utensils size={14} />
@@ -482,7 +485,7 @@ export default function ParkingOperationsPage() {
                   Reset
                 </button>
                 <button
-                  onClick={() => { router.push(`/billing?parkingSlotId=${selectedSlot.id}&slotName=${selectedSlot.name}`); }}
+                  onClick={() => { router.push(`${p}/billing?parkingSlotId=${selectedSlot.id}&slotName=${selectedSlot.name}`); }}
                   className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
                 >
                   <Eye size={14} />
@@ -546,7 +549,7 @@ export default function ParkingOperationsPage() {
               onDeleteSlot={handleDeleteParkingSlot}
               onResetSlot={handleResetParkingSlot}
               onShowQR={(slot) => { setSelectedParkingSlotForQR(slot); setIsParkingQROpen(true); }}
-              onBillingNavigate={(id, name) => router.push(`/billing?parkingSlotId=${id}&slotName=${name}`)}
+              onBillingNavigate={(id, name) => router.push(`${p}/billing?parkingSlotId=${id}&slotName=${name}`)}
             />
           )}
         </div>

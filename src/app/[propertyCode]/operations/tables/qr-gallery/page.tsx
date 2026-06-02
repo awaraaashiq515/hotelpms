@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer, ArrowLeft, RefreshCcw, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
 
 interface Floor {
@@ -30,6 +30,9 @@ interface Property {
 
 export default function QRGalleryPage() {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const [tables, setTables] = useState<Table[]>([]);
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
@@ -230,7 +233,7 @@ export default function QRGalleryPage() {
             title="QR Print Gallery"
             subtitle={`${tables.length} tables · ${floorGroups.length} floors`}
             showBack
-            backUrl="/operations/tables"
+            backUrl={`${p}/operations/tables`}
             actions={
               <>
                 <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-gray-200 dark:border-slate-800">

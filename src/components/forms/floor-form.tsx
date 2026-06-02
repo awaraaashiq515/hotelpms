@@ -25,6 +25,8 @@ interface FloorFormProps {
   onSubmit: (data: FloorFormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  barPosEnabled?: boolean;
+  cafePosEnabled?: boolean;
 }
 
 export const FloorForm: React.FC<FloorFormProps> = ({
@@ -32,7 +34,9 @@ export const FloorForm: React.FC<FloorFormProps> = ({
   outlets = [],
   onSubmit,
   onCancel,
-  loading
+  loading,
+  barPosEnabled = true,
+  cafePosEnabled = true
 }) => {
   const [formData, setFormData] = useState<FloorFormData>({
     name: initialData?.name || '',
@@ -99,10 +103,10 @@ export const FloorForm: React.FC<FloorFormProps> = ({
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: 'Restaurant 🍽️', value: 'RESTAURANT' },
-              { label: 'Bar 🍺', value: 'BAR' },
-              { label: 'Cafe ☕', value: 'CAFE' }
-            ].map((option) => (
+              { label: 'Restaurant 🍽️', value: 'RESTAURANT', enabled: true },
+              { label: 'Bar 🍺', value: 'BAR', enabled: barPosEnabled },
+              { label: 'Cafe ☕', value: 'CAFE', enabled: cafePosEnabled }
+            ].filter(o => o.enabled).map((option) => (
               <button
                 key={option.value}
                 type="button"

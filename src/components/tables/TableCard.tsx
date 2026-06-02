@@ -13,6 +13,7 @@ export interface Table {
   x?: number;
   y?: number;
   qrToken?: string | null;
+  floorId?: string;
   activeOrder?: {
     id: string;
     amount: number;

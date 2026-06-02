@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import { 
   Plus, Search, Trash2, User as UserIcon, CreditCard, Percent, Pause, RotateCcw,
   Grid, List, ShoppingBag, Utensils, Minus, ChevronRight, ChevronLeft, Printer, 
@@ -98,6 +98,9 @@ export default function BillingPage() {
   const { theme } = useTheme();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const tableId = searchParams.get('tableId');
   const tableName = searchParams.get('tableName') || searchParams.get('tableNo');
   const parkingSlotId = searchParams.get('parkingSlotId');
@@ -110,6 +113,7 @@ export default function BillingPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [dietaryFilter, setDietaryFilter] = useState<'ALL' | 'VEG' | 'NON-VEG'>('ALL');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isOrderComplimentary, setIsOrderComplimentary] = useState(false);
@@ -650,7 +654,7 @@ export default function BillingPage() {
         fetchActiveOrder();
         fetchAllActiveOrders();
         // Redirect to appropriate operations page
-        router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
+        router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
       }
     } catch (err) {
       addToast('error', actionType === 'HOLD' ? 'Failed to hold order' : 'Failed to save order');
@@ -776,7 +780,7 @@ export default function BillingPage() {
 
         // If showModal is false, it means we want to save and redirect immediately (Save & KOT flow)
         if (!showModal) {
-          router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
+          router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
         }
       }
     } catch (err) {
@@ -946,7 +950,7 @@ export default function BillingPage() {
         // Data for final print is already in billData, but status is now settled
         fetchAllActiveOrders();
         // Immediate redirect to operations
-        router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
+        router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
       } else {
         addToast('error', result.message || 'Settlement failed');
       }
@@ -1092,7 +1096,15 @@ export default function BillingPage() {
     }
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesMenuType = (p as any).menuType === 'RESTAURANT' || !(p as any).menuType;
-    return matchesCategory && matchesSearch && matchesMenuType;
+    
+    let matchesDietary = true;
+    if (dietaryFilter === 'VEG') {
+      matchesDietary = p.isVeg !== false;
+    } else if (dietaryFilter === 'NON-VEG') {
+      matchesDietary = p.isVeg === false;
+    }
+
+    return matchesCategory && matchesSearch && matchesMenuType && matchesDietary;
   });
 
   const filteredCombos = combos.filter(c => {
@@ -1219,7 +1231,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
         <div className="px-3 py-1 flex items-center justify-between gap-3">
            <div className="flex items-center gap-2">
              <button
-               onClick={() => router.push('/operations')}
+               onClick={() => router.push(`${p}/operations`)}
                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-500 hover:text-pos-primary"
                title="Back to Operations"
              >
@@ -1229,7 +1241,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
              {/* Bar POS Shortcut Button — only visible when Bar POS is enabled */}
              {property?.barPosEnabled && (
                <button
-                 onClick={() => router.push('/bar-pos')}
+                 onClick={() => router.push(`${p}/bar-pos`)}
                  className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest bg-amber-500 text-white shadow-lg shadow-amber-500/30 hover:bg-amber-600 flex-shrink-0"
                >
                  <ShoppingBag size={14} />
@@ -1270,21 +1282,34 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                 Combos
               </button>
 
-              {/* Dietary Legend (Veg/Non-Veg) */}
-              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 flex-shrink-0 shadow-sm">
-                <div className="flex items-center gap-1">
+              {/* Dietary Filter (Veg/Non-Veg) */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => setDietaryFilter(dietaryFilter === 'VEG' ? 'ALL' : 'VEG')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl border transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                    dietaryFilter === 'VEG'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-white dark:bg-[#1a1a1a] border-slate-200 dark:border-white/5 text-slate-500 hover:border-emerald-500/40'
+                  }`}
+                >
                   <div className="w-3 h-3 border border-emerald-600 rounded-sm flex items-center justify-center bg-white shrink-0">
                     <div className="w-1.2 h-1.2 rounded-full bg-emerald-600" />
                   </div>
-                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-wider">VEG</span>
-                </div>
-                <div className="w-[1px] h-3 bg-slate-200 dark:bg-white/10" />
-                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider">VEG</span>
+                </button>
+                <button
+                  onClick={() => setDietaryFilter(dietaryFilter === 'NON-VEG' ? 'ALL' : 'NON-VEG')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl border transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                    dietaryFilter === 'NON-VEG'
+                      ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-500 text-rose-600 dark:text-rose-400'
+                      : 'bg-white dark:bg-[#1a1a1a] border-slate-200 dark:border-white/5 text-slate-500 hover:border-rose-500/40'
+                  }`}
+                >
                   <div className="w-3 h-3 border border-rose-600 rounded-sm flex items-center justify-center bg-white shrink-0">
                     <div className="w-1.2 h-1.2 rounded-full bg-rose-600" />
                   </div>
-                  <span className="text-[8px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">NON-VEG</span>
-                </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider">NON-VEG</span>
+                </button>
               </div>
            </div>
            <div className="flex items-center gap-3">
@@ -1299,11 +1324,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
         <div className="px-3 py-0.5 overflow-x-auto no-scrollbar flex gap-2">
             <button
                onClick={() => setSelectedCategory('all')}
-               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'all' ? 'bg-pos-primary text-white ring-2 ring-black/20 shadow-2xl' : 'bg-white dark:bg-[#1a1a1a] text-slate-500 border border-slate-200 dark:border-white/5 shadow-lg'}`}
+               className={`flex-none min-w-[80px] min-h-[45px] px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'all' ? 'bg-pos-primary text-white ring-2 ring-black/20 shadow-2xl' : 'bg-white dark:bg-[#1a1a1a] text-slate-500 border border-slate-200 dark:border-white/5 shadow-lg'}`}
              >
-               <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${selectedCategory === 'all' ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                 <Grid size={14} />
-               </div>
                <div className="text-center">
                  <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>All</h3>
                  <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{products.length} items</p>
@@ -1317,11 +1339,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  backgroundColor: theme === 'dark' ? '#3e2723' : '#FFF8E1',
                  color: theme === 'dark' ? '#ffb74d' : '#FF8F00',
                }}
-               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'breakfast' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+               className={`flex-none min-w-[80px] min-h-[45px] px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'breakfast' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
              >
-               <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-black/5 dark:bg-white/5">
-                 <Coffee size={14} />
-               </div>
                <div className="text-center">
                  <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Breakfast</h3>
                  <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
@@ -1337,11 +1356,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  backgroundColor: theme === 'dark' ? '#004d40' : '#E0F2F1',
                  color: theme === 'dark' ? '#4db6ac' : '#00796B',
                }}
-               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'lunch' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+               className={`flex-none min-w-[80px] min-h-[45px] px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'lunch' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
              >
-               <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-black/5 dark:bg-white/5">
-                 <CookingPot size={14} />
-               </div>
                <div className="text-center">
                  <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Lunch</h3>
                  <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
@@ -1357,11 +1373,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  backgroundColor: theme === 'dark' ? '#1a237e' : '#E8EAF6',
                  color: theme === 'dark' ? '#9fa8da' : '#3F51B5',
                }}
-               className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'dinner' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+               className={`flex-none min-w-[80px] min-h-[45px] px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === 'dinner' ? 'bg-pos-primary text-white ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
              >
-               <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-black/5 dark:bg-white/5">
-                 <Utensils size={14} />
-               </div>
                <div className="text-center">
                  <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Dinner</h3>
                  <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
@@ -1383,27 +1396,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                      backgroundColor: cardColor.bg,
                      color: cardColor.text,
                    }}
-                   className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === cat.id ? 'ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
+                   className={`flex-none min-w-[80px] min-h-[45px] px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 ${selectedCategory === cat.id ? 'ring-2 ring-black/20 scale-105 shadow-2xl' : 'shadow-lg hover:shadow-xl'}`}
                  >
-                   <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.05)' }}>
-                      {(() => {
-                        const name = cat.name.toLowerCase();
-                        if (name.includes('coffee') || name.includes('tea') || name.includes('hot')) return <Coffee size={14}/>;
-                        if (name.includes('drink') || name.includes('beverage') || name.includes('cold') || name.includes('juice')) return <CupSoda size={14}/>;
-                        if (name.includes('dessert') || name.includes('sweet') || name.includes('ice')) return <IceCream size={14}/>;
-                        if (name.includes('pizza')) return <Pizza size={14}/>;
-                        if (name.includes('burger')) return <Sandwich size={14}/>;
-                        if (name.includes('chicken') || name.includes('meat') || name.includes('main')) return <CookingPot size={14}/>;
-                        if (name.includes('soup')) return <Soup size={14}/>;
-                        if (name.includes('bakery') || name.includes('cake')) return <Cake size={14}/>;
-                        if (name.includes('snack') || name.includes('popcorn')) return <Popcorn size={14}/>;
-                        if (name.includes('bar') || name.includes('wine')) return <Wine size={14}/>;
-                        if (name.includes('seafood') || name.includes('fish')) return <Fish size={14}/>;
-                        if (name.includes('special')) return <ChefHat size={14}/>;
-                        return <Utensils size={14}/>;
-                      })()}
-                    </div>
-
                    <div className="text-center">
                       <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>{cat.name}</h3>
                       <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{itemCount} items</p>
@@ -1420,11 +1414,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                   backgroundColor: theme === 'dark' ? '#331a1a' : '#fff5f5',
                   color: theme === 'dark' ? '#ff9b9b' : '#c53030',
                 }}
-                className={`flex-none min-w-[80px] min-h-[55px] p-1 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 border border-red-500/20 ${selectedCategory === 'combos' ? 'ring-2 ring-red-500/40 scale-105 shadow-2xl' : 'shadow-lg'}`}
+                className={`flex-none min-w-[80px] min-h-[45px] px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 border border-red-500/20 ${selectedCategory === 'combos' ? 'ring-2 ring-red-500/40 scale-105 shadow-2xl' : 'shadow-lg'}`}
               >
-                <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-red-500/10">
-                  <Star size={14} />
-                </div>
                 <div className="text-center">
                    <h3 className="text-[14px] md:text-[15px] tracking-tight leading-tight uppercase" style={{ fontFamily: 'var(--font-bebas-neue)' }}>Combos</h3>
                    <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">{combos.length} deals</p>
@@ -2610,7 +2601,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
           kot={kotData} 
           onClose={() => {
             setIsKotOpen(false);
-            router.push('/operations/tables');
+            router.push(`${p}/operations/tables`);
           }} 
         />
       )}
@@ -2623,7 +2614,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
             setAutoPrint(false);
             // After successful settlement (not proforma), redirect back to operations
             if (!isProforma) {
-              router.push(parkingSlotId ? '/operations/parking' : '/operations/tables');
+              router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
             }
         }} 
         onSettle={handleSettleNew}

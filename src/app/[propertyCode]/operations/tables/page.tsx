@@ -23,7 +23,7 @@ import { Table } from '@/components/tables/TableCard';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
 import { BillModal, BillData } from '@/components/billing/BillModal';
 import { SwitchTableModal } from '@/components/tables/SwitchTableModal';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'next/navigation';
 import { useSidebar } from '@/context/sidebar-context';
 import { MarkWasteModal } from '@/components/modals/MarkWasteModal';
 
@@ -33,6 +33,7 @@ interface Floor {
   order: number;
   propertyId: string;
   tables: Table[];
+  menuType?: 'RESTAURANT' | 'BAR' | 'CAFE';
 }
 
 interface PaymentMode {
@@ -43,6 +44,9 @@ interface PaymentMode {
 
 export default function TableManagementPage() {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const { setHidden, isOpen, setOpen } = useSidebar();
 
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -630,9 +634,24 @@ export default function TableManagementPage() {
     
     if (isVacant) {
       // Empty table: Single click opens POS
-      const targetUrl = (table as any).floor?.menuType === 'BAR' ? `/bar-pos?tableId=${table.id}&tableNo=${table.name}`
-                      : (table as any).floor?.menuType === 'CAFE' ? `/cafe-pos?tableId=${table.id}&tableNo=${table.name}`
-                      : `/billing?tableId=${table.id}&tableNo=${table.name}`;
+      const tableFloor = floors.find(f => f.id === table.floorId);
+      const floorMenuType = tableFloor?.menuType || 'RESTAURANT';
+
+      let targetUrl = `${p}/billing?tableId=${table.id}&tableNo=${table.name}`;
+      if (floorMenuType === 'BAR') {
+        if (propertyData?.barPosEnabled === false) {
+          alert('⚠️ Bar POS is currently disabled. Go to Settings > Bar POS to enable it.');
+          return;
+        }
+        targetUrl = `${p}/bar-pos?tableId=${table.id}&tableNo=${table.name}`;
+      } else if (floorMenuType === 'CAFE') {
+        if (propertyData?.cafePosEnabled === false) {
+          alert('⚠️ Cafe POS is currently disabled. Go to Settings > Cafe POS to enable it.');
+          return;
+        }
+        targetUrl = `${p}/cafe-pos?tableId=${table.id}&tableNo=${table.name}`;
+      }
+
       router.push(targetUrl);
     } else {
       // Occupied table: Single click selects (shows KOT/Bill menu)
@@ -646,9 +665,24 @@ export default function TableManagementPage() {
 
   const handleTableDoubleClick = (table: Table) => {
     // Always navigate to appropriate POS on double click
-    const targetUrl = (table as any).floor?.menuType === 'BAR' ? `/bar-pos?tableId=${table.id}&tableNo=${table.name}`
-                    : (table as any).floor?.menuType === 'CAFE' ? `/cafe-pos?tableId=${table.id}&tableNo=${table.name}`
-                    : `/billing?tableId=${table.id}&tableNo=${table.name}`;
+    const tableFloor = floors.find(f => f.id === table.floorId);
+    const floorMenuType = tableFloor?.menuType || 'RESTAURANT';
+
+    let targetUrl = `${p}/billing?tableId=${table.id}&tableNo=${table.name}`;
+    if (floorMenuType === 'BAR') {
+      if (propertyData?.barPosEnabled === false) {
+        alert('⚠️ Bar POS is currently disabled. Go to Settings > Bar POS to enable it.');
+        return;
+      }
+      targetUrl = `${p}/bar-pos?tableId=${table.id}&tableNo=${table.name}`;
+    } else if (floorMenuType === 'CAFE') {
+      if (propertyData?.cafePosEnabled === false) {
+        alert('⚠️ Cafe POS is currently disabled. Go to Settings > Cafe POS to enable it.');
+        return;
+      }
+      targetUrl = `${p}/cafe-pos?tableId=${table.id}&tableNo=${table.name}`;
+    }
+
     router.push(targetUrl);
   };
 
@@ -743,7 +777,7 @@ export default function TableManagementPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push('/operations')}
+            onClick={() => router.push(`${p}/operations`)}
             className="rounded-xl h-8 w-8 p-0 flex items-center justify-center bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
           >
             <ChevronLeft size={14} />
@@ -752,7 +786,11 @@ export default function TableManagementPage() {
           {loading ? (
             <Skeleton className="h-8 w-24 rounded-lg" count={3} />
           ) : (
-            floors.map(floor => (
+            floors.filter(floor => {
+              if (floor.menuType === 'BAR' && propertyData?.barPosEnabled === false) return false;
+              if (floor.menuType === 'CAFE' && propertyData?.cafePosEnabled === false) return false;
+              return true;
+            }).map(floor => (
               <div
                 key={floor.id}
                 className="group relative flex items-center transition-all"
@@ -800,7 +838,7 @@ export default function TableManagementPage() {
             )).concat([
               <button
                 key="parking-tab-link"
-                onClick={() => router.push('/operations/parking')}
+                onClick={() => router.push(`${p}/operations/parking`)}
                 className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-white/5 text-white/40 border-white/5 hover:border-amber-500/50 hover:text-amber-400"
               >
                 <CarFront size={12} />
@@ -867,9 +905,24 @@ export default function TableManagementPage() {
                 <button
                   onClick={() => { 
                     const orderId = selectedTable.activeOrder?.id ? `&orderId=${selectedTable.activeOrder.id}` : '';
-                    const targetUrl = (selectedTable as any).floor?.menuType === 'BAR' ? `/bar-pos?tableId=${selectedTable.id}&tableNo=${selectedTable.name}${orderId}`
-                                    : (selectedTable as any).floor?.menuType === 'CAFE' ? `/cafe-pos?tableId=${selectedTable.id}&tableNo=${selectedTable.name}${orderId}`
-                                    : `/billing?tableId=${selectedTable.id}&tableName=${selectedTable.name}${orderId}`;
+                    const tableFloor = floors.find(f => f.id === selectedTable.floorId);
+                    const floorMenuType = tableFloor?.menuType || 'RESTAURANT';
+
+                    let targetUrl = `${p}/billing?tableId=${selectedTable.id}&tableName=${selectedTable.name}${orderId}`;
+                    if (floorMenuType === 'BAR') {
+                      if (propertyData?.barPosEnabled === false) {
+                        alert('⚠️ Bar POS is currently disabled. Go to Settings > Bar POS to enable it.');
+                        return;
+                      }
+                      targetUrl = `${p}/bar-pos?tableId=${selectedTable.id}&tableNo=${selectedTable.name}${orderId}`;
+                    } else if (floorMenuType === 'CAFE') {
+                      if (propertyData?.cafePosEnabled === false) {
+                        alert('⚠️ Cafe POS is currently disabled. Go to Settings > Cafe POS to enable it.');
+                        return;
+                      }
+                      targetUrl = `${p}/cafe-pos?tableId=${selectedTable.id}&tableNo=${selectedTable.name}${orderId}`;
+                    }
+
                     router.push(targetUrl); 
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
@@ -967,7 +1020,7 @@ export default function TableManagementPage() {
                 </div>
                 <div className="mt-6 pt-4 border-t border-white/5">
                   <Button
-                    onClick={() => router.push('/operations/tables/qr-gallery')}
+                    onClick={() => router.push(`${p}/operations/tables/qr-gallery`)}
                     className="w-full rounded-2xl h-11 font-black uppercase text-[10px] tracking-widest bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-all shadow-lg"
                   >
                     Open QR Gallery
@@ -1285,6 +1338,8 @@ export default function TableManagementPage() {
           onSubmit={handleCreateFloorSubmit}
           onCancel={() => setIsFloorFormOpen(false)}
           loading={floorFormLoading}
+          barPosEnabled={propertyData?.barPosEnabled !== false}
+          cafePosEnabled={propertyData?.cafePosEnabled !== false}
         />
       </Modal>
 
@@ -1305,6 +1360,8 @@ export default function TableManagementPage() {
             setEditingFloor(null);
           }}
           loading={floorFormLoading}
+          barPosEnabled={propertyData?.barPosEnabled !== false}
+          cafePosEnabled={propertyData?.cafePosEnabled !== false}
         />
       </Modal>
 

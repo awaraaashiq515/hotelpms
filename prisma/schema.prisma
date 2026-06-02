@@ -87,6 +87,7 @@ model Property {
   upiLimit2            Float               @default(100000)
   upiReceivedToday2    Float               @default(0)
   lastUpiResetDate     DateTime?           @default(now())
+  targetShiftHours     Float               @default(8.0)
   accounts             Account[]
   auditLogs            AuditLog[]
   cashTopUps           CashTopUp[]
@@ -1395,6 +1396,7 @@ model StaffMember {
   emergencyContact String?
   joiningDate      DateTime?  @default(now())
   isActive         Boolean    @default(true)
+  shiftHours       Float?     @default(8.0)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   posOrders        PosOrder[]

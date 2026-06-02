@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Utensils, Clock, RefreshCw, Wifi, Bell, ChefHat,
+  Beer, Clock, RefreshCw, Wifi, Bell, Wine,
   Layers, CheckCircle, Play, Send, AlertTriangle,
   User, ArrowRight, Flame, EyeOff, Volume2, VolumeX, ChevronLeft
 } from 'lucide-react';
@@ -43,16 +43,16 @@ const COLUMNS: {
   },
   {
     status: 'PREPARING',
-    label: 'In Kitchen',
+    label: 'Pouring / Preparing',
     next: 'READY',
     nextLabel: 'Mark Ready',
-    icon: ChefHat,
-    headerCls: 'bg-orange-700',
-    borderCls: 'border-orange-500/40',
-    badgeCls: 'bg-orange-600',
-    btnCls: 'bg-orange-600 hover:bg-orange-500 shadow-orange-800/40',
-    bgCls: 'bg-orange-950/40',
-    dotColor: 'bg-orange-400',
+    icon: Wine,
+    headerCls: 'bg-violet-800',
+    borderCls: 'border-violet-500/40',
+    badgeCls: 'bg-violet-600',
+    btnCls: 'bg-violet-600 hover:bg-violet-500 shadow-violet-850/40',
+    bgCls: 'bg-violet-950/40',
+    dotColor: 'bg-violet-400',
   },
   {
     status: 'READY',
@@ -84,7 +84,7 @@ const COLUMNS: {
 
 const ITEM_STATUS_DOT: Record<string, string> = {
   NEW: 'bg-pos-primary',
-  PREPARING: 'bg-orange-400',
+  PREPARING: 'bg-violet-400',
   READY: 'bg-emerald-400',
   SERVED: 'bg-slate-500',
   CANCELLED: 'bg-red-500',
@@ -95,7 +95,6 @@ function getAgeSeconds(createdAt: string) {
   if (!createdAt) return 0;
   const createdTime = new Date(createdAt).getTime();
   if (isNaN(createdTime)) return 0;
-  // Ensure we don't return negative seconds due to clock skew
   return Math.max(0, Math.floor((Date.now() - createdTime) / 1000));
 }
 
@@ -142,10 +141,8 @@ const READY_PICKUP_OPTIONS = [
   { label: '10m', value: 10 },
 ];
 
-// ─── SERVED HIDE OPTIONS ──────────────────────────────────────────────────────
-// value = minutes after which served order is hidden; 0 = keep all day; -1 = today only (no timer)
 const SERVED_HIDE_OPTIONS = [
-  { label: 'All Day', value: 0 },       // show served all day, next day hide
+  { label: 'All Day', value: 0 },
   { label: '15 min', value: 15 },
   { label: '30 min', value: 30 },
   { label: '1 hour', value: 60 },
@@ -154,7 +151,7 @@ const SERVED_HIDE_OPTIONS = [
 ];
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-export default function KitchenDisplayPage() {
+export default function BarDisplayPage() {
   const params = useParams();
   const propertyCode = params?.propertyCode as string | undefined;
   const p = propertyCode ? `/${propertyCode}` : '';
@@ -224,19 +221,19 @@ export default function KitchenDisplayPage() {
 
   // Load settings from localStorage
   useEffect(() => {
-    const savedAccept = localStorage.getItem('kds_auto_accept_time');
+    const savedAccept = localStorage.getItem('bar_auto_accept_time');
     const acceptVal = savedAccept ? parseInt(savedAccept, 10) : 0;
     setAutoAcceptTime(acceptVal);
     
-    const savedReady = localStorage.getItem('kds_auto_ready_time');
+    const savedReady = localStorage.getItem('bar_auto_ready_time');
     const readyVal = savedReady ? parseInt(savedReady, 10) : 0;
     setAutoReadyTime(readyVal);
     
-    const savedHide = localStorage.getItem('kds_served_hide_minutes');
+    const savedHide = localStorage.getItem('bar_served_hide_minutes');
     const hideVal = savedHide ? parseInt(savedHide, 10) : 0;
     setServedHideMinutes(hideVal);
     
-    const savedPickupLimit = localStorage.getItem('kds_ready_pickup_time');
+    const savedPickupLimit = localStorage.getItem('bar_ready_pickup_time');
     const pickupVal = savedPickupLimit ? parseInt(savedPickupLimit, 10) : 5; // Default 5 mins
     setReadyPickupLimit(pickupVal);
 
@@ -247,11 +244,11 @@ export default function KitchenDisplayPage() {
       readyPickupLimit: pickupVal
     };
 
-    const savedVoice = localStorage.getItem('kds_voice_enabled');
+    const savedVoice = localStorage.getItem('bar_voice_enabled');
     if (savedVoice === 'true') setVoiceEnabled(true);
-    const savedVoiceName = localStorage.getItem('kds_selected_voice');
+    const savedVoiceName = localStorage.getItem('bar_selected_voice');
     if (savedVoiceName) setSelectedVoiceName(savedVoiceName);
-    const savedLang = localStorage.getItem('kds_language');
+    const savedLang = localStorage.getItem('bar_language');
     if (savedLang === 'pa' || savedLang === 'en') setLanguage(savedLang);
   }, []);
 
@@ -277,14 +274,14 @@ export default function KitchenDisplayPage() {
   const handleAutoAcceptChange = (val: number) => {
     setAutoAcceptTime(val);
     settingsRef.current.autoAccept = val;
-    localStorage.setItem('kds_auto_accept_time', val.toString());
+    localStorage.setItem('bar_auto_accept_time', val.toString());
     showToast(`Auto-Accept: ${val === 0 ? 'Disabled' : `${val}s`}`, 'success');
   };
 
   const handleAutoReadyChange = (val: number) => {
     setAutoReadyTime(val);
     settingsRef.current.autoReady = val;
-    localStorage.setItem('kds_auto_ready_time', val.toString());
+    localStorage.setItem('bar_auto_ready_time', val.toString());
     const label = AUTO_READY_OPTIONS.find(o => o.value === val)?.label || 'Manual';
     showToast(`Auto-Ready: ${label}`, 'success');
   };
@@ -292,7 +289,7 @@ export default function KitchenDisplayPage() {
   const handleServedHideChange = (val: number) => {
     setServedHideMinutes(val);
     settingsRef.current.servedHide = val;
-    localStorage.setItem('kds_served_hide_minutes', val.toString());
+    localStorage.setItem('bar_served_hide_minutes', val.toString());
     const label = SERVED_HIDE_OPTIONS.find(o => o.value === val)?.label || 'All Day';
     showToast(`Served Hide: ${label}`, 'success');
   };
@@ -300,7 +297,7 @@ export default function KitchenDisplayPage() {
   const handleReadyPickupChange = (val: number) => {
     setReadyPickupLimit(val);
     settingsRef.current.readyPickupLimit = val;
-    localStorage.setItem('kds_ready_pickup_time', val.toString());
+    localStorage.setItem('bar_ready_pickup_time', val.toString());
   };
 
   const playVoice = useCallback((text: string) => {
@@ -309,9 +306,8 @@ export default function KitchenDisplayPage() {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
       
-      // Set language for the utterance
       if (language === 'pa') {
-        utterance.lang = 'hi-IN'; // Most engines use Hindi voice for Punjabi text if pa-IN is missing
+        utterance.lang = 'hi-IN';
       } else {
         utterance.lang = 'en-US';
       }
@@ -319,11 +315,9 @@ export default function KitchenDisplayPage() {
       const voice = voices.find(v => v.name === selectedVoiceName);
       if (voice) {
         utterance.voice = voice;
-        // If we found a voice, use its specific language
         utterance.lang = voice.lang;
       }
       
-      // Fix for Chrome garbage collection bug that stops speech early
       const w = window as any;
       w._utterances = w._utterances || [];
       w._utterances.push(utterance);
@@ -338,9 +332,8 @@ export default function KitchenDisplayPage() {
 
   const handleVoiceChange = (name: string) => {
     setSelectedVoiceName(name);
-    localStorage.setItem('kds_selected_voice', name);
+    localStorage.setItem('bar_selected_voice', name);
     
-    // Play test sound
     if ('speechSynthesis' in window) {
       const voice = voices.find(v => v.name === name);
       const testText = language === 'pa' ? "ਆਵਾਜ਼ ਸੈੱਟ ਹੋ ਗਈ ਹੈ" : "Voice Selected";
@@ -354,14 +347,13 @@ export default function KitchenDisplayPage() {
   const toggleLanguage = () => {
     const newLang = language === 'en' ? 'pa' : 'en';
     setLanguage(newLang);
-    localStorage.setItem('kds_language', newLang);
+    localStorage.setItem('bar_language', newLang);
     
-    // Auto-select a suitable voice if switching to Punjabi
     if (newLang === 'pa') {
       const paVoice = voices.find(v => v.lang.includes('pa') || v.lang.includes('hi'));
       if (paVoice) {
         setSelectedVoiceName(paVoice.name);
-        localStorage.setItem('kds_selected_voice', paVoice.name);
+        localStorage.setItem('bar_selected_voice', paVoice.name);
       }
     }
     
@@ -371,7 +363,7 @@ export default function KitchenDisplayPage() {
   const toggleVoice = () => {
     const newVal = !voiceEnabled;
     setVoiceEnabled(newVal);
-    localStorage.setItem('kds_voice_enabled', String(newVal));
+    localStorage.setItem('bar_voice_enabled', String(newVal));
     if (newVal) {
       showToast('Voice notifications enabled', 'success');
       if ('speechSynthesis' in window) {
@@ -400,7 +392,6 @@ export default function KitchenDisplayPage() {
 
     kots.forEach(kot => {
       const prevStatus = prevMap.get(kot.id);
-      
       const activeItems = kot.items ? kot.items.filter((i: any) => i.status !== 'CANCELLED') : [];
       let itemsString = activeItems.map((i: any) => {
         const name = i.product?.name || i.itemName || 'Unknown Item';
@@ -425,20 +416,18 @@ export default function KitchenDisplayPage() {
       if (newOrdersList.length === 1) {
         let textToSay = "";
         if (language === 'pa') {
-          textToSay = `ਧਿਆਨ ਦਿਓ! ਨਵਾਂ ਆਰਡਰ ਆਇਆ ਹੈ: ${newOrdersList[0].itemsString}`;
+          textToSay = `ਧਿਆਨ ਦਿਓ! ਨਵਾਂ ਬਾਰ ਆਰਡਰ ਆਇਆ ਹੈ: ${newOrdersList[0].itemsString}`;
         } else {
-          textToSay = `Attention! New order received for ${newOrdersList[0].itemsString}`;
+          textToSay = `Attention! New bar order received for ${newOrdersList[0].itemsString}`;
         }
-        console.log('Voice Announcing:', textToSay);
         playVoice(textToSay);
       } else {
         let textToSay = "";
         if (language === 'pa') {
-          textToSay = `ਧਿਆਨ ਦਿਓ! ${newOrdersList.length} ਨਵੇਂ ਆਰਡਰ ਆਏ ਹਨ।`;
+          textToSay = `ਧਿਆਨ ਦਿਓ! ${newOrdersList.length} ਨਵੇਂ ਬਾਰ ਆਰਡਰ ਆਏ ਹਨ।`;
         } else {
-          textToSay = `Attention! ${newOrdersList.length} new orders received`;
+          textToSay = `Attention! ${newOrdersList.length} new bar orders received`;
         }
-        console.log('Voice Announcing:', textToSay);
         playVoice(textToSay);
         newOrdersList.forEach(kot => {
           const itemText = language === 'pa' ? `ਆਰਡਰ ਵਿੱਚ ${kot.itemsString} ਹਨ` : `Order has ${kot.itemsString}`;
@@ -450,19 +439,18 @@ export default function KitchenDisplayPage() {
     statusChanges.forEach(change => {
       let statusText = "";
       if (language === 'pa') {
-        statusText = change.status === 'PREPARING' ? 'ਕਿਚਨ ਵਿੱਚ' 
+        statusText = change.status === 'PREPARING' ? 'ਬਾਰ ਵਿੱਚ' 
                    : change.status === 'READY' ? 'ਤਿਆਰ ਹੈ' 
                    : change.status === 'SERVED' ? 'ਸਰਵ ਹੋ ਗਿਆ' 
                    : change.status;
       } else {
-        statusText = change.status === 'PREPARING' ? 'In Kitchen' 
+        statusText = change.status === 'PREPARING' ? 'Pouring' 
                    : change.status === 'READY' ? 'Ready to Serve' 
                    : change.status === 'SERVED' ? 'Served' 
                    : change.status;
       }
       
-      const updateText = language === 'pa' ? `Update: ${change.itemsString} ${statusText}` : `Update: ${statusText} for ${change.itemsString}`;
-      console.log('Voice Announcing:', updateText);
+      const updateText = language === 'pa' ? `ਅਪਡੇਟ: ${change.itemsString} ${statusText}` : `Update: ${statusText} for ${change.itemsString}`;
       playVoice(updateText);
     });
 
@@ -470,8 +458,6 @@ export default function KitchenDisplayPage() {
   }, [kots, loading, playVoice, language]);
 
   // ─── Filter helper for SERVED orders ──────────────────────────────────────
-  // - Always hide SERVED orders from previous days (today only on KDS)
-  // - If servedHideMinutes > 0, also hide after that many minutes post-serving
   const filterServedOrders = useCallback((data: KotTicket[]): KotTicket[] => {
     const hideMinutes = settingsRef.current.servedHide;
     const now = Date.now();
@@ -502,7 +488,19 @@ export default function KitchenDisplayPage() {
     if (!silent) setRefreshing(true);
     try {
       const data = await kotsApi.list();
-      const active = filterServedOrders(data || []);
+      
+      // Keep only KOT tickets that contain at least one Bar item
+      const barTickets = (data || []).filter(kot => 
+        kot.items && kot.items.some(item => item.product?.menuType === 'BAR')
+      );
+
+      // Map tickets to filter their internal items to only include BAR items
+      const processedTickets = barTickets.map(kot => ({
+        ...kot,
+        items: kot.items.filter(item => item.product?.menuType === 'BAR')
+      }));
+
+      const active = filterServedOrders(processedTickets);
       setKots(active);
       setLastRefresh(new Date());
     } catch {
@@ -516,7 +514,6 @@ export default function KitchenDisplayPage() {
   }, [filterServedOrders]);
 
   const handleStatusUpdate = useCallback(async (kotId: string, nextStatus: KotTicket['status']) => {
-    // Prevent double updates using the ref (which is always fresh)
     if (updatingIdsRef.current.has(kotId)) return;
 
     setUpdatingIds((prev) => {
@@ -528,10 +525,9 @@ export default function KitchenDisplayPage() {
     try {
       await kotsApi.updateStatus(kotId, nextStatus);
       showToast(`Updated → ${nextStatus}`, 'success');
-      // After update, refresh immediately
       fetchKots(true);
     } catch (err) {
-      console.error('[KDS] Update failed:', err);
+      console.error('[Bar KDS] Update failed:', err);
       showToast('Update failed', 'error');
     } finally {
       setUpdatingIds((prev) => {
@@ -549,7 +545,6 @@ export default function KitchenDisplayPage() {
     countdownRef.current = setInterval(() => {
       const now = Date.now();
       
-      // 1. Update countdown
       setCountdown((prev) => {
         if (prev <= 1) {
           fetchKots(true);
@@ -558,33 +553,28 @@ export default function KitchenDisplayPage() {
         return prev - 1;
       });
 
-      // 2. Heavy checks (Auto Accept/Ready) - Every 3 seconds
       if (now % 3000 < 1000) {
         const { autoAccept, autoReady } = settingsRef.current;
         const currentKots = kotsRef.current;
 
-        // Process only ONE KOT candidate per tick to prevent SQLite transaction collisions
         for (const kot of currentKots) {
-          // Auto Accept: NEW -> PREPARING
           if (autoAccept > 0 && kot.status === 'NEW') {
             const age = getAgeSeconds(kot.createdAt);
             if (age >= autoAccept) {
               handleStatusUpdate(kot.id, 'PREPARING');
-              break; // Only one per tick
+              break;
             }
           }
-          // Auto Ready: PREPARING -> READY
           if (autoReady > 0 && kot.status === 'PREPARING') {
             const timeSinceUpdate = getAgeSeconds(kot.updatedAt || kot.createdAt);
             if (timeSinceUpdate >= autoReady) {
               handleStatusUpdate(kot.id, 'READY');
-              break; // Only one per tick
+              break;
             }
           }
         }
       }
 
-      // 3. Re-apply served hide filter every 5 seconds
       if (now % 5000 < 1000) {
         const currentKots = kotsRef.current;
         const filtered = filterServedOrders(currentKots);
@@ -620,9 +610,6 @@ export default function KitchenDisplayPage() {
 
   const totalActive = kots.filter((k) => k.status !== 'SERVED').length;
 
-  // ─── Column sort ───────────────────────────────────────────────────────────
-  // NEW column: newest first (so new order appears at top)
-  // All other columns: oldest first (kitchen works top-to-bottom)
   function getSortedColKots(status: KotTicket['status'], allKots: KotTicket[]) {
     const filtered = allKots.filter((k) => k.status === status);
     if (status === 'NEW') {
@@ -640,7 +627,7 @@ export default function KitchenDisplayPage() {
       <div className="h-screen w-screen bg-[#080d1a] flex flex-col items-center justify-center">
         <RefreshCw size={40} className="animate-spin text-pos-primary mb-4" />
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600">
-          Initializing System...
+          Initializing Bar Display...
         </p>
       </div>
     );
@@ -658,12 +645,12 @@ export default function KitchenDisplayPage() {
           >
             <ChevronLeft size={20} />
           </Link>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pos-primary to-pos-primary-dark flex items-center justify-center shadow-lg">
-            <Utensils size={19} className="text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center shadow-lg">
+            <Beer size={19} className="text-white" />
           </div>
           <div>
             <h1 className="text-lg font-black uppercase tracking-[0.15em] leading-none">
-              Kitchen Display
+              Bar Display
             </h1>
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">
               {totalActive} active · {kots.filter((k) => k.status === 'SERVED').length} served today
@@ -693,13 +680,13 @@ export default function KitchenDisplayPage() {
           </div>
 
           {/* Auto Ready Settings */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 rounded-xl border border-orange-500/20">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/10 rounded-xl border border-violet-500/20">
             <div className="flex flex-col">
-              <span className="text-[8px] font-black uppercase tracking-widest text-orange-500">Auto Ready</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-violet-400">Auto Ready</span>
               <select
                 value={autoReadyTime}
                 onChange={(e) => handleAutoReadyChange(parseInt(e.target.value, 10))}
-                className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-orange-500"
+                className="bg-transparent text-[10px] font-black text-white outline-none cursor-pointer focus:text-violet-400"
               >
                 {AUTO_READY_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
@@ -707,7 +694,7 @@ export default function KitchenDisplayPage() {
               </select>
             </div>
             {autoReadyTime > 0 && (
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse mt-3" />
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse mt-3" />
             )}
           </div>
 
@@ -765,14 +752,13 @@ export default function KitchenDisplayPage() {
           </div>
 
           {/* Countdown ring */}
-
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/60 rounded-lg border border-slate-700">
             <div className="relative w-5 h-5">
               <svg viewBox="0 0 24 24" className="w-5 h-5 -rotate-90">
                 <circle cx="12" cy="12" r="10" fill="none" stroke="#1e293b" strokeWidth="3" />
                 <circle
                   cx="12" cy="12" r="10"
-                  fill="none" stroke="#e8a0a0" strokeWidth="3"
+                  fill="none" stroke="#a78bfa" strokeWidth="3"
                   strokeDasharray={62.83}
                   strokeDashoffset={62.83 * (1 - countdown / POLL_INTERVAL)}
                   strokeLinecap="round"
@@ -832,7 +818,7 @@ export default function KitchenDisplayPage() {
           <div className="text-center space-y-4">
             <RefreshCw size={40} className="animate-spin text-pos-primary mx-auto" />
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600">
-              Syncing Kitchen…
+              Syncing Bar Queue…
             </p>
           </div>
         </div>
@@ -918,7 +904,7 @@ export default function KitchenDisplayPage() {
                               )}
                               {isLate && (
                                 <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-rose-700 text-white rounded-full animate-pulse">
-                                  Late Kitchen
+                                  Late Bar
                                 </span>
                               )}
                               {isPickupLate && (
@@ -937,39 +923,6 @@ export default function KitchenDisplayPage() {
                                 </span>
                               )}
                             </div>
-                            
-                            {/* Prep Limit Selector */}
-                            {kot.status === 'PREPARING' && (
-                              <div className="flex items-center gap-1.5 mt-2">
-                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Prep Limit:</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="180"
-                                  value={prepLimit}
-                                  onChange={async (e) => {
-                                    const val = parseInt(e.target.value, 10) || 15;
-                                    if (!kot.orderId) return;
-                                    try {
-                                      const response = await fetch(`/api/pos-orders/${kot.orderId}`, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ preparationTime: val })
-                                      });
-                                      const result = await response.json();
-                                      if (result.success) {
-                                        showToast(`Prep limit set to ${val}m`, 'success');
-                                        fetchKots(true);
-                                      }
-                                    } catch (e) {
-                                      console.error('Failed to update prep limit', e);
-                                    }
-                                  }}
-                                  className="w-10 h-5 bg-slate-900 border border-slate-700 rounded text-center text-[9px] font-bold text-white outline-none focus:border-pos-primary"
-                                />
-                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">mins</span>
-                              </div>
-                            )}
                           </div>
                           {/* Wait time badge */}
                           <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-black shrink-0 ${
@@ -994,14 +947,13 @@ export default function KitchenDisplayPage() {
 
                             return (
                               <div key={item.id} className={`flex items-start gap-2 group ${itemDone ? 'opacity-50' : ''}`}>
-                                {/* Item status dot */}
                                 <button
                                   disabled={!nextItemStatus || col.status === 'SERVED'}
                                   onClick={() => nextItemStatus && handleItemStatus(kot.id, item.id, nextItemStatus)}
                                   className={`w-5 h-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all ${
                                     itemDone
                                       ? 'border-emerald-500 bg-emerald-900/50'
-                                      : 'border-slate-600 hover:border-orange-400 bg-transparent cursor-pointer'
+                                      : 'border-slate-600 hover:border-violet-400 bg-transparent cursor-pointer'
                                   }`}
                                   title={nextItemStatus ? `Mark ${nextItemStatus}` : undefined}
                                 >
@@ -1018,13 +970,12 @@ export default function KitchenDisplayPage() {
                                     </span>
                                   </div>
                                   {item.notes && (
-                                    <p className="text-[10px] text-orange-400 font-bold italic mt-0.5 leading-tight">
+                                    <p className="text-[10px] text-violet-400 font-bold italic mt-0.5 leading-tight">
                                       ⚠ {item.notes}
                                     </p>
                                   )}
                                 </div>
 
-                                {/* Item status tag */}
                                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${ITEM_STATUS_DOT[item.status] || 'bg-slate-500'}`} />
                               </div>
                             );
@@ -1033,7 +984,6 @@ export default function KitchenDisplayPage() {
 
                         {/* Captain + Action Footer */}
                         <div className="px-4 pt-2 pb-3 border-t border-slate-700/50 space-y-2">
-                          {/* Captain info */}
                           {(kot.createdBy || (kot as any).order?.createdBy) && (
                             <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
                               <User size={9} />
@@ -1056,7 +1006,6 @@ export default function KitchenDisplayPage() {
                             </div>
                           )}
 
-                          {/* Action button */}
                           {col.next && (
                             <button
                               disabled={isUpdating}
@@ -1071,7 +1020,6 @@ export default function KitchenDisplayPage() {
                             </button>
                           )}
 
-                          {/* View link */}
                           <Link
                             href={`${p}/kots/${kot.id}`}
                             className="block text-center text-[8px] font-black uppercase tracking-[0.2em] text-slate-700 hover:text-slate-500 transition-colors"
@@ -1097,10 +1045,10 @@ export default function KitchenDisplayPage() {
               <Layers size={44} className="text-slate-700" />
             </div>
             <h2 className="text-xl font-black text-slate-600 uppercase tracking-widest">
-              Kitchen Clear
+              Bar Clear
             </h2>
             <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
-              No active orders
+              No active bar orders
             </p>
           </div>
         </div>

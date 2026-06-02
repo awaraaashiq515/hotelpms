@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         },
         items: {
           include: {
-            product: { select: { name: true } }
+            product: { select: { name: true, menuType: true } }
           }
         }
       },

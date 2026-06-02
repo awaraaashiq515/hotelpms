@@ -22,6 +22,8 @@ export const usePOSSecurity = () => useContext(POSSecurityContext);
 
 export const POSSecurityProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
+  const segments = pathname.split('/').filter(Boolean);
+  const relativePath = segments.length > 1 ? '/' + segments.slice(1).join('/') : '/';
   const [session, setSession] = useState<any>(null);
   const [settings, setSettings] = useState({
     timeout: -1, // -1 means loading
@@ -88,10 +90,11 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
     '/pos/gst-settings'
   ];
 
-  const isManagementPage = managementPaths.some(path => pathname.startsWith(path)) || pathname === '/operations';
+  const isManagementPage = managementPaths.some(path => relativePath.startsWith(path)) || relativePath === '/operations';
   
-  // Pages that should NEVER lock for anyone (e.g. Kitchen Display)
-  const isExemptPage = pathname.startsWith('/kitchen-display');
+  // Pages that should NEVER lock for anyone (e.g. Kitchen Display / Bar Display)
+  const isExemptPage = relativePath.startsWith('/kitchen-display') || pathname.includes('/kitchen-display') ||
+    relativePath.startsWith('/bar-display') || pathname.includes('/bar-display');
 
   // Logic: Disable lock for Administrative roles on Management pages
   // Or for everyone on exempt pages like Kitchen Display

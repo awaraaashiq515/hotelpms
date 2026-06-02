@@ -152,6 +152,21 @@ export default function PosStaffPage() {
       width: '120px'
     },
     { 
+      header: 'Shift Target', 
+      cell: (row: StaffMember) => {
+        const val = (row as any).shiftHours ?? 8.0;
+        const hrs = Math.floor(val);
+        const mins = Math.round((val - hrs) * 60);
+        const display = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+        return (
+          <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full uppercase tracking-wider">
+            {display}
+          </span>
+        );
+      },
+      width: '120px'
+    },
+    { 
       header: 'Status', 
       cell: (row: StaffMember) => (
         <div className="flex items-center gap-1.5">
@@ -261,6 +276,7 @@ export default function PosStaffPage() {
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
         title={selectedStaff ? 'Edit Staff Member' : 'Add New Staff Member'}
+        maxWidth="lg"
       >
         <StaffMemberForm 
           initialData={selectedStaff || undefined}

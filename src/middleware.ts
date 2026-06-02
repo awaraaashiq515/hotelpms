@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
     'inventory', 'kots', 'reports', 'settings', 'operations', 'drivers', 'pos-staff',
     'expenses', 'accounts', 'manage-properties', 'manage-users', 'manage-roles',
     'pos', 'vouchers', 'orders', 'all-bills', 'categories', 'products', 'day-closing',
-    'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display'
+    'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display', 'bar-display'
   ]
 
   let strippedPathname = pathname
@@ -51,13 +51,13 @@ export async function middleware(request: NextRequest) {
       payload = verified.payload
     } catch (err) {
       // If token is invalid for a protected route, redirect to login
-      if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending') {
+      if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin')) {
         return NextResponse.redirect(new URL('/login', request.url))
       }
     }
   } else {
     // No session cookie and trying to access a protected route
-    if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending') {
+    if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin')) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }
@@ -89,6 +89,14 @@ export async function middleware(request: NextRequest) {
 
   // Paywall Lock for PENDING_PAYMENT / PENDING_APPROVAL
   if (payload) {
+    // ── Internal rewrite for branded restaurantadmin routes ──
+    if (pathname.startsWith('/restaurantadmin/') || pathname === '/restaurantadmin') {
+      const urlKey = payload.propertySlug || payload.propertyCode
+      if (urlKey) {
+        return NextResponse.rewrite(new URL(`/${urlKey}${pathname}`, request.url))
+      }
+    }
+
     if (isDashboardRoute && !hasPropertyCode && payload.propertyCode) {
       const urlKey = payload.propertySlug || payload.propertyCode
       return NextResponse.redirect(new URL(`/${urlKey}${pathname}`, request.url))
@@ -201,6 +209,7 @@ export async function middleware(request: NextRequest) {
           '/billing': 'pos terminal',
           '/kots': 'kots',
           '/kitchen-display': 'kitchen display',
+          '/bar-display': 'kitchen display',
           '/day-closing': 'day closing',
           '/operations/tables': 'table layout',
           '/operations/occupancy': 'live occupancy',
@@ -253,6 +262,7 @@ export async function middleware(request: NextRequest) {
         '/orders':            'POS',
         '/kots':              'POS',
         '/kitchen-display':   'POS',
+        '/bar-display':       'POS',
         '/day-closing':       'POS',
         // Inventory
         '/inventory':         'INVENTORY',

@@ -13,6 +13,7 @@ const staffSchema = z.object({
   emergencyContact: z.string().optional(),
   joiningDate: z.string().optional(),
   isActive: z.boolean().optional(),
+  shiftHours: z.number().min(0.1).optional(),
 });
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +38,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         emergencyContact: parsedData.emergencyContact || null,
         joiningDate: parsedData.joiningDate ? new Date(parsedData.joiningDate) : undefined,
         isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
+        shiftHours: parsedData.shiftHours !== undefined ? Number(parsedData.shiftHours) : undefined,
       },
     });
 

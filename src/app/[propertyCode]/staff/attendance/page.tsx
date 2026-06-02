@@ -133,21 +133,60 @@ interface StaffCardProps {
   member: StaffMember;
   isPunching: boolean;
   onAction: (id: string, action: 'clock-in' | 'clock-out') => void;
+  targetShiftHours: number;
 }
 
-function StaffCard({ member: s, isPunching, onAction }: StaffCardProps) {
+function StaffCard({ member: s, isPunching, onAction, targetShiftHours }: StaffCardProps) {
   const isActive = !!s.activeSession;
+  const [elapsed, setElapsed] = useState<string>('');
+  const [isOvertime, setIsOvertime] = useState(false);
+  const [overtimeText, setOvertimeText] = useState('');
+
+  useEffect(() => {
+    if (!isActive || !s.activeSession) return;
+    const calc = () => {
+      const clockInTime = new Date(s.activeSession!.clockIn).getTime();
+      const diffMs = Date.now() - clockInTime;
+      const diffHrs = diffMs / (1000 * 60 * 60);
+      const hours = Math.floor(diffHrs);
+      const mins = Math.floor((diffHrs % 1) * 60);
+      setElapsed(`${hours}h ${mins}m`);
+      
+      const limit = (s as any).shiftHours ?? targetShiftHours;
+      if (diffHrs > limit) {
+        setIsOvertime(true);
+        const overHrs = diffHrs - limit;
+        const oHours = Math.floor(overHrs);
+        const oMins = Math.floor((overHrs % 1) * 60);
+        setOvertimeText(`+${oHours}h ${oMins}m`);
+      } else {
+        setIsOvertime(false);
+      }
+    };
+    calc();
+    const interval = setInterval(calc, 60000);
+    return () => clearInterval(interval);
+  }, [isActive, s.activeSession, targetShiftHours]);
 
   return (
     <div
       className={`relative group flex flex-col items-center gap-5 rounded-3xl p-6 border transition-all duration-300 overflow-hidden ${isActive
-          ? 'bg-white dark:bg-slate-900 border-emerald-400/30 shadow-[0_8px_32px_-8px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/20'
+          ? isOvertime 
+            ? 'bg-white dark:bg-slate-900 border-rose-400/30 shadow-[0_8px_32px_-8px_rgba(244,63,94,0.2)] ring-1 ring-rose-500/20'
+            : 'bg-white dark:bg-slate-900 border-emerald-400/30 shadow-[0_8px_32px_-8px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/20'
           : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-white/5 shadow-sm hover:shadow-xl hover:-translate-y-1'
         }`}
     >
       {/* Active top bar */}
       {isActive && (
-        <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-500" />
+        <div className={`absolute top-0 left-0 right-0 h-[3px] ${isOvertime ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+      )}
+
+      {/* Overtime warning badge */}
+      {isActive && isOvertime && (
+        <div className="absolute top-3 left-3 flex items-center gap-1 bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-md shadow-rose-500/30 animate-pulse">
+          ⚠️ OVERTIME: {overtimeText}
+        </div>
       )}
 
       {/* Live badge */}
@@ -162,14 +201,16 @@ function StaffCard({ member: s, isPunching, onAction }: StaffCardProps) {
       <div className="relative">
         <div
           className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black transition-all duration-300 group-hover:rounded-xl ${isActive
-              ? 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white'
+              ? isOvertime 
+                ? 'bg-gradient-to-br from-rose-400 to-red-600 text-white'
+                : 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600'
             }`}
         >
           {s.fullName.charAt(0)}
         </div>
         {isActive && (
-          <div className="absolute -inset-2 bg-emerald-500/15 blur-xl rounded-full -z-10 animate-pulse" />
+          <div className={`absolute -inset-2 ${isOvertime ? 'bg-rose-500/15' : 'bg-emerald-500/15'} blur-xl rounded-full -z-10 animate-pulse`} />
         )}
       </div>
 
@@ -188,12 +229,19 @@ function StaffCard({ member: s, isPunching, onAction }: StaffCardProps) {
       <div className="w-full space-y-2.5">
         {isActive ? (
           <>
-            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl py-2.5 text-center">
-              <p className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
-                In Since
+            <div className={`border rounded-2xl py-2 text-center w-full relative ${
+              isOvertime 
+                ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20' 
+                : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20'
+            }`}>
+              <p className={`text-[8px] font-black uppercase tracking-widest ${isOvertime ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                Active Elapsed Time
               </p>
               <p className="text-sm font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
-                {format(new Date(s.activeSession!.clockIn), 'hh:mm a')}
+                {elapsed || 'Calculating...'}
+              </p>
+              <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5 leading-none">
+                Clocked in at {format(new Date(s.activeSession!.clockIn), 'hh:mm a')}
               </p>
             </div>
             <button
@@ -342,7 +390,10 @@ function AttendanceHeatmap({ staff }: HeatmapProps) {
 
       {/* CTA */}
       <div className="flex justify-center pt-2">
-        <button className="inline-flex items-center gap-2.5 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl text-[11px] font-black uppercase tracking-[0.18em] hover:scale-105 active:scale-95 transition-all shadow-xl">
+        <button 
+          onClick={() => window.location.href = `attendance/analytics`}
+          className="inline-flex items-center gap-2.5 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl text-[11px] font-black uppercase tracking-[0.18em] hover:scale-105 active:scale-95 transition-all shadow-xl"
+        >
           <BarChart2 size={16} />
           View Comprehensive Analytics
           <ChevronRight size={16} />
@@ -352,6 +403,13 @@ function AttendanceHeatmap({ staff }: HeatmapProps) {
   );
 }
 
+const formatShiftHours = (val: number) => {
+  const hrs = Math.floor(val);
+  const mins = Math.round((val - hrs) * 60);
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AttendanceHubPage() {
@@ -359,12 +417,18 @@ export default function AttendanceHubPage() {
   const [loading, setLoading] = useState(true);
   const [punchingId, setPunchingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [targetShiftHours, setTargetShiftHours] = useState<number>(8);
 
   const fetchStaffStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/staff/attendance/hub-data');
       const data = await res.json();
-      if (data.success) setStaff(data.data);
+      if (data.success) {
+        setStaff(data.data);
+        if (data.targetShiftHours !== undefined) {
+          setTargetShiftHours(data.targetShiftHours);
+        }
+      }
     } catch {
       toast.error('Could not load staff status');
     } finally {
@@ -419,6 +483,13 @@ export default function AttendanceHubPage() {
 
   const activeCount = staff.filter((s) => s.activeSession).length;
 
+  const activeOvertimeCount = staff.filter((s) => {
+    if (!s.activeSession) return false;
+    const diffHrs = (Date.now() - new Date(s.activeSession.clockIn).getTime()) / (1000 * 60 * 60);
+    const limit = (s as any).shiftHours ?? targetShiftHours;
+    return diffHrs > limit;
+  }).length;
+
   const filteredStaff = staff.filter((s) =>
     s.fullName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -438,21 +509,21 @@ export default function AttendanceHubPage() {
       label: 'Total personnel',
       value: staff.length,
       icon: Users,
-      badge: '+2 this month',
+      badge: 'Active',
       iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',
       iconColor: 'text-emerald-600 dark:text-emerald-400',
       badgeBg: 'bg-emerald-50 dark:bg-emerald-500/10',
       badgeColor: 'text-emerald-700 dark:text-emerald-300',
     },
     {
-      label: 'Efficiency rate',
-      value: '94%',
-      icon: TrendingUp,
-      badge: 'Optimum',
-      iconBg: 'bg-amber-50 dark:bg-amber-500/10',
-      iconColor: 'text-amber-600 dark:text-amber-400',
-      badgeBg: 'bg-amber-50 dark:bg-amber-500/10',
-      badgeColor: 'text-amber-700 dark:text-amber-300',
+      label: 'Overtime Alert',
+      value: activeOvertimeCount,
+      icon: Clock,
+      badge: activeOvertimeCount > 0 ? 'Warning' : 'Normal',
+      iconBg: activeOvertimeCount > 0 ? 'bg-rose-50 dark:bg-rose-500/10' : 'bg-amber-50 dark:bg-amber-500/10',
+      iconColor: activeOvertimeCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400',
+      badgeBg: activeOvertimeCount > 0 ? 'bg-rose-500 text-white' : 'bg-amber-50 dark:bg-amber-500/10',
+      badgeColor: activeOvertimeCount > 0 ? 'text-white' : 'text-amber-700 dark:text-amber-300',
     },
     {
       label: 'System health',
@@ -488,26 +559,68 @@ export default function AttendanceHubPage() {
         ))}
       </div>
 
+      {/* ── Active Overtime Alert Banner ── */}
+      {activeOvertimeCount > 0 && (
+        <div className="bg-rose-50 dark:bg-rose-950/20 border-2 border-rose-500/10 dark:border-rose-500/30 rounded-3xl p-5 flex items-center justify-between gap-6 animate-pulse">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-rose-500/30">
+              <Clock size={20} className="animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-rose-950 dark:text-rose-200 uppercase tracking-widest leading-none mb-1">
+                Shift Overtime Warning
+              </h3>
+              <p className="text-[10px] text-rose-700 dark:text-rose-400 font-bold uppercase tracking-tight leading-none">
+                {activeOvertimeCount} staff member{activeOvertimeCount > 1 ? 's' : ''} currently on duty have exceeded the {formatShiftHours(targetShiftHours)} target shift length!
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              const element = document.querySelector('.animate-pulse');
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md transition-all active:scale-95 whitespace-nowrap"
+          >
+            Locate Personnel
+          </button>
+        </div>
+      )}
+
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-50 dark:bg-slate-900/40 p-4 rounded-3xl border border-slate-100 dark:border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-6 bg-blue-600 rounded-full" />
+          <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
           <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
             Staff Terminal Selection
           </h2>
         </div>
-        <div className="relative w-full max-w-xs">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-            size={16}
-          />
-          <input
-            type="text"
-            placeholder="Search name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-white/5 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all shadow-sm"
-          />
+        
+        {/* Leaderboard CTA + Search Controls */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Leaderboard Button */}
+          <button
+            onClick={() => window.location.href = `attendance/leaderboard`}
+            className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-md shadow-amber-500/10"
+          >
+            🏆 Leaderboard
+          </button>
+
+          <div className="relative w-full max-w-xs sm:w-auto">
+            <Search
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              size={16}
+            />
+            <input
+              type="text"
+              placeholder="Search name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full sm:w-[180px] pl-10 pr-4 py-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-white/5 text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all shadow-sm"
+            />
+          </div>
         </div>
       </div>
 
@@ -527,6 +640,7 @@ export default function AttendanceHubPage() {
               member={s}
               isPunching={punchingId === s.id}
               onAction={handleAttendance}
+              targetShiftHours={targetShiftHours}
             />
           ))}
           {filteredStaff.length === 0 && (

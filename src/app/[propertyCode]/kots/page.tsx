@@ -182,15 +182,17 @@ export default function KotsPage() {
                   return (
                   <tr key={row.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex flex-col">
+                      <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-black section-heading tracking-tight">{row.kotNo}</span>
+                          <span className="text-sm font-black section-heading tracking-tight">
+                            {format(new Date(row.createdAt), 'dd/MM/yyyy')}
+                          </span>
                           <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
-                            #{seqNum}
+                            KOT No. {seqNum}
                           </span>
                         </div>
-                        <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5">
-                          {row.order?.orderNo || 'POS-ORDER'}
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest leading-none">
+                          {row.kotNo} • {row.order?.orderNo || 'POS-ORDER'}
                         </span>
                       </div>
                     </td>

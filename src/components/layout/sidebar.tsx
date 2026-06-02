@@ -49,6 +49,8 @@ export const Sidebar: React.FC = () => {
   const filteredMenu = menu.filter(item => {
     // Hide Bar POS menu item when barPosEnabled is false
     if (item.path.includes('/bar-pos') && !barPosEnabled) return false;
+    // Hide Bar Display menu item when barPosEnabled is false
+    if (item.path.includes('/bar-display') && !barPosEnabled) return false;
     // Hide Cafe POS menu item when cafePosEnabled is false
     if (item.path.includes('/cafe-pos') && !cafePosEnabled) return false;
 

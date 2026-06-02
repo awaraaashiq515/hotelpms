@@ -14,6 +14,7 @@ import {
   ToggleLeft,
   RefreshCw,
   PlusCircle,
+  Receipt,
   Users,
   Map,
   CreditCard,
@@ -28,6 +29,11 @@ import {
   CarFront,
   Eye,
   PieChart,
+  Wine,
+  Coffee,
+  Trophy,
+  LayoutDashboard,
+  Database,
   History,
   ClipboardList,
   Contact,
@@ -72,6 +78,8 @@ export default function OperationsPage() {
   const [loading, setLoading] = useState(true);
   const [debug, setDebug] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [barPosEnabled, setBarPosEnabled] = useState(true);
+  const [cafePosEnabled, setCafePosEnabled] = useState(true);
 
   useEffect(() => {
     setOpen(false);
@@ -91,6 +99,18 @@ export default function OperationsPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    // Fetch property flags for Bar/Cafe POS
+    fetch('/api/admin/properties')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data?.length > 0) {
+          const prop = data.data[0];
+          setBarPosEnabled(prop.barPosEnabled !== false);
+          setCafePosEnabled(prop.cafePosEnabled !== false);
+        }
+      })
+      .catch(() => {});
 
     if (typeof window !== 'undefined' && window.location.search.includes('debug=true')) {
       setDebug(true);
@@ -115,18 +135,21 @@ export default function OperationsPage() {
   };
 
   const managementActions: DashboardAction[] = [
+    { label: 'Analytics Dashboard', icon: LayoutDashboard, path: session?.organizationSlug ? `/restaurantadmin/${session.organizationSlug}` : '/dashboard', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Inventory', perm: 'Inventory', icon: Package, path: `${p}/inventory`, feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: `${p}/products`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Categories', perm: 'Inventory', icon: Layers, path: `${p}/categories`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'Customers', icon: Contact, path: `${p}/customers`, feature: 'CRM' },
     { label: 'Customer Feedback', icon: Star, path: `${p}/reports/ratings`, feature: 'REPORTS' },
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: `${p}/operations/tables`, feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: `${p}/operations/tables/qr-gallery`, feature: 'TABLES' },
     { label: 'Tablet Setup', perm: 'Settings', icon: Tablet, path: `${p}/settings/tablets`, feature: 'TABLETS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'POS Staff', perm: 'POS Staff', icon: Users, path: `${p}/pos-staff`, feature: 'STAFF' },
     { label: role === 'SUPER_ADMIN' ? 'Global Access' : 'POS Access', perm: 'POS Access', icon: Users, path: `${p}/manage-users`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Role Management', perm: 'POS Access', icon: ShieldCheck, path: `${p}/manage-roles`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Payment Modes', perm: 'Settings', icon: CreditCard, path: `${p}/payment-modes`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'General Settings', perm: 'Settings', icon: Settings, path: `${p}/settings`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'Notification Settings', perm: 'Settings', icon: Settings, path: `${p}/settings/notifications`, feature: 'POS' },
+    { label: 'Data Backup', perm: 'Settings', icon: Database, path: `${p}/settings/backup`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: role === 'SUPER_ADMIN' ? 'Global Businesses' : 'My Properties', perm: 'Businesses', icon: Map, path: role === 'SUPER_ADMIN' ? '/admin/properties' : '/manage-properties', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
@@ -134,29 +157,53 @@ export default function OperationsPage() {
     { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: `${p}/day-closing`, feature: 'POS' },
     { label: 'Payments', perm: 'Payments', icon: CreditCard, path: `${p}/payments`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Invoices', perm: 'Invoices', icon: FileText, path: `${p}/invoices`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'All Bills', perm: 'Invoices', icon: Receipt, path: `${p}/all-bills`, feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Expenses', perm: 'Expenses', icon: TrendingDown, path: `${p}/expenses`, feature: 'ACCOUNTING', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'New Expense', perm: 'Expenses', icon: PlusCircle, path: `${p}/expenses/new`, feature: 'ACCOUNTING', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'Expense Categories', perm: 'Expenses', icon: Layers, path: `${p}/expenses/categories`, feature: 'ACCOUNTING', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Reports', perm: 'Reports', icon: PieChart, path: `${p}/reports`, feature: 'REPORTS' },
+    { label: 'Sales Intelligence', perm: 'Reports', icon: PieChart, path: `${p}/reports/sales`, feature: 'REPORTS' },
+    { label: 'Settlements Report', perm: 'Reports', icon: Receipt, path: `${p}/reports/settlements`, feature: 'REPORTS' },
+    { label: 'Tax Report', perm: 'Reports', icon: FileText, path: `${p}/reports/tax`, feature: 'REPORTS' },
+    { label: 'Inventory Report', perm: 'Reports', icon: Package, path: `${p}/reports/inventory`, feature: 'REPORTS' },
+    { label: 'Audit Logs', perm: 'Reports', icon: ClipboardList, path: `${p}/reports/audit`, feature: 'REPORTS' },
     { label: 'Attendance Report', perm: 'Reports', icon: Users, path: `${p}/reports/attendance`, feature: 'REPORTS' },
     { label: 'Accounting', perm: 'Accounting', icon: BookOpen, path: `${p}/accounts`, feature: 'ACCOUNTING' },
+    { label: 'New Voucher', perm: 'Accounting', icon: PlusCircle, path: `${p}/vouchers/new`, feature: 'ACCOUNTING' },
+    { label: 'Vouchers List', perm: 'Accounting', icon: FileText, path: `${p}/vouchers`, feature: 'ACCOUNTING' },
+    { label: 'Cash Book', perm: 'Accounting', icon: BookOpen, path: `${p}/accounts/cash-book`, feature: 'ACCOUNTING' },
+    { label: 'Day Book', perm: 'Accounting', icon: BookOpen, path: `${p}/accounts/day-book`, feature: 'ACCOUNTING' },
+    { label: 'Ledger', perm: 'Accounting', icon: BookOpen, path: `${p}/accounts/ledger`, feature: 'ACCOUNTING' },
     { label: 'GST Filing', perm: 'GST Filing', icon: FileJson, path: `${p}/pos/gst-filing`, feature: 'GST', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { label: 'GST Settings', perm: 'GST Filing', icon: FileJson, path: `${p}/pos/gst-settings`, feature: 'GST', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const operationalActions: DashboardAction[] = [
     { label: 'One-Page Setup', icon: LayoutGrid, path: `${p}/setup`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: `${p}/billing`,           feature: 'POS' },
     { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: `${p}/counter-payments`,  feature: 'POS' },
-    { label: 'Customers',         icon: Contact,           path: `${p}/customers`,         feature: 'CRM',             roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    ...(barPosEnabled ? [{ label: 'Bar POS', perm: 'POS Terminal', icon: Wine, path: `${p}/bar-pos`, feature: 'POS' } as DashboardAction] : []),
+    ...(cafePosEnabled ? [{ label: 'Cafe POS', perm: 'POS Terminal', icon: Coffee, path: `${p}/cafe-pos`, feature: 'POS' } as DashboardAction] : []),
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: `${p}/orders`,            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: `${p}/kots`,              feature: 'POS' },
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: `${p}/kitchen-display`,   feature: 'POS' },
+    ...(barPosEnabled ? [{ label: 'Bar Display', perm: 'Kitchen Display', icon: Wine, path: `${p}/bar-display`, feature: 'POS' } as DashboardAction] : []),
     { label: 'Live Notifications', icon: Bell,             path: `${p}/operations/notifications`, feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: `${p}/table-reservations`, feature: 'TABLES', roles: ['POSSYSTEM'] },
+    { label: 'Live Occupancy',    perm: 'Table Layout',    icon: Eye,            path: `${p}/operations/occupancy`, feature: 'HMS' },
     { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: `${p}/staff/attendance`,  feature: 'STAFF' },
     { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: `${p}/drivers`,           feature: 'DRIVERS' },
     { label: 'Rider Portal',      perm: 'Drivers',         icon: Bike,           path: `${p}/driver-portal`,     feature: 'DRIVERS' },
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: `${p}/operations/waste-management`, feature: 'POS' },
     { label: 'Home Delivery Area', perm: 'Table Layout',    icon: Home,           path: `${p}/operations/delivery`,       feature: 'TABLES' },
     { label: 'Home Delivery QR',   perm: 'Table Layout',    icon: Home,           path: `${p}/operations/delivery-flyer`, feature: 'TABLES' },
+  ];
+
+  const crmActions: DashboardAction[] = [
+    { label: 'Customers List', icon: Contact, path: `${p}/customers`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Membership Plans', icon: Trophy, path: `${p}/memberships/plans`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Issue Cards', icon: CreditCard, path: `${p}/memberships/cards`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Usage History', icon: History, path: `${p}/memberships/history`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
   ];
 
   const b2bActions: DashboardAction[] = [
@@ -176,12 +223,14 @@ export default function OperationsPage() {
   const visibleManagement = managementActions.filter(isVisible);
   const visibleFinancial = financialActions.filter(isVisible);
   const visibleOperational = operationalActions.filter(isVisible);
+  const visibleCRM = crmActions.filter(isVisible);
   const visibleB2B = b2bActions.filter(isVisible);
 
   const allVisibleActions = [
     ...visibleOperational.map(a => ({ ...a, category: 'POS Terminal & Orders' })),
     ...visibleFinancial.map(a => ({ ...a, category: 'Financial & Revenue' })),
     ...visibleManagement.map(a => ({ ...a, category: 'Team & Management' })),
+    ...visibleCRM.map(a => ({ ...a, category: 'CRM & Loyalty' })),
     ...visibleB2B.map(a => ({ ...a, category: 'B2B Supply Chain' }))
   ];
 
@@ -196,7 +245,7 @@ export default function OperationsPage() {
     if (e.key === 'Enter' && filteredActions.length > 0) {
       const firstAction = filteredActions[0];
       if (firstAction.path) {
-        if (firstAction.path === '/kitchen-display') {
+        if (firstAction.path.endsWith('/kitchen-display') || firstAction.path.endsWith('/bar-display')) {
           window.open(firstAction.path, '_blank');
         } else {
           router.push(firstAction.path);
@@ -317,6 +366,21 @@ export default function OperationsPage() {
               ))}
             </div>
           </section>
+
+          {/* 4. CRM & Loyalty Section */}
+          {visibleCRM.length > 0 && (
+            <section className="space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="h-6 w-1 bg-rose-500 rounded-full"></div>
+                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">CRM & Loyalty</h2>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                {visibleCRM.map((action) => (
+                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* B2B Marketplace Quick Access */}
           {visibleB2B.length > 0 && (

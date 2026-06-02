@@ -11,6 +11,7 @@ export interface KotItem {
   status: 'NEW' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
   product?: {
     name: string;
+    menuType?: string;
   };
 }
 

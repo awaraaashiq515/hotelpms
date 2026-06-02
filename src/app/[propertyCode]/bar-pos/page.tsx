@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import {
   Plus, Search, Trash2, User as UserIcon, CreditCard,
   Minus, Grid, List, ShoppingBag,
@@ -52,6 +52,9 @@ const CAT_ICON_MAP: Record<string, string> = {
 export default function BarPosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const tableId = searchParams.get('tableId') || '';
   const tableNo = searchParams.get('tableNo') || searchParams.get('tableName') || '';
   const { setOpen } = useSidebar();
@@ -188,7 +191,7 @@ export default function BarPosPage() {
         addToast('success', 'Bar order saved!'); 
         setCart([]); 
         if (tableId) {
-          router.push('/operations/tables');
+          router.push(`${p}/operations/tables`);
         }
       }
       else addToast('error', data.message || 'Save failed');
@@ -286,7 +289,7 @@ export default function BarPosPage() {
         </p>
       </div>
       <div style={{ display: 'flex', gap: '10px' }}>
-        <button onClick={() => router.push('/settings')} style={{
+        <button onClick={() => router.push(`${p}/settings`)} style={{
           padding: '11px 24px', borderRadius: '12px', border: 'none',
           background: 'linear-gradient(135deg, #7C6DFA, #A090FF)',
           color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
@@ -294,7 +297,7 @@ export default function BarPosPage() {
         }}>
           Go to Settings
         </button>
-        <button onClick={() => router.push('/billing')} style={{
+        <button onClick={() => router.push(`${p}/billing`)} style={{
           padding: '11px 24px', borderRadius: '12px',
           border: '1px solid rgba(255,255,255,0.1)',
           background: 'rgba(255,255,255,0.04)',
@@ -330,7 +333,7 @@ export default function BarPosPage() {
         }}>
 
           {/* Back */}
-          <button onClick={() => router.push('/operations')} style={{
+          <button onClick={() => router.push(`${p}/operations`)} style={{
             width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0,
             border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -394,7 +397,7 @@ export default function BarPosPage() {
           </div>
 
           {/* Restaurant POS link */}
-          <button onClick={() => router.push('/billing')} style={{
+          <button onClick={() => router.push(`${p}/billing`)} style={{
             display: 'flex', alignItems: 'center', gap: '7px',
             padding: '7px 15px', borderRadius: '10px', flexShrink: 0,
             border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)',
@@ -914,7 +917,7 @@ export default function BarPosPage() {
           if (settled) {
             setCart([]);
             if (tableId) {
-              router.push('/operations/tables');
+              router.push(`${p}/operations/tables`);
             }
           }
         }}

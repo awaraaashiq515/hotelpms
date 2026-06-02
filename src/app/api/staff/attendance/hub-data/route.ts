@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
-import { apiError, apiResponse } from '@/lib/api-utils';
+import { apiError } from '@/lib/api-utils';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 export async function GET(request: NextRequest) {
@@ -9,11 +9,21 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
-    const monthStart = startOfMonth(new Date());
-    const monthEnd = endOfMonth(new Date());
+    const { searchParams } = new URL(request.url);
+    const dateParam = searchParams.get('date');
+    let referenceDate = new Date();
+    if (dateParam) {
+      const parsed = new Date(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        referenceDate = parsed;
+      }
+    }
+
+    const monthStart = startOfMonth(referenceDate);
+    const monthEnd = endOfMonth(referenceDate);
 
     if (!session.propertyId) {
-      return apiResponse([]);
+      return NextResponse.json({ success: true, data: [] });
     }
 
     // 1. Fetch Users (Admins, POS System etc)
@@ -47,6 +57,13 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Fetch Property-level targetShiftHours
+    const property = await prisma.property.findUnique({
+      where: { id: session.propertyId as string },
+      select: { targetShiftHours: true }
+    });
+    const defaultShiftHours = property?.targetShiftHours ?? 8.0;
+
     // 3. Unify both into a single list for the Hub
     const unified = [
       ...users.map((u: any) => ({
@@ -55,7 +72,8 @@ export async function GET(request: NextRequest) {
         type: 'USER',
         role: u.role,
         activeSession: u.attendance.find((a: any) => a.clockOut === null) || null,
-        attendanceRecords: u.attendance
+        attendanceRecords: u.attendance,
+        shiftHours: defaultShiftHours
       })),
       ...staffMembers.map((s: any) => ({
         id: s.id,
@@ -63,11 +81,16 @@ export async function GET(request: NextRequest) {
         type: 'STAFF',
         role: { name: s.designation || 'Staff' },
         activeSession: s.attendance.find((a: any) => a.clockOut === null) || null,
-        attendanceRecords: s.attendance
+        attendanceRecords: s.attendance,
+        shiftHours: s.shiftHours ?? defaultShiftHours
       }))
     ];
 
-    return apiResponse(unified);
+    return NextResponse.json({
+      success: true,
+      data: unified,
+      targetShiftHours: defaultShiftHours
+    });
   } catch (error) {
     return apiError(error);
   }

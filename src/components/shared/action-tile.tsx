@@ -30,7 +30,7 @@ export const ActionTile: React.FC<ActionTileProps> = ({
     }
 
     if (path) {
-      if (path === '/kitchen-display') {
+      if (path.endsWith('/kitchen-display') || path.endsWith('/bar-display')) {
         window.open(path, '_blank');
         return;
       }

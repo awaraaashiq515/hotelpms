@@ -8,7 +8,8 @@ import {
   Menu, X, Search, Filter, ArrowLeft, Plus, Minus,
   ChefHat, ShoppingBag, Bell, CreditCard, ReceiptIndianRupee,
   Volume2, VolumeX, Smartphone, Zap, CarFront, UserPlus,
-  ArrowLeftRight, QrCode, RefreshCw, Printer, AlertCircle
+  ArrowLeftRight, QrCode, RefreshCw, Printer, AlertCircle,
+  CheckCircle2, Save, Pause
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,10 +18,13 @@ import { Modal } from '@/components/ui/Modal';
 import { CustomerForm } from '@/components/forms/customer-form';
 import { SwitchTableModal } from '@/components/tables/SwitchTableModal';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
+import { BillModal, BillData } from '@/components/billing/BillModal';
+import { paymentModesApi, PaymentMode } from '@/lib/api/payment-modes';
 import TabletModals from '@/components/tablet/TabletModals';
 import { useToast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import { CafeProductCard } from '@/components/tablet/CafeProductCard';
 
 // --- Types ---
 interface TabletConfig {
@@ -62,6 +66,8 @@ interface Product {
   variants?: any[];
   isVeg?: boolean;
   menuType?: string;
+  taxRate?: number;
+  taxType?: string;
 }
 
 interface Category {
@@ -82,8 +88,13 @@ interface Order {
   taxAmount: number;
   discountAmount: number;
   membershipDiscount?: number;
+  manualDiscount?: number;
+  membershipCard?: any;
   grandTotal: number;
   createdAt: string;
+  tableNo?: string;
+  driverId?: string;
+  staffMemberId?: string;
   items?: Array<{
     id: string;
     quantity: number;
@@ -125,9 +136,19 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tables, setTables] = useState<any[]>([]);
+  const [property, setProperty] = useState<any>(null);
+  const filteredTables = useMemo(() => {
+    return tables.filter(table => {
+      const floorMenuType = table.floor?.menuType;
+      if (floorMenuType === 'BAR' && property?.barPosEnabled === false) return false;
+      if (floorMenuType === 'CAFE' && property?.cafePosEnabled === false) return false;
+      return true;
+    });
+  }, [tables, property]);
+
   const tablesByFloor = useMemo(() => {
     const groups: Record<string, any[]> = {};
-    tables.forEach(table => {
+    filteredTables.forEach(table => {
       const floorName = table.floor?.name || 'Main Hall';
       if (!groups[floorName]) {
         groups[floorName] = [];
@@ -135,8 +156,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
       groups[floorName].push(table);
     });
     return groups;
-  }, [tables]);
-  const [property, setProperty] = useState<any>(null);
+  }, [filteredTables]);
   const [loading, setLoading] = useState(true);
   const [waiter, setWaiter] = useState<{ id: string; name: string } | null>(null);
   const [websiteSettings, setWebsiteSettings] = useState<{ logoUrl: string | null } | null>(null);
@@ -150,11 +170,20 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [menuType, setMenuType] = useState<'RESTAURANT' | 'BAR' | 'CAFE'>('RESTAURANT');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isOrderComplimentary, setIsOrderComplimentary] = useState(false);
+  const [isOrderPaid, setIsOrderPaid] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showTableSelector, setShowTableSelector] = useState(false);
+  
+  // Settlement Flow State
+  const [isBillOpen, setIsBillOpen] = useState(false);
+  const [billData, setBillData] = useState<BillData | null>(null);
+  const [isProforma, setIsProforma] = useState(false);
+  const [settleLoading, setSettleLoading] = useState(false);
+  const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
 
   const [pax, setPax] = useState<number>(1);
   const [sessionStage, setSessionStage] = useState<'TABLE' | 'PAX' | 'MENU'>('TABLE');
@@ -196,7 +225,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     type: 'ready' | 'kitchen' | 'payment';
     time: string;
   } | null>(null);
-  
+
   const [kotSlip, setKotSlip] = useState<KotSlipData | null>(null);
   const [targetOrderPrepTime, setTargetOrderPrepTime] = useState<number>(15);
 
@@ -262,17 +291,17 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     const currentOrder = activeOrders.find(o => o.restaurantTableId === tableId) || activeOrder;
     const orderId = currentOrder?.id;
     if (!orderId) {
-       addToast('error', 'No active order found for this table');
-       return;
+      addToast('error', 'No active order found for this table');
+      return;
     }
-    
+
     try {
       const res = await fetch(`/api/orders/${orderId}/print`);
       const result = await res.json();
       const order = result.success ? result.data : null;
       if (!order || !order.kotTickets?.length) {
-         addToast('error', 'No KOT tickets found for this order');
-         return;
+        addToast('error', 'No KOT tickets found for this order');
+        return;
       }
 
       const allItems: any[] = [];
@@ -311,17 +340,19 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [tabRes, dataRes, custRes, drivRes] = await Promise.all([
+        const [tabRes, dataRes, custRes, drivRes, paymentModesRes] = await Promise.all([
           fetch(`/api/tablets/${id}`),
           fetch(`/api/tablets/${id}/data`),
           fetch(`/api/customers?tabletId=${id}`),
           fetch(`/api/drivers?tabletId=${id}`),
+          paymentModesApi.list(),
         ]);
 
         const tabData = await tabRes.json();
         const data = await dataRes.json();
         const custData = await custRes.json();
         const drivData = await drivRes.json();
+        setPaymentModes(paymentModesRes || []);
 
         if (tabData.success) {
           setTablet(tabData.data);
@@ -354,11 +385,18 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (selectedTableId && tables.length > 0) {
       const selectedTable = tables.find(t => t.id === selectedTableId);
-      if (selectedTable?.floor?.menuType) {
-        setMenuType(selectedTable.floor.menuType as 'RESTAURANT' | 'BAR' | 'CAFE');
+      const floorMenuType = selectedTable?.floor?.menuType;
+      if (floorMenuType) {
+        if (floorMenuType === 'BAR' && property?.barPosEnabled === false) {
+          setMenuType('RESTAURANT');
+        } else if (floorMenuType === 'CAFE' && property?.cafePosEnabled === false) {
+          setMenuType('RESTAURANT');
+        } else {
+          setMenuType(floorMenuType as 'RESTAURANT' | 'BAR' | 'CAFE');
+        }
       }
     }
-  }, [selectedTableId, tables]);
+  }, [selectedTableId, tables, property]);
 
   useEffect(() => {
     const fetchKitchenStatus = async () => {
@@ -386,13 +424,13 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           const dbNotifs = json.data;
-          
+
           setWaiterCalls(dbNotifs.filter((n: any) => n.type === 'ASSISTANCE'));
 
           dbNotifs.forEach((n: any) => {
             if (!processedNotifIdsRef.current.has(n.id)) {
               processedNotifIdsRef.current.add(n.id);
-              
+
               // Only alert for Waiter Assistance, Bill requests, or Urgent/Payment notifications
               if (n.type === 'ASSISTANCE' || n.type === 'PAYMENT' || n.priority === 'URGENT') {
                 // Parse table/room info from metadata if available
@@ -402,14 +440,14 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   if (metadata.tableName) {
                     tableName = `Table ${metadata.tableName}`;
                   }
-                } catch (e) {}
+                } catch (e) { }
 
                 // Play notification bell ding sound
                 try {
                   const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
                   audio.volume = 0.45;
                   audio.play();
-                } catch (audioErr) {}
+                } catch (audioErr) { }
 
                 // Trigger floating slide-down popup banner
                 let popupType: 'kitchen' | 'ready' | 'payment' = 'ready';
@@ -636,44 +674,73 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     setCart(prev => prev.filter(item => (item as any).cartItemId !== cartItemId));
   };
 
-  const handlePlaceOrder = async (skipKitchen: boolean = false) => {
+  const handlePlaceOrder = async (actionType: 'SAVE' | 'HOLD' | 'SAVE_AND_KOT' | 'PRINT_KOT') => {
     if (!selectedTableId) return;
     if (cart.length === 0 && !activeOrder) return;
 
     setIsPlacingOrder(true);
     try {
+      const payload = {
+        propertyId: tablet?.propertyId,
+        tabletId: id,
+        orderType: selectedDriver ? 'DELIVERY' : 'DINE_IN',
+        restaurantTableId: selectedTableId,
+        guestId: selectedCustomer?.id || null,
+        driverId: selectedDriver?.id || null,
+        guestCount: pax,
+        staffMemberId: tablet?.waiterId || null,
+        items: cart.map(item => {
+          const itemTotalGross = isOrderComplimentary ? 0 : (item.sellingPrice * item.quantity);
+          const itemDiscount = cartSubtotal > 0 ? (itemTotalGross / cartSubtotal) * discountAmount : 0;
+          const itemNetAfterDiscount = Math.max(0, itemTotalGross - itemDiscount);
+          
+          const rate = item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : 5;
+          const type = item.taxType || 'EXCLUSIVE';
+          
+          let itemTax = 0;
+          if (type === 'INCLUSIVE') {
+            itemTax = itemNetAfterDiscount - (itemNetAfterDiscount / (1 + (rate / 100)));
+          } else if (type === 'EXCLUSIVE') {
+            itemTax = itemNetAfterDiscount * (rate / 100);
+          }
+
+          return {
+            productId: item.id,
+            quantity: item.quantity,
+            unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
+            taxAmount: itemTax,
+            discountAmount: itemDiscount,
+            portion: (item as any).size === 'Half' || (item as any).size === 'Full' ? (item as any).size : null,
+            variantName: (item as any).size !== 'Half' && (item as any).size !== 'Full' ? (item as any).size : null,
+            name: item.name
+          };
+        }),
+        paymentMode: paymentMode,
+        transactionLast4: transactionLast4,
+        skipKitchen: actionType === 'PRINT_KOT',
+        holdOrder: actionType === 'HOLD' ? true : undefined,
+        // Using orderId instead of activeOrder matching billing logic
+        orderId: activeOrder?.id || undefined,
+      };
+
       const res = await fetch('/api/pos-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: tablet?.propertyId,
-          tabletId: id,
-          orderType: selectedDriver ? 'DELIVERY' : 'DINE_IN',
-          restaurantTableId: selectedTableId,
-          guestId: selectedCustomer?.id || null,
-          driverId: selectedDriver?.id || null,
-          guestCount: pax,
-          staffMemberId: tablet?.waiterId || null,
-          items: cart.map(i => ({
-            productId: i.id,
-            quantity: i.quantity,
-            unitPrice: i.sellingPrice,
-            variantName: (i as any).size || (i as any).variantName || null
-          })),
-          paymentMode: paymentMode,
-          transactionLast4: transactionLast4,
-          skipKitchen
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
       if (data.success) {
-        addToast('success', skipKitchen ? 'Order saved! Printing KOT...' : 'Order sent to kitchen!');
+        if (actionType === 'HOLD') addToast('success', 'Order put on hold successfully!');
+        else if (actionType === 'SAVE') addToast('success', 'Order saved successfully!');
+        else if (actionType === 'PRINT_KOT') addToast('success', 'Order saved! Printing KOT...');
+        else addToast('success', 'Order sent to kitchen!');
+
         setActiveOrder(data.data);
         setIsStatusVisible(true);
         setCart([]);
-        
-        if (skipKitchen) {
+
+        if (actionType === 'PRINT_KOT') {
           // Immediately print the KOT if skipKitchen was requested
           handlePrintKOT(selectedTableId);
         }
@@ -687,22 +754,166 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     }
   };
 
+  const handleSettleFromTable = async (table: any, activeOrder: any) => {
+    setSelectedTableId(table.id);
+    setActiveOrder(activeOrder);
+    setIsProforma(true);
+    // Let state settle, then open bill
+    setTimeout(() => {
+      // Re-trigger print bill logic explicitly for this order
+      const mappedBill: BillData = {
+        orderNo: activeOrder?.orderNo || `POS-${Date.now()}`,
+        tableNo: table.name || 'Walk-in',
+        items: (activeOrder?.items || []).map((i: any) => ({
+          id: i.productId || i.id,
+          name: i.product?.name || i.itemName || 'Item',
+          quantity: i.quantity,
+          price: i.unitPrice || i.product?.sellingPrice || 0,
+          hsnCode: i.product?.hsnCode
+        })),
+        subtotal: activeOrder?.subtotal || 0,
+        tax: activeOrder?.taxAmount || 0,
+        grandTotal: activeOrder?.grandTotal || 0,
+        taxLabel: 'GST 5%',
+        createdAt: activeOrder?.createdAt || new Date().toISOString(),
+        orderId: activeOrder?.id,
+        tableId: table.id,
+        driverId: activeOrder?.driverId,
+        staffMemberId: activeOrder?.staffMemberId || tablet?.waiterId,
+        membershipDiscount: activeOrder?.membershipDiscount || 0,
+        manualDiscount: activeOrder?.manualDiscount || 0,
+        membershipCard: activeOrder?.membershipCard
+      } as any;
+      
+      setBillData(mappedBill);
+      setIsBillOpen(true);
+    }, 100);
+  };
+
+  const handlePrintBill = async () => {
+    const hasCartItems = cart.length > 0;
+    
+    const orderToPrint = hasCartItems ? {
+      id: activeOrder?.id,
+      orderNo: activeOrder?.orderNo || `POS-${Date.now()}`,
+      tableNo: activeOrder?.tableNo || selectedTableId || 'Walk-in',
+      items: cart.map((item: any) => ({
+        product: item,
+        quantity: item.quantity,
+        unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
+        productId: item.id
+      })),
+      subtotal: cartSubtotal,
+      taxAmount: cartTax,
+      grandTotal: cartTotal,
+      createdAt: activeOrder?.createdAt || new Date().toISOString()
+    } : activeOrder;
+
+    if (!orderToPrint) return;
+
+    const activeTableName = tables.find(t => t.id === selectedTableId)?.name || orderToPrint.tableNo;
+
+    const mappedBill: BillData = {
+      orderNo: orderToPrint.orderNo,
+      tableNo: activeTableName || 'Walk-in',
+      items: (orderToPrint.items || []).map((i: any) => ({
+        id: i.productId || i.id,
+        name: i.product?.name || i.itemName || 'Item',
+        quantity: i.quantity,
+        price: i.unitPrice || i.product?.sellingPrice || 0,
+        hsnCode: i.product?.hsnCode
+      })),
+      subtotal: orderToPrint.subtotal || cartSubtotal,
+      tax: orderToPrint.taxAmount || cartTax,
+      grandTotal: orderToPrint.grandTotal || cartTotal,
+      taxLabel: 'GST 5%',
+      createdAt: orderToPrint.createdAt,
+      orderId: orderToPrint.id,
+      tableId: selectedTableId || undefined,
+      driverId: selectedDriver?.id || activeOrder?.driverId,
+      staffMemberId: tablet?.waiterId || undefined,
+      membershipDiscount: activeOrder?.membershipDiscount || 0,
+      manualDiscount: discountAmount || 0,
+      membershipCard: activeOrder?.membershipCard
+    } as any;
+    
+    setBillData(mappedBill);
+    setIsBillOpen(true);
+  };
+
+  const handleSettleNew = async (paymentModeId: string, guestId?: string, driverId?: string) => {
+    setSettleLoading(true);
+    try {
+      const payload = {
+        restaurantTableId: selectedTableId || undefined,
+        orderType: selectedDriver ? 'DELIVERY' : 'DINE_IN',
+        staffMemberId: tablet?.waiterId || undefined,
+        paymentModeId: paymentModeId,
+        guestId: guestId || selectedCustomer?.id || undefined,
+        driverId: driverId || selectedDriver?.id || undefined,
+        totalAmount: cartTotal,
+        membershipDiscount: activeOrder?.membershipDiscount || 0,
+        manualDiscount: discountAmount || 0,
+        items: cart.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: isOrderComplimentary ? 0 : item.sellingPrice,
+          portion: (item as any).size === 'Half' || (item as any).size === 'Full' ? (item as any).size : null,
+          variantName: (item as any).size !== 'Half' && (item as any).size !== 'Full' ? (item as any).size : null,
+          variantId: (item as any).variantId
+        }))
+      };
+
+      const response = await fetch('/api/orders/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (result.success) {
+        addToast('success', 'Order settled successfully');
+        setCart([]);
+        setActiveOrder(null);
+        setIsProforma(false);
+        setIsBillOpen(false);
+        setBillData(null);
+        
+        // Refresh tables visually
+        const res = await fetch(`/api/tablets/${id}/data`);
+        const latest = await res.json();
+        if (latest.success) {
+          setTables(latest.data.tables);
+          setActiveOrders(latest.data.activeOrders);
+        }
+      } else {
+        addToast('error', result.message || 'Failed to settle order');
+      }
+    } catch (err) {
+      addToast('error', 'Error settling order');
+    } finally {
+      setSettleLoading(false);
+    }
+  };
+
   const cartSubtotal = useMemo(() => {
+    if (isOrderComplimentary) return 0;
     const inCart = cart.reduce((total, item) => total + (item.sellingPrice * item.quantity), 0);
     const ordered = activeOrder?.subtotal || 0;
     return inCart + ordered;
-  }, [cart, activeOrder]);
+  }, [cart, activeOrder, isOrderComplimentary]);
 
   const cartTax = useMemo(() => {
+    if (isOrderComplimentary) return 0;
     const inCartTax = cart.reduce((total, item) => total + (item.sellingPrice * item.quantity * 0.05), 0);
     const orderedTax = activeOrder?.taxAmount || 0;
     return inCartTax + orderedTax;
-  }, [cart, activeOrder]);
+  }, [cart, activeOrder, isOrderComplimentary]);
 
-  const cartTotal = cartSubtotal + cartTax
+  const cartTotal = isOrderComplimentary ? 0 : (cartSubtotal + cartTax
     - (discountType === 'PERCENT' ? (cartSubtotal * discountAmount / 100) : discountAmount)
     - (activeOrder?.discountAmount || 0)
-    - (activeOrder?.membershipDiscount || 0);
+    - (activeOrder?.membershipDiscount || 0));
 
   const showBarTab = useMemo(() => {
     return !!(property?.barPosEnabled && tablet?.showBar);
@@ -755,7 +966,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   // Waiter Station Selection
   if (tablet.mode === 'WAITER' && sessionStage !== 'MENU') {
     return (
-    <>
+      <>
         <div className="h-screen w-screen bg-[#0F172A] text-white flex flex-col overflow-hidden font-sans">
 
           {/* ── HEADER: Logo + Tablet Info + Inline Kitchen Status ── */}
@@ -835,11 +1046,10 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               <nav className="w-[72px] shrink-0 flex flex-col items-center py-4 gap-2 border-r border-white/[0.06] bg-slate-950/70">
                 <button
                   onClick={() => setActiveFloorFilter('all')}
-                  className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all text-center ${
-                    activeFloorFilter === 'all'
+                  className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all text-center ${activeFloorFilter === 'all'
                       ? 'bg-indigo-600 text-white shadow-[0_8px_20px_-4px_rgba(99,102,241,0.6)]'
                       : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10'
-                  }`}
+                    }`}
                   title="All Floors"
                 >
                   <span className="text-base leading-none">⊞</span>
@@ -849,11 +1059,10 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   <button
                     key={floorName}
                     onClick={() => setActiveFloorFilter(floorName)}
-                    className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all text-center ${
-                      activeFloorFilter === floorName
+                    className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all text-center ${activeFloorFilter === floorName
                         ? 'bg-indigo-600 text-white shadow-[0_8px_20px_-4px_rgba(99,102,241,0.6)]'
                         : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10'
-                    }`}
+                      }`}
                     title={floorName}
                   >
                     <span className="text-base leading-none">{i === 0 ? '①' : i === 1 ? '②' : i === 2 ? '③' : '④'}</span>
@@ -875,7 +1084,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                         <h2 className="text-xl font-black uppercase tracking-tight text-white">Select Station</h2>
                         <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">Tap to open · Single-tap occupied for actions</p>
                       </div>
-                      
+
                       {/* Waiter Calls Alerts */}
                       {waiterCalls.length > 0 && (
                         <div className="flex items-center gap-2 flex-wrap ml-4">
@@ -884,7 +1093,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                             try {
                               const meta = call.metadata ? JSON.parse(call.metadata) : {};
                               if (meta.tableName) tableName = meta.tableName;
-                            } catch (e) {}
+                            } catch (e) { }
 
                             return (
                               <button
@@ -975,8 +1184,10 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                               if (tableActiveOrder) {
                                 tableStatus = tableActiveOrder.status === 'READY' ? 'READY'
                                   : (tableActiveOrder.status === 'PAYMENT_AWAITING_APPROVAL' || tableActiveOrder.status === 'BILL_PRINTED') ? 'BILL_PRINTED'
-                                  : tableActiveOrder.status === 'SERVED' ? 'SERVED'
-                                  : 'KOT_RUNNING';
+                                    : tableActiveOrder.status === 'SERVED' ? 'SERVED'
+                                      : tableActiveOrder.status === 'ON_HOLD' ? 'ON_HOLD'
+                                        : tableActiveOrder.status === 'SAVED' ? 'SAVED'
+                                          : 'KOT_RUNNING';
                               }
 
                               const isOccupied = tableStatus !== 'VACANT';
@@ -1011,6 +1222,20 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                 statusLabel = 'KITCHEN';
                                 statusBg = 'bg-orange-500/15 border border-orange-500/30 text-orange-400';
                                 statusDot = 'bg-orange-400';
+                              } else if (tableStatus === 'ON_HOLD') {
+                                cardBg = 'bg-[#1a1508] hover:bg-[#261f0c]';
+                                cardBorder = 'border-amber-500';
+                                cardGlow = 'shadow-[0_0_15px_rgba(245,158,11,0.35)]';
+                                statusLabel = 'ON HOLD';
+                                statusBg = 'bg-amber-500/15 border border-amber-500/30 text-amber-400';
+                                statusDot = 'bg-amber-400';
+                              } else if (tableStatus === 'SAVED') {
+                                cardBg = 'bg-[#1a1111] hover:bg-[#261a1a]';
+                                cardBorder = 'border-red-500';
+                                cardGlow = 'shadow-[0_0_15px_rgba(239,68,68,0.35)]';
+                                statusLabel = 'SAVED';
+                                statusBg = 'bg-red-500/15 border border-red-500/30 text-red-400';
+                                statusDot = 'bg-red-400';
                               } else if (tableStatus === 'SERVED') {
                                 cardBg = 'bg-slate-900/60 hover:bg-slate-900/80';
                                 cardBorder = 'border-slate-600';
@@ -1053,11 +1278,10 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                 <div className="relative" key={table.id}>
                                   {/* Status-change popup badge */}
                                   {tableAlert && (
-                                    <div className={`absolute -top-4 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest whitespace-nowrap shadow-2xl border animate-bounce ${
-                                      tableAlert.type === 'ready' ? 'bg-teal-500 text-white border-teal-300/50 shadow-teal-500/40'
-                                      : tableAlert.type === 'kitchen' ? 'bg-orange-500 text-white border-orange-300/50 shadow-orange-500/40'
-                                      : 'bg-blue-500 text-white border-blue-300/50 shadow-blue-500/40'
-                                    }`}>
+                                    <div className={`absolute -top-4 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest whitespace-nowrap shadow-2xl border animate-bounce ${tableAlert.type === 'ready' ? 'bg-teal-500 text-white border-teal-300/50 shadow-teal-500/40'
+                                        : tableAlert.type === 'kitchen' ? 'bg-orange-500 text-white border-orange-300/50 shadow-orange-500/40'
+                                          : 'bg-blue-500 text-white border-blue-300/50 shadow-blue-500/40'
+                                      }`}>
                                       <span>{tableAlert.type === 'ready' ? '🔔' : tableAlert.type === 'kitchen' ? '🍳' : '💳'}</span>
                                       {tableAlert.message}
                                     </div>
@@ -1141,8 +1365,8 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                   </button>
 
                                   {activeTableActionId === table.id && (
-                                    <div 
-                                      className="fixed inset-0 z-[90] bg-transparent cursor-default" 
+                                    <div
+                                      className="fixed inset-0 z-[90] bg-transparent cursor-default"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setActiveTableActionId(null);
@@ -1170,7 +1394,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                                           <TableIcon size={12} /> Add Items
                                         </button>
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); const order = activeOrders.find(o => o.restaurantTableId === table.id); setQrModalOrder(order || null); setIsQRModalOpen(true); setActiveTableActionId(null); }}
+                                          onClick={(e) => { e.stopPropagation(); const order = activeOrders.find(o => o.restaurantTableId === table.id); handleSettleFromTable(table, order || null); setActiveTableActionId(null); }}
                                           className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                                         >
                                           <ReceiptIndianRupee size={12} /> Pay Bill
@@ -1400,84 +1624,81 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             </div>
           )}
 
-      <TabletModals
-        isNotificationOpen={isNotificationOpen}
-        setIsNotificationOpen={setIsNotificationOpen}
-        notificationHistory={notificationHistory}
-        setNotificationHistory={setNotificationHistory}
-        kotSlip={kotSlip}
-        setKotSlip={setKotSlip}
-        isQRModalOpen={isQRModalOpen}
-        setIsQRModalOpen={setIsQRModalOpen}
-        qrModalOrder={qrModalOrder}
-        setQrModalOrder={setQrModalOrder}
-        activeOrder={activeOrder}
-        cartSubtotal={cartSubtotal}
-        cartTax={cartTax}
-        localDiscountAmount={localDiscountAmount}
-        setLocalDiscountAmount={setLocalDiscountAmount}
-        tablet={tablet}
-        isSwitchModalOpen={isSwitchModalOpen}
-        setIsSwitchModalOpen={setIsSwitchModalOpen}
-        sourceTableForSwitch={sourceTableForSwitch}
-        setSourceTableForSwitch={setSourceTableForSwitch}
-        tables={tables}
-        handleConfirmSwitchTable={handleConfirmSwitchTable}
-        switchLoading={switchLoading}
-      />
+          <TabletModals
+            isNotificationOpen={isNotificationOpen}
+            setIsNotificationOpen={setIsNotificationOpen}
+            notificationHistory={notificationHistory}
+            setNotificationHistory={setNotificationHistory}
+            kotSlip={kotSlip}
+            setKotSlip={setKotSlip}
+            isQRModalOpen={isQRModalOpen}
+            setIsQRModalOpen={setIsQRModalOpen}
+            qrModalOrder={qrModalOrder}
+            setQrModalOrder={setQrModalOrder}
+            activeOrder={activeOrder}
+            cartSubtotal={cartSubtotal}
+            cartTax={cartTax}
+            localDiscountAmount={localDiscountAmount}
+            setLocalDiscountAmount={setLocalDiscountAmount}
+            tablet={tablet}
+            isSwitchModalOpen={isSwitchModalOpen}
+            setIsSwitchModalOpen={setIsSwitchModalOpen}
+            sourceTableForSwitch={sourceTableForSwitch}
+            setSourceTableForSwitch={setSourceTableForSwitch}
+            tables={filteredTables}
+            handleConfirmSwitchTable={handleConfirmSwitchTable}
+            switchLoading={switchLoading}
+          />
 
-      {/* Floating status alert popup */}
-      <AnimatePresence>
-        {activePopupNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-auto flex items-center gap-4 bg-slate-900/90 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl px-5 py-3 rounded-2xl max-w-[380px] w-[90vw] overflow-hidden"
-          >
-            {/* Left accent bar */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-              activePopupNotification.type === 'ready' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]' :
-              activePopupNotification.type === 'kitchen' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]' :
-              'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]'
-            }`} />
+          {/* Floating status alert popup */}
+          <AnimatePresence>
+            {activePopupNotification && (
+              <motion.div
+                initial={{ opacity: 0, y: -50, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="fixed top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-auto flex items-center gap-4 bg-slate-900/90 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl px-5 py-3 rounded-2xl max-w-[380px] w-[90vw] overflow-hidden"
+              >
+                {/* Left accent bar */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activePopupNotification.type === 'ready' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]' :
+                    activePopupNotification.type === 'kitchen' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]' :
+                      'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]'
+                  }`} />
 
-            {/* Left side status icon */}
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              activePopupNotification.type === 'ready' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
-              activePopupNotification.type === 'kitchen' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :
-              'bg-blue-500/15 text-blue-400 border border-blue-500/20'
-            }`}>
-              {activePopupNotification.type === 'ready' && <Bell size={18} className="animate-bounce" />}
-              {activePopupNotification.type === 'kitchen' && <ChefHat size={18} className="animate-pulse" />}
-              {activePopupNotification.type === 'payment' && <ReceiptIndianRupee size={18} className="animate-pulse" />}
-            </div>
+                {/* Left side status icon */}
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${activePopupNotification.type === 'ready' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
+                    activePopupNotification.type === 'kitchen' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :
+                      'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                  }`}>
+                  {activePopupNotification.type === 'ready' && <Bell size={18} className="animate-bounce" />}
+                  {activePopupNotification.type === 'kitchen' && <ChefHat size={18} className="animate-pulse" />}
+                  {activePopupNotification.type === 'payment' && <ReceiptIndianRupee size={18} className="animate-pulse" />}
+                </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0 pr-2">
-              <div className="flex items-center justify-between gap-2 mb-0.5">
-                <span className="text-[10px] font-black text-white uppercase tracking-wider truncate">{activePopupNotification.tableName}</span>
-                <span className="text-[8px] font-bold text-slate-500 uppercase shrink-0">{activePopupNotification.time}</span>
-              </div>
-              <p className={`text-[9px] font-black uppercase tracking-widest ${
-                activePopupNotification.type === 'ready' ? 'text-emerald-400' :
-                activePopupNotification.type === 'kitchen' ? 'text-orange-400' :
-                'text-blue-400'
-              }`}>{activePopupNotification.message}</p>
-            </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider truncate">{activePopupNotification.tableName}</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase shrink-0">{activePopupNotification.time}</span>
+                  </div>
+                  <p className={`text-[9px] font-black uppercase tracking-widest ${activePopupNotification.type === 'ready' ? 'text-emerald-400' :
+                      activePopupNotification.type === 'kitchen' ? 'text-orange-400' :
+                        'text-blue-400'
+                    }`}>{activePopupNotification.message}</p>
+                </div>
 
-            {/* Dismiss Close Icon */}
-            <button 
-              onClick={() => setActivePopupNotification(null)}
-              className="text-slate-500 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors shrink-0"
-            >
-              <X size={14} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
+                {/* Dismiss Close Icon */}
+                <button
+                  onClick={() => setActivePopupNotification(null)}
+                  className="text-slate-500 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors shrink-0"
+                >
+                  <X size={14} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </>
     );
   }
@@ -1647,8 +1868,21 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
         {/* Left Side: Product Grid & Categories (Billing Style) */}
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-950/50">
-          {/* Category Bar */}
+          {/* Category Bar & Inline Search */}
           <div className="h-20 shrink-0 border-b border-white/5 flex items-center px-4 gap-3 overflow-x-auto no-scrollbar">
+            
+            {/* Inline Search Bar */}
+            <div className="relative shrink-0 w-48 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={14} />
+              <input
+                type="text"
+                placeholder="Search items..."
+                className="w-full h-14 bg-slate-900 border border-slate-700/50 rounded-xl pl-9 pr-4 text-[11px] font-bold outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white placeholder:text-slate-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
             <button
               onClick={() => setActiveCategory('all')}
               className={`flex flex-col items-center justify-center min-w-[80px] h-14 rounded-xl transition-all ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
@@ -1673,103 +1907,127 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           </div>
 
 
-          {/* High Density Product Grid */}
-          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3 content-start no-scrollbar">
-            {filteredProducts.map((product, idx) => {
-              const palette = PRODUCT_PALETTE_DARK[idx % PRODUCT_PALETTE_DARK.length];
-              const inCart = cart.find(item => item.id === product.id);
-              const hasVariants = (product.variants && product.variants.length > 0) || product.halfPrice;
+          {/* Menu Items Container */}
+          {menuType === 'CAFE' ? (
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30 no-scrollbar">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 max-w-[1600px] mx-auto content-start">
+                {filteredProducts.map((product) => {
+                  const inCart = cart.find(item => item.id === product.id);
+                  const hasVariants = !!((product.variants && product.variants.length > 0) || product.halfPrice);
+                  return (
+                    <CafeProductCard
+                      key={product.id}
+                      product={product}
+                      inCart={inCart}
+                      cart={cart}
+                      hasVariants={hasVariants}
+                      addToCart={addToCart}
+                      updateQuantity={updateQuantity}
+                      categoryName={categoryMap[product.categoryId]}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* High Density Product Grid for Restaurant / Bar */
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3 content-start no-scrollbar">
+              {filteredProducts.map((product, idx) => {
+                const inCart = cart.find(item => item.id === product.id);
+                const hasVariants = !!((product.variants && product.variants.length > 0) || product.halfPrice);
+                const palette = PRODUCT_PALETTE_DARK[idx % PRODUCT_PALETTE_DARK.length];
 
-              return (
-                <motion.div whileTap={!hasVariants ? { scale: 0.95 } : undefined}
-                  key={product.id}
-                  className="relative group transition-all duration-200"
-                >
-                  <div
-                    onClick={() => !hasVariants && addToCart(product)}
-                    className={`relative w-full rounded-[16px] p-2.5 flex flex-col justify-between transition-all hover:brightness-110 shadow-md overflow-hidden border border-black/5 ${hasVariants ? 'cursor-default' : 'cursor-pointer'}`}
-                    style={{ backgroundColor: palette.bg, aspectRatio: '1/1' }}
+                return (
+                  <motion.div whileTap={!hasVariants ? { scale: 0.95 } : undefined}
+                    key={product.id}
+                    className="relative group transition-all duration-200"
                   >
-                    <div className="flex justify-between items-start">
-                      <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
-                        {product.hsnCode || '2106'}
-                      </span>
-                      <div className="text-right">
-                        <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>Price</span>
-                        <span className="text-[12px] font-black leading-none" style={{ color: palette.textSub }}>₹{product.sellingPrice}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 flex items-center py-1">
-                      <h3 className="text-[11px] font-black uppercase tracking-tighter leading-[1.1] line-clamp-3 w-full text-left" style={{ color: palette.text }}>
-                        {product.name}
-                      </h3>
-                    </div>
-
-                    {!hasVariants ? (
-                      <div className="flex justify-between items-end border-t border-black/5 pt-1.5 mt-auto">
-                        <div className="text-left space-y-0">
-                          <span className="block text-[8px] font-black uppercase opacity-50 leading-none" style={{ color: palette.textSub }}>
-                            {categoryMap[product.categoryId] || 'Menu'}
-                          </span>
-                          <span className="block text-[6px] font-bold opacity-30 uppercase leading-none" style={{ color: palette.textSub }}>GST 5%</span>
-                        </div>
-
-                        <div className="flex items-center">
-                          {inCart ? (
-                            <div className="w-5 h-5 rounded-lg bg-black/10 flex items-center justify-center font-black text-[10px]" style={{ color: palette.text }}>
-                              {inCart.quantity}
-                            </div>
-                          ) : (
-                            <div className={`w-3.5 h-3.5 border border-current rounded-[3px] flex items-center justify-center bg-white/90 shrink-0 shadow-sm ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
-                              <div className="w-1.5 h-1.5 rounded-full bg-current" />
-                            </div>
-                          )}
+                    <div
+                      onClick={() => !hasVariants && addToCart(product)}
+                      className={`relative w-full rounded-[16px] p-2.5 flex flex-col justify-between transition-all hover:brightness-110 shadow-md overflow-hidden border border-black/5 ${hasVariants ? 'cursor-default' : 'cursor-pointer'}`}
+                      style={{ backgroundColor: palette.bg, aspectRatio: '1/1' }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
+                          {product.hsnCode || '2106'}
+                        </span>
+                        <div className="text-right">
+                          <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>Price</span>
+                          <span className="text-[12px] font-black leading-none" style={{ color: palette.textSub }}>₹{product.sellingPrice}</span>
                         </div>
                       </div>
-                    ) : (
-                      <div className="absolute inset-x-0 bottom-0 flex flex-col z-10">
-                        {/* Show 'Full' button ONLY if there are no variants OR if halfPrice exists without variants */}
-                        {(!product.variants || product.variants.length === 0) && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
-                            className="w-full py-3 bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 transition-colors border-t border-white/10"
-                          >
-                            Full Price
-                          </button>
-                        )}
 
-                        {/* Variants Grid - 2 per row */}
-                        <div className="grid grid-cols-2 w-full border-t border-white/10">
-                          {product.variants?.map((v: any, vIdx: number) => (
+                      <div className="flex-1 flex items-center py-1">
+                        <h3 className="text-[11px] font-black uppercase tracking-tighter leading-[1.1] line-clamp-3 w-full text-left" style={{ color: palette.text }}>
+                          {product.name}
+                        </h3>
+                      </div>
+
+                      {!hasVariants ? (
+                        <div className="flex justify-between items-end border-t border-black/5 pt-1.5 mt-auto">
+                          <div className="text-left space-y-0">
+                            <span className="block text-[8px] font-black uppercase opacity-50 leading-none" style={{ color: palette.textSub }}>
+                              {categoryMap[product.categoryId] || 'Menu'}
+                            </span>
+                            <span className="block text-[6px] font-bold opacity-30 uppercase leading-none" style={{ color: palette.textSub }}>GST 5%</span>
+                          </div>
+
+                          <div className="flex items-center">
+                            {inCart ? (
+                              <div className="w-5 h-5 rounded-lg bg-black/10 flex items-center justify-center font-black text-[10px]" style={{ color: palette.text }}>
+                                {inCart.quantity}
+                              </div>
+                            ) : (
+                              <div className={`w-3.5 h-3.5 border border-current rounded-[3px] flex items-center justify-center bg-white/90 shrink-0 shadow-sm ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="absolute inset-x-0 bottom-0 flex flex-col z-10">
+                          {/* Show 'Full' button ONLY if there are no variants OR if halfPrice exists without variants */}
+                          {(!product.variants || product.variants.length === 0) && (
                             <button
-                              key={v.id}
-                              onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
-                              className={`py-2.5 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest hover:bg-rose-500 active:bg-rose-700 transition-colors ${vIdx % 2 === 0 ? 'border-r border-white/10' : ''} border-b border-white/5`}
+                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
+                              className="w-full py-3 bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 transition-colors border-t border-white/10"
                             >
-                              {v.name}
-                            </button>
-                          ))}
-                          {product.halfPrice && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice!); }}
-                              className={`py-2.5 bg-amber-500 text-white font-black text-[9px] uppercase tracking-widest hover:bg-amber-400 active:bg-amber-700 transition-colors ${(product.variants?.length || 0) % 2 === 0 ? 'col-span-2' : ''} border-b border-white/5`}
-                            >
-                              Half
+                              Full Price
                             </button>
                           )}
-                        </div>
-                      </div>
-                    )}
 
-                    {!hasVariants && inCart && (
-                      <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                          {/* Variants Grid - 2 per row */}
+                          <div className="grid grid-cols-2 w-full border-t border-white/10">
+                            {product.variants?.map((v: any, vIdx: number) => (
+                              <button
+                                key={v.id}
+                                onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                                className={`py-2.5 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest hover:bg-rose-500 active:bg-rose-700 transition-colors ${vIdx % 2 === 0 ? 'border-r border-white/10' : ''} border-b border-white/5`}
+                              >
+                                {v.name}
+                              </button>
+                            ))}
+                            {product.halfPrice && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice!); }}
+                                className={`py-2.5 bg-amber-500 text-white font-black text-[9px] uppercase tracking-widest hover:bg-amber-400 active:bg-amber-700 transition-colors ${(product.variants?.length || 0) % 2 === 0 ? 'col-span-2' : ''} border-b border-white/5`}
+                              >
+                                Half
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!hasVariants && inCart && (
+                        <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right Side: Order Tray (Billing Style) */}
@@ -1919,98 +2177,103 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           )}
 
           {/* Totals & Actions */}
-          <div className="p-4 bg-slate-900 border-t border-white/10 space-y-3">
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                <span>Subtotal</span>
-                <span>₹{cartSubtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                <span>Estimated Tax (5%)</span>
-                <span>₹{cartTax.toFixed(2)}</span>
-              </div>
-              <div className="pt-3 border-t border-white/5 flex justify-between items-end">
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.3em]">Total Amount</span>
-                  <span className="text-2xl font-black tracking-tighter text-white">
-                    ₹{cartTotal.toFixed(2)}
+          <div className="p-3 bg-slate-900 border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
+            
+            {/* Global Order Toggles */}
+            <div className="flex items-center gap-4 px-1 pb-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={isOrderComplimentary}
+                  onChange={(e) => setIsOrderComplimentary(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className={`text-[9px] font-black uppercase tracking-wider ${isOrderComplimentary ? 'text-indigo-400' : 'text-slate-500'}`}>Complimentary</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={isOrderPaid}
+                  onChange={(e) => setIsOrderPaid(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span className={`text-[9px] font-black uppercase tracking-wider ${isOrderPaid ? 'text-emerald-500' : 'text-slate-500'}`}>It's Paid</span>
+              </label>
+            </div>
+
+            <div className="space-y-1 mb-3">
+              <div className="flex justify-between items-end">
+                <div>
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 block px-1">
+                    Total Payable (Incl. Taxes: ₹{cartTax.toFixed(2)})
                   </span>
+                  <p className="text-2xl font-black text-white tracking-tighter leading-none px-1">₹{cartTotal.toFixed(2)}</p>
                 </div>
-                {cart.length > 0 && (
-                  <button
-                    onClick={() => { setCart([]); setDiscountAmount(0); }}
-                    className="text-[7px] font-black text-rose-500 uppercase tracking-widest hover:underline mb-1"
-                  >
-                    Clear Tray
-                  </button>
-                )}
+                <div className="flex flex-col items-end">
+                  {cart.length > 0 && (
+                    <button
+                      onClick={() => { setCart([]); setDiscountAmount(0); }}
+                      className="text-[7px] font-black text-rose-500 uppercase tracking-widest hover:underline mb-1"
+                    >
+                      Clear Tray
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Place Order / Actions */}
-            <div className="pt-3">
-              {cart.length > 0 ? (
-                <div className="flex gap-2">
-                  <button
-                    disabled={isPlacingOrder}
-                    onClick={() => handlePlaceOrder(true)}
-                    className="flex-1 py-4 bg-slate-700 border border-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-600 transition-all shadow-xl shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center gap-1 text-slate-200"
-                  >
-                    <Printer size={16} />
-                    {isPlacingOrder ? '...' : 'Print KOT'}
-                  </button>
-                  <button
-                    disabled={isPlacingOrder}
-                    onClick={() => handlePlaceOrder(false)}
-                    className="flex-1 py-4 bg-emerald-600 border border-emerald-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center gap-1 text-white"
-                  >
-                    <Utensils size={16} />
-                    {isPlacingOrder ? '...' : 'Send to Kitchen'}
-                  </button>
-                </div>
-              ) : activeOrder ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setQrModalOrder(activeOrder);
-                        setIsQRModalOpen(true);
-                      }}
-                      className="flex-1 py-3 bg-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
-                    >
-                      <ReceiptIndianRupee size={16} />
-                      Pay Bill
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePrintKOT(selectedTableId!)}
-                      className="flex-1 py-3 bg-white/10 border border-white/10 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Printer size={16} />
-                      Print KOT
-                    </button>
-                    <button
-                      onClick={() => {
-                        const activeTable = tables.find(t => t.id === selectedTableId);
-                        setSourceTableForSwitch(activeTable);
-                        setIsSwitchModalOpen(true);
-                      }}
-                      className="flex-1 py-3 bg-white/10 border border-white/10 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2"
-                    >
-                      <ArrowLeftRight size={16} />
-                      Switch
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  disabled
-                  className="w-full py-4 bg-white/5 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-500 cursor-not-allowed border border-white/5"
+            {/* Place Order / Actions Grid */}
+            <div className="flex flex-col gap-2">
+              {/* Top Row: Exactly 2 Buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                   onClick={() => handlePlaceOrder('PRINT_KOT')}
+                   loading={isPlacingOrder}
+                   disabled={cart.length === 0 && !activeOrder}
+                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-400`}
                 >
-                  Empty Tray
-                </button>
-              )}
+                  <Printer size={13} /> PRINT KOT
+                </Button>
+                <Button 
+                   onClick={() => handlePlaceOrder('SAVE_AND_KOT')}
+                   loading={isPlacingOrder}
+                   disabled={cart.length === 0 && !activeOrder}
+                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-400`}
+                >
+                   <CheckCircle2 size={13} /> SAVE & KOT
+                </Button>
+              </div>
+
+              {/* Bottom Row: Exactly 3 Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button 
+                   onClick={() => handlePlaceOrder('SAVE')}
+                   loading={isPlacingOrder}
+                   disabled={cart.length === 0 && !activeOrder}
+                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border bg-red-500/10 hover:bg-red-600 hover:text-white border-red-500/20 text-red-400`}
+                >
+                  <Save size={13} /> SAVE
+                </Button>
+                <Button 
+                   onClick={() => handlePlaceOrder('HOLD')}
+                   loading={isPlacingOrder}
+                   disabled={cart.length === 0 && !activeOrder}
+                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border bg-amber-500/10 hover:bg-amber-500 hover:text-white border-amber-500/20 text-amber-400`}
+                >
+                  <Pause size={13} /> HOLD
+                </Button>
+                <Button 
+                   onClick={() => {
+                     setIsProforma(true);
+                     handlePrintBill();
+                   }}
+                   loading={isPlacingOrder || settleLoading}
+                   disabled={!activeOrder}
+                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-600/20`}
+                >
+                  <ReceiptIndianRupee size={13} /> SETTLE
+                </Button>
+              </div>
             </div>
 
           </div>
@@ -2060,7 +2323,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         setIsSwitchModalOpen={setIsSwitchModalOpen}
         sourceTableForSwitch={sourceTableForSwitch}
         setSourceTableForSwitch={setSourceTableForSwitch}
-        tables={tables}
+        tables={filteredTables}
         handleConfirmSwitchTable={handleConfirmSwitchTable}
         switchLoading={switchLoading}
       />
@@ -2076,18 +2339,16 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             className="fixed top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-auto flex items-center gap-4 bg-slate-900/90 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl px-5 py-3 rounded-2xl max-w-[380px] w-[90vw] overflow-hidden"
           >
             {/* Left accent bar */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-              activePopupNotification.type === 'ready' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]' :
-              activePopupNotification.type === 'kitchen' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]' :
-              'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]'
-            }`} />
+            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activePopupNotification.type === 'ready' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]' :
+                activePopupNotification.type === 'kitchen' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]' :
+                  'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]'
+              }`} />
 
             {/* Left side status icon */}
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              activePopupNotification.type === 'ready' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
-              activePopupNotification.type === 'kitchen' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :
-              'bg-blue-500/15 text-blue-400 border border-blue-500/20'
-            }`}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${activePopupNotification.type === 'ready' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
+                activePopupNotification.type === 'kitchen' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :
+                  'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+              }`}>
               {activePopupNotification.type === 'ready' && <Bell size={18} className="animate-bounce" />}
               {activePopupNotification.type === 'kitchen' && <ChefHat size={18} className="animate-pulse" />}
               {activePopupNotification.type === 'payment' && <ReceiptIndianRupee size={18} className="animate-pulse" />}
@@ -2099,15 +2360,14 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                 <span className="text-[10px] font-black text-white uppercase tracking-wider truncate">{activePopupNotification.tableName}</span>
                 <span className="text-[8px] font-bold text-slate-500 uppercase shrink-0">{activePopupNotification.time}</span>
               </div>
-              <p className={`text-[9px] font-black uppercase tracking-widest ${
-                activePopupNotification.type === 'ready' ? 'text-emerald-400' :
-                activePopupNotification.type === 'kitchen' ? 'text-orange-400' :
-                'text-blue-400'
-              }`}>{activePopupNotification.message}</p>
+              <p className={`text-[9px] font-black uppercase tracking-widest ${activePopupNotification.type === 'ready' ? 'text-emerald-400' :
+                  activePopupNotification.type === 'kitchen' ? 'text-orange-400' :
+                    'text-blue-400'
+                }`}>{activePopupNotification.message}</p>
             </div>
 
             {/* Dismiss Close Icon */}
-            <button 
+            <button
               onClick={() => setActivePopupNotification(null)}
               className="text-slate-500 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors shrink-0"
             >
@@ -2116,6 +2376,28 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <BillModal 
+        bill={billData} 
+        onClose={() => {
+            setIsBillOpen(false);
+            setBillData(null);
+        }} 
+        onSettle={handleSettleNew}
+        paymentModes={paymentModes}
+        customers={customers}
+        guestId={selectedCustomer?.id}
+        onAddCustomer={async (data) => {
+            const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, tabletId: id }) });
+            const result = await res.json();
+            if (result.success) {
+                setCustomers(prev => [...prev, result.data]);
+                return result.data;
+            }
+            throw new Error('Failed to add customer');
+        }}
+        isProforma={isProforma}
+      />
     </div>
   );
 }

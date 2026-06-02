@@ -12,10 +12,10 @@ export const PWAInstallBanner = () => {
 
   // Only show on POS/Admin related routes
   const isPosRoute = pathname.startsWith('/admin') || 
-                    pathname.startsWith('/operations') || 
-                    pathname.startsWith('/kitchen-display') || 
-                    pathname.startsWith('/invoices') ||
-                    pathname.startsWith('/kots');
+                    pathname.includes('/operations') || 
+                    pathname.includes('/kitchen-display') || 
+                    pathname.includes('/invoices') ||
+                    pathname.includes('/kots');
 
   useEffect(() => {
     if (!isPosRoute) {
