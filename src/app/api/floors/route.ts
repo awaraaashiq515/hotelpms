@@ -151,7 +151,7 @@ export async function POST(request: Request) {
         name,
         order: order || 0,
         propertyId: propertyId,
-        outletId,
+        outletId: outletId || null,
         menuType: menuType || 'RESTAURANT',
       },
     });

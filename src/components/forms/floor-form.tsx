@@ -9,7 +9,7 @@ const floorSchema = z.object({
   name: z.string().min(1, 'Floor name is required').max(30),
   order: z.number().min(0).optional(),
   menuType: z.enum(['RESTAURANT', 'BAR', 'CAFE']).default('RESTAURANT'),
-  outletId: z.string().optional().nullable(),
+  outletId: z.string().optional().nullable().transform(val => val === '' ? null : val),
 });
 
 interface FloorFormData {
