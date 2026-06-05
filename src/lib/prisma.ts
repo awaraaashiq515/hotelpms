@@ -4,6 +4,15 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Invalidate stale cached client in development if new models are missing
+if (globalForPrisma.prisma && (
+  !(globalForPrisma.prisma as any).staffLocationSettings ||
+  !(globalForPrisma.prisma as any).tableAssignment
+)) {
+  globalForPrisma.prisma = undefined;
+}
+
+
 export const prisma =
   globalForPrisma.prisma ??
   (() => {

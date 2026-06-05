@@ -51,7 +51,8 @@ import {
   Bike,
   Tablet,
   Search,
-  X
+  X,
+  MapPin
 } from 'lucide-react';
 
 import { useRouter, useParams } from 'next/navigation';
@@ -180,6 +181,7 @@ export default function OperationsPage() {
 
   const operationalActions: DashboardAction[] = [
     { label: 'One-Page Setup', icon: LayoutGrid, path: `${p}/setup`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
+    { label: 'Staff Portal',      perm: 'POS Terminal',    icon: Tablet,         path: `/staff-portal${p}`,      feature: 'POS' },
     { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: `${p}/billing`,           feature: 'POS' },
     { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: `${p}/counter-payments`,  feature: 'POS' },
     ...(barPosEnabled ? [{ label: 'Bar POS', perm: 'POS Terminal', icon: Wine, path: `${p}/bar-pos`, feature: 'POS' } as DashboardAction] : []),
@@ -192,6 +194,7 @@ export default function OperationsPage() {
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: `${p}/table-reservations`, feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Live Occupancy',    perm: 'Table Layout',    icon: Eye,            path: `${p}/operations/occupancy`, feature: 'HMS' },
     { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: `${p}/staff/attendance`,  feature: 'STAFF' },
+    { label: 'Staff Locations',   perm: 'POS Staff',       icon: MapPin,         path: `${p}/staff?tab=location`, feature: 'STAFF' },
     { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: `${p}/drivers`,           feature: 'DRIVERS' },
     { label: 'Rider Portal',      perm: 'Drivers',         icon: Bike,           path: `${p}/driver-portal`,     feature: 'DRIVERS' },
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: `${p}/operations/waste-management`, feature: 'POS' },
@@ -262,9 +265,17 @@ export default function OperationsPage() {
         title="Operations Command Center"
         subtitle={isAdmin ? "Centralized management for your entire business portfolio." : "Direct access to terminal controls and order management."}
         actions={
-          <div className="relative w-full md:w-72 lg:w-80 group">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 transition-colors group-focus-within:text-pos-primary" />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.open(`/staff-portal${p}`, '_blank')}
+              className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+            >
+              <Tablet className="w-4 h-4" />
+              Staff Portal
+            </button>
+            <div className="relative w-full md:w-72 lg:w-80 group">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 transition-colors group-focus-within:text-pos-primary" />
               <input
                 type="text"
                 value={searchQuery}
@@ -282,6 +293,7 @@ export default function OperationsPage() {
                 </button>
               )}
             </div>
+          </div>
           </div>
         }
       />

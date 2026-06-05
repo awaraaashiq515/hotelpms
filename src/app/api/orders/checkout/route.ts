@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         posOrders = await (tx as any).posOrder.findMany({
           where: { 
             restaurantTableId, 
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] } 
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] } 
           }
         });
         posOrder = posOrders.length > 0 ? posOrders[0] : null;

@@ -41,6 +41,27 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
+    // Fetch current user and their table assignments to filter notifications
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      include: {
+        role: true,
+        tableAssignments: true
+      }
+    });
+
+    const isManagerOrAdmin = user?.role?.name?.toLowerCase().includes('manager') || 
+                             user?.role?.name?.toLowerCase().includes('admin');
+
+    const assignedTableIds = user?.tableAssignments.map((ta: any) => ta.tableId) || [];
+
+    if (!isManagerOrAdmin && assignedTableIds.length > 0) {
+      where.OR = [
+        { tableId: null }, // Keep general notifications (parking slot calls, alerts)
+        { tableId: { in: assignedTableIds } } // Keep notifications for assigned tables
+      ];
+    }
+
     const notifications = await prisma.notification.findMany({
       where,
       orderBy: {

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import {
   User, Phone, Briefcase, IndianRupee, MapPin, AlertCircle,
-  Calendar, Clock, CheckCircle2, XCircle, ChevronUp, ChevronDown,
+  Calendar, Clock, CheckCircle2, XCircle, ChevronUp, ChevronDown, Lock,
 } from 'lucide-react';
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -19,6 +19,8 @@ const staffMemberSchema = z.object({
   joiningDate: z.string().optional().or(z.literal('')),
   isActive: z.boolean().default(true),
   shiftHours: z.number().min(0.1, 'Shift must be at least 6 minutes').default(8).optional(),
+  username: z.string().min(3, 'Username must be at least 3 characters').optional().or(z.literal('')),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -34,6 +36,9 @@ export interface StaffMember {
   isActive: boolean;
   shiftHours?: number | null;
   createdAt?: string;
+  user?: {
+    email: string;
+  } | null;
 }
 
 interface StaffMemberFormProps {
@@ -93,6 +98,8 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
       ? new Date(initialData.joiningDate).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
     isActive: initialData ? initialData.isActive : true,
+    username: initialData?.user?.email ? initialData.user.email.split('@')[0] : '',
+    password: '',
   });
 
   const initialShift = initialData?.shiftHours || 8;
@@ -120,6 +127,8 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
         joiningDate:      validated.joiningDate || undefined,
         isActive:         validated.isActive,
         shiftHours:       validated.shiftHours || 8,
+        username:         validated.username || undefined,
+        password:         validated.password || undefined,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -314,6 +323,41 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
               );
             })}
           </div>
+        </div>
+
+        {/* ── SECTION: LOGIN CREDENTIALS ─────────────────────── */}
+        <div>
+          <div className="sf-section-label">Staff Portal Login Credentials</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+            {/* Username */}
+            <div className="sf-field">
+              <label className="sf-label"><User size={11} /> Username</label>
+              <input
+                type="text"
+                className={`sf-input${errors.username ? ' error' : ''}`}
+                placeholder="e.g. rahul123"
+                value={formData.username}
+                onChange={e => setFormData({ ...formData, username: e.target.value })}
+              />
+              {errors.username && <p className="sf-error">⚠ {errors.username}</p>}
+            </div>
+
+            {/* Password */}
+            <div className="sf-field">
+              <label className="sf-label"><Lock size={11} /> Password</label>
+              <input
+                type="password"
+                className={`sf-input${errors.password ? ' error' : ''}`}
+                placeholder={initialData ? "•••••••• (Leave blank to keep same)" : "Minimum 6 chars"}
+                value={formData.password}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
+              />
+              {errors.password && <p className="sf-error">⚠ {errors.password}</p>}
+            </div>
+          </div>
+          <p style={{ fontSize: '9px', color: '#64748B', marginTop: '6px', fontWeight: 600 }}>
+            * Set credentials to allow this staff member to log in to the Walkie-Talkie portal.
+          </p>
         </div>
 
         {/* ── SECTION: SHIFT TARGET ────────────────────────────── */}

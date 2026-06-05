@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -185,6 +185,19 @@ model User {
   deliveryLat         Float?
   deliveryLng         Float?
   deliveryRadius      Float?       @default(5.0)
+
+  // ── Walkie-Talkie Fields ──────────────────────────────────
+  firebaseUid         String?
+  fcmToken            String?
+  wtStatus            String            @default("offline")
+  wtChannelMembers    WTChannelMember[]
+  wtSpeakerLocks      WTSpeakerLock[]
+  wtTalkHistory       WTTalkHistory[]
+  wtContactsSent      WTContact[]       @relation("UserContacts")
+  wtContactsRecv      WTContact[]       @relation("UserContactOf")
+  staffMember         StaffMember?      @relation("StaffUser")
+  staffLocationPings  StaffLocation[]   @relation("StaffLocationPings")
+  tableAssignments    TableAssignment[] @relation("UserTableAssignments")
 
   @@index([organizationId])
   @@index([propertyId])
@@ -1315,6 +1328,7 @@ model Table {
   tableReservations TableReservation[]
   tablets           Tablet[]
   feedbacks         TableFeedback[]
+  tableAssignments  TableAssignment[]  @relation("TableAssignments")
 
   @@index([propertyId])
   @@index([floorId])
@@ -1402,6 +1416,10 @@ model StaffMember {
   posOrders        PosOrder[]
   property         Property   @relation(fields: [propertyId], references: [id])
   attendance       Attendance[]
+
+  // Link to POS User credentials for staff login portal
+  userId           String?    @unique
+  user             User?      @relation("StaffUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
 }
@@ -1694,12 +1712,14 @@ model Notification {
   status      String   @default("UNREAD") // UNREAD, READ, DISMISSED
   priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   metadata    String?  // JSON string for additional data (tableNo, floorName, amount, etc.)
+  tableId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   property    Property @relation(fields: [propertyId], references: [id])
 
   @@index([propertyId])
   @@index([status])
+  @@index([tableId])
 }
 model Printer {
   id              String   @id @default(cuid())
@@ -1924,4 +1944,118 @@ model Campaign {
   @@index([couponId])
 }
 
+// ── WALKIE-TALKIE MODELS ──────────────────────────────────
 
+model WTChannel {
+  id           String            @id @default(cuid())
+  name         String
+  type         String            @default("group") // group, private
+  propertyId   String?           // links channel to a restaurant property
+  createdBy    String
+  isEmergency  Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  
+  // Relations
+  members      WTChannelMember[]
+  speakerLock  WTSpeakerLock?
+  talkHistory  WTTalkHistory[]
+}
+
+model WTChannelMember {
+  id        String    @id @default(cuid())
+  channelId String
+  userId    String    
+  role      String    @default("member") // admin, member
+  muted     Boolean   @default(false)
+  joinedAt  DateTime  @default(now())
+  
+  // Relations
+  channel   WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WTSpeakerLock {
+  channelId String    @id
+  speakerId String    
+  lockedAt  DateTime  @default(now())
+  
+  // Relations
+  channel   WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  speaker   User      @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+}
+
+model WTTalkHistory {
+  id           String    @id @default(cuid())
+  channelId    String
+  speakerId    String    
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  recordingUrl String?
+  
+  // Relations
+  channel      WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  speaker      User      @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+}
+
+model WTContact {
+  id            String   @id @default(cuid())
+  userId        String   
+  contactUserId String   
+  status        String   @default("pending") // pending, accepted
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  user          User     @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contactUser   User     @relation("UserContactOf", fields: [contactUserId], references: [id], onDelete: Cascade)
+}
+
+
+// ── STAFF LOCATION TRACKING ───────────────────────────────────
+
+/// One ping per location update sent by the staff portal.
+/// Stores the GPS co-ordinates and the computed distance from
+/// the property's base location at the moment of the ping.
+model StaffLocation {
+  id                 String   @id @default(cuid())
+  userId             String
+  propertyId         String
+  lat                Float
+  lng                Float
+  distanceFromBase   Float    @default(0)   // metres
+  isOutOfRange       Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  user               User     @relation("StaffLocationPings", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([createdAt])
+}
+
+/// One row per property — stores the "base" GPS co-ordinates
+/// and the alert distance threshold set by the manager.
+model StaffLocationSettings {
+  id                   String   @id @default(cuid())
+  propertyId           String   @unique
+  baseLat              Float    @default(0)
+  baseLng              Float    @default(0)
+  alertDistanceMeters  Float    @default(500)  // 500 m default
+  trackingEnabled      Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
+}
+
+model TableAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  tableId    String
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation("UserTableAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  table      Table    @relation("TableAssignments", fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tableId])
+  @@index([userId])
+  @@index([tableId])
+  @@index([propertyId])
+}

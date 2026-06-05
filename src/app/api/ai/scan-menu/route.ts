@@ -1,8 +1,5 @@
 import { NextRequest } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
-import { withGeminiRetry, getGeminiErrorMessage } from '@/lib/gemini-retry';
 import { getSession } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
@@ -12,102 +9,85 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Unauthorized or no property selected'), 401);
     }
 
-    const setting = await prisma.systemSetting.findUnique({
-      where: { key: 'GEMINI_API_KEY' }
-    });
-    const apiKey = setting?.value || process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return apiError(new Error('GEMINI_API_KEY is not configured in Admin Settings or .env'), 500);
-    }
-
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const includeTax = formData.get('includeTax') === 'true';
     const includeHsn = formData.get('includeHsn') === 'true';
+    const scanMode = (formData.get('scanMode') as string) || 'semantic';
 
     if (!file) {
       return apiError(new Error('No image or PDF file uploaded'), 400);
     }
 
-    // Convert File to ArrayBuffer then to Base64 Part for Gemini
-    const buffer = await file.arrayBuffer();
-    const base64Image = Buffer.from(buffer).toString('base64');
+    // 1. Create FormData to forward the file to the local FastAPI backend (port 8000)
+    const pythonFormData = new FormData();
+    pythonFormData.append('file', file);
+    pythonFormData.append('scanMode', scanMode);
+
+    console.log("Forwarding menu image to local FastAPI backend on http://localhost:8000/api/scan-menu...");
     
-    const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    // 2. Call local Python FastAPI backend
+    const pythonRes = await fetch('http://localhost:8000/api/scan-menu', {
+      method: 'POST',
+      body: pythonFormData,
+    });
 
-    const prompt = `
-      Analyze this menu image or PDF and extract all food/beverage items.
-      Group items into logical categories. If the menu does NOT have visible categories, **intelligently categorize** them based on their names (e.g., 'Starters', 'Main Course', 'Beverages', 'Desserts').
+    if (!pythonRes.ok) {
+      const errText = await pythonRes.text();
+      console.error("Local Python backend error:", errText);
+      return apiError(new Error(`Local scanning backend failed: ${errText}`), 500);
+    }
 
-      For each item, provide the following fields:
-      - 'name': Item Name
-      - 'sellingPrice': Selling Price (number)
-      - 'costPrice': Estimated Cost Price (number, typically 40% of selling price if not visible)
-      - 'hsnCode': ${includeHsn ? "Standard 4-digit code (e.g., '2106' for food, '2202' for beverages)" : "Set to '---'"}
-      - 'taxRate': ${includeTax ? "Plausible GST percentage (5, 12, or 18) based on typical restaurant norms for that item" : "Set to 0"}
-      - 'sku': High-fidelity SKU string (e.g., 'BVG-COKE-500' for Beverages > Coke). Try to make it unique within the menu.
-      - 'barcode': Product barcode string (if visible, otherwise generate a unique 8-digit random string).
-      - 'productType': Set to 'REVENUE_ITEM' for all menu items.
-      - 'trackInventory': Boolean. Use 'true' for bottled drinks/packed items, 'false' for cooked-to-order dishes.
-      - 'isActive': Boolean. Always true.
-      - 'showInMenu': Boolean. Always true.
-      - 'description': Short summary if present.
+    const pythonData = await pythonRes.json();
+    console.log("Local Python backend response received successfully!");
 
-      Return the data STRICTLY in the following JSON format:
-      {
-        "categories": [
-          {
-            "name": "Category Name",
-            "items": [
-              {
-                "name": "Item Name",
-                "sellingPrice": 150.00,
-                "costPrice": 60.00,
-                "hsnCode": "2106",
-                "taxRate": 5,
-                "sku": "FD-ITEM-01",
-                "barcode": "12345678",
-                "productType": "REVENUE_ITEM",
-                "trackInventory": false,
-                "isActive": true,
-                "showInMenu": true,
-                "description": "Short description"
-              }
-            ]
-          }
-        ]
-      }
-      Rules:
-      1. 'sellingPrice', 'costPrice', and 'taxRate' MUST be numbers.
-      2. 'trackInventory', 'isActive', and 'showInMenu' MUST be booleans.
-      3. Result must be ONLY the JSON object.
-    `;
+    // 3. Map Python backend response schema to Next.js products schema
+    const categories = (pythonData.categories || []).map((category: any) => {
+      const items = (category.items || []).map((item: any) => {
+        const sellingPrice = item.price || 0.0;
+        const halfPrice = item.half_price !== undefined && item.half_price !== null ? item.half_price : null;
+        const costPrice = Math.round(sellingPrice * 0.4 * 100) / 100; // 40% estimated cost price
+        const taxRate = item.gst_rate !== undefined ? item.gst_rate : (includeTax ? 5 : 0);
+        const hsnCode = item.hsn_code ? item.hsn_code : (includeHsn ? "9963" : "---");
+        
+        // Generate high-fidelity unique SKU from category and item name
+        const cleanCat = category.category_name.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase();
+        const cleanName = item.name.replace(/[^a-zA-Z]/g, '').substring(0, 8).toUpperCase();
+        const randId = Math.floor(100 + Math.random() * 900);
+        const sku = `${cleanCat}-${cleanName}-${randId}`;
+        
+        // Generate random 8 digit barcode
+        const barcode = Math.floor(10000000 + Math.random() * 90000000).toString();
 
-    const result = await withGeminiRetry(() =>
-      model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: file.type
-          }
-        }
-      ])
-    );
+        return {
+          name: item.name,
+          sellingPrice,
+          halfPrice,
+          costPrice,
+          hsnCode,
+          taxRate,
+          sku,
+          barcode,
+          productType: 'REVENUE_ITEM',
+          trackInventory: false,
+          isActive: true,
+          showInMenu: true,
+          description: item.description || `Delicious ${item.name}`,
+          isVeg: item.is_vegetarian !== undefined ? Boolean(item.is_vegetarian) : true
+        };
+      });
 
-    const text = result.response.text();
-    
-    // Clean up potential markdown code blocks if Gemini returns them
-    const jsonString = text.replace(/```json|```/g, '').trim();
-    const parsedData = JSON.parse(jsonString);
+      return {
+        name: category.category_name,
+        items
+      };
+    });
 
+    const parsedData = { categories };
     return apiResponse(parsedData, 'Menu scanned successfully');
 
   } catch (error: any) {
-    console.error('AI Scan Error:', error);
-    const message = getGeminiErrorMessage(error);
-    return apiError(new Error(message), error?.status === 503 || error?.status === 429 ? 503 : 500);
+    console.error('Next.js Proxy AI Scan Error:', error);
+    return apiError(new Error(error.message || 'Scanning process failed'), 500);
   }
 }

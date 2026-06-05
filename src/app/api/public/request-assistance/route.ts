@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         type: 'ASSISTANCE',
         priority: 'URGENT',
         metadata: JSON.stringify(metadata),
+        tableId: tableId || null,
       },
     });
 

@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             restaurantTableId: orderData.restaurantTableId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
             orderType: 'DINE_IN'
           },
           include: { items: true }
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         order = await (tx as any).posOrder.findFirst({
           where: { 
             parkingSlotId: orderData.parkingSlotId,
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
             orderType: 'PARKING'
           },
           include: { items: true }
@@ -482,25 +482,46 @@ export async function GET(request: NextRequest) {
 
     const where: any = getMultiTenantWhere(session, propertyIdParam);
 
+    // Filter orders by assigned tables for standard staff users
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      include: {
+        role: true,
+        tableAssignments: true
+      }
+    });
+
+    if (user) {
+      const isManagerOrAdmin = user.role?.name?.toLowerCase().includes('manager') || 
+                               user.role?.name?.toLowerCase().includes('admin');
+
+      if (!isManagerOrAdmin) {
+        const assignedTableIds = user.tableAssignments.map((ta: any) => ta.tableId) || [];
+        where.restaurantTableId = { in: assignedTableIds };
+      }
+    }
+
     // Handle status filtering
     let statusFilter = undefined;
     if (status === 'in_progress') {
-      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] };
+      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] };
     } else if (status?.includes(',')) {
       statusFilter = { in: status.split(',') };
     } else if (status) {
       statusFilter = status;
     }
 
-    const orders = await prisma.posOrder.findMany({
-      where: {
+    const finalWhere = {
         ...where,
         ...(orderId ? { id: orderId } : {}),
         ...(outletId ? { outletId } : {}),
         ...(restaurantTableId ? { restaurantTableId } : {}),
         ...(parkingSlotId ? { parkingSlotId } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
-      },
+    };
+
+    const orders = await prisma.posOrder.findMany({
+      where: finalWhere,
       include: {
         items: {
           include: { product: true }
@@ -509,7 +530,12 @@ export async function GET(request: NextRequest) {
           include: { membershipPlan: true }
         },
         driver: true,
-        deliveryRider: true
+        deliveryRider: true,
+        table: {
+          include: {
+            floor: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
       take: (orderId || restaurantTableId || parkingSlotId) ? undefined : 50 

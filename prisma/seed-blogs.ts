@@ -115,6 +115,9 @@ async function main() {
     });
   }
 
+
+
+
   console.log('Successfully created 5 professional Manali blogs!');
 }
 
@@ -127,4 +130,4 @@ main()
     await prisma.$disconnect();
   });
 
-export {};
+export { };

@@ -239,6 +239,25 @@ export default function CounterPaymentsPage() {
               const statusInfo = STATUS_LABELS[order.status] || STATUS_LABELS['OPEN'];
               const isHighPriority = order.status === 'PAYMENT_AWAITING_APPROVAL' || order.paymentRequested;
               
+              const loc = order.parkingSlot ? `P-${order.parkingSlot.name}` : order.table ? `T-${order.table.name || order.tableNo}` : order.orderType === 'DELIVERY' ? 'Delivery' : order.orderType === 'TAKEAWAY' ? 'Takeaway' : 'Walk-in';
+              const staff = order.servedBy?.fullName?.split(' ')[0] || order.staffMember?.name?.split(' ')[0];
+              
+              let sourceTitle = '';
+              let sourceColor = '';
+              if (staff) {
+                sourceTitle = `Staff Portal (${staff})`;
+                sourceColor = 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50';
+              } else if (order.parkingSlot) {
+                sourceTitle = `Parking QR`;
+                sourceColor = 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-400 dark:border-pink-800/50';
+              } else if (order.table) {
+                sourceTitle = `Table QR`;
+                sourceColor = 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 dark:border-fuchsia-800/50';
+              } else {
+                sourceTitle = `Counter`;
+                sourceColor = 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
+              }
+
               return (
                 <div
                   key={order.id}
@@ -247,6 +266,11 @@ export default function CounterPaymentsPage() {
                     settled === order.id ? 'border-emerald-500' : isHighPriority ? 'border-orange-500/50 bg-orange-50/10' : 'border-slate-100 dark:border-slate-800'
                   }`}
                 >
+                  {/* Big prominent source banner at the very top */}
+                  <div className={`px-3 py-2 rounded-lg mb-3 border-2 text-xs font-black uppercase tracking-widest text-center ${sourceColor}`}>
+                    {sourceTitle}
+                  </div>
+
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-black text-slate-900 dark:text-white">#{order.orderNo?.slice(-6)}</span>
@@ -268,11 +292,9 @@ export default function CounterPaymentsPage() {
 
                   <div className="space-y-2 mb-3">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400 font-bold uppercase">
-                        {order.parkingSlot ? 'Parking Slot' : order.table ? 'Table' : 'Source'}
-                      </span>
-                      <span className="font-black text-slate-700 dark:text-slate-200 truncate max-w-[100px]">
-                        {order.parkingSlot?.name || order.table?.name || order.tableNo || 'WALK-IN'}
+                      <span className="text-slate-400 font-bold uppercase">Location</span>
+                      <span className="font-black text-slate-700 dark:text-slate-200 truncate max-w-[150px] text-right">
+                        {loc}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[10px]">

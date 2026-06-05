@@ -48,7 +48,12 @@ export async function PUT(
     const isDelivery = existingOrder?.orderType === 'DELIVERY';
 
     const dataToUpdate: any = {};
-    if (status !== undefined) dataToUpdate.status = status;
+    if (status !== undefined) {
+      dataToUpdate.status = status;
+      if (status === 'PAYMENT_AWAITING_APPROVAL' && session?.id) {
+        dataToUpdate.servedById = session.id;
+      }
+    }
     if (preparationTime !== undefined) {
       dataToUpdate.preparationTime = parseInt(preparationTime, 10) || 15;
     }
@@ -68,6 +73,18 @@ export async function PUT(
       data: dataToUpdate,
       include: { driver: true, deliveryRider: true }
     });
+
+    // --- Sync KOT Ticket Status ---
+    if (status === 'SERVED' || status === 'COMPLETED' || status === 'PAID') {
+      await prisma.kotTicket.updateMany({
+        where: { orderId: id, status: { notIn: ['SERVED', 'CANCELLED'] } },
+        data: { status: 'SERVED' }
+      });
+      await prisma.kotItem.updateMany({
+        where: { kot: { orderId: id }, status: { notIn: ['SERVED', 'CANCELLED'] } },
+        data: { status: 'SERVED' }
+      });
+    }
 
     // --- Incentive Engine Integration ---
     if ((status === 'COMPLETED' || status === 'PAID') && order.driverId) {

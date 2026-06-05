@@ -27,7 +27,12 @@ export async function middleware(request: NextRequest) {
   let strippedPathname = pathname
   let hasPropertyCode = false
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads'].includes(parts[0])) {
+  // staff-portal is a standalone portal — skip all dashboard auth logic
+  if (pathname.startsWith('/staff-portal')) {
+    return NextResponse.next()
+  }
+
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname

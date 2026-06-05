@@ -13,9 +13,11 @@ export function OfflineBadge() {
   const isOnline = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Load pending count on mount
   useEffect(() => {
+    setMounted(true);
     if (typeof window === 'undefined') return;
     getPendingActions().then(actions => setPendingCount(actions.length)).catch(() => {});
   }, []);
@@ -53,8 +55,8 @@ export function OfflineBadge() {
     syncActions();
   }, [isOnline, pendingCount]);
 
-  // Don't render anything when online and nothing pending
-  if (isOnline && pendingCount === 0) return null;
+  // Don't render anything when offline status isn't established on client, or when online and nothing pending
+  if (!mounted || (isOnline && pendingCount === 0)) return null;
 
   return (
     <div

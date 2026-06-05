@@ -1,5 +1,5 @@
 import { jwtVerify, SignJWT } from 'jose'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 const secretKey = process.env.JWT_SECRET || 'super-secret-default-key-change-it-in-prod'
 const key = new TextEncoder().encode(secretKey)
@@ -61,7 +61,45 @@ export async function decrypt(input: string): Promise<any | null> {
 }
 
 export async function getSession() {
-  const session = (await cookies()).get('session')?.value
-  if (!session) return null
-  return await decrypt(session) as SessionPayload | null
+  let sessionCookie = (await cookies()).get('session')?.value
+  if (!sessionCookie) {
+    sessionCookie = (await cookies()).get('staff_session')?.value
+  }
+
+  if (sessionCookie) {
+    const payload = await decrypt(sessionCookie)
+    if (payload) return payload as SessionPayload
+  }
+
+  // Fallback: Check Authorization header (useful for staff portal steward requests)
+  try {
+    const authHeader = (await headers()).get('Authorization') || (await headers()).get('authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { verifyWTToken } = await import('./walkie-talkie-auth')
+      const wtPayload = await verifyWTToken(token)
+      if (wtPayload && wtPayload.userId) {
+        const { prisma } = await import('./prisma')
+        const posUser = await prisma.user.findUnique({
+          where: { id: wtPayload.userId },
+          include: { role: true }
+        })
+        if (posUser) {
+          return {
+            id: posUser.id,
+            email: posUser.email,
+            roleId: posUser.roleId,
+            role: posUser.role?.name || 'Staff',
+            organizationId: posUser.organizationId,
+            propertyId: posUser.propertyId,
+            onboardingCompleted: posUser.onboardingCompleted,
+          } as SessionPayload
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[getSession Header Fallback Error]:', err)
+  }
+
+  return null
 }

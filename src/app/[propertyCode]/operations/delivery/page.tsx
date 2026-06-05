@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useSidebar } from '@/context/sidebar-context';
 import { QRModal } from '@/components/tables/QRModal';
 import { KotSlipModal, KotSlipData } from '@/components/kots/KotSlipModal';
 import { BillModal, BillData } from '@/components/billing/BillModal';
@@ -47,6 +48,13 @@ interface Order {
 
 export default function DeliveryOperationsPage() {
   const router = useRouter();
+  const { setOpen } = useSidebar();
+
+  useEffect(() => {
+    // Hide sidebar on mount for delivery page
+    setOpen(false);
+  }, [setOpen]);
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [paymentModes, setPaymentModes] = useState<any[]>([]);
@@ -281,6 +289,24 @@ export default function DeliveryOperationsPage() {
     );
     if (minDiff < 1) return 'Just now';
     return `${minDiff} min${minDiff > 1 ? 's' : ''} ago`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const strTime = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+      return `${day}/${month}/${year} • ${strTime}`;
+    } catch (e) {
+      return dateStr;
+    }
   };
 
   const getStatusStyle = (status: string) => {
@@ -553,7 +579,7 @@ export default function DeliveryOperationsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-0.5">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">
-                          ORDER NO: #{order.orderNo.slice(-6)}
+                          ORDER NO: #{order.orderNo.slice(-6)} • {formatDate(order.createdAt)}
                         </span>
                         <h3 className="text-sm font-black text-white leading-tight truncate max-w-[140px]">
                           {order.deliveryCustomerName || 'Walk-in Customer'}
@@ -580,7 +606,7 @@ export default function DeliveryOperationsPage() {
                       )}
                       <div className="flex items-center gap-2">
                         <Clock size={11} className="text-amber-400" />
-                        <span>Placed {getElapsedTime(order.createdAt)}</span>
+                        <span>Placed: {formatDate(order.createdAt)}</span>
                       </div>
                       
                       {/* Quick Accept Order Button */}
@@ -596,6 +622,21 @@ export default function DeliveryOperationsPage() {
                         </button>
                       )}
                     </div>
+
+                    {/* Ordered Items List */}
+                    {order.items && order.items.length > 0 && (
+                      <div className="bg-white/5 dark:bg-slate-900/50 p-2.5 rounded-xl border border-white/5 space-y-1">
+                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Ordered Items</p>
+                        <div className="space-y-1 max-h-[80px] overflow-y-auto no-scrollbar">
+                          {order.items.map((item: any, i: number) => (
+                            <div key={i} className="flex justify-between items-center text-[10px] font-bold text-slate-350">
+                              <span className="truncate max-w-[140px]">{item.product?.name || item.name}</span>
+                              <span className="text-indigo-400 font-mono text-[9px]">x{item.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="h-px bg-white/5 w-full" />
 

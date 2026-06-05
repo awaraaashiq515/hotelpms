@@ -795,14 +795,15 @@ export default function TableManagementPage() {
                 key={floor.id}
                 className="group relative flex items-center transition-all"
               >
-                <button
+                <div
+                  role="button"
                   onClick={() => {
                     setActiveFloorId(floor.id);
                     localStorage.setItem('pos_active_floor_id', floor.id);
                     setIsSettingsView(false);
                     setIsEditMode(false);
                   }}
-                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 ${activeFloorId === floor.id
+                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 cursor-pointer ${activeFloorId === floor.id
                       ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
                       : 'bg-white/5 text-white/40 border-white/5 hover:border-white/20 hover:text-white/80'
                     }`}
@@ -833,7 +834,7 @@ export default function TableManagementPage() {
                       </button>
                     </div>
                   )}
-                </button>
+                </div>
               </div>
             )).concat([
               <button

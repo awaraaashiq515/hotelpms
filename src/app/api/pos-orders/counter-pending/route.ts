@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
         guest: { select: { id: true, firstName: true, lastName: true, mobile: true } },
         table: { select: { id: true, name: true } },
         parkingSlot: { select: { id: true, name: true } },
+        servedBy: { select: { id: true, fullName: true, role: { select: { name: true } } } },
+        staffMember: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,

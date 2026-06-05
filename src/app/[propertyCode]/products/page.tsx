@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers, Download } from 'lucide-react';
+import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers, Download, Sparkles, Upload, ArrowLeft, Check, AlertCircle, X, Flame, Leaf } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
 import { DataTable } from '@/components/shared/data-table';
@@ -391,73 +391,7 @@ export default function ProductsPage() {
   ];
 
 
-  // AI Modal states
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [scannedData, setScannedData] = useState<any>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [includeTax, setIncludeTax] = useState(true);
-  const [includeHsn, setIncludeHsn] = useState(true);
-  const [aiMenuType, setAiMenuType] = useState<'RESTAURANT' | 'BAR'>('RESTAURANT');
 
-  const handleAiScan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) return;
-
-    setScanning(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('includeTax', String(includeTax));
-      formData.append('includeHsn', String(includeHsn));
-
-      const res = await fetch('/api/ai/scan-menu', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setScannedData(data.data);
-      } else {
-        alert(data.message || data.error || 'Failed to scan menu');
-      }
-    } catch (error) {
-      console.error('Scan failed:', error);
-      alert('Network error. Please check your connection and try again.');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const handleSaveScannedData = async () => {
-    if (!scannedData) return;
-    setMutationLoading(true);
-    try {
-      const res = await fetch('/api/ai/scan-menu/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categories: scannedData.categories,
-          menuType: aiMenuType
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setIsAiModalOpen(false);
-        setScannedData(null);
-        setFile(null);
-        fetchProducts(); // Refresh list
-      } else {
-        alert(data.error || 'Failed to save items');
-      }
-    } catch (error) {
-      console.error('Save failed:', error);
-    } finally {
-      setMutationLoading(false);
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -469,10 +403,15 @@ export default function ProductsPage() {
         actions={
           <div className="flex gap-2">
             <Button
-              onClick={() => setIsAiModalOpen(true)}
+              onClick={() => setSelectedMenuTypeFilter('AI_SCAN')}
               variant="secondary"
-              className="font-black text-[9px] tracking-widest px-3 py-2 rounded-lg border border-gray-200"
+              className={`font-black text-[9px] tracking-widest px-3 py-2 rounded-lg border flex items-center gap-1 ${
+                selectedMenuTypeFilter === 'AI_SCAN'
+                  ? 'bg-indigo-50 border-indigo-150 text-indigo-600 dark:bg-indigo-900/20 dark:border-indigo-850'
+                  : 'border-gray-200 bg-white dark:bg-slate-800'
+              }`}
             >
+              <Sparkles size={10} />
               MINT AI SCAN
             </Button>
 
@@ -562,7 +501,7 @@ export default function ProductsPage() {
                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
                   }`}
               >
-
+                All
               </button>
               <button
                 onClick={() => setSelectedMenuTypeFilter('RESTAURANT')}
@@ -600,6 +539,16 @@ export default function ProductsPage() {
               >
                 Combos
               </button>
+              <button
+                onClick={() => setSelectedMenuTypeFilter('AI_SCAN')}
+                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1 ${selectedMenuTypeFilter === 'AI_SCAN'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                  }`}
+              >
+                <Sparkles size={10} />
+                AI Scanner
+              </button>
             </div>
 
             <Button variant="secondary" className="font-bold text-xs tracking-widest gap-2 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 px-4 rounded-xl">
@@ -610,7 +559,16 @@ export default function ProductsPage() {
         }
       />
 
-      {selectedMenuTypeFilter === 'COMBO' ? (
+      {selectedMenuTypeFilter === 'AI_SCAN' ? (
+        <AiScannerPanel 
+          propertyId={selectedPropertyId} 
+          properties={properties}
+          onImportSuccess={() => {
+            setSelectedMenuTypeFilter('all');
+            fetchProducts();
+          }}
+        />
+      ) : selectedMenuTypeFilter === 'COMBO' ? (
         <DataTable
           columns={comboColumns}
           data={filteredCombos}
@@ -676,187 +634,6 @@ export default function ProductsPage() {
                 Apply to All Products
               </Button>
             </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* AI Scan Modal */}
-      {isAiModalOpen && (
-        <Modal
-          isOpen={isAiModalOpen}
-          onClose={() => { if (!mutationLoading) setIsAiModalOpen(false); }}
-          title="Scan Menu using Mint AI"
-        >
-          <div className="p-2 space-y-6">
-            {/* Unified Menu Destination Toggle - Always Visible */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${aiMenuType === 'RESTAURANT'
-              ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800/30'
-              : 'bg-amber-50/50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-800/30'
-              }`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${aiMenuType === 'RESTAURANT' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'
-                  }`}>
-                  <Layers size={18} />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-900 dark:text-white">Save Scanned Items To</p>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Current Selection: {aiMenuType}</p>
-                </div>
-              </div>
-
-              <div className="flex p-1 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setAiMenuType('RESTAURANT')}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${aiMenuType === 'RESTAURANT'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
-                    : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                >
-                  Restaurant
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAiMenuType('BAR')}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${aiMenuType === 'BAR'
-                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-200 dark:shadow-none'
-                    : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                >
-                  Bar
-                </button>
-              </div>
-            </div>
-
-            {!scannedData ? (
-              <form onSubmit={handleAiScan} className="space-y-4">
-                <p className="text-sm text-gray-500">Upload an image or PDF of your menu card to automatically extract and create products & categories.</p>
-                <div className="border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-xl p-8 text-center cursor-pointer hover:border-pos-primary transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf,.pdf"
-                    className="hidden"
-                    id="menuImage"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  />
-                  <label htmlFor="menuImage" className="cursor-pointer flex flex-col items-center">
-                    <Package size={32} className="text-gray-400 mb-2" />
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{file ? file.name : 'Select Image/PDF Click to Browse'}</span>
-                    <span className="text-xs text-gray-400 mt-1">Supports JPEG, PNG, PDF</span>
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-800/80 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest mb-0.5">Extract GST</p>
-                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">Auto-apply rates</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer scale-75">
-                      <input
-                        type="checkbox"
-                        checked={includeTax}
-                        onChange={(e) => setIncludeTax(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pos-primary"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-800/80 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest mb-0.5">Extract HSN</p>
-                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">Auto-apply codes</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer scale-75">
-                      <input
-                        type="checkbox"
-                        checked={includeHsn}
-                        onChange={(e) => setIncludeHsn(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pos-primary"></div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="secondary" onClick={() => setIsAiModalOpen(false)} type="button">Cancel</Button>
-                  <Button type="submit" isLoading={scanning} disabled={!file} className="px-8">Start AI Scan</Button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">Review Scanned Items</p>
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border ${aiMenuType === 'BAR'
-                    ? 'bg-amber-50 text-amber-600 border-amber-100'
-                    : 'bg-indigo-50 text-indigo-600 border-indigo-100'
-                    }`}>
-                    Destination: {aiMenuType}
-                  </span>
-                </div>
-                <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-4">
-                  {scannedData.categories?.map((cat: any, i: number) => (
-                    <div key={i} className="border border-gray-100 dark:border-slate-800 rounded-xl p-6 bg-white dark:bg-slate-800/50 shadow-sm space-y-4 mb-4">
-                      <div className="flex items-center gap-2 border-b border-gray-50 dark:border-slate-800 pb-3">
-                        <div className="w-2 h-6 bg-pos-primary rounded-full" />
-                        <h4 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">{cat.name}</h4>
-                      </div>
-                      <div className="divide-y divide-gray-50 dark:divide-slate-800">
-                        {cat.items?.map((item: any, j: number) => (
-                          <div key={j} className="py-4 last:pb-0 transition-opacity">
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex flex-col">
-                                <span className="font-black text-sm text-gray-900 dark:text-white uppercase tracking-tight">{item.name}</span>
-                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{item.productType?.replace('_', ' ')}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-black text-lg text-pos-primary block leading-none">₹{item.sellingPrice || item.price}</span>
-                                {item.costPrice > 0 && (
-                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1 block">Cost: ₹{item.costPrice}</span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 mt-3">
-                              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
-                                <span className="text-[8px] font-black uppercase text-gray-400">SKU</span>
-                                <span className="text-[10px] font-bold text-gray-700 dark:text-slate-200">{item.sku}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 bg-pos-primary/5 dark:bg-pos-primary/10 px-2 py-1 rounded-lg border border-pos-primary/20 dark:border-pos-primary/30">
-                                <span className="text-[8px] font-black uppercase text-pos-primary/60">HSN</span>
-                                <span className="text-[10px] font-bold text-pos-primary/80 dark:text-pos-primary/90">{item.hsnCode}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg border border-orange-100 dark:border-orange-800">
-                                <span className="text-[8px] font-black uppercase text-orange-400">GST</span>
-                                <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">{item.taxRate}%</span>
-                              </div>
-                              {item.barcode && (
-                                <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800">
-                                  <span className="text-[8px] font-black uppercase text-slate-400">SCAN ID</span>
-                                  <span className="text-[10px] font-bold text-slate-600 dark:text-slate-500 font-mono italic">{item.barcode}</span>
-                                </div>
-                              )}
-                              {item.trackInventory && (
-                                <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800">
-                                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                                  <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">STOCK TRACK</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                  <Button variant="secondary" onClick={() => setScannedData(null)} disabled={mutationLoading}>Back / Scan Again</Button>
-                  <Button onClick={handleSaveScannedData} isLoading={mutationLoading}>Confirm & Save to DB</Button>
-                </div>
-              </div>
-            )}
           </div>
         </Modal>
       )}
@@ -927,3 +704,560 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+interface AiScannerPanelProps {
+  propertyId: string;
+  properties: any[];
+  onImportSuccess: () => void;
+}
+
+const AiScannerPanel: React.FC<AiScannerPanelProps> = ({ propertyId, properties, onImportSuccess }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scannedData, setScannedData] = useState<any>(null);
+  const [includeTax, setIncludeTax] = useState(true);
+  const [includeHsn, setIncludeHsn] = useState(true);
+  const [scanMode, setScanMode] = useState<'semantic' | 'fast'>('semantic');
+  const [aiMenuType, setAiMenuType] = useState<'RESTAURANT' | 'BAR' | 'CAFE'>('RESTAURANT');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setImagePreviewUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, [file]);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const startScan = async () => {
+    if (!file) return;
+    setScanning(true);
+    setError('');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('includeTax', String(includeTax));
+    formData.append('includeHsn', String(includeHsn));
+    formData.append('scanMode', scanMode);
+
+    try {
+      const res = await fetch('/api/ai/scan-menu', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setScannedData(data.data);
+      } else {
+        setError(data.message || data.error || 'Failed to scan menu');
+      }
+    } catch (err: any) {
+      console.error('Scan failed:', err);
+      setError('Network error. Check connection and try again.');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const updateItemField = (catIndex: number, itemIndex: number, field: string, value: any) => {
+    if (!scannedData) return;
+    const updated = { ...scannedData };
+    updated.categories[catIndex].items[itemIndex][field] = value;
+    setScannedData(updated);
+  };
+
+  const deleteItem = (catIndex: number, itemIndex: number) => {
+    if (!scannedData) return;
+    const updated = { ...scannedData };
+    updated.categories[catIndex].items.splice(itemIndex, 1);
+    if (updated.categories[catIndex].items.length === 0) {
+      updated.categories.splice(catIndex, 1);
+    }
+    setScannedData(updated);
+  };
+
+  const addItemToCategory = (catIndex: number) => {
+    if (!scannedData) return;
+    const updated = { ...scannedData };
+    const randId = Math.floor(100 + Math.random() * 900);
+    updated.categories[catIndex].items.push({
+      name: 'New Menu Item',
+      sellingPrice: 100,
+      costPrice: 40,
+      hsnCode: includeHsn ? '9963' : '',
+      taxRate: includeTax ? 5 : 0,
+      sku: `AI-NEW-${randId}`,
+      barcode: Math.floor(10000000 + Math.random() * 90000000).toString(),
+      productType: 'REVENUE_ITEM',
+      trackInventory: false,
+      isActive: true,
+      showInMenu: true,
+      description: 'Delicious menu item'
+    });
+    setScannedData(updated);
+  };
+
+  const handleSave = async () => {
+    if (!scannedData) return;
+    setSaving(true);
+    try {
+      const savePropertyId = propertyId;
+      if (!savePropertyId || savePropertyId === 'all') {
+        alert('Please select a specific property branch in the header first.');
+        setSaving(false);
+        return;
+      }
+      
+      const res = await fetch('/api/ai/scan-menu/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categories: scannedData.categories,
+          menuType: aiMenuType
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Menu imported successfully!');
+        onImportSuccess();
+      } else {
+        alert(data.error || 'Failed to save items');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Save operation encountered an error.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activePropertyName = properties.find(p => p.id === propertyId)?.name || 'Please Select Property Branch in Header';
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 rounded-3xl p-6 shadow-xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-100 dark:border-slate-850 pb-5 mb-6 gap-4">
+        <div>
+          <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-indigo-500 animate-pulse" />
+            AI Restaurant Menu Scanner
+          </h2>
+          <p className="text-xs text-gray-400 uppercase font-black tracking-widest mt-1">
+            Target Branch: <span className="text-pos-primary">{activePropertyName}</span>
+          </p>
+        </div>
+
+        <div className="flex p-1 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-inner">
+          {(['RESTAURANT', 'BAR', 'CAFE'] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setAiMenuType(type)}
+              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                aiMenuType === type
+                  ? type === 'RESTAURANT'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : type === 'BAR'
+                      ? 'bg-amber-500 text-white shadow-md'
+                      : 'bg-orange-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-350'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-450 rounded-2xl flex items-center gap-3 text-sm">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {!scannedData && !scanning && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-gray-50 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-850 rounded-2xl p-6 space-y-6">
+            <h3 className="text-xs font-black text-gray-400 dark:text-slate-450 uppercase tracking-widest">Scanner Configuration</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 rounded-xl">
+                <div>
+                  <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Auto-Extract GST Rates</p>
+                  <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">Assigns tax rates based on menu categories</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer scale-90">
+                  <input
+                    type="checkbox"
+                    checked={includeTax}
+                    onChange={(e) => setIncludeTax(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pos-primary"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 rounded-xl">
+                <div>
+                  <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Auto-Extract HSN Codes</p>
+                  <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">Applies standard HSN codes to items</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer scale-90">
+                  <input
+                    type="checkbox"
+                    checked={includeHsn}
+                    onChange={(e) => setIncludeHsn(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pos-primary"></div>
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 p-4 bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 rounded-xl">
+                <div>
+                  <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">Scanning Mode</p>
+                  <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">Choose processing engine</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setScanMode('semantic')}
+                    className={`flex-1 py-2 px-3 text-[10px] font-black rounded-xl uppercase tracking-wider transition-all border ${
+                      scanMode === 'semantic'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/25'
+                        : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-750'
+                    }`}
+                  >
+                    ✨ High Accuracy (AI)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScanMode('fast')}
+                    className={`flex-1 py-2 px-3 text-[10px] font-black rounded-xl uppercase tracking-wider transition-all border ${
+                      scanMode === 'fast'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/25'
+                        : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-750'
+                    }`}
+                  >
+                    ⚡ Fast Scan (Regex)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase leading-relaxed bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 p-4 rounded-xl">
+              ⚠️ Ensure you select the correct property branch from the dropdown in the top-right corner before uploading. Scanned items will be imported into that branch.
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center">
+            <div
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('file-upload-input')?.click()}
+              className={`w-full h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 text-center cursor-pointer transition-all duration-300 ${
+                dragActive
+                  ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 scale-102'
+                  : 'border-gray-200 dark:border-slate-800 hover:border-pos-primary hover:bg-gray-50/50 dark:hover:bg-slate-800/20'
+              }`}
+            >
+              <input
+                id="file-upload-input"
+                type="file"
+                className="hidden"
+                accept="image/*,application/pdf"
+                onChange={handleFileChange}
+              />
+              <Upload className="h-10 w-10 text-gray-400 mb-3" />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {file ? file.name : 'Drag & drop your menu image here, or click to browse'}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">Supports JPG, PNG, WEBP, and PDF files</p>
+              {file && (
+                <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 px-3.5 py-1.5 rounded-full font-bold uppercase tracking-wider mt-4">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </span>
+              )}
+            </div>
+
+            {file && (
+              <button
+                onClick={startScan}
+                className="mt-5 w-full bg-gradient-to-r from-indigo-600 to-rose-600 hover:from-indigo-700 hover:to-rose-700 text-white font-black text-xs uppercase tracking-widest py-4 px-6 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Sparkles size={16} />
+                Start AI Menu scan
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {scanning && (
+        <div className="py-16 flex flex-col items-center justify-center space-y-4">
+          <div className="h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider animate-pulse">Running local OCR & parsing columns...</h3>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">This takes less than 3 seconds. Do not close this page.</p>
+        </div>
+      )}
+
+      {scannedData && (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          <div className="xl:col-span-4 space-y-4">
+            <h3 className="text-xs font-black text-gray-400 dark:text-slate-450 uppercase tracking-widest">Uploaded Menu Card</h3>
+            <div className="border border-gray-150 dark:border-slate-800 rounded-2xl overflow-hidden bg-gray-50 dark:bg-slate-900/50 shadow-inner max-h-[70vh] flex items-center justify-center p-2">
+              {imagePreviewUrl ? (
+                <img src={imagePreviewUrl} alt="Menu Preview" className="max-w-full max-h-full object-contain rounded-xl" />
+              ) : (
+                <div className="py-20 text-gray-400 font-bold uppercase text-[10px]">No image preview available</div>
+              )}
+            </div>
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-slate-800/40 p-3 rounded-xl border border-gray-100 dark:border-slate-800">
+              💡 Compare the extracted products side-by-side with your menu image. Double click any text field to edit inline.
+            </div>
+          </div>
+
+          <div className="xl:col-span-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-black text-gray-400 dark:text-slate-455 uppercase tracking-widest">Review Extracted Items</h3>
+              <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-md border border-emerald-100">
+                Destination: {aiMenuType}
+              </span>
+            </div>
+
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 no-scrollbar">
+              {scannedData.categories?.map((cat: any, catIdx: number) => (
+                <div key={catIdx} className="border border-gray-150 dark:border-slate-800 rounded-2xl p-5 bg-gray-50/50 dark:bg-slate-800/20 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-200/50 dark:border-slate-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
+                      <input
+                        type="text"
+                        value={cat.name}
+                        onChange={(e) => {
+                          const updated = { ...scannedData };
+                          updated.categories[catIdx].name = e.target.value;
+                          setScannedData(updated);
+                        }}
+                        className="bg-transparent font-black text-sm uppercase text-gray-900 dark:text-white border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 rounded transition-all max-w-[200px]"
+                      />
+                    </div>
+                    <button
+                      onClick={() => addItemToCategory(catIdx)}
+                      className="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1"
+                    >
+                      <Plus size={12} /> Add Item
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {cat.items?.map((item: any, itemIdx: number) => (
+                      <div key={itemIdx} className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow relative">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex-1 min-w-[200px]">
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) => updateItemField(catIdx, itemIdx, 'name', e.target.value)}
+                              className="w-full bg-transparent font-black text-xs uppercase text-gray-800 dark:text-slate-100 border-b border-transparent hover:border-gray-200 focus:border-indigo-500 focus:outline-none py-0.5 transition-all"
+                              placeholder="Product Name"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {/* Full Price Input */}
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest pl-1">Full Price</span>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] font-bold">₹</span>
+                                <input
+                                  type="number"
+                                  value={item.sellingPrice || item.price || 0}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    const updated = { ...scannedData };
+                                    updated.categories[catIdx].items[itemIdx] = {
+                                      ...updated.categories[catIdx].items[itemIdx],
+                                      sellingPrice: val,
+                                      price: val,
+                                      costPrice: Math.round(val * 0.4 * 100) / 100
+                                    };
+                                    setScannedData(updated);
+                                  }}
+                                  className="pl-5 pr-2 py-1.5 w-20 bg-gray-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-lg text-xs font-black text-gray-900 dark:text-white text-right focus:outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Half Price Input */}
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest pl-1">Half Price</span>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] font-bold">₹</span>
+                                <input
+                                  type="number"
+                                  placeholder="---"
+                                  value={item.halfPrice !== null && item.halfPrice !== undefined ? item.halfPrice : ''}
+                                  onChange={(e) => {
+                                    const valText = e.target.value;
+                                    const val = valText === '' ? null : parseFloat(valText) || 0;
+                                    const updated = { ...scannedData };
+                                    updated.categories[catIdx].items[itemIdx] = {
+                                      ...updated.categories[catIdx].items[itemIdx],
+                                      halfPrice: val
+                                    };
+                                    setScannedData(updated);
+                                  }}
+                                  className="pl-5 pr-2 py-1.5 w-20 bg-gray-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-lg text-xs font-black text-gray-900 dark:text-white text-right focus:outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => updateItemField(catIdx, itemIdx, 'is_vegetarian', !item.is_vegetarian)}
+                              className={`p-1.5 rounded-lg border transition-all ${
+                                item.is_vegetarian
+                                  ? 'bg-green-50 border-green-200 text-green-600 dark:bg-green-950/20 dark:border-green-900'
+                                  : 'bg-gray-50 border-gray-200 text-gray-400 dark:bg-slate-800 dark:border-slate-700'
+                              }`}
+                              title="Vegetarian"
+                            >
+                              <Leaf size={14} />
+                            </button>
+
+                            <button
+                              onClick={() => updateItemField(catIdx, itemIdx, 'is_spicy', !item.is_spicy)}
+                              className={`p-1.5 rounded-lg border transition-all ${
+                                item.is_spicy
+                                  ? 'bg-red-50 border-red-200 text-red-600 dark:bg-red-950/20 dark:border-red-900'
+                                  : 'bg-gray-50 border-gray-200 text-gray-400 dark:bg-slate-800 dark:border-slate-700'
+                              }`}
+                              title="Spicy"
+                            >
+                              <Flame size={14} />
+                            </button>
+
+                            <button
+                              onClick={() => deleteItem(catIdx, itemIdx)}
+                              className="p-1.5 rounded-lg border border-red-100 hover:bg-red-50 text-red-500 dark:border-red-950/20 dark:hover:bg-red-950/30 transition-all"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5">
+                          <input
+                            type="text"
+                            value={item.description || ''}
+                            onChange={(e) => updateItemField(catIdx, itemIdx, 'description', e.target.value)}
+                            className="w-full bg-transparent text-[10px] text-gray-400 font-bold border-b border-transparent hover:border-gray-250 focus:border-indigo-500 focus:outline-none py-0.5"
+                            placeholder="Add item description..."
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 items-center mt-3 pt-3 border-t border-gray-100 dark:border-slate-800">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">HSN</span>
+                            <input
+                              type="text"
+                              value={item.hsnCode || ''}
+                              onChange={(e) => updateItemField(catIdx, itemIdx, 'hsnCode', e.target.value)}
+                              className="px-2 py-0.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded text-[9px] font-bold text-gray-700 dark:text-slate-300 w-16 text-center"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">GST</span>
+                            <select
+                              value={item.taxRate || 5}
+                              onChange={(e) => updateItemField(catIdx, itemIdx, 'taxRate', parseFloat(e.target.value))}
+                              className="px-2 py-0.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded text-[9px] font-bold text-gray-700 dark:text-slate-300 w-16 text-center focus:outline-none focus:border-indigo-500"
+                            >
+                              <option value="0">0%</option>
+                              <option value="5">5%</option>
+                              <option value="12">12%</option>
+                              <option value="18">18%</option>
+                              <option value="28">28%</option>
+                            </select>
+                          </div>
+
+                          <span className="text-[9px] font-mono text-gray-400 ml-auto bg-gray-50 dark:bg-slate-800 px-2 py-0.5 rounded border border-gray-100 dark:border-slate-800 italic">
+                            SKU: {item.sku}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  setScannedData(null);
+                  setFile(null);
+                }}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-gray-500 dark:text-slate-350 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Scan Again
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-200 dark:shadow-none transition-colors flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    Confirm & Save to Database
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

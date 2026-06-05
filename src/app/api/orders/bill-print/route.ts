@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const activeOrder = await (prisma as any).posOrder.findFirst({
       where: { 
         restaurantTableId, 
-        status: { in: ['OPEN', 'PENDING', 'PLACED', 'IN_KITCHEN', 'READY', 'SERVED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL', 'BILL_PRINTED'] } 
+        status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL', 'BILL_PRINTED'] } 
       }
     });
 

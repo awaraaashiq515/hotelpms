@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
                 sku: item.sku || null,
                 barcode: item.barcode || null,
                 sellingPrice: Number(item.sellingPrice || item.price || 0),
+                halfPrice: item.halfPrice !== undefined && item.halfPrice !== null ? Number(item.halfPrice) : null,
                 costPrice: Number(item.costPrice || 0),
                 productType: item.productType || 'REVENUE_ITEM',
                 propertyId: session.propertyId!,
