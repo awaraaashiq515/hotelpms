@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic';
+
 // /staff-portal → redirect to first property, or show selector
 export default async function StaffPortalIndexPage() {
   // Get first available property
