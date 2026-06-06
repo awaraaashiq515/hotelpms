@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { toast, Toaster } from 'sonner'
 import VoiceMessagesTab from '@/components/staff/walkie-talkie/VoiceMessagesTab'
 import AudioPlayer from '@/components/staff/walkie-talkie/AudioPlayer'
 import { useAutoPlay } from '@/components/staff/walkie-talkie/useAutoPlay'
@@ -58,6 +59,41 @@ function playChirp(type: 'start' | 'stop') {
   } catch {}
 }
 
+/* ─── New Order Notification Sound ─── */
+function playOrderNotificationSound() {
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const now = ctx.currentTime
+    
+    // Play two notes in quick succession (chime effect)
+    // First note (E5, 659.25 Hz)
+    const osc1 = ctx.createOscillator()
+    const gain1 = ctx.createGain()
+    osc1.connect(gain1)
+    gain1.connect(ctx.destination)
+    osc1.type = 'sine'
+    osc1.frequency.setValueAtTime(659.25, now)
+    gain1.gain.setValueAtTime(0.08, now)
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.3)
+    osc1.start(now)
+    osc1.stop(now + 0.35)
+
+    // Second note (A5, 880.00 Hz) after 0.12 seconds
+    const osc2 = ctx.createOscillator()
+    const gain2 = ctx.createGain()
+    osc2.connect(gain2)
+    gain2.connect(ctx.destination)
+    osc2.type = 'sine'
+    osc2.frequency.setValueAtTime(880.00, now + 0.12)
+    gain2.gain.setValueAtTime(0.08, now + 0.12)
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.42)
+    osc2.start(now + 0.12)
+    osc2.stop(now + 0.47)
+  } catch {}
+}
+
 /* ─── Elapsed timer ─── */
 function useElapsed(dateStr: string) {
   const [e, setE] = React.useState('')
@@ -84,7 +120,12 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
   const hasMoreItems = order.items.length > MAX_ITEMS_TO_SHOW;
   const displayedItems = showAllItems ? order.items : order.items.slice(0, MAX_ITEMS_TO_SHOW);
   const [showQr, setShowQr] = useState(false);
-  const qrCodeUrl = upiId ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName || 'Payment')}&am=${order.grandTotal}&cu=INR`)}` : '';
+  const [tipAmount, setTipAmount] = useState(0);
+  const [tipInput, setTipInput] = useState('');
+  const totalWithTip = order.grandTotal + tipAmount;
+  const activeUpiId = upiId || 'pay@ordermint';
+  const activeUpiName = upiName || 'OrderMint';
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${activeUpiId}&pn=${encodeURIComponent(activeUpiName)}&am=${totalWithTip.toFixed(2)}&cu=INR`)}`;
 
   return (
     <div style={{ background: isUrgent ? 'rgba(251,113,133,0.06)' : 'rgba(255,255,255,0.03)', border: `1.5px solid ${isUrgent ? 'rgba(251,113,133,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 14, padding: '16px', marginBottom: 12, position: 'relative' }}>
@@ -203,25 +244,82 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
             ⏳ Awaiting Payment Approval
           </div>
         ) : (
-          upiId && (
-            <button onClick={() => setShowQr(!showQr)} style={{ flex: '1 1 100%', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#fbbf24', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.2s', fontFamily: 'inherit' }}>
-              {showQr ? 'Hide QR' : '₹ Request Payment'}
-            </button>
-          )
+          <button onClick={() => setShowQr(!showQr)} style={{ flex: '1 1 100%', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#fbbf24', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.2s', fontFamily: 'inherit' }}>
+            {showQr ? 'Hide QR' : '₹ Request Payment'}
+          </button>
         )}
       </div>
 
-      {showQr && upiId && (
+      {showQr && (
         <div style={{ marginTop: 12, padding: 16, background: 'rgba(0,0,0,0.3)', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(245,158,11,0.3)' }}>
-          <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Pay ₹{order.grandTotal.toFixed(0)}</div>
-          <img src={qrCodeUrl} alt="UPI QR" style={{ width: 160, height: 160, margin: '0 auto', borderRadius: 8, border: '4px solid #fff' }} />
-          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 12, marginBottom: 12 }}>{upiId}</div>
+
+          {/* ── Tip Section ── */}
+          <div style={{ marginBottom: 14, textAlign: 'left' }}>
+            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Add Tip (Optional)</div>
+            {/* Preset tip % buttons */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {[0, 10, 15, 20].map(pct => {
+                const tipVal = pct === 0 ? 0 : Math.round(order.grandTotal * pct / 100);
+                const isActive = pct === 0 ? tipAmount === 0 && tipInput === '' : tipAmount === tipVal && tipInput === String(tipVal);
+                return (
+                  <button key={pct} onClick={() => { setTipAmount(tipVal); setTipInput(pct === 0 ? '' : String(tipVal)); }}
+                    style={{ flex: 1, background: isActive ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isActive ? '#fbbf24' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, padding: '7px 0', fontSize: 11, fontWeight: 800, color: isActive ? '#fbbf24' : '#94a3b8', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+                    {pct === 0 ? 'No Tip' : `${pct}%`}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Custom tip input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: 14, color: '#fbbf24', fontWeight: 900 }}>₹</span>
+              <input
+                type="number"
+                min="0"
+                placeholder="Custom tip amount"
+                value={tipInput}
+                onChange={e => {
+                  const val = e.target.value;
+                  setTipInput(val);
+                  const num = parseFloat(val);
+                  setTipAmount(isNaN(num) || num < 0 ? 0 : num);
+                }}
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, fontWeight: 700, color: '#f1f5f9', fontFamily: 'inherit' }}
+              />
+            </div>
+          </div>
+
+          {/* ── Amount breakdown ── */}
+          <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+              <span>Order Total</span>
+              <span>₹{order.grandTotal.toFixed(0)}</span>
+            </div>
+            {tipAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#34d399', marginBottom: 4 }}>
+                <span>Tip</span>
+                <span>+ ₹{tipAmount.toFixed(0)}</span>
+              </div>
+            )}
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 900, color: '#fbbf24' }}>
+              <span>Grand Total</span>
+              <span>₹{totalWithTip.toFixed(0)}</span>
+            </div>
+          </div>
+
+          {/* ── QR Code ── */}
+          <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Scan to Pay ₹{totalWithTip.toFixed(0)}</div>
+          <img src={qrCodeUrl} alt="UPI QR" style={{ width: 180, height: 180, margin: '0 auto', borderRadius: 10, border: '4px solid #fff', display: 'block' }} />
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 10, marginBottom: 14 }}>{activeUpiId}</div>
+
           <button onClick={async () => { 
             setMarking(true); 
             try { 
               const headers: HeadersInit = { 'Content-Type': 'application/json' }; 
               if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; } 
-              const r = await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'PAYMENT_AWAITING_APPROVAL' }) }); 
+              // Pass tip info so counter can see it
+              const tipRef = JSON.stringify({ tip: tipAmount, staffName: typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('staff_portal_session') || '{}')?.user?.fullName || '') : '' });
+              await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'PAYMENT_AWAITING_APPROVAL', onlinePaymentReference: tipRef }) }); 
               // We do NOT call onDone here because we want the order to stay on screen until counter approves
             } catch {}; 
             setMarking(false);
@@ -431,6 +529,19 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const [orders, setOrders] = useState<PosOrder[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
 
+  /* Take Order Flow */
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [dbTables, setDbTables] = useState<any[]>([])
+  const [dbProducts, setDbProducts] = useState<any[]>([])
+  const [tablesLoading, setTablesLoading] = useState(false)
+  const [productsLoading, setProductsLoading] = useState(false)
+  const [orderTableId, setOrderTableId] = useState('')
+  const [orderCart, setOrderCart] = useState<{ [itemId: string]: { id: string; name: string; unitPrice: number; quantity: number; variantId?: string | null; variantName?: string | null; portion?: string } }>({})
+  const [orderSearchQuery, setOrderSearchQuery] = useState('')
+  const [orderCategory, setOrderCategory] = useState('all')
+  const [placingOrder, setPlacingOrder] = useState(false)
+  const [selectedProductForVariant, setSelectedProductForVariant] = useState<any | null>(null)
+
   /* Socket / PTT */
   const [socketStatus, setSocketStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -473,6 +584,10 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
   /* Unread messages badge */
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadOrdersCount, setUnreadOrdersCount] = useState(0)
+  const prevOrdersRef = useRef<Record<string, string>>({})
+  const isFirstLoadRef = useRef(true)
+  const vibrationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeTabRef = useRef<Tab>('ptt')
   const activeTalkIdRef = useRef<string | null>(null)
   const mediaRecorderRef = useRef<any>(null)
@@ -548,13 +663,79 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     addLog(`✅ Welcome, ${user.fullName}!`)
   }, [user?.id])
 
-  /* ── Auto-refresh orders every 8 seconds when POS tab is active ── */
+  /* ── Auto-refresh orders every 8 seconds in background when user is logged in ── */
   useEffect(() => {
-    if (activeTab !== 'pos' || !user) return
-    loadOrders()
+    if (!user) return
+    loadOrders(true)
     const interval = setInterval(() => loadOrders(true), 8000)
     return () => clearInterval(interval)
-  }, [activeTab, user])
+  }, [user?.id])
+
+  /* ── Request Notification Permission ── */
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          console.log('[Notification Permission] Result:', permission);
+        });
+      }
+    }
+  }, []);
+
+  /* ── Continuous Vibration Loop for Unread Orders ── */
+  useEffect(() => {
+    if (unreadOrdersCount > 0 && activeTab !== 'pos') {
+      // Start vibration loop if not running
+      if (!vibrationIntervalRef.current) {
+        vibrationIntervalRef.current = setInterval(() => {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([300, 100, 300]);
+          }
+        }, 5000); // Vibrate every 5 seconds
+      }
+    } else {
+      // Stop vibration loop
+      if (vibrationIntervalRef.current) {
+        clearInterval(vibrationIntervalRef.current);
+        vibrationIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (vibrationIntervalRef.current) {
+        clearInterval(vibrationIntervalRef.current);
+        vibrationIntervalRef.current = null;
+      }
+    };
+  }, [unreadOrdersCount, activeTab]);
+
+  /* ── Dynamic Tab Title Flashing for Unread Orders ── */
+  useEffect(() => {
+    const defaultTitle = user?.property?.name 
+      ? `${user.property.name} - Staff Portal`
+      : 'Staff Portal';
+
+    if (unreadOrdersCount > 0 && activeTab !== 'pos') {
+      let isAlternate = false;
+      const interval = setInterval(() => {
+        if (isAlternate) {
+          document.title = defaultTitle;
+        } else {
+          document.title = unreadOrdersCount === 1 
+            ? '⚠️ (1) New Order!' 
+            : `⚠️ (${unreadOrdersCount}) New Orders!`;
+        }
+        isAlternate = !isAlternate;
+      }, 1500);
+
+      return () => {
+        clearInterval(interval);
+        document.title = defaultTitle;
+      };
+    } else {
+      document.title = defaultTitle;
+    }
+  }, [unreadOrdersCount, activeTab, user]);
 
   /* ── Load all channel histories when Messages tab is opened ── */
   useEffect(() => {
@@ -611,6 +792,12 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     socketRef.current?.disconnect()
     setUser(null); setWtToken(''); setContacts([]); setChannels([]); setOrders([])
     setSocketStatus('disconnected'); setIsSpeaking(false); setIncomingVoice(null)
+    prevOrdersRef.current = {}
+    isFirstLoadRef.current = true
+    if (vibrationIntervalRef.current) {
+      clearInterval(vibrationIntervalRef.current);
+      vibrationIntervalRef.current = null;
+    }
     setRtcStatus('Standby'); setIsRtcMockMode(true); setLogs([])
     localStorage.removeItem('staff_portal_session')
     fetch('/api/auth/staff-logout', { method: 'POST' }).catch(() => {})
@@ -620,12 +807,15 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const connectSocket = useCallback(() => {
     socketRef.current?.disconnect()
     setSocketStatus('connecting')
-    const socket = io('http://localhost:5001', { auth: { token: wtTokenRef.current } })
+    const socketUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:5002`
+      : 'http://localhost:5002'
+    const socket = io(socketUrl, { auth: { token: wtTokenRef.current } })
     socketRef.current = socket
 
     socket.on('connect', () => {
       setSocketStatus('connected')
-      addLog('🔌 Socket connected to port 5001')
+      addLog(`🔌 Socket connected to ${socketUrl}`)
       // Latency ping every 5s
       const pid = setInterval(() => {
         const t = Date.now()
@@ -982,6 +1172,106 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       }
     } catch {}
   }
+
+  const fetchTables = useCallback(async () => {
+    setTablesLoading(true)
+    try {
+      const headers: HeadersInit = {}
+      const token = wtTokenRef.current || wtToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const r = await fetch('/api/tables', { headers, cache: 'no-store' })
+      if (r.ok) {
+        const d = await r.json()
+        setDbTables(d.data || [])
+      }
+    } catch (err) {
+      console.error('Error fetching tables:', err)
+    } finally {
+      setTablesLoading(false)
+    }
+  }, [wtToken])
+
+  const fetchProducts = useCallback(async () => {
+    setProductsLoading(true)
+    try {
+      const headers: HeadersInit = {}
+      const token = wtTokenRef.current || wtToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const r = await fetch('/api/products', { headers, cache: 'no-store' })
+      if (r.ok) {
+        const d = await r.json()
+        setDbProducts(d.data || [])
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err)
+    } finally {
+      setProductsLoading(false)
+    }
+  }, [wtToken])
+
+  useEffect(() => {
+    if (showOrderModal) {
+      fetchTables()
+      fetchProducts()
+    }
+  }, [showOrderModal, fetchTables, fetchProducts])
+
+  const handlePlaceOrder = async () => {
+    if (!orderTableId) {
+      toast.error('Please select a table first.')
+      return
+    }
+    const cartItems = Object.values(orderCart)
+    if (cartItems.length === 0) {
+      toast.error('Your cart is empty.')
+      return
+    }
+    
+    setPlacingOrder(true)
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      const token = wtTokenRef.current || wtToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      
+      const payload = {
+        restaurantTableId: orderTableId,
+        orderType: 'DINE_IN',
+        items: cartItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          unitPrice: item.unitPrice,
+          sellingPrice: item.unitPrice,
+          quantity: item.quantity,
+          variantId: item.variantId || null,
+          variantName: item.variantName || null,
+          portion: item.portion || 'FULL'
+        }))
+      }
+
+      const res = await fetch('/api/orders/save', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        toast.success('Order placed and KOT generated! 🍳')
+        setOrderCart({})
+        setOrderTableId('')
+        setShowOrderModal(false)
+        loadOrders() // Refresh orders tab
+      } else {
+        const err = await res.json()
+        toast.error(err.message || 'Failed to place order.')
+      }
+    } catch (err) {
+      console.error('Order placement error:', err)
+      toast.error('Network error. Failed to place order.')
+    } finally {
+      setPlacingOrder(false)
+    }
+  }
+
   const loadOrders = async (silent: boolean = false) => {
     console.log('[loadOrders] Called. User state:', user);
     if (!user?.propertyId) {
@@ -1004,6 +1294,87 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         const activeOrders = (d.data || []).filter((o: any) => 
           !['COMPLETED', 'PAID', 'CANCELLED'].includes(o.status)
         );
+
+        // Detect new orders and status updates
+        const newOrders: any[] = [];
+        const statusUpdatedOrders: any[] = [];
+
+        activeOrders.forEach((o: any) => {
+          const oldStatus = prevOrdersRef.current[o.id];
+          if (oldStatus === undefined) {
+            newOrders.push(o);
+          } else if (oldStatus !== o.status) {
+            statusUpdatedOrders.push({ order: o, oldStatus, newStatus: o.status });
+          }
+        });
+
+        if (!isFirstLoadRef.current) {
+          let triggerChime = false;
+          let newActivityCount = 0;
+
+          // 1. Handle brand new orders
+          if (newOrders.length > 0) {
+            triggerChime = true;
+            newActivityCount += newOrders.length;
+            newOrders.forEach((o: any) => {
+              const tableName = o.table?.name || o.tableNo || 'Table';
+              toast.info(`🛒 New Order Received: ${o.orderNo} for ${tableName}`);
+
+              // Native System Notification
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification("New Order Received! 🛒", {
+                    body: `Order ${o.orderNo} for ${tableName}`,
+                    tag: o.id,
+                  });
+                } catch {}
+              }
+            });
+          }
+
+          // 2. Handle order status changes (e.g. from kitchen-display)
+          if (statusUpdatedOrders.length > 0) {
+            triggerChime = true;
+            newActivityCount += statusUpdatedOrders.length;
+            statusUpdatedOrders.forEach(({ order, oldStatus, newStatus }) => {
+              const tableName = order.table?.name || order.tableNo || 'Table';
+              let statusText = newStatus.replace(/_/g, ' ').toLowerCase();
+              if (newStatus === 'KOT_RUNNING') statusText = 'KOT Running';
+              if (newStatus === 'IN_KITCHEN') statusText = 'Preparing';
+              if (newStatus === 'READY') statusText = 'Ready! 🛎️';
+              if (newStatus === 'SERVED') statusText = 'Served ✓';
+              if (newStatus === 'BILL_PRINTED') statusText = 'Bill Printed 🖨️';
+              if (newStatus === 'PAYMENT_AWAITING_APPROVAL') statusText = 'Awaiting Payment Approval ⏳';
+
+              toast.success(`🍳 Order ${order.orderNo} (${tableName}) status changed to: ${statusText}`);
+
+              // Native System Notification
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification(`Order Status: ${statusText} 🍳`, {
+                    body: `Order ${order.orderNo} (${tableName}) is now ${statusText}`,
+                    tag: order.id + '_' + newStatus,
+                  });
+                } catch {}
+              }
+            });
+          }
+
+          if (triggerChime) {
+            playOrderNotificationSound();
+            if (activeTabRef.current !== 'pos') {
+              setUnreadOrdersCount(prev => prev + newActivityCount);
+            }
+          }
+        }
+
+        // Store current IDs and statuses for next check
+        const nextMap: Record<string, string> = {};
+        activeOrders.forEach((o: any) => {
+          nextMap[o.id] = o.status;
+        });
+        prevOrdersRef.current = nextMap;
+        isFirstLoadRef.current = false;
         setOrders(activeOrders);
       } else {
         const errText = await r.text();
@@ -1150,16 +1521,21 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     { key: 'settings', label: 'Settings', emoji: '⚙️' },
   ]
 
-  /* When user opens Messages tab — clear unread badge */
+  /* When user opens tabs — clear corresponding unread badges */
   const handleTabChange = (key: Tab) => {
     setActiveTab(key)
     if (key === 'messages') {
       setUnreadCount(0)
     }
+    if (key === 'pos') {
+      setUnreadOrdersCount(0)
+      loadOrders(false) // Trigger an immediate non-silent load when switching to POS/Orders tab
+    }
   }
 
   return (
     <div style={{ height: '100dvh', maxWidth: 500, margin: '0 auto', background: '#0a0c12', fontFamily: '"Inter",-apple-system,sans-serif', color: '#f1f5f9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Toaster richColors position="top-center" theme="dark" />
 
       {/* ━━━ HEADER ━━━ */}
       <header style={{ flexShrink: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.025)', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(16px)' }}>
@@ -1280,6 +1656,32 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                   fontFamily: 'inherit',
                 }}>
                   {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+              {/* Unread badge — on Orders/POS tab */}
+              {t.key === 'pos' && unreadOrdersCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -7,
+                  minWidth: 15,
+                  height: 15,
+                  borderRadius: 8,
+                  background: 'linear-gradient(135deg,#f43f5e,#fb7185)',
+                  color: '#fff',
+                  fontSize: 8,
+                  fontWeight: 900,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                  boxShadow: '0 0 8px rgba(244,63,94,0.7)',
+                  animation: 'pulse 1.2s ease-in-out infinite',
+                  lineHeight: 1,
+                  letterSpacing: 0,
+                  fontFamily: 'inherit',
+                }}>
+                  {unreadOrdersCount > 99 ? '99+' : unreadOrdersCount}
                 </span>
               )}
             </span>
@@ -1552,7 +1954,10 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                 <div style={{ fontSize: 24, fontWeight: 900 }}>{orders.filter(o => (Date.now() - new Date(o.createdAt).getTime()) > 15 * 60000).length}</div>
               </div>
             </div>
-            <button onClick={() => loadOrders()} style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: '9px', marginBottom: 12, fontSize: 10, fontWeight: 800, color: '#64748b', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>🔄 Refresh Orders</button>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button onClick={() => loadOrders()} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: '9px', fontSize: 10, fontWeight: 800, color: '#64748b', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>🔄 Refresh</button>
+              <button onClick={() => { setOrderTableId(''); setOrderCart({}); setShowOrderModal(true); }} style={{ flex: 1, background: 'linear-gradient(135deg, #4f46e5, #6366f1)', border: 'none', borderRadius: 11, padding: '9px', fontSize: 10, fontWeight: 800, color: '#fff', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, boxShadow: '0 4px 12px rgba(79,70,229,0.3)' }}>➕ Take Order</button>
+            </div>
             {ordersLoading
               ? <div style={{ textAlign: 'center', padding: '36px 0' }}><div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} /><div style={{ fontSize: 11, color: '#475569' }}>Loading...</div></div>
               : orders.length === 0
@@ -1582,11 +1987,6 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
               </div>
             </div>
             <button onClick={() => { socketRef.current?.disconnect(); setTimeout(connectSocket, 500) }} style={{ width: '100%', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 11, padding: '10px', marginBottom: 14, fontSize: 10, fontWeight: 800, color: '#818cf8', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>🔄 Reconnect</button>
-            <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 7 }}>Activity Log</div>
-            <div style={{ background: '#050710', borderRadius: 11, padding: '11px', border: '1px solid rgba(99,102,241,0.08)', maxHeight: 260, overflowY: 'auto', fontFamily: '"JetBrains Mono","Fira Mono",monospace' }}>
-              {[...logs].reverse().map((l, i) => <div key={i} style={{ fontSize: 9, padding: '2px 0', color: '#475569', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>{l}</div>)}
-              {logs.length === 0 && <div style={{ fontSize: 9, color: '#1e293b', padding: '10px 0', textAlign: 'center' }}>No activity yet</div>}
-            </div>
           </div>
         )}
 
@@ -1623,6 +2023,559 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         )}
 
       </div>{/* end scrollable content */}
+
+      {/* ══════════ TAKE ORDER OVERLAY MODAL ══════════ */}
+      {showOrderModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#090d16', zIndex: 1000, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'inherit' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {orderTableId && (
+                <button onClick={() => setOrderTableId('')} style={{ background: 'transparent', border: 'none', color: '#818cf8', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', padding: 0 }}>
+                  ➔
+                </button>
+              )}
+              <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.05em' }}>
+                {!orderTableId ? 'Select Dining Table' : `Menu: ${dbTables.find(t => t.id === orderTableId)?.name || 'Order'}`}
+              </span>
+            </div>
+            <button onClick={() => setShowOrderModal(false)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          </div>
+
+          {/* Modal Content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            {!orderTableId ? (
+              /* --- Step 1: Table Selector --- */
+              <div>
+                {tablesLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ fontSize: 11, color: '#475569' }}>Loading dining tables...</div>
+                  </div>
+                ) : dbTables.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 16px', color: '#94a3b8' }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginBottom: 4 }}>No Tables Assigned</div>
+                    <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.5 }}>You don't have any tables assigned. Please ask your manager to assign tables in the POS Staff dashboard.</div>
+                  </div>
+                ) : (
+                  (() => {
+                    const tablesByFloor = dbTables.reduce((acc: { [floorName: string]: any[] }, table: any) => {
+                      const floorName = table.floor?.name || 'General Area';
+                      if (!acc[floorName]) acc[floorName] = [];
+                      acc[floorName].push(table);
+                      return acc;
+                    }, {});
+
+                    return Object.entries(tablesByFloor).map(([floorName, floorTables]) => (
+                      <div key={floorName} style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: '#818cf8', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 9, paddingLeft: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>📍</span> {floorName}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                          {floorTables.map(t => {
+                            const isOccupied = t.activeOrder !== null;
+                            return (
+                              <div
+                                key={t.id}
+                                onClick={() => setOrderTableId(t.id)}
+                                style={{
+                                  background: isOccupied ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)',
+                                  border: `1.5px solid ${isOccupied ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                  borderRadius: 12,
+                                  padding: '16px 10px',
+                                  textAlign: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{t.name}</div>
+                                <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: isOccupied ? '#fbbf24' : '#34d399' }}>
+                                  {isOccupied ? `Occupied (₹${Math.round(t.activeOrder.amount)})` : 'Vacant'}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()
+                )}
+              </div>
+            ) : (
+              /* --- Step 2: Searchable Menu Catalog --- */
+              <div>
+                {/* Search & Filter */}
+                <div style={{ marginBottom: 14 }}>
+                  <input
+                    type="text"
+                    placeholder="Search menu items..."
+                    value={orderSearchQuery}
+                    onChange={(e) => setOrderSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 10,
+                      padding: '10px 12px',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontFamily: 'inherit',
+                      outline: 'none',
+                      marginBottom: 8
+                    }}
+                  />
+                  
+                  {/* Category Pills (horizontal scrollable) */}
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
+                    {['all', ...Array.from(new Set(dbProducts.map(p => p.category?.name).filter(Boolean)))].map(catName => (
+                      <button
+                        key={catName}
+                        onClick={() => setOrderCategory(catName)}
+                        style={{
+                          background: orderCategory === catName ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${orderCategory === catName ? '#6366f1' : 'rgba(255,255,255,0.06)'}`,
+                          borderRadius: 8,
+                          padding: '6px 12px',
+                          color: orderCategory === catName ? '#818cf8' : '#94a3b8',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          fontFamily: 'inherit',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em'
+                        }}
+                      >
+                        {catName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Products List */}
+                {productsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ fontSize: 11, color: '#475569' }}>Loading menu items...</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {dbProducts
+                      .filter(p => {
+                        const matchesSearch = p.name.toLowerCase().includes(orderSearchQuery.toLowerCase())
+                        const matchesCategory = orderCategory === 'all' || p.category?.name === orderCategory
+                        return matchesSearch && matchesCategory
+                      })
+                      .map(p => {
+                        // Find quantity for standard items or sum of variants in the cart
+                        const cartItemsForProduct = Object.values(orderCart).filter(item => item.id === p.id);
+                        const totalQty = cartItemsForProduct.reduce((sum, item) => sum + item.quantity, 0);
+
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 12,
+                              padding: '12px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <span style={{ fontSize: 9, fontWeight: 900, color: p.isVeg ? '#34d399' : '#f43f5e', background: p.isVeg ? 'rgba(52,211,153,0.1)' : 'rgba(244,63,94,0.1)', padding: '2px 5px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                  {p.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+                                </span>
+                                <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>{p.category?.name}</span>
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{p.name}</div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#818cf8', marginTop: 2 }}>
+                                {p.variants && p.variants.length > 0
+                                  ? `From ₹${Math.min(...p.variants.map((v: any) => v.price))}`
+                                  : `₹${p.sellingPrice}`}
+                              </div>
+                            </div>
+
+                            {/* Stepper Logic */}
+                            <div>
+                              {p.variants && p.variants.length > 0 ? (
+                                <button
+                                  onClick={() => setSelectedProductForVariant(p)}
+                                  style={{
+                                    background: totalQty > 0 ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
+                                    border: `1.5px solid ${totalQty > 0 ? '#6366f1' : 'rgba(255,255,255,0.08)'}`,
+                                    borderRadius: 8,
+                                    padding: '6px 12px',
+                                    color: totalQty > 0 ? '#818cf8' : '#94a3b8',
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                  }}
+                                >
+                                  {totalQty > 0 ? `Selected: ${totalQty}` : 'Choose Variant'}
+                                </button>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  {totalQty > 0 ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setOrderCart(prev => {
+                                            const updated = { ...prev }
+                                            if (updated[p.id].quantity > 1) {
+                                              updated[p.id].quantity -= 1
+                                            } else {
+                                              delete updated[p.id]
+                                            }
+                                            return updated
+                                          })
+                                        }}
+                                        style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}
+                                      >
+                                        -
+                                      </button>
+                                      <span style={{ fontSize: 13, fontWeight: 800, minWidth: 16, textAlign: 'center' }}>{totalQty}</span>
+                                      <button
+                                        onClick={() => {
+                                          setOrderCart(prev => ({
+                                            ...prev,
+                                            [p.id]: { id: p.id, name: p.name, unitPrice: p.sellingPrice, quantity: (prev[p.id]?.quantity || 0) + 1 }
+                                          }))
+                                        }}
+                                        style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(99,102,241,0.18)', border: 'none', color: '#818cf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}
+                                      >
+                                        +
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setOrderCart(prev => ({
+                                          ...prev,
+                                          [p.id]: { id: p.id, name: p.name, unitPrice: p.sellingPrice, quantity: 1 }
+                                        }))
+                                      }}
+                                      style={{
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        borderRadius: 8,
+                                        padding: '6px 14px',
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        color: '#fff',
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit'
+                                      }}
+                                    >
+                                      Add
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sticky Bottom Cart Summary */}
+          {orderTableId && Object.keys(orderCart).length > 0 && (
+            <div style={{ background: '#0e1524', borderTop: '1px solid rgba(255,255,255,0.07)', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Items in Cart</div>
+                <div style={{ fontSize: 15, fontWeight: 900 }}>
+                  {Object.values(orderCart).reduce((sum, item) => sum + item.quantity, 0)} Items • ₹{Object.values(orderCart).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0)}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const check = document.getElementById('checkoutDrawer')
+                  if (check) check.style.transform = 'translateY(0%)'
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '10px 18px',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                  fontFamily: 'inherit'
+                }}
+              >
+                Review Cart ➔
+              </button>
+            </div>
+          )}
+
+          {/* ══════════ CHECKOUT DRAWER (OVERLAY) ══════════ */}
+          <div
+            id="checkoutDrawer"
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '75%',
+              background: '#0a0e17',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              zIndex: 1010,
+              transform: 'translateY(100%)',
+              transition: 'transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 -8px 32px rgba(0,0,0,0.6)'
+            }}
+          >
+            {/* Drawer Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.05em', color: '#fff' }}>Review Order</span>
+                <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginLeft: 8 }}>Table: {dbTables.find(t => t.id === orderTableId)?.name}</span>
+              </div>
+              <button
+                onClick={() => {
+                  const check = document.getElementById('checkoutDrawer')
+                  if (check) check.style.transform = 'translateY(100%)'
+                }}
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: 24, height: 24, color: '#94a3b8', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Cart Items List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Object.entries(orderCart).map(([key, item]) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{item.name}</div>
+                      <div style={{ fontSize: 10, color: '#818cf8', fontWeight: 700, marginTop: 1 }}>₹{item.unitPrice} each</div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button
+                        onClick={() => {
+                          setOrderCart(prev => {
+                            const updated = { ...prev }
+                            if (updated[key].quantity > 1) {
+                              updated[key].quantity -= 1
+                            } else {
+                              delete updated[key]
+                            }
+                            return updated
+                          })
+                        }}
+                        style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}
+                      >
+                        -
+                      </button>
+                      <span style={{ fontSize: 12, fontWeight: 800, minWidth: 16, textAlign: 'center' }}>{item.quantity}</span>
+                      <button
+                        onClick={() => {
+                          setOrderCart(prev => ({
+                            ...prev,
+                            [key]: { ...prev[key], quantity: prev[key].quantity + 1 }
+                          }))
+                        }}
+                        style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', border: 'none', color: '#818cf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Calculations & Submit */}
+            <div style={{ background: '#070a10', borderTop: '1px solid rgba(255,255,255,0.07)', padding: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+                  <span>Subtotal</span>
+                  <span>₹{Object.values(orderCart).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+                  <span>Taxes (approx 5% GST)</span>
+                  <span>₹{Math.round(Object.values(orderCart).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) * 0.05)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 900, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 6 }}>
+                  <span>Grand Total</span>
+                  <span>₹{Math.round(Object.values(orderCart).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) * 1.05)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handlePlaceOrder}
+                disabled={placingOrder}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '13px',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  cursor: placingOrder ? 'not-allowed' : 'pointer',
+                  opacity: placingOrder ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  fontFamily: 'inherit',
+                  boxShadow: '0 4px 16px rgba(16,185,129,0.3)'
+                }}
+              >
+                {placingOrder ? (
+                  <>
+                    <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    Sending to Kitchen...
+                  </>
+                ) : (
+                  '🔥 Send to Kitchen & Generate KOT'
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* ══════════ VARIANT SELECTOR DRAWER (OVERLAY) ══════════ */}
+          {selectedProductForVariant && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '50%',
+                background: '#0b0f19',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                zIndex: 1020,
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 -8px 32px rgba(0,0,0,0.6)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>Choose Variant</span>
+                  <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginLeft: 8 }}>{selectedProductForVariant.name}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedProductForVariant(null)}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: 24, height: 24, color: '#94a3b8', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {selectedProductForVariant.variants.map((v: any) => {
+                  const key = `${selectedProductForVariant.id}-${v.id}`;
+                  const qty = orderCart[key]?.quantity || 0;
+
+                  return (
+                    <div
+                      key={v.id}
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 10,
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{v.name}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#818cf8', marginTop: 1 }}>₹{v.price}</div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {qty > 0 ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                setOrderCart(prev => {
+                                  const updated = { ...prev }
+                                  if (updated[key].quantity > 1) {
+                                    updated[key].quantity -= 1
+                                  } else {
+                                    delete updated[key]
+                                  }
+                                  return updated
+                                })
+                              }}
+                              style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}
+                            >
+                              -
+                            </button>
+                            <span style={{ fontSize: 12, fontWeight: 800, minWidth: 16, textAlign: 'center' }}>{qty}</span>
+                            <button
+                              onClick={() => {
+                                setOrderCart(prev => ({
+                                  ...prev,
+                                  [key]: { id: selectedProductForVariant.id, name: `${selectedProductForVariant.name} (${v.name})`, unitPrice: v.price, quantity: (prev[key]?.quantity || 0) + 1, variantId: v.id, variantName: v.name }
+                                }))
+                              }}
+                              style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', border: 'none', color: '#818cf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}
+                            >
+                              +
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setOrderCart(prev => ({
+                                ...prev,
+                                [key]: { id: selectedProductForVariant.id, name: `${selectedProductForVariant.name} (${v.name})`, unitPrice: v.price, quantity: 1, variantId: v.id, variantName: v.name }
+                              }))
+                            }}
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: 8,
+                              padding: '6px 14px',
+                              fontSize: 10,
+                              fontWeight: 800,
+                              color: '#fff',
+                              cursor: 'pointer',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {playingInfo && (
         <AutoPlayNotification

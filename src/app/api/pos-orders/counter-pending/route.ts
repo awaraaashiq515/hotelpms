@@ -10,16 +10,9 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const thresholdHours = searchParams.get('thresholdHours');
+    const propertyIdParam = searchParams.get('propertyId');
     
-    let where = getMultiTenantWhere(session);
-    
-    // For admins, let's expand the search to all properties in their organization
-    // to ensure no counter requests are missed.
-    if (session.role === 'RESTAURANTS_ADMIN' && session.organizationId) {
-      where = { property: { organizationId: session.organizationId } };
-    } else if (session.role === 'SUPER_ADMIN') {
-      where = {};
-    }
+    const where = getMultiTenantWhere(session, propertyIdParam);
 
     // Apply auto-clear threshold if provided
     const thresholdDate = thresholdHours 

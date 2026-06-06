@@ -5,7 +5,7 @@ import {
   Store, RefreshCcw, CheckCircle, X, Banknote, CreditCard, 
   Smartphone, User, Hash, IndianRupee, Clock, ChefHat, 
   Search, ArrowRight, TrendingUp, Activity, CheckCircle2, 
-  ChevronRight, AlertCircle, Lock, Loader2
+  ChevronRight, AlertCircle, Lock, Loader2, Gift
 } from 'lucide-react';
 
 const PAYMENT_METHODS = [
@@ -26,6 +26,29 @@ const STATUS_LABELS: Record<string, { label: string; color: string; icon: any; b
   PAYMENT_AWAITING_APPROVAL: { label: 'Approve Payment', color: 'text-amber-500', icon: Smartphone, bg: 'bg-amber-100 dark:bg-amber-900/20' },
 };
 
+// Parse tip info stored by staff portal
+function parseTipRef(ref?: string | null): { tip: number; staffName: string } {
+  if (!ref) return { tip: 0, staffName: '' };
+  try {
+    const parsed = JSON.parse(ref);
+    if (typeof parsed === 'object' && parsed !== null) {
+      return { tip: parseFloat(parsed.tip) || 0, staffName: parsed.staffName || '' };
+    }
+  } catch {}
+  return { tip: 0, staffName: '' };
+}
+
+// ── Avatar colour from name ──
+const AVATAR_COLORS = [
+  'bg-indigo-500','bg-violet-500','bg-pink-500','bg-rose-500',
+  'bg-orange-500','bg-amber-500','bg-teal-500','bg-cyan-500',
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[h];
+}
+
 export default function CounterPaymentsPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +60,12 @@ export default function CounterPaymentsPage() {
   const [tipAmount, setTipAmount] = useState('');
   const [search, setSearch] = useState('');
   const [property, setProperty] = useState<any>(null);
+
+  // Tip Report
+  const [tipReport, setTipReport] = useState<{ name: string; tip: number; orders: number }[]>([]);
+  const [tipTotal, setTipTotal] = useState(0);
+  const [tipReportLoading, setTipReportLoading] = useState(false);
+  const [showTipReport, setShowTipReport] = useState(false);
 
   const [autoClearEnabled, setAutoClearEnabled] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('counter_auto_clear') === 'true';
@@ -61,6 +90,10 @@ export default function CounterPaymentsPage() {
       if (autoClearEnabled) {
         url.searchParams.set('thresholdHours', String(autoClearHours));
       }
+      const propId = property?.id;
+      if (propId) {
+        url.searchParams.set('propertyId', propId);
+      }
       const res = await fetch(url.toString());
       const data = await res.json();
       if (data.success) {
@@ -75,13 +108,35 @@ export default function CounterPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [autoClearEnabled, autoClearHours]);
+  }, [autoClearEnabled, autoClearHours, property?.id]);
+
+  const fetchTipReport = useCallback(async () => {
+    setTipReportLoading(true);
+    try {
+      const propId = property?.id;
+      const url = propId ? `/api/pos-orders/tip-report?propertyId=${propId}` : '/api/pos-orders/tip-report';
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setTipReport(data.data.report || []);
+        setTipTotal(data.data.totalTip || 0);
+      }
+    } catch (err) { console.error('Failed to fetch tip report', err); }
+    finally { setTipReportLoading(false); }
+  }, [property?.id]);
 
   useEffect(() => {
     fetchOrders();
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
+
+  // Fetch tip report on mount and whenever showTipReport opens
+  useEffect(() => {
+    fetchTipReport();
+    const interval = setInterval(fetchTipReport, 30000);
+    return () => clearInterval(interval);
+  }, [fetchTipReport]);
 
   useEffect(() => {
     localStorage.setItem('counter_auto_clear', String(autoClearEnabled));
@@ -135,6 +190,7 @@ export default function CounterPaymentsPage() {
         setTimeout(() => {
           setSettled(null);
           fetchOrders();
+          fetchTipReport(); // refresh tip report after settle
         }, 1000);
       } else {
         alert(data.message || 'Failed');
@@ -175,7 +231,7 @@ export default function CounterPaymentsPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-3 lg:p-5">
       <div className="max-w-[1600px] mx-auto space-y-4">
         
-        {/* Header: Compact */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
@@ -198,6 +254,13 @@ export default function CounterPaymentsPage() {
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
+            <button
+              onClick={() => { setShowTipReport(!showTipReport); if (!showTipReport) fetchTipReport(); }}
+              className={`p-2 rounded-xl border transition-colors ${showTipReport ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}`}
+              title="Today's Tip Report"
+            >
+              <Gift size={16} />
+            </button>
             <button onClick={() => setShowSettings(!showSettings)} className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
               <Clock size={16} />
             </button>
@@ -207,13 +270,98 @@ export default function CounterPaymentsPage() {
           </div>
         </div>
 
-        {/* Stats: Super Compact */}
+        {/* ── TODAY'S TIP REPORT PANEL ── */}
+        {showTipReport && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+                  <Gift size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aaj ka</p>
+                  <h2 className="text-sm font-black text-slate-900 dark:text-white">Tip Report</h2>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {tipReportLoading && <Loader2 size={14} className="animate-spin text-slate-400" />}
+                <div className="text-right">
+                  <p className="text-[9px] text-slate-400 font-bold uppercase">Total Tips Today</p>
+                  <p className="text-2xl font-black text-emerald-600">₹{tipTotal.toFixed(0)}</p>
+                </div>
+              </div>
+            </div>
+
+            {tipReport.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-2xl mb-2">🙏</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                  {tipReportLoading ? 'Loading...' : 'Aaj koi tip nahi mila abhi tak'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {tipReport.map((row, i) => (
+                  <div key={row.name} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    {/* Rank */}
+                    <div className="w-6 text-center">
+                      {i === 0 ? <span className="text-lg">🥇</span>
+                       : i === 1 ? <span className="text-lg">🥈</span>
+                       : i === 2 ? <span className="text-lg">🥉</span>
+                       : <span className="text-xs font-black text-slate-400">#{i + 1}</span>}
+                    </div>
+
+                    {/* Avatar */}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shrink-0 ${avatarColor(row.name)}`}>
+                      {row.name.charAt(0).toUpperCase()}
+                    </div>
+
+                    {/* Name + orders */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-slate-800 dark:text-white truncate">{row.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{row.orders} order{row.orders !== 1 ? 's' : ''} with tip</p>
+                    </div>
+
+                    {/* Tip amount */}
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-black text-emerald-600">₹{row.tip.toFixed(0)}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">
+                        {tipTotal > 0 ? `${((row.tip / tipTotal) * 100).toFixed(0)}% of total` : ''}
+                      </p>
+                    </div>
+
+                    {/* Bar */}
+                    <div className="w-24 hidden sm:block">
+                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                          style={{ width: tipTotal > 0 ? `${(row.tip / tipTotal) * 100}%` : '0%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/30 text-right">
+              <button
+                onClick={fetchTipReport}
+                className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition-colors flex items-center gap-1 ml-auto"
+              >
+                <RefreshCcw size={10} /> Refresh
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Pending Rev', value: `₹${orders.reduce((s, o) => s + (o.grandTotal || 0), 0).toFixed(0)}`, color: 'text-orange-600' },
             { label: 'Ready', value: orders.filter(o => o.status === 'READY').length, color: 'text-emerald-600' },
             { label: 'Awaiting', value: orders.filter(o => o.status === 'PAYMENT_AWAITING_APPROVAL').length, color: 'text-amber-600' },
-            { label: 'Active', value: orders.length, color: 'text-blue-600' },
+            { label: 'Tips Today', value: `₹${tipTotal.toFixed(0)}`, color: 'text-emerald-600' },
           ].map(s => (
             <div key={s.label} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</span>
@@ -222,7 +370,7 @@ export default function CounterPaymentsPage() {
           ))}
         </div>
 
-        {/* Orders Grid: 4 Columns, Compact Cards */}
+        {/* Orders Grid */}
         {loading && !orders.length ? (
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
@@ -258,15 +406,18 @@ export default function CounterPaymentsPage() {
                 sourceColor = 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
               }
 
+              const tipInfo = parseTipRef(order.onlinePaymentReference);
+              const hasTip = tipInfo.tip > 0;
+              const cardStaffName = tipInfo.staffName || (order.servedBy?.fullName?.split(' ')[0]) || (order.staffMember?.name?.split(' ')[0]);
+
               return (
                 <div
                   key={order.id}
-                  onClick={() => { setSelectedOrder(order); setTipAmount(''); setPayMethod(order.status === 'PAYMENT_AWAITING_APPROVAL' ? 'UPI' : 'CASH'); }}
+                  onClick={() => { setSelectedOrder(order); setTipAmount(hasTip ? String(tipInfo.tip) : ''); setPayMethod(order.status === 'PAYMENT_AWAITING_APPROVAL' ? 'UPI' : 'CASH'); }}
                   className={`bg-white dark:bg-slate-900 rounded-xl border-2 p-3 transition-all cursor-pointer hover:shadow-md ${
                     settled === order.id ? 'border-emerald-500' : isHighPriority ? 'border-orange-500/50 bg-orange-50/10' : 'border-slate-100 dark:border-slate-800'
                   }`}
                 >
-                  {/* Big prominent source banner at the very top */}
                   <div className={`px-3 py-2 rounded-lg mb-3 border-2 text-xs font-black uppercase tracking-widest text-center ${sourceColor}`}>
                     {sourceTitle}
                   </div>
@@ -303,10 +454,23 @@ export default function CounterPaymentsPage() {
                         {order.guest?.firstName || (order.vehicleNumber ? order.vehicleNumber : 'Walk-in')}
                       </span>
                     </div>
+                    {cardStaffName && (
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-400 font-bold uppercase">Staff</span>
+                        <span className="font-black text-indigo-600 dark:text-indigo-400 truncate max-w-[100px] flex items-center gap-1">
+                          <User size={9} />{cardStaffName}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <p className="text-base font-black text-orange-600">₹{order.grandTotal?.toFixed(0)}</p>
+                    <div className="flex flex-col">
+                      <p className="text-base font-black text-orange-600">₹{order.grandTotal?.toFixed(0)}</p>
+                      {hasTip && (
+                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">+₹{tipInfo.tip.toFixed(0)} tip 🙏</span>
+                      )}
+                    </div>
                     <button className={`p-2 rounded-lg text-white shadow-sm transition-all active:scale-95 ${order.status === 'PAYMENT_AWAITING_APPROVAL' ? 'bg-amber-500' : 'bg-orange-500'}`}>
                       <ChevronRight size={14} />
                     </button>
@@ -318,7 +482,7 @@ export default function CounterPaymentsPage() {
         )}
       </div>
 
-      {/* Settle Modal: Compact */}
+      {/* Settle Modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -335,15 +499,49 @@ export default function CounterPaymentsPage() {
 
             <div className="flex-1 overflow-y-auto p-5 space-y-5 no-scrollbar">
               
-              {selectedOrder.status === 'PAYMENT_AWAITING_APPROVAL' && (
-                <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50 flex items-center gap-3">
-                  <Smartphone className="text-amber-500" size={24} />
-                  <div>
-                    <p className="text-[10px] font-black text-amber-600 uppercase">Verify UPI Payment</p>
-                    <p className="text-sm font-black text-slate-800 dark:text-white tracking-widest">Ref: ****{selectedOrder.onlinePaymentReference || '---'}</p>
+              {selectedOrder.status === 'PAYMENT_AWAITING_APPROVAL' && (() => {
+                const tipInfo = parseTipRef(selectedOrder.onlinePaymentReference);
+                const staffName = tipInfo.staffName || selectedOrder.servedBy?.fullName || selectedOrder.staffMember?.name || '';
+                return (
+                  <div className="space-y-2">
+                    {/* UPI notice */}
+                    <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50 flex items-center gap-3">
+                      <Smartphone className="text-amber-500" size={24} />
+                      <div>
+                        <p className="text-[10px] font-black text-amber-600 uppercase">Verify UPI Payment</p>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Sent from Staff Portal</p>
+                      </div>
+                    </div>
+
+                    {/* Staff name panel */}
+                    {staffName && (
+                      <div className="bg-indigo-50 dark:bg-indigo-950/20 p-3 rounded-2xl border border-indigo-200 dark:border-indigo-800/50 flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black shrink-0 ${avatarColor(staffName)}`}>
+                          {staffName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Served By</p>
+                          <p className="text-sm font-black text-slate-800 dark:text-white">{staffName}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tip panel */}
+                    {tipInfo.tip > 0 && (
+                      <div className="bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-2xl border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🙏</span>
+                          <div>
+                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Tip Added by Staff</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">Pre-filled below</p>
+                          </div>
+                        </div>
+                        <p className="text-2xl font-black text-emerald-600">₹{tipInfo.tip.toFixed(0)}</p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl space-y-2">
                 <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
@@ -361,16 +559,19 @@ export default function CounterPaymentsPage() {
                 </div>
               </div>
 
-              {/* Tips: Smaller */}
-              <div className="grid grid-cols-4 gap-2">
-                {[10, 20, 50].map(t => (
-                  <button key={t} onClick={() => setTipAmount(tipAmount === String(t) ? '' : String(t))}
-                    className={`py-2 rounded-xl text-[10px] font-black border ${tipAmount === String(t) ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-200 dark:border-slate-800 hover:border-orange-500/50'}`}>
-                    ₹{t}
-                  </button>
-                ))}
-                <input type="number" value={tipAmount} onChange={e => setTipAmount(e.target.value)} placeholder="Tip"
-                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-[10px] font-black focus:outline-none" />
+              {/* Tip input */}
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">💰 Add / Adjust Tip</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {[10, 20, 50].map(t => (
+                    <button key={t} onClick={() => setTipAmount(tipAmount === String(t) ? '' : String(t))}
+                      className={`py-2 rounded-xl text-[10px] font-black border ${tipAmount === String(t) ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-200 dark:border-slate-800 hover:border-orange-500/50'}`}>
+                      ₹{t}
+                    </button>
+                  ))}
+                  <input type="number" value={tipAmount} onChange={e => setTipAmount(e.target.value)} placeholder="Tip"
+                    className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-[10px] font-black focus:outline-none" />
+                </div>
               </div>
 
               {/* Payment Methods */}
