@@ -61,17 +61,7 @@ export async function decrypt(input: string): Promise<any | null> {
 }
 
 export async function getSession() {
-  let sessionCookie = (await cookies()).get('session')?.value
-  if (!sessionCookie) {
-    sessionCookie = (await cookies()).get('staff_session')?.value
-  }
-
-  if (sessionCookie) {
-    const payload = await decrypt(sessionCookie)
-    if (payload) return payload as SessionPayload
-  }
-
-  // Fallback: Check Authorization header (useful for staff portal steward requests)
+  // Check Authorization header first (explicit Bearer token takes precedence over cookies)
   try {
     const authHeader = (await headers()).get('Authorization') || (await headers()).get('authorization')
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -97,8 +87,21 @@ export async function getSession() {
         }
       }
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.digest === 'DYNAMIC_SERVER_USAGE' || err?.message?.includes('Dynamic server usage')) {
+      throw err;
+    }
     console.error('[getSession Header Fallback Error]:', err)
+  }
+
+  let sessionCookie = (await cookies()).get('session')?.value
+  if (!sessionCookie) {
+    sessionCookie = (await cookies()).get('staff_session')?.value
+  }
+
+  if (sessionCookie) {
+    const payload = await decrypt(sessionCookie)
+    if (payload) return payload as SessionPayload
   }
 
   return null

@@ -7,6 +7,7 @@ import VoiceMessagesTab from '@/components/staff/walkie-talkie/VoiceMessagesTab'
 import AudioPlayer from '@/components/staff/walkie-talkie/AudioPlayer'
 import { useAutoPlay } from '@/components/staff/walkie-talkie/useAutoPlay'
 import AutoPlayNotification from '@/components/staff/walkie-talkie/AutoPlayNotification'
+import StaffAttendancePanel from '@/components/staff/StaffAttendancePanel'
 
 /* ─── Types ─── */
 interface StaffUser {
@@ -30,14 +31,102 @@ interface PosOrder {
 }
 interface Contact { id: string; name: string; designation: string; wtStatus: string }
 interface Channel { id: string; name: string; type: string; isEmergency: boolean; membersCount?: number }
-type Tab = 'ptt' | 'messages' | 'pos' | 'network' | 'settings'
+type Tab = 'ptt' | 'messages' | 'pos' | 'attendance' | 'settings'
+
+/* ─── Mobile Audio Unlock System ──────────────────────────────────
+   Mobile browsers (iOS Safari, Chrome Android) block ALL audio 
+   (AudioContext + HTMLAudioElement) until the user taps the page.
+   This shared system:
+   1. Creates a single global AudioContext
+   2. Resumes it on first user tap/click/touchstart
+   3. Plays a silent <audio> to unlock HTMLAudioElement for autoplay
+   4. Exposes an `isAudioUnlocked` flag for UI to show "Tap to enable"
+─────────────────────────────────────────────────────────────────── */
+let _sharedAudioCtx: AudioContext | null = null
+let _audioUnlocked = false
+const _audioUnlockListeners: Array<(v: boolean) => void> = []
+
+function getSharedAudioCtx(): AudioContext | null {
+  if (_sharedAudioCtx) return _sharedAudioCtx
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return null
+    _sharedAudioCtx = new Ctx()
+    return _sharedAudioCtx
+  } catch { return null }
+}
+
+function _onAudioUnlocked() {
+  if (_audioUnlocked) return
+  _audioUnlocked = true
+  _audioUnlockListeners.forEach(fn => fn(true))
+}
+
+/** Call this once on mount to set up unlock listeners on the document */
+function setupMobileAudioUnlock() {
+  if (typeof window === 'undefined') return
+
+  const unlock = () => {
+    // 1. Resume AudioContext
+    const ctx = getSharedAudioCtx()
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        _onAudioUnlocked()
+      }).catch(() => {})
+    } else {
+      _onAudioUnlocked()
+    }
+
+    // 2. Unlock HTMLAudioElement by playing a tiny silent data-uri
+    try {
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=')
+      silentAudio.volume = 0.01
+      silentAudio.play().then(() => {
+        silentAudio.pause()
+        silentAudio.remove?.()
+      }).catch(() => {})
+    } catch {}
+  }
+
+  // Listen for first interaction
+  const events = ['touchstart', 'touchend', 'click', 'keydown']
+  const handler = () => {
+    unlock()
+    // Keep listeners for a few more taps in case first attempt fails
+    setTimeout(() => {
+      events.forEach(e => document.removeEventListener(e, handler, true))
+    }, 3000)
+  }
+  events.forEach(e => document.addEventListener(e, handler, { capture: true, passive: true }))
+
+  // Also try immediately in case context is already allowed (desktop)
+  const ctx = getSharedAudioCtx()
+  if (ctx && ctx.state === 'running') {
+    _onAudioUnlocked()
+  }
+}
+
+function useAudioUnlocked() {
+  const [unlocked, setUnlocked] = React.useState(_audioUnlocked)
+  React.useEffect(() => {
+    if (_audioUnlocked) { setUnlocked(true); return }
+    const listener = (v: boolean) => setUnlocked(v)
+    _audioUnlockListeners.push(listener)
+    return () => {
+      const idx = _audioUnlockListeners.indexOf(listener)
+      if (idx >= 0) _audioUnlockListeners.splice(idx, 1)
+    }
+  }, [])
+  return unlocked
+}
 
 /* ─── PTT Chirp sounds ─── */
 function playChirp(type: 'start' | 'stop') {
   try {
-    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext
-    if (!Ctx) return
-    const ctx = new Ctx(); const now = ctx.currentTime
+    const ctx = getSharedAudioCtx()
+    if (!ctx) return
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    const now = ctx.currentTime
     if (type === 'start') {
       const o = ctx.createOscillator(); const g = ctx.createGain()
       o.connect(g); g.connect(ctx.destination); o.type = 'sine'
@@ -62,9 +151,9 @@ function playChirp(type: 'start' | 'stop') {
 /* ─── New Order Notification Sound ─── */
 function playOrderNotificationSound() {
   try {
-    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext
-    if (!Ctx) return
-    const ctx = new Ctx()
+    const ctx = getSharedAudioCtx()
+    if (!ctx) return
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     const now = ctx.currentTime
     
     // Play two notes in quick succession (chime effect)
@@ -352,11 +441,19 @@ function LocationSharingPanel({ wtToken }: { wtToken: string }) {
 
   const sendPing = React.useCallback(async (lat: number, lng: number) => {
     if (!wtToken) return
+    let autoAttendance = false
+    try {
+      const stored = localStorage.getItem('staff_portal_settings')
+      if (stored) {
+        autoAttendance = JSON.parse(stored).autoAttendance === true
+      }
+    } catch {}
+
     try {
       const res = await fetch('/api/staff-location/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${wtToken}` },
-        body: JSON.stringify({ lat, lng }),
+        body: JSON.stringify({ lat, lng, autoAttendance }),
       })
       if (res.ok) {
         const j = await res.json()
@@ -497,6 +594,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const [propertyCode, setPropertyCode] = useState('')
   useEffect(() => { params.then(p => setPropertyCode(p.propertyCode)) }, [params])
 
+  const isAudioUnlocked = useAudioUnlocked()
+
   /* Auth */
   const [user, setUser] = useState<StaffUser | null>(null)
   const [wtToken, setWtToken] = useState('')
@@ -563,7 +662,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const [rtcStatus, setRtcStatus] = useState('Standby')
 
   /* Settings */
-  const [settings, setSettings] = useState({ autoBroadcast: false, ttsEnabled: false, autoPlayVoice: true })
+  const [settings, setSettings] = useState({ autoBroadcast: false, ttsEnabled: false, autoPlayVoice: true, autoAttendance: false })
 
   /* ── Global background auto-play hook ─────────────────────────
      Plays incoming voice messages automatically on ANY tab.
@@ -600,6 +699,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
   const selectedChannelIdRef = useRef('')
   const userRef = useRef<any>(null)
+  const pttButtonRef = useRef<HTMLDivElement>(null)
 
   // Keep refs in sync
   useEffect(() => { channelsRef.current = channels }, [channels])
@@ -638,7 +738,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     socketRef.current?.disconnect()
   }, [])
 
-  /* ── Restore session ── */
+  /* ── Restore session & enforce correct property URL ── */
   useEffect(() => {
     try {
       const s = localStorage.getItem('staff_portal_session')
@@ -647,12 +747,18 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         if (p.user && p.wtToken) { 
           setUser(p.user)
           setWtToken(p.wtToken) 
+          
+          // Redirect if property code mismatch
+          const userPropCode = p.user.property?.code?.toLowerCase()
+          if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+            window.location.href = `/staff-portal/${userPropCode}`
+          }
         } 
       }
       const st = localStorage.getItem('staff_portal_settings')
       if (st) setSettings(JSON.parse(st))
     } catch {}
-  }, [])
+  }, [propertyCode])
 
   /* ── On login: connect + load data ── */
   useEffect(() => {
@@ -680,6 +786,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         });
       }
     }
+    // Setup mobile audio unlock listeners
+    setupMobileAudioUnlock()
   }, []);
 
   /* ── Continuous Vibration Loop for Unread Orders ── */
@@ -781,6 +889,12 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       if (!res.ok) { setAuthError(data.message || 'Login failed'); return }
       setUser(data.user); setWtToken(data.wtToken)
       localStorage.setItem('staff_portal_session', JSON.stringify({ user: data.user, wtToken: data.wtToken }))
+
+      // Redirect if property code mismatch
+      const userPropCode = data.user.property?.code?.toLowerCase()
+      if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+        window.location.href = `/staff-portal/${userPropCode}`
+      }
     } catch { setAuthError('Network error. Try again.') }
     finally { setAuthLoading(false) }
   }
@@ -861,7 +975,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
       // Trigger global background voice message autoplay
       const speakerName = contactsRef.current.find(c => c.id === d.userId)?.name || 'Someone'
-      triggerPlayRef.current(d.channelId, d.userId, speakerName)
+      triggerPlayRef.current(d.channelId, d.userId, speakerName, d.talkId)
 
       // Auto-reload history after a brief delay for upload completion
       setTimeout(() => {
@@ -1105,7 +1219,15 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         return
       }
 
-      const mediaRecorder = new MediaRecorder(stream)
+      let options = {}
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' }
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' }
+        }
+      }
+      const mediaRecorder = new MediaRecorder(stream, options)
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
 
@@ -1116,7 +1238,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       }
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const mimeType = mediaRecorder.mimeType || 'audio/webm'
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
         const talkId = activeTalkIdRef.current
 
         if (talkId) {
@@ -1153,6 +1276,30 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       addLog(`❌ Recording error: ${e.message}`)
     }
   }, [publishMic, isBusy, wtToken, loadHistory])
+
+  // Hook non-passive touch event listeners to PTT button to support preventDefault on mobile.
+  useEffect(() => {
+    const btn = pttButtonRef.current
+    if (!btn) return
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault()
+      handlePTTStart()
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault()
+      handlePTTStop()
+    }
+
+    btn.addEventListener('touchstart', onTouchStart, { passive: false })
+    btn.addEventListener('touchend', onTouchEnd, { passive: false })
+
+    return () => {
+      btn.removeEventListener('touchstart', onTouchStart)
+      btn.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [handlePTTStart, handlePTTStop])
 
 
 
@@ -1517,7 +1664,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     { key: 'ptt', label: 'PTT', emoji: '📻' },
     { key: 'messages', label: 'Messages', emoji: '💬' },
     { key: 'pos', label: 'Orders', emoji: '📋' },
-    { key: 'network', label: 'Network', emoji: '📶' },
+    { key: 'attendance', label: 'Attendance', emoji: '📅' },
     { key: 'settings', label: 'Settings', emoji: '⚙️' },
   ]
 
@@ -1556,6 +1703,31 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
           <button onClick={handleLogout} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 7, padding: '6px 9px', cursor: 'pointer', color: '#f87171', fontSize: 12, lineHeight: 1 }}>⏻</button>
         </div>
       </header>
+
+      {/* ━━━ AUDIO UNLOCKED NOTICE BANNER ━━━ */}
+      {!isAudioUnlocked && (
+        <div style={{
+          flexShrink: 0,
+          background: 'linear-gradient(90deg, #b91c1c, #7f1d1d)',
+          borderBottom: '1px solid rgba(239,68,68,0.3)',
+          padding: '8px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          animation: 'pulse 2s infinite',
+        }}>
+          <span style={{ fontSize: 16 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, color: '#fecaca', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Sound is Blocked by Phone
+            </div>
+            <div style={{ fontSize: 9, color: '#fca5a5', fontWeight: 600 }}>
+              Tap anywhere on screen to enable walkie-talkie & order sound
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ━━━ SYSTEM STATUS / INCOMING VOICE BANNER (FIXED HEIGHT TO PREVENT LAYOUT SHIFT) ━━━ */}
       <div style={{ 
@@ -1867,9 +2039,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                   {isSpeaking && <div style={{ position: 'absolute', inset: -12, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.25)', animation: 'ping 1.2s ease-out infinite' }} />}
                   {isSpeaking && <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', border: '1px solid rgba(99,102,241,0.1)', animation: 'ping 1.2s ease-out 0.3s infinite' }} />}
                   <div
+                    ref={pttButtonRef}
                     onMouseDown={handlePTTStart} onMouseUp={handlePTTStop}
-                    onTouchStart={e => { e.preventDefault(); handlePTTStart() }}
-                    onTouchEnd={e => { e.preventDefault(); handlePTTStop() }}
                     style={{
                       width: 108, height: 108, borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
                       cursor: (isBusy && !isSpeaking) ? 'not-allowed' : 'pointer',
@@ -1938,6 +2109,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
             onRefreshAll={loadAllChannelHistories}
             onRefreshChannel={(chId) => loadHistory(chId).then(() => loadAllChannelHistories())}
             playingId={playingInfo?.id || null}
+            wtToken={wtToken}
           />
         )}
 
@@ -1966,35 +2138,18 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
           </div>
         )}
 
-        {/* ══════════ NETWORK TAB ══════════ */}
-        {activeTab === 'network' && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 9 }}>
-              {[{ label: 'Socket', value: socketStatus === 'connected' ? 'Live' : socketStatus, color: statusColor }, { label: 'Latency', value: latency ? `${latency}ms` : '—', color: latency && latency < 100 ? '#34d399' : '#fbbf24' }].map(c => (
-                <div key={c.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 13, padding: '13px 14px' }}>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 4 }}>{c.label}</div>
-                  <div style={{ fontSize: 17, fontWeight: 900, color: c.color }}>{c.value}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ background: isRtcMockMode ? 'rgba(245,158,11,0.05)' : 'rgba(52,211,153,0.05)', border: `1px solid ${isRtcMockMode ? 'rgba(245,158,11,0.2)' : 'rgba(52,211,153,0.2)'}`, borderRadius: 13, padding: '13px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 11 }}>
-              <span style={{ fontSize: 22, flexShrink: 0 }}>{isRtcMockMode ? '📵' : '🔊'}</span>
-              <div>
-                <div style={{ fontSize: 9, fontWeight: 800, color: isRtcMockMode ? '#fbbf24' : '#34d399', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 2 }}>{isRtcMockMode ? 'Mock Voice Mode' : 'Live Group Voice RTC'}</div>
-                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>{rtcStatus}</div>
-                {activeChannel && <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>Group: <span style={{ color: '#818cf8' }}>{activeChannel.name}</span></div>}
-                {isRtcMockMode && <div style={{ fontSize: 9, color: '#334155', marginTop: 3 }}>Add <code style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 3, padding: '1px 4px', color: '#94a3b8' }}>AGORA_APP_ID</code> in .env for real voice</div>}
-              </div>
-            </div>
-            <button onClick={() => { socketRef.current?.disconnect(); setTimeout(connectSocket, 500) }} style={{ width: '100%', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 11, padding: '10px', marginBottom: 14, fontSize: 10, fontWeight: 800, color: '#818cf8', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>🔄 Reconnect</button>
-          </div>
+
+
+        {/* ══════════ ATTENDANCE TAB ══════════ */}
+        {activeTab === 'attendance' && user && (
+          <StaffAttendancePanel user={user} wtToken={wtToken} />
         )}
 
         {/* ══════════ SETTINGS TAB ══════════ */}
         {activeTab === 'settings' && (
           <div>
             <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 13 }}>Preferences</div>
-            {[{ key: 'autoBroadcast' as const, label: 'Auto-broadcast urgent orders', desc: 'Announce orders >15 minutes wait via TTS' }, { key: 'ttsEnabled' as const, label: 'Read new orders aloud', desc: 'Text-to-speech for incoming POS orders' }, { key: 'autoPlayVoice' as const, label: '🔊 Auto-play voice messages', desc: 'Automatically play incoming voice recordings when you open Messages tab' }].map(opt => (
+            {[{ key: 'autoBroadcast' as const, label: 'Auto-broadcast urgent orders', desc: 'Announce orders >15 minutes wait via TTS' }, { key: 'ttsEnabled' as const, label: 'Read new orders aloud', desc: 'Text-to-speech for incoming POS orders' }, { key: 'autoPlayVoice' as const, label: '🔊 Auto-play voice messages', desc: 'Automatically play incoming voice recordings when you open Messages tab' }, { key: 'autoAttendance' as const, label: '📍 GPS Auto-Attendance', desc: 'Automatically clock in/out when entering or leaving the restaurant range' }].map(opt => (
               <div key={opt.key} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 13, padding: '14px', marginBottom: 9, display: 'flex', alignItems: 'center', gap: 13 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9', marginBottom: 3 }}>{opt.label}</div>

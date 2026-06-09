@@ -34,11 +34,22 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only intercept GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
-  // 🚀 CRITICAL: NEVER intercept API calls or B2B routes in the service worker
-  // This prevents the "Failed to convert value to Response" error
-  if (url.pathname.startsWith('/api/') || url.pathname.includes('b2b')) {
+  // 🚀 CRITICAL: NEVER intercept API calls, B2B routes, Socket.IO, port 5002, or cross-origin requests
+  // This prevents network errors and "Failed to convert value to Response" errors
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.includes('b2b') ||
+    url.pathname.includes('socket.io') ||
+    url.port === '5002' ||
+    url.hostname !== self.location.hostname
+  ) {
     return; // Let the browser handle these normally
   }
 

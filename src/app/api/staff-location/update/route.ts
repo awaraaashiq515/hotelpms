@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 
 /** Haversine formula — returns distance in metres between two GPS points */
 function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -17,7 +18,7 @@ function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number)
 
 /**
  * POST /api/staff-location/update
- * Body: { lat: number, lng: number }
+ * Body: { lat: number, lng: number, autoAttendance?: boolean }
  * Auth: Bearer WT token  OR  session cookie (supports both portals)
  */
 export async function POST(request: NextRequest) {
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const lat = parseFloat(body.lat);
     const lng = parseFloat(body.lng);
+    const autoAttendance = body.autoAttendance === true;
 
     if (isNaN(lat) || isNaN(lng)) {
       return NextResponse.json({ message: 'lat and lng are required numbers' }, { status: 400 });
@@ -64,6 +66,82 @@ export async function POST(request: NextRequest) {
         isOutOfRange,
       },
     });
+
+    // ── GPS-Based Auto-Attendance Proximity Verification ──
+    if (autoAttendance) {
+      try {
+        const active = await prisma.attendance.findFirst({
+          where: {
+            userId,
+            clockOut: null
+          },
+          orderBy: { clockIn: 'desc' }
+        });
+
+        if (!isOutOfRange) {
+          // Inside property range: auto clock-in if not currently active
+          if (!active) {
+            const attendance = await prisma.attendance.create({
+              data: {
+                propertyId,
+                userId,
+                clockIn: new Date(),
+                status: 'PRESENT',
+                note: 'Auto Clock-In (GPS Proximity)',
+                locationIn: `${lat},${lng}`
+              }
+            });
+
+            // Trigger manager notification
+            try {
+              const u = await prisma.user.findUnique({ where: { id: userId } });
+              await createNotification({
+                propertyId,
+                title: 'Auto Clock-In',
+                message: `${u?.fullName || 'Staff member'} logged in automatically (entered restaurant base range).`,
+                type: 'STAFF',
+                priority: 'LOW',
+                metadata: {
+                  userId,
+                  attendanceId: attendance.id,
+                  link: '/reports/attendance'
+                }
+              });
+            } catch (e) {}
+          }
+        } else {
+          // Outside property range: auto clock-out if currently active
+          if (active) {
+            const attendance = await prisma.attendance.update({
+              where: { id: active.id },
+              data: {
+                clockOut: new Date(),
+                locationOut: `${lat},${lng}`
+              }
+            });
+
+            // Trigger manager notification
+            try {
+              const u = await prisma.user.findUnique({ where: { id: userId } });
+              await createNotification({
+                propertyId,
+                title: 'Auto Clock-Out',
+                message: `${u?.fullName || 'Staff member'} logged out automatically (left restaurant base range).`,
+                type: 'STAFF',
+                priority: 'LOW',
+                metadata: {
+                  userId,
+                  attendanceId: attendance.id,
+                  link: '/reports/attendance'
+                }
+              });
+            } catch (e) {}
+          }
+        }
+      } catch (autoErr) {
+        console.error('[Auto-Attendance Trigger Error]', autoErr);
+      }
+    }
 
     return NextResponse.json({ success: true, ping });
   } catch (error: any) {

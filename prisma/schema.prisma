@@ -78,6 +78,8 @@ model Property {
   showBarInQrMenu      Boolean             @default(true)
   cafePosEnabled       Boolean             @default(false)
   showCafeInQrMenu     Boolean             @default(true)
+  deliveryEnabled      Boolean             @default(false)
+  showDeliveryInQrMenu Boolean             @default(true)
   upiId                String?
   upiName              String?
   upiLimit             Float               @default(100000)

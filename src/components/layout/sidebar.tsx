@@ -47,6 +47,16 @@ export const Sidebar: React.FC = () => {
   const menu = session ? getSidebarMenu(session.role, session.organizationSlug, propertyCode) : [];
   
   const filteredMenu = menu.filter(item => {
+    // Exclude Memberships, POS Access/Global Access, and Role Management from the POS sidebar
+    if (
+      item.name === 'Memberships' ||
+      item.name === 'POS Access' ||
+      item.name === 'Global Access' ||
+      item.name === 'Role Management'
+    ) {
+      return false;
+    }
+
     // Hide Bar POS menu item when barPosEnabled is false
     if (item.path.includes('/bar-pos') && !barPosEnabled) return false;
     // Hide Bar Display menu item when barPosEnabled is false

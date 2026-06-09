@@ -9,7 +9,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') })
 import { prisma } from '../lib/prisma'
 import { verifyWTToken } from '../lib/walkie-talkie-auth'
 
-const PORT = parseInt(process.env.PORT || '5001', 10)
+const PORT = parseInt(process.env.PORT || '5002', 10)
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
@@ -288,7 +288,8 @@ async function releaseMicLock(channelId: string, speakerId: string, talkHistoryI
     // Announce to channel members
     io.to(channelId).emit('speaker_stopped', {
       userId: speakerId,
-      channelId
+      channelId,
+      talkId: talkHistoryId
     })
 
     // Revert user status to online

@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
       ? { staffMemberId: targetId, clockOut: null }
       : { userId: targetId, clockOut: null };
 
+    const actualUserId = isUser ? targetId : (isStaffMember?.userId || null);
+
     if (action === 'clock-in') {
       const existing = await prisma.attendance.findFirst({ where: whereClause });
       if (existing) return apiError(new Error('Already clocked in'), 400);
@@ -41,12 +43,18 @@ export async function POST(request: NextRequest) {
           locationIn: location
         }
       });
+
+      // Auto-register location ping to live map tracking
+      if (actualUserId && location) {
+        await recordLocationPing(actualUserId, session.propertyId as string, location);
+      }
+
       // Notify management about clock-in
       try {
         await createNotification({
           propertyId: session.propertyId as string,
           title: 'Staff Clock-In',
-          message: `${isStaffMember?.name || isUser?.firstName} has clocked in.`,
+          message: `${isStaffMember?.name || isUser?.fullName || 'Staff'} has clocked in.`,
           type: 'STAFF',
           priority: 'LOW',
           metadata: {
@@ -73,12 +81,18 @@ export async function POST(request: NextRequest) {
           locationOut: location
         }
       });
+
+      // Auto-register location ping to live map tracking
+      if (actualUserId && location) {
+        await recordLocationPing(actualUserId, session.propertyId as string, location);
+      }
+
       // Notify management about clock-out
       try {
         await createNotification({
           propertyId: session.propertyId as string,
           title: 'Staff Clock-Out',
-          message: `${isStaffMember?.name || isUser?.firstName} has clocked out.`,
+          message: `${isStaffMember?.name || isUser?.fullName || 'Staff'} has clocked out.`,
           type: 'STAFF',
           priority: 'LOW',
           metadata: {
@@ -95,5 +109,50 @@ export async function POST(request: NextRequest) {
     return apiError(new Error('Invalid action'), 400);
   } catch (error) {
     return apiError(error);
+  }
+}
+
+function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function recordLocationPing(userId: string, propertyId: string, locationStr: string) {
+  const [latStr, lngStr] = locationStr.split(',');
+  const lat = parseFloat(latStr);
+  const lng = parseFloat(lngStr);
+  if (isNaN(lat) || isNaN(lng)) return;
+
+  try {
+    const settings = await (prisma as any).staffLocationSettings.findUnique({
+      where: { propertyId }
+    });
+    
+    let distanceFromBase = 0;
+    let isOutOfRange = false;
+
+    if (settings && (settings.baseLat !== 0 || settings.baseLng !== 0)) {
+      distanceFromBase = haversineMetres(settings.baseLat, settings.baseLng, lat, lng);
+      isOutOfRange = distanceFromBase > settings.alertDistanceMeters;
+    }
+
+    await (prisma as any).staffLocation.create({
+      data: {
+        userId,
+        propertyId,
+        lat,
+        lng,
+        distanceFromBase,
+        isOutOfRange
+      }
+    });
+  } catch (err) {
+    console.error('Failed to auto-create StaffLocation ping:', err);
   }
 }

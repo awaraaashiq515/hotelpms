@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
     'inventory', 'kots', 'reports', 'settings', 'operations', 'drivers', 'pos-staff',
     'expenses', 'accounts', 'manage-properties', 'manage-users', 'manage-roles',
     'pos', 'vouchers', 'orders', 'all-bills', 'categories', 'products', 'day-closing',
-    'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display', 'bar-display'
+    'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display', 'bar-display',
+    'staff', 'cafe-pos'
   ]
 
   let strippedPathname = pathname
@@ -257,7 +258,6 @@ export async function middleware(request: NextRequest) {
       const pathToFeatureMap: Record<string, string> = {
         // POS
         '/billing':           'POS',
-        '/bar-pos':           'POS',
         '/counter-payments':  'POS',
         '/all-bills':         'POS',
         '/products':          'POS',
@@ -294,6 +294,18 @@ export async function middleware(request: NextRequest) {
         '/b2b':                'B2B',
         // Hotel
         '/operations/occupancy': 'HMS',
+        // Parking
+        '/operations/parking': 'PARKING',
+        // Waste Management
+        '/operations/waste-management': 'WASTE',
+        // Bar POS
+        '/bar-pos':   'BARPOS',
+        // Cafe POS
+        '/cafe-pos':  'CAFEPOS',
+        // Staff Geofencing / Location
+        '/staff/location':            'GEOFENCING',
+        '/staff/attendance-location': 'GEOFENCING',
+        '/staff/attendance':          'GEOFENCING',
       }
 
       const matchedPath = Object.keys(pathToFeatureMap).find(
@@ -307,7 +319,10 @@ export async function middleware(request: NextRequest) {
           // Special bypass for CRM module for standard POS roles to prevent stale JWT cookie issues
           const isCrmBypass = requiredFeature === 'CRM' && (role === 'RESTAURANTS_ADMIN' || role === 'POSSYSTEM')
           if (!isCrmBypass) {
-            return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
+            const lockedUrl = new URL('/feature-locked', request.url)
+            lockedUrl.searchParams.set('feature', requiredFeature)
+            lockedUrl.searchParams.set('from', pathname)
+            return NextResponse.redirect(lockedUrl)
           }
         }
       }

@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
             tableNo: table?.name || null,
             staffMemberId: staffMemberId || null,
             driverId: driverId || null,
+            servedById: session.id, // Set the user placing the order
           },
           include: { items: true }
         });
@@ -163,7 +164,8 @@ export async function POST(request: NextRequest) {
           taxAmount, 
           grandTotal, 
           ...(staffMemberId && { staffMemberId }),
-          ...(driverId && { driverId }) 
+          ...(driverId && { driverId }),
+          servedById: session.id, // Update waiter context
         }
       });
 
@@ -179,6 +181,12 @@ export async function POST(request: NextRequest) {
             select: { name: true } 
           });
           staffName = staff?.name;
+        } else if (session.id) {
+          const u = await tx.user.findUnique({
+            where: { id: session.id },
+            select: { fullName: true }
+          });
+          staffName = u?.fullName || null;
         }
 
 

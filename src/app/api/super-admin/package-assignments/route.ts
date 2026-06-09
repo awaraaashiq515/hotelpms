@@ -12,17 +12,17 @@ export async function GET(request: NextRequest) {
     // Fetch all packages with their assigned organizations and the users in those organizations
     const packages = await prisma.package.findMany({
       include: {
+        features: true,
         organizations: {
           include: {
             users: {
-              include: {
-                role: true,
-              },
+              include: { role: true },
             },
             _count: {
               select: { properties: true },
             },
           },
+          orderBy: { name: 'asc' },
         },
       },
       orderBy: { name: 'asc' },

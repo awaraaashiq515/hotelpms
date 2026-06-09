@@ -139,9 +139,63 @@ function DistanceRing({ staff, settings }: { staff: StaffRow[]; settings: Locati
 /* ══════════════════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════════════════ */
+const addressCache: { [coords: string]: string } = {};
+
+const ResolvedAddress = ({ coordinates, isOutOfRange, defaultLabel }: { coordinates: string | null; isOutOfRange: boolean; defaultLabel: string }) => {
+  const [address, setAddress] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!coordinates) return;
+    
+    if (!isOutOfRange) {
+      setAddress('Inside Restaurant');
+      return;
+    }
+
+    if (addressCache[coordinates]) {
+      setAddress(addressCache[coordinates]);
+      return;
+    }
+
+    const fetchAddress = async () => {
+      setLoading(true);
+      try {
+        const [lat, lng] = coordinates.split(',');
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.trim()}&lon=${lng.trim()}&zoom=16`);
+        const data = await res.json();
+        if (data && data.display_name) {
+          const parts = data.display_name.split(',');
+          const clean = parts.slice(0, 3).join(',').trim();
+          addressCache[coordinates] = clean;
+          setAddress(clean);
+        } else {
+          setAddress(coordinates);
+        }
+      } catch (err) {
+        console.error(err);
+        setAddress(coordinates);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAddress();
+  }, [coordinates, isOutOfRange, defaultLabel]);
+
+  if (loading) {
+    return <span style={{ fontSize: 8, color: '#475569', fontStyle: 'italic' }}>Resolving location...</span>;
+  }
+
+  return <span style={{ fontWeight: 700, color: '#a5b4fc' }}>{address || coordinates}</span>;
+};
+
 export default function StaffLocationPage() {
   const params = useParams();
   const propertyCode = params?.propertyCode as string;
+  const propertyName = propertyCode 
+    ? propertyCode.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') 
+    : 'Restaurant';
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [settings, setSettings] = useState<LocationSettings>({
@@ -516,8 +570,22 @@ export default function StaffLocationPage() {
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, marginTop: 2 }}>
-                          {s.designation || 'Staff'} · Last seen {fmtAgo(s.lastSeen)}
+                        <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span>{s.designation || 'Staff'}</span>
+                          <span>·</span>
+                          <span>Last seen {fmtAgo(s.lastSeen)}</span>
+                          {s.latestPing && (
+                            <>
+                              <span>·</span>
+                              <span style={{ color: '#a5b4fc', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                📍 <ResolvedAddress 
+                                  coordinates={`${s.latestPing.lat},${s.latestPing.lng}`} 
+                                  isOutOfRange={s.isOutOfRange} 
+                                  defaultLabel={propertyName} 
+                                />
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 

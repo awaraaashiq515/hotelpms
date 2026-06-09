@@ -60,9 +60,17 @@ export async function GET(request: Request) {
     // Read file
     const fileBuffer = fs.readFileSync(filePath)
 
+    // Detect Content-Type from magic bytes/file signature
+    let contentType = 'audio/webm'
+    if (fileBuffer.length >= 4 && fileBuffer[0] === 0x1A && fileBuffer[1] === 0x45 && fileBuffer[2] === 0xDF && fileBuffer[3] === 0xA3) {
+      contentType = 'audio/webm'
+    } else if (fileBuffer.length >= 8 && fileBuffer.toString('ascii', 4, 8) === 'ftyp') {
+      contentType = 'audio/mp4'
+    }
+
     return new Response(fileBuffer, {
       headers: {
-        'Content-Type': 'audio/webm',
+        'Content-Type': contentType,
         'Content-Length': fileBuffer.length.toString(),
         'Cache-Control': 'public, max-age=31536000, immutable'
       }

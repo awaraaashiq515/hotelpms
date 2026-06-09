@@ -18,7 +18,7 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, deliveryEnabled, showDeliveryInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours } = body;
     const isSuperAdmin = session.role === 'SUPER_ADMIN';
 
     const updateData: any = {};
@@ -57,6 +57,8 @@ export async function PUT(
     if (showBarInQrMenu !== undefined) updateData.showBarInQrMenu = showBarInQrMenu;
     if (cafePosEnabled !== undefined) updateData.cafePosEnabled = cafePosEnabled;
     if (showCafeInQrMenu !== undefined) updateData.showCafeInQrMenu = showCafeInQrMenu;
+    if (deliveryEnabled !== undefined) updateData.deliveryEnabled = deliveryEnabled;
+    if (showDeliveryInQrMenu !== undefined) updateData.showDeliveryInQrMenu = showDeliveryInQrMenu;
     if (upiId !== undefined) updateData.upiId = upiId;
     if (upiName !== undefined) updateData.upiName = upiName;
     if (upiLimit !== undefined) updateData.upiLimit = upiLimit;

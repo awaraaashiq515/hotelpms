@@ -470,6 +470,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
+    console.log('[API GET /api/pos-orders] session resolved:', session ? { id: session.id, email: session.email, role: session.role, propertyId: session.propertyId } : 'null');
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url)
@@ -480,7 +481,10 @@ export async function GET(request: NextRequest) {
     const parkingSlotId = searchParams.get('parkingSlotId')
     const orderId = searchParams.get('orderId')
 
+    console.log('[API GET /api/pos-orders] query params:', { propertyIdParam, outletId, status, restaurantTableId, parkingSlotId, orderId });
+
     const where: any = getMultiTenantWhere(session, propertyIdParam);
+    console.log('[API GET /api/pos-orders] where after getMultiTenantWhere:', where);
 
     // Filter orders by assigned tables for standard staff users
     const user = await prisma.user.findUnique({
@@ -494,11 +498,23 @@ export async function GET(request: NextRequest) {
     if (user) {
       const isManagerOrAdmin = user.role?.name?.toLowerCase().includes('manager') || 
                                user.role?.name?.toLowerCase().includes('admin');
+      console.log('[API GET /api/pos-orders] user found:', { fullName: user.fullName, role: user.role?.name, isManagerOrAdmin, assignmentsCount: user.tableAssignments.length });
 
       if (!isManagerOrAdmin) {
         const assignedTableIds = user.tableAssignments.map((ta: any) => ta.tableId) || [];
-        where.restaurantTableId = { in: assignedTableIds };
+        where.OR = [
+          {
+            orderType: 'DINE_IN',
+            restaurantTableId: { in: assignedTableIds }
+          },
+          {
+            orderType: { in: ['DELIVERY', 'TAKEAWAY', 'PARKING'] }
+          }
+        ];
+        console.log('[API GET /api/pos-orders] non-admin table assignment filter applied with delivery/takeaway/parking fallback:', assignedTableIds);
       }
+    } else {
+      console.log('[API GET /api/pos-orders] user not found in database for id:', session.id);
     }
 
     // Handle status filtering
@@ -520,6 +536,8 @@ export async function GET(request: NextRequest) {
         ...(statusFilter ? { status: statusFilter } : {}),
     };
 
+    console.log('[API GET /api/pos-orders] finalWhere:', finalWhere);
+
     const orders = await prisma.posOrder.findMany({
       where: finalWhere,
       include: {
@@ -540,6 +558,9 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
       take: (orderId || restaurantTableId || parkingSlotId) ? undefined : 50 
     })
+
+    console.log('[API GET /api/pos-orders] orders found count:', orders.length);
+
 
     return apiResponse(orders, 'POS Orders fetched successfully')
   } catch (error) {

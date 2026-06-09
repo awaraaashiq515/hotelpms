@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X, Wine } from 'lucide-react';
+import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X, Wine, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -178,8 +178,36 @@ export const TopNavbar: React.FC = () => {
     return () => window.removeEventListener('click', handleClick);
   }, [showDisplayMenu, showLiveOrderMenu]);
 
+  // Expiry calculation for POS navbar
+  const packageEndDate = session?.packageEndDate;
+  let daysRemaining = 0;
+  let isNearExpiry = false;
+  if (packageEndDate) {
+    const expiry = new Date(packageEndDate);
+    const today = new Date();
+    const diffTime = expiry.getTime() - today.getTime();
+    daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    isNearExpiry = daysRemaining > 0 && daysRemaining <= 10;
+  }
+
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6 sticky top-0 z-50 shadow-sm transition-all duration-200">
+    <header className="flex flex-col sticky top-0 z-50 shadow-sm transition-all duration-200">
+      {/* Expiry Warning Banner */}
+      {isNearExpiry && (
+        <div className="w-full bg-gradient-to-r from-amber-500/25 to-orange-500/25 dark:from-amber-500/10 dark:to-orange-500/10 border-b border-amber-500/20 py-2.5 px-4 flex items-center justify-center gap-2.5 text-center text-amber-800 dark:text-amber-300 text-[11px] font-black uppercase tracking-wide">
+          <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 animate-bounce" />
+          <span>Plan Ending Soon: Only {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} left! Contact support to renew and keep POS features active.</span>
+          <button
+            onClick={() => router.push(`${p}/settings`)}
+            className="ml-4 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 shrink-0"
+          >
+            Manage Plan
+          </button>
+        </div>
+      )}
+
+      {/* Main Navbar Row */}
+      <div className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">
@@ -442,6 +470,7 @@ export const TopNavbar: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </header>
   );
 };

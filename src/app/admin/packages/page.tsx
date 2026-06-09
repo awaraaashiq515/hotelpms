@@ -40,6 +40,8 @@ const ALL_FEATURES = [
   { key: 'HMS',        label: 'Hotel Management',     description: 'Rooms, check-ins, folios, occupancy', icon: '🏨', group: 'Hospitality' },
   { key: 'TABLES',     label: 'Table Management',     description: 'Floor maps, table reservations, layout', icon: '🪑', group: 'Hospitality' },
   { key: 'TABLETS',    label: 'Tablet / Waiter App',  description: 'Tablet POS & waiter mode setup', icon: '📱', group: 'Hospitality' },
+  { key: 'BARPOS',     label: 'Bar POS',              description: 'Bar-specific billing terminal, liquor items & bar display', icon: '🍺', group: 'Hospitality' },
+  { key: 'CAFEPOS',    label: 'Cafe POS',             description: 'Cafe order flow, quick billing & cafe display settings', icon: '☕', group: 'Hospitality' },
   // Analytics
   { key: 'REPORTS',    label: 'Reports & Analytics',  description: 'Sales, revenue, settlements, audit logs', icon: '📊', group: 'Analytics' },
   { key: 'GST',        label: 'GST Filing',           description: 'GSTR-1, GSTR-3B filings & settings', icon: '📋', group: 'Analytics' },
@@ -54,9 +56,14 @@ const ALL_FEATURES = [
   { key: 'B2B',        label: 'B2B Marketplace',      description: 'Supplier ordering & B2B market', icon: '🚛', group: 'Advanced' },
   { key: 'PARKING',    label: 'Parking Management',   description: 'Parking slots, QR check-in/out', icon: '🅿️', group: 'Advanced' },
   { key: 'WASTE',      label: 'Waste Management',     description: 'Waste tracking, disposal logs', icon: '🗑️', group: 'Advanced' },
+  // Integrations & Communication
+  { key: 'WHATSAPP',   label: 'WhatsApp Bot & Alerts',description: 'Outbound bill notifications & chatbot order entries', icon: '💬', group: 'Integrations' },
+  { key: 'WALKIETALKIE', label: 'Staff Walkie-Talkie',description: 'PTT voice communication, channel creation & voice audio', icon: '📡', group: 'Integrations' },
+  { key: 'GEOFENCING', label: 'Geofenced Attendance', description: 'GPS attendance auditing & live location tracking', icon: '📍', group: 'Integrations' },
+  { key: 'TIPS',       label: 'Counter Tips & Gratuity',description: 'Staff tip logs, checkout gratuity input & tip reporting', icon: '💵', group: 'Integrations' },
 ];
 
-const FEATURE_GROUPS = ['Core', 'Hospitality', 'Analytics', 'People', 'Marketing', 'Advanced'];
+const FEATURE_GROUPS = ['Core', 'Hospitality', 'Analytics', 'People', 'Marketing', 'Advanced', 'Integrations'];
 
 // ─── ALL MODULES — every module in the API routes ────────────────────────────
 const ALL_MODULES = [
@@ -85,9 +92,15 @@ const ALL_MODULES = [
   { module: 'reservations',    actions: ['read', 'create', 'update', 'delete'], group: 'Hospitality',  feature: 'TABLES' },
   { module: 'rooms',           actions: ['read', 'create', 'update', 'delete'], group: 'Hospitality',  feature: 'HMS' },
   { module: 'parking',         actions: ['read', 'create', 'update', 'delete'], group: 'Hospitality',  feature: 'PARKING' },
+  { module: 'bar-pos',         actions: ['read', 'create'],                     group: 'Hospitality',  feature: 'BARPOS' },
+  { module: 'cafe-pos',        actions: ['read', 'create'],                     group: 'Hospitality',  feature: 'CAFEPOS' },
   { module: 'settings',        actions: ['read', 'update'],                     group: 'System',     feature: 'POS' },
   { module: 'website',         actions: ['read', 'create', 'update', 'delete'], group: 'System',     feature: 'WEBSITE' },
   { module: 'b2b',             actions: ['read', 'create', 'update', 'delete'], group: 'System',     feature: 'B2B' },
+  { module: 'walkie-talkie',   actions: ['read', 'create', 'update', 'delete'], group: 'System',     feature: 'WALKIETALKIE' },
+  { module: 'whatsapp',        actions: ['read', 'update'],                     group: 'System',     feature: 'WHATSAPP' },
+  { module: 'geofencing',      actions: ['read', 'update'],                     group: 'People',     feature: 'GEOFENCING' },
+  { module: 'tips',            actions: ['read'],                               group: 'Operations', feature: 'TIPS' },
 ];
 
 const MODULE_GROUPS = ['Operations', 'Inventory', 'Analytics', 'Finance', 'People', 'Hospitality', 'System'];

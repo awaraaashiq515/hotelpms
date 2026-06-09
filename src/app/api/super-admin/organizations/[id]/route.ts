@@ -11,16 +11,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { packageId, packageStartDate, packageEndDate } = body;
+  const { packageId, packageStartDate, packageEndDate, subscriptionStatus } = body;
+
+  const updateData: any = {};
+  if ('packageId' in body)        updateData.packageId       = packageId ?? null;
+  if ('packageStartDate' in body) updateData.packageStartDate = packageStartDate ? new Date(packageStartDate) : null;
+  if ('packageEndDate' in body)   updateData.packageEndDate   = packageEndDate   ? new Date(packageEndDate)   : null;
+  if ('subscriptionStatus' in body) updateData.subscriptionStatus = subscriptionStatus;
 
   const org = await prisma.organization.update({
     where: { id },
-    data: { 
-      packageId: packageId ?? null,
-      packageStartDate: packageStartDate ? new Date(packageStartDate) : null,
-      packageEndDate: packageEndDate ? new Date(packageEndDate) : null,
-    },
-    include: { package: true },
+    data: updateData,
+    include: { package: { include: { features: true } } },
   });
 
   return NextResponse.json({ success: true, data: org });

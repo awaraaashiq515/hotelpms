@@ -40,7 +40,7 @@ export async function PUT(
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { status, driverId, preparationTime } = body;
+    const { status, driverId, preparationTime, onlinePaymentReference } = body;
 
     const existingOrder = await prisma.posOrder.findUnique({
       where: { id }
@@ -53,6 +53,9 @@ export async function PUT(
       if (status === 'PAYMENT_AWAITING_APPROVAL' && session?.id) {
         dataToUpdate.servedById = session.id;
       }
+    }
+    if (onlinePaymentReference !== undefined) {
+      dataToUpdate.onlinePaymentReference = onlinePaymentReference;
     }
     if (preparationTime !== undefined) {
       dataToUpdate.preparationTime = parseInt(preparationTime, 10) || 15;

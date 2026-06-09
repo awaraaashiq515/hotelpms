@@ -20,7 +20,7 @@
  * To edit auto-play behaviour, modify this file.
  */
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 
 interface AutoPlayOptions {
   wtToken: string
@@ -45,6 +45,24 @@ export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPla
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const isMountedRef = useRef(true)
 
+  // Initialize a single reusable Audio element on mount to bypass aggressive mobile autoplay blocking
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      currentAudioRef.current = new Audio()
+    }
+    return () => {
+      isMountedRef.current = false
+      if (currentAudioRef.current) {
+        currentAudioRef.current.onended = null
+        currentAudioRef.current.onerror = null
+        try {
+          currentAudioRef.current.pause()
+        } catch (e) {}
+        currentAudioRef.current = null
+      }
+    }
+  }, [])
+
   // Drain the queue sequentially
   const drainQueue = useCallback(() => {
     if (!isMountedRef.current) return
@@ -59,18 +77,44 @@ export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPla
     isPlayingRef.current = true
     setPlayingInfo({ id: next.id, channelId: next.channelId, speakerName: next.speakerName, url: next.url })
 
-    const audio = new Audio(next.url)
-    currentAudioRef.current = audio
+    let audio = currentAudioRef.current
+    if (!audio) {
+      audio = new Audio()
+      currentAudioRef.current = audio
+    }
 
+    // Decouple previous listeners to prevent old callback execution when src is updated
+    audio.onended = null
+    audio.onerror = null
+
+    try {
+      audio.pause()
+    } catch (e) {}
+
+    // Define advance function
     const advance = () => {
       if (!isMountedRef.current) return
       setPlayingInfo(null)
       drainQueue()
     }
 
+    // Set new url and load
+    audio.src = next.url
+    try {
+      audio.load()
+    } catch (e) {}
+
+    // Attach new event handlers AFTER loading the new source
     audio.onended = advance
-    audio.onerror = advance
-    audio.play().catch(advance)  // silently skip if browser blocks
+    audio.onerror = (e) => {
+      console.error('[WT Autoplay] Audio playback error:', e)
+      advance()
+    }
+
+    audio.play().catch((err) => {
+      console.warn('[WT Autoplay] Blocked by browser autoplay policy:', err)
+      advance()
+    })
   }, [])
 
   /**
@@ -79,19 +123,23 @@ export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPla
    * @param channelId   The channel where the talk ended
    * @param speakerId   The user who was speaking (skip if it's the current user)
    * @param speakerName Display name of the speaker
-   * @param delayMs     How long to wait before fetching (to allow upload to finish). Default 2000ms.
+   * @param talkId      The specific talk record ID to play (optional)
    */
   const triggerPlay = useCallback((
     channelId: string,
     speakerId: string,
     speakerName: string,
-    delayMs = 2000
+    talkId?: string
   ) => {
     if (!autoPlayEnabled) return
     if (speakerId === currentUserId) return  // don't play your own voice back
     if (!wtToken) return
 
-    setTimeout(async () => {
+    let attempts = 0
+    const maxAttempts = 10
+    const pollInterval = 600 // ms
+
+    const poll = async () => {
       if (!isMountedRef.current) return
       try {
         // Fetch the latest recording for this channel
@@ -102,31 +150,60 @@ export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPla
 
         const history: any[] = await res.json()
 
-        // Find the most recent recording that has a URL and was from this speaker
-        const latest = history
-          .filter(h => h.recordingUrl && h.speakerId === speakerId)
-          .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0]
-
-        if (!latest?.recordingUrl) return
-
-        // Add to queue
-        queueRef.current.push({ id: latest.id, url: latest.recordingUrl, channelId, speakerName })
-
-        // Start playback if not already playing
-        if (!isPlayingRef.current) {
-          drainQueue()
+        // Find the recording by talkId or fallback to a very recent attempt from this speaker
+        let targetRecord = null
+        if (talkId) {
+          targetRecord = history.find(h => h.id === talkId)
+        } else {
+          const latestAttempt = history
+            .filter(h => h.speakerId === speakerId)
+            .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0]
+          
+          if (latestAttempt) {
+            const isRecent = (Date.now() - new Date(latestAttempt.startedAt).getTime()) < 20000 // 20 seconds
+            if (isRecent) {
+              targetRecord = latestAttempt
+            }
+          }
         }
-      } catch {
-        // Silently fail — auto-play is best-effort
+
+        if (targetRecord && targetRecord.recordingUrl) {
+          // Add authenticated token query parameter
+          const playbackUrl = targetRecord.recordingUrl.includes('?') 
+            ? `${targetRecord.recordingUrl}&token=${wtToken}`
+            : `${targetRecord.recordingUrl}?token=${wtToken}`
+          
+          // Prevent queueing the same record multiple times
+          if (!queueRef.current.some(q => q.id === targetRecord.id)) {
+            queueRef.current.push({ id: targetRecord.id, url: playbackUrl, channelId, speakerName })
+            if (!isPlayingRef.current) {
+              drainQueue()
+            }
+          }
+        } else if (attempts < maxAttempts) {
+          // Keep polling until the record exists AND the upload completes
+          attempts++
+          setTimeout(poll, pollInterval)
+        }
+      } catch (error) {
+        console.error('[WT Autoplay Poll] Error:', error)
       }
-    }, delayMs)
+    }
+
+    // Start polling immediately
+    poll()
   }, [autoPlayEnabled, currentUserId, wtToken, drainQueue])
 
   /** Stop current playback and clear queue */
   const stopAll = useCallback(() => {
     queueRef.current = []
-    currentAudioRef.current?.pause()
-    currentAudioRef.current = null
+    if (currentAudioRef.current) {
+      currentAudioRef.current.onended = null
+      currentAudioRef.current.onerror = null
+      try {
+        currentAudioRef.current.pause()
+      } catch (e) {}
+    }
     isPlayingRef.current = false
     setPlayingInfo(null)
   }, [])

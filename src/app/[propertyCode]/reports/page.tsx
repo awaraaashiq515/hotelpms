@@ -13,11 +13,16 @@ import {
   BookOpen,
   Wallet,
   FileText,
-  Star
+  Star,
+  MapPin
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
+import { useParams } from 'next/navigation';
 
 export default function ReportsHub() {
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string;
+
   const sections = [
     {
       title: 'Operational Insights',
@@ -26,25 +31,25 @@ export default function ReportsHub() {
           name: 'Sales Intelligence', 
           icon: <BarChart3 className="text-blue-500" />, 
           desc: 'Comprehensive revenue analytics and product performance tracking.', 
-          href: '/reports/sales' 
+          href: `/${propertyCode}/reports/sales` 
         },
         { 
           name: 'Inventory Status', 
           icon: <Package className="text-orange-500" />, 
           desc: 'Real-time stock levels and low stock alerts.', 
-          href: '/reports/inventory' 
+          href: `/${propertyCode}/reports/inventory` 
         },
         { 
           name: 'Settlement Report', 
           icon: <CreditCard className="text-purple-500" />, 
           desc: 'Breakdown of payments (Cash, Card, UPI).', 
-          href: '/reports/settlements' 
+          href: `/${propertyCode}/reports/settlements` 
         },
         { 
           name: 'Customer Feedback', 
           icon: <Star className="text-amber-500" />, 
           desc: 'Table-wise customer ratings and detailed comments.', 
-          href: '/reports/ratings' 
+          href: `/${propertyCode}/reports/ratings` 
         },
       ]
     },
@@ -55,19 +60,19 @@ export default function ReportsHub() {
           name: 'Day Book', 
           icon: <BookOpen className="text-emerald-500" />, 
           desc: 'Daily transaction register and vouchers.', 
-          href: '/accounts/day-book' 
+          href: `/${propertyCode}/accounts/day-book` 
         },
         { 
           name: 'Cash Book', 
           icon: <Wallet className="text-green-500" />, 
           desc: 'Cash receipts, payments, and balance.', 
-          href: '/accounts/cash-book' 
+          href: `/${propertyCode}/accounts/cash-book` 
         },
         { 
           name: 'GST / Tax Report', 
           icon: <Building2 className="text-cyan-500" />, 
           desc: 'Tax computations and filing reports.', 
-          href: '/reports/tax' 
+          href: `/${propertyCode}/reports/tax` 
         },
       ]
     },
@@ -75,22 +80,34 @@ export default function ReportsHub() {
       title: 'Audits & History',
       reports: [
         { 
+          name: 'Staff Attendance', 
+          icon: <Users2 className="text-emerald-500" />, 
+          desc: 'Track employee shift hours, durations, and clock-in/out times.', 
+          href: `/${propertyCode}/reports/attendance` 
+        },
+        { 
+          name: 'Attendance Location Audit', 
+          icon: <MapPin className="text-indigo-500" />, 
+          desc: 'Verify GPS coordinates and base-location range accuracy.', 
+          href: `/${propertyCode}/staff/attendance-location` 
+        },
+        { 
           name: 'Audit Log', 
           icon: <ShieldCheck className="text-rose-500" />, 
           desc: 'Track system activity and user changes.', 
-          href: '/reports/audit' 
+          href: `/${propertyCode}/reports/audit` 
         },
         { 
           name: 'Guest History', 
           icon: <Users2 className="text-indigo-500" />, 
           desc: 'Customer visiting patterns and spending.', 
-          href: '/reports/guests' 
+          href: `/${propertyCode}/reports/guests` 
         },
         { 
           name: 'Ledger Statement', 
           icon: <FileText className="text-gray-500" />, 
           desc: 'Detailed account-wise ledger books.', 
-          href: '/accounts/ledger' 
+          href: `/${propertyCode}/accounts/ledger` 
         },
       ]
     }

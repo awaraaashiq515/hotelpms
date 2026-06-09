@@ -34,16 +34,14 @@ export async function POST(request: Request) {
     }
 
     // If propertyCode is provided, verify staff belongs to that property
+    // We log a warning on mismatch instead of blocking with a 403, allowing the client-side to self-correct/redirect
     if (propertyCode && posUser.property) {
       const propCode = posUser.property.code?.toLowerCase()
       const propName = posUser.property.name?.toLowerCase()
       const slug = slugify(posUser.property.name || '')
       const reqCode = propertyCode.toLowerCase()
       if (propCode !== reqCode && propName !== reqCode && slug !== reqCode) {
-        return NextResponse.json(
-          { message: 'You do not have access to this property.' },
-          { status: 403 }
-        )
+        console.warn(`[WT Staff Login] Property code mismatch: User belongs to "${propCode}" but requested "${reqCode}". Allowing login for client-side redirection.`);
       }
     }
 

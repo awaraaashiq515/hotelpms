@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
     // Fetch latest package features live from DB
     let packageFeatures: string[] = [];
     let discountPercent = 0;
+    let packageName: string | null = null;
+    let packageEndDate: string | null = null;
+    let subscriptionStatus = 'TRIAL';
     if (session.organizationId) {
       const org = await prisma.organization.findUnique({
         where: { id: session.organizationId },
@@ -36,7 +39,10 @@ export async function GET(request: NextRequest) {
       if (org?.package) {
         packageFeatures = org.package.features.map((f: any) => f.feature);
         discountPercent = org.package.discountPercent;
+        packageName = org.package.name;
       }
+      packageEndDate = org?.packageEndDate ? org.packageEndDate.toISOString() : null;
+      subscriptionStatus = org?.subscriptionStatus || 'TRIAL';
     }
 
     // Fetch propertyCode + propertySlug
@@ -59,12 +65,17 @@ export async function GET(request: NextRequest) {
         permissions: latestPermissions,
         packageFeatures,
         discountPercent,
+        packageName,
+        packageEndDate,
+        subscriptionStatus,
         propertyCode,
         propertySlug,
       },
       // Also expose at top level for usePackage hook
       packageFeatures,
       discountPercent,
+      packageEndDate,
+      subscriptionStatus,
     });
   } catch (error) {
     console.error('Session fetch error:', error);

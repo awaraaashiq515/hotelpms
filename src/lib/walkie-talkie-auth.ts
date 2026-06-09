@@ -80,10 +80,19 @@ export async function verifyWTToken(token: string): Promise<WTTokenPayload | nul
 export async function getWTUserFromRequest(request: Request) {
   try {
     const authHeader = request.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token = ''
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1]
+    } else {
+      // Fallback: Check token in query parameters
+      const url = new URL(request.url)
+      token = url.searchParams.get('token') || ''
+    }
+
+    if (!token) {
       return null
     }
-    const token = authHeader.split(' ')[1]
+
     const payload = await verifyWTToken(token)
     if (!payload || !payload.userId) {
       return null

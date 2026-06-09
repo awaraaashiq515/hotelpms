@@ -10,11 +10,16 @@ import {
   Search,
   Filter,
   ArrowRight,
-  Loader2
+  Loader2,
+  Compass
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AttendanceReportPage() {
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string;
   const [attendance, setAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,6 +60,24 @@ export default function AttendanceReportPage() {
         title="Staff Attendance Report" 
         subtitle="Track employee work hours, shifts, and punch locations."
       />
+
+      {/* Quick Access to Geolocation Tools */}
+      <div className="flex justify-end gap-3 flex-wrap">
+        <Link 
+          href={`/${propertyCode}/staff/attendance-location`}
+          className="flex items-center gap-2 px-6 py-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest transition-all hover:-translate-y-0.5"
+        >
+          <MapPin size={14} className="text-emerald-500" />
+          Verify Punch Locations Map
+        </Link>
+        <Link 
+          href={`/${propertyCode}/staff/location`}
+          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all hover:-translate-y-0.5"
+        >
+          <Compass size={14} />
+          View Live Proximity Radar
+        </Link>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -139,17 +162,49 @@ export default function AttendanceReportPage() {
                     </span>
                   </td>
                   <td className="px-8 py-6">
-                    {record.locationIn && (
-                      <a 
-                        href={`https://www.google.com/maps?q=${record.locationIn}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 transition-colors"
-                      >
-                        <MapPin size={14} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">View Map</span>
-                      </a>
-                    )}
+                    <div className="flex flex-col gap-2">
+                      {record.locationIn && (
+                        <div className="flex flex-col">
+                          <a 
+                            href={`https://www.google.com/maps?q=${record.locationIn}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-emerald-600 hover:text-emerald-700 transition-colors w-fit"
+                          >
+                            <MapPin size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">In Map</span>
+                          </a>
+                          {record.distanceIn !== undefined && record.distanceIn !== null && (
+                            <span className={`text-[9px] font-black mt-0.5 uppercase tracking-wide ${record.isOutOfRangeIn ? 'text-amber-500' : 'text-slate-400'}`}>
+                              📍 {record.distanceIn < 1000 ? `${Math.round(record.distanceIn)}m` : `${(record.distanceIn / 1000).toFixed(2)}km`} 
+                              {record.isOutOfRangeIn ? ' (Out of Range)' : ' (Inside)'}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {record.locationOut && (
+                        <div className="flex flex-col">
+                          <a 
+                            href={`https://www.google.com/maps?q=${record.locationOut}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-rose-600 hover:text-rose-700 transition-colors w-fit"
+                          >
+                            <MapPin size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Out Map</span>
+                          </a>
+                          {record.distanceOut !== undefined && record.distanceOut !== null && (
+                            <span className={`text-[9px] font-black mt-0.5 uppercase tracking-wide ${record.isOutOfRangeOut ? 'text-amber-500' : 'text-slate-400'}`}>
+                              📍 {record.distanceOut < 1000 ? `${Math.round(record.distanceOut)}m` : `${(record.distanceOut / 1000).toFixed(2)}km`} 
+                              {record.isOutOfRangeOut ? ' (Out of Range)' : ' (Inside)'}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {!record.locationIn && !record.locationOut && (
+                        <span className="text-slate-400 text-xs">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-8 py-6">
                     <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${

@@ -26,6 +26,7 @@ interface VoiceMessagesTabProps {
   onRefreshAll: () => void
   onRefreshChannel: (channelId: string) => void
   playingId?: string | null
+  wtToken?: string
 }
 
 /**
@@ -44,6 +45,7 @@ export default function VoiceMessagesTab({
   onRefreshAll,
   onRefreshChannel,
   playingId = null,
+  wtToken = '',
 }: VoiceMessagesTabProps) {
 
   return (
@@ -188,7 +190,7 @@ export default function VoiceMessagesTab({
 
                         {/* Audio player — manual play only, auto-play handled by queue above */}
                         {msg.recordingUrl ? (
-                          <AudioPlayer url={msg.recordingUrl} />
+                          <AudioPlayer url={wtToken ? `${msg.recordingUrl}${msg.recordingUrl.includes('?') ? '&' : '?'}token=${wtToken}` : msg.recordingUrl} />
                         ) : (
                           <span style={{ fontSize: 10, color: '#475569', fontStyle: 'italic' }}>🎙️ Live talk only (not recorded)</span>
                         )}

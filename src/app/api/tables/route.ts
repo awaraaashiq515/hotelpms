@@ -12,10 +12,21 @@ export async function GET(request: NextRequest) {
     const propertyIdParam = searchParams.get('propertyId');
     const floorId = searchParams.get('floorId');
 
+    const isWaiter = session.role?.toLowerCase() === 'staff';
+    let assignedTableIds: string[] | null = null;
+    if (isWaiter) {
+      const assignments = await prisma.tableAssignment.findMany({
+        where: { userId: session.id },
+        select: { tableId: true }
+      });
+      assignedTableIds = assignments.map((a: { tableId: string }) => a.tableId);
+    }
+
     const tables = await prisma.table.findMany({
       where: {
         ...getMultiTenantWhere(session, propertyIdParam),
         ...(floorId && floorId !== 'all' ? { floorId } : {}),
+        ...(assignedTableIds !== null ? { id: { in: assignedTableIds } } : {}),
       },
       include: {
         floor: true,
