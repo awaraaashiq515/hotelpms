@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   LayoutGrid, RefreshCcw, Plus,
@@ -57,6 +57,19 @@ export default function TableManagementPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications?status=UNREAD');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setUnreadNotifications(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch unread notifications", err);
+    }
+  }, []);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSettingsView, setIsSettingsView] = useState(false);
@@ -420,10 +433,14 @@ export default function TableManagementPage() {
     fetchData();
     fetchPropertyData();
     fetchStaffMembers();
-    // Auto-refresh floors data every 5 seconds (not static customer/payment mode data)
-    const interval = setInterval(fetchData, 5000);
+    fetchUnreadCount();
+    // Auto-refresh floors and unread notifications data every 5 seconds
+    const interval = setInterval(() => {
+      fetchData();
+      fetchUnreadCount();
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchUnreadCount]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -1244,6 +1261,7 @@ export default function TableManagementPage() {
               ) : (
                 <TableLayoutView
                   tables={activeFloor?.tables || []}
+                  unreadNotifications={unreadNotifications}
                   onTableClick={handleTableClick}
                   onTableDoubleClick={handleTableDoubleClick}
                   selectedTableId={selectedTable?.id}

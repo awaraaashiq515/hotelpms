@@ -35,11 +35,13 @@ interface Notification {
 
 export function NotificationOverlay() {
   const [mounted, setMounted] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeToasts, setActiveToasts] = useState<Notification[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [preferences, setPreferences] = useState<Record<string, boolean>>({}); // type -> soundEnabled
   const pathname = usePathname();
+  const seenIds = React.useRef<Set<string>>(new Set());
+  const isFirstFetch = React.useRef(true);
 
   const fetchPrefs = useCallback(async () => {
     try {
@@ -69,6 +71,20 @@ export function NotificationOverlay() {
     audio.play().catch(e => console.log('Audio play failed', e));
   }, [isAudioEnabled, preferences]);
 
+  const dismissNotification = useCallback(async (id: string) => {
+    // Instantly remove from activeToasts for better responsiveness
+    setActiveToasts(prev => prev.filter(n => n.id !== id));
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'READ' })
+      });
+    } catch (err) {
+      console.error('Failed to dismiss notification', err);
+    }
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
     if (pathname?.includes('kitchen-display') || pathname?.includes('bar-display')) return;
     
@@ -76,19 +92,44 @@ export function NotificationOverlay() {
       const res = await fetch('/api/notifications?status=UNREAD');
       const json = await res.json();
       if (json.success) {
-        if (json.data.length > notifications.length) {
+        const unread = json.data || [];
+        const currentUnreadIds = new Set(unread.map((u: Notification) => u.id));
+        
+        // Remove toast from activeToasts if it is no longer UNREAD in database (e.g. read elsewhere)
+        setActiveToasts(prev => prev.filter(item => currentUnreadIds.has(item.id)));
+        
+        // Find newly arriving notifications
+        const newNotifications = unread.filter((n: Notification) => !seenIds.current.has(n.id));
+        
+        if (newNotifications.length > 0) {
           // Play sound for the newest notification's type
-          const newest = json.data[0];
-          if (newest) {
+          const newest = newNotifications[0];
+          if (newest && !isFirstFetch.current) {
             playSound(newest.type);
           }
+          
+          // Add all new notifications to seenIds so we don't display them again
+          newNotifications.forEach((n: Notification) => seenIds.current.add(n.id));
+          
+          // If this is NOT the first fetch, display toasts for the new notifications
+          if (!isFirstFetch.current) {
+            setActiveToasts(prev => [...prev, ...newNotifications]);
+            
+            // Set a timeout of 6 seconds to remove each new notification from activeToasts
+            newNotifications.forEach((n: Notification) => {
+              setTimeout(() => {
+                setActiveToasts(prev => prev.filter(item => item.id !== n.id));
+              }, 6000);
+            });
+          }
         }
-        setNotifications(json.data);
+        
+        isFirstFetch.current = false;
       }
     } catch (err) {
       console.error('Failed to fetch notifications', err);
     }
-  }, [notifications.length, playSound, pathname]);
+  }, [playSound, pathname]);
 
   useEffect(() => {
     setMounted(true);
@@ -99,34 +140,6 @@ export function NotificationOverlay() {
     const interval = setInterval(fetchNotifications, 5000); // Poll every 5s for faster response
     return () => clearInterval(interval);
   }, [fetchNotifications, fetchPrefs, pathname]);
-
-  const dismissNotification = useCallback(async (id: string) => {
-    try {
-      const res = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'READ' })
-      });
-      if (res.ok) {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-      }
-    } catch (err) {
-      console.error('Failed to dismiss notification', err);
-    }
-  }, []);
-
-  const seenIds = React.useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    notifications.forEach(n => {
-      if (!seenIds.current.has(n.id)) {
-        seenIds.current.add(n.id);
-        setTimeout(() => {
-          dismissNotification(n.id);
-        }, 3000);
-      }
-    });
-  }, [notifications, dismissNotification]);
 
   const getIcon = (notification: Notification) => {
     const { type, priority } = notification;
@@ -150,7 +163,7 @@ export function NotificationOverlay() {
   return (
     <div className="fixed top-20 right-6 z-[9999] flex flex-col gap-2 w-72 pointer-events-none">
       <AnimatePresence>
-        {notifications.map((notification) => {
+        {activeToasts.map((notification) => {
           let metadata = {};
           try {
             metadata = notification.metadata ? JSON.parse(notification.metadata) : {};

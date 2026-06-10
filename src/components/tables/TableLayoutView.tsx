@@ -5,6 +5,7 @@ import { Table } from './TableCard';
 
 interface TableLayoutViewProps {
   tables: Table[];
+  unreadNotifications?: any[];
   onTableClick: (table: Table) => void;
   onTableDoubleClick?: (table: Table) => void;
   isEditMode?: boolean;
@@ -89,7 +90,8 @@ const TableVisualSimple: React.FC<{
   h: number;
   isSelected: boolean;
   isEditMode: boolean;
-}> = ({ table, w, h, isSelected, isEditMode }) => {
+  badge?: number;
+}> = ({ table, w, h, isSelected, isEditMode, badge }) => {
   const effectiveStatus = (table.activeOrder?.status === 'READY' || table.activeOrder?.status === 'SERVED')
     ? table.activeOrder.status
     : table.status;
@@ -105,12 +107,34 @@ const TableVisualSimple: React.FC<{
   const readyWaitMin = (table.activeOrder as any)?.readyAt ? Math.floor((Date.now() - new Date((table.activeOrder as any).readyAt).getTime()) / 60000) : 0;
   const isPickupLate = occupied && effectiveStatus === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
 
-  const cardBg = isLate || isPickupLate ? '#000000' : cfg.bg;
-  const cardBorder = isLate ? '#e11d48' : isPickupLate ? '#3b82f6' : (isSelected ? '#4f46e5' : cfg.border);
-  const borderClass = isLate ? 'animate-blink-late' : isPickupLate ? 'animate-blink-ready' : '';
+  const hasBadge = badge !== undefined && badge > 0;
+
+  const cardBg = hasBadge 
+    ? '#fff5f5' 
+    : (isLate || isPickupLate ? '#000000' : cfg.bg);
+
+  const cardBorder = hasBadge
+    ? '#f43f5e' 
+    : (isLate ? '#e11d48' : isPickupLate ? '#3b82f6' : (isSelected ? '#4f46e5' : cfg.border));
+
+  const borderClass = hasBadge
+    ? 'animate-blink-late'
+    : (isLate ? 'animate-blink-late' : isPickupLate ? 'animate-blink-ready' : '');
 
   return (
     <div style={{ position: 'relative', width: w, height: h }}>
+      {hasBadge && (
+        <span 
+          className="absolute flex h-6 min-w-[24px] items-center justify-center rounded-full bg-rose-500 px-2 text-[10px] font-black text-white shadow-[0_0_12px_rgba(244,63,94,0.75)] border-2 border-white dark:border-slate-950 animate-pulse tracking-tight"
+          style={{
+            top: '-8px',
+            right: '-8px',
+            zIndex: 100
+          }}
+        >
+          {badge}
+        </span>
+      )}
       {/* Main Table Body */}
       <div 
         className={borderClass}
@@ -120,13 +144,15 @@ const TableVisualSimple: React.FC<{
           background: cardBg,
           borderRadius: '12px',
           border: `2px solid ${cardBorder}`,
-          boxShadow: isLate ? '0 0 20px rgba(225, 29, 72, 0.5)' : (isSelected ? '0 0 0 4px rgba(79, 70, 229, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)'),
+          boxShadow: hasBadge 
+            ? '0 0 20px rgba(244, 63, 94, 0.5)'
+            : (isLate ? '0 0 20px rgba(225, 29, 72, 0.5)' : (isSelected ? '0 0 0 4px rgba(79, 70, 229, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)')),
           transition: 'all 0.2s ease',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          color: isLate ? '#f43f5e' : isPickupLate ? '#60a5fa' : cfg.text,
+          color: hasBadge ? '#f43f5e' : (isLate ? '#f43f5e' : isPickupLate ? '#60a5fa' : cfg.text),
           overflow: 'hidden',
         }}
       >
@@ -248,6 +274,7 @@ const SNAP = 10;
 
 export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
   tables,
+  unreadNotifications = [],
   onTableClick,
   onTableDoubleClick,
   isEditMode = false,
@@ -417,6 +444,9 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
           const padX = 0;
           const padY = 0;
 
+          const tableNotifications = unreadNotifications?.filter(n => n.tableId === table.id) || [];
+          const tableBadge = tableNotifications.length;
+
           return (
             <div
               key={table.id}
@@ -448,6 +478,7 @@ export const TableLayoutView: React.FC<TableLayoutViewProps> = ({
                   h={sz.h}
                   isSelected={isSelected}
                   isEditMode={isEditMode}
+                  badge={tableBadge}
                 />
               </div>
 

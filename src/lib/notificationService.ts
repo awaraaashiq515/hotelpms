@@ -80,6 +80,7 @@ export const createNotification = async (data: {
   type: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   metadata?: any;
+  tableId?: string | null;
 }, prismaClient?: any) => {
   // Use provided client or global prisma
   const client = prismaClient || prisma;
@@ -128,6 +129,7 @@ export const createNotification = async (data: {
           message: data.message,
           type: data.type,
           priority: data.priority || 'MEDIUM',
+          tableId: data.tableId || null,
           metadata: data.metadata ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata)) : null,
         },
       });

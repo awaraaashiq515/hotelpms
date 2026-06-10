@@ -276,6 +276,8 @@ export default function DriverPortalPage() {
       return;
     }
 
+    const lastCoordsRef = { current: null as { lat: number; lng: number } | null };
+
     const reportLocation = async (lat: number, lng: number) => {
       try {
         await fetch('/api/public/driver', {
@@ -293,14 +295,22 @@ export default function DriverPortalPage() {
       }
     };
 
+    const updateLocation = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      lastCoordsRef.current = { lat: latitude, lng: longitude };
+      reportLocation(latitude, longitude);
+    };
+
+    const handleLocationError = (err: GeolocationPositionError) => {
+      console.error('GPS tracking error:', err);
+      if (lastCoordsRef.current) {
+        reportLocation(lastCoordsRef.current.lat, lastCoordsRef.current.lng);
+      }
+    };
+
     const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        reportLocation(latitude, longitude);
-      },
-      (err) => {
-        console.error('GPS tracking error:', err);
-      },
+      updateLocation,
+      handleLocationError,
       {
         enableHighAccuracy: true,
         timeout: 10000,
@@ -308,8 +318,23 @@ export default function DriverPortalPage() {
       }
     );
 
+    const intervalId = setInterval(() => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          updateLocation,
+          handleLocationError,
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      }
+    }, 30000);
+
     return () => {
       navigator.geolocation.clearWatch(watchId);
+      clearInterval(intervalId);
     };
   }, [selectedDriver, assignedOrders]);
 

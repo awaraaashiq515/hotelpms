@@ -184,7 +184,7 @@ export default function ParkingOperationsPage() {
       await fetch(`/api/parking-slots/${slot.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'VACANT' })
+        body: JSON.stringify({ status: 'BILL_PRINTED' })
       });
       fetchData();
     } catch (error) {

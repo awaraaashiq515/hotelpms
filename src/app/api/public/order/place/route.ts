@@ -261,6 +261,7 @@ export async function POST(request: NextRequest) {
         message: `New order from ${locationLabel}: ${itemSummary}`,
         type: 'ORDER',
         priority: 'MEDIUM',
+        tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
         metadata: {
           tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
           tableName: orderTypeParam === 'DINE_IN' ? table.name : (orderTypeParam === 'DELIVERY' ? 'Delivery' : 'Take Away'),
@@ -273,6 +274,25 @@ export async function POST(request: NextRequest) {
         },
       }, tx);
 
+      if (kotTicket) {
+        await createNotification({
+          propertyId,
+          title: 'New KOT Generated',
+          message: `New KOT ${kotTicket.kotNo} generated for ${locationLabel}`,
+          type: 'KITCHEN',
+          priority: 'HIGH',
+          tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
+          metadata: {
+            kotId: kotTicket.id,
+            orderId: order!.id,
+            tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
+            tableName: orderTypeParam === 'DINE_IN' ? table.name : null,
+            kotNo: kotTicket.kotNo,
+            link: `/operations/tables`
+          }
+        }, tx);
+      }
+
       // If it's a payment (Prepaid/Online), create a second notification for the PAYMENT
       if (isPrepaid) {
         await createNotification({
@@ -281,6 +301,7 @@ export async function POST(request: NextRequest) {
           message: `Payment of ₹${grandTotal.toFixed(2)} received from ${locationLabel}`,
           type: 'PAYMENT',
           priority: 'URGENT',
+          tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
           metadata: {
             tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
             tableName: orderTypeParam === 'DINE_IN' ? table.name : (orderTypeParam === 'DELIVERY' ? 'Delivery' : 'Take Away'),

@@ -282,7 +282,7 @@ export const TopNavbar: React.FC = () => {
 
           <Button 
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
-            onClick={() => router.push(`${p}/billing`)}
+            onClick={() => router.push(`${p}/billing?type=PICKUP`)}
             title="Take Away"
           >
             <Plus size={16} className="md:mr-2" />
@@ -414,7 +414,7 @@ export const TopNavbar: React.FC = () => {
             label="Alerts" 
             onClick={() => {
               setUnreadCount(0);
-              router.push('/operations/notifications');
+              router.push(`${p}/operations/notifications`);
             }}
           />
         </div>

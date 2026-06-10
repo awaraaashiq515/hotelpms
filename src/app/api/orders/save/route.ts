@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 
 /**
  * Saves an open order (Dine-In) and generates a KOT for NEW items only.
@@ -221,6 +222,23 @@ export async function POST(request: NextRequest) {
             };
           }),
         });
+
+        await createNotification({
+          propertyId: session.propertyId!,
+          title: 'New KOT Generated',
+          message: `New KOT ${kotNo} generated for Table ${order.tableNo || ''}`,
+          type: 'KITCHEN',
+          priority: 'HIGH',
+          tableId: order.restaurantTableId || null,
+          metadata: {
+            kotId: kotTicket.id,
+            orderId: order.id,
+            tableId: order.restaurantTableId || null,
+            tableName: order.tableNo || null,
+            kotNo: kotTicket.kotNo,
+            link: `/operations/tables`
+          }
+        }, tx);
       }
 
       // 5. Update Table Status to KOT_RUNNING

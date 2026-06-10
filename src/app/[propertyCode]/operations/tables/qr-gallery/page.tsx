@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer, ArrowLeft, RefreshCcw, Layers } from 'lucide-react';
+import { Printer, RefreshCcw, Layers, Home, Sparkles, Navigation, Globe, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
@@ -23,6 +23,16 @@ interface Table {
   };
 }
 
+interface ParkingSlot {
+  id: string;
+  name: string;
+  qrToken: string | null;
+  property: {
+    name: string;
+    code: string;
+  };
+}
+
 interface Property {
   name: string;
   code: string;
@@ -33,7 +43,10 @@ export default function QRGalleryPage() {
   const params = useParams();
   const propertyCode = params?.propertyCode as string | undefined;
   const p = propertyCode ? `/${propertyCode}` : '';
+  
+  const [activeTab, setActiveTab] = useState<'tables' | 'delivery' | 'parking'>('tables');
   const [tables, setTables] = useState<Table[]>([]);
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([]);
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
@@ -42,10 +55,11 @@ export default function QRGalleryPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tableRes, propRes, floorRes] = await Promise.all([
+      const [tableRes, propRes, floorRes, parkingRes] = await Promise.all([
         fetch('/api/tables'),
         fetch('/api/admin/properties'),
-        fetch('/api/floors')
+        fetch('/api/floors'),
+        fetch('/api/parking-slots').catch(() => null)
       ]);
       const tableData = await tableRes.json();
       const propData = await propRes.json();
@@ -78,6 +92,17 @@ export default function QRGalleryPage() {
 
       setTables(activeTables);
       if (propData.success && propData.data.length > 0) setProperty(propData.data[0]);
+
+      if (parkingRes) {
+        try {
+          const parkingData = await parkingRes.json();
+          if (parkingData.success) {
+            setParkingSlots(parkingData.data);
+          }
+        } catch (e) {
+          console.error('Failed to parse parking slots', e);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch data', err);
     } finally {
@@ -88,6 +113,17 @@ export default function QRGalleryPage() {
   useEffect(() => {
     fetchData();
     setOrigin(window.location.origin);
+
+    // Read tab from query parameters
+    const queryParams = new URLSearchParams(window.location.search);
+    const tabParam = queryParams.get('tab');
+    if (tabParam === 'delivery') {
+      setActiveTab('delivery');
+    } else if (tabParam === 'parking') {
+      setActiveTab('parking');
+    } else {
+      setActiveTab('tables');
+    }
   }, []);
 
   const handlePrintAll = () => {
@@ -95,13 +131,13 @@ export default function QRGalleryPage() {
   };
 
   if (loading) return (
-    <div className="h-full flex items-center justify-center">
+    <div className="h-full flex items-center justify-center py-20">
       <RefreshCcw className="animate-spin text-pos-primary" />
     </div>
   );
 
   // Group tables by floor (excl. virtual Home Delivery table)
-  const grouped = tables
+  const groupedTables = tables
     .filter(t => t.name.toLowerCase() !== 'home delivery')
     .reduce<Record<string, { floorName: string; tables: Table[] }>>((acc, table) => {
       const floorId = table.floor?.id ?? 'no-floor';
@@ -111,9 +147,12 @@ export default function QRGalleryPage() {
       return acc;
     }, {});
 
-  const floorGroups = Object.entries(grouped);
+  const floorGroups = Object.entries(groupedTables);
 
-
+  const virtualHomeDeliveryTable = tables.find(t => t.name.toLowerCase() === 'home delivery');
+  const deliveryQrUrl = virtualHomeDeliveryTable && property
+    ? `${origin}/menu/${property.code}/${virtualHomeDeliveryTable.qrToken || virtualHomeDeliveryTable.id}`
+    : '';
 
   return (
     <>
@@ -136,7 +175,7 @@ export default function QRGalleryPage() {
             color: black !important;
           }
 
-          /* Force hide EVERYTHING except the print area */
+          /* Force hide EVERYTHING except the print root */
           body > *:not(#qr-print-root) {
             display: none !important;
           }
@@ -146,6 +185,11 @@ export default function QRGalleryPage() {
             width: 100% !important;
           }
 
+          .no-print {
+            display: none !important;
+          }
+
+          /* Dining Tables & Parking Slots layout for print */
           .qr-print-card {
             display: flex !important;
             flex-direction: column !important;
@@ -161,7 +205,6 @@ export default function QRGalleryPage() {
             box-sizing: border-box !important;
           }
 
-          /* Elegant Table Tent Design for Print */
           .print-content {
             border: 2px solid #eeeeee !important;
             border-radius: 40px !important;
@@ -193,6 +236,18 @@ export default function QRGalleryPage() {
             display: inline-flex !important;
             border: 1px solid #dcfce7 !important;
           }
+          
+          .print-parking-badge {
+            background-color: #eff6ff !important;
+            color: #2563eb !important;
+            padding: 4px 16px !important;
+            border-radius: 99px !important;
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            display: inline-flex !important;
+            border: 1px solid #dbeafe !important;
+          }
 
           .print-qr-container {
             padding: 20px !important;
@@ -217,7 +272,34 @@ export default function QRGalleryPage() {
             letter-spacing: 4px !important;
           }
 
+          /* Home Delivery Flyer layout for print */
+          .poster-print-card {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            height: 100vh !important;
+            padding: 40px !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            background: white !important;
+          }
 
+          .poster-frame {
+            border: 6px solid #4f46e5 !important;
+            border-radius: 40px !important;
+            padding: 60px !important;
+            width: 90% !important;
+            max-width: 540px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+            gap: 30px !important;
+            background: white !important;
+            box-shadow: none !important;
+          }
 
           * {
             -webkit-print-color-adjust: exact !important;
@@ -227,118 +309,455 @@ export default function QRGalleryPage() {
       `}</style>
 
       <div id="qr-print-root" className="p-6 space-y-8 min-h-screen bg-gray-50 dark:bg-slate-950">
-        {/* ─── Header ─── */}
+        
+        {/* ─── Page Header (Screen Only) ─── */}
         <div className="no-print">
           <PageHeader
-            title="QR Print Gallery"
-            subtitle={`${tables.length} tables · ${floorGroups.length} floors`}
+            title="QR & Print Gallery"
+            subtitle={
+              activeTab === 'tables'
+                ? `${tables.length - 1} tables · ${floorGroups.length} floors`
+                : activeTab === 'delivery'
+                ? "Generate storefront poster flyers for direct home ordering"
+                : `${parkingSlots.length} parking slots`
+            }
             showBack
-            backUrl={`${p}/operations/tables`}
+            backUrl={`${p}/operations`}
             actions={
               <>
-                <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-gray-200 dark:border-slate-800">
+                {activeTab === 'tables' && (
+                  <>
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-gray-200 dark:border-slate-800">
+                      <Button
+                        variant={qrMode === 'order' ? 'primary' : 'ghost'}
+                        onClick={() => setQrMode('order')}
+                        className={`rounded-xl h-10 px-6 text-xs font-black uppercase tracking-widest ${qrMode === 'order' ? 'bg-pos-primary hover:bg-pos-primary-dark text-white' : 'text-gray-500'}`}
+                      >
+                        Order QRs
+                      </Button>
+                      <Button
+                        variant={qrMode === 'rating' ? 'primary' : 'ghost'}
+                        onClick={() => setQrMode('rating')}
+                        className={`rounded-xl h-10 px-6 text-xs font-black uppercase tracking-widest ${qrMode === 'rating' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'text-gray-500'}`}
+                      >
+                        Rating QRs
+                      </Button>
+                    </div>
+                    <Button
+                      onClick={handlePrintAll}
+                      className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/10 active:scale-95"
+                    >
+                      <Printer size={18} />
+                      Print Table QRs
+                    </Button>
+                  </>
+                )}
+
+                {activeTab === 'delivery' && (
                   <Button
-                    variant={qrMode === 'order' ? 'primary' : 'ghost'}
-                    onClick={() => setQrMode('order')}
-                    className={`rounded-xl h-10 px-6 text-xs font-black uppercase tracking-widest ${qrMode === 'order' ? 'bg-pos-primary hover:bg-pos-primary-dark' : 'text-gray-500'}`}
+                    onClick={handlePrintAll}
+                    disabled={!deliveryQrUrl}
+                    className="rounded-2xl h-12 px-8 bg-indigo-600 hover:bg-indigo-500 font-black uppercase text-xs tracking-widest gap-2 text-white shadow-lg active:scale-95 animate-in fade-in"
                   >
-                    Order QRs
+                    <Printer size={18} />
+                    Print Poster Flyer
                   </Button>
+                )}
+
+                {activeTab === 'parking' && (
                   <Button
-                    variant={qrMode === 'rating' ? 'primary' : 'ghost'}
-                    onClick={() => setQrMode('rating')}
-                    className={`rounded-xl h-10 px-6 text-xs font-black uppercase tracking-widest ${qrMode === 'rating' ? 'bg-orange-500 hover:bg-orange-600' : 'text-gray-500'}`}
+                    onClick={handlePrintAll}
+                    className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/10 active:scale-95"
                   >
-                    Rating QRs
+                    <Printer size={18} />
+                    Print Parking QRs
                   </Button>
-                </div>
-                <Button
-                  onClick={handlePrintAll}
-                  className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark font-black uppercase text-xs tracking-widest gap-2"
-                >
-                  <Printer size={18} />
-                  Print All QRs
-                </Button>
+                )}
               </>
             }
           />
         </div>
 
-
-
-        {/* ─── QR Grid ─── */}
-        <div id="qr-print-area">
-          {floorGroups.map(([floorId, { floorName, tables: floorTables }]) => (
-            <div key={floorId} className="space-y-4 mb-10">
-              {/* Floor heading (screen only) */}
-              <div className="no-print flex items-center gap-3">
-                <Layers size={16} className="text-pos-primary" />
-                <h2 className="text-sm font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.25em]">
-                  {floorName}
-                </h2>
-                <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
-                <span className="text-xs font-bold text-gray-400 uppercase">{floorTables.length} tables</span>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {floorTables.map(table => {
-                  const qrUrl = qrMode === 'order' 
-                    ? `${origin}/menu/${table.property.code}/${table.qrToken || table.id}`
-                    : `${origin}/rate/${table.property.code}/${table.qrToken || table.id}`;
-                    
-                  return (
-                    <div
-                      key={table.id}
-                      className={`qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300 ${qrMode === 'rating' ? 'border-orange-200 dark:border-orange-900/30' : ''}`}
-                    >
-                      <div className="print-content w-full flex flex-col items-center gap-2">
-                        {/* Property name */}
-                        <div className="space-y-1 w-full flex flex-col items-center">
-                          <h3 className="print-property-name text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate w-full">
-                            {table.property.name}
-                          </h3>
-                          {/* Floor badge */}
-                          <div className={`print-floor-badge text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${qrMode === 'rating' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
-                             {floorName}
-                          </div>
-                        </div>
-
-                        {/* QR Code */}
-                        <div className={`print-qr-container p-2 bg-white rounded-xl border shadow-inner ${qrMode === 'rating' ? 'border-orange-100' : 'border-gray-100'}`}>
-                          <QRCodeSVG
-                            value={qrUrl}
-                            size={140}
-                            level="H"
-                            includeMargin={false}
-                          />
-                        </div>
-
-                        {/* Table name */}
-                        <div className="space-y-0.5 w-full">
-                          <h2 className="print-table-name text-lg font-bold text-gray-900 dark:text-white">
-                            {table.name}
-                          </h2>
-                          <p className={`print-footer text-[10px] font-black uppercase tracking-[0.2em] ${qrMode === 'rating' ? 'text-orange-500' : 'text-gray-400'}`}>
-                            {qrMode === 'order' ? 'Scan to Order' : 'Scan to Rate'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        {/* ─── Sleek Tab Switcher (Screen Only) ─── */}
+        <div className="no-print flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-gray-200 dark:border-slate-800 w-full max-w-lg mx-auto shadow-sm">
+          <button
+            onClick={() => {
+              setActiveTab('tables');
+              router.replace(`${p}/operations/tables/qr-gallery?tab=tables`);
+            }}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === 'tables'
+                ? 'bg-pos-primary text-white shadow-lg shadow-pos-primary/10'
+                : 'text-gray-500 hover:text-gray-800 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            Dining Tables
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('delivery');
+              router.replace(`${p}/operations/tables/qr-gallery?tab=delivery`);
+            }}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === 'delivery'
+                ? 'bg-pos-primary text-white shadow-lg shadow-pos-primary/10'
+                : 'text-gray-500 hover:text-gray-800 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            Home Delivery Flyer
+          </button>
+          {parkingSlots.length > 0 && (
+            <button
+              onClick={() => {
+                setActiveTab('parking');
+                router.replace(`${p}/operations/tables/qr-gallery?tab=parking`);
+              }}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeTab === 'parking'
+                  ? 'bg-pos-primary text-white shadow-lg shadow-pos-primary/10'
+                  : 'text-gray-500 hover:text-gray-800 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              Parking Slots
+            </button>
+          )}
         </div>
 
-        {tables.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 text-center space-y-3 no-print">
-            <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">No tables found</p>
-            <Button variant="secondary" onClick={fetchData} className="rounded-xl gap-2">
-              <RefreshCcw size={15} /> Retry
-            </Button>
+        {/* ─── Tab 1: Dining Tables QR Grid ─── */}
+        {activeTab === 'tables' && (
+          <div id="qr-print-area" className="space-y-10 animate-in fade-in duration-300">
+            {floorGroups.map(([floorId, { floorName, tables: floorTables }]) => (
+              <div key={floorId} className="space-y-4">
+                {/* Floor heading (screen only) */}
+                <div className="no-print flex items-center gap-3">
+                  <Layers size={16} className="text-pos-primary" />
+                  <h2 className="text-sm font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.25em]">
+                    {floorName}
+                  </h2>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                  <span className="text-xs font-bold text-gray-400 uppercase">{floorTables.length} tables</span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {floorTables.map(table => {
+                    const qrUrl = qrMode === 'order' 
+                      ? `${origin}/menu/${table.property.code}/${table.qrToken || table.id}`
+                      : `${origin}/rate/${table.property.code}/${table.qrToken || table.id}`;
+                      
+                    return (
+                      <div
+                        key={table.id}
+                        className={`qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300 ${qrMode === 'rating' ? 'border-orange-200 dark:border-orange-900/30' : ''}`}
+                      >
+                        <div className="print-content w-full flex flex-col items-center gap-2">
+                          {/* Property name */}
+                          <div className="space-y-1 w-full flex flex-col items-center">
+                            <h3 className="print-property-name text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate w-full">
+                              {table.property.name}
+                            </h3>
+                            {/* Floor badge */}
+                            <div className={`print-floor-badge text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${qrMode === 'rating' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
+                               {floorName}
+                            </div>
+                          </div>
+
+                          {/* QR Code */}
+                          <div className={`print-qr-container p-2 bg-white rounded-xl border shadow-inner ${qrMode === 'rating' ? 'border-orange-100' : 'border-gray-100'}`}>
+                            <QRCodeSVG
+                              value={qrUrl}
+                              size={140}
+                              level="H"
+                              includeMargin={false}
+                            />
+                          </div>
+
+                          {/* Table name */}
+                          <div className="space-y-0.5 w-full">
+                            <h2 className="print-table-name text-lg font-bold text-gray-900 dark:text-white">
+                              {table.name}
+                            </h2>
+                            <p className={`print-footer text-[10px] font-black uppercase tracking-[0.2em] ${qrMode === 'rating' ? 'text-orange-500' : 'text-gray-400'}`}>
+                              {qrMode === 'order' ? 'Scan to Order' : 'Scan to Rate'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {tables.filter(t => t.name.toLowerCase() !== 'home delivery').length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 text-center space-y-3 no-print">
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">No tables found</p>
+                <Button variant="secondary" onClick={fetchData} className="rounded-xl gap-2">
+                  <RefreshCcw size={15} /> Retry
+                </Button>
+              </div>
+            )}
           </div>
         )}
+
+        {/* ─── Tab 2: Home Delivery QR Flyer ─── */}
+        {activeTab === 'delivery' && (
+          <div className="space-y-6 animate-in fade-in duration-300 no-print">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              {/* Information Guidelines */}
+              <div className="lg:col-span-3 space-y-6">
+                <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 border border-gray-150 dark:border-slate-800 shadow-sm space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                      <Home size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-850 dark:text-white uppercase tracking-tight">Order from Home System</h3>
+                      <p className="text-xs text-slate-400 font-semibold">Enable your customers to order direct delivery from their couch</p>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">How to Launch the Flyer</h4>
+                    <ul className="space-y-3.5 text-xs text-slate-650 dark:text-slate-300 font-medium">
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0 text-[10px]">1</span>
+                        <span>Click the <strong>"Print Poster Flyer"</strong> button in the top right to download or print your gorgeous poster.</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0 text-[10px]">2</span>
+                        <span>Display the flyer on your main doors, marketing posters, table displays, or social media pages.</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0 text-[10px]">3</span>
+                        <span>Guests scan the QR code to access your storefront, type their delivery address/phone, and submit direct orders.</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <Globe size={16} className="text-indigo-500 mx-auto mb-1.5" />
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Digital Storefront</p>
+                      <p className="text-[10px] font-bold text-slate-800 dark:text-white mt-0.5">100% Online</p>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <Phone size={16} className="text-emerald-500 mx-auto mb-1.5" />
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Guest Checkout</p>
+                      <p className="text-[10px] font-bold text-slate-800 dark:text-white mt-0.5">No App Required</p>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <Navigation size={16} className="text-indigo-500 mx-auto mb-1.5" />
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Beacons</p>
+                      <p className="text-[10px] font-bold text-slate-800 dark:text-white mt-0.5">Simulated Path</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Screen Preview */}
+              <div className="lg:col-span-2 flex justify-center">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl max-w-sm w-full text-slate-900 dark:text-slate-150 flex flex-col items-center gap-6 relative overflow-hidden transition-all hover:scale-[1.01]">
+                  <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl flex items-center gap-1 shadow-md">
+                    <Sparkles size={10} className="animate-spin" /> High Density
+                  </div>
+
+                  <div className="space-y-2 mt-4 text-center">
+                    <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/30">
+                      Home Delivery Available
+                    </span>
+                    <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white mt-1">
+                      {property?.name || 'Our Kitchen'}
+                    </h1>
+                  </div>
+
+                  <p className="text-xs font-semibold text-slate-400 text-center leading-relaxed max-w-[280px]">
+                    Scan this QR code from home to browse our full digital menu and place home delivery orders directly on your mobile!
+                  </p>
+
+                  <div className="p-4 bg-white rounded-[2rem] border border-slate-100 shadow-inner flex items-center justify-center">
+                    {deliveryQrUrl ? (
+                      <QRCodeSVG
+                        value={deliveryQrUrl}
+                        size={160}
+                        level="H"
+                      />
+                    ) : (
+                      <div className="w-40 h-40 flex items-center justify-center">
+                        <RefreshCcw className="animate-spin text-indigo-500" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 text-center">
+                    <h3 className="text-sm font-extrabold uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400">
+                      SCAN TO ORDER
+                    </h3>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      Fresh Food · Super Fast Delivery
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Printable Poster Flyer (Hidden on screen, visible on print only) */}
+        {activeTab === 'delivery' && deliveryQrUrl && (
+          <div id="print-poster-root" className="hidden">
+            <div className="poster-print-card">
+              <div className="poster-frame">
+                <div className="space-y-2">
+                  <span style={{
+                    backgroundColor: '#e0e7ff',
+                    color: '#4338ca',
+                    padding: '6px 20px',
+                    borderRadius: '99px',
+                    fontSize: '14px',
+                    fontWeight: '900',
+                    textTransform: 'uppercase',
+                    border: '1px solid #c7d2fe',
+                    display: 'inline-block'
+                  }}>
+                    Home Delivery Available
+                  </span>
+                  <h1 style={{
+                    fontSize: '44px',
+                    fontWeight: '900',
+                    textTransform: 'uppercase',
+                    color: '#000000',
+                    marginTop: '15px',
+                    letterSpacing: '-1px'
+                  }}>
+                    {property?.name || 'Our Kitchen'}
+                  </h1>
+                </div>
+
+                <p style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: '#475569',
+                  maxWidth: '420px',
+                  lineHeight: '1.6'
+                }}>
+                  Scan this QR code from home to browse our full digital menu and place home delivery orders directly on your mobile!
+                </p>
+
+                <div style={{
+                  padding: '24px',
+                  background: '#ffffff',
+                  borderRadius: '32px',
+                  border: '2px solid #f1f5f9',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
+                  margin: '20px 0'
+                }}>
+                  <QRCodeSVG
+                    value={deliveryQrUrl}
+                    size={280}
+                    level="H"
+                  />
+                </div>
+
+                <div>
+                  <h2 style={{
+                    fontSize: '24px',
+                    fontWeight: '900',
+                    color: '#4f46e5',
+                    letterSpacing: '4px',
+                    textTransform: 'uppercase'
+                  }}>
+                    SCAN TO ORDER
+                  </h2>
+                  <p style={{
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    color: '#94a3b8',
+                    letterSpacing: '6px',
+                    textTransform: 'uppercase',
+                    marginTop: '6px'
+                  }}>
+                    Fresh Food · Super Fast Delivery
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Tab 3: Parking Slots QR Grid ─── */}
+        {activeTab === 'parking' && (
+          <div id="qr-print-area" className="space-y-4 animate-in fade-in duration-300">
+            {/* Legend / Info (screen only) */}
+            <div className="no-print flex items-center gap-3">
+              <Layers size={16} className="text-pos-primary" />
+              <h2 className="text-sm font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.25em]">
+                Parking Area QRs
+              </h2>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+              <span className="text-xs font-bold text-gray-400 uppercase">{parkingSlots.length} slots</span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {parkingSlots.map(slot => {
+                const qrUrl = `${origin}/menu/parking/${property?.code}/${slot.qrToken || slot.id}`;
+                  
+                return (
+                  <div
+                    key={slot.id}
+                    className="qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300"
+                  >
+                    <div className="print-content w-full flex flex-col items-center gap-2">
+                      {/* Property name */}
+                      <div className="space-y-1 w-full flex flex-col items-center">
+                        <h3 className="print-property-name text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate w-full">
+                          {property?.name}
+                        </h3>
+                        {/* Parking badge */}
+                        <div className="print-parking-badge text-[10px] uppercase font-black px-2 py-0.5 rounded-full">
+                           Parking Slot
+                        </div>
+                      </div>
+
+                      {/* QR Code */}
+                      <div className="print-qr-container p-2 bg-white rounded-xl border shadow-inner border-gray-100">
+                        <QRCodeSVG
+                          value={qrUrl}
+                          size={140}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+
+                      {/* Table name */}
+                      <div className="space-y-0.5 w-full">
+                        <h2 className="print-table-name text-lg font-bold text-gray-900 dark:text-white">
+                          {slot.name}
+                        </h2>
+                        <p className="print-footer text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                          Scan to Order
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {parkingSlots.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 text-center space-y-3 no-print">
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">No parking slots found</p>
+                <Button variant="secondary" onClick={fetchData} className="rounded-xl gap-2">
+                  <RefreshCcw size={15} /> Retry
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </>
   );

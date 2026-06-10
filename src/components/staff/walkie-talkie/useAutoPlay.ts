@@ -35,6 +35,47 @@ interface PlayingInfo {
   url: string
 }
 
+// Shared utility to register and unlock multiple HTMLAudioElements on first user interaction (gesture)
+export const globalAudioUnlocker = {
+  unlocked: false,
+  elements: new Set<HTMLAudioElement>(),
+
+  register(audio: HTMLAudioElement) {
+    if (this.unlocked) {
+      try {
+        // Already unlocked globally, play silenty to confirm this element is unlocked
+        const originalSrc = audio.src;
+        audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+        const p = audio.play();
+        if (p !== undefined) {
+          p.then(() => {
+            audio.pause();
+            audio.src = originalSrc;
+          }).catch(() => {});
+        }
+      } catch {}
+    } else {
+      this.elements.add(audio);
+    }
+  },
+
+  unlockAll() {
+    this.unlocked = true;
+    this.elements.forEach(audio => {
+      try {
+        audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+        const p = audio.play();
+        if (p !== undefined) {
+          p.then(() => {
+            audio.pause();
+          }).catch(() => {});
+        }
+      } catch (e) {}
+    });
+    this.elements.clear();
+  }
+};
+
 export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPlayOptions) {
   // Currently playing info — used to show notification in UI
   const [playingInfo, setPlayingInfo] = useState<PlayingInfo | null>(null)
@@ -48,7 +89,9 @@ export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPla
   // Initialize a single reusable Audio element on mount to bypass aggressive mobile autoplay blocking
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      currentAudioRef.current = new Audio()
+      const audio = new Audio()
+      currentAudioRef.current = audio
+      globalAudioUnlocker.register(audio)
     }
     return () => {
       isMountedRef.current = false

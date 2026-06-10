@@ -43,6 +43,18 @@ export async function PATCH(
       });
     }
 
+    if (status === 'BILL_PRINTED') {
+      await (prisma as any).posOrder.updateMany({
+        where: {
+          parkingSlotId: id,
+          status: { notIn: ['SETTLED', 'CANCELLED'] }
+        },
+        data: {
+          status: 'BILL_PRINTED'
+        }
+      });
+    }
+
     return NextResponse.json({ success: true, data: slot });
   } catch (error) {
     console.error('Error updating parking slot:', error);

@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client'
 import { toast, Toaster } from 'sonner'
 import VoiceMessagesTab from '@/components/staff/walkie-talkie/VoiceMessagesTab'
 import AudioPlayer from '@/components/staff/walkie-talkie/AudioPlayer'
-import { useAutoPlay } from '@/components/staff/walkie-talkie/useAutoPlay'
+import { useAutoPlay, globalAudioUnlocker } from '@/components/staff/walkie-talkie/useAutoPlay'
 import AutoPlayNotification from '@/components/staff/walkie-talkie/AutoPlayNotification'
 import StaffAttendancePanel from '@/components/staff/StaffAttendancePanel'
 
@@ -67,17 +67,23 @@ function setupMobileAudioUnlock() {
   if (typeof window === 'undefined') return
 
   const unlock = () => {
-    // 1. Resume AudioContext
-    const ctx = getSharedAudioCtx()
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().then(() => {
-        _onAudioUnlocked()
-      }).catch(() => {})
-    } else {
-      _onAudioUnlocked()
-    }
+    // 1. Mark as unlocked immediately on user interaction
+    _onAudioUnlocked()
 
-    // 2. Unlock HTMLAudioElement by playing a tiny silent data-uri
+    // 2. Unlock all registered audio elements (e.g., walkie-talkie autoplay element)
+    try {
+      globalAudioUnlocker.unlockAll()
+    } catch {}
+
+    // 3. Resume AudioContext (for chirps/sfx)
+    try {
+      const ctx = getSharedAudioCtx()
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {})
+      }
+    } catch {}
+
+    // 4. Unlock HTMLAudioElement by playing a tiny silent data-uri
     try {
       const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=')
       silentAudio.volume = 0.01
@@ -477,36 +483,54 @@ function LocationSharingPanel({ wtToken }: { wtToken: string }) {
     // Save preference so page refresh keeps it on
     try { localStorage.setItem('loc_sharing', '1') } catch { }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const lat = pos.coords.latitude
-        const lng = pos.coords.longitude
-        lastCoordsRef.current = { lat, lng }
-        setSharing(true)
-        setStatus(`✓ Sharing (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
-        // Send first ping immediately on first location fix
-        sendPing(lat, lng)
-      },
-      (err) => {
-        setError(`Location error: ${err.message} (Code ${err.code})`)
-        // Only turn off if permission is denied (code 1)
-        if (err.code === 1) {
-          setSharing(false)
-          setStatus('Off')
-          try { localStorage.removeItem('loc_sharing') } catch { }
-        } else {
-          // For other transient errors (timeout, position unavailable), keep sharing true
-          // so watchPosition can keep trying and the user does not get turned off
-          setStatus(`Seeking GPS signal…`)
+    const updateLocation = (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude
+      const lng = pos.coords.longitude
+      lastCoordsRef.current = { lat, lng }
+      setSharing(true)
+      setStatus(`✓ Sharing (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+      sendPing(lat, lng)
+    }
+
+    const handleLocationError = (err: GeolocationPositionError) => {
+      console.warn('Geolocation error:', err)
+      setError(`Location error: ${err.message} (Code ${err.code})`)
+      // Only turn off if permission is denied (code 1)
+      if (err.code === 1) {
+        setSharing(false)
+        setStatus('Off')
+        try { localStorage.removeItem('loc_sharing') } catch { }
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
         }
-      },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+      } else {
+        // For other transient errors (timeout, position unavailable), keep sharing true
+        // and send cached coords if available so server knows they are still online
+        setStatus(`Seeking GPS signal…`)
+        if (lastCoordsRef.current) {
+          sendPing(lastCoordsRef.current.lat, lastCoordsRef.current.lng)
+        }
+      }
+    }
+
+    // Start watching position
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      updateLocation,
+      handleLocationError,
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     )
 
-    // Repeat ping every 30 seconds
+    // Repeat ping every 30 seconds by querying GPS directly for fresh coordinates
     if (intervalRef.current) clearInterval(intervalRef.current)
     intervalRef.current = setInterval(() => {
-      if (lastCoordsRef.current) sendPing(lastCoordsRef.current.lat, lastCoordsRef.current.lng)
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          updateLocation,
+          handleLocationError,
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        )
+      }
     }, 30000)
   }, [sendPing])
 
@@ -1706,17 +1730,25 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
       {/* ━━━ AUDIO UNLOCKED NOTICE BANNER ━━━ */}
       {!isAudioUnlocked && (
-        <div style={{
-          flexShrink: 0,
-          background: 'linear-gradient(90deg, #b91c1c, #7f1d1d)',
-          borderBottom: '1px solid rgba(239,68,68,0.3)',
-          padding: '8px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          cursor: 'pointer',
-          animation: 'pulse 2s infinite',
-        }}>
+        <div 
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              // Dispatch click to trigger the global gesture listener immediately
+              document.dispatchEvent(new MouseEvent('click'))
+            }
+          }}
+          style={{
+            flexShrink: 0,
+            background: 'linear-gradient(90deg, #b91c1c, #7f1d1d)',
+            borderBottom: '1px solid rgba(239,68,68,0.3)',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: 'pointer',
+            animation: 'pulse 2s infinite',
+          }}
+        >
           <span style={{ fontSize: 16 }}>⚠️</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 10, fontWeight: 900, color: '#fecaca', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

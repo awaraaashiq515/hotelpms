@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-import { sendSMS } from '@/lib/notificationService';
+import { sendSMS, createNotification } from '@/lib/notificationService';
 import { processDriverRide } from '@/lib/driverOfferEngine';
 import { sendWhatsAppMessage, formatWhatsAppReceipt } from '@/lib/whatsapp';
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx: any) => {
       // 0. Find target account (Cash Account)
       const cashAccount = await tx.account.findFirst({
-        where: { 
+        where: {
           propertyId: session.propertyId!,
           accountType: 'CASH'
         }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       // 1. Find or Create PosOrder
       let posOrders: any[] = [];
       let posOrder: any = null;
-      
+
       const orderId = body.orderId;
       if (orderId) {
         posOrder = await tx.posOrder.findUnique({
@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
         }
       } else if (restaurantTableId) {
         posOrders = await (tx as any).posOrder.findMany({
-          where: { 
-            restaurantTableId, 
-            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] } 
+          where: {
+            restaurantTableId,
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] }
           }
         });
         posOrder = posOrders.length > 0 ? posOrders[0] : null;
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
             loyaltyDiscount: loyaltyDiscountCalculated,
           }
         });
-        
+
         // Also update the primary order with the final totals for the invoice link
         posOrder = await tx.posOrder.update({
           where: { id: posOrder.id },
@@ -214,43 +214,43 @@ export async function POST(request: NextRequest) {
         if (!outlet) {
           throw new Error('No POS outlet found for this property.');
         }
-        
+
         const table = restaurantTableId ? await (tx as any).table.findUnique({ where: { id: restaurantTableId } }) : null;
 
         posOrder = await (tx as any).posOrder.create({
           data: {
-              propertyId: session.propertyId!,
-              outletId: outlet.id,
-              orderNo: `POS-${Date.now()}`,
-              orderType: 'DINE_IN',
-              status: 'SETTLED',
-              subtotal: subtotal,
-              taxAmount: taxAmount,
-              discountAmount: totalDiscount,
-              grandTotal: grandTotal,
-              restaurantTableId: restaurantTableId || null,
-              tableNo: table?.name || null,
-              driverId: driverId || null,
-              staffMemberId: staffMemberId || null,
-              membershipCardId: membershipCardId || null,
-              membershipDiscount: membershipDiscount || 0,
-              couponId: couponRecord?.id || null,
-              loyaltyPointsEarned: pointsEarned,
-              loyaltyPointsRedeemed: redeemPoints,
-              loyaltyDiscount: loyaltyDiscountCalculated,
-              items: {
-                create: items.map((item: any) => {
-                  const mappedItem = itemsWithTax.find((i: any) => i.id === item.id);
-                  return {
-                    productId: item.id,
-                    quantity: mappedItem.qty,
-                    unitPrice: mappedItem.unitPrice,
-                    taxAmount: mappedItem.lineTax,
-                    discountAmount: mappedItem.lineDiscount,
-                    totalAmount: mappedItem.qty * mappedItem.unitPrice,
-                  };
-                })
-              }
+            propertyId: session.propertyId!,
+            outletId: outlet.id,
+            orderNo: `POS-${Date.now()}`,
+            orderType: orderType || 'DINE_IN',
+            status: 'SETTLED',
+            subtotal: subtotal,
+            taxAmount: taxAmount,
+            discountAmount: totalDiscount,
+            grandTotal: grandTotal,
+            restaurantTableId: restaurantTableId || null,
+            tableNo: table?.name || null,
+            driverId: driverId || null,
+            staffMemberId: staffMemberId || null,
+            membershipCardId: membershipCardId || null,
+            membershipDiscount: membershipDiscount || 0,
+            couponId: couponRecord?.id || null,
+            loyaltyPointsEarned: pointsEarned,
+            loyaltyPointsRedeemed: redeemPoints,
+            loyaltyDiscount: loyaltyDiscountCalculated,
+            items: {
+              create: items.map((item: any) => {
+                const mappedItem = itemsWithTax.find((i: any) => i.id === item.id);
+                return {
+                  productId: item.id,
+                  quantity: mappedItem.qty,
+                  unitPrice: mappedItem.unitPrice,
+                  taxAmount: mappedItem.lineTax,
+                  discountAmount: mappedItem.lineDiscount,
+                  totalAmount: mappedItem.qty * mappedItem.unitPrice,
+                };
+              })
+            }
           }
         });
       }
@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
       const fy = month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
-      
+
       const count = await tx.invoice.count({
         where: { propertyId: session.propertyId! }
       });
@@ -369,6 +369,26 @@ export async function POST(request: NextRequest) {
           membershipDiscount: membershipDiscount || 0,
         },
       });
+
+      const tableIdForNotif = restaurantTableId || posOrder?.restaurantTableId;
+
+      await createNotification({
+        propertyId: session.propertyId!,
+        title: isPayLater ? 'Credit Bill Generated' : 'Payment Received',
+        message: isPayLater 
+          ? `Invoice ${invoice.invoiceNo} generated (Pay Later). Amount: ₹${grandTotal.toFixed(2)}`
+          : `Payment of ₹${grandTotal.toFixed(2)} received for Invoice ${invoice.invoiceNo}`,
+        type: 'PAYMENT',
+        priority: 'MEDIUM',
+        tableId: tableIdForNotif || null,
+        metadata: {
+          invoiceId: invoice.id,
+          invoiceNo: invoice.invoiceNo,
+          amount: grandTotal,
+          tableId: tableIdForNotif || null,
+          link: `/invoices`
+        }
+      }, tx);
 
       // 4. Create Invoice Items
       await tx.invoiceItem.createMany({
@@ -433,6 +453,7 @@ export async function POST(request: NextRequest) {
           where: { id: targetTableId },
           data: { status: 'VACANT' }
         });
+        // console.log('table order'targetTableId)
       }
       if (targetParkingSlotId) {
         await (tx as any).parkingSlot.update({
@@ -479,7 +500,7 @@ export async function POST(request: NextRequest) {
                 }
               });
             }
-            
+
             // Handle Inventory Deduction
             const product = await tx.product.findUnique({
               where: { id: item.id },
@@ -555,13 +576,13 @@ export async function POST(request: NextRequest) {
     if (guestId) {
       const guest = await prisma.guest.findUnique({ where: { id: guestId } });
       const property = await prisma.property.findUnique({ where: { id: session.propertyId! } });
-      
+
       if (guest?.mobile) {
         // 1. WhatsApp Receipt
         if (sendWhatsApp) {
           const templateSetting = await prisma.systemSetting.findUnique({ where: { key: 'WHATSAPP_TEMPLATE_BILL' } });
           const message = formatWhatsAppReceipt({ ...result, items }, property, templateSetting?.value);
-          
+
           sendWhatsAppMessage({
             mobile: guest.mobile,
             message: message,

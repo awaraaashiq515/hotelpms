@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Search, Power, Bell, Menu, ShieldCheck, Sun, Moon, Lock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useState, useEffect } from 'react';
@@ -9,13 +9,34 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 import { usePOSSecurity } from '@/components/providers/POSSecurityProvider';
 
 export const DashboardAdminTopNavbar: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = (params?.propertyCode as string) || session?.propertyCode || 'MB01';
+  const p = propertyCode ? `/${propertyCode}` : '';
   const { toggle } = useSidebar();
   const { theme, toggleTheme } = useTheme();
   const { manuallyLock } = usePOSSecurity();
-  const [session, setSession] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
   const [websiteSettings, setWebsiteSettings] = useState<any>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnreadCount = () => {
+      fetch('/api/notifications?status=UNREAD')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.data)) {
+            setUnreadCount(data.data.length);
+          }
+        })
+        .catch(err => console.error('Failed to fetch unread notification count', err));
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -188,7 +209,12 @@ export const DashboardAdminTopNavbar: React.FC = () => {
 
       <div className="flex items-center gap-2 lg:gap-4">
         <div className="flex items-center border-r border-gray-200 dark:border-slate-800 pr-2 lg:pr-4 mr-1 gap-1">
-          <NavbarAction icon={<Bell size={18} />} label="Alerts" />
+          <NavbarAction 
+            icon={<Bell size={18} className={unreadCount > 0 ? 'animate-bounce text-pos-primary' : ''} />} 
+            label="Alerts" 
+            onClick={() => router.push(`${p}/operations/notifications`)} 
+            badge={unreadCount} 
+          />
           <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
           <div className="hidden md:flex">
             <NavbarAction icon={<ShieldCheck size={18} />} label="Security" onClick={() => router.push('/settings/security')} />
@@ -227,8 +253,13 @@ export const DashboardAdminTopNavbar: React.FC = () => {
   );
 };
 
-const NavbarAction = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
-  <button onClick={onClick} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group min-w-[40px] lg:min-w-[68px]">
+const NavbarAction = ({ icon, label, onClick, badge }: { icon: React.ReactNode, label: string, onClick?: () => void, badge?: number }) => (
+  <button onClick={onClick} className="relative flex flex-col items-center justify-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group min-w-[40px] lg:min-w-[68px]">
+    {badge !== undefined && badge > 0 && (
+      <span className="absolute top-1 right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.6)] border border-white dark:border-slate-900 animate-pulse px-1">
+        {badge}
+      </span>
+    )}
     <span className="text-slate-500 group-hover:text-pos-primary mb-0.5 lg:mb-1 transition-colors">{icon}</span>
     <span className="hidden lg:block text-[9px] font-bold text-slate-500 group-hover:text-slate-800 dark:group-hover:text-white uppercase tracking-tighter text-center">{label}</span>
   </button>

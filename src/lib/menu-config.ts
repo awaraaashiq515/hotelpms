@@ -30,6 +30,7 @@ import {
   Star,
   Trash2,
   Coffee,
+  Activity,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -74,6 +75,13 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
       path: '/operations',
       icon: LayoutDashboard,
       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'],
+      feature: 'POS',
+    },
+    {
+      name: 'Live Dashboard',
+      path: '/restaurantadmin',
+      icon: Activity,
+      roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN'],
       feature: 'POS',
     },
     {
@@ -127,6 +135,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
       path: '/operations',
       icon: Layers,
       subItems: [
+        { name: '📊 Live Dashboard', path: '/restaurantadmin',           feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN'] },
         { name: 'Table Layout',    path: '/operations/tables',    feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
         { name: 'Tablet Setup',    path: '/settings/tablets',     feature: 'TABLETS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
         { name: 'Orders Control',  path: '/orders',               feature: 'POS' },
@@ -216,8 +225,8 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
   ];
 
   return rawMenu.map(item => {
-    // We don't prefix global admin routes
-    const isGlobal = item.path.startsWith('/admin') || item.path.startsWith('/restaurantadmin') || item.path === '/manage-properties';
+    // We don't prefix global admin routes (like /admin/... or /manage-properties)
+    const isGlobal = item.path.startsWith('/admin') || item.path === '/manage-properties';
     if (!isGlobal && propertyCode) {
       item.path = `/${propertyCode}${item.path}`;
       if (item.subItems) {

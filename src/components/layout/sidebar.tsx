@@ -18,6 +18,50 @@ export const Sidebar: React.FC = () => {
   const [barPosEnabled, setBarPosEnabled] = useState(false);
   const [cafePosEnabled, setCafePosEnabled] = useState(false);
   const [property, setProperty] = useState<any>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchUnreadCount = () => {
+      fetch('/api/notifications?status=UNREAD')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.data)) {
+            setUnreadNotifications(data.data);
+          }
+        })
+        .catch(err => console.error('Failed to fetch unread notifications', err));
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getBadgeForMenu = (name: string) => {
+    const label = name.toLowerCase().trim();
+    
+    if (label === 'live dashboard' || label === 'pos terminal') {
+      const count = unreadNotifications.filter(n => n.type === 'ORDER' || n.type === 'CANCELLATION').length;
+      return count > 0 ? count : undefined;
+    }
+
+    if (label === 'counter payments' || label === 'payments' || label === 'invoices' || label === 'billing & payments') {
+      const count = unreadNotifications.filter(n => n.type === 'PAYMENT' || n.type === 'REFUND').length;
+      return count > 0 ? count : undefined;
+    }
+
+    if (label === 'kots' || label === 'kitchen display' || label === 'bar display' || label === 'orders & table control') {
+      const count = unreadNotifications.filter(n => n.type === 'KITCHEN').length;
+      return count > 0 ? count : undefined;
+    }
+
+    if (label === 'inventory') {
+      const count = unreadNotifications.filter(n => n.type === 'INVENTORY').length;
+      return count > 0 ? count : undefined;
+    }
+
+    return undefined;
+  };
 
   React.useEffect(() => {
     fetch('/api/auth/session')
@@ -140,15 +184,24 @@ export const Sidebar: React.FC = () => {
   };
 
 
+  const isLiveDashboard = pathname.endsWith('/restaurantadmin');
+
   return (
     <aside className={`
       bg-pos-sidebar text-pos-sidebar-text flex flex-col sticky top-16 left-0 z-40 shadow-xl
       transition-all duration-500 ease-in-out overflow-hidden shrink-0
-      dark:bg-slate-950 dark:border-r dark:border-slate-800
-      ${isHidden ? 'w-0 opacity-0 pointer-events-none' : isOpen ? 'w-[260px]' : 'w-20'}
+      dark:bg-slate-950 dark:border-slate-800
+      ${isHidden 
+        ? 'w-0 opacity-0 pointer-events-none border-none' 
+        : isOpen 
+          ? 'w-[260px] border-r' 
+          : isLiveDashboard
+            ? 'w-0 opacity-0 pointer-events-none border-none'
+            : 'w-20 border-r'
+      }
     `}>
       {/* Inner wrapper — fixed width so content doesn't squeeze during animation */}
-      <div className={`${isOpen ? 'w-[260px]' : 'w-20'} flex flex-col h-full transition-all duration-500`}>
+      <div className={`${isOpen ? 'w-[260px]' : isLiveDashboard ? 'w-0' : 'w-20'} flex flex-col h-full transition-all duration-500`}>
         {/* Branding Area */}
         <div className={`px-6 py-6 border-b border-white/5 bg-black/10 ${!isOpen && 'flex justify-center px-0'}`}>
           <div className="flex items-center gap-3">
@@ -202,11 +255,32 @@ export const Sidebar: React.FC = () => {
                     }`}
                   >
                     <div className={`flex items-center ${isOpen ? 'gap-4' : 'justify-center w-full'}`}>
-                      <item.icon
-                        size={20}
-                        className={isGroupActive ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
-                      />
-                      {isOpen && <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>}
+                      {isOpen ? (
+                        <>
+                          <item.icon
+                            size={20}
+                            className={isGroupActive ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
+                          />
+                          <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>
+                          {getBadgeForMenu(item.name) !== undefined && (
+                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.5)] border border-white dark:border-slate-950 px-1 animate-pulse ml-1">
+                              {getBadgeForMenu(item.name)}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <div className="relative flex items-center justify-center">
+                          <item.icon
+                            size={20}
+                            className={isGroupActive ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
+                          />
+                          {getBadgeForMenu(item.name) !== undefined && (
+                            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.6)] border border-white dark:border-slate-950 px-1 animate-pulse">
+                              {getBadgeForMenu(item.name)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {isOpen && (isGroupOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                   </Link>
@@ -220,13 +294,18 @@ export const Sidebar: React.FC = () => {
                             key={sub.path}
                             href={sub.path}
                             target={sub.target}
-                            className={`flex items-center px-4 py-2.5 text-[11px] font-bold uppercase tracking-tight transition-all rounded-md ${
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-bold uppercase tracking-tight transition-all rounded-md ${
                               isSubActive
                                 ? 'text-pos-primary bg-pos-primary/10'
                                 : 'text-gray-500 hover:text-white hover:bg-pos-sidebar-hover'
                             }`}
                           >
-                            {sub.name}
+                            <span className="truncate">{sub.name}</span>
+                            {getBadgeForMenu(sub.name) !== undefined && (
+                              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.5)] border border-white dark:border-slate-950 px-1 animate-pulse">
+                                {getBadgeForMenu(sub.name)}
+                              </span>
+                            )}
                           </Link>
                         );
                       })}
@@ -250,11 +329,32 @@ export const Sidebar: React.FC = () => {
                   }`}
                 >
                   <div className={`flex items-center ${isOpen ? 'gap-4' : 'justify-center w-full'}`}>
-                    <item.icon
-                      size={20}
-                      className={pathname === item.path ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
-                    />
-                    {isOpen && <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>}
+                    {isOpen ? (
+                      <>
+                        <item.icon
+                          size={20}
+                          className={pathname === item.path ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
+                        />
+                        <span className="text-[13px] font-semibold tracking-tight uppercase">{item.name}</span>
+                        {getBadgeForMenu(item.name) !== undefined && (
+                          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.5)] border border-white dark:border-slate-950 px-1 animate-pulse">
+                            {getBadgeForMenu(item.name)}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <div className="relative flex items-center justify-center">
+                        <item.icon
+                          size={20}
+                          className={pathname === item.path ? 'text-white' : 'text-gray-500 group-hover:text-pos-primary transition-colors'}
+                        />
+                        {getBadgeForMenu(item.name) !== undefined && (
+                          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.6)] border border-white dark:border-slate-950 px-1 animate-pulse">
+                            {getBadgeForMenu(item.name)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Link>
               </div>

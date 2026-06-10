@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { createNotification } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -117,6 +118,22 @@ export async function POST(request: NextRequest) {
           invoiceStatus: 'ACTIVE',
         },
       });
+
+      await createNotification({
+        propertyId: session.propertyId!,
+        title: 'Credit Invoice Created',
+        message: `Invoice ${invoice.invoiceNo} created for Guest. Amount: ₹${grandTotal.toFixed(2)}`,
+        type: 'PAYMENT',
+        priority: 'MEDIUM',
+        tableId: restaurantTableId || null,
+        metadata: {
+          invoiceId: invoice.id,
+          invoiceNo: invoice.invoiceNo,
+          amount: grandTotal,
+          tableId: restaurantTableId || null,
+          link: `/invoices`
+        }
+      }, tx);
 
       // 5. Create Invoice Items
       await (tx as any).invoiceItem.createMany({

@@ -949,8 +949,30 @@ export default function BillingPage() {
         setIsProforma(false);
         // Data for final print is already in billData, but status is now settled
         fetchAllActiveOrders();
-        // Immediate redirect to operations
-        router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+
+        const isTakeawayOrDelivery = orderType === 'PICKUP' || orderType === 'DELIVERY' || (!tableId && !parkingSlotId);
+        
+        if (isTakeawayOrDelivery) {
+          // Reset states to prepare for next order
+          setSelectedGuestId('');
+          setSelectedDriver(null);
+          setDeliveryCustomerName('');
+          setDeliveryPhone('');
+          setDeliveryAddress('');
+          setDeliveryInstructions('');
+          setManualDiscount(0);
+          setManualDiscountType('PERCENTAGE');
+          setAppliedCoupon(null);
+          setCouponCodeInput('');
+          setRedeemPointsInput(0);
+          setCouponError('');
+          
+          // Clear query params by replacing route
+          router.replace(`${p}/billing`);
+        } else {
+          // Immediate redirect to operations for Dine-in
+          router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+        }
       } else {
         addToast('error', result.message || 'Settlement failed');
       }
@@ -2612,9 +2634,29 @@ Total Amount: ₹${grandTotal.toFixed(2)}
             setIsBillOpen(false);
             setBillData(null);
             setAutoPrint(false);
-            // After successful settlement (not proforma), redirect back to operations
+            // After successful settlement (not proforma), redirect back to operations or start new order
             if (!isProforma) {
-              router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+              const isTakeawayOrDelivery = orderType === 'PICKUP' || orderType === 'DELIVERY' || (!tableId && !parkingSlotId);
+              if (isTakeawayOrDelivery) {
+                setCart([]);
+                setActiveOrder(null);
+                setSelectedGuestId('');
+                setSelectedDriver(null);
+                setDeliveryCustomerName('');
+                setDeliveryPhone('');
+                setDeliveryAddress('');
+                setDeliveryInstructions('');
+                setManualDiscount(0);
+                setManualDiscountType('PERCENTAGE');
+                setAppliedCoupon(null);
+                setCouponCodeInput('');
+                setRedeemPointsInput(0);
+                setCouponError('');
+                
+                router.replace(`${p}/billing`);
+              } else {
+                router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+              }
             }
         }} 
         onSettle={handleSettleNew}

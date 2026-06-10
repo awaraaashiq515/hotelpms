@@ -889,7 +889,7 @@ export default function KitchenDisplayPage() {
                       : kot.order?.orderType || 'Takeaway';
 
                     const prepLimit = kot.order?.preparationTime || 15;
-                    const isLate = kot.status === 'PREPARING' && waitMin >= prepLimit;
+                    const isLate = (kot.status === 'PREPARING' || kot.status === 'NEW') && waitMin >= prepLimit;
                     
                     const readyWaitMin = Math.floor((new Date().getTime() - new Date(kot.updatedAt).getTime()) / 60000);
                     const isPickupLate = kot.status === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
@@ -897,14 +897,20 @@ export default function KitchenDisplayPage() {
                     return (
                       <div
                         key={kot.id}
-                        className={`border-2 rounded-2xl overflow-hidden transition-all ${
+                        className={`relative border-2 rounded-2xl overflow-hidden transition-all ${
                           isLate 
                             ? 'bg-black border-rose-600 animate-blink-late shadow-[0_0_20px_rgba(225,29,72,0.5)]' 
                             : isPickupLate
-                            ? 'bg-black border-blue-500 animate-blink-late shadow-[0_0_20px_rgba(59,130,246,0.5)]'
+                            ? 'bg-black border-blue-500 animate-blink-ready shadow-[0_0_20px_rgba(59,130,246,0.5)]'
                             : `bg-slate-800/80 ${col.borderCls}`
                         } ${isUpdating ? 'opacity-60' : ''}`}
                       >
+                        {kot.status === 'NEW' && (
+                          <div className="absolute top-2.5 right-2.5 flex h-3.5 w-3.5 items-center justify-center z-10">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                          </div>
+                        )}
                         {/* Card Header */}
                         <div className="px-4 py-3 border-b border-slate-700/50 flex items-start gap-2">
                           <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${isLate ? 'bg-rose-500 animate-pulse shadow-rose-450/50' : isPickupLate ? 'bg-blue-500 animate-pulse shadow-blue-450/50' : col.dotColor}`} />
