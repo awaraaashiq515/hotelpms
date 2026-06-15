@@ -487,7 +487,7 @@ export default function BarDisplayPage() {
   const fetchKots = useCallback(async (silent = true) => {
     if (!silent) setRefreshing(true);
     try {
-      const data = await kotsApi.list();
+      const data = await kotsApi.list({ menuType: 'BAR' });
       
       // Keep only KOT tickets that contain at least one Bar item
       const barTickets = (data || []).filter(kot => 

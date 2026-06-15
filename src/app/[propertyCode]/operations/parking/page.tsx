@@ -84,7 +84,15 @@ export default function ParkingOperationsPage() {
       if (sData.success) setParkingSlots(sData.data);
       if (pData.success) setPaymentModes(pData.data);
       if (cData.success || Array.isArray(cData)) setCustomers(Array.isArray(cData) ? cData : cData.data || []);
-      if (prData.success && prData.data.length > 0) setPropertyData(prData.data[0]);
+      if (prData.success && prData.data.length > 0) {
+        const slugifyInline = (str: string) => str.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+        const activeProp = prData.data.find((p: any) => 
+          p.code === propertyCode || 
+          slugifyInline(p.name) === propertyCode || 
+          p.id === propertyCode
+        );
+        setPropertyData(activeProp || prData.data[0]);
+      }
       
     } catch (error) {
       console.error('Failed to fetch parking data:', error);

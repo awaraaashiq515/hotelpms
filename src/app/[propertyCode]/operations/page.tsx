@@ -139,7 +139,33 @@ export default function OperationsPage() {
       return unreadNotifications.length > 0 ? unreadNotifications.length : undefined;
     }
     
-    if (label === 'Kitchen Display' || label === 'Bar Display' || label === 'KOTs List') {
+    if (label === 'Kitchen Display') {
+      const count = unreadNotifications.filter(n => {
+        if (n.type !== 'KITCHEN') return false;
+        try {
+          const meta = JSON.parse(n.metadata);
+          return meta.hasKitchenItems !== false; // Default to true if not present
+        } catch {
+          return true;
+        }
+      }).length;
+      return count > 0 ? count : undefined;
+    }
+
+    if (label === 'Bar Display') {
+      const count = unreadNotifications.filter(n => {
+        if (n.type !== 'KITCHEN') return false;
+        try {
+          const meta = JSON.parse(n.metadata);
+          return meta.hasBarItems === true; // Only show if explicitly has bar items
+        } catch {
+          return false; // Old KOT notifications didn't have this, default to false for Bar
+        }
+      }).length;
+      return count > 0 ? count : undefined;
+    }
+
+    if (label === 'KOTs List') {
       const count = unreadNotifications.filter(n => n.type === 'KITCHEN').length;
       return count > 0 ? count : undefined;
     }
@@ -267,7 +293,12 @@ export default function OperationsPage() {
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data?.length > 0) {
-          const prop = data.data[0];
+          const slugifyInline = (str: string) => str.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+          const prop = data.data.find((p: any) => 
+            p.code === propertyCode || 
+            slugifyInline(p.name) === propertyCode || 
+            p.id === propertyCode
+          ) || data.data[0];
           setBarPosEnabled(prop.barPosEnabled !== false);
           setCafePosEnabled(prop.cafePosEnabled !== false);
         }
@@ -300,18 +331,20 @@ export default function OperationsPage() {
     { label: 'One-Page Setup', icon: LayoutGrid, path: `${p}/setup`, roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { label: 'POS Terminal',      perm: 'POS Terminal',    icon: Monitor,        path: `${p}/billing`,           feature: 'POS' },
     { label: 'Counter Payments',  perm: 'POS Terminal',    icon: Store,          path: `${p}/counter-payments`,  feature: 'POS' },
-    ...(barPosEnabled ? [{ label: 'Bar POS', perm: 'POS Terminal', icon: Wine, path: `${p}/bar-pos`, feature: 'POS' } as DashboardAction] : []),
-    ...(cafePosEnabled ? [{ label: 'Cafe POS', perm: 'POS Terminal', icon: Coffee, path: `${p}/cafe-pos`, feature: 'POS' } as DashboardAction] : []),
+    ...(barPosEnabled ? [{ label: 'Bar POS', perm: 'POS Terminal', icon: Wine, path: `${p}/bar-pos`, feature: 'BARPOS' } as DashboardAction] : []),
+    ...(cafePosEnabled ? [{ label: 'Cafe POS', perm: 'POS Terminal', icon: Coffee, path: `${p}/cafe-pos`, feature: 'CAFEPOS' } as DashboardAction] : []),
   ];
 
   const displayActions: DashboardAction[] = [
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: `${p}/kitchen-display`,   feature: 'POS' },
-    ...(barPosEnabled ? [{ label: 'Bar Display', perm: 'Kitchen Display', icon: Wine, path: `${p}/bar-display`, feature: 'POS' } as DashboardAction] : []),
+    ...(barPosEnabled ? [{ label: 'Bar Display', perm: 'Kitchen Display', icon: Wine, path: `${p}/bar-display`, feature: 'BARPOS' } as DashboardAction] : []),
     { label: 'Customer Display',  perm: 'POS Terminal',    icon: Monitor,         path: `/order-display`,         feature: 'POS' },
   ];
 
   const orderControlActions: DashboardAction[] = [
-    { label: 'Live Dashboard',    icon: Activity,          path: `${p}/restaurantadmin`,   feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN'] },
+    // POS users get the 6-box Live Overview; Restaurant admins get the detailed dashboard
+    { label: 'Live Overview',     icon: LayoutGrid,        path: `${p}/live-overview`,     feature: 'POS', roles: ['POSSYSTEM'] },
+    { label: 'Live Dashboard',    icon: Activity,          path: `${p}/restaurantadmin`,   feature: 'POS', roles: ['RESTAURANTS_ADMIN'] },
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: `${p}/orders`,            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: `${p}/kots`,              feature: 'POS' },
     { label: 'Live Notifications', icon: Bell,             path: `${p}/operations/notifications`, feature: 'POS' },
@@ -321,11 +354,15 @@ export default function OperationsPage() {
   ];
 
   const deliveryActions: DashboardAction[] = [
-    { label: 'Drivers',           perm: 'Drivers',         icon: CarFront,       path: `${p}/drivers`,           feature: 'DRIVERS' },
-    { label: 'Rider Portal',      perm: 'Drivers',         icon: Bike,           path: `${p}/driver-portal`,     feature: 'DRIVERS' },
-    { label: 'Home Delivery Area', perm: 'Table Layout',    icon: Home,           path: `${p}/operations/delivery`,       feature: 'TABLES' },
-    { label: 'Home Delivery QR',   perm: 'Table Layout',    icon: Home,           path: `${p}/operations/tables/qr-gallery?tab=delivery`, feature: 'TABLES' },
+    { label: 'Drivers',             perm: 'Drivers',      icon: CarFront,   path: `${p}/drivers`,                                     feature: 'DRIVERS' },
+    { label: 'Rider Portal',        perm: 'Drivers',      icon: Bike,       path: `/driver-portal`,                                   feature: 'DRIVERS' },
+    { label: 'Manage Riders',       perm: 'Table Layout', icon: Users,      path: `${p}/operations/delivery/riders`,                  feature: 'TABLES' },
+    { label: 'Delivery Operations', perm: 'Table Layout', icon: Truck,      path: `${p}/operations/delivery`,                         feature: 'TABLES' },
+    { label: 'Delivery Zones',      perm: 'Table Layout', icon: MapPin,     path: `${p}/operations/delivery/zones`,                   feature: 'TABLES' },
+    { label: 'Delivery Analytics',  perm: 'Table Layout', icon: Activity,   path: `${p}/operations/delivery/analytics`,               feature: 'TABLES' },
+    { label: 'Home Delivery QR',    perm: 'Table Layout', icon: Home,       path: `${p}/operations/delivery-flyer`,   feature: 'TABLES' },
   ];
+
 
   const staffActions: DashboardAction[] = [
     { label: 'Staff Portal',      perm: 'POS Terminal',    icon: Tablet,         path: `/staff-portal${p}`,      feature: 'POS' },

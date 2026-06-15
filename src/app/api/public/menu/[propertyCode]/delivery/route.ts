@@ -40,7 +40,8 @@ export async function GET(
         showCafeInQrMenu: true,
         deliveryEnabled: true,
         showDeliveryInQrMenu: true,
-        primaryColor: true,
+        latitude: true,
+        longitude: true,
       }
     });
 
@@ -89,9 +90,9 @@ export async function GET(
           ],
           status: {
             in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY',
-                 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL', 'SETTLED']
+                 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'PAYMENT_AWAITING_APPROVAL', 'SETTLED', 'COMPLETED', 'CANCELLED', 'OUT_FOR_DELIVERY']
           },
-          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
         },
         include: {
           guest: true,
@@ -135,7 +136,12 @@ export async function GET(
 
     const menu = categories.filter((cat: any) => cat.products.length > 0);
 
-    return apiResponse({ property: propertyOut, activeOrders, menu });
+    const deliveryZones = await prisma.deliveryZone.findMany({
+      where: { propertyId: property.id, isActive: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return apiResponse({ property: propertyOut, activeOrders, menu, deliveryZones });
   } catch (error) {
     console.error('Delivery Menu API Error:', error);
     return apiError(error);

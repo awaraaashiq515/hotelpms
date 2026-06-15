@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer, RefreshCcw, Home, Sparkles, Navigation, Globe, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
 
 interface Table {
@@ -24,6 +24,10 @@ interface Property {
 
 export default function DeliveryFlyerPage() {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
+  
   const [table, setTable] = useState<Table | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,7 +71,15 @@ export default function DeliveryFlyerPage() {
       }
 
       if (homeDeliveryTable) setTable(homeDeliveryTable);
-      if (propData.success && propData.data.length > 0) setProperty(propData.data[0]);
+      if (propData.success && propData.data.length > 0) {
+        const slugifyInline = (str: string) => str.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+        const activeProp = propData.data.find((p: any) => 
+          p.code === propertyCode || 
+          slugifyInline(p.name) === propertyCode || 
+          p.id === propertyCode
+        );
+        setProperty(activeProp || propData.data[0]);
+      }
     } catch (err) {
       console.error('Failed to fetch data', err);
     } finally {
@@ -92,8 +104,8 @@ export default function DeliveryFlyerPage() {
     );
   }
 
-  const qrUrl = table && property
-    ? `${origin}/menu/${property.code}/${table.qrToken || table.id}`
+  const qrUrl = property
+    ? `${origin}/menu/${property.code}/delivery`
     : '';
 
   return (
@@ -159,7 +171,7 @@ export default function DeliveryFlyerPage() {
           title="Home Delivery QR"
           subtitle="Generate and print your storefront home ordering flyer"
           showBack
-          backUrl="/operations"
+          backUrl={`${p}/operations`}
           actions={
             <Button
               onClick={handlePrint}
@@ -232,7 +244,7 @@ export default function DeliveryFlyerPage() {
           {/* Interactive Screen Preview */}
           <div className="lg:col-span-2 flex justify-center">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl max-w-sm w-full text-slate-900 dark:text-slate-150 flex flex-col items-center gap-6 relative overflow-hidden transition-all hover:scale-[1.01]">
-              <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl flex items-center gap-1 shadow-md">
+              <div className="absolute top-0 right-0 bg-indigo-650 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl flex items-center gap-1 shadow-md">
                 <Sparkles size={10} className="animate-spin" /> High Density
               </div>
 
@@ -279,78 +291,80 @@ export default function DeliveryFlyerPage() {
       {/* Printable Poster Flyer (Hidden on screen, visible on print only) */}
       {qrUrl && (
         <div id="print-poster-root" className="hidden">
-          <div className="poster-frame">
-            <div className="space-y-2">
-              <span style={{
-                backgroundColor: '#e0e7ff',
-                color: '#4338ca',
-                padding: '6px 20px',
-                borderRadius: '99px',
-                fontSize: '14px',
-                fontWeight: '900',
-                textTransform: 'uppercase',
-                border: '1px solid #c7d2fe',
-                display: 'inline-block'
-              }}>
-                Home Delivery Available
-              </span>
-              <h1 style={{
-                fontSize: '44px',
-                fontWeight: '900',
-                textTransform: 'uppercase',
-                color: '#000000',
-                marginTop: '15px',
-                letterSpacing: '-1px'
-              }}>
-                {property?.name || 'Our Kitchen'}
-              </h1>
-            </div>
+          <div className="poster-print-card">
+            <div className="poster-frame">
+              <div className="space-y-2">
+                <span style={{
+                  backgroundColor: '#e0e7ff',
+                  color: '#4338ca',
+                  padding: '6px 20px',
+                  borderRadius: '99px',
+                  fontSize: '14px',
+                  fontWeight: '900',
+                  textTransform: 'uppercase',
+                  border: '1px solid #c7d2fe',
+                  display: 'inline-block'
+                }}>
+                  Home Delivery Available
+                </span>
+                <h1 style={{
+                  fontSize: '44px',
+                  fontWeight: '900',
+                  textTransform: 'uppercase',
+                  color: '#000000',
+                  marginTop: '15px',
+                  letterSpacing: '-1px'
+                }}>
+                  {property?.name || 'Our Kitchen'}
+                </h1>
+              </div>
 
-            <p style={{
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#475569',
-              maxWidth: '420px',
-              lineHeight: '1.6'
-            }}>
-              Scan this QR code from home to browse our full digital menu and place home delivery orders directly on your mobile!
-            </p>
-
-            <div style={{
-              padding: '24px',
-              background: '#ffffff',
-              borderRadius: '32px',
-              border: '2px solid #f1f5f9',
-              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
-              margin: '20px 0'
-            }}>
-              <QRCodeSVG
-                value={qrUrl}
-                size={280}
-                level="H"
-              />
-            </div>
-
-            <div>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '900',
-                color: '#4f46e5',
-                letterSpacing: '4px',
-                textTransform: 'uppercase'
-              }}>
-                SCAN TO ORDER
-              </h2>
               <p style={{
-                fontSize: '11px',
-                fontWeight: '800',
-                color: '#94a3b8',
-                letterSpacing: '6px',
-                textTransform: 'uppercase',
-                marginTop: '6px'
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#475569',
+                maxWidth: '420px',
+                lineHeight: '1.6'
               }}>
-                Fresh Food · Super Fast Delivery
+                Scan this QR code from home to browse our full digital menu and place home delivery orders directly on your mobile!
               </p>
+
+              <div style={{
+                padding: '24px',
+                background: '#ffffff',
+                borderRadius: '32px',
+                border: '2px solid #f1f5f9',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
+                margin: '20px 0'
+              }}>
+                <QRCodeSVG
+                  value={qrUrl}
+                  size={280}
+                  level="H"
+                />
+              </div>
+
+              <div>
+                <h2 style={{
+                  fontSize: '24px',
+                  fontWeight: '900',
+                  color: '#4f46e5',
+                  letterSpacing: '4px',
+                  textTransform: 'uppercase'
+                }}>
+                  SCAN TO ORDER
+                </h2>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  color: '#94a3b8',
+                  letterSpacing: '6px',
+                  textTransform: 'uppercase',
+                  marginTop: '6px'
+                }}>
+                  Fresh Food · Super Fast Delivery
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -18,10 +18,12 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, deliveryEnabled, showDeliveryInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, restaurantPosEnabled, showRestaurantInQrMenu, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, deliveryEnabled, showDeliveryInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours, latitude, longitude } = body;
     const isSuperAdmin = session.role === 'SUPER_ADMIN';
 
     const updateData: any = {};
+    if (latitude !== undefined) updateData.latitude = latitude !== null ? Number(latitude) : null;
+    if (longitude !== undefined) updateData.longitude = longitude !== null ? Number(longitude) : null;
     if (name !== undefined) updateData.name = name;
     if (whatsAppEnabled !== undefined) updateData.whatsAppEnabled = whatsAppEnabled;
     if (whatsAppProvider !== undefined) updateData.whatsAppProvider = whatsAppProvider;
@@ -53,6 +55,50 @@ export async function PUT(
     if (posTerminalPin !== undefined) updateData.posTerminalPin = posTerminalPin;
     if (thermalPrinterName !== undefined) updateData.thermalPrinterName = thermalPrinterName;
     if (enableDirectPrinting !== undefined) updateData.enableDirectPrinting = enableDirectPrinting;
+    // Enforce POS terminal count limit based on Organization's Package
+    const existingProperty = await prisma.property.findUnique({
+      where: { id },
+      include: { organization: { include: { package: { include: { features: true } } } } }
+    });
+
+    if (existingProperty) {
+      const isRestEnabled = restaurantPosEnabled !== undefined ? restaurantPosEnabled : (existingProperty.restaurantPosEnabled !== false);
+      const isBarEnabled = barPosEnabled !== undefined ? barPosEnabled : !!existingProperty.barPosEnabled;
+      const isCafeEnabled = cafePosEnabled !== undefined ? cafePosEnabled : !!existingProperty.cafePosEnabled;
+
+      let selectedCount = 0;
+      if (isRestEnabled) selectedCount++;
+      if (isBarEnabled) selectedCount++;
+      if (isCafeEnabled) selectedCount++;
+
+      if (existingProperty.organization?.package) {
+        // 1. Enforce allowedPosCount
+        const limit = existingProperty.organization.package.allowedPosCount ?? 1;
+        if (selectedCount > limit) {
+          return apiError(new Error(`Your subscription plan allows a maximum of ${limit} POS terminal(s). You selected ${selectedCount}.`), 400);
+        }
+
+        // 2. Enforce specific module feature gating
+        const packageFeatures = existingProperty.organization.package.features.map((f: any) => f.feature);
+        const isDelivEnabled = deliveryEnabled !== undefined ? deliveryEnabled : !!existingProperty.deliveryEnabled;
+
+        if (isRestEnabled && !packageFeatures.includes('POS')) {
+          return apiError(new Error('Restaurant POS is not included in this package plan.'), 400);
+        }
+        if (isBarEnabled && !packageFeatures.includes('BARPOS')) {
+          return apiError(new Error('Bar POS is not included in this package plan.'), 400);
+        }
+        if (isCafeEnabled && !packageFeatures.includes('CAFEPOS')) {
+          return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
+        }
+        if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
+          return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
+        }
+      }
+    }
+
+    if (restaurantPosEnabled !== undefined) updateData.restaurantPosEnabled = restaurantPosEnabled;
+    if (showRestaurantInQrMenu !== undefined) updateData.showRestaurantInQrMenu = showRestaurantInQrMenu;
     if (barPosEnabled !== undefined) updateData.barPosEnabled = barPosEnabled;
     if (showBarInQrMenu !== undefined) updateData.showBarInQrMenu = showBarInQrMenu;
     if (cafePosEnabled !== undefined) updateData.cafePosEnabled = cafePosEnabled;

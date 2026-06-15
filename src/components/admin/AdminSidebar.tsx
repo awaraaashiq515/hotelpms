@@ -25,6 +25,7 @@ import {
   Boxes,
   X,
   CreditCard,
+  Bike,
 } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -49,6 +50,7 @@ export const AdminSidebar = () => {
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Packages', path: '/admin/packages', icon: Boxes },
     { name: 'Subscription Approvals', path: '/admin/subscription-approvals', icon: CreditCard },
+    { name: 'Rider Approvals', path: '/admin/rider-approvals', icon: Bike },
     { name: 'Payment/UPI Settings', path: '/admin/settings/billing', icon: Settings },
     { name: 'Package Assigns', path: '/admin/packages/assignments', icon: Users },
     { name: 'Properties / POS', path: '/admin/properties', icon: Home },

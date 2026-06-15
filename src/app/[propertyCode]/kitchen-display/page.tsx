@@ -501,8 +501,18 @@ export default function KitchenDisplayPage() {
   const fetchKots = useCallback(async (silent = true) => {
     if (!silent) setRefreshing(true);
     try {
-      const data = await kotsApi.list();
-      const active = filterServedOrders(data || []);
+      const data = await kotsApi.list({ excludeMenuType: 'BAR' });
+      
+      // Filter out BAR items from kitchen display
+      const processedTickets = (data || []).map(kot => ({
+        ...kot,
+        items: (kot.items || []).filter(item => item.product?.menuType !== 'BAR')
+      }));
+
+      // Only show KOTs that have at least one kitchen item left
+      const kitchenTickets = processedTickets.filter(kot => kot.items.length > 0);
+
+      const active = filterServedOrders(kitchenTickets);
       setKots(active);
       setLastRefresh(new Date());
     } catch {

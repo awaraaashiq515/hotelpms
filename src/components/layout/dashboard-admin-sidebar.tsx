@@ -80,12 +80,15 @@ export const DashboardAdminSidebar: React.FC = () => {
     'POS Terminal',
     'Counter Payments',
     '🍺 Bar POS',
+    '☕ Cafe POS',
     'Inventory',
     'Products',
     'Categories',
     'KOTs',
     'Kitchen Display',
-    'Day Closing'
+    'Bar Display',
+    'Day Closing',
+    'Music Player'
   ];
 
   const filteredMenu = menu.filter(item => {
@@ -198,7 +201,7 @@ export const DashboardAdminSidebar: React.FC = () => {
 
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false;
 
-  const isLiveDashboard = pathname.endsWith('/restaurantadmin');
+  const isLiveDashboard = pathname.endsWith('/restaurantadmin') || pathname.endsWith('/live-overview');
 
   return (
     <>

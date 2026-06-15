@@ -180,6 +180,27 @@ function SignupForm() {
   const [packages, setPackages]                   = useState<any[]>([]);
   const [packagesLoading, setPackagesLoading]     = useState(false);
 
+  // ── POS selection toggles
+  const [restaurantPosEnabled, setRestaurantPosEnabled] = useState(true);
+  const [barPosEnabled, setBarPosEnabled]               = useState(false);
+  const [cafePosEnabled, setCafePosEnabled]             = useState(false);
+  const [deliveryEnabled, setDeliveryEnabled]           = useState(false);
+
+  useEffect(() => {
+    if (selectedPackage) {
+      const featureKeys = selectedPackage.features.map((f: any) => f.feature);
+      setRestaurantPosEnabled(featureKeys.includes('POS'));
+      setBarPosEnabled(featureKeys.includes('BARPOS'));
+      setCafePosEnabled(featureKeys.includes('CAFEPOS'));
+      setDeliveryEnabled(featureKeys.includes('DRIVERS'));
+    } else {
+      setRestaurantPosEnabled(true);
+      setBarPosEnabled(false);
+      setCafePosEnabled(false);
+      setDeliveryEnabled(false);
+    }
+  }, [selectedPackage]);
+
   // ── Payment state
   const [billingSettings, setBillingSettings]     = useState<any | null>(null);
   const [paymentRef, setPaymentRef]               = useState('');
@@ -353,6 +374,10 @@ function SignupForm() {
         gstNumber: gstNumber || null,
         category: category || null,
         address: address || null,
+        restaurantPosEnabled,
+        barPosEnabled,
+        cafePosEnabled,
+        deliveryEnabled,
         ...branchDetails,
       });
       const steps = getStepsList(roleName, isPaidPlan);
@@ -559,6 +584,18 @@ function SignupForm() {
                       }
                     </div>
                     {pkg.description && <p className="text-slate-400 text-xs leading-relaxed mb-3">{pkg.description}</p>}
+                    
+                    <div className="space-y-1.5 mb-4 border-t border-b border-white/5 py-3 text-[11px] font-bold tracking-wide">
+                      <div className="flex items-center gap-2 text-rose-400">
+                        <Smartphone size={13} className="shrink-0" />
+                        <span>POS Limit: {pkg.allowedPosCount ?? 1} Terminal{(pkg.allowedPosCount ?? 1) !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-violet-400">
+                        <Building2 size={13} className="shrink-0" />
+                        <span>Property Limit: {pkg.allowedPropertyCount ?? 1} Venue{(pkg.allowedPropertyCount ?? 1) !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+
                     {pkg.features?.length > 0 && (
                       <ul className="space-y-1">
                         {pkg.features.slice(0,5).map((f:any) => (
@@ -754,6 +791,16 @@ function SignupForm() {
   // STEP 4 — Branch & POS Operator Setup
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentStepLabel === 'Branch & POS') {
+    const hasPOSFeature = !selectedPackage || selectedPackage.features?.some((f: any) => f.feature === 'POS');
+    const hasBarFeature = !selectedPackage || selectedPackage.features?.some((f: any) => f.feature === 'BARPOS');
+    const hasCafeFeature = !selectedPackage || selectedPackage.features?.some((f: any) => f.feature === 'CAFEPOS');
+    const hasDeliveryFeature = !selectedPackage || selectedPackage.features?.some((f: any) => f.feature === 'DRIVERS');
+
+    const maxPosCount = selectedPackage ? (selectedPackage.allowedPosCount ?? 1) : 3;
+    const maxPropertyLimit = selectedPackage ? (selectedPackage.allowedPropertyCount ?? 1) : 1;
+    const currentSelectedCount = (restaurantPosEnabled ? 1 : 0) + (barPosEnabled ? 1 : 0) + (cafePosEnabled ? 1 : 0);
+    const isPosSelectionFull = currentSelectedCount >= maxPosCount;
+
     const handleBranchAndPOSSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setError(null);
@@ -1010,6 +1057,134 @@ function SignupForm() {
                       className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white text-sm placeholder:text-slate-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none transition-all"
                       placeholder="Min 6 characters" />
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* POS Modules & Access Control Section */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-6 space-y-4 max-w-2xl mx-auto">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-white/10">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-500/20">
+                  <Store size={16} className="text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-sm">POS Modules & Access Control</h3>
+                  <p className="text-slate-400 text-[11px] font-medium leading-relaxed">
+                    Configure POS features for this branch. Your selected package allows a maximum of <span className="text-rose-400 font-bold">{maxPosCount}</span> active POS terminal(s) and <span className="text-violet-400 font-bold">{maxPropertyLimit}</span> property(ies) (POS Selected: {currentSelectedCount} / {maxPosCount}).
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Restaurant POS */}
+                <div className={`flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-200 ${
+                  restaurantPosEnabled ? 'bg-white/[0.08] border-white/20' : 'bg-white/[0.02] border-white/5 opacity-50'
+                }`}>
+                  <div className="mb-3">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      Restaurant POS 🍽️
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">Dine In tables, bills, KOT & orders</p>
+                    {!hasPOSFeature && (
+                      <span className="text-[9px] font-black text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded tracking-wider uppercase mt-1 inline-block">Locked</span>
+                    )}
+                  </div>
+                  <div className="flex justify-end">
+                    <input
+                      type="checkbox"
+                      disabled={!hasPOSFeature || (!restaurantPosEnabled && isPosSelectionFull)}
+                      checked={restaurantPosEnabled}
+                      onChange={(e) => setRestaurantPosEnabled(e.target.checked)}
+                      className="w-5 h-5 accent-rose-600 rounded border-white/10 bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                {/* Bar POS */}
+                <div className={`flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-200 ${
+                  barPosEnabled ? 'bg-white/[0.08] border-white/20' : 'bg-white/[0.02] border-white/5 opacity-50'
+                }`}>
+                  <div className="mb-3">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      Bar POS 🍺
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">Peg sizing, bar display & liquor items</p>
+                    {!hasBarFeature && (
+                      <span className="text-[9px] font-black text-rose-450 bg-rose-500/15 px-1.5 py-0.5 rounded tracking-wider uppercase mt-1 inline-block">Locked</span>
+                    )}
+                  </div>
+                  <div className="flex justify-end">
+                    <input
+                      type="checkbox"
+                      disabled={!hasBarFeature || (!barPosEnabled && isPosSelectionFull)}
+                      checked={barPosEnabled}
+                      onChange={(e) => setBarPosEnabled(e.target.checked)}
+                      className="w-5 h-5 accent-rose-600 rounded border-white/10 bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                {/* Cafe POS */}
+                <div className={`flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-200 ${
+                  cafePosEnabled ? 'bg-white/[0.08] border-white/20' : 'bg-white/[0.02] border-white/5 opacity-50'
+                }`}>
+                  <div className="mb-3">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      Cafe POS ☕
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">Quick billing flow & cafe display</p>
+                    {!hasCafeFeature && (
+                      <span className="text-[9px] font-black text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded tracking-wider uppercase mt-1 inline-block">Locked</span>
+                    )}
+                  </div>
+                  <div className="flex justify-end">
+                    <input
+                      type="checkbox"
+                      disabled={!hasCafeFeature || (!cafePosEnabled && isPosSelectionFull)}
+                      checked={cafePosEnabled}
+                      onChange={(e) => setCafePosEnabled(e.target.checked)}
+                      className="w-5 h-5 accent-rose-600 rounded border-white/10 bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Services & Integrations Section */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-6 space-y-4 max-w-2xl mx-auto">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-white/10">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-violet-500/20">
+                  <Truck size={16} className="text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-sm">Additional Services & Integrations</h3>
+                  <p className="text-slate-400 text-[11px] font-medium leading-relaxed">
+                    Enable delivery logistics and rider portal settings for this property.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {/* Home Delivery */}
+                <div className={`flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200 ${
+                  deliveryEnabled ? 'bg-white/[0.08] border-white/20' : 'bg-white/[0.02] border-white/5 opacity-50'
+                }`}>
+                  <div>
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      Home Delivery 🚚
+                      {!hasDeliveryFeature && (
+                        <span className="text-[9px] font-black text-rose-450 bg-rose-500/15 px-1.5 py-0.5 rounded tracking-wider uppercase">Locked</span>
+                      )}
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Logistics settings & Rider portal access</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    disabled={!hasDeliveryFeature}
+                    checked={deliveryEnabled}
+                    onChange={(e) => setDeliveryEnabled(e.target.checked)}
+                    className="w-5 h-5 accent-rose-600 rounded border-white/10 bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                  />
                 </div>
               </div>
             </div>

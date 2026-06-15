@@ -24,10 +24,35 @@ export default function KotsPage() {
   const [kots, setKots] = useState<KotTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialSearch);
+  const [filterType, setFilterType] = useState<'ALL' | 'RESTAURANT' | 'BAR' | 'CAFE'>('ALL');
+  const [restaurantPosEnabled, setRestaurantPosEnabled] = useState(true);
+  const [barPosEnabled, setBarPosEnabled] = useState(false);
+  const [cafePosEnabled, setCafePosEnabled] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [autoClearEnabled, setAutoClearEnabled] = useState(false);
   const [autoClearHours, setAutoClearHours] = useState(24);
   const { addToast } = useToast();
+
+  useEffect(() => {
+    fetch('/api/setup/properties/current')
+      .then(r => r.json())
+      .then(data => { 
+        if (data.success) {
+          setRestaurantPosEnabled(data.data.restaurantPosEnabled !== false);
+          setBarPosEnabled(!!data.data.barPosEnabled);
+          setCafePosEnabled(!!data.data.cafePosEnabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const enabledTypes = useMemo(() => {
+    const types: ('ALL' | 'RESTAURANT' | 'BAR' | 'CAFE')[] = ['ALL'];
+    if (restaurantPosEnabled) types.push('RESTAURANT');
+    if (barPosEnabled) types.push('BAR');
+    if (cafePosEnabled) types.push('CAFE');
+    return types;
+  }, [restaurantPosEnabled, barPosEnabled, cafePosEnabled]);
 
   useEffect(() => {
     const savedEnabled = localStorage.getItem('kot_auto_clear_enabled') === 'true';
@@ -95,13 +120,51 @@ export default function KotsPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const getKotType = (kot: KotTicket): 'RESTAURANT' | 'BAR' | 'CAFE' => {
+    if (!kot.items || kot.items.length === 0) return 'RESTAURANT';
+    const hasBar = kot.items.some(item => item.product?.menuType === 'BAR');
+    if (hasBar) return 'BAR';
+    const hasCafe = kot.items.some(item => item.product?.menuType === 'CAFE');
+    if (hasCafe) return 'CAFE';
+    return 'RESTAURANT';
+  };
+
+  const getKotBadge = (type: 'RESTAURANT' | 'BAR' | 'CAFE') => {
+    switch (type) {
+      case 'BAR':
+        return (
+          <span className="text-[9px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30 font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
+            🍺 Bar
+          </span>
+        );
+      case 'CAFE':
+        return (
+          <span className="text-[9px] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/30 font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
+            ☕ Cafe
+          </span>
+        );
+      default:
+        return (
+          <span className="text-[9px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/30 font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
+            🍽️ Restaurant
+          </span>
+        );
+    }
+  };
+
   const filteredKots = useMemo(() => {
-    if (!search) return kots;
-    return kots.filter(row => 
-      row.kotNo.toLowerCase().includes(search.toLowerCase()) || 
-      (row.tableNo?.toLowerCase() || row.restaurantTableId?.toLowerCase() || '').includes(search.toLowerCase())
-    );
-  }, [search, kots]);
+    let list = kots;
+    if (search) {
+      list = list.filter(row => 
+        row.kotNo.toLowerCase().includes(search.toLowerCase()) || 
+        (row.tableNo?.toLowerCase() || row.restaurantTableId?.toLowerCase() || '').includes(search.toLowerCase())
+      );
+    }
+    if (filterType !== 'ALL') {
+      list = list.filter(row => getKotType(row) === filterType);
+    }
+    return list;
+  }, [search, kots, filterType]);
 
   const getStatusVariant = (status: string): 'info' | 'warning' | 'success' | 'error' | 'neutral' => {
     switch (status) {
@@ -145,6 +208,38 @@ export default function KotsPage() {
         }
       />
 
+      {/* KOT Type Filters */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 select-none">
+        {enabledTypes.map((type) => {
+          const count = kots.filter(row => type === 'ALL' ? true : getKotType(row) === type).length;
+          const isActive = filterType === type;
+          const label = type === 'ALL' ? 'All KOTs' : type === 'RESTAURANT' ? 'Restaurant' : type === 'BAR' ? 'Bar' : 'Cafe';
+          const icon = type === 'ALL' ? <Layers size={14} /> : type === 'RESTAURANT' ? '🍽️' : type === 'BAR' ? '🍺' : '☕';
+          
+          return (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer whitespace-nowrap shadow-sm ${
+                isActive 
+                  ? 'bg-pos-primary border-pos-primary text-white scale-[1.02]' 
+                  : 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 text-gray-650 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <span className="flex items-center">{icon}</span>
+              <span>{label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                isActive 
+                  ? 'bg-white/20 text-white' 
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -182,14 +277,15 @@ export default function KotsPage() {
                   return (
                   <tr key={row.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-black section-heading tracking-tight">
                             {format(new Date(row.createdAt), 'dd/MM/yyyy')}
                           </span>
                           <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
                             KOT No. {seqNum}
                           </span>
+                          {getKotBadge(getKotType(row))}
                         </div>
                         <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest leading-none">
                           {row.kotNo} • {row.order?.orderNo || 'POS-ORDER'}

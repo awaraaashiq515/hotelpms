@@ -10,6 +10,8 @@ interface ActiveOrdersProps {
   tableName: string;
   propertyId?: string;
   propertyAddress?: string;
+  propertyLatitude?: number | null;
+  propertyLongitude?: number | null;
   upiId?: string;
   upiName?: string;
   setActiveTab: (tab: 'menu' | 'orders') => void;
@@ -25,12 +27,44 @@ function getDeliveryOtp(orderId: string): string {
   return otp.toString();
 }
 
-const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> = ({ order, propertyAddress }) => {
+// Fetch routing coordinates along roads using OSRM API
+async function fetchOSRMRoute(lat1: number, lng1: number, lat2: number, lng2: number): Promise<[number, number][] | null> {
+  try {
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=full&geometries=geojson`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      const coords = data.routes[0].geometry.coordinates; // OSRM gives [lng, lat]
+      return coords.map((c: [number, number]) => [c[1], c[0]]); // Swap to [lat, lng] for Leaflet
+    }
+    return null;
+  } catch (error) {
+    console.error('OSRM route fetch failed:', error);
+    return null;
+  }
+}
+
+interface DeliveryTrackingCardProps {
+  order: any;
+  propertyAddress?: string;
+  restaurantLatitude?: number | null;
+  restaurantLongitude?: number | null;
+}
+
+const DeliveryTrackingCard: React.FC<DeliveryTrackingCardProps> = ({ order, propertyAddress, restaurantLatitude, restaurantLongitude }) => {
   const [pct, setPct] = useState(15);
   const [simulating, setSimulating] = useState(true);
   const [showCallScreen, setShowCallScreen] = useState(false);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Road Routing States
+  const [routeRiderToNext, setRouteRiderToNext] = useState<[number, number][] | null>(null);
+  const [routeRestToCust, setRouteRestToCust] = useState<[number, number][] | null>(null);
+  const routeRestToCustRef = useRef<any>(null);
+  const routeRiderToNextRef = useRef<any>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
@@ -72,11 +106,20 @@ const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> =
   const customerLat = order.deliveryLat ? Number(order.deliveryLat) : 30.7420;
   const customerLng = order.deliveryLng ? Number(order.deliveryLng) : 76.7875;
 
-  const [restaurantLat, setRestaurantLat] = useState(customerLat - 0.007);
-  const [restaurantLng, setRestaurantLng] = useState(customerLng - 0.009);
+  const [restaurantLat, setRestaurantLat] = useState(restaurantLatitude ? Number(restaurantLatitude) : customerLat - 0.007);
+  const [restaurantLng, setRestaurantLng] = useState(restaurantLongitude ? Number(restaurantLongitude) : customerLng - 0.009);
 
-  // Client-side geocoding for restaurant address
+  // Sync coords if changed from props
   useEffect(() => {
+    if (restaurantLatitude && restaurantLongitude) {
+      setRestaurantLat(Number(restaurantLatitude));
+      setRestaurantLng(Number(restaurantLongitude));
+    }
+  }, [restaurantLatitude, restaurantLongitude]);
+
+  // Client-side geocoding fallback for restaurant address
+  useEffect(() => {
+    if (restaurantLatitude && restaurantLongitude) return; // Skip if we have direct coords
     if (!propertyAddress) return;
 
     const geocodeRestaurant = async () => {
@@ -99,7 +142,45 @@ const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> =
     };
 
     geocodeRestaurant();
-  }, [propertyAddress]);
+  }, [propertyAddress, restaurantLatitude, restaurantLongitude]);
+
+  // Fetch static route restaurant -> customer
+  useEffect(() => {
+    if (!restaurantLat || !restaurantLng || !customerLat || !customerLng) return;
+    let active = true;
+    fetchOSRMRoute(restaurantLat, restaurantLng, customerLat, customerLng).then(coords => {
+      if (active && coords) setRouteRestToCust(coords);
+    });
+    return () => { active = false; };
+  }, [restaurantLat, restaurantLng, customerLat, customerLng]);
+
+  // Fetch active route rider -> next stop (debounced)
+  useEffect(() => {
+    const isOutForDelivery = order.status === 'OUT_FOR_DELIVERY';
+    const nextLat = isOutForDelivery ? customerLat : restaurantLat;
+    const nextLng = isOutForDelivery ? customerLng : restaurantLng;
+    let currentRiderLat = restaurantLat;
+    let currentRiderLng = restaurantLng;
+
+    if (hasLiveCoords && riderLat !== null && riderLng !== null) {
+      currentRiderLat = riderLat;
+      currentRiderLng = riderLng;
+    } else {
+      const t = pct / 100;
+      currentRiderLat = restaurantLat + (customerLat - restaurantLat) * t;
+      currentRiderLng = restaurantLng + (customerLng - restaurantLng) * t;
+    }
+
+    if (!currentRiderLat || !currentRiderLng || !nextLat || !nextLng) return;
+
+    const timer = setTimeout(() => {
+      fetchOSRMRoute(currentRiderLat, currentRiderLng, nextLat, nextLng).then(coords => {
+        if (coords) setRouteRiderToNext(coords);
+      });
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [riderLat, riderLng, pct, hasLiveCoords, restaurantLat, restaurantLng, customerLat, customerLng, order.status]);
 
   // Haversine formula for distance between rider and customer
   const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -236,6 +317,20 @@ const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> =
     }
     map.fitBounds(bounds, { padding: [40, 40] });
 
+    return () => {
+      map.remove();
+      setMapInstance(null);
+      setMarkers(null);
+      if (routeRestToCustRef.current) {
+        routeRestToCustRef.current.remove();
+        routeRestToCustRef.current = null;
+      }
+      if (routeRiderToNextRef.current) {
+        routeRiderToNextRef.current.remove();
+        routeRiderToNextRef.current = null;
+      }
+    };
+
   }, [leafletLoaded, restaurantLat, restaurantLng]);
 
   // Update rider position smoothly as coordinates or percentages shift
@@ -285,6 +380,43 @@ const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> =
     markers.restaurant.setLatLng([restaurantLat, restaurantLng]);
     markers.customer.setLatLng([customerLat, customerLng]);
 
+    // Draw route: restaurant → customer along the road
+    const restToCustPath = routeRestToCust || [[restaurantLat, restaurantLng], [customerLat, customerLng]];
+    if (routeRestToCustRef.current) {
+      routeRestToCustRef.current.setLatLngs(restToCustPath);
+    } else {
+      routeRestToCustRef.current = L.polyline(restToCustPath, {
+        color: '#6366f1',
+        weight: 2,
+        dashArray: routeRestToCust ? undefined : '8,5',
+        opacity: 0.6
+      }).addTo(mapInstance);
+    }
+
+    // Draw route from rider to next destination along the road
+    if (hasDriver) {
+      const isOutForDelivery = order.status === 'OUT_FOR_DELIVERY';
+      const nextLat = isOutForDelivery ? customerLat : restaurantLat;
+      const nextLng = isOutForDelivery ? customerLng : restaurantLng;
+      const riderToNextPath = routeRiderToNext || [[currentRiderLat, currentRiderLng], [nextLat, nextLng]];
+      
+      if (routeRiderToNextRef.current) {
+        routeRiderToNextRef.current.setLatLngs(riderToNextPath);
+      } else {
+        routeRiderToNextRef.current = L.polyline(riderToNextPath, {
+          color: '#f43f5e',
+          weight: 3.5,
+          dashArray: routeRiderToNext ? undefined : '6,4',
+          opacity: 0.85
+        }).addTo(mapInstance);
+      }
+    } else {
+      if (routeRiderToNextRef.current) {
+        routeRiderToNextRef.current.remove();
+        routeRiderToNextRef.current = null;
+      }
+    }
+
     // Recenter/Fit Bounds smoothly to follow current path
     const bounds = L.latLngBounds([
       [restaurantLat, restaurantLng],
@@ -293,9 +425,15 @@ const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> =
     if (hasDriver) {
       bounds.extend([currentRiderLat, currentRiderLng]);
     }
+    if (routeRestToCust) {
+      routeRestToCust.forEach(pt => bounds.extend(pt));
+    }
+    if (hasDriver && routeRiderToNext) {
+      routeRiderToNext.forEach(pt => bounds.extend(pt));
+    }
     mapInstance.fitBounds(bounds, { padding: [40, 40] });
 
-  }, [mapInstance, markers, riderLat, riderLng, pct, hasDriver, hasLiveCoords, customerLat, customerLng, restaurantLat, restaurantLng]);
+  }, [mapInstance, markers, riderLat, riderLng, pct, hasDriver, hasLiveCoords, customerLat, customerLng, restaurantLat, restaurantLng, routeRestToCust, routeRiderToNext]);
 
   // Recalculate dimensions on Full Page toggle transitions
   useEffect(() => {
@@ -634,7 +772,7 @@ const DeliveryTrackingCard: React.FC<{ order: any; propertyAddress?: string }> =
 
 
 
-export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, propertyAddress, upiId, upiName, setActiveTab, onPaymentSuccess }) => {
+export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, propertyId, propertyAddress, propertyLatitude, propertyLongitude, upiId, upiName, setActiveTab, onPaymentSuccess }) => {
   const { showToast } = useToast();
   const prevStatusesRef = useRef<Record<string, string>>({});
   const audioAcceptedRef = useRef<HTMLAudioElement | null>(null);
@@ -929,7 +1067,12 @@ export const ActiveOrders: React.FC<ActiveOrdersProps> = ({ orders, tableName, p
           })()}
 
           {order.orderType === 'DELIVERY' && (
-            <DeliveryTrackingCard order={order} propertyAddress={propertyAddress} />
+            <DeliveryTrackingCard 
+              order={order} 
+              propertyAddress={propertyAddress} 
+              restaurantLatitude={propertyLatitude}
+              restaurantLongitude={propertyLongitude}
+            />
           )}
 
           <div className="space-y-4">

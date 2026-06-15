@@ -16,6 +16,10 @@ export interface RegisterCredentials {
   roleName?: string;
   paymentReference?: string | null;
   paymentAmount?: number | null;
+  restaurantPosEnabled?: boolean;
+  barPosEnabled?: boolean;
+  cafePosEnabled?: boolean;
+  deliveryEnabled?: boolean;
   // Branch configuration
   branchName?: string | null;
   branchCode?: string | null;

@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
       deliveryLng,
       isPrepaid,
       orderType = 'DELIVERY',  // 'DELIVERY' or 'TAKEAWAY'
+      deliveryZoneId,
+      deliveryFee,
     } = body;
 
     if (!propertyId || !items || items.length === 0) {
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
       });
       if (!deliveryFloor) {
         deliveryFloor = await tx.floor.create({
-          data: { propertyId, name: '__Delivery__', displayOrder: 999 }
+          data: { propertyId, name: '__Delivery__', order: 999 }
         });
       }
 
@@ -100,6 +102,8 @@ export async function POST(request: NextRequest) {
           deliveryInstructions: deliveryInstructions || null,
           deliveryLat: deliveryLat ? parseFloat(deliveryLat) : null,
           deliveryLng: deliveryLng ? parseFloat(deliveryLng) : null,
+          isPrepaid: isPrepaid || false,
+          deliveryZoneId: deliveryZoneId || null,
         },
         include: { items: true }
       });
@@ -148,13 +152,15 @@ export async function POST(request: NextRequest) {
       }
 
       // 6. Update order totals
+      const finalGrandTotal = grandTotal + (parseFloat(deliveryFee) || 0);
       await tx.posOrder.update({
         where: { id: order.id },
         data: {
           subtotal,
           taxAmount,
-          grandTotal,
+          grandTotal: finalGrandTotal,
           status: isPrepaid ? 'PAYMENT_AWAITING_APPROVAL' : 'OPEN',
+          isPrepaid: isPrepaid || false,
           ...(isPrepaid ? { onlinePaymentMethod: 'UPI', paymentRequested: true } : {})
         }
       });

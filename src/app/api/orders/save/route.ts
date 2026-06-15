@@ -223,6 +223,11 @@ export async function POST(request: NextRequest) {
           }),
         });
 
+        const addedProductIds = newItemsForKot.map((item: any) => item.id);
+        const addedProducts = allUpdatedItems.filter((i: any) => addedProductIds.includes(i.productId));
+        const hasBarItems = addedProducts.some((i: any) => i.product?.menuType === 'BAR');
+        const hasKitchenItems = addedProducts.some((i: any) => i.product?.menuType !== 'BAR' && i.product?.menuType !== 'CAFE');
+
         await createNotification({
           propertyId: session.propertyId!,
           title: 'New KOT Generated',
@@ -236,6 +241,8 @@ export async function POST(request: NextRequest) {
             tableId: order.restaurantTableId || null,
             tableName: order.tableNo || null,
             kotNo: kotTicket.kotNo,
+            hasBarItems,
+            hasKitchenItems,
             link: `/operations/tables`
           }
         }, tx);

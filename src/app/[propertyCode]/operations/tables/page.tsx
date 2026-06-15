@@ -333,7 +333,13 @@ export default function TableManagementPage() {
       const json = await res.json();
       if (json.success && json.data.length > 0) {
         // Find property that matches current context (if available in session) or just pick first
-        setPropertyData(json.data[0]);
+        const slugifyInline = (str: string) => str.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+        const activeProp = json.data.find((p: any) => 
+          p.code === propertyCode || 
+          slugifyInline(p.name) === propertyCode || 
+          p.id === propertyCode
+        );
+        setPropertyData(activeProp || json.data[0]);
       }
     } catch (err) {
       console.error('Failed to fetch property data:', err);
@@ -1261,7 +1267,7 @@ export default function TableManagementPage() {
               ) : (
                 <TableLayoutView
                   tables={activeFloor?.tables || []}
-                  unreadNotifications={unreadNotifications}
+                  unreadNotifications={[]}
                   onTableClick={handleTableClick}
                   onTableDoubleClick={handleTableDoubleClick}
                   selectedTableId={selectedTable?.id}
@@ -1357,6 +1363,7 @@ export default function TableManagementPage() {
           onSubmit={handleCreateFloorSubmit}
           onCancel={() => setIsFloorFormOpen(false)}
           loading={floorFormLoading}
+          restaurantPosEnabled={propertyData?.restaurantPosEnabled !== false}
           barPosEnabled={propertyData?.barPosEnabled !== false}
           cafePosEnabled={propertyData?.cafePosEnabled !== false}
         />
@@ -1379,6 +1386,7 @@ export default function TableManagementPage() {
             setEditingFloor(null);
           }}
           loading={floorFormLoading}
+          restaurantPosEnabled={propertyData?.restaurantPosEnabled !== false}
           barPosEnabled={propertyData?.barPosEnabled !== false}
           cafePosEnabled={propertyData?.cafePosEnabled !== false}
         />

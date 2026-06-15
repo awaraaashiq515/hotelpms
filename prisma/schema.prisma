@@ -53,6 +53,8 @@ model Property {
   logoUrl              String?
   address              String?
   phone                String?
+  latitude             Float?
+  longitude            Float?
   pinCode              String?
   taxDetails           String?
   stateCode            String?
@@ -74,6 +76,8 @@ model Property {
   twilioAccountSid     String?
   twilioAuthToken      String?
   twilioFromNumber     String?
+  restaurantPosEnabled Boolean             @default(true)
+  showRestaurantInQrMenu Boolean           @default(true)
   barPosEnabled        Boolean             @default(false)
   showBarInQrMenu      Boolean             @default(true)
   cafePosEnabled       Boolean             @default(false)
@@ -146,6 +150,11 @@ model Property {
   b2bOrders            B2BOrder[]
   coupons              Coupon[]
   campaigns            Campaign[]
+  deliveryZones        DeliveryZone[]
+  musicSongs           MusicSong[]
+  youtubeApiKey        String?
+  deliveryTrips        DeliveryTrip[]
+  riderHandovers       RiderCashHandover[]
 
 
   @@index([organizationId])
@@ -200,6 +209,8 @@ model User {
   staffMember         StaffMember?      @relation("StaffUser")
   staffLocationPings  StaffLocation[]   @relation("StaffLocationPings")
   tableAssignments    TableAssignment[] @relation("UserTableAssignments")
+  riderTrips          DeliveryTrip[]    @relation("RiderTrips")
+  riderHandovers      RiderCashHandover[] @relation("RiderHandovers")
 
   @@index([organizationId])
   @@index([propertyId])
@@ -574,6 +585,17 @@ model PosOrder {
   loyaltyPointsRedeemed Int            @default(0)
   loyaltyDiscount      Float           @default(0)
   preparationTime      Int             @default(15)
+  deliveryZoneId       String?
+  scheduledFor         DateTime?
+  isContactless        Boolean         @default(false)
+  deliveryZone         DeliveryZone?   @relation(fields: [deliveryZoneId], references: [id])
+  isPrepaid            Boolean         @default(false)
+  codCollected         Boolean         @default(false)
+  codAmountCollected   Float           @default(0)
+  deliveryPaymentMethod String?        @default("CASH")
+  tipAmount            Float           @default(0)
+  riderHandoverId      String?
+  riderHandover        RiderCashHandover? @relation("HandoverOrders", fields: [riderHandoverId], references: [id])
 
   @@index([propertyId])
   @@index([status])
@@ -1588,7 +1610,9 @@ model Package {
   priceINR        Float               @default(0)
   isActive        Boolean             @default(true)
   color           String?             @default("#6366f1")
-  createdAt       DateTime            @default(now())
+  allowedPosCount      Int                 @default(1)
+  allowedPropertyCount Int                 @default(1)
+  createdAt            DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   organizations   Organization[]
   features        PackageFeature[]
@@ -2059,5 +2083,93 @@ model TableAssignment {
   @@unique([userId, tableId])
   @@index([userId])
   @@index([tableId])
+  @@index([propertyId])
+}
+
+// ─── Delivery Zone ─────────────────────────────────────────────────────────────
+model DeliveryZone {
+  id                    String     @id @default(cuid())
+  propertyId            String
+  name                  String
+  type                  String     @default("RADIUS") // "RADIUS" | "PINCODE" | "CORPORATE"
+  radiusKm              Float?
+  pincodes              String?    // JSON array of pincodes e.g. ["110001","110002"]
+  deliveryFee           Float      @default(0)
+  minOrderValue         Float      @default(0)
+  etaMinutes            Int        @default(30)
+  freeDeliveryThreshold Float?
+  peakSurchargePercent  Float      @default(0)
+  peakHoursStart        String?    // "11:00"
+  peakHoursEnd          String?    // "14:00"
+  isRainOverride        Boolean    @default(false)
+  rainSurchargePercent  Float      @default(0)
+  deliveryHoursStart    String?    // "09:00"
+  deliveryHoursEnd      String?    // "23:00"
+  blackoutDates         String?    // JSON array of "YYYY-MM-DD" strings
+  corporateDiscount     Float      @default(0)
+  isActive              Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  property              Property   @relation(fields: [propertyId], references: [id])
+  posOrders             PosOrder[]
+
+  @@index([propertyId])
+}
+
+// ─── Delivery Trip ─────────────────────────────────────────────────────────────
+model DeliveryTrip {
+  id             String    @id @default(cuid())
+  riderId        String
+  orderId        String    @unique
+  propertyId     String
+  startTime      DateTime  @default(now())
+  pickedUpAt     DateTime?
+  deliveredAt    DateTime?
+  distanceKm     Float?
+  codAmount      Float     @default(0)
+  codCollected   Boolean   @default(false)
+  sosTriggered   Boolean   @default(false)
+  riderRating    Int?
+  status         String    @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "FAILED"
+  rider          User      @relation("RiderTrips", fields: [riderId], references: [id])
+  property       Property  @relation(fields: [propertyId], references: [id])
+
+  @@index([riderId])
+  @@index([propertyId])
+  @@index([status])
+}
+
+model RiderCashHandover {
+  id             String     @id @default(cuid())
+  riderId        String
+  propertyId     String
+  totalCodAmount Float      @default(0)
+  totalTipAmount Float      @default(0)
+  reportedCash   Float      @default(0)
+  status         String     @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  submittedAt    DateTime   @default(now())
+  resolvedAt     DateTime?
+  resolvedBy     String?
+  notes          String?
+  rider          User       @relation("RiderHandovers", fields: [riderId], references: [id])
+  property       Property   @relation(fields: [propertyId], references: [id])
+  orders         PosOrder[] @relation("HandoverOrders")
+
+  @@index([riderId])
+  @@index([propertyId])
+}
+
+// ─── Music / Playlist ──────────────────────────────────────────────────────────
+model MusicSong {
+  id          String   @id @default(cuid())
+  propertyId  String
+  title       String
+  artist      String?
+  youtubeId   String   // YouTube video ID
+  thumbnail   String?  // YouTube thumbnail URL
+  duration    String?  // e.g. "3:45"
+  addedAt     DateTime @default(now())
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
   @@index([propertyId])
 }

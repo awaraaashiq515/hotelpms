@@ -31,6 +31,8 @@ import {
   Trash2,
   Coffee,
   Activity,
+  Bike,
+  Music,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -90,10 +92,16 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
       icon: Map,
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'],
     },
+    {
+      name: 'Rider Approvals',
+      path: '/admin/rider-approvals',
+      icon: Bike,
+      roles: ['SUPER_ADMIN'],
+    },
     { name: 'POS Terminal',       path: '/billing',           icon: CreditCard, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Counter Payments',   path: '/counter-payments',  icon: Store,      feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { name: '🍺 Bar POS',         path: '/bar-pos',           icon: Wine,       feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { name: '☕ Cafe POS',        path: '/cafe-pos',          icon: Coffee,     feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { name: '🍺 Bar POS',         path: '/bar-pos',           icon: Wine,       feature: 'BARPOS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
+    { name: '☕ Cafe POS',        path: '/cafe-pos',          icon: Coffee,     feature: 'CAFEPOS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'All Bills',    path: '/all-bills', icon: Receipt,   feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { name: 'Payments',    path: '/payments',  icon: PaymentIcon, feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
@@ -102,8 +110,9 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
     { name: 'Categories',  path: '/categories',icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
     { name: 'KOTs',        path: '/kots',      icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Kitchen Display', path: '/kitchen-display', icon: Eye, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Kitchen Display', target: '_blank' },
-    { name: 'Bar Display', path: '/bar-display', icon: Wine, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Kitchen Display', target: '_blank' },
+    { name: 'Bar Display', path: '/bar-display', icon: Wine, feature: 'BARPOS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Kitchen Display', target: '_blank' },
     { name: 'Day Closing', path: '/day-closing', icon: Layers,  feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Day Closing' },
+    { name: 'Music Player', path: '/music',       icon: Music,   feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     {
       name: 'Expenses',
       path: '/expenses',
@@ -142,6 +151,8 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
         { name: 'Live Occupancy',  path: '/operations/occupancy', feature: 'HMS' },
         { name: 'Table Bookings',  path: '/table-reservations',   feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
         { name: 'Drivers Hub',     path: '/drivers',              feature: 'DRIVERS' },
+        { name: 'Manage Riders',   path: '/operations/delivery/riders', feature: 'DRIVERS' },
+        { name: 'Rider Portal',    path: '/driver-portal',        feature: 'DRIVERS', target: '_blank' },
         { name: 'Customers',       path: '/customers',            feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
         { name: 'POS Staff',       path: '/pos-staff',            feature: 'STAFF',  roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
         { name: 'Waste Management', path: '/operations/waste-management', feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
@@ -226,12 +237,14 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
 
   return rawMenu.map(item => {
     // We don't prefix global admin routes (like /admin/... or /manage-properties)
-    const isGlobal = item.path.startsWith('/admin') || item.path === '/manage-properties';
+    const isGlobal = item.path.startsWith('/admin') || item.path === '/manage-properties' || item.path === '/driver-portal';
     if (!isGlobal && propertyCode) {
       item.path = `/${propertyCode}${item.path}`;
       if (item.subItems) {
         item.subItems.forEach(sub => {
-          sub.path = `/${propertyCode}${sub.path}`;
+          if (sub.path !== '/driver-portal') {
+            sub.path = `/${propertyCode}${sub.path}`;
+          }
         });
       }
     }

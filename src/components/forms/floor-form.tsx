@@ -25,6 +25,7 @@ interface FloorFormProps {
   onSubmit: (data: FloorFormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  restaurantPosEnabled?: boolean;
   barPosEnabled?: boolean;
   cafePosEnabled?: boolean;
 }
@@ -35,6 +36,7 @@ export const FloorForm: React.FC<FloorFormProps> = ({
   onSubmit,
   onCancel,
   loading,
+  restaurantPosEnabled = true,
   barPosEnabled = true,
   cafePosEnabled = true
 }) => {
@@ -103,7 +105,7 @@ export const FloorForm: React.FC<FloorFormProps> = ({
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: 'Restaurant 🍽️', value: 'RESTAURANT', enabled: true },
+              { label: 'Restaurant 🍽️', value: 'RESTAURANT', enabled: restaurantPosEnabled },
               { label: 'Bar 🍺', value: 'BAR', enabled: barPosEnabled },
               { label: 'Cafe ☕', value: 'CAFE', enabled: cafePosEnabled }
             ].filter(o => o.enabled).map((option) => (

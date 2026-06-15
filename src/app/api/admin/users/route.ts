@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPER_ADMIN' && session.role !== 'RESTAURANTS_ADMIN')) {
+    if (!session) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -28,14 +28,26 @@ export async function GET(request: NextRequest) {
         role: { select: { id: true, name: true, description: true } },
         servedOrders: { select: { grandTotal: true } },
         supplier: { select: { id: true, name: true } },
+        deliveryOrders: {
+          where: {
+            status: 'SETTLED',
+            codCollected: true,
+            deliveryPaymentMethod: 'CASH',
+            riderHandoverId: null
+          },
+          select: {
+            codAmountCollected: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Remove password hashes and calculate total sales
+    // Remove password hashes and calculate total sales & outstanding cash
     const safeUsers = users.map(({ passwordHash, ...user }: any) => ({
       ...user,
       totalSales: ((user as any).servedOrders || []).reduce((sum: number, b: any) => sum + (b.grandTotal || 0), 0),
+      outstandingCash: ((user as any).deliveryOrders || []).reduce((sum: number, o: any) => sum + (o.codAmountCollected || 0), 0),
     }));
 
     return apiResponse(safeUsers, 'Users fetched successfully');
@@ -48,7 +60,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPER_ADMIN' && session.role !== 'RESTAURANTS_ADMIN')) {
+    if (!session || (
+      session.role !== 'SUPER_ADMIN' && 
+      session.role !== 'RESTAURANTS_ADMIN' && 
+      session.role !== 'POSSYSTEM' && 
+      session.role !== 'Staff' && 
+      session.role !== 'HOTEL_ADMIN'
+    )) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -58,6 +76,15 @@ export async function POST(request: NextRequest) {
     // Validation
     if (!fullName || !email || !password || !roleName) {
       return apiError(new Error('Missing required fields: fullName, email, password, roleName'), 400);
+    }
+
+    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles
+    const allowedRolesForOperator = ['DELIVERY_RIDER', 'Staff'];
+    if (
+      (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') &&
+      !allowedRolesForOperator.includes(roleName)
+    ) {
+      return apiError(new Error('You do not have permission to create this user role'), 403);
     }
 
     // Security: Regular Admins cannot create Super Admins
@@ -143,7 +170,13 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPER_ADMIN' && session.role !== 'RESTAURANTS_ADMIN')) {
+    if (!session || (
+      session.role !== 'SUPER_ADMIN' && 
+      session.role !== 'RESTAURANTS_ADMIN' && 
+      session.role !== 'POSSYSTEM' && 
+      session.role !== 'Staff' && 
+      session.role !== 'HOTEL_ADMIN'
+    )) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -151,6 +184,17 @@ export async function PATCH(request: NextRequest) {
     const { userId, isActive } = body;
 
     if (!userId) return apiError(new Error('Missing userId'), 400);
+
+    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only update Staff or DELIVERY_RIDER roles
+    if (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') {
+      const targetUser = await prisma.user.findUnique({ 
+        where: { id: userId }, 
+        include: { role: true } 
+      });
+      if (targetUser && !['DELIVERY_RIDER', 'Staff'].includes(targetUser.role?.name || '')) {
+        return apiError(new Error('You do not have permission to modify this user role'), 403);
+      }
+    }
 
     // Security: Regular Admins cannot modify Super Admins
     if (session.role !== 'SUPER_ADMIN') {
@@ -179,7 +223,13 @@ export async function PATCH(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPER_ADMIN' && session.role !== 'RESTAURANTS_ADMIN')) {
+    if (!session || (
+      session.role !== 'SUPER_ADMIN' && 
+      session.role !== 'RESTAURANTS_ADMIN' && 
+      session.role !== 'POSSYSTEM' && 
+      session.role !== 'Staff' && 
+      session.role !== 'HOTEL_ADMIN'
+    )) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -188,6 +238,15 @@ export async function PUT(request: NextRequest) {
 
     if (!id || !fullName || !email || !roleName) {
       return apiError(new Error('Missing required fields: id, fullName, email, roleName'), 400);
+    }
+
+    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles
+    const allowedRolesForOperator = ['DELIVERY_RIDER', 'Staff'];
+    if (
+      (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') &&
+      !allowedRolesForOperator.includes(roleName)
+    ) {
+      return apiError(new Error('You do not have permission to modify this user role'), 403);
     }
 
     // Security: Regular Admins cannot modify Super Admins or promote/demote anyone to/from Super Admin
@@ -267,7 +326,13 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'SUPER_ADMIN' && session.role !== 'RESTAURANTS_ADMIN')) {
+    if (!session || (
+      session.role !== 'SUPER_ADMIN' && 
+      session.role !== 'RESTAURANTS_ADMIN' && 
+      session.role !== 'POSSYSTEM' && 
+      session.role !== 'Staff' && 
+      session.role !== 'HOTEL_ADMIN'
+    )) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -278,6 +343,17 @@ export async function DELETE(request: NextRequest) {
 
     if (id === session.id) {
       return apiError(new Error('Cannot delete your own account'), 400);
+    }
+
+    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only delete Staff or DELIVERY_RIDER roles
+    if (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') {
+      const targetUser = await prisma.user.findUnique({ 
+        where: { id }, 
+        include: { role: true } 
+      });
+      if (targetUser && !['DELIVERY_RIDER', 'Staff'].includes(targetUser.role?.name || '')) {
+        return apiError(new Error('You do not have permission to delete this user role'), 403);
+      }
     }
 
     // Security: Regular Admins cannot delete Super Admins

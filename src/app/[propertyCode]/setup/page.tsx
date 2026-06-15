@@ -320,12 +320,16 @@ export default function UnifiedSetupPage() {
                       >
                          <Scan size={14} className="mr-2" /> MINT AI SCAN
                       </Button>
-                      <Button onClick={() => { setSelectedItem(null); setSubType('product'); setIsFormOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] tracking-widest px-6 py-3 rounded-xl shadow-lg shadow-indigo-100">
-                        <Plus size={16} className="mr-2" /> RESTAURANT PRODUCT
-                      </Button>
-                      <Button onClick={() => { setSelectedItem(null); setSubType('bar-product'); setIsFormOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] tracking-widest px-6 py-3 rounded-xl shadow-xl shadow-amber-200/50">
-                        <FlaskConical size={16} className="mr-2" /> BAR PRODUCT
-                      </Button>
+                      {propertyDetails?.restaurantPosEnabled !== false && (
+                        <Button onClick={() => { setSelectedItem(null); setSubType('product'); setIsFormOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] tracking-widest px-6 py-3 rounded-xl shadow-lg shadow-indigo-100">
+                          <Plus size={16} className="mr-2" /> RESTAURANT PRODUCT
+                        </Button>
+                      )}
+                      {propertyDetails?.barPosEnabled && (
+                        <Button onClick={() => { setSelectedItem(null); setSubType('bar-product'); setIsFormOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] tracking-widest px-6 py-3 rounded-xl shadow-xl shadow-amber-200/50">
+                          <FlaskConical size={16} className="mr-2" /> BAR PRODUCT
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <DataTable 
@@ -598,7 +602,17 @@ export default function UnifiedSetupPage() {
           {subType === 'category' && <CategoryForm initialData={selectedItem} onSubmit={(d) => handleGeneralSubmit('category', d)} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />}
           {subType === 'product' && <RestaurantProductForm initialData={selectedItem} onSubmit={(d) => handleGeneralSubmit('product', d)} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />}
           {subType === 'bar-product' && <BarProductForm initialData={selectedItem} onSubmit={(d) => handleGeneralSubmit('bar-product', d)} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />}
-          {subType === 'floor' && <FloorForm initialData={selectedItem} onSubmit={(d) => handleGeneralSubmit('floor', d)} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />}
+          {subType === 'floor' && (
+             <FloorForm 
+               initialData={selectedItem} 
+               onSubmit={(d) => handleGeneralSubmit('floor', d)} 
+               onCancel={() => setIsFormOpen(false)} 
+               loading={mutationLoading} 
+               restaurantPosEnabled={propertyDetails?.restaurantPosEnabled !== false}
+               barPosEnabled={propertyDetails?.barPosEnabled !== false}
+               cafePosEnabled={propertyDetails?.cafePosEnabled !== false}
+             />
+           )}
           {subType === 'table' && <TableForm initialData={selectedItem} floors={floors} onSubmit={(d) => handleGeneralSubmit('table', d)} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />}
           {subType === 'staff' && <StaffMemberForm initialData={selectedItem} onSubmit={(d) => handleGeneralSubmit('staff', d)} onCancel={() => setIsFormOpen(false)} loading={mutationLoading} />}
           {subType === 'stock' && (

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse, getMultiTenantWhere } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -55,7 +57,24 @@ export async function GET(request: NextRequest) {
       take: 200
     })
 
-    return apiResponse(kots, 'KOTs fetched successfully')
+    const menuType = searchParams.get('menuType')
+    const excludeMenuType = searchParams.get('excludeMenuType')
+
+    let filteredKots = kots;
+
+    if (menuType) {
+      filteredKots = kots.map((kot: any) => ({
+        ...kot,
+        items: (kot.items || []).filter((item: any) => item.product?.menuType === menuType)
+      })).filter((kot: any) => kot.items.length > 0);
+    } else if (excludeMenuType) {
+      filteredKots = kots.map((kot: any) => ({
+        ...kot,
+        items: (kot.items || []).filter((item: any) => item.product?.menuType !== excludeMenuType)
+      })).filter((kot: any) => kot.items.length > 0);
+    }
+
+    return apiResponse(filteredKots, 'KOTs fetched successfully')
   } catch (error) {
     return apiError(error)
   }

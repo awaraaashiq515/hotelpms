@@ -15,7 +15,8 @@ import {
   ArrowRight,
   Edit2,
   Trash2,
-  UserCheck
+  UserCheck,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function GlobalPropertyManagement() {
@@ -26,6 +27,11 @@ export default function GlobalPropertyManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [allowedPosCount, setAllowedPosCount] = useState<number>(3);
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [allowedPropertyLimit, setAllowedPropertyLimit] = useState<number>(1);
+  const [activePropertyCount, setActivePropertyCount] = useState<number>(0);
+  const [packageFeatures, setPackageFeatures] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<any>({
     name: '',
@@ -39,6 +45,14 @@ export default function GlobalPropertyManagement() {
     whatsAppApiKey: '',
     whatsAppInstanceId: '',
     whatsAppTemplate: '',
+    restaurantPosEnabled: true,
+    showRestaurantInQrMenu: true,
+    barPosEnabled: false,
+    showBarInQrMenu: true,
+    cafePosEnabled: false,
+    showCafeInQrMenu: true,
+    deliveryEnabled: false,
+    showDeliveryInQrMenu: true,
   });
 
   useEffect(() => {
@@ -48,18 +62,21 @@ export default function GlobalPropertyManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [propRes, adminRes] = await Promise.all([
+      const [propRes, adminRes, orgRes] = await Promise.all([
         fetch('/api/admin/properties?global=true'),
-        fetch('/api/admin/users?global=true') // We'll filter for ADMIN role locally or via API
+        fetch('/api/admin/users?global=true'), // We'll filter for ADMIN role locally or via API
+        fetch('/api/super-admin/organizations')
       ]);
       
       const propData = await propRes.json();
       const adminData = await adminRes.json();
+      const orgData = await orgRes.json();
 
       if (propData.success) setProperties(propData.data);
       if (adminData.success) {
         setAdmins(adminData.data.filter((u: any) => u.role?.name === 'RESTAURANTS_ADMIN' || u.role?.name === 'SUPER_ADMIN'));
       }
+      if (orgData.success) setOrganizations(orgData.data);
     } catch (error) {
       console.error('Failed to fetch data', error);
     } finally {
@@ -70,6 +87,11 @@ export default function GlobalPropertyManagement() {
   const handleOpenModal = (property?: any) => {
     if (property) {
       setEditingId(property.id);
+      const org = property.organization;
+      setAllowedPosCount(org?.package?.allowedPosCount ?? 3);
+      setAllowedPropertyLimit(org?.package?.allowedPropertyCount ?? 1);
+      setActivePropertyCount(org?._count?.properties ?? 0);
+      setPackageFeatures(org?.package?.features?.map((f: any) => f.feature) || []);
       setFormData({
         name: property.name,
         code: property.code,
@@ -82,12 +104,74 @@ export default function GlobalPropertyManagement() {
         whatsAppApiKey: property.whatsAppApiKey || '',
         whatsAppInstanceId: property.whatsAppInstanceId || '',
         whatsAppTemplate: property.whatsAppTemplate || '',
+        restaurantPosEnabled: property.restaurantPosEnabled !== false,
+        showRestaurantInQrMenu: property.showRestaurantInQrMenu !== false,
+        barPosEnabled: !!property.barPosEnabled,
+        showBarInQrMenu: property.showBarInQrMenu !== false,
+        cafePosEnabled: !!property.cafePosEnabled,
+        showCafeInQrMenu: property.showCafeInQrMenu !== false,
+        deliveryEnabled: !!property.deliveryEnabled,
+        showDeliveryInQrMenu: property.showDeliveryInQrMenu !== false,
       });
     } else {
       setEditingId(null);
-      setFormData({ name: '', code: '', type: 'RESTAURANT', city: '', state: '', country: 'India', organizationId: '', whatsAppEnabled: false, whatsAppApiKey: '', whatsAppInstanceId: '', whatsAppTemplate: '' });
+      setAllowedPosCount(3);
+      setAllowedPropertyLimit(1);
+      setActivePropertyCount(0);
+      setPackageFeatures([]);
+      setFormData({ 
+        name: '', 
+        code: '', 
+        type: 'RESTAURANT', 
+        city: '', 
+        state: '', 
+        country: 'India', 
+        organizationId: '', 
+        whatsAppEnabled: false, 
+        whatsAppApiKey: '', 
+        whatsAppInstanceId: '', 
+        whatsAppTemplate: '',
+        restaurantPosEnabled: false,
+        showRestaurantInQrMenu: false,
+        barPosEnabled: false,
+        showBarInQrMenu: false,
+        cafePosEnabled: false,
+        showCafeInQrMenu: false,
+        deliveryEnabled: false,
+        showDeliveryInQrMenu: false,
+      });
     }
     setIsModalOpen(true);
+  };
+
+  const handleOrgChange = (orgId: string) => {
+    const org = organizations.find(o => o.id === orgId);
+    if (org) {
+      setAllowedPosCount(org.package?.allowedPosCount ?? 3);
+      setAllowedPropertyLimit(org.package?.allowedPropertyCount ?? 1);
+      setActivePropertyCount(org._count?.properties ?? 0);
+      setPackageFeatures(org.package?.features?.map((f: any) => f.feature) || []);
+      
+      const features = org.package?.features?.map((f: any) => f.feature) || [];
+      setFormData((prev: any) => ({
+        ...prev,
+        organizationId: orgId,
+        restaurantPosEnabled: features.includes('POS'),
+        showRestaurantInQrMenu: features.includes('POS'),
+        barPosEnabled: false,
+        showBarInQrMenu: false,
+        cafePosEnabled: false,
+        showCafeInQrMenu: false,
+        deliveryEnabled: false,
+        showDeliveryInQrMenu: false,
+      }));
+    } else {
+      setAllowedPosCount(3);
+      setAllowedPropertyLimit(1);
+      setActivePropertyCount(0);
+      setPackageFeatures([]);
+      setFormData((prev: any) => ({ ...prev, organizationId: orgId }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,8 +215,11 @@ export default function GlobalPropertyManagement() {
 
   const filtered = properties.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.uniqueCode.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.uniqueCode && p.uniqueCode.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const currentSelectedCount = (formData.restaurantPosEnabled ? 1 : 0) + (formData.barPosEnabled ? 1 : 0) + (formData.cafePosEnabled ? 1 : 0);
+  const isPosSelectionFull = currentSelectedCount >= allowedPosCount;
 
   if (loading) return <div className="p-20 text-center animate-pulse text-slate-400 font-black uppercase tracking-widest text-xs">Global Console Loading...</div>;
 
@@ -227,6 +314,12 @@ export default function GlobalPropertyManagement() {
         title={editingId ? "Modify Global Instance" : "Provision New Business Entity"}
       >
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {!editingId && activePropertyCount >= allowedPropertyLimit && (
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2 mb-4 animate-bounce">
+              <AlertTriangle size={16} />
+              <span>Property limit reached ({activePropertyCount}/{allowedPropertyLimit} allowed). Please upgrade the owner's package plan.</span>
+            </div>
+          )}
           <Input
             label="Business Official Name"
             placeholder="e.g. Grand Plaza Hotel"
@@ -265,7 +358,7 @@ export default function GlobalPropertyManagement() {
               <select
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer" style={{}} onFocus={e => {e.currentTarget.style.borderColor='#e8a0a0'; e.currentTarget.style.boxShadow='0 0 0 2px #e8a0a020';}} onBlur={e => {e.currentTarget.style.borderColor=''; e.currentTarget.style.boxShadow='';}}
                 value={formData.organizationId}
-                onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
+                onChange={(e) => handleOrgChange(e.target.value)}
                 required
               >
                 <option value="">-- Select Business Admin --</option>
@@ -293,6 +386,104 @@ export default function GlobalPropertyManagement() {
               onChange={(e) => setFormData({ ...formData, state: e.target.value })}
               className="rounded-xl border-slate-200"
             />
+          </div>
+
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 mb-4">
+              POS Modules & Access Control (Plan Limit: {allowedPosCount} POS, Selected: {currentSelectedCount}/{allowedPosCount})
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('POS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Restaurant POS 🍽️</span>
+                  <p className="text-[9px] text-slate-400">Classic Dine In & Takeaway</p>
+                  {!packageFeatures.includes('POS') && formData.organizationId && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('POS') || (!formData.restaurantPosEnabled && isPosSelectionFull)}
+                  checked={formData.restaurantPosEnabled}
+                  onChange={(e) => setFormData({ ...formData, restaurantPosEnabled: e.target.checked, showRestaurantInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('BARPOS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Bar POS 🍺</span>
+                  <p className="text-[9px] text-slate-400">Premium Bar & Peg Controls</p>
+                  {!packageFeatures.includes('BARPOS') && formData.organizationId && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('BARPOS') || (!formData.barPosEnabled && isPosSelectionFull)}
+                  checked={formData.barPosEnabled}
+                  onChange={(e) => setFormData({ ...formData, barPosEnabled: e.target.checked, showBarInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('CAFEPOS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Cafe POS ☕</span>
+                  <p className="text-[9px] text-slate-400">Quick Bites & Coffee</p>
+                  {!packageFeatures.includes('CAFEPOS') && formData.organizationId && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('CAFEPOS') || (!formData.cafePosEnabled && isPosSelectionFull)}
+                  checked={formData.cafePosEnabled}
+                  onChange={(e) => setFormData({ ...formData, cafePosEnabled: e.target.checked, showCafeInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 mb-4">
+              Additional Services & Integrations
+            </h4>
+            <div className="grid grid-cols-1 gap-4">
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('DRIVERS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Home Delivery 🚚</span>
+                  <p className="text-[9px] text-slate-400">Logistics & Rider Portal</p>
+                  {!packageFeatures.includes('DRIVERS') && formData.organizationId && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('DRIVERS')}
+                  checked={formData.deliveryEnabled}
+                  onChange={(e) => setFormData({ ...formData, deliveryEnabled: e.target.checked, showDeliveryInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
@@ -345,7 +536,13 @@ export default function GlobalPropertyManagement() {
             <Button variant="secondary" onClick={() => setIsModalOpen(false)} type="button" className="rounded-xl font-black text-xs uppercase tracking-widest px-6">
               Cancel
             </Button>
-            <Button type="submit" isLoading={submitting} className="text-white rounded-xl font-black text-xs uppercase tracking-widest px-8 shadow-lg" style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a030'}}>
+            <Button 
+              type="submit" 
+              isLoading={submitting} 
+              disabled={(!editingId && activePropertyCount >= allowedPropertyLimit) || submitting}
+              className="text-white rounded-xl font-black text-xs uppercase tracking-widest px-8 shadow-lg disabled:opacity-50" 
+              style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a030'}}
+            >
               {editingId ? "Commit Changes" : "Provision Assets"}
             </Button>
           </div>

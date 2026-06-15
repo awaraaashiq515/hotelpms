@@ -218,16 +218,16 @@ export const TopNavbar: React.FC = () => {
             onClick={() => router.push('/operations')}
           >
             {(() => {
-              const displayLogo = property?.logoUrl || (theme === 'dark' 
-                ? (websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) 
-                : (websiteSettings?.logoScrolledUrl || websiteSettings?.logoUrl));
+              const displayLogo = theme === 'dark' 
+                ? (websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl || property?.logoUrl) 
+                : (websiteSettings?.logoScrolledUrl || websiteSettings?.logoUrl || property?.logoUrl);
 
               if (displayLogo) {
                 return (
                   <div className="relative flex items-center h-10 md:h-12 max-w-[250px] overflow-hidden">
                     <img 
                       src={displayLogo} 
-                      alt={property?.name || 'Logo'} 
+                      alt={websiteSettings?.hotelName || property?.name || 'Logo'} 
                       className="h-full w-auto object-contain transition-transform duration-300 group-hover:scale-105"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
@@ -256,13 +256,16 @@ export const TopNavbar: React.FC = () => {
                   </div>
                   <div className="flex flex-col leading-none">
                     <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
-                      {property?.name ? (
-                        <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
-                      ) : (
-                        <>Order<span className="text-pos-primary font-light">Mint</span></>
-                      )}
+                      {(() => {
+                        const hName = websiteSettings?.hotelName || 'OrderMint';
+                        return (
+                          <>{hName.split(' ')[0]}<span className="text-pos-primary font-light">{hName.split(' ').slice(1).join(' ')}</span></>
+                        );
+                      })()}
                     </span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">POS Terminal</span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">
+                      {websiteSettings?.tagline || 'POS Terminal'}
+                    </span>
                   </div>
                 </>
               );
@@ -271,67 +274,73 @@ export const TopNavbar: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-1.5 md:gap-2 ml-2 md:ml-4">
-          <Button 
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
-            onClick={() => router.push(`${p}/operations/tables`)}
-            title="Dine In"
-          >
-            <Monitor size={16} className="md:mr-2" />
-            <span className="hidden md:inline">Dine In</span>
-          </Button>
+          {(property?.restaurantPosEnabled !== false || property?.barPosEnabled || property?.cafePosEnabled) && (
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
+              onClick={() => router.push(`${p}/operations/tables`)}
+              title="Dine In"
+            >
+              <Monitor size={16} className="md:mr-2" />
+              <span className="hidden md:inline">Dine In</span>
+            </Button>
+          )}
 
-          <Button 
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
-            onClick={() => router.push(`${p}/billing?type=PICKUP`)}
-            title="Take Away"
-          >
-            <Plus size={16} className="md:mr-2" />
-            <span className="hidden md:inline">Take Away</span>
-          </Button>
+          {property?.restaurantPosEnabled !== false && (
+            <Button 
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center"
+              onClick={() => router.push(`${p}/billing`)}
+              title="Take Away"
+            >
+              <Plus size={16} className="md:mr-2" />
+              <span className="hidden md:inline">Take Away</span>
+            </Button>
+          )}
 
           {/* ── Live Order Dropdown (Delivery / Pick Up) ── */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <Button 
-              className={`font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center gap-2 
-                ${showLiveOrderMenu 
-                  ? 'bg-violet-700 text-white' 
-                  : 'bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 dark:shadow-none'}`}
-              onClick={() => setShowLiveOrderMenu(!showLiveOrderMenu)}
-              title="Live Order"
-            >
-              <Plus size={16} />
-              <span className="hidden md:inline">Live Order</span>
-            </Button>
+          {property?.restaurantPosEnabled !== false && (
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <Button 
+                className={`font-bold h-10 w-10 md:w-auto px-0 md:px-4 rounded-xl shadow-lg transition-all uppercase tracking-tighter text-[11px] flex items-center justify-center gap-2 
+                  ${showLiveOrderMenu 
+                    ? 'bg-violet-700 text-white' 
+                    : 'bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 dark:shadow-none'}`}
+                onClick={() => setShowLiveOrderMenu(!showLiveOrderMenu)}
+                title="Live Order"
+              >
+                <Plus size={16} />
+                <span className="hidden md:inline">Live Order</span>
+              </Button>
 
-            {showLiveOrderMenu && (
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-300">
-                <button 
-                  onClick={() => {
-                    router.push('/billing?type=DELIVERY');
-                    setShowLiveOrderMenu(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-500 transition-all"
-                >
-                  <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
-                    <Plus size={14} />
-                  </div>
-                  🏍️ Delivery
-                </button>
-                <button 
-                  onClick={() => {
-                    router.push('/billing?type=PICKUP');
-                    setShowLiveOrderMenu(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-orange-500 transition-all border-t border-gray-50 dark:border-white/5"
-                >
-                  <div className="w-8 h-8 bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500">
-                    <Plus size={14} />
-                  </div>
-                  🛍️ Pick Up
-                </button>
-              </div>
-            )}
-          </div>
+              {showLiveOrderMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-300">
+                  <button 
+                    onClick={() => {
+                      router.push(`${p}/billing?type=DELIVERY`);
+                      setShowLiveOrderMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-500 transition-all"
+                  >
+                    <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                      <Plus size={14} />
+                    </div>
+                    🏍️ Delivery
+                  </button>
+                  <button 
+                    onClick={() => {
+                      router.push(`${p}/billing?type=PICKUP`);
+                      setShowLiveOrderMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-orange-500 transition-all border-t border-gray-50 dark:border-white/5"
+                  >
+                    <div className="w-8 h-8 bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500">
+                      <Plus size={14} />
+                    </div>
+                    🛍️ Pick Up
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="hidden lg:flex items-center gap-3 ml-4 flex-1 max-w-[220px]">
@@ -356,46 +365,50 @@ export const TopNavbar: React.FC = () => {
             
             {showDisplayMenu && (
               <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] py-1.5 z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
-                <button 
-                  onClick={() => {
-                    const path = propertyCode ? `/${propertyCode}/kitchen-display` : '/kitchen-display';
-                    window.open(path, '_blank');
-                    setShowDisplayMenu(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors"
-                >
-                  <div className="w-7 h-7 bg-pos-primary/10 rounded-lg flex items-center justify-center text-pos-primary">
-                    <Monitor size={14} />
-                  </div>
-                  Kitchen Display (KDS)
-                </button>
-                {property?.barPosEnabled !== false && (
-                <button 
-                  onClick={() => {
-                    const path = propertyCode ? `/${propertyCode}/bar-display` : '/bar-display';
-                    window.open(path, '_blank');
-                    setShowDisplayMenu(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
-                >
-                  <div className="w-7 h-7 bg-violet-500/10 rounded-lg flex items-center justify-center text-violet-500">
-                    <Wine size={14} />
-                  </div>
-                  Bar Display (BDS)
-                </button>
+                {(property?.restaurantPosEnabled !== false || property?.cafePosEnabled) && (
+                  <button 
+                    onClick={() => {
+                      const path = propertyCode ? `/${propertyCode}/kitchen-display` : '/kitchen-display';
+                      window.open(path, '_blank');
+                      setShowDisplayMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors"
+                  >
+                    <div className="w-7 h-7 bg-pos-primary/10 rounded-lg flex items-center justify-center text-pos-primary">
+                      <Monitor size={14} />
+                    </div>
+                    Kitchen Display (KDS)
+                  </button>
                 )}
-                <button 
-                  onClick={() => {
-                    window.open('/order-display', '_blank');
-                    setShowDisplayMenu(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
-                >
-                  <div className="w-7 h-7 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-500">
-                    <Monitor size={14} />
-                  </div>
-                  Customer Display
-                </button>
+                {property?.barPosEnabled && (
+                  <button 
+                    onClick={() => {
+                      const path = propertyCode ? `/${propertyCode}/bar-display` : '/bar-display';
+                      window.open(path, '_blank');
+                      setShowDisplayMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
+                  >
+                    <div className="w-7 h-7 bg-violet-500/10 rounded-lg flex items-center justify-center text-violet-500">
+                      <Wine size={14} />
+                    </div>
+                    Bar Display (BDS)
+                  </button>
+                )}
+                {(property?.restaurantPosEnabled !== false || property?.cafePosEnabled) && (
+                  <button 
+                    onClick={() => {
+                      window.open('/order-display', '_blank');
+                      setShowDisplayMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
+                  >
+                    <div className="w-7 h-7 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-500">
+                      <Monitor size={14} />
+                    </div>
+                    Customer Display
+                  </button>
+                )}
               </div>
             )}
           </div>

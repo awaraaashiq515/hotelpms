@@ -133,7 +133,8 @@ export async function POST(request: NextRequest) {
             orderItemId: existingItem.id,
             variantId,
             variantName: item.variantName,
-            portion
+            portion,
+            menuType: product.menuType
           });
         } else {
           const newItem = await tx.posOrderItem.create({
@@ -155,7 +156,8 @@ export async function POST(request: NextRequest) {
             orderItemId: newItem.id,
             variantId,
             variantName: item.variantName,
-            portion
+            portion,
+            menuType: product.menuType
           });
         }
       }
@@ -275,6 +277,9 @@ export async function POST(request: NextRequest) {
       }, tx);
 
       if (kotTicket) {
+        const hasBarItems = newItemsForKot.some((item: any) => item.menuType === 'BAR');
+        const hasKitchenItems = newItemsForKot.some((item: any) => item.menuType !== 'BAR' && item.menuType !== 'CAFE');
+
         await createNotification({
           propertyId,
           title: 'New KOT Generated',
@@ -288,6 +293,8 @@ export async function POST(request: NextRequest) {
             tableId: orderTypeParam === 'DINE_IN' ? tableId : null,
             tableName: orderTypeParam === 'DINE_IN' ? table.name : null,
             kotNo: kotTicket.kotNo,
+            hasBarItems,
+            hasKitchenItems,
             link: `/operations/tables`
           }
         }, tx);

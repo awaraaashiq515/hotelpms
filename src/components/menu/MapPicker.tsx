@@ -92,8 +92,8 @@ export const MapPicker: React.FC<MapPickerProps> = ({ onAddressSelect, initialAd
       attributionControl: false
     }).setView([defaultLat, defaultLng], 13);
 
-    // Dark thematic tiles resembling premium Google Maps styling
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Native Google Maps road layer tiles showing shops, names, and landmarks properly
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       maxZoom: 20
     }).addTo(map);
 

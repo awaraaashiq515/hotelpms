@@ -450,6 +450,8 @@ export default function PublicMenuPage() {
           tableName={data.table.name} 
           propertyId={data.property.id}
           propertyAddress={data.property.address || ''}
+          propertyLatitude={data.property.latitude}
+          propertyLongitude={data.property.longitude}
           upiId={data.property.upiId || ''}
           upiName={data.property.upiName || data.property.name || ''}
           setActiveTab={setActiveTab} 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   Printer,
   ShieldCheck,
@@ -23,6 +23,8 @@ import {
   XCircle,
   Lock as LockIcon,
   Truck,
+  Palette,
+  Music2,
 } from 'lucide-react';
 
 const ALL_FEATURES = [
@@ -63,6 +65,8 @@ import { WhatsAppConfigForm } from '@/components/settings/WhatsAppConfigForm';
 import { WalkieTalkieConfigForm } from '@/components/settings/WalkieTalkieConfigForm';
 import { ChangePasswordForm } from '@/components/settings/ChangePasswordForm';
 import { HomeDeliverySettingsForm } from '@/components/settings/HomeDeliverySettingsForm';
+import { PosTerminalThemeForm } from '@/components/settings/PosTerminalThemeForm';
+import { MusicSettingsForm } from '@/components/settings/MusicSettingsForm';
 
 type TabId =
   | 'profile'
@@ -76,7 +80,9 @@ type TabId =
   | 'printers'
   | 'whatsapp'
   | 'walkietalkie'
-  | 'subscription';
+  | 'subscription'
+  | 'theme'
+  | 'music';
 
 interface NavItem {
   id: TabId;
@@ -164,6 +170,16 @@ const navGroups: NavGroup[] = [
         borderColor: 'border-violet-200 dark:border-violet-900/50',
         activeBorder: 'border-l-violet-500 dark:border-l-violet-400',
       },
+      {
+        id: 'music' as TabId,
+        label: 'Music Player',
+        description: 'YouTube API key & playlist settings',
+        icon: Music2,
+        color: 'text-purple-600 dark:text-purple-400',
+        bgColor: 'bg-purple-50/80 dark:bg-purple-950/20',
+        borderColor: 'border-purple-200 dark:border-purple-900/50',
+        activeBorder: 'border-l-purple-500 dark:border-l-purple-400',
+      },
     ],
   },
   {
@@ -199,6 +215,16 @@ const navGroups: NavGroup[] = [
         borderColor: 'border-indigo-200 dark:border-indigo-900/50',
         activeBorder: 'border-l-indigo-500 dark:border-l-indigo-400',
       },
+      {
+        id: 'theme',
+        label: 'POS Themes',
+        description: 'Assign display themes to terminals',
+        icon: Palette,
+        color: 'text-violet-600 dark:text-violet-400',
+        bgColor: 'bg-violet-50/80 dark:bg-violet-950/20',
+        borderColor: 'border-violet-200 dark:border-violet-900/50',
+        activeBorder: 'border-l-violet-500 dark:border-l-violet-400',
+      },
     ],
   },
   {
@@ -231,6 +257,8 @@ const navGroups: NavGroup[] = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [session, setSession] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -471,6 +499,10 @@ export default function SettingsPage() {
             {activeTab === 'cafe' && <CafePosSettingsForm />}
 
             {activeTab === 'delivery' && <HomeDeliverySettingsForm />}
+
+            {activeTab === 'theme' && <PosTerminalThemeForm propertyCode={propertyCode} />}
+
+            {activeTab === 'music' && <MusicSettingsForm />}
 
             {activeTab === 'admin' && (
               <div className="flex flex-col gap-6">

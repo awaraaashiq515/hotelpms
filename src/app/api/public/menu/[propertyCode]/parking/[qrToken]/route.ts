@@ -33,6 +33,8 @@ export async function GET(
             upiLimit2: true,
             upiReceivedToday2: true,
             showBarInQrMenu: true,
+            latitude: true,
+            longitude: true,
           },
         },
       },

@@ -39,7 +39,9 @@ export async function GET(
             upiReceivedToday2: true,
             lastUpiResetDate: true,
             showBarInQrMenu: true,
-            showCafeInQrMenu: true
+            showCafeInQrMenu: true,
+            latitude: true,
+            longitude: true
           }
         }
       }

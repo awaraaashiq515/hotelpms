@@ -57,6 +57,8 @@ export const kotsApi = {
     outletId?: string;
     status?: string;
     date?: string; // YYYY-MM-DD
+    menuType?: string;
+    excludeMenuType?: string;
   } = {}): Promise<KotTicket[]> => {
     return apiClient.get<KotTicket[]>('/api/kots', { params: params as Record<string, string> });
   },

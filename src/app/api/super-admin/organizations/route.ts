@@ -13,7 +13,11 @@ export async function GET(request: NextRequest) {
     const organizations = await prisma.organization.findMany({
       include: {
         _count: { select: { properties: true } },
-        package: { select: { name: true } },
+        package: {
+          include: {
+            features: true
+          }
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

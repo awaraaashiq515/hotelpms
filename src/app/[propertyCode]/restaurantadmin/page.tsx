@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useSidebar } from '@/context/sidebar-context';
 import {
   LayoutGrid, UtensilsCrossed, CheckCircle2, Clock, AlertTriangle,
   TrendingUp, ShoppingBag, Users, Bike, ParkingSquare,
   RefreshCw, ChefHat, CreditCard, Star, ArrowUpRight, UserCheck,
   UserX, MapPin, Wifi, WifiOff, Activity, IndianRupee, Timer,
-  Package, Bell, CircleAlert, Flame, ThumbsUp, Languages,
+  Package, Bell, CircleAlert, Flame, ThumbsUp, Languages, Building2, ChevronDown,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -232,34 +233,85 @@ const getOrderTypeMeta = (l: typeof LANG[LangKey]) => ({
 // Main Page
 // ──────────────────────────────────────────────────────────────────────────────
 export default function RestaurantLiveDashboard() {
+  const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string;
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeStaffTab, setActiveStaffTab] = useState<'present' | 'absent' | 'location'>('present');
   const [lang, setLang] = useState<LangKey>('en');
+  const [roleChecked, setRoleChecked] = useState(false);
+  // Property selector for restaurant admin multi-property support
+  const [properties, setProperties] = useState<{ id: string; name: string; code: string; city?: string }[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
   const { setOpen } = useSidebar();
   const l = LANG[lang];
 
   useEffect(() => { setOpen(false); }, [setOpen]);
 
-  const fetchData = useCallback(async (isManual = false) => {
+  // ── Role Guard: POSSYSTEM must NOT access this page ──────────────────────
+  // This page is exclusively for RESTAURANTS_ADMIN and SUPER_ADMIN.
+  // POSSYSTEM users are redirected to the POS live-overview (6-box page).
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.authenticated) { router.push('/login'); return; }
+        const role = d.user?.role;
+        if (role === 'POSSYSTEM') {
+          router.replace(`/${propertyCode}/live-overview`);
+          return;
+        }
+        if (role !== 'RESTAURANTS_ADMIN' && role !== 'SUPER_ADMIN') {
+          router.replace(`/${propertyCode}/operations`);
+          return;
+        }
+        // Fetch all properties for this admin
+        fetch('/api/admin/properties')
+          .then(r => r.json())
+          .then(pData => {
+            if (pData.success && pData.data?.length > 0) {
+              setProperties(pData.data);
+              // Default: use the current propertyCode match or first property
+              const matched = pData.data.find((p: any) => p.code === propertyCode);
+              setSelectedPropertyId(matched?.id || pData.data[0].id);
+            }
+          })
+          .catch(console.error)
+          .finally(() => setRoleChecked(true));
+      })
+      .catch(() => router.push('/login'));
+  }, [router, propertyCode]);
+
+  const fetchData = useCallback(async (isManual = false, propId?: string) => {
     if (isManual) setRefreshing(true);
     try {
-      const res = await fetch('/api/restaurant-dashboard');
+      const pid = propId || selectedPropertyId;
+      const url = pid ? `/api/restaurant-dashboard?propertyId=${pid}` : '/api/restaurant-dashboard';
+      const res = await fetch(url);
       const json = await res.json();
       if (json.success) { setData(json.data); setLastUpdated(new Date()); }
-    } catch (e) { console.error(e); }
+      else { setData(null); }
+    } catch (e) { console.error(e); setData(null); }
     finally { setLoading(false); setRefreshing(false); }
-  }, []);
+  }, [selectedPropertyId]);
 
+  // Re-fetch when selectedPropertyId or roleChecked changes
   useEffect(() => {
-    fetchData();
-    const iv = setInterval(() => fetchData(), 30000);
+    if (!roleChecked || !selectedPropertyId) return;
+    setLoading(true);
+    fetchData(false, selectedPropertyId);
+    const iv = setInterval(() => fetchData(false, selectedPropertyId), 30000);
     return () => clearInterval(iv);
-  }, [fetchData]);
+  }, [roleChecked, selectedPropertyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) {
+  const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+
+  if (!roleChecked || loading) {
     return (
       <div className="min-h-screen bg-[#09090e] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -305,7 +357,7 @@ export default function RestaurantLiveDashboard() {
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-5 space-y-6">
 
         {/* ── HEADER ── */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -315,9 +367,62 @@ export default function RestaurantLiveDashboard() {
               )}
             </div>
             <h1 className="text-xl font-black text-white tracking-tight">Restaurant Dashboard</h1>
+            {selectedProperty && (
+              <p className="text-[10px] text-slate-500 font-bold mt-0.5 flex items-center gap-1">
+                <Building2 size={9} className="text-violet-400" />
+                {selectedProperty.name}{selectedProperty.city ? ` · ${selectedProperty.city}` : ''}
+              </p>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+
+            {/* ── Property Selector (only if multiple properties) ── */}
+            {properties.length > 1 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowPropertyDropdown(prev => !prev)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-violet-500/30 bg-violet-500/10 text-[11px] font-black text-violet-300 hover:bg-violet-500/20 transition-all max-w-[200px]"
+                >
+                  <Building2 size={12} className="text-violet-400 shrink-0" />
+                  <span className="truncate">{selectedProperty?.name || 'Select Property'}</span>
+                  <ChevronDown size={11} className={`shrink-0 transition-transform ${showPropertyDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showPropertyDropdown && (
+                  <div className="absolute right-0 top-full mt-2 z-50 min-w-[220px] bg-[#0f0f1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="p-2 border-b border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2">Select Property</p>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {properties.map(prop => (
+                        <button
+                          key={prop.id}
+                          onClick={() => {
+                            setSelectedPropertyId(prop.id);
+                            setShowPropertyDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-all ${
+                            prop.id === selectedPropertyId ? 'bg-violet-500/10' : ''
+                          }`}
+                        >
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${
+                            prop.id === selectedPropertyId ? 'bg-violet-400' : 'bg-slate-700'
+                          }`} />
+                          <div className="min-w-0">
+                            <p className={`text-xs font-bold truncate ${
+                              prop.id === selectedPropertyId ? 'text-violet-300' : 'text-slate-300'
+                            }`}>{prop.name}</p>
+                            <p className="text-[9px] text-slate-600 font-bold">{prop.code}{prop.city ? ` · ${prop.city}` : ''}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Language Toggle */}
             <button
               onClick={() => setLang(prev => prev === 'en' ? 'hi' : 'en')}
@@ -340,6 +445,11 @@ export default function RestaurantLiveDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Click outside to close dropdown */}
+        {showPropertyDropdown && (
+          <div className="fixed inset-0 z-40" onClick={() => setShowPropertyDropdown(false)} />
+        )}
 
         {/* ── ALERTS ── */}
         {alerts.length > 0 ? (

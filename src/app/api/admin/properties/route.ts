@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
@@ -18,15 +18,57 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Organization context missing from session'), 400);
     }
 
+    let packageInfo = null;
+    let activePropertyCount = 0;
+
+    if (organizationId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        include: {
+          package: {
+            include: { features: true }
+          },
+          _count: {
+            select: { properties: true }
+          }
+        }
+      });
+      if (org) {
+        activePropertyCount = org._count.properties;
+        if (org.package) {
+          packageInfo = {
+            allowedPropertyCount: org.package.allowedPropertyCount,
+            allowedPosCount: org.package.allowedPosCount,
+            features: org.package.features.map((f: any) => f.feature)
+          };
+        }
+      }
+    }
+
     const properties = await prisma.property.findMany({
       where: showGlobal ? {} : { organizationId },
       include: {
-        _count: { select: { users: true } }
+        _count: { select: { users: true } },
+        organization: {
+          include: {
+            package: {
+              include: {
+                features: true
+              }
+            }
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return apiResponse(properties, 'Properties fetched successfully');
+    return NextResponse.json({
+      success: true,
+      data: properties,
+      message: 'Properties fetched successfully',
+      package: packageInfo,
+      activePropertyCount
+    });
   } catch (error) {
     return apiError(error);
   }
@@ -40,7 +82,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, code, type, city, state, country, organizationId: targetOrgId, whatsAppEnabled, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate } = body;
+    const { 
+      name, code, type, city, state, country, organizationId: targetOrgId, 
+      whatsAppEnabled, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate,
+      restaurantPosEnabled, showRestaurantInQrMenu,
+      barPosEnabled, showBarInQrMenu,
+      cafePosEnabled, showCafeInQrMenu,
+      deliveryEnabled, showDeliveryInQrMenu 
+    } = body;
 
     // Security: Only Super Admin can specify a different organizationId
     const isSuper = session.role === 'SUPER_ADMIN';
@@ -52,6 +101,55 @@ export async function POST(request: NextRequest) {
 
     if (!name || !code) {
       return apiError(new Error('Missing required fields: name, code'), 400);
+    }
+
+    // Enforce POS terminal count limit based on Organization's Package
+    let selectedCount = 0;
+    if (restaurantPosEnabled ?? true) selectedCount++;
+    if (barPosEnabled ?? false) selectedCount++;
+    if (cafePosEnabled ?? false) selectedCount++;
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: finalOrgId },
+      include: {
+        package: {
+          include: {
+            features: true
+          }
+        }
+      }
+    });
+
+    if (organization?.package) {
+      // 1. Enforce allowedPropertyCount
+      const existingPropertiesCount = await prisma.property.count({
+        where: { organizationId: finalOrgId }
+      });
+      const propLimit = organization.package.allowedPropertyCount ?? 1;
+      if (existingPropertiesCount >= propLimit) {
+        return apiError(new Error(`This organization has reached the limit of ${propLimit} property(ies) allowed under their package plan.`), 400);
+      }
+
+      // 2. Enforce allowedPosCount
+      const limit = organization.package.allowedPosCount ?? 1;
+      if (selectedCount > limit) {
+        return apiError(new Error(`Your subscription plan allows a maximum of ${limit} POS terminal(s). You selected ${selectedCount}.`), 400);
+      }
+
+      // 3. Enforce specific module feature gating
+      const packageFeatures = organization.package.features.map((f: any) => f.feature);
+      if ((restaurantPosEnabled ?? true) && !packageFeatures.includes('POS')) {
+        return apiError(new Error('Restaurant POS is not included in this package plan.'), 400);
+      }
+      if ((barPosEnabled ?? false) && !packageFeatures.includes('BARPOS')) {
+        return apiError(new Error('Bar POS is not included in this package plan.'), 400);
+      }
+      if ((cafePosEnabled ?? false) && !packageFeatures.includes('CAFEPOS')) {
+        return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
+      }
+      if ((deliveryEnabled ?? false) && !packageFeatures.includes('DRIVERS')) {
+        return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
+      }
     }
 
     // Check code uniqueness
@@ -76,6 +174,14 @@ export async function POST(request: NextRequest) {
           whatsAppApiKey,
           whatsAppInstanceId,
           whatsAppTemplate,
+          restaurantPosEnabled: restaurantPosEnabled ?? true,
+          showRestaurantInQrMenu: showRestaurantInQrMenu ?? true,
+          barPosEnabled: barPosEnabled ?? false,
+          showBarInQrMenu: showBarInQrMenu ?? true,
+          cafePosEnabled: cafePosEnabled ?? false,
+          showCafeInQrMenu: showCafeInQrMenu ?? true,
+          deliveryEnabled: deliveryEnabled ?? false,
+          showDeliveryInQrMenu: showDeliveryInQrMenu ?? true,
         },
       });
 
@@ -458,7 +564,15 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, code, type, city, state, country, organizationId: targetOrgId, whatsAppEnabled, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate } = body;
+    const { 
+      id, name, code, type, city, state, country, organizationId: targetOrgId, 
+      whatsAppEnabled, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, 
+      latitude, longitude,
+      restaurantPosEnabled, showRestaurantInQrMenu,
+      barPosEnabled, showBarInQrMenu,
+      cafePosEnabled, showCafeInQrMenu,
+      deliveryEnabled, showDeliveryInQrMenu
+    } = body;
 
     if (!id || !name || !code) {
       return apiError(new Error('Missing required fields: id, name, code'), 400);
@@ -478,6 +592,52 @@ export async function PUT(request: NextRequest) {
     });
     if (!existing) return apiError(new Error('Property not found or access denied'), 404);
 
+    // Enforce POS terminal count limit based on Organization's Package
+    const isRestEnabled = restaurantPosEnabled !== undefined ? restaurantPosEnabled : (existing.restaurantPosEnabled !== false);
+    const isBarEnabled = barPosEnabled !== undefined ? barPosEnabled : !!existing.barPosEnabled;
+    const isCafeEnabled = cafePosEnabled !== undefined ? cafePosEnabled : !!existing.cafePosEnabled;
+
+    let selectedCount = 0;
+    if (isRestEnabled) selectedCount++;
+    if (isBarEnabled) selectedCount++;
+    if (isCafeEnabled) selectedCount++;
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: finalOrgId },
+      include: {
+        package: {
+          include: {
+            features: true
+          }
+        }
+      }
+    });
+
+    if (organization?.package) {
+      // 1. Enforce allowedPosCount
+      const limit = organization.package.allowedPosCount ?? 1;
+      if (selectedCount > limit) {
+        return apiError(new Error(`Your subscription plan allows a maximum of ${limit} POS terminal(s). You selected ${selectedCount}.`), 400);
+      }
+
+      // 2. Enforce specific module feature gating
+      const packageFeatures = organization.package.features.map((f: any) => f.feature);
+      const isDelivEnabled = deliveryEnabled !== undefined ? deliveryEnabled : !!existing.deliveryEnabled;
+
+      if (isRestEnabled && !packageFeatures.includes('POS')) {
+        return apiError(new Error('Restaurant POS is not included in this package plan.'), 400);
+      }
+      if (isBarEnabled && !packageFeatures.includes('BARPOS')) {
+        return apiError(new Error('Bar POS is not included in this package plan.'), 400);
+      }
+      if (isCafeEnabled && !packageFeatures.includes('CAFEPOS')) {
+        return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
+      }
+      if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
+        return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
+      }
+    }
+
     // Check code uniqueness if changed
     if (existing.code !== code) {
       const codeCheck = await prisma.property.findUnique({ where: { code } });
@@ -491,7 +651,17 @@ export async function PUT(request: NextRequest) {
         whatsAppEnabled,
         whatsAppApiKey,
         whatsAppInstanceId,
-        whatsAppTemplate
+        whatsAppTemplate,
+        latitude: latitude !== undefined ? (latitude !== null ? parseFloat(latitude) : null) : undefined,
+        longitude: longitude !== undefined ? (longitude !== null ? parseFloat(longitude) : null) : undefined,
+        restaurantPosEnabled: restaurantPosEnabled !== undefined ? restaurantPosEnabled : undefined,
+        showRestaurantInQrMenu: showRestaurantInQrMenu !== undefined ? showRestaurantInQrMenu : undefined,
+        barPosEnabled: barPosEnabled !== undefined ? barPosEnabled : undefined,
+        showBarInQrMenu: showBarInQrMenu !== undefined ? showBarInQrMenu : undefined,
+        cafePosEnabled: cafePosEnabled !== undefined ? cafePosEnabled : undefined,
+        showCafeInQrMenu: showCafeInQrMenu !== undefined ? showCafeInQrMenu : undefined,
+        deliveryEnabled: deliveryEnabled !== undefined ? deliveryEnabled : undefined,
+        showDeliveryInQrMenu: showDeliveryInQrMenu !== undefined ? showDeliveryInQrMenu : undefined,
       },
     });
 

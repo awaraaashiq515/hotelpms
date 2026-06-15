@@ -2,17 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session?.propertyId) {
+    if (!session?.propertyId && !session?.organizationId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
     if (session?.role === 'SUPER_ADMIN') {
       return NextResponse.json({ message: 'Forbidden: SUPER_ADMIN access restricted' }, { status: 403 });
     }
 
-    const propertyId = session.propertyId;
+    // Allow RESTAURANTS_ADMIN to pass a specific propertyId via query param
+    // so they can switch between their properties
+    const { searchParams } = new URL(request.url);
+    const requestedPropertyId = searchParams.get('propertyId');
+
+    let propertyId = session.propertyId;
+
+    if (requestedPropertyId && session.role === 'RESTAURANTS_ADMIN') {
+      // Security: Verify the requested property belongs to the admin's organization
+      const propCheck = await prisma.property.findFirst({
+        where: { id: requestedPropertyId, organizationId: session.organizationId ?? undefined },
+        select: { id: true },
+      });
+      if (!propCheck) {
+        return NextResponse.json({ message: 'Property not found or access denied' }, { status: 403 });
+      }
+      propertyId = requestedPropertyId;
+    }
+
+    if (!propertyId) {
+      return NextResponse.json({ message: 'No property context available' }, { status: 400 });
+    }
 
     // ── Date helpers ────────────────────────────────────────────────────────
     const todayStart = new Date();

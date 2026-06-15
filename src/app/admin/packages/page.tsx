@@ -28,6 +28,7 @@ import {
   ArrowLeft,
   Eye,
   Check,
+  Monitor,
 } from 'lucide-react';
 
 // ─── ALL FEATURES — sourced from menu-config.ts (every feature key used) ──────
@@ -122,6 +123,8 @@ type Pkg = {
   priceINR: number;
   isActive: boolean;
   color: string | null;
+  allowedPosCount: number;
+  allowedPropertyCount: number;
   features: Feature[];
   permissions: Permission[];
   _count: { organizations: number };
@@ -136,6 +139,8 @@ const emptyForm = () => ({
   priceINR: 0,
   isActive: true,
   color: '#6366f1',
+  allowedPosCount: 1,
+  allowedPropertyCount: 1,
   features: [] as string[],
   permissions: [] as { module: string; action: string }[],
 });
@@ -215,6 +220,22 @@ function PackageCard({
             <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{pkg.priceINR ?? 0}</p>
             <p className="text-[9px] font-bold text-emerald-400/80 uppercase tracking-wider mt-0.5">Price (INR)</p>
           </div>
+        </div>
+
+        {/* POS Limit */}
+        <div className="flex items-center gap-2 mb-2 p-2.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/30 dark:border-indigo-900/30">
+          <Monitor size={13} className="text-indigo-500 shrink-0" />
+          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            POS Limit: {pkg.allowedPosCount ?? 1} Terminal{(pkg.allowedPosCount ?? 1) !== 1 ? 's' : ''}
+          </p>
+        </div>
+
+        {/* Property Limit */}
+        <div className="flex items-center gap-2 mb-4 p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100/30 dark:border-purple-900/30">
+          <Building2 size={13} className="text-purple-500 shrink-0" />
+          <p className="text-xs font-bold text-purple-600 dark:text-purple-400">
+            Property Limit: {pkg.allowedPropertyCount ?? 1} Venue{(pkg.allowedPropertyCount ?? 1) !== 1 ? 's' : ''}
+          </p>
         </div>
 
         {/* Permission count */}
@@ -335,6 +356,8 @@ function PackageFormModal({
         priceINR: editing.priceINR || 0,
         isActive: editing.isActive,
         color: editing.color || '#6366f1',
+        allowedPosCount: editing.allowedPosCount ?? 1,
+        allowedPropertyCount: editing.allowedPropertyCount ?? 1,
         features: editing.features.map((f) => f.feature),
         permissions: editing.permissions.map((p) => ({ module: p.module, action: p.action })),
       });
@@ -529,6 +552,37 @@ function PackageFormModal({
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* POS Terminal limit selection */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Allowed POS Terminals Limit *
+                </label>
+                <select
+                  value={form.allowedPosCount}
+                  onChange={(e) => setForm({ ...form, allowedPosCount: Number(e.target.value) })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-bold"
+                >
+                  <option value={1}>1 POS Terminal (Select any 1 of Restaurant, Cafe, Bar)</option>
+                  <option value={2}>2 POS Terminals (Select any 2 of Restaurant, Cafe, Bar)</option>
+                  <option value={3}>3 POS Terminals (Access all Restaurant, Cafe, Bar)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">Limits the number of POS terminals properties under this plan can simultaneously activate.</p>
+              </div>
+
+              {/* Properties limit selection */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Allowed Properties Limit *
+                </label>
+                <input
+                  type="number" min={1}
+                  value={form.allowedPropertyCount}
+                  onChange={(e) => setForm({ ...form, allowedPropertyCount: Math.max(1, Number(e.target.value)) })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-bold"
+                />
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">Limits the number of business properties/venues this organization can create under this plan.</p>
               </div>
 
               {/* Active toggle */}

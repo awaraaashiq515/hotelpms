@@ -21,6 +21,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsedData = propertySchema.parse(body)
 
+    const organization = await prisma.organization.findUnique({
+      where: { id: parsedData.organizationId },
+      include: { package: true }
+    });
+
+    if (organization?.package) {
+      const existingPropertiesCount = await prisma.property.count({
+        where: { organizationId: parsedData.organizationId }
+      });
+      const propLimit = organization.package.allowedPropertyCount ?? 1;
+      if (existingPropertiesCount >= propLimit) {
+        return apiError(new Error(`This organization has reached the limit of ${propLimit} property(ies) allowed under their package plan.`), 400);
+      }
+    }
+
     const property = await prisma.$transaction(async (tx: any) => {
       const p = await tx.property.create({
         data: parsedData,

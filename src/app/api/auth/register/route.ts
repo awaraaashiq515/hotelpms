@@ -37,6 +37,10 @@ const signupSchema = z.object({
   gstNumber: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  restaurantPosEnabled: z.boolean().optional().default(true),
+  barPosEnabled: z.boolean().optional().default(false),
+  cafePosEnabled: z.boolean().optional().default(false),
+  deliveryEnabled: z.boolean().optional().default(false),
 })
 
 export async function POST(request: NextRequest) {
@@ -46,7 +50,8 @@ export async function POST(request: NextRequest) {
       fullName, email, password, businessName, captchaText, roleName, packageId, paymentReference, paymentAmount,
       branchName, branchCode, branchCity, branchAddress, branchPhone,
       posFullName, posEmail, posPassword,
-      phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius, gstNumber, category, address
+      phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius, gstNumber, category, address,
+      restaurantPosEnabled, barPosEnabled, cafePosEnabled, deliveryEnabled
     } = signupSchema.parse(body)
 
     // 1. Verify Security Captcha
@@ -151,6 +156,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate POS limit based on the resolved package
+    if (roleToAssign === 'RESTAURANTS_ADMIN' || roleToAssign === 'HOTEL_ADMIN') {
+      const limit = selectedPackage?.allowedPosCount ?? 1
+      const proposedPosCount = (restaurantPosEnabled ? 1 : 0) + (barPosEnabled ? 1 : 0) + (cafePosEnabled ? 1 : 0)
+      if (proposedPosCount > limit) {
+        return apiError(new Error(`Your selected package limit permits up to ${limit} POS terminal(s). You selected ${proposedPosCount}.`), 400)
+      }
+    }
+
     // 5. Create Organization, Property, and Users in a transaction
     const result = await prisma.$transaction(async (tx: any) => {
       // Create Organization
@@ -189,6 +203,14 @@ export async function POST(request: NextRequest) {
             city: branchCity && branchCity.trim().length > 0 ? branchCity.trim() : null,
             address: branchAddress && branchAddress.trim().length > 0 ? branchAddress.trim() : null,
             phone: branchPhone && branchPhone.trim().length > 0 ? branchPhone.trim() : null,
+            restaurantPosEnabled: restaurantPosEnabled,
+            showRestaurantInQrMenu: restaurantPosEnabled,
+            barPosEnabled: barPosEnabled,
+            showBarInQrMenu: barPosEnabled,
+            cafePosEnabled: cafePosEnabled,
+            showCafeInQrMenu: cafePosEnabled,
+            deliveryEnabled: deliveryEnabled,
+            showDeliveryInQrMenu: deliveryEnabled,
           }
         })
 

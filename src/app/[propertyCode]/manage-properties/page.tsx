@@ -17,13 +17,26 @@ export default function PropertiesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [allowedPosCount, setAllowedPosCount] = useState<number>(3);
+  const [allowedPropertyLimit, setAllowedPropertyLimit] = useState<number>(1);
+  const [activePropertyCount, setActivePropertyCount] = useState<number>(0);
+  const [packageFeatures, setPackageFeatures] = useState<string[]>([]);
+
+  const [formData, setFormData] = useState<any>({
     name: '',
     code: '',
     type: 'RESTAURANT',
     city: '',
     state: '',
     country: 'India',
+    restaurantPosEnabled: true,
+    showRestaurantInQrMenu: true,
+    barPosEnabled: false,
+    showBarInQrMenu: true,
+    cafePosEnabled: false,
+    showCafeInQrMenu: true,
+    deliveryEnabled: false,
+    showDeliveryInQrMenu: true,
   });
 
   useEffect(() => {
@@ -35,7 +48,15 @@ export default function PropertiesPage() {
     try {
       const res = await fetch('/api/admin/properties');
       const data = await res.json();
-      if (data.success) setProperties(data.data);
+      if (data.success) {
+        setProperties(data.data);
+        if (data.package) {
+          setAllowedPosCount(data.package.allowedPosCount ?? 3);
+          setAllowedPropertyLimit(data.package.allowedPropertyCount ?? 1);
+          setPackageFeatures(data.package.features || []);
+        }
+        setActivePropertyCount(data.activePropertyCount ?? 0);
+      }
     } catch (error) {
       console.error('Failed to fetch properties', error);
     } finally {
@@ -53,10 +74,34 @@ export default function PropertiesPage() {
         city: property.city || '',
         state: property.state || '',
         country: property.country || 'India',
+        restaurantPosEnabled: property.restaurantPosEnabled !== false,
+        showRestaurantInQrMenu: property.showRestaurantInQrMenu !== false,
+        barPosEnabled: !!property.barPosEnabled,
+        showBarInQrMenu: property.showBarInQrMenu !== false,
+        cafePosEnabled: !!property.cafePosEnabled,
+        showCafeInQrMenu: property.showCafeInQrMenu !== false,
+        deliveryEnabled: !!property.deliveryEnabled,
+        showDeliveryInQrMenu: property.showDeliveryInQrMenu !== false,
       });
     } else {
       setEditingId(null);
-      setFormData({ name: '', code: '', type: 'RESTAURANT', city: '', state: '', country: 'India' });
+      const hasPos = packageFeatures.includes('POS');
+      setFormData({
+        name: '',
+        code: '',
+        type: 'RESTAURANT',
+        city: '',
+        state: '',
+        country: 'India',
+        restaurantPosEnabled: hasPos,
+        showRestaurantInQrMenu: hasPos,
+        barPosEnabled: false,
+        showBarInQrMenu: false,
+        cafePosEnabled: false,
+        showCafeInQrMenu: false,
+        deliveryEnabled: false,
+        showDeliveryInQrMenu: false,
+      });
     }
     setIsModalOpen(true);
   };
@@ -262,6 +307,13 @@ export default function PropertiesPage() {
         title={editingId ? "Update Branch Details" : "Create New Branch"}
       >
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {!editingId && activePropertyCount >= allowedPropertyLimit && (
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2 mb-4 animate-bounce">
+              <AlertCircle size={16} />
+              <span>Property limit reached ({activePropertyCount}/{allowedPropertyLimit} allowed). Please contact support to upgrade your package.</span>
+            </div>
+          )}
+
           <Input
             label="Branch / Property Name"
             placeholder="e.g. Seaside Premium Resort"
@@ -311,11 +363,118 @@ export default function PropertiesPage() {
             />
           </div>
 
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 mb-4">
+              POS Modules & Access Control (Plan Limit: {allowedPosCount} POS, Selected: {(formData.restaurantPosEnabled ? 1 : 0) + (formData.barPosEnabled ? 1 : 0) + (formData.cafePosEnabled ? 1 : 0)}/{allowedPosCount})
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Restaurant POS */}
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('POS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Restaurant POS 🍽️</span>
+                  <p className="text-[9px] text-slate-400">Classic Dine In & Takeaway</p>
+                  {!packageFeatures.includes('POS') && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('POS') || (!formData.restaurantPosEnabled && ((formData.restaurantPosEnabled ? 1 : 0) + (formData.barPosEnabled ? 1 : 0) + (formData.cafePosEnabled ? 1 : 0)) >= allowedPosCount)}
+                  checked={formData.restaurantPosEnabled}
+                  onChange={(e) => setFormData({ ...formData, restaurantPosEnabled: e.target.checked, showRestaurantInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Bar POS */}
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('BARPOS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Bar POS 🍺</span>
+                  <p className="text-[9px] text-slate-400">Premium Bar & Peg Controls</p>
+                  {!packageFeatures.includes('BARPOS') && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('BARPOS') || (!formData.barPosEnabled && ((formData.restaurantPosEnabled ? 1 : 0) + (formData.barPosEnabled ? 1 : 0) + (formData.cafePosEnabled ? 1 : 0)) >= allowedPosCount)}
+                  checked={formData.barPosEnabled}
+                  onChange={(e) => setFormData({ ...formData, barPosEnabled: e.target.checked, showBarInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Cafe POS */}
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('CAFEPOS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Cafe POS ☕</span>
+                  <p className="text-[9px] text-slate-400">Quick Bites & Coffee</p>
+                  {!packageFeatures.includes('CAFEPOS') && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('CAFEPOS') || (!formData.cafePosEnabled && ((formData.restaurantPosEnabled ? 1 : 0) + (formData.barPosEnabled ? 1 : 0) + (formData.cafePosEnabled ? 1 : 0)) >= allowedPosCount)}
+                  checked={formData.cafePosEnabled}
+                  onChange={(e) => setFormData({ ...formData, cafePosEnabled: e.target.checked, showCafeInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 mb-4">
+              Additional Services & Integrations
+            </h4>
+            <div className="grid grid-cols-1 gap-4">
+              {/* Home Delivery */}
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                !packageFeatures.includes('DRIVERS') 
+                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Home Delivery 🚚</span>
+                  <p className="text-[9px] text-slate-400">Logistics & Rider Portal</p>
+                  {!packageFeatures.includes('DRIVERS') && (
+                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox"
+                  disabled={!packageFeatures.includes('DRIVERS')}
+                  checked={formData.deliveryEnabled}
+                  onChange={(e) => setFormData({ ...formData, deliveryEnabled: e.target.checked, showDeliveryInQrMenu: e.target.checked })}
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)} type="button" className="rounded-xl font-black text-xs uppercase tracking-widest">
               Cancel
             </Button>
-            <Button type="submit" isLoading={submitting} className="rounded-xl font-black text-xs uppercase tracking-widest px-8">
+            <Button 
+              type="submit" 
+              isLoading={submitting} 
+              disabled={(!editingId && activePropertyCount >= allowedPropertyLimit) || submitting}
+              className="rounded-xl font-black text-xs uppercase tracking-widest px-8"
+            >
               {editingId ? "Save Changes" : "Create Branch"}
             </Button>
           </div>

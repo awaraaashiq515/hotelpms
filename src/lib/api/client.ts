@@ -46,6 +46,7 @@ export const apiClient = {
       ...init,
       method: 'GET',
       credentials: 'include',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         ...init.headers,

@@ -15,6 +15,7 @@ export const Sidebar: React.FC = () => {
   const { isOpen, isHidden } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [restaurantPosEnabled, setRestaurantPosEnabled] = useState(true);
   const [barPosEnabled, setBarPosEnabled] = useState(false);
   const [cafePosEnabled, setCafePosEnabled] = useState(false);
   const [property, setProperty] = useState<any>(null);
@@ -80,6 +81,7 @@ export const Sidebar: React.FC = () => {
       .then(data => { 
         if (data.success) {
           setProperty(data.data);
+          setRestaurantPosEnabled(data.data.restaurantPosEnabled !== false);
           setBarPosEnabled(!!data.data.barPosEnabled);
           setCafePosEnabled(!!data.data.cafePosEnabled);
         }
@@ -107,6 +109,12 @@ export const Sidebar: React.FC = () => {
     if (item.path.includes('/bar-display') && !barPosEnabled) return false;
     // Hide Cafe POS menu item when cafePosEnabled is false
     if (item.path.includes('/cafe-pos') && !cafePosEnabled) return false;
+    // Hide Restaurant POS menu item when restaurantPosEnabled is false
+    if (item.path.includes('/billing') && !restaurantPosEnabled) return false;
+    // Hide Counter Payments menu item when restaurantPosEnabled is false
+    if (item.path.includes('/counter-payments') && !restaurantPosEnabled) return false;
+    // Hide Kitchen Display menu item when BOTH restaurantPosEnabled and cafePosEnabled are false
+    if (item.path.includes('/kitchen-display') && !restaurantPosEnabled && !cafePosEnabled) return false;
 
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;
@@ -184,7 +192,7 @@ export const Sidebar: React.FC = () => {
   };
 
 
-  const isLiveDashboard = pathname.endsWith('/restaurantadmin');
+  const isLiveDashboard = pathname.endsWith('/restaurantadmin') || pathname.endsWith('/live-overview') || pathname.includes('/operations/delivery');
 
   return (
     <aside className={`

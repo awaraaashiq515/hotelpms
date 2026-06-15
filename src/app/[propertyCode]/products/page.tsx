@@ -38,6 +38,7 @@ export default function ProductsPage() {
   const [combos, setCombos] = useState<Combo[]>([]);
   const [isComboDeleteOpen, setIsComboDeleteOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
+  const [propertyDetails, setPropertyDetails] = useState<any>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -78,6 +79,13 @@ export default function ProductsPage() {
         if (data.authenticated) setSession(data.user);
       })
       .catch(err => console.error('Failed to fetch session', err));
+
+    fetch('/api/setup/properties/current')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setPropertyDetails(data.data);
+      })
+      .catch(err => console.error('Failed to fetch current property', err));
   }, []);
 
   useEffect(() => {
@@ -422,39 +430,45 @@ export default function ProductsPage() {
             >
               TAX SETTINGS
             </Button>
-            <Button
-              onClick={() => {
-                setSelectedProduct(null);
-                setActiveFormType('RESTAURANT');
-                setIsFormOpen(true);
-              }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-indigo-200"
-            >
-              <Plus size={14} className="mr-1.5" />
-              RESTAURANT
-            </Button>
-            <Button
-              onClick={() => {
-                setSelectedProduct(null);
-                setActiveFormType('BAR');
-                setIsFormOpen(true);
-              }}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-amber-200"
-            >
-              <Plus size={14} className="mr-1.5" />
-              BAR
-            </Button>
-            <Button
-              onClick={() => {
-                setSelectedProduct(null);
-                setActiveFormType('CAFE');
-                setIsFormOpen(true);
-              }}
-              className="bg-[#D2691E] hover:bg-[#B55A1A] text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-orange-200"
-            >
-              <Plus size={14} className="mr-1.5" />
-              CAFE
-            </Button>
+            {propertyDetails?.restaurantPosEnabled !== false && (
+              <Button
+                onClick={() => {
+                  setSelectedProduct(null);
+                  setActiveFormType('RESTAURANT');
+                  setIsFormOpen(true);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-indigo-200"
+              >
+                <Plus size={14} className="mr-1.5" />
+                RESTAURANT
+              </Button>
+            )}
+            {propertyDetails?.barPosEnabled && (
+              <Button
+                onClick={() => {
+                  setSelectedProduct(null);
+                  setActiveFormType('BAR');
+                  setIsFormOpen(true);
+                }}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-amber-200"
+              >
+                <Plus size={14} className="mr-1.5" />
+                BAR
+              </Button>
+            )}
+            {propertyDetails?.cafePosEnabled && (
+              <Button
+                onClick={() => {
+                  setSelectedProduct(null);
+                  setActiveFormType('CAFE');
+                  setIsFormOpen(true);
+                }}
+                className="bg-[#D2691E] hover:bg-[#B55A1A] text-white font-black text-[9px] tracking-widest px-3 py-2 rounded-lg shadow-lg shadow-orange-200"
+              >
+                <Plus size={14} className="mr-1.5" />
+                CAFE
+              </Button>
+            )}
             <Button
               onClick={() => {
                 setSelectedCombo(null);
@@ -503,33 +517,39 @@ export default function ProductsPage() {
               >
                 All
               </button>
-              <button
-                onClick={() => setSelectedMenuTypeFilter('RESTAURANT')}
-                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'RESTAURANT'
-                  ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
-                  }`}
-              >
-                Restaurant
-              </button>
-              <button
-                onClick={() => setSelectedMenuTypeFilter('BAR')}
-                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'BAR'
-                  ? 'bg-amber-500 text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
-                  }`}
-              >
-                Bar
-              </button>
-              <button
-                onClick={() => setSelectedMenuTypeFilter('CAFE')}
-                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'CAFE'
-                  ? 'bg-[#D2691E] text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
-                  }`}
-              >
-                Cafe
-              </button>
+              {propertyDetails?.restaurantPosEnabled !== false && (
+                <button
+                  onClick={() => setSelectedMenuTypeFilter('RESTAURANT')}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'RESTAURANT'
+                    ? 'bg-white dark:bg-slate-700 text-pos-primary shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                    }`}
+                >
+                  Restaurant
+                </button>
+              )}
+              {propertyDetails?.barPosEnabled && (
+                <button
+                  onClick={() => setSelectedMenuTypeFilter('BAR')}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'BAR'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                    }`}
+                >
+                  Bar
+                </button>
+              )}
+              {propertyDetails?.cafePosEnabled && (
+                <button
+                  onClick={() => setSelectedMenuTypeFilter('CAFE')}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'CAFE'
+                    ? 'bg-[#D2691E] text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+                    }`}
+                >
+                  Cafe
+                </button>
+              )}
               <button
                 onClick={() => setSelectedMenuTypeFilter('COMBO')}
                 className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedMenuTypeFilter === 'COMBO'

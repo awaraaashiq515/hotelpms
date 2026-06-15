@@ -63,6 +63,9 @@ export async function PATCH(
       return apiError(new Error('KOT not found'), 404)
     }
 
+    let hasBarItems = false;
+    let hasKitchenItems = true;
+
     const updatedKot = await prisma.$transaction(async (tx: any) => {
       const kot = await tx.kotTicket.update({
         where: { id },
@@ -161,6 +164,13 @@ export async function PATCH(
         }
       }
 
+      const kotItems = await tx.kotItem.findMany({
+        where: { kotId: id },
+        include: { product: true }
+      });
+      hasBarItems = kotItems.some((i: any) => i.product?.menuType === 'BAR');
+      hasKitchenItems = kotItems.some((i: any) => i.product?.menuType !== 'BAR' && i.product?.menuType !== 'CAFE');
+
       return kot
     }, {
       timeout: 10000 // 10s timeout for SQLite
@@ -179,6 +189,8 @@ export async function PATCH(
             kotId: id,
             orderId: oldKot.orderId,
             status,
+            hasBarItems,
+            hasKitchenItems,
             link: `/operations/tables`
           }
         });
