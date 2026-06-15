@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X, Wine, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X, Wine, AlertTriangle, Music2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -412,6 +412,18 @@ export const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
+
+          <button 
+            onClick={() => router.push(`${p}/music`)}
+            className="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl transition-all group min-w-[36px] md:min-w-[60px] hover:bg-gray-50"
+            title="Music Player"
+          >
+            <span className="text-gray-400 group-hover:text-pos-primary md:mb-1 transition-colors flex items-center">
+              <Music2 size={18} />
+            </span>
+            <span className="hidden md:block text-[9px] font-bold uppercase tracking-tighter text-center text-gray-400 group-hover:text-gray-900">Music</span>
+          </button>
+
           <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
           <NavbarAction 
             icon={

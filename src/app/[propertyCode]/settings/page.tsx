@@ -179,6 +179,7 @@ const navGroups: NavGroup[] = [
         bgColor: 'bg-purple-50/80 dark:bg-purple-950/20',
         borderColor: 'border-purple-200 dark:border-purple-900/50',
         activeBorder: 'border-l-purple-500 dark:border-l-purple-400',
+        superAdminOnly: true,
       },
     ],
   },
@@ -502,7 +503,7 @@ export default function SettingsPage() {
 
             {activeTab === 'theme' && <PosTerminalThemeForm propertyCode={propertyCode} />}
 
-            {activeTab === 'music' && <MusicSettingsForm />}
+            {activeTab === 'music' && isSuperAdmin && <MusicSettingsForm />}
 
             {activeTab === 'admin' && (
               <div className="flex flex-col gap-6">
