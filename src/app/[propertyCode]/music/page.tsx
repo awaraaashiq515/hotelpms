@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Music2, Search, Plus, Trash2, Play, Pause, SkipForward, SkipBack,
-  Volume2, VolumeX, ListMusic, Disc3, Radio, RefreshCw, Settings,
-  ChevronRight, Loader2, AlertCircle, X, Check,
+  Volume2, VolumeX, ListMusic, Radio, RefreshCw,
+  Loader2, AlertCircle, Check, ChevronDown, Zap,
 } from 'lucide-react';
 
 interface Song {
@@ -23,48 +23,220 @@ declare global {
   }
 }
 
+// ─── DJ Vinyl Disc Component ────────────────────────────────────────────────
+function VinylDisc({ song, isPlaying, deck }: { song: Song | null; isPlaying: boolean; deck: 'A' | 'B' }) {
+  const colorA = 'from-violet-600 via-purple-800 to-slate-900';
+  const colorB = 'from-pink-600 via-rose-800 to-slate-900';
+  const glowA = 'shadow-[0_0_40px_8px_rgba(139,92,246,0.5)]';
+  const glowB = 'shadow-[0_0_40px_8px_rgba(244,63,94,0.5)]';
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
+      {/* Outer glow ring */}
+      <div className={`absolute inset-0 rounded-full opacity-30 ${isPlaying ? (deck === 'A' ? glowA : glowB) : ''} transition-all duration-500`} />
+      {/* Spinning vinyl */}
+      <div
+        className={`w-full h-full rounded-full bg-gradient-to-br ${deck === 'A' ? colorA : colorB} flex items-center justify-center`}
+        style={{
+          animation: isPlaying ? 'spin 3s linear infinite' : 'none',
+          boxShadow: isPlaying
+            ? deck === 'A'
+              ? '0 0 50px rgba(139,92,246,0.6), 0 0 15px rgba(139,92,246,0.3) inset'
+              : '0 0 50px rgba(244,63,94,0.6), 0 0 15px rgba(244,63,94,0.3) inset'
+            : '0 4px 24px rgba(0,0,0,0.5)',
+          transition: 'box-shadow 0.5s ease',
+        }}
+      >
+        {/* Grooves */}
+        {[40, 56, 72, 88].map(size => (
+          <div key={size} className="absolute rounded-full border border-white/5" style={{ width: size, height: size }} />
+        ))}
+        {/* Center hole / album art */}
+        <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white/20 flex items-center justify-center bg-slate-900 shadow-lg z-10">
+          {song?.thumbnail ? (
+            <img src={song.thumbnail} alt={song.title} className="w-full h-full object-cover" />
+          ) : (
+            <Music2 size={28} className={deck === 'A' ? 'text-violet-400' : 'text-pink-400'} />
+          )}
+        </div>
+      </div>
+      {/* Tonearm */}
+      <div
+        className="absolute top-1 right-0 origin-top-right"
+        style={{
+          width: 80,
+          height: 4,
+          background: 'linear-gradient(to right, #475569, #94a3b8)',
+          borderRadius: 2,
+          transform: isPlaying ? 'rotate(28deg)' : 'rotate(10deg)',
+          transition: 'transform 0.8s ease',
+          transformOrigin: '100% 50%',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+        }}
+      />
+      <div
+        className="absolute right-0 top-1 w-3 h-3 rounded-full bg-slate-300 shadow"
+        style={{ transform: 'translateX(50%)' }}
+      />
+    </div>
+  );
+}
+
+// ─── Vertical Fader Component ───────────────────────────────────────────────
+function VerticalFader({ value, onChange, color, label }: { value: number; onChange: (v: number) => void; color: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+      <div className="relative h-28 flex items-center justify-center">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          className="h-24 cursor-pointer"
+          style={{
+            writingMode: 'vertical-lr' as any,
+            direction: 'rtl',
+            appearance: 'slider-vertical' as any,
+            accentColor: color,
+          }}
+        />
+      </div>
+      <span className="text-[9px] font-black text-slate-500">{value}%</span>
+    </div>
+  );
+}
+
+// ─── Waveform Bars ──────────────────────────────────────────────────────────
+function WaveformBars({ isPlaying, color }: { isPlaying: boolean; color: string }) {
+  return (
+    <div className="flex items-end gap-0.5 h-8">
+      {Array.from({ length: 16 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-full flex-1"
+          style={{
+            backgroundColor: color,
+            height: isPlaying ? `${20 + Math.random() * 80}%` : '20%',
+            animation: isPlaying ? `bounce ${0.4 + (i % 4) * 0.1}s ease-in-out infinite alternate` : 'none',
+            animationDelay: `${i * 0.05}s`,
+            opacity: isPlaying ? 0.8 : 0.3,
+            transition: 'height 0.1s ease',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
 export default function MusicPage() {
+  // Playlist & Search
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'playlist' | 'search'>('playlist');
-  const [currentSongIndex, setCurrentSongIndex] = useState<number>(-1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(80);
+  const [activeTab, setActiveTab] = useState<'playlist' | 'search'>('search');
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [playerReady, setPlayerReady] = useState(false);
-  const [apiError, setApiError] = useState('');
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [searchError, setSearchError] = useState('');
   const [nextPageToken, setNextPageToken] = useState('');
-  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  const playerRef = useRef<any>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null);
+  // Deck A state
+  const [songA, setSongA] = useState<Song | null>(null);
+  const [isPlayingA, setIsPlayingA] = useState(false);
+  const [volumeA, setVolumeA] = useState(80);
+  const [currentTimeA, setCurrentTimeA] = useState(0);
+  const [durationA, setDurationA] = useState(0);
+  const [pitchA, setPitchA] = useState(100); // 50-150 maps to 0.5-1.5 speed
+  const [playerReadyA, setPlayerReadyA] = useState(false);
+
+  // Deck B state
+  const [songB, setSongB] = useState<Song | null>(null);
+  const [isPlayingB, setIsPlayingB] = useState(false);
+  const [volumeB, setVolumeB] = useState(80);
+  const [currentTimeB, setCurrentTimeB] = useState(0);
+  const [durationB, setDurationB] = useState(0);
+  const [pitchB, setPitchB] = useState(100);
+  const [playerReadyB, setPlayerReadyB] = useState(false);
+
+  // Mixer
+  const [crossfader, setCrossfader] = useState(50);
+
+  // Refs
+  const playerARef = useRef<any>(null);
+  const playerBRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const handleNextRef = useRef<() => void>(() => {});
   const playlistRef = useRef<Song[]>([]);
-  const currentSongIndexRef = useRef<number>(-1);
 
-  useEffect(() => {
-    playlistRef.current = playlist;
-  }, [playlist]);
-
-  useEffect(() => {
-    currentSongIndexRef.current = currentSongIndex;
-  }, [currentSongIndex]);
+  useEffect(() => { playlistRef.current = playlist; }, [playlist]);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Load playlist from DB
+  const formatTime = (secs: number) => {
+    if (!secs || isNaN(secs) || secs < 0) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // ── Compute effective volumes based on crossfader ──────────────────────────
+  const effectiveVolumeA = Math.round(volumeA * (1 - crossfader / 100));
+  const effectiveVolumeB = Math.round(volumeB * (crossfader / 100));
+
+  useEffect(() => {
+    try { playerARef.current?.setVolume(effectiveVolumeA); } catch {}
+  }, [effectiveVolumeA]);
+
+  useEffect(() => {
+    try { playerBRef.current?.setVolume(effectiveVolumeB); } catch {}
+  }, [effectiveVolumeB]);
+
+  // ── Playback rate ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    try { playerARef.current?.setPlaybackRate(pitchA / 100); } catch {}
+  }, [pitchA]);
+
+  useEffect(() => {
+    try { playerBRef.current?.setPlaybackRate(pitchB / 100); } catch {}
+  }, [pitchB]);
+
+  // ── Time poll ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setInterval(() => {
+      try {
+        if (playerARef.current && isPlayingA) {
+          const ct = playerARef.current.getCurrentTime();
+          const dur = playerARef.current.getDuration();
+          if (typeof ct === 'number') setCurrentTimeA(ct);
+          if (typeof dur === 'number') setDurationA(dur);
+        }
+      } catch {}
+    }, 500);
+    return () => clearInterval(t);
+  }, [isPlayingA]);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      try {
+        if (playerBRef.current && isPlayingB) {
+          const ct = playerBRef.current.getCurrentTime();
+          const dur = playerBRef.current.getDuration();
+          if (typeof ct === 'number') setCurrentTimeB(ct);
+          if (typeof dur === 'number') setDurationB(dur);
+        }
+      } catch {}
+    }, 500);
+    return () => clearInterval(t);
+  }, [isPlayingB]);
+
+  // ── Load playlist & trending ───────────────────────────────────────────────
   const loadPlaylist = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -73,19 +245,12 @@ export default function MusicPage() {
       if (data.success) {
         setPlaylist(data.data);
         setAddedIds(new Set(data.data.map((s: Song) => s.youtubeId)));
-        if (data.data.length === 0) {
-          setActiveTab('search');
-        }
       }
-    } catch {
-      showToast('Failed to load playlist', 'error');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { showToast('Failed to load playlist', 'error'); }
+    finally { setIsLoading(false); }
   }, []);
 
-  // Load default trending songs
-  const loadDefaultSearch = useCallback(async () => {
+  const loadTrending = useCallback(async () => {
     setIsSearching(true);
     setSearchError('');
     try {
@@ -95,159 +260,126 @@ export default function MusicPage() {
         setSearchResults(data.data);
         setNextPageToken(data.nextPageToken || '');
       } else {
-        setSearchError(data.message || 'Failed to load popular songs');
+        setSearchError(data.message || 'Failed to load trending songs');
       }
-    } catch {
-      setSearchError('Failed to load popular songs.');
-    } finally {
-      setIsSearching(false);
-    }
+    } catch { setSearchError('Failed to load trending songs.'); }
+    finally { setIsSearching(false); }
   }, []);
 
-  useEffect(() => {
-    loadPlaylist();
-    loadDefaultSearch();
-  }, [loadPlaylist, loadDefaultSearch]);
+  useEffect(() => { loadPlaylist(); loadTrending(); }, [loadPlaylist, loadTrending]);
 
-  // Load YouTube IFrame API & Initialize Player with robust loading
+  // ── YouTube IFrame API init ────────────────────────────────────────────────
   useEffect(() => {
-    const initPlayer = () => {
-      if (!playerContainerRef.current || playerRef.current) return;
-      try {
-        playerRef.current = new window.YT.Player('yt-player', {
-          height: '200',
-          width: '200',
-          videoId: '',
-          playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0 },
-          events: {
-            onReady: (e: any) => {
-              setPlayerReady(true);
-              e.target.setVolume(85);
+    const initPlayers = () => {
+      if (!playerARef.current) {
+        try {
+          playerARef.current = new window.YT.Player('yt-player-a', {
+            height: '1', width: '1', videoId: '',
+            playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0 },
+            events: {
+              onReady: (e: any) => { setPlayerReadyA(true); e.target.setVolume(effectiveVolumeA); },
+              onStateChange: (e: any) => {
+                if (e.data === window.YT.PlayerState.PLAYING) setIsPlayingA(true);
+                if (e.data === window.YT.PlayerState.PAUSED) setIsPlayingA(false);
+                if (e.data === window.YT.PlayerState.ENDED) {
+                  setIsPlayingA(false);
+                }
+              },
             },
-            onStateChange: (e: any) => {
-              if (e.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
-              if (e.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
-              if (e.data === window.YT.PlayerState.ENDED) handleNextRef.current();
+          });
+        } catch (err) { console.error('Deck A init failed', err); }
+      }
+
+      if (!playerBRef.current) {
+        try {
+          playerBRef.current = new window.YT.Player('yt-player-b', {
+            height: '1', width: '1', videoId: '',
+            playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0 },
+            events: {
+              onReady: (e: any) => { setPlayerReadyB(true); e.target.setVolume(effectiveVolumeB); },
+              onStateChange: (e: any) => {
+                if (e.data === window.YT.PlayerState.PLAYING) setIsPlayingB(true);
+                if (e.data === window.YT.PlayerState.PAUSED) setIsPlayingB(false);
+                if (e.data === window.YT.PlayerState.ENDED) {
+                  setIsPlayingB(false);
+                }
+              },
             },
-            onError: (err: any) => {
-              console.error('YT Player Error:', err);
-              // Auto-advance if video fails to load/play
-              handleNextRef.current();
-            },
-          },
-        });
-      } catch (err) {
-        console.error('Failed to init YT player:', err);
+          });
+        } catch (err) { console.error('Deck B init failed', err); }
       }
     };
 
     if (window.YT && window.YT.Player) {
-      initPlayer();
+      initPlayers();
     } else {
       if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
         const tag = document.createElement('script');
         tag.src = 'https://www.youtube.com/iframe_api';
         document.head.appendChild(tag);
       }
-
       const interval = setInterval(() => {
         if (window.YT && window.YT.Player) {
-          initPlayer();
+          initPlayers();
           clearInterval(interval);
         }
       }, 100);
-
       return () => clearInterval(interval);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const formatTime = (secs: number) => {
-    if (isNaN(secs) || secs < 0) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const playSong = (index: number) => {
-    const list = playlistRef.current;
-    if (!playerRef.current || index < 0 || index >= list.length) return;
-    const song = list[index];
-    setCurrentSongIndex(index);
-    setIsPlaying(true);
-    setCurrentTime(0);
-    setDuration(0);
-    try {
-      playerRef.current.loadVideoById(song.youtubeId);
-      if (isMuted) playerRef.current.mute();
-      else playerRef.current.unMute();
-      playerRef.current.playVideo(); // Force play
-    } catch {}
-  };
-
-  const handlePlayPause = () => {
-    if (!playerRef.current) return;
-    try {
-      if (isPlaying) { playerRef.current.pauseVideo(); setIsPlaying(false); }
-      else {
-        const list = playlistRef.current;
-        const idx = currentSongIndexRef.current;
-        if (idx === -1 && list.length > 0) playSong(0);
-        else { playerRef.current.playVideo(); setIsPlaying(true); }
-      }
-    } catch {}
-  };
-
-  const handleNext = () => {
-    const list = playlistRef.current;
-    const idx = currentSongIndexRef.current;
-    if (list.length === 0) return;
-    const next = idx < list.length - 1 ? idx + 1 : 0;
-    playSong(next);
-  };
-
-  const handlePrev = () => {
-    const list = playlistRef.current;
-    const idx = currentSongIndexRef.current;
-    if (list.length === 0) return;
-    const prev = idx > 0 ? idx - 1 : list.length - 1;
-    playSong(prev);
-  };
-
-  useEffect(() => {
-    handleNextRef.current = handleNext;
-  }, [handleNext]);
-
-  // Update playback time and duration
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPlaying && playerReady && playerRef.current) {
-      timer = setInterval(() => {
-        try {
-          const current = playerRef.current.getCurrentTime();
-          const dur = playerRef.current.getDuration();
-          if (typeof current === 'number') setCurrentTime(current);
-          if (typeof dur === 'number') setDuration(dur);
-        } catch {}
-      }, 500);
+  // ── Deck controls ─────────────────────────────────────────────────────────
+  const loadDeck = (deck: 'A' | 'B', song: Song) => {
+    if (deck === 'A') {
+      setSongA(song);
+      setCurrentTimeA(0);
+      setDurationA(0);
+      try {
+        playerARef.current?.loadVideoById(song.youtubeId);
+        playerARef.current?.setVolume(effectiveVolumeA);
+        setIsPlayingA(true);
+      } catch {}
+    } else {
+      setSongB(song);
+      setCurrentTimeB(0);
+      setDurationB(0);
+      try {
+        playerBRef.current?.loadVideoById(song.youtubeId);
+        playerBRef.current?.setVolume(effectiveVolumeB);
+        setIsPlayingB(true);
+      } catch {}
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isPlaying, playerReady]);
+    showToast(`Loaded on Deck ${deck}: ${song.title.slice(0, 30)}...`);
+  };
 
-  const handleMute = () => {
-    if (!playerRef.current) return;
+  const togglePlayA = () => {
+    if (!playerARef.current) return;
     try {
-      if (isMuted) { playerRef.current.unMute(); setIsMuted(false); }
-      else { playerRef.current.mute(); setIsMuted(true); }
+      if (isPlayingA) { playerARef.current.pauseVideo(); setIsPlayingA(false); }
+      else { playerARef.current.playVideo(); setIsPlayingA(true); }
     } catch {}
   };
 
-  const handleVolume = (v: number) => {
-    setVolume(v);
-    try { playerRef.current?.setVolume(v); } catch {}
+  const togglePlayB = () => {
+    if (!playerBRef.current) return;
+    try {
+      if (isPlayingB) { playerBRef.current.pauseVideo(); setIsPlayingB(false); }
+      else { playerBRef.current.playVideo(); setIsPlayingB(true); }
+    } catch {}
   };
 
+  const seekA = (t: number) => {
+    setCurrentTimeA(t);
+    try { playerARef.current?.seekTo(t, true); } catch {}
+  };
+
+  const seekB = (t: number) => {
+    setCurrentTimeB(t);
+    try { playerBRef.current?.seekTo(t, true); } catch {}
+  };
+
+  // ── Search ─────────────────────────────────────────────────────────────────
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!searchQuery.trim()) return;
@@ -265,7 +397,7 @@ export default function MusicPage() {
         setSearchError(data.message || 'Search failed');
       }
     } catch {
-      setSearchError('Failed to search. Check your YouTube API key in Settings.');
+      setSearchError('Failed to search. Check YouTube API key in settings.');
     } finally {
       setIsSearching(false);
     }
@@ -297,48 +429,12 @@ export default function MusicPage() {
       if (data.success) {
         setAddedIds(prev => new Set([...prev, song.youtubeId]));
         setPlaylist(prev => [...prev, data.data]);
-        showToast(`"${song.title.slice(0, 30)}..." added to playlist`);
+        showToast(`Added: ${song.title.slice(0, 30)}...`);
       } else {
         showToast(data.message || 'Failed to add', 'error');
       }
-    } catch {
-      showToast('Network error', 'error');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const playSearchSong = async (song: Song) => {
-    const list = playlistRef.current;
-    const existingIndex = list.findIndex(s => s.youtubeId === song.youtubeId);
-    if (existingIndex !== -1) {
-      playSong(existingIndex);
-      return;
-    }
-
-    const newSongIndex = list.length;
-    const tempSong = { ...song, id: `temp-${Date.now()}` };
-    
-    playlistRef.current = [...list, tempSong];
-    setPlaylist(prev => [...prev, tempSong]);
-    setAddedIds(prev => new Set([...prev, song.youtubeId]));
-
-    playSong(newSongIndex);
-
-    try {
-      const res = await fetch('/api/music/songs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(song),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setPlaylist(prev => prev.map(s => s.youtubeId === song.youtubeId ? data.data : s));
-        showToast(`"${song.title.slice(0, 30)}..." added to playlist`);
-      }
-    } catch {
-      showToast('Failed to save song', 'error');
-    }
+    } catch { showToast('Network error', 'error'); }
+    finally { setSavingId(null); }
   };
 
   const removeFromPlaylist = async (song: Song) => {
@@ -347,21 +443,160 @@ export default function MusicPage() {
       await fetch(`/api/music/songs/${song.id}`, { method: 'DELETE' });
       setPlaylist(prev => prev.filter(s => s.id !== song.id));
       setAddedIds(prev => { const n = new Set(prev); n.delete(song.youtubeId); return n; });
-      if (currentSongIndex >= playlist.length - 1) setCurrentSongIndex(prev => Math.max(0, prev - 1));
       showToast('Removed from playlist');
-    } catch {
-      showToast('Failed to remove', 'error');
-    }
+    } catch { showToast('Failed to remove', 'error'); }
   };
 
-  const currentSong = currentSongIndex >= 0 ? playlist[currentSongIndex] : null;
+  // ── Deck Panel ─────────────────────────────────────────────────────────────
+  const DeckPanel = ({
+    deck, song, isPlaying, volume, setVolume, currentTime, duration,
+    pitch, setPitch, playerReady, onPlayPause, onSeek, onSkip,
+  }: {
+    deck: 'A' | 'B';
+    song: Song | null;
+    isPlaying: boolean;
+    volume: number;
+    setVolume: (v: number) => void;
+    currentTime: number;
+    duration: number;
+    pitch: number;
+    setPitch: (v: number) => void;
+    playerReady: boolean;
+    onPlayPause: () => void;
+    onSeek: (t: number) => void;
+    onSkip: () => void;
+  }) => {
+    const isA = deck === 'A';
+    const accentColor = isA ? '#8b5cf6' : '#f43f5e';
+    const accentBg = isA ? 'bg-violet-600 hover:bg-violet-500' : 'bg-rose-600 hover:bg-rose-500';
+    const accentText = isA ? 'text-violet-400' : 'text-pink-400';
+    const accentBorder = isA ? 'border-violet-500/40' : 'border-rose-500/40';
+    const accentGlow = isA ? 'shadow-violet-500/30' : 'shadow-rose-500/30';
+
+    return (
+      <div className={`flex flex-col gap-3 bg-slate-900 border ${accentBorder} rounded-3xl p-4 shadow-2xl ${isPlaying ? `shadow-lg ${accentGlow}` : ''} transition-all duration-500`}>
+        {/* Deck Label */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-xl ${isA ? 'bg-violet-600' : 'bg-rose-600'} flex items-center justify-center shadow-lg`}>
+              <span className="text-white font-black text-xs">{deck}</span>
+            </div>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${accentText}`}>Deck {deck}</span>
+          </div>
+          <div className={`flex gap-0.5 items-end h-4 ${isPlaying ? 'opacity-100' : 'opacity-20'}`}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <span key={i} className="w-0.5 rounded-full" style={{
+                backgroundColor: accentColor,
+                height: `${8 + i * 3}px`,
+                animation: isPlaying ? `bounce ${0.3 + i * 0.08}s ease-in-out infinite alternate` : 'none',
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Vinyl */}
+        <div className="flex justify-center">
+          <VinylDisc song={song} isPlaying={isPlaying} deck={deck} />
+        </div>
+
+        {/* Song Info */}
+        <div className="text-center min-h-[44px]">
+          <p className="text-white font-black text-xs leading-tight line-clamp-2 mb-0.5">
+            {song?.title || <span className="text-slate-600 italic">No track loaded</span>}
+          </p>
+          <p className={`text-[10px] font-bold ${accentText} uppercase tracking-wider line-clamp-1`}>
+            {song?.artist || (song ? 'YouTube' : 'Load a track →')}
+          </p>
+        </div>
+
+        {/* Seek Bar */}
+        <div className="space-y-1">
+          <input
+            type="range" min={0} max={duration || 100} value={currentTime}
+            onChange={e => onSeek(Number(e.target.value))}
+            disabled={!song}
+            className="w-full h-1 cursor-pointer"
+            style={{ accentColor }}
+          />
+          <div className="flex justify-between text-[9px] text-slate-500 font-bold">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        {/* Waveform */}
+        <WaveformBars isPlaying={isPlaying} color={accentColor} />
+
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => {
+              const pl = playlistRef.current;
+              if (!song || pl.length === 0) return;
+              const idx = pl.findIndex(s => s.youtubeId === song?.youtubeId);
+              const prev = pl[(idx - 1 + pl.length) % pl.length];
+              if (prev) loadDeck(deck, prev);
+            }}
+            className="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition-all active:scale-90"
+          >
+            <SkipBack size={16} fill="currentColor" />
+          </button>
+          <button
+            onClick={onPlayPause}
+            disabled={!playerReady || !song}
+            className={`w-14 h-14 rounded-full ${accentBg} flex items-center justify-center text-white shadow-lg transition-all active:scale-90 disabled:opacity-30`}
+            style={{ boxShadow: isPlaying ? `0 0 20px ${accentColor}60` : undefined }}
+          >
+            {isPlaying ? <Pause size={22} fill="white" /> : <Play size={22} fill="white" className="ml-0.5" />}
+          </button>
+          <button
+            onClick={onSkip}
+            className="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition-all active:scale-90"
+          >
+            <SkipForward size={16} fill="currentColor" />
+          </button>
+        </div>
+
+        {/* Volume & Pitch */}
+        <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-1.5 flex-1">
+            <Volume2 size={12} className="text-slate-500 flex-shrink-0" />
+            <input
+              type="range" min={0} max={100} value={volume}
+              onChange={e => setVolume(Number(e.target.value))}
+              className="flex-1 h-1 cursor-pointer"
+              style={{ accentColor }}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 flex-1">
+            <Zap size={12} className="text-slate-500 flex-shrink-0" />
+            <input
+              type="range" min={50} max={150} value={pitch}
+              onChange={e => setPitch(Number(e.target.value))}
+              className="flex-1 h-1 cursor-pointer"
+              style={{ accentColor }}
+            />
+            <span className="text-[9px] text-slate-500 font-bold w-7 text-right">{(pitch / 100).toFixed(1)}x</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="h-[calc(100vh-96px)] lg:h-[calc(100vh-140px)] flex flex-col gap-4 overflow-hidden">
-      {/* Hidden YouTube Player (off-screen, with normal size to bypass blockages) */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '200px', height: '200px', overflow: 'hidden' }} ref={playerContainerRef}>
-        <div id="yt-player" />
+    <div className="h-[calc(100vh-96px)] lg:h-[calc(100vh-140px)] flex flex-col gap-3 overflow-hidden">
+
+      {/* Hidden YT players */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '2px', height: '2px', overflow: 'hidden' }}>
+        <div id="yt-player-a" />
+        <div id="yt-player-b" />
       </div>
+
+      {/* CSS for spin and bounce */}
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes bounce { from { transform: scaleY(0.6); } to { transform: scaleY(1); } }
+      `}</style>
 
       {/* Toast */}
       {toast && (
@@ -372,136 +607,33 @@ export default function MusicPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
-          <Music2 size={20} className="text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase flex items-center gap-2">
-            <span>Music Player</span>
-            {isPlaying && (
-              <span className="flex gap-0.5 items-end h-4">
-                {[1,2,3].map(i => (
-                  <span key={i} className="w-1 bg-purple-500 rounded-full animate-bounce" style={{ height: `${8 + i * 4}px`, animationDelay: `${i * 0.1}s` }} />
-                ))}
-              </span>
-            )}
-          </h1>
-          <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
-            YouTube Music — embedded inside POS
-          </p>
+      <div className="flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 via-purple-700 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+            <Music2 size={20} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase flex items-center gap-2">
+              <span>Virtual DJ</span>
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 font-black uppercase tracking-widest">Mixer Console</span>
+              {(isPlayingA || isPlayingB) && (
+                <span className="flex gap-0.5 items-end h-4">
+                  {[1, 2, 3].map(i => (
+                    <span key={i} className="w-1 bg-violet-500 rounded-full animate-bounce" style={{ height: `${8 + i * 4}px`, animationDelay: `${i * 0.1}s` }} />
+                  ))}
+                </span>
+              )}
+            </h1>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Dual Deck · Crossfader · Pitch Control</p>
+          </div>
         </div>
       </div>
 
       {/* Main Layout */}
-      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+      <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
 
-        {/* LEFT — Now Playing + Controls */}
-        <div className="w-72 xl:w-80 flex-shrink-0 flex flex-col gap-3">
-
-          {/* Now Playing Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 border border-purple-900/40 shadow-2xl p-5 flex-shrink-0">
-            {/* Blurred BG thumbnail */}
-            {currentSong?.thumbnail && (
-              <div className="absolute inset-0 opacity-20">
-                <img src={currentSong.thumbnail} alt="" className="w-full h-full object-cover blur-xl scale-110" />
-              </div>
-            )}
-            <div className="relative z-10">
-              {/* Album Art */}
-              <div className="w-full aspect-square rounded-2xl overflow-hidden mb-4 bg-purple-900/40 flex items-center justify-center shadow-xl">
-                {currentSong?.thumbnail ? (
-                  <img src={currentSong.thumbnail} alt={currentSong.title} className="w-full h-full object-cover" />
-                ) : (
-                  <Disc3 size={56} className={`text-purple-400/60 ${isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
-                )}
-              </div>
-
-              {/* Song Info */}
-              <div className="mb-4">
-                <p className="text-white font-black text-sm leading-tight line-clamp-2 mb-1">
-                  {currentSong?.title || 'No song selected'}
-                </p>
-                <p className="text-purple-300/70 text-[10px] font-bold uppercase tracking-wider line-clamp-1">
-                  {currentSong?.artist || 'Select a song from your playlist'}
-                </p>
-              </div>
-
-              {/* Volume */}
-              <div className="flex items-center gap-2 mb-4">
-                <button onClick={handleMute} className="text-purple-300/60 hover:text-white transition-colors">
-                  {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                </button>
-                <input
-                  type="range" min="0" max="100" value={isMuted ? 0 : volume}
-                  onChange={e => handleVolume(Number(e.target.value))}
-                  className="flex-1 h-1 accent-purple-500 cursor-pointer"
-                />
-                <span className="text-[9px] text-purple-300/50 font-bold w-6">{isMuted ? 0 : volume}%</span>
-              </div>
-
-              {/* Seek / Progress Bar */}
-              <div className="flex flex-col gap-1 mb-4">
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={e => {
-                    const time = Number(e.target.value);
-                    setCurrentTime(time);
-                    try {
-                      playerRef.current?.seekTo(time, true);
-                    } catch {}
-                  }}
-                  className="w-full h-1 accent-purple-500 cursor-pointer"
-                  disabled={playlist.length === 0}
-                />
-                <div className="flex justify-between text-[9px] text-purple-300/50 font-bold">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
-                </div>
-              </div>
-
-              {/* Controls */}
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={handlePrev}
-                  disabled={playlist.length === 0}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-40"
-                >
-                  <SkipBack size={18} fill="currentColor" />
-                </button>
-                <button
-                  onClick={handlePlayPause}
-                  disabled={playlist.length === 0 || !playerReady}
-                  className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 flex items-center justify-center text-white shadow-lg shadow-purple-500/40 transition-all active:scale-95 disabled:opacity-40"
-                >
-                  {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
-                </button>
-                <button
-                  onClick={handleNext}
-                  disabled={playlist.length === 0}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-40"
-                >
-                  <SkipForward size={18} fill="currentColor" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Playlist Count */}
-          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 px-4 py-3 flex items-center gap-3 flex-shrink-0">
-            <ListMusic size={16} className="text-purple-500" />
-            <div>
-              <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-wide">{playlist.length} Songs in Playlist</p>
-              <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold">Click a song to play</p>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT — Search + Playlist */}
-        <div className="flex-1 flex flex-col min-h-0 gap-3">
+        {/* ─── LEFT SIDEBAR ────────────────────────────────────────────── */}
+        <div className="w-72 xl:w-80 flex-shrink-0 flex flex-col gap-2 min-h-0">
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex gap-2 flex-shrink-0">
@@ -511,125 +643,239 @@ export default function MusicPage() {
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search YouTube for songs..."
-                className="w-full pl-9 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all"
+                placeholder="Search YouTube for tracks..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all"
               />
             </div>
             <button
               type="submit"
               disabled={isSearching || !searchQuery.trim()}
-              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:opacity-90 transition-all active:scale-[0.98] shadow-md shadow-purple-500/20 flex items-center gap-2"
+              className="px-3 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-pink-500 text-white font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:opacity-90 transition-all active:scale-[0.98] shadow-md"
             >
               {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-              Search
             </button>
           </form>
 
           {/* Tabs */}
-          <div className="flex gap-1 flex-shrink-0 bg-gray-100 dark:bg-slate-800/50 p-1 rounded-2xl w-fit">
-            {([['playlist', ListMusic, 'My Playlist'], ['search', Radio, searchQuery.trim() ? 'Search Results' : 'Trending Songs']] as const).map(([tab, Icon, label]) => (
+          <div className="flex gap-1 flex-shrink-0 bg-gray-100 dark:bg-slate-800/50 p-1 rounded-2xl">
+            {([['playlist', ListMusic, `Playlist (${playlist.length})`], ['search', Radio, searchQuery.trim() ? 'Results' : 'Trending']] as const).map(([tab, Icon, label]) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                   activeTab === tab
                     ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm'
                     : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
                 }`}
               >
-                <Icon size={12} />
+                <Icon size={11} />
                 {label}
-                {tab === 'playlist' && playlist.length > 0 && (
-                  <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-1.5 py-0.5 rounded-full text-[8px] font-black">{playlist.length}</span>
-                )}
               </button>
             ))}
           </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 space-y-2 pr-1">
+          {/* Song List */}
+          <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 space-y-1.5">
 
-            {/* ── Playlist Tab ── */}
+            {/* Playlist Tab */}
             {activeTab === 'playlist' && (
               <>
                 {isLoading ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-3">
-                    <Loader2 size={28} className="animate-spin text-purple-500" />
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Loading playlist...</p>
+                  <div className="flex items-center justify-center h-32 gap-2 text-purple-400">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Loading...</span>
                   </div>
                 ) : playlist.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-4 py-12">
-                    <div className="w-16 h-16 rounded-3xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
-                      <Music2 size={28} className="text-purple-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-black text-gray-900 dark:text-white uppercase">Playlist is empty</p>
-                      <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Search for songs and add them here</p>
-                    </div>
-                    <button
-                      onClick={() => { setActiveTab('search'); setTimeout(() => searchInputRef.current?.focus(), 100); }}
-                      className="px-5 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
-                    >
-                      <Search size={12} /> Search Songs
-                    </button>
+                  <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
+                    <Music2 size={24} className="text-slate-600" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Empty playlist</p>
+                    <button onClick={() => setActiveTab('search')} className="text-[9px] font-black text-violet-400 uppercase tracking-widest">Browse Trending →</button>
                   </div>
-                ) : (
-                  playlist.map((song, idx) => (
-                    <PlaylistSongRow
-                      key={song.id}
-                      song={song}
-                      isActive={currentSongIndex === idx}
-                      isPlaying={isPlaying && currentSongIndex === idx}
-                      onPlay={() => playSong(idx)}
-                      onRemove={() => removeFromPlaylist(song)}
-                    />
-                  ))
-                )}
+                ) : playlist.map(song => (
+                  <DJSongRow
+                    key={song.id}
+                    song={song}
+                    isOnDeckA={songA?.youtubeId === song.youtubeId}
+                    isOnDeckB={songB?.youtubeId === song.youtubeId}
+                    isPlayingA={isPlayingA && songA?.youtubeId === song.youtubeId}
+                    isPlayingB={isPlayingB && songB?.youtubeId === song.youtubeId}
+                    inPlaylist
+                    onLoadA={() => loadDeck('A', song)}
+                    onLoadB={() => loadDeck('B', song)}
+                    onRemove={() => removeFromPlaylist(song)}
+                    onAdd={async () => {}}
+                    isAdded
+                    isSaving={false}
+                  />
+                ))}
               </>
             )}
 
-            {/* ── Search Tab ── */}
+            {/* Search/Trending Tab */}
             {activeTab === 'search' && (
               <>
                 {searchError && (
-                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold">
-                    <AlertCircle size={16} />
+                  <div className="flex items-center gap-2 p-3 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold">
+                    <AlertCircle size={14} />
                     {searchError}
                   </div>
                 )}
                 {!searchError && searchResults.length === 0 && !isSearching && (
-                  <div className="flex flex-col items-center justify-center h-full gap-3 py-12">
-                    <Radio size={32} className="text-gray-300 dark:text-slate-600" />
-                    <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-wider">Search YouTube for songs to add</p>
+                  <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
+                    <Radio size={24} className="text-slate-600" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Search for tracks</p>
                   </div>
                 )}
-                {searchResults.map((song, idx) => {
-                  const isCurrent = currentSong?.youtubeId === song.youtubeId;
-                  return (
-                    <SearchSongRow
-                      key={`${song.youtubeId}-${idx}`}
-                      song={song}
-                      isAdded={addedIds.has(song.youtubeId)}
-                      isSaving={savingId === song.youtubeId}
-                      isActive={isCurrent}
-                      isPlaying={isPlaying && isCurrent}
-                      onAdd={() => addToPlaylist(song)}
-                      onPlay={() => playSearchSong(song)}
-                    />
-                  );
-                })}
+                {isSearching && searchResults.length === 0 && (
+                  <div className="flex items-center justify-center h-32 gap-2 text-purple-400">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Searching...</span>
+                  </div>
+                )}
+                {searchResults.map((song, idx) => (
+                  <DJSongRow
+                    key={`${song.youtubeId}-${idx}`}
+                    song={song}
+                    isOnDeckA={songA?.youtubeId === song.youtubeId}
+                    isOnDeckB={songB?.youtubeId === song.youtubeId}
+                    isPlayingA={isPlayingA && songA?.youtubeId === song.youtubeId}
+                    isPlayingB={isPlayingB && songB?.youtubeId === song.youtubeId}
+                    inPlaylist={false}
+                    onLoadA={() => loadDeck('A', song)}
+                    onLoadB={() => loadDeck('B', song)}
+                    onAdd={() => addToPlaylist(song)}
+                    onRemove={() => {}}
+                    isAdded={addedIds.has(song.youtubeId)}
+                    isSaving={savingId === song.youtubeId}
+                  />
+                ))}
                 {nextPageToken && (
                   <button
                     onClick={handleLoadMore}
                     disabled={isSearching}
-                    className="w-full py-3 rounded-2xl border border-gray-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2.5 rounded-2xl border border-gray-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                   >
                     {isSearching ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    Load More Results
+                    Load More
                   </button>
                 )}
               </>
             )}
+          </div>
+        </div>
+
+        {/* ─── DJ CONSOLE ──────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto no-scrollbar">
+          {/* Decks Row */}
+          <div className="flex gap-3 flex-1">
+            {/* Deck A */}
+            <div className="flex-1">
+              <DeckPanel
+                deck="A"
+                song={songA}
+                isPlaying={isPlayingA}
+                volume={volumeA}
+                setVolume={setVolumeA}
+                currentTime={currentTimeA}
+                duration={durationA}
+                pitch={pitchA}
+                setPitch={setPitchA}
+                playerReady={playerReadyA}
+                onPlayPause={togglePlayA}
+                onSeek={seekA}
+                onSkip={() => {
+                  const pl = playlistRef.current;
+                  if (!songA || pl.length === 0) return;
+                  const idx = pl.findIndex(s => s.youtubeId === songA.youtubeId);
+                  const next = pl[(idx + 1) % pl.length];
+                  if (next) loadDeck('A', next);
+                }}
+              />
+            </div>
+
+            {/* CENTER MIXER */}
+            <div className="w-36 flex-shrink-0 flex flex-col items-center justify-between bg-slate-900 border border-slate-700/60 rounded-3xl p-3 shadow-2xl gap-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Mixer</p>
+
+              {/* EQ-style channel faders */}
+              <div className="flex items-end gap-4 h-28 w-full justify-center">
+                <VerticalFader value={volumeA} onChange={setVolumeA} color="#8b5cf6" label="A" />
+                <VerticalFader value={volumeB} onChange={setVolumeB} color="#f43f5e" label="B" />
+              </div>
+
+              {/* BPM / Sync buttons */}
+              <div className="flex gap-1 w-full">
+                <button
+                  onClick={() => { setPitchA(100); }}
+                  className="flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg bg-violet-900/40 text-violet-400 hover:bg-violet-800/40 transition-all border border-violet-700/30"
+                >
+                  Reset A
+                </button>
+                <button
+                  onClick={() => { setPitchB(100); }}
+                  className="flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg bg-rose-900/40 text-rose-400 hover:bg-rose-800/40 transition-all border border-rose-700/30"
+                >
+                  Reset B
+                </button>
+              </div>
+
+              {/* CUE / Sync row */}
+              <button
+                onClick={() => {
+                  setCrossfader(50);
+                  showToast('Crossfader centered');
+                }}
+                className="w-full py-1.5 text-[8px] font-black uppercase tracking-widest rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 transition-all border border-slate-700"
+              >
+                ⊙ Center X-Fader
+              </button>
+
+              {/* Crossfader Label & Indicators */}
+              <div className="w-full">
+                <div className="flex justify-between text-[8px] font-black mb-1">
+                  <span className="text-violet-400">A</span>
+                  <span className="text-slate-500 uppercase tracking-widest">X-Fader</span>
+                  <span className="text-rose-400">B</span>
+                </div>
+                <input
+                  type="range" min={0} max={100} value={crossfader}
+                  onChange={e => setCrossfader(Number(e.target.value))}
+                  className="w-full h-2 cursor-pointer"
+                  style={{
+                    accentColor: `hsl(${270 - crossfader * 1.5}, 70%, 60%)`,
+                  }}
+                />
+                <div className="flex justify-between text-[8px] mt-1 font-black">
+                  <span className="text-violet-500">{100 - crossfader}%</span>
+                  <span className="text-rose-500">{crossfader}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Deck B */}
+            <div className="flex-1">
+              <DeckPanel
+                deck="B"
+                song={songB}
+                isPlaying={isPlayingB}
+                volume={volumeB}
+                setVolume={setVolumeB}
+                currentTime={currentTimeB}
+                duration={durationB}
+                pitch={pitchB}
+                setPitch={setPitchB}
+                playerReady={playerReadyB}
+                onPlayPause={togglePlayB}
+                onSeek={seekB}
+                onSkip={() => {
+                  const pl = playlistRef.current;
+                  if (!songB || pl.length === 0) return;
+                  const idx = pl.findIndex(s => s.youtubeId === songB.youtubeId);
+                  const next = pl[(idx + 1) % pl.length];
+                  if (next) loadDeck('B', next);
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -637,35 +883,51 @@ export default function MusicPage() {
   );
 }
 
-// ── Playlist Song Row ──────────────────────────────────────────────────────────
-function PlaylistSongRow({ song, isActive, isPlaying, onPlay, onRemove }: {
-  song: Song; isActive: boolean; isPlaying: boolean; onPlay: () => void; onRemove: () => void;
+// ─── DJ Song Row ──────────────────────────────────────────────────────────────
+function DJSongRow({
+  song, isOnDeckA, isOnDeckB, isPlayingA, isPlayingB,
+  inPlaylist, onLoadA, onLoadB, onAdd, onRemove, isAdded, isSaving,
+}: {
+  song: Song;
+  isOnDeckA: boolean;
+  isOnDeckB: boolean;
+  isPlayingA: boolean;
+  isPlayingB: boolean;
+  inPlaylist: boolean;
+  onLoadA: () => void;
+  onLoadB: () => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  isAdded: boolean;
+  isSaving: boolean;
 }) {
+  const isActive = isOnDeckA || isOnDeckB;
+
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-2xl transition-all group cursor-pointer ${
+    <div className={`flex items-center gap-2 p-2 rounded-2xl transition-all group ${
       isActive
-        ? 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/20 border border-purple-200/60 dark:border-purple-800/40'
-        : 'bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 hover:border-purple-200 dark:hover:border-purple-800/40'
-    }`} onClick={onPlay}>
+        ? 'bg-gradient-to-r from-violet-950/40 to-rose-950/30 border border-violet-700/30'
+        : 'bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 hover:border-purple-300/40 dark:hover:border-purple-800/30'
+    }`}>
       {/* Thumbnail */}
-      <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-slate-800 relative">
+      <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 relative bg-slate-800">
         {song.thumbnail ? (
           <img src={song.thumbnail} alt={song.title} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Music2 size={16} className="text-gray-400" />
+            <Music2 size={14} className="text-slate-500" />
           </div>
         )}
         {isActive && (
-          <div className="absolute inset-0 bg-purple-900/60 flex items-center justify-center">
-            {isPlaying ? (
+          <div className={`absolute inset-0 flex items-center justify-center ${isOnDeckA ? 'bg-violet-900/70' : 'bg-rose-900/70'}`}>
+            {(isPlayingA || isPlayingB) ? (
               <span className="flex gap-0.5 items-end h-3">
-                {[1,2,3].map(i => (
+                {[1, 2, 3].map(i => (
                   <span key={i} className="w-0.5 bg-white rounded-full animate-bounce" style={{ height: `${4 + i * 3}px`, animationDelay: `${i * 0.1}s` }} />
                 ))}
               </span>
             ) : (
-              <Play size={12} className="text-white fill-white" />
+              <span className="text-white font-black text-[8px]">{isOnDeckA ? 'A' : 'B'}</span>
             )}
           </div>
         )}
@@ -673,78 +935,59 @@ function PlaylistSongRow({ song, isActive, isPlaying, onPlay, onRemove }: {
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className={`text-xs font-black leading-tight line-clamp-1 ${isActive ? 'text-purple-700 dark:text-purple-300' : 'text-gray-900 dark:text-white'}`}>
+        <p className={`text-[10px] font-black leading-tight line-clamp-1 ${isActive ? (isOnDeckA ? 'text-violet-300' : 'text-rose-300') : 'text-gray-900 dark:text-white'}`}>
           {song.title}
         </p>
-        <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold mt-0.5 line-clamp-1">{song.artist || 'YouTube'}</p>
+        <p className="text-[9px] text-gray-400 dark:text-slate-500 font-bold mt-0.5 line-clamp-1">{song.artist || 'YouTube'}</p>
       </div>
 
-      {/* Remove */}
-      <button
-        onClick={e => { e.stopPropagation(); onRemove(); }}
-        className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all flex-shrink-0"
-      >
-        <Trash2 size={12} />
-      </button>
-    </div>
-  );
-}
-
-// ── Search Song Row ────────────────────────────────────────────────────────────
-function SearchSongRow({ song, isAdded, isSaving, isActive, isPlaying, onAdd, onPlay }: {
-  song: Song; isAdded: boolean; isSaving: boolean; isActive: boolean; isPlaying: boolean; onAdd: () => void; onPlay: () => void;
-}) {
-  return (
-    <div className={`flex items-center gap-3 p-3 rounded-2xl transition-all group cursor-pointer ${
-      isActive
-        ? 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/20 border border-purple-200/60 dark:border-purple-800/40'
-        : 'bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 hover:border-purple-200 dark:hover:border-purple-800/40'
-    }`} onClick={onPlay}>
-      {/* Thumbnail */}
-      <div className="w-14 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-slate-800 relative">
-        {song.thumbnail ? (
-          <img src={song.thumbnail} alt={song.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music2 size={14} className="text-gray-400" />
-          </div>
-        )}
-        {isActive && (
-          <div className="absolute inset-0 bg-purple-900/60 flex items-center justify-center">
-            {isPlaying ? (
-              <span className="flex gap-0.5 items-end h-3">
-                {[1,2,3].map(i => (
-                  <span key={i} className="w-0.5 bg-white rounded-full animate-bounce" style={{ height: `${4 + i * 3}px`, animationDelay: `${i * 0.1}s` }} />
-                ))}
-              </span>
-            ) : (
-              <Play size={12} className="text-white fill-white" />
-            )}
-          </div>
-        )}
+      {/* Load A / B Buttons */}
+      <div className="flex flex-col gap-1">
+        <button
+          onClick={e => { e.stopPropagation(); onLoadA(); }}
+          title="Load on Deck A"
+          className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-90 ${
+            isOnDeckA
+              ? 'bg-violet-600 text-white shadow-md shadow-violet-500/40'
+              : 'bg-violet-900/30 text-violet-400 hover:bg-violet-800/40 border border-violet-700/30'
+          }`}
+        >
+          A
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onLoadB(); }}
+          title="Load on Deck B"
+          className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-90 ${
+            isOnDeckB
+              ? 'bg-rose-600 text-white shadow-md shadow-rose-500/40'
+              : 'bg-rose-900/30 text-rose-400 hover:bg-rose-800/40 border border-rose-700/30'
+          }`}
+        >
+          B
+        </button>
       </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-xs font-black leading-tight line-clamp-1 ${isActive ? 'text-purple-700 dark:text-purple-300' : 'text-gray-900 dark:text-white'}`}>
-          {song.title}
-        </p>
-        <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold mt-0.5 line-clamp-1">{song.artist || 'YouTube'}</p>
-      </div>
-
-      {/* Add Button */}
-      <button
-        onClick={e => { e.stopPropagation(); onAdd(); }}
-        disabled={isAdded || isSaving}
-        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-          isAdded
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 cursor-default'
-            : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 active:scale-95'
-        }`}
-      >
-        {isSaving ? <Loader2 size={11} className="animate-spin" /> : isAdded ? <Check size={11} /> : <Plus size={11} />}
-        {isAdded ? 'Added' : 'Add'}
-      </button>
+      {/* Add / Remove */}
+      {inPlaylist ? (
+        <button
+          onClick={e => { e.stopPropagation(); onRemove(); }}
+          className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all flex-shrink-0"
+        >
+          <Trash2 size={10} />
+        </button>
+      ) : (
+        <button
+          onClick={e => { e.stopPropagation(); onAdd(); }}
+          disabled={isAdded || isSaving}
+          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all flex-shrink-0 ${
+            isAdded
+              ? 'bg-emerald-900/20 text-emerald-400'
+              : 'bg-purple-900/20 text-purple-400 hover:bg-purple-900/40 active:scale-90'
+          }`}
+        >
+          {isSaving ? <Loader2 size={10} className="animate-spin" /> : isAdded ? <Check size={10} /> : <Plus size={10} />}
+        </button>
+      )}
     </div>
   );
 }
