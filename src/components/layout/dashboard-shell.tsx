@@ -27,7 +27,10 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   // SPECIAL OVERRIDE: Kitchen Display / Bar Display always uses POS Layout
   const isKitchenDisplay = relativePath.startsWith('/kitchen-display') || pathname.includes('/kitchen-display') ||
     relativePath.startsWith('/bar-display') || pathname.includes('/bar-display');
-  
+
+  // Music page: show TopNavbar but hide sidebar for full DJ console view
+  const isMusicPage = relativePath.startsWith('/music') || pathname.includes('/music');
+
   // Switch to POS layout for operational pages even for admins
   const isPosPage = 
     relativePath === '/operations' || relativePath.startsWith('/operations/') ||
@@ -53,6 +56,20 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
       <div className="h-screen flex flex-col bg-[#080d1a] selection:bg-pos-primary selection:text-white overflow-hidden relative">
         <main className="flex-1 relative overflow-hidden">
           {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Music page: TopNavbar visible, sidebar completely hidden, content fills remaining height
+  if (isMusicPage) {
+    return (
+      <div className="h-screen flex flex-col bg-slate-950 selection:bg-pos-primary selection:text-white overflow-hidden relative">
+        <TopNavbar />
+        <main className="flex-1 overflow-y-auto no-scrollbar relative">
+          <div className="h-full w-full p-4 md:p-5">
+            {children}
+          </div>
         </main>
       </div>
     );

@@ -584,7 +584,7 @@ export default function MusicPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-96px)] lg:h-[calc(100vh-140px)] flex flex-col gap-3 overflow-hidden">
+    <div className="h-[calc(100vh-80px)] flex flex-col gap-3 overflow-hidden">
 
       {/* Hidden YT players */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '2px', height: '2px', overflow: 'hidden' }}>
