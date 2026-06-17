@@ -5,14 +5,22 @@ import { KotTicket } from '@/lib/api/kots';
 
 interface PrintKotProps {
   kot: KotTicket;
+  seqNum?: number | null;
 }
 
-export const PrintKOT: React.FC<PrintKotProps> = ({ kot }) => {
+export const PrintKOT: React.FC<PrintKotProps> = ({ kot, seqNum }) => {
+  const floorName = kot.table?.floor?.name;
+  const floorMenuType = kot.table?.floor?.menuType;
+  
+  const isBar = floorName?.toUpperCase().includes('BAR') || floorMenuType === 'BAR';
+  const isCafe = floorName?.toUpperCase().includes('CAFE') || floorMenuType === 'CAFE';
+  const ticketTitle = isBar ? '🍽 Bar Ticket' : isCafe ? '🍽 Cafe Ticket' : '🍽 Kitchen Ticket';
+
   return (
     <div className="p-8 bg-white max-w-[400px] mx-auto font-mono text-black">
       {/* Header */}
       <div className="text-center border-b-2 border-dashed border-gray-400 pb-6 mb-6">
-        <div className="text-2xl font-black uppercase tracking-tight mb-1">🍽 Kitchen Ticket</div>
+        <div className="text-2xl font-black uppercase tracking-tight mb-1">{ticketTitle}</div>
         <div className="text-xs text-gray-500 uppercase tracking-widest">POS System</div>
       </div>
 
@@ -20,7 +28,7 @@ export const PrintKOT: React.FC<PrintKotProps> = ({ kot }) => {
       <div className="mb-6 space-y-2">
         <div className="flex justify-between text-sm">
           <span className="font-bold uppercase text-gray-500">KOT No</span>
-          <span className="font-black text-xl">{kot.kotNo}</span>
+          <span className="font-black text-xl">{seqNum || kot.kotNo.replace(/\D/g, '').slice(-4)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="font-bold uppercase text-gray-500">Order No</span>
@@ -36,6 +44,12 @@ export const PrintKOT: React.FC<PrintKotProps> = ({ kot }) => {
               : 'Takeaway'}
           </span>
         </div>
+        {floorName && (
+          <div className="flex justify-between text-sm">
+            <span className="font-bold uppercase text-gray-500">Section</span>
+            <span className="font-bold">{floorName}</span>
+          </div>
+        )}
         <div className="flex justify-between text-sm">
           <span className="font-bold uppercase text-gray-500">Type</span>
           <span className="font-bold">{kot.order?.orderType || '—'}</span>
@@ -52,11 +66,10 @@ export const PrintKOT: React.FC<PrintKotProps> = ({ kot }) => {
         <div className="flex justify-between text-sm">
           <span className="font-bold uppercase text-gray-500">Date</span>
           <span className="font-bold">
-            {new Date(kot.createdAt).toLocaleDateString('en-IN', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })}
+            {(() => {
+              const d = new Date(kot.createdAt);
+              return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            })()}
           </span>
         </div>
       </div>

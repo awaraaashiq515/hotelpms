@@ -130,16 +130,25 @@ async function recordLocationPing(userId: string, propertyId: string, locationSt
   if (isNaN(lat) || isNaN(lng)) return;
 
   try {
-    const settings = await (prisma as any).staffLocationSettings.findUnique({
-      where: { propertyId }
-    });
+    const [settings, property] = await Promise.all([
+      (prisma as any).staffLocationSettings.findUnique({
+        where: { propertyId }
+      }),
+      prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { latitude: true, longitude: true },
+      })
+    ]);
+
+    const baseLat = settings?.baseLat || property?.latitude || 0;
+    const baseLng = settings?.baseLng || property?.longitude || 0;
     
     let distanceFromBase = 0;
     let isOutOfRange = false;
 
-    if (settings && (settings.baseLat !== 0 || settings.baseLng !== 0)) {
-      distanceFromBase = haversineMetres(settings.baseLat, settings.baseLng, lat, lng);
-      isOutOfRange = distanceFromBase > settings.alertDistanceMeters;
+    if (baseLat !== 0 || baseLng !== 0) {
+      distanceFromBase = haversineMetres(baseLat, baseLng, lat, lng);
+      isOutOfRange = distanceFromBase > (settings?.alertDistanceMeters ?? 500);
     }
 
     await (prisma as any).staffLocation.create({

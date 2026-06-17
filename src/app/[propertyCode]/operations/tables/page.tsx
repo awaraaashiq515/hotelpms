@@ -180,6 +180,8 @@ export default function TableManagementPage() {
     });
 
     const latestKot = order.kotTickets[order.kotTickets.length - 1];
+    const floorName = latestKot.table?.floor?.name || order.table?.floor?.name || activeFloor?.name;
+    const floorMenuType = latestKot.table?.floor?.menuType || order.table?.floor?.menuType || activeFloor?.menuType;
     setKotSlip({
       kotNo: latestKot.kotNo,
       orderNo: order.orderNo,
@@ -187,7 +189,9 @@ export default function TableManagementPage() {
       roomId: order.roomId || undefined,
       orderType: order.orderType,
       createdAt: latestKot.createdAt,
-      items: allItems
+      items: allItems,
+      floorName,
+      floorMenuType
     });
   };
 

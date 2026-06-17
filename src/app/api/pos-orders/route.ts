@@ -420,11 +420,13 @@ export async function POST(request: NextRequest) {
         where: { id: order.id },
         include: { 
           items: { include: { product: true } },
+          table: { include: { floor: true } },
           kotTickets: { 
             include: { 
               items: {
                 include: { product: true }
-              } 
+              },
+              table: { include: { floor: true } }
             } 
           }
         }

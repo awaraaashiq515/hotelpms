@@ -433,131 +433,23 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
 
 /* ── Location Sharing Panel ─────────────────────────────────
    Embedded in the Settings tab.
-   Uses navigator.geolocation.watchPosition() to auto-send pings.
    Edit this component to change the look of the location sharing UI.
 ──────────────────────────────────────────────────────────── */
-function LocationSharingPanel({ wtToken }: { wtToken: string }) {
-  const [sharing, setSharing] = React.useState(false)
-  const [status, setStatus] = React.useState<string>('Off')
-  const [lastDist, setLastDist] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  const watchIdRef = React.useRef<number | null>(null)
-  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-  const lastCoordsRef = React.useRef<{ lat: number; lng: number } | null>(null)
-
-  const sendPing = React.useCallback(async (lat: number, lng: number) => {
-    if (!wtToken) return
-    let autoAttendance = false
-    try {
-      const stored = localStorage.getItem('staff_portal_settings')
-      if (stored) {
-        autoAttendance = JSON.parse(stored).autoAttendance === true
-      }
-    } catch {}
-
-    try {
-      const res = await fetch('/api/staff-location/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${wtToken}` },
-        body: JSON.stringify({ lat, lng, autoAttendance }),
-      })
-      if (res.ok) {
-        const j = await res.json()
-        const dist = j.ping?.distanceFromBase
-        if (dist != null) {
-          setLastDist(dist < 1000 ? `${Math.round(dist)} m` : `${(dist / 1000).toFixed(2)} km`)
-          setStatus(j.ping.isOutOfRange ? '⚠ Out of range!' : '✓ Sharing')
-        } else {
-          setStatus('✓ Sharing')
-        }
-      }
-    } catch { /* ignore */ }
-  }, [wtToken])
-
-  const startSharing = React.useCallback(() => {
-    setError(null)
-    if (!navigator.geolocation) { setError('Geolocation not supported by this browser'); return }
-    setStatus('Getting location…')
-    setSharing(true)
-
-    // Save preference so page refresh keeps it on
-    try { localStorage.setItem('loc_sharing', '1') } catch { }
-
-    const updateLocation = (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude
-      const lng = pos.coords.longitude
-      lastCoordsRef.current = { lat, lng }
-      setSharing(true)
-      setStatus(`✓ Sharing (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
-      sendPing(lat, lng)
-    }
-
-    const handleLocationError = (err: GeolocationPositionError) => {
-      console.warn('Geolocation error:', err)
-      setError(`Location error: ${err.message} (Code ${err.code})`)
-      // Only turn off if permission is denied (code 1)
-      if (err.code === 1) {
-        setSharing(false)
-        setStatus('Off')
-        try { localStorage.removeItem('loc_sharing') } catch { }
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-      } else {
-        // For other transient errors (timeout, position unavailable), keep sharing true
-        // and send cached coords if available so server knows they are still online
-        setStatus(`Seeking GPS signal…`)
-        if (lastCoordsRef.current) {
-          sendPing(lastCoordsRef.current.lat, lastCoordsRef.current.lng)
-        }
-      }
-    }
-
-    // Start watching position
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      updateLocation,
-      handleLocationError,
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    )
-
-    // Repeat ping every 30 seconds by querying GPS directly for fresh coordinates
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    intervalRef.current = setInterval(() => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          updateLocation,
-          handleLocationError,
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-        )
-      }
-    }, 30000)
-  }, [sendPing])
-
-  const stopSharing = React.useCallback(() => {
-    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
-    if (intervalRef.current !== null) clearInterval(intervalRef.current)
-    watchIdRef.current = null; intervalRef.current = null; lastCoordsRef.current = null
-    setSharing(false); setStatus('Off'); setLastDist(null)
-    try { localStorage.removeItem('loc_sharing') } catch { }
-  }, [])
-
-  // Auto-start if user had it on before refresh (and token is ready)
-  React.useEffect(() => {
-    if (!wtToken) return
-    try {
-      if (localStorage.getItem('loc_sharing') === '1') {
-        startSharing()
-      }
-    } catch { }
-  }, [wtToken, startSharing])
-
-  // Cleanup on unmount
-  React.useEffect(() => () => {
-    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
-    if (intervalRef.current !== null) clearInterval(intervalRef.current)
-  }, [])
-
+function LocationSharingPanel({
+  sharing,
+  status,
+  lastDist,
+  error,
+  startSharing,
+  stopSharing
+}: {
+  sharing: boolean;
+  status: string;
+  lastDist: string | null;
+  error: string | null;
+  startSharing: () => void;
+  stopSharing: () => void;
+}) {
   const toggleStyle: React.CSSProperties = {
     width: 42, height: 23, borderRadius: 12, cursor: 'pointer',
     transition: 'background 0.2s',
@@ -732,6 +624,180 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   useEffect(() => { userRef.current = user }, [user])
   useEffect(() => { triggerPlayRef.current = triggerPlay }, [triggerPlay])
   useEffect(() => { contactsRef.current = contacts }, [contacts])
+
+  /* Location Sharing background tracking states */
+  const [sharing, setSharing] = useState(false)
+  const [sharingStatus, setSharingStatus] = useState<string>('Off')
+  const [sharingLastDist, setSharingLastDist] = useState<string | null>(null)
+  const [sharingError, setSharingError] = useState<string | null>(null)
+  const watchIdRef = useRef<number | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
+  const lastUpdateTimeRef = useRef<number>(0)
+
+  const sendPing = useCallback(async (lat: number, lng: number) => {
+    if (!wtTokenRef.current) return
+    let autoAttendance = false
+    try {
+      const stored = localStorage.getItem('staff_portal_settings')
+      if (stored) {
+        autoAttendance = JSON.parse(stored).autoAttendance === true
+      }
+    } catch {}
+
+    try {
+      const res = await fetch('/api/staff-location/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${wtTokenRef.current}` },
+        body: JSON.stringify({ lat, lng, autoAttendance }),
+      })
+      if (res.ok) {
+        const j = await res.json()
+        const dist = j.ping?.distanceFromBase
+        if (dist != null) {
+          setSharingLastDist(dist < 1000 ? `${Math.round(dist)} m` : `${(dist / 1000).toFixed(2)} km`)
+          setSharingStatus(j.ping.isOutOfRange ? '⚠ Out of range!' : '✓ Sharing')
+        } else {
+          setSharingStatus('✓ Sharing')
+        }
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  const startSharing = useCallback(() => {
+    setSharingError(null)
+    if (!navigator.geolocation) { setSharingError('Geolocation not supported by this browser'); return }
+    setSharingStatus('Getting location…')
+    setSharing(true)
+    lastUpdateTimeRef.current = 0
+
+    // Save preference so page refresh keeps it on
+    try { localStorage.setItem('loc_sharing', '1') } catch { }
+
+    const getOptions = (highAccuracy: boolean) => ({
+      enableHighAccuracy: highAccuracy,
+      maximumAge: 0, // Force fresh coordinates, no cache
+      timeout: 10000,    // 10 seconds to resolve
+    })
+
+    const updateLocation = (pos: GeolocationPosition) => {
+      const now = Date.now()
+      const timeSinceLastSuccess = lastUpdateTimeRef.current ? (now - lastUpdateTimeRef.current) : Infinity
+
+      // Dynamic accuracy: allow wider accuracy if we haven't had updates recently
+      let maxAllowedAccuracy = 150 // default high accuracy
+      if (timeSinceLastSuccess > 300000) { // 5 minutes
+        maxAllowedAccuracy = 500
+      } else if (timeSinceLastSuccess > 120000) { // 2 minutes
+        maxAllowedAccuracy = 350
+      }
+
+      if (pos.coords.accuracy && pos.coords.accuracy > maxAllowedAccuracy) {
+        console.warn(`[GPS] Skipping low accuracy coordinate: ${pos.coords.accuracy}m (max allowed: ${maxAllowedAccuracy}m)`)
+        setSharingStatus(`Seeking GPS signal (accuracy ${Math.round(pos.coords.accuracy)}m)…`)
+        return
+      }
+
+      lastUpdateTimeRef.current = now
+      const lat = pos.coords.latitude
+      const lng = pos.coords.longitude
+      lastCoordsRef.current = { lat, lng }
+      setSharing(true)
+      setSharingStatus(`✓ Sharing (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+      sendPing(lat, lng)
+    }
+
+    const handleLocationError = (err: GeolocationPositionError) => {
+      console.warn('Geolocation error:', err)
+      
+      // If high accuracy failed with timeout or unavailable, try low accuracy (wi-fi/IP fallback)
+      if (err.code === 3 || err.code === 2) {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            updateLocation,
+            (fallbackErr) => {
+              setSharingError(`Location error: ${fallbackErr.message} (Code ${fallbackErr.code})`)
+              setSharingStatus(`Seeking GPS signal…`)
+              if (lastCoordsRef.current) {
+                sendPing(lastCoordsRef.current.lat, lastCoordsRef.current.lng)
+              }
+            },
+            getOptions(false)
+          )
+          return
+        }
+      }
+
+      setSharingError(`Location error: ${err.message} (Code ${err.code})`)
+      
+      // Only turn off if permission is denied (code 1)
+      if (err.code === 1) {
+        setSharing(false)
+        setSharingStatus('Off')
+        try { localStorage.removeItem('loc_sharing') } catch { }
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current)
+          watchIdRef.current = null
+        }
+      } else {
+        setSharingStatus(`Seeking GPS signal…`)
+        if (lastCoordsRef.current) {
+          sendPing(lastCoordsRef.current.lat, lastCoordsRef.current.lng)
+        }
+      }
+    }
+
+    // Start watching position
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      updateLocation,
+      handleLocationError,
+      getOptions(true)
+    )
+
+    // Repeat ping fallback only if watchPosition has been silent
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = setInterval(() => {
+      const timeSinceLastUpdate = Date.now() - lastUpdateTimeRef.current
+      if (timeSinceLastUpdate > 45000) {
+        console.log(`[GPS] watchPosition seems inactive (last update ${Math.round(timeSinceLastUpdate / 1000)}s ago). Fetching getCurrentPosition fallback.`)
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            updateLocation,
+            handleLocationError,
+            getOptions(true)
+          )
+        }
+      }
+    }, 30000)
+  }, [sendPing])
+
+  const stopSharing = useCallback(() => {
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
+    if (intervalRef.current !== null) clearInterval(intervalRef.current)
+    watchIdRef.current = null; intervalRef.current = null; lastCoordsRef.current = null
+    setSharing(false); setSharingStatus('Off'); setSharingLastDist(null)
+    try { localStorage.removeItem('loc_sharing') } catch { }
+  }, [])
+
+  // Auto-start if user had it on before refresh (and token is ready)
+  useEffect(() => {
+    if (!wtToken) return
+    try {
+      if (localStorage.getItem('loc_sharing') === '1') {
+        startSharing()
+      }
+    } catch { }
+  }, [wtToken, startSharing])
+
+  // Cleanup on unmount
+  useEffect(() => () => {
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
+    if (intervalRef.current !== null) clearInterval(intervalRef.current)
+  }, [])
 
   /* ── Logs ── */
   const addLog = useCallback((msg: string) => {
@@ -924,6 +990,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   }
 
   const handleLogout = () => {
+    stopSharing()
     stopAll()
     localAudioTrackRef.current?.close(); localAudioTrackRef.current = null
     agoraClientRef.current?.leave().catch(() => {}); agoraClientRef.current = null
@@ -2194,7 +2261,14 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
             ))}
 
             {/* ── Location Sharing ── */}
-            <LocationSharingPanel wtToken={wtToken} />
+            <LocationSharingPanel
+              sharing={sharing}
+              status={sharingStatus}
+              lastDist={sharingLastDist}
+              error={sharingError}
+              startSharing={startSharing}
+              stopSharing={stopSharing}
+            />
 
             <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 11, marginTop: 22 }}>Account</div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 13, padding: '14px', marginBottom: 12 }}>

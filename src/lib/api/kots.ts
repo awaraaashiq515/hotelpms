@@ -47,6 +47,15 @@ export interface KotTicket {
     createdAt?: string;
     preparationTime?: number;
   };
+  table?: {
+    id: string;
+    name: string;
+    floor?: {
+      id: string;
+      name: string;
+      menuType?: string;
+    };
+  };
   items: KotItem[];
   statusLogs?: KotStatusLog[];
 }

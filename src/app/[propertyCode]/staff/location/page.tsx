@@ -234,7 +234,7 @@ export default function StaffLocationPage() {
 
   useEffect(() => {
     loadData();
-    const iv = setInterval(loadData, 30000);
+    const iv = setInterval(loadData, 10000);
     return () => clearInterval(iv);
   }, [loadData]);
 

@@ -21,6 +21,9 @@ export async function GET(
             createdAt: true,
           }
         },
+        table: {
+          include: { floor: true }
+        },
         items: {
           include: {
             product: {

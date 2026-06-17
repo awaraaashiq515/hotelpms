@@ -30,9 +30,9 @@ function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString([], { ho
 function initials(n: string) { return n.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2); }
 
 /* ─── Staff Map (Leaflet with Google/Dark Layers) ─── */
-function StaffMap({ staff, settings }: { staff: LocRow[]; settings: LocSettings }) {
+function StaffMap({ staff, settings, mapFocus }: { staff: LocRow[]; settings: LocSettings; mapFocus: { lat: number; lng: number; ts: number } | null }) {
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapType, setMapType] = useState<'dark' | 'google' | 'satellite'>('dark');
+  const [mapType, setMapType] = useState<'dark' | 'google' | 'satellite'>('google');
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
@@ -73,12 +73,12 @@ function StaffMap({ staff, settings }: { staff: LocRow[]; settings: LocSettings 
       tileLayerRef.current.remove();
     }
 
-    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    let attribution = '&copy; CARTO &copy; OpenStreetMap';
+    let url = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+    let attribution = '&copy; Google Maps';
 
-    if (mapType === 'google') {
-      url = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-      attribution = '&copy; Google Maps';
+    if (mapType === 'dark') {
+      url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+      attribution = '&copy; CARTO &copy; OpenStreetMap';
     } else if (mapType === 'satellite') {
       url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
       attribution = '&copy; Google Satellite';
@@ -107,10 +107,10 @@ function StaffMap({ staff, settings }: { staff: LocRow[]; settings: LocSettings 
 
       leafletMapRef.current = map;
 
-      // Apply initial tile layer (Dark Mode matching dashboard)
-      tileLayerRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      // Apply initial tile layer (Google Maps by default)
+      tileLayerRef.current = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 20,
-        attribution: '&copy; CARTO &copy; OpenStreetMap'
+        attribution: '&copy; Google Maps'
       }).addTo(map);
     }
 
@@ -202,6 +202,13 @@ function StaffMap({ staff, settings }: { staff: LocRow[]; settings: LocSettings 
     }
   }, [mapLoaded, staff, settings]);
 
+  // Fly to focused coordinate
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!mapLoaded || !leafletMapRef.current || !mapFocus || !L) return;
+    leafletMapRef.current.flyTo([mapFocus.lat, mapFocus.lng], 17);
+  }, [mapLoaded, mapFocus]);
+
   // Clean up map on unmount
   useEffect(() => {
     return () => {
@@ -259,6 +266,7 @@ export default function StaffPage() {
 
   /* ── Location state ── */
   const [locRows, setLocRows] = useState<LocRow[]>([]);
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [locSettings, setLocSettings] = useState<LocSettings>({ baseLat: 0, baseLng: 0, alertDistanceMeters: 500, trackingEnabled: true });
   const [locLoading, setLocLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -392,7 +400,7 @@ export default function StaffPage() {
 
   useEffect(() => {
     if (activeTab === 'location') { setLocLoading(true); loadLocData(); }
-    const iv = setInterval(() => { if (activeTab === 'location') loadLocData(); }, 30000);
+    const iv = setInterval(() => { if (activeTab === 'location') loadLocData(); }, 10000);
     return () => clearInterval(iv);
   }, [activeTab, loadLocData]);
 
@@ -554,7 +562,7 @@ export default function StaffPage() {
             {/* Live Interactive Map */}
             <div className="bg-white dark:bg-slate-900/50 border border-gray-100 dark:border-white/5 rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest"><Target size={11} /> Proximity Map</div>
-              <StaffMap staff={locRows} settings={locSettings} />
+              <StaffMap staff={locRows} settings={locSettings} mapFocus={mapFocus} />
               <div className="space-y-2">
                 {[{ c: '#34d399', l: 'In Range' }, { c: '#f87171', l: 'Out of Range' }, { c: '#6366f1', l: 'Base Location' }].map(x => (
                   <div key={x.l} className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: x.c }} /><span className="text-[9px] font-bold text-slate-400">{x.l}</span></div>
@@ -601,9 +609,27 @@ export default function StaffPage() {
                           <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold mt-0.5">{row.designation || 'Staff'} · Last seen {fmtAgo(row.lastSeen)}</p>
                         </div>
                         {/* Distance */}
-                        <div className="text-right flex-shrink-0">
-                          <p className={`text-lg font-black leading-none ${alert ? 'text-red-500' : row.isTracking ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`}>{fmtDist(row.distanceFromBase)}</p>
-                          <p className="text-[8px] text-slate-400 font-bold mt-0.5">from base</p>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {row.isTracking && row.latestPing && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMapFocus({
+                                  lat: row.latestPing!.lat,
+                                  lng: row.latestPing!.lng,
+                                  ts: Date.now()
+                                });
+                              }}
+                              className="p-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 active:scale-95 text-indigo-600 dark:text-indigo-400 rounded-lg border border-indigo-500/20 transition-all flex items-center justify-center"
+                              title="Show on Map"
+                            >
+                              <Navigation size={12} className="rotate-45" />
+                            </button>
+                          )}
+                          <div className="text-right">
+                            <p className={`text-lg font-black leading-none ${alert ? 'text-red-500' : row.isTracking ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`}>{fmtDist(row.distanceFromBase)}</p>
+                            <p className="text-[8px] text-slate-400 font-bold mt-0.5">from base</p>
+                          </div>
                         </div>
                         {/* Status + chevron */}
                         <div className="flex flex-col items-center gap-1 flex-shrink-0">

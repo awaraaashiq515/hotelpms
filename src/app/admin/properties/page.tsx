@@ -463,24 +463,16 @@ export default function GlobalPropertyManagement() {
               Additional Services & Integrations
             </h4>
             <div className="grid grid-cols-1 gap-4">
-              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
-                !packageFeatures.includes('DRIVERS') 
-                  ? 'bg-red-50/20 border-red-150 dark:border-red-900/30 opacity-70' 
-                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
-              }`}>
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
                 <div>
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Home Delivery 🚚</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-202">Home Delivery 🚚</span>
                   <p className="text-[9px] text-slate-400">Logistics & Rider Portal</p>
-                  {!packageFeatures.includes('DRIVERS') && formData.organizationId && (
-                    <span className="text-[8px] font-bold text-red-500 block mt-0.5 animate-pulse">Not included in Package</span>
-                  )}
                 </div>
                 <input 
                   type="checkbox"
-                  disabled={!packageFeatures.includes('DRIVERS')}
                   checked={formData.deliveryEnabled}
                   onChange={(e) => setFormData({ ...formData, deliveryEnabled: e.target.checked, showDeliveryInQrMenu: e.target.checked })}
-                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-5 h-5 accent-pos-primary rounded border-slate-300 focus:ring-pos-primary cursor-pointer"
                 />
               </div>
             </div>

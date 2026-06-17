@@ -13,8 +13,16 @@ export async function GET(
         items: {
           include: { product: true }
         },
+        table: {
+          include: { floor: true }
+        },
         kotTickets: {
-          include: { items: true }
+          include: { 
+            items: true,
+            table: {
+              include: { floor: true }
+            }
+          }
         }
       }
     });

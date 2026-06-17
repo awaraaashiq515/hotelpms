@@ -62,20 +62,26 @@ export async function GET(_request: NextRequest) {
         history: pings,
       };
     });
-
-    // Also fetch settings
-    const settings = await (prisma as any).staffLocationSettings.findUnique({
-      where: { propertyId },
-    });
+    // Also fetch settings & property coordinates
+    const [settings, property] = await Promise.all([
+      (prisma as any).staffLocationSettings.findUnique({
+        where: { propertyId },
+      }),
+      prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { latitude: true, longitude: true },
+      })
+    ]);
 
     return NextResponse.json({
       success: true,
       data: result,
-      settings: settings || {
-        baseLat: 0,
-        baseLng: 0,
-        alertDistanceMeters: 500,
-        trackingEnabled: true,
+      settings: {
+        propertyId,
+        baseLat: settings?.baseLat || property?.latitude || 0,
+        baseLng: settings?.baseLng || property?.longitude || 0,
+        alertDistanceMeters: settings?.alertDistanceMeters ?? 500,
+        trackingEnabled: settings?.trackingEnabled ?? true,
       },
     });
   } catch (error: any) {

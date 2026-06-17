@@ -35,6 +35,7 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
   const [kot, setKot] = useState<KotTicket | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [seqNum, setSeqNum] = useState<number | null>(null);
   const [showAddItem, setShowAddItem] = useState(false);
   const [addProductId, setAddProductId] = useState('');
   const [addQty, setAddQty] = useState(1);
@@ -56,6 +57,25 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     fetchKotDetails();
   }, [id]);
+
+  useEffect(() => {
+    if (!kot) return;
+    const dateStr = new Date(kot.createdAt).toISOString().split('T')[0];
+    fetch(`/api/kots?date=${dateStr}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data)) {
+          const sortedKots = [...data.data].sort((a: any, b: any) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          const index = sortedKots.findIndex((k: any) => k.kotNo === kot.kotNo);
+          if (index !== -1) {
+            setSeqNum(index + 1);
+          }
+        }
+      })
+      .catch(err => console.error('Failed to fetch KOT sequence number:', err));
+  }, [kot]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     setUpdating(true);
@@ -117,6 +137,12 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
     const printWindow = window.open('', '_blank', 'width=450,height=700');
     if (!printWindow) return;
 
+    const floorName = kot?.table?.floor?.name;
+    const floorMenuType = kot?.table?.floor?.menuType;
+    const isBar = floorName?.toUpperCase().includes('BAR') || floorMenuType === 'BAR';
+    const isCafe = floorName?.toUpperCase().includes('CAFE') || floorMenuType === 'CAFE';
+    const mainTitle = isBar ? 'BAR ORDER' : isCafe ? 'CAFE ORDER' : 'KITCHEN ORDER';
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -150,15 +176,22 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
         </head>
         <body onload="window.print(); setTimeout(() => window.close(), 1000);">
           <div class="text-center font-black">
-            <h1 style="font-size: 28px; margin-bottom: 1mm;">KITCHEN ORDER</h1>
+            <h1 style="font-size: 28px; margin-bottom: 1mm;">${mainTitle}</h1>
             <p style="font-size: 10px; letter-spacing: 2px;">KOT TICKET</p>
           </div>
 
           <div class="double-line"></div>
 
-          <div class="header-info"><span>KOT NO:</span> <span style="font-size: 20px;">${kot?.kotNo}</span></div>
+          <div class="header-info"><span>DATE:</span> <span>${(() => {
+            const d = new Date(kot?.createdAt || Date.now());
+            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+          })()}</span></div>
+          <div class="header-info"><span>KOT NO:</span> <span style="font-size: 20px;">${seqNum || kot?.kotNo?.replace(/\D/g, '').slice(-4)}</span></div>
           <div class="header-info"><span>TIME:</span> <span>${new Date(kot?.createdAt || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span></div>
           <div class="header-info"><span>TABLE:</span> <span style="font-size: 18px;">${kot?.tableNo || kot?.order?.tableNo || 'WALK-IN'}</span></div>
+          ${floorName ? `
+          <div class="header-info"><span>SECTION:</span> <span style="font-size: 16px;">${floorName}</span></div>
+          ` : ''}
           <div class="header-info"><span>ORDER:</span> <span>#${kot?.order?.orderNo || '—'}</span></div>
 
           <div class="double-line" style="margin-top: 6mm;"></div>
@@ -219,7 +252,7 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
     <div className="space-y-8 pb-32">
       {/* Page Header */}
       <PageHeader
-        title={kot.kotNo}
+        title={`KOT No. ${seqNum || kot.kotNo.replace(/\D/g, '').slice(-4)}`}
         subtitle={`Order: ${kot.order?.orderNo} · ${kot.order?.orderType} · ${totalUnits} Units`}
         showBack
         backUrl="/kots"
@@ -254,6 +287,12 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
                   icon: MapPin,
                   color: 'text-indigo-500 bg-indigo-50',
                 },
+                ...(kot.table?.floor?.name ? [{
+                  label: 'Section / Floor',
+                  value: kot.table.floor.name,
+                  icon: MapPin,
+                  color: 'text-purple-500 bg-purple-50',
+                }] : []),
                 {
                   label: 'Order Type',
                   value: kot.order?.orderType || '—',
@@ -532,7 +571,7 @@ export default function KotDetailPage({ params }: { params: Promise<{ id: string
 
       {/* Hidden print area */}
       <div id="printable-kot" className="hidden">
-        <PrintKOT kot={kot} />
+        <PrintKOT kot={kot} seqNum={seqNum} />
       </div>
     </div>
   );

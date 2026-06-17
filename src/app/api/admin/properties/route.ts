@@ -147,9 +147,10 @@ export async function POST(request: NextRequest) {
       if ((cafePosEnabled ?? false) && !packageFeatures.includes('CAFEPOS')) {
         return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
       }
-      if ((deliveryEnabled ?? false) && !packageFeatures.includes('DRIVERS')) {
-        return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
-      }
+      // Home Delivery is allowed for all package plans
+      // if ((deliveryEnabled ?? false) && !packageFeatures.includes('DRIVERS')) {
+      //   return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
+      // }
     }
 
     // Check code uniqueness
@@ -633,9 +634,10 @@ export async function PUT(request: NextRequest) {
       if (isCafeEnabled && !packageFeatures.includes('CAFEPOS')) {
         return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
       }
-      if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
-        return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
-      }
+      // Home Delivery is allowed for all package plans
+      // if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
+      //   return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
+      // }
     }
 
     // Check code uniqueness if changed

@@ -152,6 +152,7 @@ model Property {
   campaigns            Campaign[]
   deliveryZones        DeliveryZone[]
   musicSongs           MusicSong[]
+  musicPlaylists       MusicPlaylist[]
   youtubeApiKey        String?
   deliveryTrips        DeliveryTrip[]
   riderHandovers       RiderCashHandover[]
@@ -2172,4 +2173,30 @@ model MusicSong {
   property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+}
+
+model MusicPlaylist {
+  id         String              @id @default(cuid())
+  propertyId String
+  name       String
+  emoji      String?             // e.g. "😢" "💃" "🎉"
+  createdAt  DateTime            @default(now())
+  property   Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  items      MusicPlaylistItem[]
+
+  @@index([propertyId])
+}
+
+model MusicPlaylistItem {
+  id         String        @id @default(cuid())
+  playlistId String
+  youtubeId  String
+  title      String
+  artist     String?
+  thumbnail  String?
+  duration   String?
+  addedAt    DateTime      @default(now())
+  playlist   MusicPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@index([playlistId])
 }

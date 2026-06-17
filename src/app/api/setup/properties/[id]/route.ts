@@ -91,9 +91,10 @@ export async function PUT(
         if (isCafeEnabled && !packageFeatures.includes('CAFEPOS')) {
           return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
         }
-        if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
-          return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
-        }
+        // Home Delivery is allowed for all package plans
+        // if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
+        //   return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
+        // }
       }
     }
 

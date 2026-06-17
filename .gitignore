@@ -47,3 +47,7 @@ dist/
 dev_server.log
 *.db-shm
 *.db-wal
+
+# temporary scratch and agent folders
+/scratch/
+/.kilo/

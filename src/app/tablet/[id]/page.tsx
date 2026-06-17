@@ -9,7 +9,8 @@ import {
   ChefHat, ShoppingBag, Bell, CreditCard, ReceiptIndianRupee,
   Volume2, VolumeX, Smartphone, Zap, CarFront, UserPlus,
   ArrowLeftRight, QrCode, RefreshCw, Printer, AlertCircle,
-  CheckCircle2, Save, Pause
+  CheckCircle2, Save, Pause, ArrowRight, Home,
+  Wine, FlaskConical, Droplets
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +26,14 @@ import { useToast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { CafeProductCard } from '@/components/tablet/CafeProductCard';
+import { BarProductCard } from '@/components/tablet/BarProductCard';
+import { BarVariantModal } from '@/components/tablet/BarVariantModal';
+import { RestaurantProductCard } from '@/components/tablet/RestaurantProductCard';
+import { LiveKitchenTicker } from '@/components/tablet/LiveKitchenTicker';
+import { TabletHeader } from '@/components/tablet/TabletHeader';
+import { TabletCategoryBar } from '@/components/tablet/TabletCategoryBar';
+import { TabletOrderTray } from '@/components/tablet/TabletOrderTray';
+import { TabletTableGrid } from '@/components/tablet/TabletTableGrid';
 
 // --- Types ---
 interface TabletConfig {
@@ -39,8 +48,10 @@ interface TabletConfig {
     code: string;
     upiId?: string | null;
     upiName?: string | null;
+    logoUrl?: string | null;
     barPosEnabled?: boolean;
     cafePosEnabled?: boolean;
+    brandName?: string;
   };
   table?: {
     id: string;
@@ -78,6 +89,8 @@ interface Category {
 
 interface CartItem extends Product {
   quantity: number;
+  cartItemId?: string;
+  size?: string;
 }
 
 interface Order {
@@ -129,6 +142,49 @@ const CATEGORY_COLORS_DARK: Record<number, string> = {
   7: 'bg-[#c8c8d8] text-[#1a1a3d]', // Soft periwinkle
 };
 
+// Jewel-tone accent palette for Bar POS
+const BAR_ACCENTS = [
+  { color: '#E8A838', bg: 'rgba(232,168,56,0.10)', border: 'rgba(232,168,56,0.22)', glow: 'rgba(232,168,56,0.16)' },
+  { color: '#7C6DFA', bg: 'rgba(124,109,250,0.10)', border: 'rgba(124,109,250,0.22)', glow: 'rgba(124,109,250,0.16)' },
+  { color: '#3DBFA8', bg: 'rgba(61,191,168,0.10)', border: 'rgba(61,191,168,0.22)', glow: 'rgba(61,191,168,0.16)' },
+  { color: '#E8607A', bg: 'rgba(232,96,122,0.10)', border: 'rgba(232,96,122,0.22)', glow: 'rgba(232,96,122,0.16)' },
+  { color: '#54C4F0', bg: 'rgba(84,196,240,0.10)', border: 'rgba(84,196,240,0.22)', glow: 'rgba(84,196,240,0.16)' },
+  { color: '#B87FE8', bg: 'rgba(184,127,232,0.10)', border: 'rgba(184,127,232,0.22)', glow: 'rgba(184,127,232,0.16)' },
+  { color: '#5ED4A0', bg: 'rgba(94,212,160,0.10)', border: 'rgba(94,212,160,0.22)', glow: 'rgba(94,212,160,0.16)' },
+  { color: '#F0934C', bg: 'rgba(240,147,76,0.10)', border: 'rgba(240,147,76,0.22)', glow: 'rgba(240,147,76,0.16)' },
+];
+
+const BAR_WMOJI: Record<string, string> = {
+  premium: '⭐', wine: '🍷', beer: '🍺', whisky: '🥃', whiskey: '🥃',
+  rum: '🥤', scotch: '🥃', vodka: '🍸', gin: '🍹', liquor: '🥃',
+  champagne: '🍾', cocktail: '🍹', default: '🍷',
+};
+
+const BAR_CAT_ICON_MAP: Record<string, string> = {
+  premium: '⭐', wine: '🍷', beer: '🍺', whisky: '🥃', whiskey: '🥃',
+  rum: '🥤', scotch: '🥃', vodka: '🍸', gin: '🍹', brandy: '🥂',
+  tequila: '🌵', cocktail: '🍹', mocktail: '🧃', soft: '🥤', juice: '🍊',
+  liquor: '🥃', spirits: '🥃', champagne: '🍾', cider: '🍺', bourbon: '🥃', absinthe: '🍸',
+};
+
+// Cafe Layout Constants
+const CAFE_ACCENTS = [
+  { color: '#D4956A', bg: 'rgba(212,149,106,0.10)', border: 'rgba(212,149,106,0.22)', glow: 'rgba(212,149,106,0.14)' },
+  { color: '#C8845A', bg: 'rgba(200,132,90,0.10)',  border: 'rgba(200,132,90,0.22)',  glow: 'rgba(200,132,90,0.14)'  },
+  { color: '#7FC8C0', bg: 'rgba(127,200,192,0.10)', border: 'rgba(127,200,192,0.22)', glow: 'rgba(127,200,192,0.14)' },
+  { color: '#E8AC6A', bg: 'rgba(232,172,106,0.10)', border: 'rgba(232,172,106,0.22)', glow: 'rgba(232,172,106,0.14)' },
+  { color: '#B890E0', bg: 'rgba(184,144,224,0.10)', border: 'rgba(184,144,224,0.22)', glow: 'rgba(184,144,224,0.14)' },
+  { color: '#7CC8A0', bg: 'rgba(124,200,160,0.10)', border: 'rgba(124,200,160,0.22)', glow: 'rgba(124,200,160,0.14)' },
+  { color: '#E87A8C', bg: 'rgba(232,122,140,0.10)', border: 'rgba(232,122,140,0.22)', glow: 'rgba(232,122,140,0.14)' },
+  { color: '#54B8D8', bg: 'rgba(84,184,216,0.10)',  border: 'rgba(84,184,216,0.22)',  glow: 'rgba(84,184,216,0.14)'  },
+];
+
+const POPULAR_KEYWORDS = ['latte', 'cappuccino', 'cold brew', 'frappe', 'espresso', 'chai', 'mocha'];
+const isPopular = (name: string) => {
+  const n = name.toLowerCase();
+  return POPULAR_KEYWORDS.some(k => n.includes(k));
+};
+
 export default function TabletPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = React.use(params);
@@ -168,6 +224,11 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   const [waiterCalls, setWaiterCalls] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [menuType, setMenuType] = useState<'RESTAURANT' | 'BAR' | 'CAFE'>('RESTAURANT');
+  const [tabletThemeMode, setTabletThemeMode] = useState<'unified' | 'split'>('unified');
+  const [tabletUnifiedTheme, setTabletUnifiedTheme] = useState<string>('RESTAURANT');
+  const [tabletRestaurantTheme, setTabletRestaurantTheme] = useState<string>('RESTAURANT');
+  const [tabletBarTheme, setTabletBarTheme] = useState<string>('BAR');
+  const [tabletCafeTheme, setTabletCafeTheme] = useState<string>('TABLET_CAFE');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isOrderComplimentary, setIsOrderComplimentary] = useState(false);
@@ -228,6 +289,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
 
   const [kotSlip, setKotSlip] = useState<KotSlipData | null>(null);
   const [targetOrderPrepTime, setTargetOrderPrepTime] = useState<number>(15);
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
 
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -322,6 +384,8 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
       });
 
       const latestKot = order.kotTickets[order.kotTickets.length - 1];
+      const floorName = latestKot.table?.floor?.name || order.table?.floor?.name || table?.floor?.name;
+      const floorMenuType = latestKot.table?.floor?.menuType || order.table?.floor?.menuType || table?.floor?.menuType;
       setKotSlip({
         kotNo: latestKot.kotNo,
         orderNo: order.orderNo,
@@ -329,7 +393,9 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         roomId: order.roomId || undefined,
         orderType: order.orderType,
         createdAt: latestKot.createdAt,
-        items: allItems
+        items: allItems,
+        floorName,
+        floorMenuType
       });
     } catch (err) {
       console.error('Failed to fetch print data:', err);
@@ -383,11 +449,42 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
   }, [id]);
 
   useEffect(() => {
+    if (property?.code) {
+      const code = property.code.toLowerCase();
+      const mode = localStorage.getItem(`pos_layout_tablet_mode_${code}`) as 'unified' | 'split' | null;
+      const unified = localStorage.getItem(`pos_layout_tablet_${code}`);
+      const rest = localStorage.getItem(`pos_layout_tablet_restaurant_${code}`);
+      const bar = localStorage.getItem(`pos_layout_tablet_bar_${code}`);
+      const cafe = localStorage.getItem(`pos_layout_tablet_cafe_${code}`);
+
+      setTabletThemeMode(mode || 'unified');
+      setTabletUnifiedTheme(unified || 'RESTAURANT');
+      setTabletRestaurantTheme(rest || 'RESTAURANT');
+      setTabletBarTheme(bar || 'BAR');
+      setTabletCafeTheme(cafe || 'TABLET_CAFE');
+
+      // Sync menuType for unified layout if active
+      if (!mode || mode === 'unified') {
+        const savedTheme = unified;
+        if (savedTheme === 'RESTAURANT' || savedTheme === 'BAR' || savedTheme === 'CAFE' || savedTheme === 'TABLET_CAFE') {
+          setMenuType((savedTheme === 'TABLET_CAFE' ? 'CAFE' : savedTheme) as 'RESTAURANT' | 'BAR' | 'CAFE');
+        }
+      }
+    }
+  }, [property]);
+
+  useEffect(() => {
     if (selectedTableId && tables.length > 0) {
       const selectedTable = tables.find(t => t.id === selectedTableId);
       const floorMenuType = selectedTable?.floor?.menuType;
       if (floorMenuType) {
-        if (floorMenuType === 'BAR' && property?.barPosEnabled === false) {
+        const code = property?.code ? property.code.toLowerCase() : '';
+        const mode = code ? localStorage.getItem(`pos_layout_tablet_mode_${code}`) : 'unified';
+        const unified = code ? localStorage.getItem(`pos_layout_tablet_${code}`) : null;
+
+        if ((!mode || mode === 'unified') && unified && (unified === 'RESTAURANT' || unified === 'BAR' || unified === 'CAFE' || unified === 'TABLET_CAFE')) {
+          setMenuType((unified === 'TABLET_CAFE' ? 'CAFE' : unified) as 'RESTAURANT' | 'BAR' | 'CAFE');
+        } else if (floorMenuType === 'BAR' && property?.barPosEnabled === false) {
           setMenuType('RESTAURANT');
         } else if (floorMenuType === 'CAFE' && property?.cafePosEnabled === false) {
           setMenuType('RESTAURANT');
@@ -963,14 +1060,17 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  // Waiter Station Selection
   if (tablet.mode === 'WAITER' && sessionStage !== 'MENU') {
     return (
       <>
-        <div className="h-screen w-screen bg-[#0F172A] text-white flex flex-col overflow-hidden font-sans">
+        <div className="h-screen w-screen bg-gradient-to-br from-[#090D1A] via-[#0D1326] to-[#0A0E1D] text-white flex flex-col overflow-hidden font-sans relative">
+          
+          {/* Ambient mesh glows */}
+          <div className="absolute top-[-25%] left-[-25%] w-[65%] h-[65%] rounded-full bg-indigo-500/5 blur-[140px] pointer-events-none z-0" />
+          <div className="absolute bottom-[-25%] right-[-25%] w-[65%] h-[65%] rounded-full bg-violet-500/5 blur-[140px] pointer-events-none z-0" />
 
           {/* ── HEADER: Logo + Tablet Info + Inline Kitchen Status ── */}
-          <header className="h-16 shrink-0 flex items-center px-6 border-b border-white/5 bg-slate-950/80 backdrop-blur-md gap-6 z-50">
+          <header className="h-16 shrink-0 flex items-center px-6 border-b border-white/[0.06] bg-slate-950/40 backdrop-blur-xl gap-6 z-50 shadow-[0_4px_30px_rgba(0,0,0,0.3)] relative">
             {/* Brand */}
             <div className="flex items-center gap-3 shrink-0">
               {displayLogo ? (
@@ -982,11 +1082,11 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               )}
               <div className="leading-none">
                 {!displayLogo && (
-                  <h1 className="text-sm font-black tracking-tight uppercase">
-                    {property?.brandName || property?.name || 'OrderMint'} <span className="text-indigo-500">POS</span>
+                  <h1 className="text-sm font-black tracking-tight uppercase text-white">
+                    {property?.brandName || property?.name || 'OrderMint'} <span className="text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md text-[10px] border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)] ml-1">POS</span>
                   </h1>
                 )}
-                <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-0.5">
+                <p className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
                   {tablet.name} • WAITER STATION {waiter ? `(${waiter.name})` : ''}
                 </p>
               </div>
@@ -996,28 +1096,33 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             <div className="h-8 w-px bg-white/5 shrink-0" />
 
             {/* Live Kitchen Status — inline in header */}
-            <div className="flex-1 flex items-center gap-2 overflow-hidden">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest shrink-0">Live Kitchen</span>
+            <div className="flex-1 flex items-center gap-3 overflow-hidden">
+              <div className="flex items-center gap-2 shrink-0 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest shrink-0">Live Kitchen</span>
               </div>
-              <div className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <div className="flex-1 flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
                 {activeOrders.length === 0 ? (
-                  <span className="text-[9px] text-slate-600 font-bold tracking-wide">All clear — no active orders</span>
+                  <span className="text-[9px] text-slate-500 font-bold tracking-wide">All clear — no active orders</span>
                 ) : (
                   activeOrders.map(order => {
                     const tableName = order.table?.name || `T${order.tableNo || '?'}`;
                     const isReady = order.status === 'READY';
                     const isAwaiting = order.status === 'PAYMENT_AWAITING_APPROVAL';
                     let statusLabel = 'In Kitchen';
-                    let badgeColor = 'bg-amber-500/15 border-amber-500/30 text-amber-400';
+                    let badgeColor = 'bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(249,115,22,0.05)]';
                     let dotColor = 'bg-amber-400';
-                    if (isReady) { statusLabel = 'Ready'; badgeColor = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'; dotColor = 'bg-emerald-400'; }
-                    else if (isAwaiting) { statusLabel = 'Awaiting'; badgeColor = 'bg-blue-500/10 border-blue-500/20 text-blue-400'; dotColor = 'bg-blue-400'; }
+                    if (isReady) { statusLabel = 'Ready'; badgeColor = 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.08)] animate-pulse'; dotColor = 'bg-emerald-400'; }
+                    else if (isAwaiting) { statusLabel = 'Awaiting'; badgeColor = 'bg-blue-500/10 border-blue-500/20 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.05)]'; dotColor = 'bg-blue-400'; }
                     return (
-                      <div key={order.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest shrink-0 ${badgeColor} ${isReady ? 'animate-pulse' : ''}`}>
-                        <span className={`w-1 h-1 rounded-full ${dotColor}`} />
-                        {tableName} • {statusLabel}
+                      <div key={order.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-wider shrink-0 ${badgeColor} transition-all duration-200 hover:scale-105`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${isReady ? 'animate-ping' : ''}`} />
+                        <span className="text-white/95">{tableName}</span>
+                        <span className="opacity-30">•</span>
+                        <span>{statusLabel}</span>
                       </div>
                     );
                   })
@@ -1028,398 +1133,39 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             {/* Notification Bell */}
             <button
               onClick={() => setIsNotificationOpen(true)}
-              className="relative w-9 h-9 bg-slate-800/80 hover:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shrink-0"
+              className="relative w-10 h-10 bg-white/[0.03] hover:bg-white/[0.08] active:scale-95 border border-white/[0.08] rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shrink-0"
             >
               <Bell size={16} />
               {notificationHistory.filter(n => n.type === 'success').length > 0 && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center text-[8px] font-black text-white animate-pulse">
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 border-2 border-[#090D1A] rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-lg shadow-rose-500/20 animate-pulse">
                   {notificationHistory.filter(n => n.type === 'success').length}
                 </div>
               )}
             </button>
           </header>
 
-          {/* ── SELECT STATION VIEW: Slim Nav + Full Table Grid ── */}
+          {/* ── SELECT STATION: Dashboard-Style Premium Layout ── */}
           {sessionStage === 'TABLE' && (
-            <div className="flex-1 flex overflow-hidden relative">
-              {/* ── LEFT NAV: Floor filter only ── */}
-              <nav className="w-[72px] shrink-0 flex flex-col items-center py-4 gap-2 border-r border-white/[0.06] bg-slate-950/70">
-                <button
-                  onClick={() => setActiveFloorFilter('all')}
-                  className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all text-center ${activeFloorFilter === 'all'
-                      ? 'bg-indigo-600 text-white shadow-[0_8px_20px_-4px_rgba(99,102,241,0.6)]'
-                      : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10'
-                    }`}
-                  title="All Floors"
-                >
-                  <span className="text-base leading-none">⊞</span>
-                  <span className="text-[7px] font-black uppercase tracking-wide leading-none">All</span>
-                </button>
-                {Object.keys(tablesByFloor).map((floorName, i) => (
-                  <button
-                    key={floorName}
-                    onClick={() => setActiveFloorFilter(floorName)}
-                    className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all text-center ${activeFloorFilter === floorName
-                        ? 'bg-indigo-600 text-white shadow-[0_8px_20px_-4px_rgba(99,102,241,0.6)]'
-                        : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10'
-                      }`}
-                    title={floorName}
-                  >
-                    <span className="text-base leading-none">{i === 0 ? '①' : i === 1 ? '②' : i === 2 ? '③' : '④'}</span>
-                    <span className="text-[6px] font-black uppercase tracking-wide leading-none truncate w-10 text-center">{floorName.slice(0, 4)}</span>
-                  </button>
-                ))}
-              </nav>
-
-              {/* ── MAIN: Full table grid ── */}
-              <main className="flex-1 overflow-y-auto no-scrollbar bg-[#0a0f1e] relative">
-                {/* Subtle radial gradient bg */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.04)_0%,transparent_60%)] pointer-events-none" />
-
-                <div className="relative z-10 p-6">
-                  {/* Page title row */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <h2 className="text-xl font-black uppercase tracking-tight text-white">Select Station</h2>
-                        <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">Tap to open · Single-tap occupied for actions</p>
-                      </div>
-
-                      {/* Waiter Calls Alerts */}
-                      {waiterCalls.length > 0 && (
-                        <div className="flex items-center gap-2 flex-wrap ml-4">
-                          {waiterCalls.map(call => {
-                            let tableName = call.title;
-                            try {
-                              const meta = call.metadata ? JSON.parse(call.metadata) : {};
-                              if (meta.tableName) tableName = meta.tableName;
-                            } catch (e) { }
-
-                            return (
-                              <button
-                                key={call.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDismissWaiterCall(call.id);
-                                }}
-                                className="flex items-center gap-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-400 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-[0_0_10px_rgba(225,29,72,0.2)] animate-pulse"
-                              >
-                                <Bell size={12} className="shrink-0" />
-                                <span>Table {tableName}</span>
-                                <span className="ml-1 text-[8px] opacity-70 bg-rose-500/20 px-1.5 py-0.5 rounded-md">Dismiss</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center flex-wrap gap-3">
-                      {/* Late Alert Prep Time Setting */}
-                      <div className="flex items-center gap-2 bg-slate-900/80 border border-white/10 rounded-2xl px-3 py-1.5 shadow-md">
-                        <Clock size={12} className="text-indigo-400 animate-pulse" />
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Prep Warning:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="120"
-                          value={targetOrderPrepTime}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            setTargetOrderPrepTime(isNaN(val) ? 15 : val);
-                          }}
-                          className="w-12 h-6 bg-slate-950/80 border border-white/10 rounded-lg text-center text-[10px] font-black text-white outline-none focus:border-indigo-500/50"
-                        />
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">mins</span>
-                      </div>
-
-                      {activeOrders.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          {activeOrders.filter(o => o.status === 'KOT_RUNNING' || o.status === 'IN_KITCHEN').length > 0 && (
-                            <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest">
-                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-                              {activeOrders.filter(o => o.status === 'KOT_RUNNING' || o.status === 'IN_KITCHEN').length} In Kitchen
-                            </div>
-                          )}
-                          {activeOrders.filter(o => o.status === 'READY').length > 0 && (
-                            <div className="flex items-center gap-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse">
-                              <span className="w-1.5 h-1.5 bg-teal-400 rounded-full" />
-                              {activeOrders.filter(o => o.status === 'READY').length} Ready
-                            </div>
-                          )}
-                          <div className="bg-white/5 border border-white/5 text-slate-400 px-3 py-1.5 rounded-xl text-[9px] font-black">
-                            ₹{activeOrders.reduce((s, o) => s + (o.grandTotal || 0), 0).toFixed(0)} Live
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Table grids per floor */}
-                  <div className="space-y-8">
-                    {Object.entries(tablesByFloor)
-                      .filter(([floorName]) => activeFloorFilter === 'all' || activeFloorFilter === floorName)
-                      .map(([floorName, floorTables]) => (
-                        <div key={floorName}>
-                          {/* Floor label */}
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
-                              <span className="text-xs font-black uppercase tracking-widest text-slate-400">{floorName}</span>
-                            </div>
-                            <div className="flex-1 h-px bg-white/5" />
-                            <span className="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/10">
-                              {floorTables.length} tables
-                            </span>
-                          </div>
-
-                          {/* Premium table card grid */}
-                          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-3">
-                            {floorTables.map(table => {
-                              const tableActiveOrder = activeOrders.find(order => order.restaurantTableId === table.id);
-                              const elapsedMins = tableActiveOrder?.createdAt
-                                ? Math.floor((Date.now() - new Date(tableActiveOrder.createdAt).getTime()) / 60000)
-                                : 0;
-
-                              let tableStatus = (table as any).status || 'VACANT';
-                              if (tableActiveOrder) {
-                                tableStatus = tableActiveOrder.status === 'READY' ? 'READY'
-                                  : (tableActiveOrder.status === 'PAYMENT_AWAITING_APPROVAL' || tableActiveOrder.status === 'BILL_PRINTED') ? 'BILL_PRINTED'
-                                    : tableActiveOrder.status === 'SERVED' ? 'SERVED'
-                                      : tableActiveOrder.status === 'ON_HOLD' ? 'ON_HOLD'
-                                        : tableActiveOrder.status === 'SAVED' ? 'SAVED'
-                                          : 'KOT_RUNNING';
-                              }
-
-                              const isOccupied = tableStatus !== 'VACANT';
-                              const tableAlert = tableStatusAlerts[table.id];
-
-                              // Style sets matching the mockup
-                              let cardBg = 'bg-slate-900/60 hover:bg-slate-900/80';
-                              let cardBorder = 'border-slate-800/80 hover:border-slate-700';
-                              let cardGlow = 'shadow-md';
-                              let statusLabel = 'VACANT';
-                              let statusBg = 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-400';
-                              let statusDot = 'bg-emerald-400';
-
-                              if (tableStatus === 'READY') {
-                                cardBg = 'bg-[#0b161c] hover:bg-[#0f1f27]';
-                                cardBorder = 'border-cyan-500';
-                                cardGlow = 'shadow-[0_0_15px_rgba(6,182,212,0.35)]';
-                                statusLabel = 'READY';
-                                statusBg = 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400';
-                                statusDot = 'bg-cyan-400';
-                              } else if (tableStatus === 'BILL_PRINTED') {
-                                cardBg = 'bg-[#0a1224] hover:bg-[#0e1a33]';
-                                cardBorder = 'border-blue-500';
-                                cardGlow = 'shadow-[0_0_15px_rgba(59,130,246,0.35)]';
-                                statusLabel = 'PAY BILL';
-                                statusBg = 'bg-blue-500/15 border border-blue-500/30 text-blue-400';
-                                statusDot = 'bg-blue-400';
-                              } else if (tableStatus === 'KOT_RUNNING') {
-                                cardBg = 'bg-[#18110b] hover:bg-[#221810]';
-                                cardBorder = 'border-orange-500';
-                                cardGlow = 'shadow-[0_0_15px_rgba(249,115,22,0.35)]';
-                                statusLabel = 'KITCHEN';
-                                statusBg = 'bg-orange-500/15 border border-orange-500/30 text-orange-400';
-                                statusDot = 'bg-orange-400';
-                              } else if (tableStatus === 'ON_HOLD') {
-                                cardBg = 'bg-[#1a1508] hover:bg-[#261f0c]';
-                                cardBorder = 'border-amber-500';
-                                cardGlow = 'shadow-[0_0_15px_rgba(245,158,11,0.35)]';
-                                statusLabel = 'ON HOLD';
-                                statusBg = 'bg-amber-500/15 border border-amber-500/30 text-amber-400';
-                                statusDot = 'bg-amber-400';
-                              } else if (tableStatus === 'SAVED') {
-                                cardBg = 'bg-[#1a1111] hover:bg-[#261a1a]';
-                                cardBorder = 'border-red-500';
-                                cardGlow = 'shadow-[0_0_15px_rgba(239,68,68,0.35)]';
-                                statusLabel = 'SAVED';
-                                statusBg = 'bg-red-500/15 border border-red-500/30 text-red-400';
-                                statusDot = 'bg-red-400';
-                              } else if (tableStatus === 'SERVED') {
-                                cardBg = 'bg-slate-900/60 hover:bg-slate-900/80';
-                                cardBorder = 'border-slate-600';
-                                cardGlow = 'shadow-md';
-                                statusLabel = 'SERVED';
-                                statusBg = 'bg-slate-500/15 border border-slate-500/30 text-slate-400';
-                                statusDot = 'bg-slate-400';
-                              } else if (tableStatus === 'OCCUPIED') {
-                                cardBg = 'bg-[#1c0f0f] hover:bg-[#271515]';
-                                cardBorder = 'border-rose-500';
-                                cardGlow = 'shadow-[0_0_15px_rgba(244,63,94,0.35)]';
-                                statusLabel = 'OCCUPIED';
-                                statusBg = 'bg-rose-500/15 border border-rose-500/30 text-rose-450';
-                                statusDot = 'bg-rose-550';
-                              }
-
-                              const isLate = isOccupied && tableActiveOrder && tableStatus === 'KOT_RUNNING' && elapsedMins >= ((tableActiveOrder as any).preparationTime || targetOrderPrepTime);
-
-                              const readyPickupLimit = typeof window !== 'undefined' ? parseInt(localStorage.getItem('kds_ready_pickup_time') || '5', 10) : 5;
-                              const readyWaitMin = tableActiveOrder?.updatedAt ? Math.floor((Date.now() - new Date(tableActiveOrder.updatedAt).getTime()) / 60000) : 0;
-                              const isPickupLate = isOccupied && tableActiveOrder && tableStatus === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
-
-                              if (isLate) {
-                                cardBg = 'bg-black hover:bg-black/90';
-                                cardBorder = 'border-rose-600 animate-blink-late';
-                                cardGlow = 'shadow-[0_0_20px_rgba(225,29,72,0.5)]';
-                                statusLabel = 'LATE KITCHEN';
-                                statusBg = 'bg-rose-950/50 border border-rose-500/30 text-rose-400';
-                                statusDot = 'bg-rose-550 animate-pulse';
-                              } else if (isPickupLate) {
-                                cardBg = 'bg-black hover:bg-black/90';
-                                cardBorder = 'border-blue-500 animate-blink-ready';
-                                cardGlow = 'shadow-[0_0_20px_rgba(59,130,246,0.5)]';
-                                statusLabel = 'LATE PICKUP';
-                                statusBg = 'bg-blue-950/50 border border-blue-500/30 text-blue-400';
-                                statusDot = 'bg-blue-550 animate-pulse';
-                              }
-
-                              return (
-                                <div className="relative" key={table.id}>
-                                  {/* Status-change popup badge */}
-                                  {tableAlert && (
-                                    <div className={`absolute -top-4 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest whitespace-nowrap shadow-2xl border animate-bounce ${tableAlert.type === 'ready' ? 'bg-teal-500 text-white border-teal-300/50 shadow-teal-500/40'
-                                        : tableAlert.type === 'kitchen' ? 'bg-orange-500 text-white border-orange-300/50 shadow-orange-500/40'
-                                          : 'bg-blue-500 text-white border-blue-300/50 shadow-blue-500/40'
-                                      }`}>
-                                      <span>{tableAlert.type === 'ready' ? '🔔' : tableAlert.type === 'kitchen' ? '🍳' : '💳'}</span>
-                                      {tableAlert.message}
-                                    </div>
-                                  )}
-
-                                  <button
-                                    onClick={() => {
-                                      if (isOccupied) {
-                                        setActiveTableActionId(activeTableActionId === table.id ? null : table.id);
-                                      } else {
-                                        setSelectedTableId(table.id);
-                                        setSessionStage('PAX');
-                                      }
-                                    }}
-                                    onDoubleClick={() => {
-                                      setSelectedTableId(table.id);
-                                      setSessionStage(isOccupied ? 'MENU' : 'PAX');
-                                    }}
-                                    className={`w-full aspect-square rounded-2xl border ${cardBorder} ${cardBg} ${cardGlow} flex flex-col items-center justify-between p-3 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] group relative overflow-hidden`}
-                                  >
-                                    {/* Top: Name */}
-                                    <div className="w-full flex items-center justify-center pt-1">
-                                      <span className="text-base font-black text-white uppercase tracking-tight">{table.name}</span>
-                                    </div>
-
-                                    {/* Middle: Icon or Guest Details */}
-                                    <div className="flex-1 flex items-center justify-center py-2 w-full">
-                                      {isOccupied ? (
-                                        tableStatus === 'BILL_PRINTED' ? (
-                                          <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                                            <ReceiptIndianRupee size={15} />
-                                          </div>
-                                        ) : (
-                                          <div className="flex flex-col items-center gap-1 max-w-full">
-                                            {tableActiveOrder?.guest ? (
-                                              <div className="flex items-center justify-center gap-1 px-2.5 py-1 bg-white/5 border border-white/5 rounded-xl text-[9px] font-black text-slate-300 uppercase tracking-wider max-w-full">
-                                                <User size={10} className="text-slate-500 shrink-0" />
-                                                <span className="truncate max-w-[60px]">{tableActiveOrder.guest.firstName}</span>
-                                              </div>
-                                            ) : tableActiveOrder?.guestCount ? (
-                                              <div className="flex items-center justify-center gap-1 px-2.5 py-1 bg-white/5 border border-white/5 rounded-xl text-[9px] font-black text-slate-300 uppercase tracking-wider">
-                                                <User size={10} className="text-slate-500 shrink-0" />
-                                                <span>{tableActiveOrder.guestCount} Pax</span>
-                                              </div>
-                                            ) : (
-                                              <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-slate-500">
-                                                <User size={12} />
-                                              </div>
-                                            )}
-                                            {/* Elapsed prep time */}
-                                            {tableActiveOrder && (
-                                              <div className="flex items-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase tracking-wider">
-                                                <Clock size={10} className={isLate ? "text-rose-500 animate-pulse" : "text-slate-500"} />
-                                                <span className={isLate ? "text-rose-400 font-black animate-pulse" : "text-slate-500"}>
-                                                  {elapsedMins} mins
-                                                </span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )
-                                      ) : (
-                                        <div className="transition-transform group-hover:scale-110 duration-200">
-                                          <TableIcon size={24} className="text-slate-600/80" />
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Bottom: status pill */}
-                                    <div className="w-full">
-                                      {isOccupied && tableActiveOrder?.grandTotal ? (
-                                        <div className={`w-full rounded-xl py-1 px-1.5 flex items-center justify-center gap-1 border font-black text-[8px] uppercase tracking-widest ${statusBg}`}>
-                                          <span className={`w-1 h-1 rounded-full shrink-0 ${statusDot} ${tableStatus === 'READY' ? 'animate-pulse' : ''}`} />
-                                          <span className="truncate">{statusLabel} ₹{tableActiveOrder.grandTotal.toFixed(0)}</span>
-                                        </div>
-                                      ) : (
-                                        <div className={`w-full rounded-xl py-1 text-center border font-black text-[8px] uppercase tracking-widest ${statusBg}`}>
-                                          {statusLabel}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </button>
-
-                                  {activeTableActionId === table.id && (
-                                    <div
-                                      className="fixed inset-0 z-[90] bg-transparent cursor-default"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveTableActionId(null);
-                                      }}
-                                    />
-                                  )}
-
-                                  <AnimatePresence>
-                                    {activeTableActionId === table.id && (
-                                      <motion.div
-                                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                                        className="absolute top-[105%] left-1/2 -translate-x-1/2 z-[100] w-[200px] bg-slate-900/98 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-3 flex flex-col gap-2"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <div className="text-center pb-2 border-b border-white/5">
-                                          <p className="text-xs font-black text-white">{table.name}</p>
-                                          {tableActiveOrder?.grandTotal && <p className="text-[9px] text-slate-400">₹{tableActiveOrder.grandTotal.toFixed(0)}</p>}
-                                        </div>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); setSelectedTableId(table.id); setSessionStage('MENU'); setActiveTableActionId(null); }}
-                                          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-                                        >
-                                          <TableIcon size={12} /> Add Items
-                                        </button>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); const order = activeOrders.find(o => o.restaurantTableId === table.id); handleSettleFromTable(table, order || null); setActiveTableActionId(null); }}
-                                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-                                        >
-                                          <ReceiptIndianRupee size={12} /> Pay Bill
-                                        </button>
-                                        <div className="flex gap-2">
-                                          <button onClick={(e) => { e.stopPropagation(); handlePrintKOT(table.id); setActiveTableActionId(null); }} className="flex-1 py-2 bg-white/5 border border-white/5 text-slate-300 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-1">
-                                            <Printer size={11} /> KOT
-                                          </button>
-                                          <button onClick={(e) => { e.stopPropagation(); setSourceTableForSwitch(table); setIsSwitchModalOpen(true); setActiveTableActionId(null); }} className="flex-1 py-2 bg-white/5 border border-white/5 text-slate-300 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-1">
-                                            <ArrowLeftRight size={11} /> Move
-                                          </button>
-                                        </div>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </main>
-            </div>
+            <TabletTableGrid
+              filteredTables={filteredTables}
+              activeOrders={activeOrders}
+              tablesByFloor={tablesByFloor}
+              activeFloorFilter={activeFloorFilter}
+              setActiveFloorFilter={setActiveFloorFilter}
+              waiterCalls={waiterCalls}
+              handleDismissWaiterCall={handleDismissWaiterCall}
+              tableStatusAlerts={tableStatusAlerts}
+              activeTableActionId={activeTableActionId}
+              setActiveTableActionId={setActiveTableActionId}
+              setSelectedTableId={setSelectedTableId}
+              setSessionStage={setSessionStage}
+              targetOrderPrepTime={targetOrderPrepTime}
+              setTargetOrderPrepTime={setTargetOrderPrepTime}
+              handleSettleFromTable={handleSettleFromTable}
+              handlePrintKOT={handlePrintKOT}
+              setSourceTableForSwitch={setSourceTableForSwitch}
+              setIsSwitchModalOpen={setIsSwitchModalOpen}
+            />
           )}
 
           {/* ── SERVICE DETAILS (PAX STAGE): Clean dedicated full-screen page ── */}
@@ -1434,7 +1180,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               <div className="flex items-center gap-4 relative z-10 w-full mb-2">
                 <button
                   onClick={() => setSessionStage('TABLE')}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-slate-400 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/40 shrink-0"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-lg shrink-0"
                 >
                   <ArrowLeft size={13} className="text-indigo-400" />
                   Back to Tables
@@ -1446,12 +1192,12 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               </div>
 
               {/* ── TWO COLUMN LAYOUT ── */}
-              <div className="flex-1 grid grid-cols-2 gap-5 relative z-10 min-h-0">
+              <div className="flex-1 grid grid-cols-2 gap-6 relative z-10 min-h-0">
 
                 {/* ─── LEFT: GUEST PANEL ─── */}
-                <div className="flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 shadow-[0_15px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden">
+                <div className="flex flex-col bg-[#111827]/40 backdrop-blur-2xl rounded-3xl border border-white/[0.08] shadow-2xl overflow-hidden">
                   {/* Panel Header */}
-                  <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 bg-gradient-to-r from-indigo-600/10 to-transparent shrink-0">
+                  <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.06] bg-gradient-to-r from-indigo-600/10 to-transparent shrink-0">
                     <div className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                       <User size={16} />
                     </div>
@@ -1489,22 +1235,22 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                       </div>
                     ) : selectedCustomer ? (
                       <div className="flex-1 flex flex-col gap-4">
-                        <div className="bg-slate-950/60 border border-indigo-500/30 rounded-2xl p-5 flex items-center gap-4 shadow-inner">
+                        <div className="bg-slate-950/60 border border-indigo-500/20 rounded-2xl p-5 flex items-center gap-4 shadow-[0_4px_20px_rgba(99,102,241,0.08)]">
                           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0"><User size={24} className="text-white" /></div>
                           <div className="min-w-0">
                             <p className="text-base font-black text-white uppercase tracking-tight truncate">{selectedCustomer.firstName} {selectedCustomer.lastName || ''}</p>
                             <p className="text-[10px] text-indigo-400 font-black tracking-wider mt-0.5">{selectedCustomer.mobile || 'No Mobile'}</p>
                             {selectedCustomer.email && <p className="text-[9px] text-slate-500 font-bold truncate">{selectedCustomer.email}</p>}
-                            <span className="mt-2 inline-block text-[8px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">{selectedCustomer.loyaltyPoints || 0} pts</span>
+                            <span className="mt-2 inline-block text-[8px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">{selectedCustomer.loyaltyPoints || 0} pts</span>
                           </div>
                         </div>
-                        <button onClick={() => setSelectedCustomer(null)} className="w-full py-3 bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/40 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-300 transition-all">Remove &amp; Search Again</button>
+                        <button onClick={() => setSelectedCustomer(null)} className="w-full py-3 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-300 transition-all">Remove &amp; Search Again</button>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3 flex-1">
                         <div className="relative group">
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={15} />
-                          <input type="text" placeholder="Search by name or mobile..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full h-12 bg-slate-950/80 border border-white/10 rounded-xl pl-11 pr-11 text-xs font-bold text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all" />
+                          <input type="text" placeholder="Search by name or mobile..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full h-12 bg-slate-950/40 border border-white/10 rounded-xl pl-11 pr-11 text-xs font-bold text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 focus:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all" />
                           <button onClick={() => setIsCustomerModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all" title="Add New Guest"><UserPlus size={13} /></button>
                         </div>
                         {customerSearch ? (
@@ -1523,7 +1269,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                           </div>
                         ) : (
                           <div className="flex-1 flex flex-col items-center justify-center gap-3 py-6">
-                            <div className="w-16 h-16 rounded-2xl bg-slate-800/60 flex items-center justify-center text-slate-600"><User size={28} /></div>
+                            <div className="w-16 h-16 rounded-2xl bg-slate-800/40 flex items-center justify-center text-slate-600"><User size={28} /></div>
                             <div className="text-center"><p className="text-xs font-black text-slate-500 uppercase tracking-wider">Optional</p><p className="text-[10px] text-slate-600 font-bold mt-0.5">Search above to link a guest</p></div>
                             <button onClick={() => setIsCustomerModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600/20 border border-indigo-500/30 rounded-xl text-[9px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-600/30 transition-all"><UserPlus size={12} />Register New Guest</button>
                           </div>
@@ -1534,9 +1280,9 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                 </div>
 
                 {/* ─── RIGHT: DRIVER + PAX ─── */}
-                <div className="flex flex-col gap-5">
-                  <div className="flex-1 flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 shadow-[0_15px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden">
-                    <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 bg-gradient-to-r from-amber-600/10 to-transparent shrink-0">
+                <div className="flex flex-col gap-6">
+                  <div className="flex-1 flex flex-col bg-[#111827]/40 backdrop-blur-2xl rounded-3xl border border-white/[0.08] shadow-2xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.06] bg-gradient-to-r from-amber-600/10 to-transparent shrink-0">
                       <div className="w-9 h-9 rounded-xl bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-400"><CarFront size={16} /></div>
                       <div><p className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none mb-0.5">Driver Panel</p><p className="text-sm font-black text-white uppercase tracking-tight">Assign Driver</p></div>
                       {selectedDriver && <span className="ml-auto text-[8px] font-black bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-full border border-amber-500/20 uppercase tracking-wider">✓ Assigned</span>}
@@ -1544,21 +1290,21 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                     <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto no-scrollbar">
                       {selectedDriver ? (
                         <div className="flex flex-col gap-4">
-                          <div className="bg-slate-950/60 border border-amber-500/30 rounded-2xl p-5 flex items-center gap-4 shadow-inner">
+                          <div className="bg-slate-950/60 border border-amber-500/20 rounded-2xl p-5 flex items-center gap-4 shadow-[0_4px_20px_rgba(245,158,11,0.08)]">
                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0"><CarFront size={24} className="text-white" /></div>
                             <div className="min-w-0">
                               <p className="text-base font-black text-white uppercase tracking-tight truncate">{selectedDriver.name}</p>
                               <p className="text-[10px] text-amber-400 font-black tracking-wider mt-0.5">{selectedDriver.phone || 'No Phone'}</p>
-                              <span className="mt-2 inline-block text-[8px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Delivery Order</span>
+                              <span className="mt-2 inline-block text-[8px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Delivery Order</span>
                             </div>
                           </div>
-                          <button onClick={() => setSelectedDriver(null)} className="w-full py-3 bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/40 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-300 transition-all">Remove &amp; Search Again</button>
+                          <button onClick={() => setSelectedDriver(null)} className="w-full py-3 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-300 transition-all">Remove &amp; Search Again</button>
                         </div>
                       ) : (
                         <div className="flex flex-col gap-3 flex-1">
                           <div className="relative group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-amber-400 transition-colors" size={15} />
-                            <input type="text" placeholder="Search driver name or phone..." value={driverSearch} onChange={(e) => setDriverSearch(e.target.value)} className="w-full h-12 bg-slate-950/80 border border-white/10 rounded-xl pl-11 pr-4 text-xs font-bold text-white placeholder:text-slate-600 outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 transition-all" />
+                            <input type="text" placeholder="Search driver name or phone..." value={driverSearch} onChange={(e) => setDriverSearch(e.target.value)} className="w-full h-12 bg-slate-950/40 border border-white/10 rounded-xl pl-11 pr-4 text-xs font-bold text-white placeholder:text-slate-600 outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10 focus:shadow-[0_0_15px_rgba(245,158,11,0.15)] transition-all" />
                           </div>
                           {driverSearch ? (
                             <div className="flex-1 overflow-y-auto no-scrollbar bg-slate-950/60 rounded-2xl border border-white/5 divide-y divide-white/5 max-h-[200px]">
@@ -1576,7 +1322,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                             </div>
                           ) : (
                             <div className="flex-1 flex flex-col items-center justify-center gap-3 py-4">
-                              <div className="w-16 h-16 rounded-2xl bg-slate-800/60 flex items-center justify-center text-slate-600"><CarFront size={28} /></div>
+                              <div className="w-16 h-16 rounded-2xl bg-slate-800/40 flex items-center justify-center text-slate-600"><CarFront size={28} /></div>
                               <div className="text-center"><p className="text-xs font-black text-slate-500 uppercase tracking-wider">Optional</p><p className="text-[10px] text-slate-600 font-bold mt-0.5">Only for delivery orders</p></div>
                             </div>
                           )}
@@ -1586,14 +1332,14 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                   </div>
 
                   {/* PAX Counter */}
-                  <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 shadow-[0_15px_40px_-10px_rgba(0,0,0,0.5)] p-5 shrink-0">
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] text-center mb-4">Number of Covers (PAX)</p>
-                    <div className="flex items-center justify-between bg-slate-950/80 border border-white/10 rounded-2xl p-2 shadow-inner relative overflow-hidden">
+                  <div className="bg-[#111827]/40 backdrop-blur-2xl rounded-3xl border border-white/[0.08] shadow-2xl p-5 shrink-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] text-center mb-4">Number of Covers (PAX)</p>
+                    <div className="flex items-center justify-between bg-slate-950/40 border border-white/10 rounded-2xl p-2 shadow-inner relative overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
                       <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-12 h-12 shrink-0 rounded-xl bg-slate-800 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all hover:scale-105 active:scale-95 z-10"><Minus size={18} /></button>
                       <div className="flex-1 flex flex-col items-center justify-center z-10">
-                        <span className="text-[3.5rem] font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] leading-none">{pax}</span>
-                        <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-0.5">GUESTS</span>
+                        <span className="text-[3.5rem] font-black tabular-nums tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.25)] leading-none">{pax}</span>
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-0.5">GUESTS</span>
                       </div>
                       <button onClick={() => setPax(pax + 1)} className="w-12 h-12 shrink-0 rounded-xl bg-slate-800 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-indigo-500 hover:text-white hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-all hover:scale-105 active:scale-95 z-10"><Plus size={18} /></button>
                     </div>
@@ -1605,14 +1351,14 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               <div className="flex gap-4 w-full shrink-0 z-10">
                 <button
                   onClick={() => setSessionStage('TABLE')}
-                  className="flex-1 h-16 bg-slate-900 hover:bg-slate-800 border border-white/10 rounded-2xl font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] flex items-center justify-center gap-2 text-xs shadow-lg shadow-black/40"
+                  className="flex-1 h-16 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] rounded-2xl font-black uppercase tracking-[0.2em] text-slate-300 hover:text-white transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] flex items-center justify-center gap-2 text-xs shadow-lg"
                 >
                   <ArrowLeft size={14} className="text-indigo-400" />
                   Back
                 </button>
                 <button
                   onClick={() => setSessionStage('MENU')}
-                  className="flex-[3] h-16 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_10px_30px_-10px_rgba(79,70,229,0.7)] hover:shadow-[0_20px_40px_-10px_rgba(79,70,229,0.9)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] flex items-center justify-center gap-3 group relative overflow-hidden text-base border border-indigo-400/30"
+                  className="flex-[3] h-16 bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_10px_35px_-5px_rgba(99,102,241,0.5)] hover:shadow-[0_20px_45px_-5px_rgba(99,102,241,0.7)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] flex items-center justify-center gap-3 group relative overflow-hidden text-base border border-indigo-400/20"
                 >
                   <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] -translate-x-[150%] group-hover:translate-x-[150%] transition-transform duration-700 ease-in-out" />
                   <span className="relative z-10 text-white drop-shadow-md">Confirm &amp; Start Session</span>
@@ -1703,151 +1449,58 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
+  const activeLayout = tabletThemeMode === 'split'
+    ? (menuType === 'RESTAURANT'
+        ? tabletRestaurantTheme
+        : menuType === 'BAR'
+          ? tabletBarTheme
+          : tabletCafeTheme)
+    : (menuType === 'RESTAURANT'
+        ? 'RESTAURANT'
+        : menuType === 'BAR'
+          ? 'BAR'
+          : (tabletUnifiedTheme === 'CAFE' ? 'CAFE' : 'TABLET_CAFE'));
+
   return (
-    <div className="h-screen w-screen bg-[#020617] text-white flex flex-col overflow-hidden font-sans select-none">
+    <div className="h-screen w-screen bg-gradient-to-br from-[#090D1A] via-[#0D1326] to-[#0A0E1D] text-white flex flex-col overflow-hidden font-sans select-none relative">
+      
+      {/* Ambient mesh glows */}
+      <div className="absolute top-[-25%] left-[-25%] w-[65%] h-[65%] rounded-full bg-indigo-500/5 blur-[140px] pointer-events-none z-0" />
+      <div className="absolute bottom-[-25%] right-[-25%] w-[65%] h-[65%] rounded-full bg-violet-500/5 blur-[140px] pointer-events-none z-0" />
+
       {/* Live Kitchen Status Ticker */}
-      <div className="h-10 shrink-0 bg-slate-950/90 border-b border-white/5 flex items-center justify-between px-6 select-none overflow-hidden text-[9px] font-black tracking-widest uppercase">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-          <span className="text-emerald-400 font-black">Live Kitchen Status</span>
-        </div>
-        <div className="flex-1 flex items-center gap-6 overflow-x-auto no-scrollbar ml-8 mr-4 py-1">
-          {activeOrders.length === 0 ? (
-            <span className="text-slate-500 font-semibold tracking-normal normal-case">All orders served. Kitchen is clear.</span>
-          ) : (
-            activeOrders.map(order => {
-              const tableName = order.table?.name || `Table ${order.tableNo || '?'}`;
-              const isReady = order.status === 'READY';
-              const isAwaiting = order.status === 'PAYMENT_AWAITING_APPROVAL';
-
-              const elapsedMins = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
-              const limit = order.preparationTime || 15;
-              const isLate = (order.status === 'KOT_RUNNING' || order.status === 'IN_KITCHEN') && elapsedMins >= limit;
-
-              const readyPickupLimit = typeof window !== 'undefined' ? parseInt(localStorage.getItem('kds_ready_pickup_time') || '5', 10) : 5;
-              const readyWaitMin = order.updatedAt ? Math.floor((Date.now() - new Date(order.updatedAt).getTime()) / 60000) : 0;
-              const isPickupLate = isReady && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
-
-              let statusLabel = 'In Kitchen';
-              let badgeColor = 'bg-amber-500/10 border-amber-500/20 text-amber-400';
-              let pulseClass = '';
-
-              if (isLate) {
-                statusLabel = 'Late Kitchen';
-                badgeColor = 'bg-rose-500/20 border-rose-500/30 text-rose-400';
-                pulseClass = 'animate-pulse';
-              } else if (isPickupLate) {
-                statusLabel = 'Late Pickup';
-                badgeColor = 'bg-blue-500/20 border-blue-500/30 text-blue-400';
-                pulseClass = 'animate-pulse';
-              } else if (isReady) {
-                statusLabel = 'Ready to Serve';
-                badgeColor = 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400';
-                pulseClass = 'animate-pulse';
-              } else if (isAwaiting) {
-                statusLabel = 'Awaiting Settle';
-                badgeColor = 'bg-blue-500/10 border-blue-500/20 text-blue-400';
-              }
-
-              return (
-                <div key={order.id} className={`flex items-center gap-2 px-3 py-1 rounded-full border ${badgeColor} ${pulseClass} shrink-0`}>
-                  <span>{tableName}</span>
-                  <span className="opacity-40">•</span>
-                  <span>{statusLabel}</span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+      <LiveKitchenTicker activeOrders={activeOrders} />
 
       {/* Top Header - Unified Terminal Header */}
-      <header className="h-16 shrink-0 flex items-center justify-between px-6 bg-slate-900/80 backdrop-blur-md border-b border-white/5 z-50">
-        <div className="flex items-center gap-4">
-          {displayLogo ? (
-            <img src={displayLogo} alt="Logo" className="h-8 w-auto object-contain" />
-          ) : (
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <Utensils size={18} />
-            </div>
-          )}
-          <div>
-            {!displayLogo && (
-              <h1 className="font-black uppercase tracking-tight text-sm">
-                {property?.brandName || property?.name || 'OrderMint'} <span className="text-indigo-500">POS</span>
-              </h1>
-            )}
-            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-              {tablet.name} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'} {waiter ? `• Waiter: ${waiter.name}` : ''}
-            </p>
-          </div>
-        </div>
-
-        {activeOrder && (
-          <div className="hidden md:flex items-center gap-3 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 animate-in fade-in zoom-in duration-500">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            <div className="flex flex-col">
-              <span className="text-[7px] font-black uppercase text-indigo-400 tracking-widest leading-none">Active Order</span>
-              <span className="text-[9px] font-black leading-tight text-white/90">#{activeOrder.orderNo}</span>
-            </div>
-            <button
-              onClick={() => setIsStatusVisible(true)}
-              className="text-[7px] font-black uppercase bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 ml-2 border border-white/5 transition-all"
-            >
-              Track Status
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-center gap-4">
-          <div className="relative w-64 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={14} />
-            <input
-              type="text"
-              placeholder="Search Menu..."
-              className="w-full h-10 bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500/50 transition-all"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {tablet.mode === 'WAITER' && (
-            <button
-              onClick={() => setSessionStage('TABLE')}
-              className="h-10 px-4 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-[9px] font-black uppercase tracking-widest"
-            >
-              <TableIcon size={14} className="text-indigo-400" />
-              Switch Table
-            </button>
-          )}
-
-          <button
-            onClick={() => setIsNotificationOpen(true)}
-            className="relative w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all"
-          >
-            <Bell size={18} />
-            {notificationHistory.filter(n => n.type === 'success').length > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center text-[8px] font-black text-white animate-pulse">
-                {notificationHistory.filter(n => n.type === 'success').length}
-              </div>
-            )}
-          </button>
-        </div>
-      </header>
+      <TabletHeader
+        property={property}
+        websiteSettings={websiteSettings}
+        tablet={tablet}
+        tables={filteredTables}
+        selectedTableId={selectedTableId}
+        waiter={waiter}
+        activeOrder={activeOrder}
+        setIsStatusVisible={setIsStatusVisible}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        setSessionStage={setSessionStage}
+        setIsNotificationOpen={setIsNotificationOpen}
+        notificationHistory={notificationHistory}
+      />
 
       {/* Menu Switcher (Restaurant / Bar / Cafe) */}
       {(showBarTab || showCafeTab) && (
-        <div className="h-12 shrink-0 bg-slate-950/80 border-b border-white/5 flex items-center justify-center px-6 gap-2">
+        <div className="h-14 shrink-0 bg-slate-950/20 border-b border-white/[0.06] backdrop-blur-md flex items-center justify-center px-6 gap-3 z-45">
           <button
             onClick={() => { setMenuType('RESTAURANT'); setActiveCategory('all'); }}
-            className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'RESTAURANT' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+            className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'RESTAURANT' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg border border-indigo-400/20 shadow-indigo-500/20' : 'bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06]'}`}
           >
             🍽️ Restaurant
           </button>
           {showBarTab && (
             <button
               onClick={() => { setMenuType('BAR'); setActiveCategory('all'); }}
-              className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'BAR' ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+              className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'BAR' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg border border-amber-400/20 shadow-amber-500/20' : 'bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06]'}`}
             >
               🍺 Bar
             </button>
@@ -1855,7 +1508,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           {showCafeTab && (
             <button
               onClick={() => { setMenuType('CAFE'); setActiveCategory('all'); }}
-              className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'CAFE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+              className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${menuType === 'CAFE' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg border border-emerald-400/20 shadow-emerald-500/20' : 'bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06]'}`}
             >
               ☕ Cafe
             </button>
@@ -1864,56 +1517,28 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative z-10">
 
         {/* Left Side: Product Grid & Categories (Billing Style) */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-slate-950/50">
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-950/20">
           {/* Category Bar & Inline Search */}
-          <div className="h-20 shrink-0 border-b border-white/5 flex items-center px-4 gap-3 overflow-x-auto no-scrollbar">
-            
-            {/* Inline Search Bar */}
-            <div className="relative shrink-0 w-48 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={14} />
-              <input
-                type="text"
-                placeholder="Search items..."
-                className="w-full h-14 bg-slate-900 border border-slate-700/50 rounded-xl pl-9 pr-4 text-[11px] font-bold outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-white placeholder:text-slate-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={() => setActiveCategory('all')}
-              className={`flex flex-col items-center justify-center min-w-[80px] h-14 rounded-xl transition-all ${activeCategory === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
-            >
-              <span className="text-[10px] font-black uppercase tracking-widest">All Items</span>
-              <span className="text-[8px] font-bold opacity-60 mt-0.5">{filteredProductsForMenuType.length} Items</span>
-            </button>
-
-            {filteredCategories.map((cat, idx) => {
-              const colorClass = CATEGORY_COLORS_DARK[idx % 8];
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`flex flex-col items-center justify-center min-w-[100px] h-14 rounded-xl transition-all ${activeCategory === cat.id ? `${colorClass} shadow-lg scale-105` : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
-                >
-                  <span className="text-[10px] font-black uppercase tracking-widest truncate w-full px-2 text-center">{cat.name}</span>
-                  <span className="text-[8px] font-bold opacity-60 mt-0.5">Category</span>
-                </button>
-              );
-            })}
-          </div>
-
+          <TabletCategoryBar
+            menuType={menuType}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filteredProductsForMenuType={filteredProductsForMenuType}
+            filteredCategories={filteredCategories}
+          />
 
           {/* Menu Items Container */}
-          {menuType === 'CAFE' ? (
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30 no-scrollbar">
+          {activeLayout === 'TABLET_CAFE' ? (
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-950/10 no-scrollbar">
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 max-w-[1600px] mx-auto content-start">
                 {filteredProducts.map((product) => {
                   const inCart = cart.find(item => item.id === product.id);
-                  const hasVariants = !!((product.variants && product.variants.length > 0) || product.halfPrice);
+                  const hasVariants = !!((product.variants && product.variants.length > 0) || (product as any).halfPrice);
                   return (
                     <CafeProductCard
                       key={product.id}
@@ -1929,101 +1554,160 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
                 })}
               </div>
             </div>
+          ) : activeLayout === 'CAFE' ? (
+            /* Classic Cafe block-style button grid */
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2 content-start no-scrollbar bg-slate-950/10 animate-fadeIn">
+              {filteredProducts.map((product, idx) => {
+                const accent = CAFE_ACCENTS[idx % CAFE_ACCENTS.length];
+                const isInCart = cart.some(i => i.id === product.id);
+                const stock = (product as any).stock ?? (product as any).stockQuantity ?? null;
+                const isOutOfStock = stock !== null && stock <= 0;
+                const catName = categoryMap[product.categoryId] || '';
+                const popular = isPopular(product.name);
+                const cartQty = cart.reduce((acc, i) => i.id === product.id ? acc + i.quantity : acc, 0);
+
+                return (
+                  <button
+                    key={product.id}
+                    onClick={() => !isOutOfStock && (product.variants && product.variants.length > 0 ? addToCart(product, product.variants[0].name, product.variants[0].price) : addToCart(product, 'Full'))}
+                    disabled={isOutOfStock}
+                    style={{
+                      background: isInCart
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01))'
+                        : 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
+                      borderColor: isInCart ? `${accent.color}44` : 'rgba(255,255,255,0.05)',
+                      opacity: isOutOfStock ? 0.35 : 1,
+                    }}
+                    className={`group relative overflow-hidden rounded-xl border p-2 flex flex-col text-left hover:scale-[1.03] active:scale-[0.97] aspect-square transition-all duration-300 ${isInCart ? 'shadow-2xl shadow-black/40 ring-1 ring-offset-1 ring-[#D4956A]/20' : 'hover:shadow-lg'}`}
+                  >
+                    <div style={{ height: '2px', background: `linear-gradient(90deg, ${accent.color}AA, transparent)` }} className="w-full absolute top-0 left-0" />
+                    
+                    {popular && (
+                      <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-yellow-500/10 border border-yellow-500/25 rounded-full px-1.5 py-0.5 text-[6px] font-black text-yellow-500 uppercase">
+                        ★ BEST
+                      </div>
+                    )}
+
+                    <div className="flex-1 flex flex-col z-10 w-full mt-2">
+                      <div className="flex justify-between items-start mb-2">
+                        <span 
+                          style={{ color: accent.color, backgroundColor: accent.bg, borderColor: accent.border }}
+                          className="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border"
+                        >
+                          {catName || 'Cafe'}
+                        </span>
+                        {isOutOfStock ? (
+                          <span className="text-[7px] font-black text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">OUT</span>
+                        ) : cartQty > 0 ? (
+                          <span style={{ backgroundColor: accent.color }} className="w-4 h-4 rounded-full text-black text-[9px] font-bold flex items-center justify-center">
+                            {cartQty}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <h3 className="text-xs font-black tracking-tight text-white uppercase line-clamp-2 leading-tight flex-1">
+                        {product.name}
+                      </h3>
+
+                      {product.variants && product.variants.length > 0 && (
+                        <p className="text-[7px] text-[#D4956A] font-black uppercase mt-1">
+                          {product.variants.length} Sizes
+                        </p>
+                      )}
+
+                      <p style={{ color: accent.color }} className="text-sm font-black mt-auto pt-2">
+                        ₹{product.sellingPrice.toFixed(0)}
+                      </p>
+                    </div>
+
+                    {/* Variants Quick Overlay */}
+                    {((product.variants?.length ?? 0) > 0 || (product as any).halfPrice > 0) && (
+                      <div className="absolute inset-x-0 bottom-0 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 z-20">
+                        {product.variants && product.variants.length > 0 ? (
+                          <div className="grid grid-cols-2">
+                            {product.variants.map((v, vIdx) => {
+                              const isLastOdd = vIdx === (product.variants?.length || 0) - 1 && (product.variants?.length || 0) % 2 !== 0;
+                              return (
+                                <button 
+                                  key={v.id}
+                                  onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                                  className={`py-3.5 text-[8px] font-black uppercase tracking-widest text-white transition-all active:scale-95 bg-yellow-600 hover:bg-yellow-700 ${isLastOdd ? 'col-span-2' : ''} border-r border-b border-white/10`}
+                                >
+                                  {v.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (product as any).halfPrice > 0 && (
+                          <div className="flex w-full">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', (product as any).halfPrice); }}
+                              className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white text-[9px] font-black py-3.5 uppercase tracking-wider"
+                            >
+                              Half
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
+                              className="flex-1 bg-yellow-700 hover:bg-yellow-800 text-white text-[9px] font-black py-3.5 uppercase tracking-wider border-l border-white/10"
+                            >
+                              Full
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : activeLayout === 'BAR' ? (
+            /* Jewel-toned Bar POS styled grid */
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 content-start no-scrollbar bg-slate-950/20">
+              {filteredProducts.map((product, idx) => {
+                const accent = BAR_ACCENTS[idx % BAR_ACCENTS.length];
+                const catName = categoryMap[product.categoryId] || '';
+                const wKey = Object.keys(BAR_WMOJI).find(k => catName.toLowerCase().includes(k)) || 'default';
+                const watermark = BAR_WMOJI[wKey] || '🍷';
+                const hasVariants = !!((product.variants && product.variants.length > 0) || product.halfPrice);
+                const stock = (product as any).stock ?? (product as any).stockQuantity ?? null;
+                const isOutOfStock = stock !== null && stock <= 0;
+
+                return (
+                  <BarProductCard
+                    key={product.id}
+                    product={product}
+                    cart={cart}
+                    categoryName={catName}
+                    accent={accent}
+                    watermark={watermark}
+                    onClick={() => {
+                      if (isOutOfStock) return;
+                      if (hasVariants) {
+                        setVariantProduct(product);
+                      } else {
+                        addToCart(product);
+                      }
+                    }}
+                  />
+                );
+              })}
+            </div>
           ) : (
-            /* High Density Product Grid for Restaurant / Bar */
-            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3 content-start no-scrollbar">
+            /* High Density Product Grid for Restaurant */
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3.5 content-start no-scrollbar">
               {filteredProducts.map((product, idx) => {
                 const inCart = cart.find(item => item.id === product.id);
-                const hasVariants = !!((product.variants && product.variants.length > 0) || product.halfPrice);
                 const palette = PRODUCT_PALETTE_DARK[idx % PRODUCT_PALETTE_DARK.length];
 
                 return (
-                  <motion.div whileTap={!hasVariants ? { scale: 0.95 } : undefined}
+                  <RestaurantProductCard
                     key={product.id}
-                    className="relative group transition-all duration-200"
-                  >
-                    <div
-                      onClick={() => !hasVariants && addToCart(product)}
-                      className={`relative w-full rounded-[16px] p-2.5 flex flex-col justify-between transition-all hover:brightness-110 shadow-md overflow-hidden border border-black/5 ${hasVariants ? 'cursor-default' : 'cursor-pointer'}`}
-                      style={{ backgroundColor: palette.bg, aspectRatio: '1/1' }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
-                          {product.hsnCode || '2106'}
-                        </span>
-                        <div className="text-right">
-                          <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>Price</span>
-                          <span className="text-[12px] font-black leading-none" style={{ color: palette.textSub }}>₹{product.sellingPrice}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex-1 flex items-center py-1">
-                        <h3 className="text-[11px] font-black uppercase tracking-tighter leading-[1.1] line-clamp-3 w-full text-left" style={{ color: palette.text }}>
-                          {product.name}
-                        </h3>
-                      </div>
-
-                      {!hasVariants ? (
-                        <div className="flex justify-between items-end border-t border-black/5 pt-1.5 mt-auto">
-                          <div className="text-left space-y-0">
-                            <span className="block text-[8px] font-black uppercase opacity-50 leading-none" style={{ color: palette.textSub }}>
-                              {categoryMap[product.categoryId] || 'Menu'}
-                            </span>
-                            <span className="block text-[6px] font-bold opacity-30 uppercase leading-none" style={{ color: palette.textSub }}>GST 5%</span>
-                          </div>
-
-                          <div className="flex items-center">
-                            {inCart ? (
-                              <div className="w-5 h-5 rounded-lg bg-black/10 flex items-center justify-center font-black text-[10px]" style={{ color: palette.text }}>
-                                {inCart.quantity}
-                              </div>
-                            ) : (
-                              <div className={`w-3.5 h-3.5 border border-current rounded-[3px] flex items-center justify-center bg-white/90 shrink-0 shadow-sm ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                <div className="w-1.5 h-1.5 rounded-full bg-current" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="absolute inset-x-0 bottom-0 flex flex-col z-10">
-                          {/* Show 'Full' button ONLY if there are no variants OR if halfPrice exists without variants */}
-                          {(!product.variants || product.variants.length === 0) && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full', product.sellingPrice); }}
-                              className="w-full py-3 bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 transition-colors border-t border-white/10"
-                            >
-                              Full Price
-                            </button>
-                          )}
-
-                          {/* Variants Grid - 2 per row */}
-                          <div className="grid grid-cols-2 w-full border-t border-white/10">
-                            {product.variants?.map((v: any, vIdx: number) => (
-                              <button
-                                key={v.id}
-                                onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
-                                className={`py-2.5 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest hover:bg-rose-500 active:bg-rose-700 transition-colors ${vIdx % 2 === 0 ? 'border-r border-white/10' : ''} border-b border-white/5`}
-                              >
-                                {v.name}
-                              </button>
-                            ))}
-                            {product.halfPrice && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half', product.halfPrice!); }}
-                                className={`py-2.5 bg-amber-500 text-white font-black text-[9px] uppercase tracking-widest hover:bg-amber-400 active:bg-amber-700 transition-colors ${(product.variants?.length || 0) % 2 === 0 ? 'col-span-2' : ''} border-b border-white/5`}
-                              >
-                                Half
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {!hasVariants && inCart && (
-                        <div className="absolute top-0 right-0 w-1.5 h-full bg-black/20" />
-                      )}
-                    </div>
-                  </motion.div>
+                    product={product}
+                    inCart={inCart}
+                    addToCart={addToCart}
+                    categoryName={categoryMap[product.categoryId] || ''}
+                    palette={palette}
+                  />
                 );
               })}
             </div>
@@ -2031,253 +1715,33 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         </div>
 
         {/* Right Side: Order Tray (Billing Style) */}
-        <aside className="w-[420px] shrink-0 border-l border-white/5 bg-slate-900/30 flex flex-col overflow-hidden">
-          {/* Tray Header */}
-          <div className="p-6 border-b border-white/5 space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-black uppercase tracking-tighter mb-0.5">Order <span className="text-indigo-500">Details</span></h2>
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                  {tablet.mode === 'WAITER' ? 'WAITER SERVICE' : 'COUNTER SERVICE'} • {tables.find(t => t.id === selectedTableId)?.name || 'STATION'} {waiter ? `(${waiter.name})` : ''}
-                </p>
-              </div>
-              <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
-                <button onClick={() => setPax(Math.max(1, pax - 1))} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Minus size={14} /></button>
-                <div className="px-3 flex flex-col items-center">
-                  <span className="text-xs font-black leading-none">{pax}</span>
-                  <span className="text-[6px] font-black text-slate-500 uppercase">Pax</span>
-                </div>
-                <button onClick={() => setPax(pax + 1)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"><Plus size={14} /></button>
-              </div>
-            </div>
-
-            {/* Late Warning Banner */}
-            {activeOrder && (() => {
-              const elapsedMins = Math.floor((Date.now() - new Date(activeOrder.createdAt).getTime()) / 60000);
-              const limit = (activeOrder as any).preparationTime || 15;
-              const isLate = (activeOrder.status === 'KOT_RUNNING' || activeOrder.status === 'IN_KITCHEN') && elapsedMins >= limit;
-
-              const readyPickupLimit = typeof window !== 'undefined' ? parseInt(localStorage.getItem('kds_ready_pickup_time') || '5', 10) : 5;
-              const readyWaitMin = (activeOrder as any).updatedAt ? Math.floor((Date.now() - new Date((activeOrder as any).updatedAt).getTime()) / 60000) : 0;
-              const isPickupLate = activeOrder.status === 'READY' && readyPickupLimit > 0 && readyWaitMin >= readyPickupLimit;
-
-              if (isLate) {
-                return (
-                  <div className="w-full py-2.5 bg-rose-500/20 border border-rose-500/40 rounded-xl flex items-center justify-center gap-2 text-rose-400 animate-pulse mt-4">
-                    <AlertCircle size={16} />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Late In Kitchen</span>
-                  </div>
-                );
-              }
-              if (isPickupLate) {
-                return (
-                  <div className="w-full py-2.5 bg-blue-500/20 border border-blue-500/40 rounded-xl flex items-center justify-center gap-2 text-blue-400 animate-pulse mt-4">
-                    <Clock size={16} />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Late For Ready To Serve</span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
-
-          {/* Tray Items List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-            {cart.length === 0 && (!activeOrder || !activeOrder.items || activeOrder.items.length === 0) ? (
-              <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20">
-                <ShoppingCart size={48} strokeWidth={1} className="mb-4" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Tray is Empty</p>
-              </div>
-            ) : (
-              <>
-                {cart.map(item => (
-                  <div key={(item as any).cartItemId || item.id} className="bg-slate-800/40 rounded-xl p-2 flex flex-col gap-1.5 animate-in slide-in-from-right-2 duration-300 border border-white/5">
-                    <div className="flex gap-2 items-center">
-                      <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
-                        {item.image ? (
-                          <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-lg" />
-                        ) : (
-                          <Utensils size={14} className="text-slate-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[9px] font-black uppercase tracking-tight text-white/90 truncate leading-tight mb-0.5">{item.name}</h4>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-black text-indigo-400">₹{item.sellingPrice * item.quantity}</span>
-                            <span className="text-[7px] font-bold text-slate-500 uppercase">/ ₹{item.sellingPrice}</span>
-                          </div>
-                          <div className="flex items-center gap-1 bg-black/20 p-0.5 rounded-lg border border-white/5">
-                            <button onClick={() => updateQuantity((item as any).cartItemId || item.id, -1)} className="w-5 h-5 rounded flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-all text-slate-400"><Minus size={10} /></button>
-                            <span className="text-[10px] font-black w-3 text-center">{item.quantity}</span>
-                            <button onClick={() => updateQuantity((item as any).cartItemId || item.id, 1)} className="w-5 h-5 rounded flex items-center justify-center hover:bg-indigo-500/20 hover:text-indigo-400 transition-all text-slate-400"><Plus size={10} /></button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick Variant Switch in Tray */}
-                    {((item.variants && item.variants.length > 0) || item.halfPrice) && (
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                        {item.variants?.map((v: any) => (
-                          <button
-                            key={v.id}
-                            onClick={() => {
-                              removeFromCart((item as any).cartItemId);
-                              addToCart(item, v.name, v.price);
-                            }}
-                            className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${(item as any).size === v.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'}`}
-                          >
-                            {v.name}
-                          </button>
-                        ))}
-                        {item.halfPrice && (
-                          <button
-                            onClick={() => {
-                              removeFromCart((item as any).cartItemId);
-                              addToCart(item, 'Half', item.halfPrice!);
-                            }}
-                            className={`py-1.5 rounded-lg font-black text-[7px] uppercase tracking-widest transition-all border ${(item as any).size === 'Half' ? 'bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-600/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'}`}
-                          >
-                            Half
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-
-          {/* Active Order Items (Already Sent) */}
-          {activeOrder && activeOrder.items && activeOrder.items.length > 0 && (
-            <div className="px-4 pb-4 space-y-3 max-h-[300px] overflow-y-auto no-scrollbar border-t border-white/5 pt-4">
-              <div className="flex items-center gap-2 mb-2 opacity-50">
-                <div className="h-px flex-1 bg-white/10" />
-                <span className="text-[7px] font-black uppercase tracking-[0.2em]">Already Ordered</span>
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-              {activeOrder.items.map((item: any) => (
-                <div key={item.id} className="bg-white/5 rounded-2xl p-3 flex items-center gap-4 border border-white/5 opacity-60">
-                  <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center shrink-0">
-                    <CheckCircle size={16} className="text-emerald-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-[9px] font-black uppercase tracking-tight text-white/80 truncate">{item.product?.name || 'Item'}</h4>
-                    <p className="text-[8px] font-bold text-slate-500 mt-0.5">{item.quantity} x ₹{item.unitPrice}</p>
-                  </div>
-                  <div className="text-right flex flex-col items-end">
-                    <span className="text-[9px] font-black text-emerald-400">ORDERED</span>
-                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">KITCHEN</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Totals & Actions */}
-          <div className="p-3 bg-slate-900 border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
-            
-            {/* Global Order Toggles */}
-            <div className="flex items-center gap-4 px-1 pb-2">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={isOrderComplimentary}
-                  onChange={(e) => setIsOrderComplimentary(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
-                />
-                <span className={`text-[9px] font-black uppercase tracking-wider ${isOrderComplimentary ? 'text-indigo-400' : 'text-slate-500'}`}>Complimentary</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={isOrderPaid}
-                  onChange={(e) => setIsOrderPaid(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
-                />
-                <span className={`text-[9px] font-black uppercase tracking-wider ${isOrderPaid ? 'text-emerald-500' : 'text-slate-500'}`}>It's Paid</span>
-              </label>
-            </div>
-
-            <div className="space-y-1 mb-3">
-              <div className="flex justify-between items-end">
-                <div>
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 block px-1">
-                    Total Payable (Incl. Taxes: ₹{cartTax.toFixed(2)})
-                  </span>
-                  <p className="text-2xl font-black text-white tracking-tighter leading-none px-1">₹{cartTotal.toFixed(2)}</p>
-                </div>
-                <div className="flex flex-col items-end">
-                  {cart.length > 0 && (
-                    <button
-                      onClick={() => { setCart([]); setDiscountAmount(0); }}
-                      className="text-[7px] font-black text-rose-500 uppercase tracking-widest hover:underline mb-1"
-                    >
-                      Clear Tray
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Place Order / Actions Grid */}
-            <div className="flex flex-col gap-2">
-              {/* Top Row: Exactly 2 Buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <Button 
-                   onClick={() => handlePlaceOrder('PRINT_KOT')}
-                   loading={isPlacingOrder}
-                   disabled={cart.length === 0 && !activeOrder}
-                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border-emerald-500/20 text-emerald-400`}
-                >
-                  <Printer size={13} /> PRINT KOT
-                </Button>
-                <Button 
-                   onClick={() => handlePlaceOrder('SAVE_AND_KOT')}
-                   loading={isPlacingOrder}
-                   disabled={cart.length === 0 && !activeOrder}
-                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border bg-teal-500/10 hover:bg-teal-500 hover:text-white border-teal-500/20 text-teal-400`}
-                >
-                   <CheckCircle2 size={13} /> SAVE & KOT
-                </Button>
-              </div>
-
-              {/* Bottom Row: Exactly 3 Buttons */}
-              <div className="grid grid-cols-3 gap-2">
-                <Button 
-                   onClick={() => handlePlaceOrder('SAVE')}
-                   loading={isPlacingOrder}
-                   disabled={cart.length === 0 && !activeOrder}
-                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border bg-red-500/10 hover:bg-red-600 hover:text-white border-red-500/20 text-red-400`}
-                >
-                  <Save size={13} /> SAVE
-                </Button>
-                <Button 
-                   onClick={() => handlePlaceOrder('HOLD')}
-                   loading={isPlacingOrder}
-                   disabled={cart.length === 0 && !activeOrder}
-                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border bg-amber-500/10 hover:bg-amber-500 hover:text-white border-amber-500/20 text-amber-400`}
-                >
-                  <Pause size={13} /> HOLD
-                </Button>
-                <Button 
-                   onClick={() => {
-                     setIsProforma(true);
-                     handlePrintBill();
-                   }}
-                   loading={isPlacingOrder || settleLoading}
-                   disabled={!activeOrder}
-                   className={`py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 border bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-600/20`}
-                >
-                  <ReceiptIndianRupee size={13} /> SETTLE
-                </Button>
-              </div>
-            </div>
-
-          </div>
-        </aside>
+        <TabletOrderTray
+          tablet={tablet}
+          tables={filteredTables}
+          selectedTableId={selectedTableId}
+          waiter={waiter}
+          pax={pax}
+          setPax={setPax}
+          activeOrder={activeOrder}
+          setIsStatusVisible={setIsStatusVisible}
+          cart={cart}
+          setCart={setCart}
+          updateQuantity={updateQuantity}
+          removeFromCart={removeFromCart}
+          addToCart={addToCart}
+          isOrderComplimentary={isOrderComplimentary}
+          setIsOrderComplimentary={setIsOrderComplimentary}
+          isOrderPaid={isOrderPaid}
+          setIsOrderPaid={setIsOrderPaid}
+          cartTax={cartTax}
+          cartTotal={cartTotal}
+          setDiscountAmount={setDiscountAmount}
+          handlePlaceOrder={handlePlaceOrder}
+          isPlacingOrder={isPlacingOrder}
+          setIsProforma={setIsProforma}
+          handlePrintBill={handlePrintBill}
+          settleLoading={settleLoading}
+        />
       </div>
 
       <style jsx global>{`
@@ -2328,7 +1792,14 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         switchLoading={switchLoading}
       />
 
-      {/* Floating status alert popup */}
+      {/* BAR PEGS SIZE SELECTOR MODAL */}
+      <BarVariantModal
+        isOpen={!!variantProduct && menuType === 'BAR'}
+        onClose={() => setVariantProduct(null)}
+        product={variantProduct}
+        addToCart={addToCart}
+      />
+
       <AnimatePresence>
         {activePopupNotification && (
           <motion.div
@@ -2338,12 +1809,6 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             className="fixed top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-auto flex items-center gap-4 bg-slate-900/90 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl px-5 py-3 rounded-2xl max-w-[380px] w-[90vw] overflow-hidden"
           >
-            {/* Left accent bar */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activePopupNotification.type === 'ready' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]' :
-                activePopupNotification.type === 'kitchen' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]' :
-                  'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]'
-              }`} />
-
             {/* Left side status icon */}
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${activePopupNotification.type === 'ready' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
                 activePopupNotification.type === 'kitchen' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :

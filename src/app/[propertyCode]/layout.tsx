@@ -6,6 +6,7 @@ import { SidebarProvider } from '@/context/sidebar-context';
 import { POSSecurityProvider } from '@/components/providers/POSSecurityProvider';
 import { OfflineBadge } from '@/components/shared/offline-badge';
 import { NotificationOverlay } from '@/components/shared/NotificationOverlay';
+import { MusicProvider } from '@/context/music-context';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -22,12 +23,14 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   return (
     <SidebarProvider>
       <POSSecurityProvider>
-        <DashboardShell session={session}>
-          {children}
-        </DashboardShell>
-        {/* Global offline indicator — auto-syncs queued orders when connection returns */}
-        <OfflineBadge />
-        {session.role !== 'B2B_SUPPLIER' && <NotificationOverlay />}
+        <MusicProvider>
+          <DashboardShell session={session}>
+            {children}
+          </DashboardShell>
+          {/* Global offline indicator — auto-syncs queued orders when connection returns */}
+          <OfflineBadge />
+          {session.role !== 'B2B_SUPPLIER' && <NotificationOverlay />}
+        </MusicProvider>
       </POSSecurityProvider>
     </SidebarProvider>
   );

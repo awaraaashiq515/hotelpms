@@ -28,6 +28,7 @@ import { useSidebar } from '@/context/sidebar-context';
 import { printerService } from '@/lib/printer-service';
 import { ProductIcon } from '@/components/shared/product-icon';
 import { QRCodeSVG } from 'qrcode.react';
+import { CafeProductCard } from '@/components/tablet/CafeProductCard';
 
 interface CartItem extends Product {
   quantity: number;
@@ -152,7 +153,7 @@ const canToggleTemp = (name: string) =>
 
 interface RestaurantPosViewProps {
   terminalMode?: 'RESTAURANT' | 'BAR' | 'CAFE';
-  themeLayout?: 'RESTAURANT' | 'BAR' | 'CAFE';
+  themeLayout?: 'RESTAURANT' | 'BAR' | 'CAFE' | 'TABLET_CAFE';
 }
 
 export default function RestaurantPosView({
@@ -871,6 +872,8 @@ export default function RestaurantPosView({
         const latestKot = orderData.kotTickets?.[orderData.kotTickets.length - 1];
         
         if (latestKot) {
+          const floorName = latestKot.table?.floor?.name || orderData.table?.floor?.name;
+          const floorMenuType = latestKot.table?.floor?.menuType || orderData.table?.floor?.menuType;
           setKotData({
             kotNo: latestKot.kotNo,
             orderNo: orderData.orderNo,
@@ -881,7 +884,9 @@ export default function RestaurantPosView({
               name: item.itemName || item.name || item.product?.name || "Item",
               quantity: item.quantity,
               notes: item.notes
-            }))
+            })),
+            floorName,
+            floorMenuType
           });
           if (showModal) {
             setIsKotOpen(true);
@@ -1409,7 +1414,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
       <div className={`flex-1 flex flex-col h-full overflow-hidden ${
         themeLayout === 'BAR' 
           ? 'bg-[#080810]' 
-          : themeLayout === 'CAFE' 
+          : (themeLayout === 'CAFE' || themeLayout === 'TABLET_CAFE') 
             ? 'bg-[#0E0A06] bg-[radial-gradient(ellipse_at_10%_0%,_rgba(212,149,106,0.07)_0%,_transparent_50%),_radial-gradient(ellipse_at_90%_100%,_rgba(200,132,90,0.05)_0%,_transparent_50%)]' 
             : theme === 'dark' ? 'bg-[#111111]' : 'bg-white'
       }`}>
@@ -1686,7 +1691,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
               )}
             </div>
           </>
-        ) : themeLayout === 'CAFE' ? (
+        ) : (themeLayout === 'CAFE' || themeLayout === 'TABLET_CAFE') ? (
           <>
             {/* CAFE THEME TOP BAR */}
             <div className="px-3 py-1.5 flex items-center justify-between gap-3 bg-white/[0.01] border-b border-white/[0.05] backdrop-blur-md flex-shrink-0 z-10">
@@ -1854,110 +1859,133 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                   <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">No cafe items found</p>
                 </div>
               ) : viewMode === 'grid' ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
-                  {filteredProducts.map((product, idx) => {
-                    const accent = CAFE_ACCENTS[idx % CAFE_ACCENTS.length];
-                    const isInCart = cart.some(i => i.id === product.id);
-                    const stock = (product as any).stock ?? (product as any).stockQuantity ?? null;
-                    const isOutOfStock = stock !== null && stock <= 0;
-                    const catName = categories.find(c => c.id === product.categoryId)?.name || '';
-                    const popular = isPopular(product.name);
-                    const cartQty = cart.reduce((acc, i) => i.id === product.id ? acc + i.quantity : acc, 0);
+                themeLayout === 'TABLET_CAFE' ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 max-w-[1600px] mx-auto content-start">
+                    {filteredProducts.map((product) => {
+                      const inCart = cart.find(item => item.id === product.id);
+                      const hasVariants = !!((product.variants && product.variants.length > 0) || (product as any).halfPrice);
+                      const catName = categories.find(c => c.id === product.categoryId)?.name || '';
 
-                    return (
-                      <button
-                        key={product.id}
-                        onClick={() => !isOutOfStock && (product.variants && product.variants.length > 0 ? addToCart(product, product.variants[0].name, product.variants[0].price) : addToCart(product, 'Full'))}
-                        disabled={isOutOfStock}
-                        style={{
-                          background: isInCart
-                            ? 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01))'
-                            : 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
-                          borderColor: isInCart ? `${accent.color}44` : 'rgba(255,255,255,0.05)',
-                          opacity: isOutOfStock ? 0.35 : 1,
-                        }}
-                        className={`group relative overflow-hidden rounded-xl border p-2 flex flex-col text-left hover:scale-[1.03] active:scale-[0.97] aspect-square transition-all duration-300 ${isInCart ? 'shadow-2xl shadow-black/40 ring-1 ring-offset-1 ring-[#D4956A]/20' : 'hover:shadow-lg'}`}
-                      >
-                        <div style={{ height: '2px', background: `linear-gradient(90deg, ${accent.color}AA, transparent)` }} className="w-full absolute top-0 left-0" />
-                        
-                        {popular && (
-                          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-yellow-500/10 border border-yellow-500/25 rounded-full px-1.5 py-0.5 text-[6px] font-black text-yellow-500 uppercase">
-                            ★ BEST
-                          </div>
-                        )}
+                      return (
+                        <CafeProductCard
+                          key={product.id}
+                          product={product}
+                          inCart={inCart}
+                          cart={cart}
+                          hasVariants={hasVariants}
+                          addToCart={addToCart}
+                          updateQuantity={updateQuantity}
+                          categoryName={catName}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
+                    {filteredProducts.map((product, idx) => {
+                      const accent = CAFE_ACCENTS[idx % CAFE_ACCENTS.length];
+                      const isInCart = cart.some(i => i.id === product.id);
+                      const stock = (product as any).stock ?? (product as any).stockQuantity ?? null;
+                      const isOutOfStock = stock !== null && stock <= 0;
+                      const catName = categories.find(c => c.id === product.categoryId)?.name || '';
+                      const popular = isPopular(product.name);
+                      const cartQty = cart.reduce((acc, i) => i.id === product.id ? acc + i.quantity : acc, 0);
 
-                        <div className="flex-1 flex flex-col z-10 w-full mt-2">
-                          <div className="flex justify-between items-start mb-2">
-                            <span 
-                              style={{ color: accent.color, backgroundColor: accent.bg, borderColor: accent.border }}
-                              className="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border"
-                            >
-                              {catName || 'Cafe'}
-                            </span>
-                            {isOutOfStock ? (
-                              <span className="text-[7px] font-black text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">OUT</span>
-                            ) : cartQty > 0 ? (
-                              <span style={{ backgroundColor: accent.color }} className="w-4 h-4 rounded-full text-black text-[9px] font-bold flex items-center justify-center">
-                                {cartQty}
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <h3 className="text-xs font-black tracking-tight text-white uppercase line-clamp-2 leading-tight flex-1">
-                            {product.name}
-                          </h3>
-
-                          {product.variants && product.variants.length > 0 && (
-                            <p className="text-[7px] text-[#D4956A] font-black uppercase mt-1">
-                              {product.variants.length} Sizes
-                            </p>
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => !isOutOfStock && (product.variants && product.variants.length > 0 ? addToCart(product, product.variants[0].name, product.variants[0].price) : addToCart(product, 'Full'))}
+                          disabled={isOutOfStock}
+                          style={{
+                            background: isInCart
+                              ? 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01))'
+                              : 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
+                            borderColor: isInCart ? `${accent.color}44` : 'rgba(255,255,255,0.05)',
+                            opacity: isOutOfStock ? 0.35 : 1,
+                          }}
+                          className={`group relative overflow-hidden rounded-xl border p-2 flex flex-col text-left hover:scale-[1.03] active:scale-[0.97] aspect-square transition-all duration-300 ${isInCart ? 'shadow-2xl shadow-black/40 ring-1 ring-offset-1 ring-[#D4956A]/20' : 'hover:shadow-lg'}`}
+                        >
+                          <div style={{ height: '2px', background: `linear-gradient(90deg, ${accent.color}AA, transparent)` }} className="w-full absolute top-0 left-0" />
+                          
+                          {popular && (
+                            <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-yellow-500/10 border border-yellow-500/25 rounded-full px-1.5 py-0.5 text-[6px] font-black text-yellow-500 uppercase">
+                              ★ BEST
+                            </div>
                           )}
 
-                          <p style={{ color: accent.color }} className="text-sm font-black mt-auto pt-2">
-                            ₹{product.sellingPrice.toFixed(0)}
-                          </p>
-                        </div>
+                          <div className="flex-1 flex flex-col z-10 w-full mt-2">
+                            <div className="flex justify-between items-start mb-2">
+                              <span 
+                                style={{ color: accent.color, backgroundColor: accent.bg, borderColor: accent.border }}
+                                className="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border"
+                              >
+                                {catName || 'Cafe'}
+                              </span>
+                              {isOutOfStock ? (
+                                <span className="text-[7px] font-black text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">OUT</span>
+                              ) : cartQty > 0 ? (
+                                <span style={{ backgroundColor: accent.color }} className="w-4 h-4 rounded-full text-black text-[9px] font-bold flex items-center justify-center">
+                                  {cartQty}
+                                </span>
+                              ) : null}
+                            </div>
 
-                        {/* Variants Quick Overlay */}
-                        {((product.variants?.length ?? 0) > 0 || (product as any).halfPrice > 0) && (
-                          <div className="absolute inset-x-0 bottom-0 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 z-20">
-                            {product.variants && product.variants.length > 0 ? (
-                              <div className="grid grid-cols-2">
-                                {product.variants.map((v, vIdx) => {
-                                  const isLastOdd = vIdx === (product.variants?.length || 0) - 1 && (product.variants?.length || 0) % 2 !== 0;
-                                  return (
-                                    <button 
-                                      key={v.id}
-                                      onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
-                                      className={`py-3.5 text-[8px] font-black uppercase tracking-widest text-white transition-all active:scale-95 bg-[#AA6F46] hover:bg-[#8F5E3B] ${isLastOdd ? 'col-span-2' : ''} border-r border-b border-white/10`}
-                                    >
-                                      {v.name}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (product as any).halfPrice > 0 && (
-                              <div className="flex w-full">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
-                                  className="flex-1 bg-[#D4956A] hover:bg-[#C8845A] text-white text-[9px] font-black py-3.5 uppercase tracking-wider"
-                                >
-                                  Half
-                                </button>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
-                                  className="flex-1 bg-[#AA6F46] hover:bg-[#8F5E3B] text-white text-[9px] font-black py-3.5 uppercase tracking-wider border-l border-white/10"
-                                >
-                                  Full
-                                </button>
-                              </div>
+                            <h3 className="text-xs font-black tracking-tight text-white uppercase line-clamp-2 leading-tight flex-1">
+                              {product.name}
+                            </h3>
+
+                            {product.variants && product.variants.length > 0 && (
+                              <p className="text-[7px] text-[#D4956A] font-black uppercase mt-1">
+                                {product.variants.length} Sizes
+                              </p>
                             )}
+
+                            <p style={{ color: accent.color }} className="text-sm font-black mt-auto pt-2">
+                              ₹{product.sellingPrice.toFixed(0)}
+                            </p>
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+
+                          {/* Variants Quick Overlay */}
+                          {((product.variants?.length ?? 0) > 0 || (product as any).halfPrice > 0) && (
+                            <div className="absolute inset-x-0 bottom-0 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 z-20">
+                              {product.variants && product.variants.length > 0 ? (
+                                <div className="grid grid-cols-2">
+                                  {product.variants.map((v, vIdx) => {
+                                    const isLastOdd = vIdx === (product.variants?.length || 0) - 1 && (product.variants?.length || 0) % 2 !== 0;
+                                    return (
+                                      <button 
+                                        key={v.id}
+                                        onClick={(e) => { e.stopPropagation(); addToCart(product, v.name, v.price); }}
+                                        className={`py-3.5 text-[8px] font-black uppercase tracking-widest text-white transition-all active:scale-95 bg-[#AA6F46] hover:bg-[#8F5E3B] ${isLastOdd ? 'col-span-2' : ''} border-r border-b border-white/10`}
+                                      >
+                                        {v.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (product as any).halfPrice > 0 && (
+                                <div className="flex w-full">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); addToCart(product, 'Half'); }}
+                                    className="flex-1 bg-[#D4956A] hover:bg-[#C8845A] text-white text-[9px] font-black py-3.5 uppercase tracking-wider"
+                                  >
+                                    Half
+                                  </button>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); addToCart(product, 'Full'); }}
+                                    className="flex-1 bg-[#AA6F46] hover:bg-[#8F5E3B] text-white text-[9px] font-black py-3.5 uppercase tracking-wider border-l border-white/10"
+                                  >
+                                    Full
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
               ) : (
                 /* CAFE LIST VIEW */
                 <div className="space-y-1.5">

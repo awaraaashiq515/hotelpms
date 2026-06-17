@@ -47,6 +47,9 @@ export async function GET(request: NextRequest) {
             preparationTime: true,
           }
         },
+        table: {
+          include: { floor: true }
+        },
         items: {
           include: {
             product: { select: { name: true, menuType: true } }

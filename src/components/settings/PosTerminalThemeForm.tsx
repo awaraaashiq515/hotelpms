@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { Monitor, Check, Palette, Save, Loader2 } from 'lucide-react';
 
-type PosTheme = 'RESTAURANT' | 'BAR' | 'CAFE';
+type PosTheme = 'RESTAURANT' | 'BAR' | 'CAFE' | 'TABLET_CAFE';
 
 interface Terminal {
-  key: 'billing' | 'barpos' | 'cafepos';
+  key: 'billing' | 'barpos' | 'cafepos' | 'tablet';
   label: string;
   emoji: string;
   url: string;
@@ -42,6 +42,15 @@ const TERMINALS: Terminal[] = [
     defaultTheme: 'CAFE',
     color: 'text-yellow-700 dark:text-yellow-500',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
+  },
+  {
+    key: 'tablet',
+    label: 'Tablet / Waiter POS',
+    emoji: '📱',
+    url: '/tablet/[id]',
+    defaultTheme: 'RESTAURANT',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    borderColor: 'border-indigo-200 dark:border-indigo-800',
   },
 ];
 
@@ -84,6 +93,16 @@ const THEMES: {
     activeBorder: 'border-yellow-500 dark:border-yellow-500',
     activeText: 'text-yellow-700 dark:text-yellow-400',
     dot: 'bg-yellow-500',
+  },
+  {
+    id: 'TABLET_CAFE',
+    label: 'Tablet Cafe',
+    emoji: '📱☕',
+    subtitle: 'Premium round card',
+    activeBg: 'bg-indigo-50 dark:bg-indigo-950/30',
+    activeBorder: 'border-indigo-400 dark:border-indigo-500',
+    activeText: 'text-indigo-600 dark:text-indigo-400',
+    dot: 'bg-indigo-500',
   },
 ];
 
@@ -186,6 +205,55 @@ const MiniThemePreview = ({ themeId }: { themeId: PosTheme }) => {
       </div>
     );
   }
+  if (themeId === 'TABLET_CAFE') {
+    return (
+      <div className="w-full aspect-[1.8/1] rounded-xl bg-[#0E0A06] border border-[#D4956A]/15 p-1 flex flex-col gap-0.5 overflow-hidden mt-1.5 shadow-inner select-none pointer-events-none">
+        {/* Mock top category pills */}
+        <div className="flex gap-1 overflow-hidden shrink-0 pb-0.5">
+          <div className="px-1 py-0.5 rounded-[4px] bg-[#D4956A]/20 border border-[#D4956A]/35 text-[#D4956A] text-[4px] font-black uppercase tracking-wider scale-90 origin-left">All</div>
+          <div className="px-1 py-0.5 rounded-[4px] bg-white/5 text-slate-500 text-[4px] font-bold scale-90 origin-left">Coffee</div>
+          <div className="px-1 py-0.5 rounded-[4px] bg-white/5 text-slate-500 text-[4px] font-bold scale-90 origin-left">Tea</div>
+        </div>
+        {/* Mock cards: 3 columns to give them enough space */}
+        <div className="grid grid-cols-3 gap-1 flex-1 pb-0.5">
+          <div className="rounded-[8px] bg-slate-900/80 border border-[#D4956A]/25 p-1 flex flex-col items-center justify-between relative overflow-hidden">
+            <div className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-emerald-500" />
+            <div className="w-4 h-4 rounded-full flex items-center justify-center bg-indigo-900/40 border border-white/10 scale-90">
+              <span className="text-[6px]">☕</span>
+            </div>
+            <span className="text-[4.5px] font-black text-slate-200 mt-0.5 leading-none uppercase truncate">Latte</span>
+            <div className="flex gap-0.5 mt-0.5 w-full justify-center">
+              <span className="text-[3px] px-0.5 py-0.1 bg-slate-800 border border-slate-700/50 text-slate-400 rounded">S</span>
+              <span className="text-[3px] px-0.5 py-0.1 bg-slate-800 border border-slate-700/50 text-slate-400 rounded">L</span>
+            </div>
+            <span className="text-[4.5px] font-black text-[#D4956A] mt-auto">₹180</span>
+          </div>
+
+          <div className="rounded-[8px] bg-slate-900/80 border border-white/5 p-1 flex flex-col items-center justify-between relative overflow-hidden">
+            <div className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-emerald-500" />
+            <div className="w-4 h-4 rounded-full flex items-center justify-center bg-cyan-900/40 border border-white/10 scale-90">
+              <span className="text-[6px]">🥤</span>
+            </div>
+            <span className="text-[4.5px] font-black text-slate-200 mt-0.5 leading-none uppercase truncate">Shake</span>
+            <div className="flex gap-0.5 mt-0.5 w-full justify-center">
+              <span className="text-[3px] px-0.5 py-0.1 bg-slate-800 border border-slate-700/50 text-slate-400 rounded">S</span>
+              <span className="text-[3px] px-0.5 py-0.1 bg-slate-800 border border-slate-700/50 text-slate-400 rounded">L</span>
+            </div>
+            <span className="text-[4.5px] font-black text-[#D4956A] mt-auto">₹220</span>
+          </div>
+
+          <div className="rounded-[8px] bg-slate-900/80 border border-white/5 p-1 flex flex-col items-center justify-between relative overflow-hidden">
+            <div className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-emerald-500" />
+            <div className="w-4 h-4 rounded-full flex items-center justify-center bg-amber-900/40 border border-white/10 scale-90">
+              <span className="text-[6px]">☕</span>
+            </div>
+            <span className="text-[4.5px] font-black text-slate-200 mt-0.5 leading-none uppercase truncate">Chai</span>
+            <span className="text-[4.5px] font-black text-[#D4956A] mt-auto">₹90</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return null;
 };
 
@@ -203,79 +271,220 @@ export const PosTerminalThemeForm = ({ propertyCode: propPropertyCode }: PosTerm
     billing: 'RESTAURANT',
     barpos: 'BAR',
     cafepos: 'CAFE',
+    tablet: 'RESTAURANT',
   });
+
+  const [tabletMode, setTabletMode] = useState<'unified' | 'split'>('unified');
+  const [tabletThemes, setTabletThemes] = useState<Record<string, PosTheme>>({
+    restaurant: 'RESTAURANT',
+    bar: 'BAR',
+    cafe: 'TABLET_CAFE',
+  });
+
+  const [dbCode, setDbCode] = useState<string>('');
 
   useEffect(() => {
     setLoading(true);
-    const code = propPropertyCode || '';
-    if (code) {
-      setPropertyCode(code);
+    const routeCode = propPropertyCode || '';
+    setPropertyCode(routeCode);
 
-      // Load saved themes from localStorage
-      const loaded: Record<string, PosTheme> = {
-        billing: 'RESTAURANT',
-        barpos: 'BAR',
-        cafepos: 'CAFE',
-      };
-      const lowerCode = code.toLowerCase();
-      TERMINALS.forEach((t) => {
-        const val = localStorage.getItem(`pos_layout_${t.key}_${lowerCode}`);
-        if (val === 'RESTAURANT' || val === 'BAR' || val === 'CAFE') {
-          loaded[t.key] = val as PosTheme;
-        }
-      });
-      setThemes(loaded);
-      setLoading(false);
-    } else {
-      fetch('/api/setup/properties/current')
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success && data.data?.code) {
-            const fetchedCode = data.data.code;
-            setPropertyCode(fetchedCode);
+    // Fetch the property info to resolve the database code
+    fetch('/api/setup/properties/current')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.data?.code) {
+          const fetchedDbCode = data.data.code.toLowerCase();
+          setDbCode(fetchedDbCode);
 
-            // Load saved themes from localStorage
-            const loaded: Record<string, PosTheme> = {
-              billing: 'RESTAURANT',
-              barpos: 'BAR',
-              cafepos: 'CAFE',
-            };
-            const lowerCode = fetchedCode.toLowerCase();
-            TERMINALS.forEach((t) => {
-              const val = localStorage.getItem(`pos_layout_${t.key}_${lowerCode}`);
-              if (val === 'RESTAURANT' || val === 'BAR' || val === 'CAFE') {
-                loaded[t.key] = val as PosTheme;
-              }
-            });
-            setThemes(loaded);
+          const lowerRoute = routeCode.toLowerCase();
+          
+          // Load themes (checking route slug first, falling back to db code)
+          const loaded: Record<string, PosTheme> = {
+            billing: 'RESTAURANT',
+            barpos: 'BAR',
+            cafepos: 'CAFE',
+            tablet: 'RESTAURANT',
+          };
+
+          TERMINALS.forEach((t) => {
+            const valRoute = lowerRoute ? localStorage.getItem(`pos_layout_${t.key}_${lowerRoute}`) : null;
+            const valDb = localStorage.getItem(`pos_layout_${t.key}_${fetchedDbCode}`);
+            const val = valRoute || valDb;
+            if (val === 'RESTAURANT' || val === 'BAR' || val === 'CAFE' || val === 'TABLET_CAFE') {
+              loaded[t.key] = val as PosTheme;
+            }
+          });
+          setThemes(loaded);
+
+          // Load tablet mode
+          const modeRoute = lowerRoute ? localStorage.getItem(`pos_layout_tablet_mode_${lowerRoute}`) : null;
+          const modeDb = localStorage.getItem(`pos_layout_tablet_mode_${fetchedDbCode}`);
+          const savedMode = modeRoute || modeDb;
+          if (savedMode === 'unified' || savedMode === 'split') {
+            setTabletMode(savedMode);
           }
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }
+
+          // Load tablet tab themes
+          const restRoute = lowerRoute ? localStorage.getItem(`pos_layout_tablet_restaurant_${lowerRoute}`) : null;
+          const restDb = localStorage.getItem(`pos_layout_tablet_restaurant_${fetchedDbCode}`);
+          const rest = restRoute || restDb;
+
+          const barRoute = lowerRoute ? localStorage.getItem(`pos_layout_tablet_bar_${lowerRoute}`) : null;
+          const barDb = localStorage.getItem(`pos_layout_tablet_bar_${fetchedDbCode}`);
+          const bar = barRoute || barDb;
+
+          const cafeRoute = lowerRoute ? localStorage.getItem(`pos_layout_tablet_cafe_${lowerRoute}`) : null;
+          const cafeDb = localStorage.getItem(`pos_layout_tablet_cafe_${fetchedDbCode}`);
+          const cafe = cafeRoute || cafeDb;
+
+          setTabletThemes({
+            restaurant: (rest === 'RESTAURANT' || rest === 'BAR' || rest === 'CAFE' || rest === 'TABLET_CAFE') ? rest as PosTheme : 'RESTAURANT',
+            bar: (bar === 'RESTAURANT' || bar === 'BAR' || bar === 'CAFE' || bar === 'TABLET_CAFE') ? bar as PosTheme : 'BAR',
+            cafe: (cafe === 'RESTAURANT' || cafe === 'BAR' || cafe === 'CAFE' || cafe === 'TABLET_CAFE') ? cafe as PosTheme : 'TABLET_CAFE',
+          });
+        } else {
+          // Fallback to loading using only route slug
+          const lowerRoute = routeCode.toLowerCase();
+          const loaded: Record<string, PosTheme> = {
+            billing: 'RESTAURANT',
+            barpos: 'BAR',
+            cafepos: 'CAFE',
+            tablet: 'RESTAURANT',
+          };
+          TERMINALS.forEach((t) => {
+            const val = lowerRoute ? localStorage.getItem(`pos_layout_${t.key}_${lowerRoute}`) : null;
+            if (val === 'RESTAURANT' || val === 'BAR' || val === 'CAFE' || val === 'TABLET_CAFE') {
+              loaded[t.key] = val as PosTheme;
+            }
+          });
+          setThemes(loaded);
+
+          const savedMode = lowerRoute ? localStorage.getItem(`pos_layout_tablet_mode_${lowerRoute}`) : null;
+          if (savedMode === 'unified' || savedMode === 'split') {
+            setTabletMode(savedMode);
+          }
+
+          const rest = lowerRoute ? localStorage.getItem(`pos_layout_tablet_restaurant_${lowerRoute}`) : null;
+          const bar = lowerRoute ? localStorage.getItem(`pos_layout_tablet_bar_${lowerRoute}`) : null;
+          const cafe = lowerRoute ? localStorage.getItem(`pos_layout_tablet_cafe_${lowerRoute}`) : null;
+
+          setTabletThemes({
+            restaurant: (rest === 'RESTAURANT' || rest === 'BAR' || rest === 'CAFE' || rest === 'TABLET_CAFE') ? rest as PosTheme : 'RESTAURANT',
+            bar: (bar === 'RESTAURANT' || bar === 'BAR' || bar === 'CAFE' || bar === 'TABLET_CAFE') ? bar as PosTheme : 'BAR',
+            cafe: (cafe === 'RESTAURANT' || cafe === 'BAR' || cafe === 'CAFE' || cafe === 'TABLET_CAFE') ? cafe as PosTheme : 'TABLET_CAFE',
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to resolve property DB code:', err);
+        // Fallback to loading using only route slug on error
+        const lowerRoute = routeCode.toLowerCase();
+        const loaded: Record<string, PosTheme> = {
+          billing: 'RESTAURANT',
+          barpos: 'BAR',
+          cafepos: 'CAFE',
+          tablet: 'RESTAURANT',
+        };
+        TERMINALS.forEach((t) => {
+          const val = lowerRoute ? localStorage.getItem(`pos_layout_${t.key}_${lowerRoute}`) : null;
+          if (val === 'RESTAURANT' || val === 'BAR' || val === 'CAFE' || val === 'TABLET_CAFE') {
+            loaded[t.key] = val as PosTheme;
+          }
+        });
+        setThemes(loaded);
+
+        const savedMode = lowerRoute ? localStorage.getItem(`pos_layout_tablet_mode_${lowerRoute}`) : null;
+        if (savedMode === 'unified' || savedMode === 'split') {
+          setTabletMode(savedMode);
+        }
+
+        const rest = lowerRoute ? localStorage.getItem(`pos_layout_tablet_restaurant_${lowerRoute}`) : null;
+        const bar = lowerRoute ? localStorage.getItem(`pos_layout_tablet_bar_${lowerRoute}`) : null;
+        const cafe = lowerRoute ? localStorage.getItem(`pos_layout_tablet_cafe_${lowerRoute}`) : null;
+
+        setTabletThemes({
+          restaurant: (rest === 'RESTAURANT' || rest === 'BAR' || rest === 'CAFE' || rest === 'TABLET_CAFE') ? rest as PosTheme : 'RESTAURANT',
+          bar: (bar === 'RESTAURANT' || bar === 'BAR' || bar === 'CAFE' || bar === 'TABLET_CAFE') ? bar as PosTheme : 'BAR',
+          cafe: (cafe === 'RESTAURANT' || cafe === 'BAR' || cafe === 'CAFE' || cafe === 'TABLET_CAFE') ? cafe as PosTheme : 'TABLET_CAFE',
+        });
+      })
+      .finally(() => setLoading(false));
   }, [propPropertyCode]);
 
   const handleSave = () => {
-    if (!propertyCode) return;
-    const lowerCode = propertyCode.toLowerCase();
+    const lowerRoute = propertyCode ? propertyCode.toLowerCase() : '';
+    const lowerDb = dbCode ? dbCode.toLowerCase() : '';
+
     TERMINALS.forEach((t) => {
-      localStorage.setItem(`pos_layout_${t.key}_${lowerCode}`, themes[t.key]);
-      console.log(`[POS Themes] Manually saved key: pos_layout_${t.key}_${lowerCode} = ${themes[t.key]}`);
+      if (lowerRoute) {
+        localStorage.setItem(`pos_layout_${t.key}_${lowerRoute}`, themes[t.key]);
+      }
+      if (lowerDb) {
+        localStorage.setItem(`pos_layout_${t.key}_${lowerDb}`, themes[t.key]);
+      }
     });
+
+    // Save tablet advanced configurations
+    if (lowerRoute) {
+      localStorage.setItem(`pos_layout_tablet_mode_${lowerRoute}`, tabletMode);
+      localStorage.setItem(`pos_layout_tablet_restaurant_${lowerRoute}`, tabletThemes.restaurant);
+      localStorage.setItem(`pos_layout_tablet_bar_${lowerRoute}`, tabletThemes.bar);
+      localStorage.setItem(`pos_layout_tablet_cafe_${lowerRoute}`, tabletThemes.cafe);
+    }
+    if (lowerDb) {
+      localStorage.setItem(`pos_layout_tablet_mode_${lowerDb}`, tabletMode);
+      localStorage.setItem(`pos_layout_tablet_restaurant_${lowerDb}`, tabletThemes.restaurant);
+      localStorage.setItem(`pos_layout_tablet_bar_${lowerDb}`, tabletThemes.bar);
+      localStorage.setItem(`pos_layout_tablet_cafe_${lowerDb}`, tabletThemes.cafe);
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
   const setTerminalTheme = (terminalKey: string, theme: PosTheme) => {
     setThemes((prev) => ({ ...prev, [terminalKey]: theme }));
-    if (propertyCode) {
-      const lowerCode = propertyCode.toLowerCase();
-      const key = `pos_layout_${terminalKey}_${lowerCode}`;
-      localStorage.setItem(key, theme);
-      console.log(`[POS Themes] Auto-saved key: ${key} = ${theme}`);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+    const lowerRoute = propertyCode ? propertyCode.toLowerCase() : '';
+    const lowerDb = dbCode ? dbCode.toLowerCase() : '';
+
+    if (lowerRoute) {
+      localStorage.setItem(`pos_layout_${terminalKey}_${lowerRoute}`, theme);
     }
+    if (lowerDb) {
+      localStorage.setItem(`pos_layout_${terminalKey}_${lowerDb}`, theme);
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleTabletModeChange = (mode: 'unified' | 'split') => {
+    setTabletMode(mode);
+    const lowerRoute = propertyCode ? propertyCode.toLowerCase() : '';
+    const lowerDb = dbCode ? dbCode.toLowerCase() : '';
+
+    if (lowerRoute) {
+      localStorage.setItem(`pos_layout_tablet_mode_${lowerRoute}`, mode);
+    }
+    if (lowerDb) {
+      localStorage.setItem(`pos_layout_tablet_mode_${lowerDb}`, mode);
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleTabletTabThemeChange = (tabKey: 'restaurant' | 'bar' | 'cafe', theme: PosTheme) => {
+    setTabletThemes((prev) => ({ ...prev, [tabKey]: theme }));
+    const lowerRoute = propertyCode ? propertyCode.toLowerCase() : '';
+    const lowerDb = dbCode ? dbCode.toLowerCase() : '';
+
+    if (lowerRoute) {
+      localStorage.setItem(`pos_layout_tablet_${tabKey}_${lowerRoute}`, theme);
+    }
+    if (lowerDb) {
+      localStorage.setItem(`pos_layout_tablet_${tabKey}_${lowerDb}`, theme);
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   if (loading) {
@@ -304,7 +513,7 @@ export const PosTerminalThemeForm = ({ propertyCode: propPropertyCode }: PosTerm
         </div>
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
           <Monitor size={12} className="text-indigo-500" />
-          <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">3 Terminals</span>
+          <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">4 Terminals</span>
         </div>
       </div>
 
@@ -395,6 +604,166 @@ export const PosTerminalThemeForm = ({ propertyCode: propPropertyCode }: PosTerm
             </div>
           );
         })}
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="border-t border-gray-100 dark:border-slate-800/80 my-2" />
+
+      {/* ── Tablet / Waiter POS Advanced Theme Customization ── */}
+      <div className="px-6 py-5">
+        <div className="flex items-center gap-3.5 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 flex items-center justify-center flex-shrink-0">
+            <Monitor size={18} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-[12px] font-black text-gray-900 dark:text-white uppercase tracking-wider">
+              Tablet / Waiter POS Advanced Setup
+            </h4>
+            <p className="text-[9px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+              Customize if the waiter app uses one unified layout or switches dynamically by tab
+            </p>
+          </div>
+        </div>
+
+        {/* Mode Selector */}
+        <div className="grid grid-cols-2 gap-3 p-1 bg-gray-50 dark:bg-slate-800/40 rounded-2xl border border-gray-100 dark:border-slate-800/60 mb-5">
+          <button
+            onClick={() => handleTabletModeChange('unified')}
+            className={`py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
+              ${tabletMode === 'unified'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-gray-100 dark:border-slate-700'
+                : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+              }`}
+          >
+            📱 Unified layout Theme
+          </button>
+          <button
+            onClick={() => handleTabletModeChange('split')}
+            className={`py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
+              ${tabletMode === 'split'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-gray-100 dark:border-slate-700'
+                : 'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
+              }`}
+          >
+            🔀 Split theme by tab
+          </button>
+        </div>
+
+        {/* Unified Mode Settings Note */}
+        {tabletMode === 'unified' && (
+          <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/30 dark:border-indigo-900/20 text-center">
+            <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider leading-relaxed">
+              Unified layout is enabled. The Tablet POS will use the theme layout selected in the "Tablet / Waiter POS" card above for all tabs.
+            </p>
+          </div>
+        )}
+
+        {/* Split Mode Sub-selectors */}
+        {tabletMode === 'split' && (
+          <div className="space-y-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-slate-500">
+              Configure Individual layouts
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Restaurant Tab */}
+              <div className="rounded-xl border border-gray-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 overflow-hidden flex flex-col">
+                <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/40 border-b border-gray-100 dark:border-slate-800/60 flex items-center gap-2">
+                  <span className="text-sm">🍽️</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500">
+                    Restaurant Tab Layout
+                  </span>
+                </div>
+                <div className="p-3 flex flex-col gap-2 flex-1">
+                  {THEMES.map((theme) => {
+                    const isSel = tabletThemes.restaurant === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => handleTabletTabThemeChange('restaurant', theme.id)}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-all
+                          ${isSel
+                            ? 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-400 text-rose-500'
+                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-400 dark:text-slate-500'
+                          }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs">{theme.emoji}</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider">{theme.label}</span>
+                        </div>
+                        {isSel && <Check size={10} className="text-rose-500" strokeWidth={3.5} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bar Tab */}
+              <div className="rounded-xl border border-gray-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 overflow-hidden flex flex-col">
+                <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/40 border-b border-gray-100 dark:border-slate-800/60 flex items-center gap-2">
+                  <span className="text-sm">🍺</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-500">
+                    Bar Tab Layout
+                  </span>
+                </div>
+                <div className="p-3 flex flex-col gap-2 flex-1">
+                  {THEMES.map((theme) => {
+                    const isSel = tabletThemes.bar === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => handleTabletTabThemeChange('bar', theme.id)}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-all
+                          ${isSel
+                            ? 'bg-amber-50/30 dark:bg-amber-950/20 border-amber-400 text-amber-500'
+                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-400 dark:text-slate-500'
+                          }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs">{theme.emoji}</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider">{theme.label}</span>
+                        </div>
+                        {isSel && <Check size={10} className="text-amber-500" strokeWidth={3.5} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Cafe Tab */}
+              <div className="rounded-xl border border-gray-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 overflow-hidden flex flex-col">
+                <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/40 border-b border-gray-100 dark:border-slate-800/60 flex items-center gap-2">
+                  <span className="text-sm">☕</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500">
+                    Cafe Tab Layout
+                  </span>
+                </div>
+                <div className="p-3 flex flex-col gap-2 flex-1">
+                  {THEMES.map((theme) => {
+                    const isSel = tabletThemes.cafe === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => handleTabletTabThemeChange('cafe', theme.id)}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-all
+                          ${isSel
+                            ? 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-400 text-emerald-500'
+                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-400 dark:text-slate-500'
+                          }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs">{theme.emoji}</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider">{theme.label}</span>
+                        </div>
+                        {isSel && <Check size={10} className="text-emerald-500" strokeWidth={3.5} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Save Button ── */}

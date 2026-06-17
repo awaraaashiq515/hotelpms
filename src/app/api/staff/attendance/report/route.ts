@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [attendance, settings] = await Promise.all([
+    const [attendance, settings, property] = await Promise.all([
       prisma.attendance.findMany({
         where: whereClause,
         include: {
@@ -75,8 +75,15 @@ export async function GET(request: NextRequest) {
       }),
       (prisma as any).staffLocationSettings.findUnique({
         where: { propertyId: session.propertyId as string }
+      }),
+      prisma.property.findUnique({
+        where: { id: session.propertyId as string },
+        select: { latitude: true, longitude: true }
       })
     ]);
+
+    const baseLat = settings?.baseLat || property?.latitude || 0;
+    const baseLng = settings?.baseLng || property?.longitude || 0;
 
     // Unify names and calculate distance from base
     const processed = attendance.map((record: any) => {
@@ -85,14 +92,15 @@ export async function GET(request: NextRequest) {
       let isOutOfRangeIn = false;
       let isOutOfRangeOut = false;
 
-      if (settings && (settings.baseLat !== 0 || settings.baseLng !== 0)) {
+      if (baseLat !== 0 || baseLng !== 0) {
+        const threshold = settings?.alertDistanceMeters ?? 500;
         if (record.locationIn) {
           const [latStr, lngStr] = record.locationIn.split(',');
           const lat = parseFloat(latStr);
           const lng = parseFloat(lngStr);
           if (!isNaN(lat) && !isNaN(lng)) {
-            distanceIn = haversineMetres(settings.baseLat, settings.baseLng, lat, lng);
-            isOutOfRangeIn = distanceIn > settings.alertDistanceMeters;
+            distanceIn = haversineMetres(baseLat, baseLng, lat, lng);
+            isOutOfRangeIn = distanceIn > threshold;
           }
         }
         if (record.locationOut) {
@@ -100,8 +108,8 @@ export async function GET(request: NextRequest) {
           const lat = parseFloat(latStr);
           const lng = parseFloat(lngStr);
           if (!isNaN(lat) && !isNaN(lng)) {
-            distanceOut = haversineMetres(settings.baseLat, settings.baseLng, lat, lng);
-            isOutOfRangeOut = distanceOut > settings.alertDistanceMeters;
+            distanceOut = haversineMetres(baseLat, baseLng, lat, lng);
+            isOutOfRangeOut = distanceOut > threshold;
           }
         }
       }

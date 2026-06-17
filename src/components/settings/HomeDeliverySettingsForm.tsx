@@ -39,6 +39,7 @@ export const HomeDeliverySettingsForm = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deliveryEnabled, showDeliveryInQrMenu }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         alert(
           deliveryEnabled
@@ -46,7 +47,7 @@ export const HomeDeliverySettingsForm = () => {
             : '🔴 Home Delivery Disabled.'
         );
       } else {
-        alert('Failed to save.');
+        alert(data.message || 'Failed to save.');
       }
     } catch {
       alert('Failed to save.');

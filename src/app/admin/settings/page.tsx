@@ -114,7 +114,7 @@ export default function WebsiteSettingsPage() {
       </div>
 
       {/* Links to SMS & Payments Settings */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 p-6 rounded-3xl flex flex-col justify-between transition-colors min-h-[160px]">
           <div>
             <h2 className="font-bold text-lg mb-1 text-pos-primary dark:text-pos-primary-light">SMS & WhatsApp Configurations</h2>
@@ -147,6 +147,18 @@ export default function WebsiteSettingsPage() {
           <div className="mt-4 flex justify-end">
             <a href="/admin/settings/youtube" className="text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow-md shadow-purple-600/20 bg-purple-600 hover:bg-purple-700">
               Configure YouTube Keys →
+            </a>
+          </div>
+        </div>
+
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-6 rounded-3xl flex flex-col justify-between transition-colors min-h-[160px]">
+          <div>
+            <h2 className="font-bold text-lg mb-1 text-emerald-600 dark:text-emerald-400">Spotify Integration</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Configure Spotify Client ID, Client Secret, and redirect URIs for the DJ Music Player.</p>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <a href="/admin/settings/spotify" className="text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow-md shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700">
+              Configure Spotify →
             </a>
           </div>
         </div>

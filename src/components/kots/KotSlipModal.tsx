@@ -18,6 +18,8 @@ export interface KotSlipData {
   createdAt: string;
   items: KotSlipItem[];
   staffName?: string;
+  floorName?: string;
+  floorMenuType?: string;
 }
 
 
@@ -29,6 +31,7 @@ interface KotSlipModalProps {
 export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
   // Property Branding State
   const [property, setProperty] = React.useState<any>(null);
+  const [seqNum, setSeqNum] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -41,7 +44,38 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
       .catch(err => console.error('Failed to fetch property branding:', err));
   }, []);
 
+  React.useEffect(() => {
+    if (!kot) return;
+    const dateStr = new Date(kot.createdAt).toISOString().split('T')[0];
+    fetch(`/api/kots?date=${dateStr}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data)) {
+          const sortedKots = [...data.data].sort((a: any, b: any) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          const index = sortedKots.findIndex((k: any) => k.kotNo === kot.kotNo);
+          if (index !== -1) {
+            setSeqNum(index + 1);
+          }
+        }
+      })
+      .catch(err => console.error('Failed to fetch KOT sequence number:', err));
+  }, [kot]);
+
   if (!kot) return null;
+
+  const isBar = kot.floorName?.toUpperCase().includes('BAR') || kot.floorMenuType === 'BAR';
+  const isCafe = kot.floorName?.toUpperCase().includes('CAFE') || kot.floorMenuType === 'CAFE';
+  const mainTitle = isBar ? 'BAR ORDER' : isCafe ? 'CAFE ORDER' : 'KITCHEN ORDER';
+
+  const banner = (kot.floorName?.toUpperCase().includes('BAR') || kot.floorMenuType === 'BAR')
+    ? 'BAR ORDER'
+    : (kot.floorName?.toUpperCase().includes('CAFE') || kot.floorMenuType === 'CAFE')
+    ? 'CAFE ORDER'
+    : kot.floorName
+    ? `${kot.floorName.toUpperCase()} ORDER`
+    : null;
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank', 'width=450,height=700');
@@ -81,15 +115,22 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
         <body onload="window.print(); setTimeout(() => window.close(), 1000);">
           <div class="text-center font-black">
             <h1 style="font-size: 14px; margin-bottom: 1mm; opacity: 0.8;">${property?.name || 'POS RESTAURANT'}</h1>
-            <h2 style="font-size: 28px; margin-bottom: 1mm;">KITCHEN ORDER</h2>
+            <h2 style="font-size: 28px; margin-bottom: 1mm;">${mainTitle}</h2>
             <p style="font-size: 10px; letter-spacing: 2px;">KOT TICKET</p>
           </div>
 
           <div class="double-line"></div>
 
-          <div class="header-info"><span>KOT NO:</span> <span style="font-size: 20px;">${kot.kotNo}</span></div>
+          <div class="header-info"><span>DATE:</span> <span>${(() => {
+            const d = new Date(kot.createdAt);
+            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+          })()}</span></div>
+          <div class="header-info"><span>KOT NO:</span> <span style="font-size: 20px;">${seqNum || kot.kotNo.replace(/\D/g, '').slice(-4)}</span></div>
           <div class="header-info"><span>TIME:</span> <span>${new Date(kot.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span></div>
           <div class="header-info"><span>TABLE:</span> <span style="font-size: 18px;">${kot.tableNo || 'WALK-IN'}</span></div>
+          ${kot.floorName ? `
+          <div class="header-info"><span>SECTION:</span> <span style="font-size: 16px;">${kot.floorName}</span></div>
+          ` : ''}
           <div class="header-info"><span>ORDER:</span> <span>#${kot.orderNo || '—'}</span></div>
 
           <div class="double-line" style="margin-top: 6mm;"></div>
@@ -149,7 +190,7 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
               </div>
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400">{property?.name || 'KITCHEN TICKET READY'}</p>
-                <h2 className="text-xl font-black tracking-tight">{kot.kotNo}</h2>
+                <h2 className="text-xl font-black tracking-tight">KOT No. {seqNum || kot.kotNo.replace(/\D/g, '').slice(-4)}</h2>
               </div>
             </div>
             <button
@@ -174,6 +215,18 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
               </div>
             ))}
           </div>
+
+          {banner && (
+            <div className={`mt-3 rounded-xl p-2.5 text-center font-black uppercase tracking-wider text-[10px] border ${
+              banner === 'BAR ORDER' 
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse' 
+                : banner === 'CAFE ORDER'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 animate-pulse'
+                : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+            }`}>
+              *** {banner} ***
+            </div>
+          )}
 
         </div>
 
