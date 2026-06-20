@@ -53,7 +53,8 @@ import {
   Tablet,
   Search,
   X,
-  MapPin
+  MapPin,
+  Download
 } from 'lucide-react';
 
 import { useRouter, useParams } from 'next/navigation';
@@ -408,6 +409,7 @@ export default function OperationsPage() {
     { label: 'Categories', perm: 'Inventory', icon: Layers, path: `${p}/categories`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: `${p}/operations/tables`, feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: `${p}/operations/tables/qr-gallery`, feature: 'TABLES' },
+    { label: 'QR Downloads', perm: 'Table Layout', icon: Download, path: `${p}/operations/qr-download`, feature: 'TABLES' },
   ];
 
   const systemSettingsActions: DashboardAction[] = [

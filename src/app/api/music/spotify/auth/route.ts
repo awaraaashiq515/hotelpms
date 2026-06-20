@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   getSpotifyConfig, SCOPES,
   SP_STATE_COOKIE, isSpotifyConfigured,
+  getRequestOrigin,
 } from '@/lib/spotify';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   if (!(await isSpotifyConfigured())) {
@@ -10,7 +13,8 @@ export async function GET(req: NextRequest) {
   }
 
   const config = await getSpotifyConfig();
-  const redirectUri = config.redirectUri || `${req.nextUrl.origin}/api/music/spotify/callback`;
+  const origin = getRequestOrigin(req);
+  const redirectUri = config.redirectUri || `${origin}/api/music/spotify/callback`;
 
   // Store which property page to return to after OAuth
   const propertyCode = req.nextUrl.searchParams.get('propertyCode') || '';

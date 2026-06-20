@@ -115,6 +115,8 @@ export const Sidebar: React.FC = () => {
     if (item.path.includes('/counter-payments') && !restaurantPosEnabled) return false;
     // Hide Kitchen Display menu item when BOTH restaurantPosEnabled and cafePosEnabled are false
     if (item.path.includes('/kitchen-display') && !restaurantPosEnabled && !cafePosEnabled) return false;
+    // Hide Delivery Display when delivery is not enabled (checked via property.deliveryEnabled)
+    if (item.path.includes('/delivery-display') && property && !property.deliveryEnabled) return false;
 
     // 1. Super admin always sees everything
     if (session.role === 'SUPER_ADMIN') return true;

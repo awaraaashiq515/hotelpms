@@ -24,13 +24,22 @@ interface DashboardData {
     totalTables: number; occupiedTables: number; vacantTables: number;
     activeKotCount: number; inProgressOrderCount: number; paymentPendingCount: number;
     tables: TableData[];
+    activeDeliveries: {
+      id: string; orderNo: string; grandTotal: number; orderType: string;
+      tableNo: string | null; updatedAt: string; createdAt: string; status: string;
+      deliveryCustomerName: string | null; deliveryAddress: string | null; deliveryPhone: string | null;
+    }[];
   };
   today: {
     totalSales: number; invoiceCount: number; orderCount: number;
     totalCustomers: number; avgOrderValue: number;
     orderTypes: Record<string, { count: number; revenue: number }>;
     topItems: { productId: string; name: string; qty: number; revenue: number }[];
-    recentSettled: { id: string; orderNo: string; grandTotal: number; orderType: string; tableNo: string | null; updatedAt: string }[];
+    recentSettled: {
+      id: string; orderNo: string; grandTotal: number; orderType: string;
+      tableNo: string | null; updatedAt: string; createdAt: string; status: string;
+      deliveryCustomerName?: string | null; deliveryAddress?: string | null; deliveryPhone?: string | null;
+    }[];
   };
   allTime: { totalCustomers: number; totalRevenue: number };
   staff: {
@@ -50,6 +59,62 @@ const fmtElapsed = (min: number) =>
   min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min}m`;
 const nowTime = () =>
   new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+const getKitchenStatusDetails = (status: string) => {
+  switch (status) {
+    case 'PENDING':
+    case 'PLACED':
+      return {
+        label: '📥 Placed',
+        color: '#a855f7', // purple
+        icon: <Clock size={16} />,
+      };
+    case 'ACCEPTED':
+      return {
+        label: '🤝 Accepted',
+        color: '#3b82f6', // blue
+        icon: <Zap size={16} />,
+      };
+    case 'KOT_RUNNING':
+      return {
+        label: '🔴 KOT Running',
+        color: '#f43f5e', // rose
+        icon: <Flame size={16} />,
+      };
+    case 'IN_KITCHEN':
+    case 'PREPARING':
+      return {
+        label: '🍳 In Kitchen',
+        color: '#fbbf24', // amber
+        icon: <ChefHat size={16} />,
+      };
+    case 'READY':
+    case 'READY_TO_SERVE':
+      return {
+        label: '🍽️ Ready to Serve',
+        color: '#10b981', // emerald
+        icon: <UtensilsCrossed size={16} />,
+      };
+    case 'SERVED':
+      return {
+        label: '✅ Served',
+        color: '#22c55e', // green
+        icon: <CheckCircle2 size={16} />,
+      };
+    case 'BILL_PRINTED':
+      return {
+        label: '🧾 Bill Printed',
+        color: '#fb923c', // orange
+        icon: <CreditCard size={16} />,
+      };
+    default:
+      return {
+        label: status,
+        color: '#94a3b8', // slate
+        icon: <Coffee size={16} />,
+      };
+  }
+};
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function LiveOverviewPage() {
@@ -71,6 +136,8 @@ export default function LiveOverviewPage() {
   const [parkingPage,  setParkingPage]  = useState(1);
   const [deliveryPage, setDeliveryPage] = useState(1);
   const [staffPage,    setStaffPage]    = useState(1);
+
+  const [kitchenTab, setKitchenTab] = useState<'ALL' | 'PLACED' | 'PREPARING' | 'READY' | 'SERVED'>('ALL');
 
   useEffect(() => { setOpen(false); }, [setOpen]);
 
@@ -111,25 +178,44 @@ export default function LiveOverviewPage() {
 
   // ── Derived & Paginated Data ────────────────────────────────────────────────
   const kitchenTables  = (data?.live.tables ?? []).filter(t => t.activeOrder &&
-    ['KOT_RUNNING', 'IN_KITCHEN', 'SERVED', 'BILL_PRINTED'].includes(t.activeOrder.status));
+    ['PENDING', 'PLACED', 'ACCEPTED', 'KOT_RUNNING', 'IN_KITCHEN', 'PREPARING', 'READY', 'READY_TO_SERVE', 'SERVED', 'BILL_PRINTED'].includes(t.activeOrder.status));
   const allParkingOrders = (data?.today.recentSettled ?? []).filter(o => o.orderType === 'PARKING');
-  const allDeliveryOrders = (data?.today.recentSettled ?? []).filter(o => o.orderType === 'DELIVERY');
+  
+  const activeDeliveries = data?.live.activeDeliveries ?? [];
+  const settledDeliveries = (data?.today.recentSettled ?? []).filter(o => o.orderType === 'DELIVERY');
+  const allDeliveryOrders = [...activeDeliveries, ...settledDeliveries];
+
   const presentStaff   = (data?.staff.attendanceToday ?? []).filter(r => r.stillPresent);
+
+  // Category counts
+  const countPlaced = kitchenTables.filter(t => ['PENDING', 'PLACED', 'ACCEPTED'].includes(t.activeOrder!.status)).length;
+  const countPreparing = kitchenTables.filter(t => ['KOT_RUNNING', 'IN_KITCHEN', 'PREPARING'].includes(t.activeOrder!.status)).length;
+  const countReady = kitchenTables.filter(t => ['READY', 'READY_TO_SERVE'].includes(t.activeOrder!.status)).length;
+  const countServed = kitchenTables.filter(t => ['SERVED', 'BILL_PRINTED'].includes(t.activeOrder!.status)).length;
+
+  const filteredKitchenTables = kitchenTables.filter(t => {
+    if (kitchenTab === 'ALL') return true;
+    if (kitchenTab === 'PLACED') return ['PENDING', 'PLACED', 'ACCEPTED'].includes(t.activeOrder!.status);
+    if (kitchenTab === 'PREPARING') return ['KOT_RUNNING', 'IN_KITCHEN', 'PREPARING'].includes(t.activeOrder!.status);
+    if (kitchenTab === 'READY') return ['READY', 'READY_TO_SERVE'].includes(t.activeOrder!.status);
+    if (kitchenTab === 'SERVED') return ['SERVED', 'BILL_PRINTED'].includes(t.activeOrder!.status);
+    return true;
+  });
 
   // Pagination Configuration & Slicing
   const TABLES_PER_PAGE = 12;
   const KITCHEN_PER_PAGE = 4;
   const PARKING_PER_PAGE = 4;
-  const DELIVERY_PER_PAGE = 4;
+  const DELIVERY_PER_PAGE = 2;
   const STAFF_PER_PAGE = 4;
 
   const totalTablesPages = Math.ceil((data?.live.tables ?? []).length / TABLES_PER_PAGE);
   const currentTablesPage = Math.min(tablesPage, Math.max(1, totalTablesPages));
   const displayedTables = (data?.live.tables ?? []).slice((currentTablesPage - 1) * TABLES_PER_PAGE, currentTablesPage * TABLES_PER_PAGE);
 
-  const totalKitchenPages = Math.ceil(kitchenTables.length / KITCHEN_PER_PAGE);
+  const totalKitchenPages = Math.ceil(filteredKitchenTables.length / KITCHEN_PER_PAGE);
   const currentKitchenPage = Math.min(kitchenPage, Math.max(1, totalKitchenPages));
-  const displayedKitchen = kitchenTables.slice((currentKitchenPage - 1) * KITCHEN_PER_PAGE, currentKitchenPage * KITCHEN_PER_PAGE);
+  const displayedKitchen = filteredKitchenTables.slice((currentKitchenPage - 1) * KITCHEN_PER_PAGE, currentKitchenPage * KITCHEN_PER_PAGE);
 
   const totalParkingPages = Math.ceil(allParkingOrders.length / PARKING_PER_PAGE);
   const currentParkingPage = Math.min(parkingPage, Math.max(1, totalParkingPages));
@@ -393,40 +479,88 @@ export default function LiveOverviewPage() {
 
             {kitchenTables.length === 0
               ? <EmptyBox icon={<Coffee size={28} />} text="Kitchen is clear — no active orders" accent="#fbbf24" />
-              : <div className="space-y-2">
-                  {displayedKitchen.map(table => {
-                    const o = table.activeOrder!;
-                    const isRunning = o.status === 'KOT_RUNNING';
-                    const isKitchen = o.status === 'IN_KITCHEN';
-                    const isServed  = o.status === 'SERVED';
-                    const accent    = isRunning ? '#f43f5e' : isKitchen ? '#fbbf24' : isServed ? '#34d399' : '#fb923c';
-                    const label     = isRunning ? '🔴 KOT Running' : isKitchen ? '🍳 In Kitchen' : isServed ? '✅ Served' : '🧾 Bill';
-                    const isUrgent  = o.elapsedMinutes > 30;
-                    return (
-                      <div key={table.id} className="rounded-xl p-2.5 flex items-center gap-2.5 transition-all"
-                        style={{ background: `${accent}08`, border: `1px solid ${accent}${isUrgent ? '40' : '20'}` }}>
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: `${accent}15`, color: accent }}>
-                          {isRunning ? <Flame size={16} /> : isKitchen ? <ChefHat size={16} /> : <CheckCircle2 size={16} />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-[12px] font-black text-white">Table {table.name}</p>
-                            <span className="text-[8px] font-black px-2 py-0.5 rounded-full" style={{ background: `${accent}15`, color: accent }}>
-                              {label}
-                            </span>
+              : <div className="flex flex-col h-full gap-3">
+                  {/* Status Group Tabs */}
+                  <div className="grid grid-cols-5 gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/5">
+                    {([
+                      { key: 'ALL', label: 'All', count: kitchenTables.length, color: '#fbbf24' },
+                      { key: 'PLACED', label: 'Placed', count: countPlaced, color: '#a855f7' },
+                      { key: 'PREPARING', label: 'Prep', count: countPreparing, color: '#f43f5e' },
+                      { key: 'READY', label: 'Ready', count: countReady, color: '#10b981' },
+                      { key: 'SERVED', label: 'Served', count: countServed, color: '#22c55e' }
+                    ] as const).map(tab => {
+                      const isActive = kitchenTab === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          onClick={() => {
+                            setKitchenTab(tab.key);
+                            setKitchenPage(1);
+                          }}
+                          className={`py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
+                            isActive
+                              ? 'bg-white/10 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.01]'
+                          }`}
+                          style={{
+                            border: isActive ? `1px solid rgba(255, 255, 255, 0.1)` : '1px solid transparent'
+                          }}
+                        >
+                          <span className="truncate">{tab.label}</span>
+                          <span
+                            className="px-1.5 py-0.5 rounded-full text-[8px] font-black shrink-0"
+                            style={{
+                              background: isActive ? `${tab.color}25` : 'rgba(255,255,255,0.05)',
+                              color: tab.color
+                            }}
+                          >
+                            {tab.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {filteredKitchenTables.length === 0 ? (
+                    <div className="py-8 text-center bg-white/[0.01] rounded-2xl border border-white/5">
+                      <Coffee size={20} className="mx-auto text-slate-700 mb-1.5" />
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">No orders in this category</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {displayedKitchen.map(table => {
+                        const o = table.activeOrder!;
+                        const statusDetails = getKitchenStatusDetails(o.status);
+                        const accent = statusDetails.color;
+                        const label = statusDetails.label;
+                        const isUrgent  = o.elapsedMinutes > 30;
+                        return (
+                          <div key={table.id} className="rounded-xl p-2.5 flex items-center gap-2.5 transition-all"
+                            style={{ background: `${accent}08`, border: `1px solid ${accent}${isUrgent ? '40' : '20'}` }}>
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                              style={{ background: `${accent}15`, color: accent }}>
+                              {statusDetails.icon}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-[12px] font-black text-white">Table {table.name}</p>
+                                <span className="text-[8px] font-black px-2 py-0.5 rounded-full" style={{ background: `${accent}15`, color: accent }}>
+                                  {label}
+                                </span>
+                              </div>
+                              <p className="text-[9px] text-slate-500 font-bold">#{o.orderNo} · {o.guestCount} guests</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-black text-white">{fmt(o.grandTotal)}</p>
+                              <p className="text-[9px] font-black" style={{ color: isUrgent ? '#f43f5e' : '#64748b' }}>
+                                {isUrgent && '⚠️ '}{fmtElapsed(o.elapsedMinutes)}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-[9px] text-slate-500 font-bold">#{o.orderNo} · {o.guestCount} guests</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-white">{fmt(o.grandTotal)}</p>
-                          <p className="text-[9px] font-black" style={{ color: isUrgent ? '#f43f5e' : '#64748b' }}>
-                            {isUrgent && '⚠️ '}{fmtElapsed(o.elapsedMinutes)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <Pagination
                     currentPage={currentKitchenPage}
@@ -434,6 +568,22 @@ export default function LiveOverviewPage() {
                     onPageChange={setKitchenPage}
                     accent={live.activeKotCount >= 5 ? '#f43f5e' : '#fbbf24'}
                   />
+
+                  {/* Status Legend */}
+                  <div className="flex flex-wrap gap-2 mt-1 pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    {[
+                      { label: 'Placed', color: '#a855f7' },
+                      { label: 'Accepted', color: '#3b82f6' },
+                      { label: 'KOT Running', color: '#f43f5e' },
+                      { label: 'In Kitchen', color: '#fbbf24' },
+                      { label: 'Ready', color: '#10b981' }
+                    ].map(leg => (
+                      <div key={leg.label} className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: leg.color }} />
+                        <span className="text-[8px] font-bold text-slate-600">{leg.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
             }
 
@@ -509,26 +659,89 @@ export default function LiveOverviewPage() {
             {allDeliveryOrders.length === 0
               ? <EmptyBox icon={<Bike size={28} />} text="No deliveries today" accent="#22d3ee" />
               : <div className="space-y-2">
-                  {displayedDelivery.map((order, idx) => (
-                    <div key={order.id} className="flex items-center justify-between p-3 rounded-xl"
-                      style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.16)' }}>
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-black"
-                          style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee' }}>
-                          {(currentDeliveryPage - 1) * DELIVERY_PER_PAGE + idx + 1}
+                  {displayedDelivery.map((order, idx) => {
+                    const isActive = ['PENDING', 'PLACED', 'ACCEPTED', 'KOT_RUNNING', 'IN_KITCHEN', 'PREPARING', 'READY', 'READY_TO_SERVE', 'OUT_FOR_DELIVERY'].includes(order.status || '');
+                    
+                    // Style color scheme based on status
+                    let statusColor = '#22d3ee'; // cyan
+                    let statusBg = 'rgba(34,211,238,0.12)';
+                    let statusLabel = '✓ Done';
+                    
+                    if (isActive) {
+                      if (['PENDING', 'PLACED'].includes(order.status || '')) {
+                        statusColor = '#a855f7'; // purple
+                        statusLabel = '📥 Placed';
+                      } else if (order.status === 'ACCEPTED') {
+                        statusColor = '#3b82f6'; // blue
+                        statusLabel = '🤝 Accepted';
+                      } else if (['KOT_RUNNING', 'IN_KITCHEN', 'PREPARING'].includes(order.status || '')) {
+                        statusColor = '#f43f5e'; // rose/red
+                        statusLabel = '🍳 Prep';
+                      } else if (['READY', 'READY_TO_SERVE'].includes(order.status || '')) {
+                        statusColor = '#10b981'; // emerald
+                        statusLabel = '🍽️ Ready';
+                      } else if (order.status === 'OUT_FOR_DELIVERY') {
+                        statusColor = '#fbbf24'; // amber
+                        statusLabel = '🛵 Out';
+                      }
+                      statusBg = `${statusColor}15`;
+                    } else {
+                      statusColor = '#10b981'; // emerald for settled/done
+                      statusBg = 'rgba(16,185,129,0.1)';
+                    }
+
+                    return (
+                      <div key={order.id} className="flex flex-col gap-2 p-3 rounded-xl transition-all"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${isActive ? statusColor : 'rgba(255,255,255,0.05)'}22` }}>
+                        
+                        {/* Top row: Order Number, Status, Price */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400">#{order.orderNo.slice(-6)}</span>
+                            <span className="text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse" style={{ background: statusBg, color: statusColor }}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[11px] font-black text-white">{fmt(order.grandTotal)}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-black text-white">#{order.orderNo}</p>
-                          <p className="text-[9px] text-slate-600 font-bold">{fmtTime(order.updatedAt)}</p>
+
+                        {/* Customer details row */}
+                        <div className="flex flex-col gap-1 min-w-0">
+                          {order.deliveryCustomerName ? (
+                            <p className="text-[11px] font-black text-slate-100 truncate">
+                              👤 {order.deliveryCustomerName}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] font-bold text-slate-500">👤 Guest Customer</p>
+                          )}
+                          
+                          {order.deliveryAddress ? (
+                            <p className="text-[9px] text-slate-400 font-bold leading-tight line-clamp-2">
+                              📍 {order.deliveryAddress}
+                            </p>
+                          ) : (
+                            <p className="text-[9px] text-slate-600 font-bold italic">📍 Address not specified</p>
+                          )}
+                          
+                          {order.deliveryPhone && (
+                            <p className="text-[9px] text-slate-500 font-mono mt-0.5">
+                              📞 {order.deliveryPhone}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Bottom row: Time stamp */}
+                        <div className="flex items-center justify-between mt-1 text-[8px] text-slate-600 font-bold">
+                          <span>{fmtTime(order.updatedAt || order.createdAt)}</span>
+                          {isActive && (
+                            <span className="text-slate-500">Active</span>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right shrink-0 ml-2">
-                        <p className="text-[12px] font-black" style={{ color: '#22d3ee' }}>{fmt(order.grandTotal)}</p>
-                        <span className="text-[8px] font-black px-2 py-0.5 rounded-full"
-                          style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee' }}>✓ Done</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   <Pagination
                     currentPage={currentDeliveryPage}

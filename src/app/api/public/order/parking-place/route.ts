@@ -45,6 +45,19 @@ export async function POST(request: NextRequest) {
         include: { items: true },
       });
 
+      let guestId = null;
+      if (customerPhone) {
+        let guest = await tx.guest.findFirst({
+          where: { mobile: customerPhone, organizationId: slot.property.organizationId }
+        });
+        if (!guest) {
+          guest = await tx.guest.create({
+            data: { firstName: customerName || 'Guest', mobile: customerPhone, organizationId: slot.property.organizationId }
+          });
+        }
+        guestId = guest.id;
+      }
+
       if (!order) {
         order = await tx.posOrder.create({
           data: {
@@ -57,9 +70,14 @@ export async function POST(request: NextRequest) {
             tableNo: customerName || 'Parking Customer',
             vehicleNumber: vehicleNumber || null,
             guestCount: guestCount || 1,
+            guestId: guestId,
           },
           include: { items: true },
         });
+      } else {
+        if (guestId && !order.guestId) {
+          await tx.posOrder.update({ where: { id: order.id }, data: { guestId } });
+        }
       }
 
       // Process items

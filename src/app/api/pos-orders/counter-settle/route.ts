@@ -88,6 +88,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Vacate parking slot
+      if (order.parkingSlotId) {
+        await tx.parkingSlot.update({
+          where: { id: order.parkingSlotId },
+          data: { status: 'VACANT' },
+        });
+      }
+
       return { success: true, orderNo: order.orderNo };
     });
 

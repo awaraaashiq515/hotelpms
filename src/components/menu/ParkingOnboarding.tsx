@@ -8,9 +8,17 @@ interface ParkingOnboardingProps {
   setForm: (form: any) => void;
   onSubmit: (e: React.FormEvent) => void;
   slotName?: string;
+  hasActiveOrder?: boolean;
 }
 
-export const ParkingOnboarding: React.FC<ParkingOnboardingProps> = ({ show, form, setForm, onSubmit, slotName }) => {
+export const ParkingOnboarding: React.FC<ParkingOnboardingProps> = ({ 
+  show, 
+  form, 
+  setForm, 
+  onSubmit, 
+  slotName,
+  hasActiveOrder = false
+}) => {
   return (
     <AnimatePresence>
       {show && (
@@ -23,8 +31,24 @@ export const ParkingOnboarding: React.FC<ParkingOnboardingProps> = ({ show, form
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl"
+            className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl animate-in fade-in duration-300"
           >
+            {hasActiveOrder && (
+              <div className="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/50 flex gap-3 items-start text-left">
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+                  <Car size={18} />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-black text-amber-950 dark:text-amber-200 uppercase tracking-wider">
+                    Active Order running
+                  </p>
+                  <p className="text-[11px] font-bold text-amber-600/90 dark:text-amber-400/90 leading-relaxed">
+                    There is already an active order running on parking slot ({slotName}). Enter details below to see the bill and order.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="text-center space-y-2 mb-8">
               <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Car className="text-amber-500" size={28} />

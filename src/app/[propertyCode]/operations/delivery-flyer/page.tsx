@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer, RefreshCcw, Home, Sparkles, Navigation, Globe, Phone } from 'lucide-react';
+import { Printer, RefreshCcw, Home, Sparkles, Navigation, Globe, Phone, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
@@ -32,6 +32,139 @@ export default function DeliveryFlyerPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
+
+  const downloadPoster = () => {
+    const svg = document.getElementById('delivery-qr-svg');
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const width = 800;
+      const height = 1130;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw a stylish thick indigo border
+      ctx.strokeStyle = '#4f46e5';
+      ctx.lineWidth = 16;
+      ctx.lineJoin = 'round';
+      ctx.strokeRect(30, 30, width - 60, height - 60);
+
+      // 1. Draw "Home Delivery Available" pill
+      const pillText = 'HOME DELIVERY AVAILABLE';
+      ctx.font = 'bold 16px Inter, system-ui, sans-serif';
+      const pillWidth = ctx.measureText(pillText).width + 40;
+      const pillHeight = 40;
+      const pillX = (width - pillWidth) / 2;
+      const pillY = 90;
+
+      ctx.fillStyle = '#e0e7ff';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 20);
+      } else {
+        ctx.arc(pillX + 20, pillY + 20, 20, Math.PI, 1.5 * Math.PI);
+        ctx.arc(pillX + pillWidth - 20, pillY + 20, 20, 1.5 * Math.PI, 2 * Math.PI);
+        ctx.arc(pillX + pillWidth - 20, pillY + pillHeight - 20, 20, 0, 0.5 * Math.PI);
+        ctx.arc(pillX + 20, pillY + pillHeight - 20, 20, 0.5 * Math.PI, Math.PI);
+      }
+      ctx.fill();
+
+      ctx.fillStyle = '#4338ca';
+      ctx.textAlign = 'center';
+      ctx.fillText(pillText, width / 2, pillY + 25);
+
+      // 2. Draw Property Name
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 54px Inter, system-ui, sans-serif';
+      const propName = property?.name || 'Our Kitchen';
+      ctx.fillText(propName.toUpperCase(), width / 2, 210);
+
+      // 3. Draw Slogan text (multiline wrapping)
+      ctx.fillStyle = '#475569';
+      ctx.font = '600 18px Inter, system-ui, sans-serif';
+      const slogan = 'Scan this QR code from home to browse our full digital menu and place home delivery orders directly on your mobile!';
+      
+      const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+        const words = text.split(' ');
+        let line = '';
+        let currentY = y;
+        
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = context.measureText(testLine);
+          const testWidth = metrics.width;
+          if (testWidth > maxWidth && n > 0) {
+            context.fillText(line, x, currentY);
+            line = words[n] + ' ';
+            currentY += lineHeight;
+          } else {
+            line = testLine;
+          }
+        }
+        context.fillText(line, x, currentY);
+      };
+
+      wrapText(ctx, slogan, width / 2, 270, 600, 26);
+
+      // 4. Draw QR Container
+      const qrBoxSize = 420;
+      const qrBoxX = (width - qrBoxSize) / 2;
+      const qrBoxY = 390;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 32);
+      } else {
+        ctx.arc(qrBoxX + 32, qrBoxY + 32, 32, Math.PI, 1.5 * Math.PI);
+        ctx.arc(qrBoxX + qrBoxSize - 32, qrBoxY + 32, 32, 1.5 * Math.PI, 2 * Math.PI);
+        ctx.arc(qrBoxX + qrBoxSize - 32, qrBoxY + qrBoxSize - 32, 32, 0, 0.5 * Math.PI);
+        ctx.arc(qrBoxX + 32, qrBoxY + qrBoxSize - 32, 32, 0.5 * Math.PI, Math.PI);
+      }
+      ctx.fill();
+
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Draw QR image
+      ctx.drawImage(img, qrBoxX + 30, qrBoxY + 30, qrBoxSize - 60, qrBoxSize - 60);
+
+      // 5. Draw SCAN TO ORDER title
+      ctx.fillStyle = '#4f46e5';
+      ctx.font = 'bold 36px Inter, system-ui, sans-serif';
+      ctx.fillText('SCAN TO ORDER', width / 2, 890);
+
+      // 6. Draw Sub-slogan
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 16px Inter, system-ui, sans-serif';
+      ctx.fillText('FRESH FOOD · SUPER FAST DELIVERY', width / 2, 940);
+
+      // 7. Bottom Brand Watermark
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 14px Inter, system-ui, sans-serif';
+      ctx.fillText('POWERED BY ORDERMINT', width / 2, 1050);
+
+      // Trigger download
+      const pngFile = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `Home_Delivery_Flyer_${propName.replace(/\s+/g, '_')}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -173,14 +306,25 @@ export default function DeliveryFlyerPage() {
           showBack
           backUrl={`${p}/operations`}
           actions={
-            <Button
-              onClick={handlePrint}
-              disabled={!qrUrl}
-              className="rounded-2xl h-12 px-8 bg-indigo-600 hover:bg-indigo-500 font-black uppercase text-xs tracking-widest gap-2 text-white shadow-lg active:scale-95"
-            >
-              <Printer size={18} />
-              Print Poster Flyer
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={downloadPoster}
+                disabled={!qrUrl}
+                className="rounded-2xl h-12 px-6 border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
+              >
+                <Download size={18} />
+                Download Flyer
+              </Button>
+              <Button
+                onClick={handlePrint}
+                disabled={!qrUrl}
+                className="rounded-2xl h-12 px-8 bg-indigo-600 hover:bg-indigo-500 font-black uppercase text-xs tracking-widest gap-2 text-white shadow-lg active:scale-95"
+              >
+                <Printer size={18} />
+                Print Poster Flyer
+              </Button>
+            </div>
           }
         />
 
@@ -264,6 +408,7 @@ export default function DeliveryFlyerPage() {
               <div className="p-4 bg-white rounded-[2rem] border border-slate-100 shadow-inner flex items-center justify-center">
                 {qrUrl ? (
                   <QRCodeSVG
+                    id="delivery-qr-svg"
                     value={qrUrl}
                     size={160}
                     level="H"

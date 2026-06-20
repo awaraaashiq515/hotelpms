@@ -33,6 +33,7 @@ import {
   Activity,
   Bike,
   Music,
+  Truck,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -110,6 +111,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
     { name: 'Categories',  path: '/categories',icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
     { name: 'KOTs',        path: '/kots',      icon: Layers,    feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Kitchen Display', path: '/kitchen-display', icon: Eye, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Kitchen Display', target: '_blank' },
+    { name: '🛵 Delivery Display', path: '/delivery-display', icon: Truck, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], target: '_blank' },
     { name: 'Bar Display', path: '/bar-display', icon: Wine, feature: 'BARPOS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Kitchen Display', target: '_blank' },
     { name: 'Day Closing', path: '/day-closing', icon: Layers,  feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Day Closing' },
     { name: 'Music Player', path: '/music',       icon: Music,   feature: 'POS',       roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },

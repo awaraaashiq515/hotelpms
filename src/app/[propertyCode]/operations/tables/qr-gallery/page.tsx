@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer, RefreshCcw, Layers, Home, Sparkles, Navigation, Globe, Phone } from 'lucide-react';
+import { Printer, RefreshCcw, Layers, Home, Sparkles, Navigation, Globe, Phone, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
@@ -51,6 +51,171 @@ export default function QRGalleryPage() {
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
   const [qrMode, setQrMode] = useState<'order' | 'rating'>('order');
+
+  const downloadQRCard = async (
+    id: string,
+    name: string,
+    floorOrType: string,
+    qrUrl: string,
+    mode: 'order' | 'rating' | 'parking'
+  ) => {
+    const svgId = mode === 'parking' ? `qr-parking-svg-${id}` : `qr-table-svg-${id}`;
+    const svg = document.getElementById(svgId);
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const width = 600;
+      const height = 850;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw outer border card
+      ctx.strokeStyle = mode === 'rating' ? '#fed7aa' : '#f1f5f9';
+      ctx.lineWidth = 12;
+      ctx.lineJoin = 'round';
+      ctx.strokeRect(20, 20, width - 40, height - 40);
+
+      // Draw Property Name
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 24px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      const propName = property?.name || 'Our Restaurant';
+      ctx.fillText(propName.toUpperCase(), width / 2, 85);
+
+      // Draw Floor/Badge pill
+      const badgeText = floorOrType.toUpperCase();
+      ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+      const badgeWidth = ctx.measureText(badgeText).width + 30;
+      const badgeHeight = 30;
+      const badgeX = (width - badgeWidth) / 2;
+      const badgeY = 115;
+      
+      if (mode === 'rating') {
+        ctx.fillStyle = '#ffedd5';
+      } else if (mode === 'parking') {
+        ctx.fillStyle = '#eff6ff';
+      } else {
+        ctx.fillStyle = '#f0fdf4';
+      }
+      
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 15);
+      } else {
+        ctx.arc(badgeX + 15, badgeY + 15, 15, Math.PI, 1.5 * Math.PI);
+        ctx.arc(badgeX + badgeWidth - 15, badgeY + 15, 15, 1.5 * Math.PI, 2 * Math.PI);
+        ctx.arc(badgeX + badgeWidth - 15, badgeY + badgeHeight - 15, 15, 0, 0.5 * Math.PI);
+        ctx.arc(badgeX + 15, badgeY + badgeHeight - 15, 15, 0.5 * Math.PI, Math.PI);
+      }
+      ctx.fill();
+
+      // Badge text color
+      if (mode === 'rating') {
+        ctx.fillStyle = '#ea580c';
+      } else if (mode === 'parking') {
+        ctx.fillStyle = '#2563eb';
+      } else {
+        ctx.fillStyle = '#16a34a';
+      }
+      ctx.fillText(badgeText, width / 2, badgeY + 19);
+
+      // Draw QR container background
+      ctx.fillStyle = '#ffffff';
+      const qrBoxSize = 380;
+      const qrBoxX = (width - qrBoxSize) / 2;
+      const qrBoxY = 185;
+      
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 24);
+      } else {
+        ctx.arc(qrBoxX + 24, qrBoxY + 24, 24, Math.PI, 1.5 * Math.PI);
+        ctx.arc(qrBoxX + qrBoxSize - 24, qrBoxY + 24, 24, 1.5 * Math.PI, 2 * Math.PI);
+        ctx.arc(qrBoxX + qrBoxSize - 24, qrBoxY + qrBoxSize - 24, 24, 0, 0.5 * Math.PI);
+        ctx.arc(qrBoxX + 24, qrBoxY + qrBoxSize - 24, 24, 0.5 * Math.PI, Math.PI);
+      }
+      ctx.fill();
+      
+      ctx.strokeStyle = mode === 'rating' ? '#fed7aa' : '#f1f5f9';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw QR image
+      ctx.drawImage(img, qrBoxX + 20, qrBoxY + 20, qrBoxSize - 40, qrBoxSize - 40);
+
+      // Draw Table/Slot Name
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 40px Inter, system-ui, sans-serif';
+      ctx.fillText(name, width / 2, 635);
+
+      // Draw Instruction
+      if (mode === 'rating') {
+        ctx.fillStyle = '#ea580c';
+      } else if (mode === 'parking') {
+        ctx.fillStyle = '#2563eb';
+      } else {
+        ctx.fillStyle = '#16a34a';
+      }
+      ctx.font = 'bold 16px Inter, system-ui, sans-serif';
+      const instruction = mode === 'rating' ? 'SCAN TO RATE' : 'SCAN TO ORDER';
+      ctx.fillText(instruction, width / 2, 685);
+
+      // Sub-footer
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 13px Inter, system-ui, sans-serif';
+      ctx.fillText('Fresh Food · Instant Service', width / 2, 725);
+
+      // Bottom Brand text
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+      ctx.fillText('POWERED BY ORDERMINT', width / 2, 800);
+
+      // Trigger download
+      const pngFile = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `QR_${name.replace(/\s+/g, '_')}_${mode}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
+  const downloadAllQRs = async () => {
+    const itemsToDownload = activeTab === 'tables' 
+      ? tables.filter(t => t.name.toLowerCase() !== 'home delivery')
+      : parkingSlots;
+
+    for (let i = 0; i < itemsToDownload.length; i++) {
+      const item = itemsToDownload[i];
+      if (activeTab === 'tables') {
+        const tableItem = item as Table;
+        const floorName = tableItem.floor?.name ?? 'General';
+        const qrUrl = qrMode === 'order' 
+          ? `${origin}/menu/${tableItem.property.code}/${tableItem.qrToken || tableItem.id}`
+          : `${origin}/rate/${tableItem.property.code}/${tableItem.qrToken || tableItem.id}`;
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        downloadQRCard(tableItem.id, tableItem.name, floorName, qrUrl, qrMode);
+      } else {
+        const slotItem = item as ParkingSlot;
+        const qrUrl = `${origin}/menu/parking/${property?.code}/${slotItem.qrToken || slotItem.id}`;
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        downloadQRCard(slotItem.id, slotItem.name, 'Parking Slot', qrUrl, 'parking');
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -360,6 +525,14 @@ export default function QRGalleryPage() {
                       </Button>
                     </div>
                     <Button
+                      variant="outline"
+                      onClick={downloadAllQRs}
+                      className="rounded-2xl h-12 px-6 border-2 border-pos-primary text-pos-primary hover:bg-pos-primary hover:text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/5 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Download size={18} />
+                      Download All QRs
+                    </Button>
+                    <Button
                       onClick={handlePrintAll}
                       className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/10 active:scale-95"
                     >
@@ -370,13 +543,23 @@ export default function QRGalleryPage() {
                 )}
 
                 {activeTab === 'parking' && (
-                  <Button
-                    onClick={handlePrintAll}
-                    className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/10 active:scale-95"
-                  >
-                    <Printer size={18} />
-                    Print Parking QRs
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={downloadAllQRs}
+                      className="rounded-2xl h-12 px-6 border-2 border-pos-primary text-pos-primary hover:bg-pos-primary hover:text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/5 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Download size={18} />
+                      Download All QRs
+                    </Button>
+                    <Button
+                      onClick={handlePrintAll}
+                      className="rounded-2xl h-12 px-8 bg-pos-primary hover:bg-pos-primary-dark text-white font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-pos-primary/10 active:scale-95"
+                    >
+                      <Printer size={18} />
+                      Print Parking QRs
+                    </Button>
+                  </>
                 )}
               </>
             }
@@ -439,8 +622,17 @@ export default function QRGalleryPage() {
                     return (
                       <div
                         key={table.id}
-                        className={`qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300 ${qrMode === 'rating' ? 'border-orange-200 dark:border-orange-900/30' : ''}`}
+                        className={`group relative qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-[1.02] hover:shadow-xl transition-all duration-300 ${qrMode === 'rating' ? 'border-orange-200 dark:border-orange-900/30' : ''}`}
                       >
+                        {/* Download button in corner (screen only) */}
+                        <button
+                          onClick={() => downloadQRCard(table.id, table.name, floorName, qrUrl, qrMode)}
+                          className="no-print absolute top-3 right-3 p-2 bg-gray-50 dark:bg-slate-800 hover:bg-pos-primary hover:text-white dark:hover:bg-pos-primary rounded-xl transition-colors text-gray-500 cursor-pointer shadow-sm border border-gray-150 dark:border-slate-700"
+                          title="Download QR Card"
+                        >
+                          <Download size={14} />
+                        </button>
+
                         <div className="print-content w-full flex flex-col items-center gap-2">
                           {/* Property name */}
                           <div className="space-y-1 w-full flex flex-col items-center">
@@ -456,6 +648,7 @@ export default function QRGalleryPage() {
                           {/* QR Code */}
                           <div className={`print-qr-container p-2 bg-white rounded-xl border shadow-inner ${qrMode === 'rating' ? 'border-orange-100' : 'border-gray-100'}`}>
                             <QRCodeSVG
+                              id={`qr-table-svg-${table.id}`}
                               value={qrUrl}
                               size={140}
                               level="H"
@@ -513,8 +706,17 @@ export default function QRGalleryPage() {
                 return (
                   <div
                     key={slot.id}
-                    className="qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-105 transition-transform duration-300"
+                    className="group relative qr-print-card bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-lg border border-gray-100 dark:border-slate-800 flex flex-col items-center text-center p-4 gap-3 hover:scale-[1.02] hover:shadow-xl transition-all duration-300"
                   >
+                    {/* Download button in corner (screen only) */}
+                    <button
+                      onClick={() => downloadQRCard(slot.id, slot.name, 'Parking Slot', qrUrl, 'parking')}
+                      className="no-print absolute top-3 right-3 p-2 bg-gray-50 dark:bg-slate-800 hover:bg-pos-primary hover:text-white dark:hover:bg-pos-primary rounded-xl transition-colors text-gray-500 cursor-pointer shadow-sm border border-gray-150 dark:border-slate-700"
+                      title="Download QR Card"
+                    >
+                      <Download size={14} />
+                    </button>
+
                     <div className="print-content w-full flex flex-col items-center gap-2">
                       {/* Property name */}
                       <div className="space-y-1 w-full flex flex-col items-center">
@@ -530,6 +732,7 @@ export default function QRGalleryPage() {
                       {/* QR Code */}
                       <div className="print-qr-container p-2 bg-white rounded-xl border shadow-inner border-gray-100">
                         <QRCodeSVG
+                          id={`qr-parking-svg-${slot.id}`}
                           value={qrUrl}
                           size={140}
                           level="H"

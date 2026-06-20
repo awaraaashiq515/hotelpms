@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       activeStaffMembers,
       // Staff location pings
       staffLocationData,
+      activeDeliveries,
     ] = await Promise.all([
       // 1. Tables (all, with active order if any)
       prisma.table.findMany({
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
       prisma.posOrder.count({
         where: {
           propertyId,
-          status: { in: ['KOT_RUNNING', 'IN_KITCHEN', 'SERVED', 'BILL_PRINTED', 'HOLD'] },
+          status: { in: ['PENDING', 'PLACED', 'ACCEPTED', 'KOT_RUNNING', 'IN_KITCHEN', 'PREPARING', 'READY', 'READY_TO_SERVE', 'SERVED', 'BILL_PRINTED', 'HOLD'] },
         },
       }),
 
@@ -179,6 +180,11 @@ export async function GET(request: NextRequest) {
           orderType: true,
           tableNo: true,
           updatedAt: true,
+          createdAt: true,
+          status: true,
+          deliveryCustomerName: true,
+          deliveryAddress: true,
+          deliveryPhone: true,
         },
       }),
 
@@ -244,6 +250,29 @@ export async function GET(request: NextRequest) {
               createdAt: true,
             },
           },
+        },
+      }),
+
+      // 16. Active delivery orders
+      prisma.posOrder.findMany({
+        where: {
+          propertyId,
+          orderType: 'DELIVERY',
+          status: { notIn: ['SETTLED', 'CANCELLED', 'COMPLETED'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderNo: true,
+          grandTotal: true,
+          orderType: true,
+          tableNo: true,
+          updatedAt: true,
+          createdAt: true,
+          status: true,
+          deliveryCustomerName: true,
+          deliveryAddress: true,
+          deliveryPhone: true,
         },
       }),
     ]);
@@ -395,6 +424,7 @@ export async function GET(request: NextRequest) {
           inProgressOrderCount,
           paymentPendingCount,
           tables: tablesEnriched,
+          activeDeliveries,
         },
         // Today's business
         today: {

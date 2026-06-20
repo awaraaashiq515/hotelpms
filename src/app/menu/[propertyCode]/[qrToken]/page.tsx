@@ -110,26 +110,10 @@ export default function PublicMenuPage() {
     }
   }, []);
 
-  // Restore guest info from active orders if it's missing (e.g., after a refresh)
-  useEffect(() => {
-    if (!guestInfo && data?.activeOrders?.length > 0) {
-      const firstOrder = data.activeOrders[0];
-      if (firstOrder.guest?.firstName || firstOrder.guest?.mobile) {
-        const info = {
-          name: firstOrder.guest.firstName || 'Guest',
-          phone: firstOrder.guest.mobile || ''
-        };
-        setGuestInfo(info);
-        sessionStorage.setItem('guest_info', JSON.stringify(info));
-      }
-    }
-  }, [data, guestInfo]);
-
-  // Logic to show onboarding only if no active orders and no guest info
+  // Logic to show onboarding if no guest info
   useEffect(() => {
     if (!loading && data) {
-      const hasActiveOrders = data.activeOrders?.length > 0;
-      if (!hasActiveOrders && !guestInfo) {
+      if (!guestInfo) {
         setShowOnboarding(true);
         const homeDel = data.table?.name?.toLowerCase() === 'home delivery';
         setOnboardingForm(prev => ({
@@ -262,6 +246,34 @@ export default function PublicMenuPage() {
   const handleOnboardingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onboardingForm.name || !onboardingForm.phone) return;
+
+    if (data?.activeOrders?.length > 0) {
+      const firstOrder = data.activeOrders[0];
+      const registeredName = firstOrder.guest?.firstName || '';
+      const registeredPhone = firstOrder.guest?.mobile || '';
+
+      const inputName = onboardingForm.name.trim().toLowerCase();
+      const inputPhone = onboardingForm.phone.replace(/\D/g, '').slice(-10);
+
+      const regName = registeredName.trim().toLowerCase();
+      const regPhone = registeredPhone.replace(/\D/g, '').slice(-10);
+
+      let phoneMatched = false;
+      if (regPhone) {
+        if (inputPhone === regPhone) {
+          phoneMatched = true;
+        } else {
+          alert("Incorrect phone number. This table has an active order registered under a different phone number.");
+          return;
+        }
+      }
+
+      if (!phoneMatched && regName && regName !== 'guest' && inputName !== regName) {
+        alert("Incorrect name. This table has an active order registered under a different name.");
+        return;
+      }
+    }
+
     const info = { 
       name: onboardingForm.name, 
       phone: onboardingForm.phone,
@@ -414,6 +426,22 @@ export default function PublicMenuPage() {
 
       {['menu', 'bar', 'cafe'].includes(activeTab) ? (
         <>
+          {data?.activeOrders?.length > 0 && (
+            <div className="mx-5 mt-2 mb-4 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-900/50 flex gap-3 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-600 dark:text-indigo-400 shrink-0">
+                <AlertCircle size={18} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-wider">
+                  Active Order running
+                </p>
+                <p className="text-[11px] font-bold text-indigo-600/90 dark:text-indigo-400/90 leading-relaxed">
+                  There is already an active order running on this table ({data.table.name}). Any new items you add will be added to the same bill.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Category Bar */}
           {!searchQuery && filteredMenu.length > 0 && (
             <div className="sticky top-[100px] z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-2 px-5 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-50 dark:border-slate-900">
@@ -591,6 +619,8 @@ export default function PublicMenuPage() {
         setForm={setOnboardingForm}
         onSubmit={handleOnboardingSubmit}
         isHomeDelivery={isHomeDelivery}
+        hasActiveOrder={data?.activeOrders?.length > 0}
+        tableName={data?.table?.name || ''}
       />
 
       <FeedbackModal 

@@ -87,24 +87,6 @@ export default function ParkingMenuPage() {
     }
   }, []);
 
-  // Restore guest info from active orders if it's missing (e.g., after a refresh)
-  useEffect(() => {
-    if (!guestInfo && data?.activeOrders?.length > 0) {
-      const firstOrder = data.activeOrders[0];
-      if (firstOrder.customerName || firstOrder.customerPhone || firstOrder.vehicleNumber) {
-        const info = {
-          name: firstOrder.customerName || '',
-          phone: firstOrder.customerPhone || '',
-          vehicle: firstOrder.vehicleNumber || '',
-          guestCount: firstOrder.guestCount || 1,
-          serviceMode: (firstOrder.orderType === 'TAKEAWAY' ? 'PACKED' : 'SERVE_IN_CAR') as "PACKED" | "SERVE_IN_CAR"
-        };
-        setGuestInfo(info);
-        sessionStorage.setItem('parking_guest_info', JSON.stringify(info));
-      }
-    }
-  }, [data, guestInfo]);
-
   // Polling logic
   useEffect(() => {
     async function fetchData() {
@@ -145,11 +127,10 @@ export default function ParkingMenuPage() {
     return () => clearInterval(interval);
   }, [propertyCode, qrToken, activeCategory]);
 
-  // Logic to show onboarding only if no active orders and no guest info
+  // Logic to show onboarding if no guest info
   useEffect(() => {
     if (!loading && data) {
-      const hasActiveOrders = data.activeOrders?.length > 0;
-      if (!hasActiveOrders && !guestInfo) {
+      if (!guestInfo) {
         setShowOnboarding(true);
       } else {
         setShowOnboarding(false);
@@ -218,6 +199,47 @@ export default function ParkingMenuPage() {
   const handleOnboardingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onboardingForm.name || !onboardingForm.phone || !onboardingForm.vehicle) return;
+
+    if (data?.activeOrders?.length > 0) {
+      const firstOrder = data.activeOrders[0];
+      const registeredName = firstOrder.guest?.firstName || '';
+      const registeredPhone = firstOrder.guest?.mobile || '';
+      const registeredVehicle = firstOrder.vehicleNumber || '';
+
+      const inputName = onboardingForm.name.trim().toLowerCase();
+      const inputPhone = onboardingForm.phone.replace(/\D/g, '').slice(-10);
+      const inputVehicle = onboardingForm.vehicle.replace(/\s+/g, '').toLowerCase();
+
+      const regName = registeredName.trim().toLowerCase();
+      const regPhone = registeredPhone.replace(/\D/g, '').slice(-10);
+      const regVehicle = registeredVehicle.replace(/\s+/g, '').toLowerCase();
+
+      let phoneMatched = false;
+      if (regPhone) {
+        if (inputPhone === regPhone) {
+          phoneMatched = true;
+        } else {
+          alert("Incorrect phone number. This parking slot has an active order registered under a different phone number.");
+          return;
+        }
+      }
+
+      let vehicleMatched = false;
+      if (regVehicle) {
+        if (inputVehicle === regVehicle) {
+          vehicleMatched = true;
+        } else {
+          alert("Incorrect vehicle number. This parking slot has an active order registered under a different vehicle number.");
+          return;
+        }
+      }
+
+      if (!phoneMatched && !vehicleMatched && regName && regName !== 'guest' && inputName !== regName) {
+        alert("Incorrect name. This parking slot has an active order registered under a different name.");
+        return;
+      }
+    }
+
     const info = { 
       name: onboardingForm.name, 
       phone: onboardingForm.phone, 
@@ -321,6 +343,22 @@ export default function ParkingMenuPage() {
 
       {activeTab === 'menu' ? (
         <>
+          {data?.activeOrders?.length > 0 && (
+            <div className="mx-5 mt-2 mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/50 flex gap-3 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+                <Car size={18} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-black text-amber-950 dark:text-amber-200 uppercase tracking-wider">
+                  Active Order running
+                </p>
+                <p className="text-[11px] font-bold text-amber-600/90 dark:text-amber-400/90 leading-relaxed">
+                  There is already an active order running on this parking slot ({data.slot.name}). Any new items you add will be added to the same bill.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Category Bar */}
           {!searchQuery && data?.menu?.length > 0 && (
             <div className="sticky top-[100px] z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-2 px-5 overflow-x-auto no-scrollbar flex gap-2 border-b border-slate-50 dark:border-slate-900">
@@ -489,6 +527,7 @@ export default function ParkingMenuPage() {
         setForm={setOnboardingForm}
         onSubmit={handleOnboardingSubmit}
         slotName={data?.slot?.name}
+        hasActiveOrder={data?.activeOrders?.length > 0}
       />
 
       <style jsx global>{`

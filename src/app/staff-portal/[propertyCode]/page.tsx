@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { toast, Toaster } from 'sonner'
+import { isValid, format } from 'date-fns'
 import VoiceMessagesTab from '@/components/staff/walkie-talkie/VoiceMessagesTab'
 import AudioPlayer from '@/components/staff/walkie-talkie/AudioPlayer'
 import { useAutoPlay, globalAudioUnlocker } from '@/components/staff/walkie-talkie/useAutoPlay'
@@ -18,8 +19,16 @@ interface StaffUser {
 }
 interface PosOrder {
   id: string; orderNo: string; status: string; tableNo: string | null; orderType?: string;
-  guestCount: number; grandTotal: number; createdAt: string
-  items: { id: string; quantity: number; product: { name: string }; variantName?: string | null; portion?: string | null }[]
+  guestCount: number; grandTotal: number; createdAt: string;
+  subtotal?: number; taxAmount?: number; discountAmount?: number;
+  items: { 
+    id: string; 
+    quantity: number; 
+    product: { name: string }; 
+    variantName?: string | null; 
+    portion?: string | null;
+    unitPrice?: number;
+  }[]
   table?: {
     id: string;
     name: string;
@@ -215,6 +224,7 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
   const hasMoreItems = order.items.length > MAX_ITEMS_TO_SHOW;
   const displayedItems = showAllItems ? order.items : order.items.slice(0, MAX_ITEMS_TO_SHOW);
   const [showQr, setShowQr] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<'bill' | 'qr'>('bill');
   const [tipAmount, setTipAmount] = useState(0);
   const [tipInput, setTipInput] = useState('');
   const totalWithTip = order.grandTotal + tipAmount;
@@ -339,8 +349,8 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
             ⏳ Awaiting Payment Approval
           </div>
         ) : (
-          <button onClick={() => setShowQr(!showQr)} style={{ flex: '1 1 100%', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#fbbf24', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.2s', fontFamily: 'inherit' }}>
-            {showQr ? 'Hide QR' : '₹ Request Payment'}
+          <button onClick={() => { setShowQr(!showQr); setPaymentStep('bill'); }} style={{ flex: '1 1 100%', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#fbbf24', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.2s', fontFamily: 'inherit' }}>
+            {showQr ? 'Hide Details' : '₹ Request Payment'}
           </button>
         )}
       </div>
@@ -348,80 +358,184 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
       {showQr && (
         <div style={{ marginTop: 12, padding: 16, background: 'rgba(0,0,0,0.3)', borderRadius: 12, textAlign: 'center', border: '1px solid rgba(245,158,11,0.3)' }}>
 
-          {/* ── Tip Section ── */}
-          <div style={{ marginBottom: 14, textAlign: 'left' }}>
-            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Add Tip (Optional)</div>
-            {/* Preset tip % buttons */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-              {[0, 10, 15, 20].map(pct => {
-                const tipVal = pct === 0 ? 0 : Math.round(order.grandTotal * pct / 100);
-                const isActive = pct === 0 ? tipAmount === 0 && tipInput === '' : tipAmount === tipVal && tipInput === String(tipVal);
-                return (
-                  <button key={pct} onClick={() => { setTipAmount(tipVal); setTipInput(pct === 0 ? '' : String(tipVal)); }}
-                    style={{ flex: 1, background: isActive ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isActive ? '#fbbf24' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, padding: '7px 0', fontSize: 11, fontWeight: 800, color: isActive ? '#fbbf24' : '#94a3b8', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}>
-                    {pct === 0 ? 'No Tip' : `${pct}%`}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Custom tip input */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <span style={{ fontSize: 14, color: '#fbbf24', fontWeight: 900 }}>₹</span>
-              <input
-                type="number"
-                min="0"
-                placeholder="Custom tip amount"
-                value={tipInput}
-                onChange={e => {
-                  const val = e.target.value;
-                  setTipInput(val);
-                  const num = parseFloat(val);
-                  setTipAmount(isNaN(num) || num < 0 ? 0 : num);
-                }}
-                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, fontWeight: 700, color: '#f1f5f9', fontFamily: 'inherit' }}
-              />
-            </div>
-          </div>
+          {paymentStep === 'bill' ? (
+            /* ── Step 1: Bill Receipt ── */
+            <>
+              <div style={{ background: '#f8fafc', color: '#1e293b', borderRadius: '12px', padding: '14px', marginBottom: '14px', textAlign: 'left', border: '1px solid rgba(0,0,0,0.1)' }}>
+                <div style={{ textAlign: 'center', paddingBottom: '10px', borderBottom: '1px dashed #cbd5e1', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', color: '#1e293b' }}>
+                    {upiName || 'POS RESTAURANT'}
+                  </div>
+                </div>
 
-          {/* ── Amount breakdown ── */}
-          <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
-              <span>Order Total</span>
-              <span>₹{order.grandTotal.toFixed(0)}</span>
-            </div>
-            {tipAmount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#34d399', marginBottom: 4 }}>
-                <span>Tip</span>
-                <span>+ ₹{tipAmount.toFixed(0)}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingBottom: '8px', borderBottom: '1px dashed #cbd5e1', fontSize: '9px', color: '#64748b', textTransform: 'uppercase', fontWeight: 800, fontFamily: 'monospace' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Order No</span>
+                    <span style={{ color: '#0f172a', fontWeight: 900 }}>{order.orderNo}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Table</span>
+                    <span style={{ color: '#4f46e5', fontWeight: 900 }}>{tableName ? `Table ${tableName}` : 'Walk-in'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Timestamp</span>
+                    <span style={{ color: '#0f172a', fontWeight: 900 }}>
+                      {(() => {
+                        const d = order.createdAt ? new Date(order.createdAt) : new Date();
+                        return format(isValid(d) ? d : new Date(), 'dd/MM/yyyy HH:mm');
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Itemized List */}
+                <div style={{ paddingTop: '8px', paddingBottom: '8px', minHeight: '60px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', color: '#64748b', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '6px', fontFamily: 'monospace' }}>
+                    <span>Item</span>
+                    <span style={{ textAlign: 'center' }}>Qty × Price</span>
+                    <span style={{ textAlign: 'right' }}>Total</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {order.items.map(item => {
+                      const itemPrice = item.unitPrice || 0;
+                      const itemTotal = item.quantity * itemPrice;
+                      return (
+                        <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', fontSize: '11px', color: '#334155', fontWeight: 700 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.product?.name || 'Item'}
+                            {item.variantName ? ` (${item.variantName})` : ''}
+                          </span>
+                          <span style={{ textAlign: 'center', color: '#64748b', fontFamily: 'monospace' }}>
+                            {item.quantity} × ₹{itemPrice.toFixed(0)}
+                          </span>
+                          <span style={{ textAlign: 'right', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                            ₹{itemTotal.toFixed(0)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Calculations */}
+                <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 800, fontFamily: 'monospace' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Subtotal</span>
+                    <span style={{ color: '#0f172a', fontWeight: 900 }}>₹{(order.subtotal || order.grandTotal).toFixed(0)}</span>
+                  </div>
+                  {order.taxAmount ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Tax & Charges</span>
+                      <span style={{ color: '#0f172a', fontWeight: 900 }}>₹{order.taxAmount.toFixed(0)}</span>
+                    </div>
+                  ) : null}
+                  {order.discountAmount ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e11d48' }}>
+                      <span>Discount</span>
+                      <span style={{ fontWeight: 900 }}>-₹{order.discountAmount.toFixed(0)}</span>
+                    </div>
+                  ) : null}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#4f46e5', borderTop: '1px solid #cbd5e1', paddingTop: '6px', marginTop: '2px', fontWeight: 900 }}>
+                    <span>Bill Total</span>
+                    <span>₹{order.grandTotal.toFixed(0)}</span>
+                  </div>
+                </div>
               </div>
-            )}
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 900, color: '#fbbf24' }}>
-              <span>Grand Total</span>
-              <span>₹{totalWithTip.toFixed(0)}</span>
-            </div>
-          </div>
 
-          {/* ── QR Code ── */}
-          <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Scan to Pay ₹{totalWithTip.toFixed(0)}</div>
-          <img src={qrCodeUrl} alt="UPI QR" style={{ width: 180, height: 180, margin: '0 auto', borderRadius: 10, border: '4px solid #fff', display: 'block' }} />
-          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 10, marginBottom: 14 }}>{activeUpiId}</div>
+              <button 
+                onClick={() => setPaymentStep('qr')}
+                style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 12, fontWeight: 900, color: '#000', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+              >
+                Show Payment QR ➔
+              </button>
+            </>
+          ) : (
+            /* ── Step 2: Tip & Payment QR ── */
+            <>
+              {/* Back Button */}
+              <button 
+                onClick={() => setPaymentStep('bill')}
+                style={{ display: 'block', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', fontSize: 10, fontWeight: 800, color: '#a5b4fc', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, fontFamily: 'inherit' }}
+              >
+                ➔ Back to Bill
+              </button>
 
-          <button onClick={async () => { 
-            setMarking(true); 
-            try { 
-              const headers: HeadersInit = { 'Content-Type': 'application/json' }; 
-              if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; } 
-              // Pass tip info so counter can see it
-              const tipRef = JSON.stringify({ tip: tipAmount, staffName: typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('staff_portal_session') || '{}')?.user?.fullName || '') : '' });
-              await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'PAYMENT_AWAITING_APPROVAL', onlinePaymentReference: tipRef }) }); 
-              // We do NOT call onDone here because we want the order to stay on screen until counter approves
-            } catch {}; 
-            setMarking(false);
-            setShowQr(false);
-          }} disabled={marking} style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 12, fontWeight: 900, color: '#000', cursor: marking ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {marking ? '...' : 'Guest Paid (Send to Counter)'}
-          </button>
+              {/* ── Tip Section ── */}
+              <div style={{ marginBottom: 14, textAlign: 'left' }}>
+                <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Add Tip (Optional)</div>
+                {/* Preset tip % buttons */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                  {[0, 10, 15, 20].map(pct => {
+                    const tipVal = pct === 0 ? 0 : Math.round(order.grandTotal * pct / 100);
+                    const isActive = pct === 0 ? tipAmount === 0 && tipInput === '' : tipAmount === tipVal && tipInput === String(tipVal);
+                    return (
+                      <button key={pct} onClick={() => { setTipAmount(tipVal); setTipInput(pct === 0 ? '' : String(tipVal)); }}
+                        style={{ flex: 1, background: isActive ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isActive ? '#fbbf24' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, padding: '7px 0', fontSize: 11, fontWeight: 800, color: isActive ? '#fbbf24' : '#94a3b8', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+                        {pct === 0 ? 'No Tip' : `${pct}%`}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Custom tip input */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <span style={{ fontSize: 14, color: '#fbbf24', fontWeight: 900 }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Custom tip amount"
+                    value={tipInput}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setTipInput(val);
+                      const num = parseFloat(val);
+                      setTipAmount(isNaN(num) || num < 0 ? 0 : num);
+                    }}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, fontWeight: 700, color: '#f1f5f9', fontFamily: 'inherit' }}
+                  />
+                </div>
+              </div>
+
+              {/* ── Amount breakdown ── */}
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+                  <span>Order Total</span>
+                  <span>₹{order.grandTotal.toFixed(0)}</span>
+                </div>
+                {tipAmount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#34d399', marginBottom: 4 }}>
+                    <span>Tip</span>
+                    <span>+ ₹{tipAmount.toFixed(0)}</span>
+                  </div>
+                )}
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 900, color: '#fbbf24' }}>
+                  <span>Grand Total</span>
+                  <span>₹{totalWithTip.toFixed(0)}</span>
+                </div>
+              </div>
+
+              {/* ── QR Code ── */}
+              <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Scan to Pay ₹{totalWithTip.toFixed(0)}</div>
+              <img src={qrCodeUrl} alt="UPI QR" style={{ width: 180, height: 180, margin: '0 auto', borderRadius: 10, border: '4px solid #fff', display: 'block' }} />
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 10, marginBottom: 14 }}>{activeUpiId}</div>
+
+              <button onClick={async () => { 
+                setMarking(true); 
+                try { 
+                  const headers: HeadersInit = { 'Content-Type': 'application/json' }; 
+                  if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; } 
+                  // Pass tip info so counter can see it
+                  const tipRef = JSON.stringify({ tip: tipAmount, staffName: typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('staff_portal_session') || '{}')?.user?.fullName || '') : '' });
+                  await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'PAYMENT_AWAITING_APPROVAL', onlinePaymentReference: tipRef }) }); 
+                  // We do NOT call onDone here because we want the order to stay on screen until counter approves
+                } catch {}; 
+                setMarking(false);
+                setShowQr(false);
+              }} disabled={marking} style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 12, fontWeight: 900, color: '#000', cursor: marking ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {marking ? '...' : 'Guest Paid (Send to Counter)'}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

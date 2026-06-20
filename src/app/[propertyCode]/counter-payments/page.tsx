@@ -279,7 +279,7 @@ export default function CounterPaymentsPage() {
                   <Gift size={16} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aaj ka</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Today's</p>
                   <h2 className="text-sm font-black text-slate-900 dark:text-white">Tip Report</h2>
                 </div>
               </div>
@@ -296,7 +296,7 @@ export default function CounterPaymentsPage() {
               <div className="py-10 text-center">
                 <p className="text-2xl mb-2">🙏</p>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                  {tipReportLoading ? 'Loading...' : 'Aaj koi tip nahi mila abhi tak'}
+                  {tipReportLoading ? 'Loading...' : 'No tips received so far today'}
                 </p>
               </div>
             ) : (

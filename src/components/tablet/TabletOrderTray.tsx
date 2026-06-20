@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Save,
   Pause,
-  ReceiptIndianRupee
+  ReceiptIndianRupee,
+  QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -43,6 +44,7 @@ interface TabletOrderTrayProps {
   setIsProforma: (val: boolean) => void;
   handlePrintBill: () => void;
   settleLoading: boolean;
+  onShowBillAndQR?: () => void;
 }
 
 export function TabletOrderTray({
@@ -71,6 +73,7 @@ export function TabletOrderTray({
   setIsProforma,
   handlePrintBill,
   settleLoading,
+  onShowBillAndQR,
 }: TabletOrderTrayProps) {
   const activeTableName = tables.find(t => t.id === selectedTableId)?.name || 'STATION';
 
@@ -331,8 +334,8 @@ export function TabletOrderTray({
 
         {/* Place Order / Actions Grid */}
         <div className="flex flex-col gap-2">
-          {/* Top Row: Exactly 2 Buttons */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Top Row: 2 or 3 Buttons depending on table context */}
+          <div className={`grid ${selectedTableId ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
             <Button
               onClick={() => handlePlaceOrder('PRINT_KOT')}
               loading={isPlacingOrder}
@@ -349,6 +352,15 @@ export function TabletOrderTray({
             >
               <CheckCircle2 size={13} /> SAVE & KOT
             </Button>
+            {selectedTableId && (
+              <Button
+                onClick={onShowBillAndQR}
+                disabled={!activeOrder}
+                className="py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 border bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500 border-indigo-500/30 shadow-[0_4px_16px_rgba(124,58,237,0.2)] hover:scale-[1.02] duration-200"
+              >
+                <QrCode size={13} /> BILL & QR
+              </Button>
+            )}
           </div>
 
           {/* Bottom Row: Exactly 3 Buttons */}

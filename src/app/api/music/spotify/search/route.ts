@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken, spotifyFetch } from '@/lib/spotify';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const token = await getAccessToken();
   if (!token) {

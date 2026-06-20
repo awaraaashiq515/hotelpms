@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Phone, UtensilsCrossed, MapPin, MessageSquare, Truck, Store, Coffee } from 'lucide-react';
+import { User, Phone, UtensilsCrossed, MapPin, MessageSquare, Truck, Store, Coffee, AlertCircle } from 'lucide-react';
 import { MapPicker } from './MapPicker';
 
 interface OnboardingProps {
@@ -18,9 +18,19 @@ interface OnboardingProps {
   setForm: (form: any) => void;
   onSubmit: (e: React.FormEvent) => void;
   isHomeDelivery?: boolean;
+  hasActiveOrder?: boolean;
+  tableName?: string;
 }
 
-export const Onboarding: React.FC<OnboardingProps> = ({ show, form, setForm, onSubmit, isHomeDelivery = false }) => {
+export const Onboarding: React.FC<OnboardingProps> = ({ 
+  show, 
+  form, 
+  setForm, 
+  onSubmit, 
+  isHomeDelivery = false,
+  hasActiveOrder = false,
+  tableName = ''
+}) => {
   const allowedTabs = isHomeDelivery 
     ? [
         { id: 'DELIVERY', label: 'Delivery', icon: Truck },
@@ -46,8 +56,24 @@ export const Onboarding: React.FC<OnboardingProps> = ({ show, form, setForm, onS
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 20 }}
-            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-6 md:p-8 relative shadow-2xl my-auto"
+            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-6 md:p-8 relative shadow-2xl my-auto animate-in fade-in duration-300"
           >
+            {hasActiveOrder && (
+              <div className="mb-6 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-900/50 flex gap-3 items-start text-left">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <AlertCircle size={18} />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-wider">
+                    Active Order running
+                  </p>
+                  <p className="text-[11px] font-bold text-indigo-600/90 dark:text-indigo-400/90 leading-relaxed">
+                    There is already an active order running on table ({tableName}). Enter details below to see the bill and order.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="text-center space-y-2 mb-6">
               <div className="w-14 h-14 bg-pos-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <UtensilsCrossed className="text-pos-primary animate-pulse" size={24} />

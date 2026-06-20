@@ -395,6 +395,21 @@ export const TopNavbar: React.FC = () => {
                     Bar Display (BDS)
                   </button>
                 )}
+                {property?.deliveryEnabled && (
+                  <button 
+                    onClick={() => {
+                      const path = propertyCode ? `/${propertyCode}/delivery-display` : '/delivery-display';
+                      window.open(path, '_blank');
+                      setShowDisplayMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-teal-500 transition-colors border-t border-gray-50 dark:border-slate-800/50"
+                  >
+                    <div className="w-7 h-7 bg-teal-500/10 rounded-lg flex items-center justify-center text-teal-500">
+                      🛵
+                    </div>
+                    Delivery Display
+                  </button>
+                )}
                 {(property?.restaurantPosEnabled !== false || property?.cafePosEnabled) && (
                   <button 
                     onClick={() => {

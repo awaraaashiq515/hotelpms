@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
@@ -12,6 +13,49 @@ export const SCOPES = [
   'user-read-private',
   'user-read-email',
 ].join(' ');
+
+/* ── Origin Resolver ──────────────────────────────────────────────────────── */
+export function getRequestOrigin(req: NextRequest | Request): string {
+  try {
+    const headers = req.headers;
+    const forwardedHost = headers.get('x-forwarded-host');
+    const forwardedProto = headers.get('x-forwarded-proto');
+
+    let origin = '';
+    if (forwardedHost) {
+      const host = forwardedHost.split(',')[0].trim();
+      const proto = (forwardedProto || 'http').split(',')[0].trim();
+      origin = `${proto}://${host}`;
+    } else {
+      origin = req instanceof Request 
+        ? new URL(req.url).origin 
+        : (req as NextRequest).nextUrl.origin;
+    }
+
+    if (origin.includes('0.0.0.0')) {
+      origin = origin.replace('0.0.0.0', 'localhost');
+    }
+
+    // Force HTTP for local development hostnames to prevent browser SSL protocol errors
+    const originUrl = new URL(origin);
+    if (
+      originUrl.hostname === 'localhost' ||
+      originUrl.hostname === '127.0.0.1' ||
+      originUrl.hostname.startsWith('192.168.')
+    ) {
+      originUrl.protocol = 'http:';
+      origin = originUrl.origin;
+    }
+    return origin;
+  } catch (err) {
+    console.error('Error resolving request origin:', err);
+    try {
+      return new URL(req.url).origin;
+    } catch {
+      return 'http://localhost:3000';
+    }
+  }
+}
 
 /* ── Configuration Helper ────────────────────────────────────────────────── */
 export async function getSpotifyConfig() {

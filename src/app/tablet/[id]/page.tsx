@@ -1394,6 +1394,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
             tables={filteredTables}
             handleConfirmSwitchTable={handleConfirmSwitchTable}
             switchLoading={switchLoading}
+            cart={cart}
           />
 
           {/* Floating status alert popup */}
@@ -1741,6 +1742,12 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
           setIsProforma={setIsProforma}
           handlePrintBill={handlePrintBill}
           settleLoading={settleLoading}
+          onShowBillAndQR={() => {
+            if (activeOrder) {
+              setQrModalOrder(activeOrder);
+              setIsQRModalOpen(true);
+            }
+          }}
         />
       </div>
 
@@ -1790,6 +1797,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
         tables={filteredTables}
         handleConfirmSwitchTable={handleConfirmSwitchTable}
         switchLoading={switchLoading}
+        cart={cart}
       />
 
       {/* BAR PEGS SIZE SELECTOR MODAL */}
