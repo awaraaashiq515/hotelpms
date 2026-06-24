@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
 
     const [
       products, staff, guests, orders, invoices, tables, kotTickets,
-      reservations, rooms, expenses, vendors, drivers, staffMembers,
-      membershipCards, vouchers, folios, receipts, maintenanceTickets
+      reservations, expenses, vendors, drivers, staffMembers,
+      membershipCards, vouchers, receipts
     ] = await Promise.all([
       // Products
       prisma.product.findMany({
@@ -61,11 +61,6 @@ export async function GET(request: NextRequest) {
         where: { propertyId, bookingNo: { contains: query } },
         take: 3, include: { guest: true }
       }),
-      // Rooms
-      prisma.room.findMany({
-        where: { propertyId, roomNumber: { contains: query } },
-        take: 3
-      }),
       // Expenses
       prisma.expense.findMany({
         where: { propertyId, OR: [{ expenseNo: { contains: query } }, { description: { contains: query } }, { paidTo: { contains: query } }] },
@@ -96,53 +91,38 @@ export async function GET(request: NextRequest) {
         where: { propertyId, voucherNo: { contains: query } },
         take: 3
       }),
-      // Folios
-      prisma.folio.findMany({
-        where: { folioNo: { contains: query } },
-        take: 3
-      }),
       // Receipts
       prisma.receipt.findMany({
         where: { propertyId, receiptNo: { contains: query } },
         take: 3
       }),
-      // Maintenance Tickets
-      prisma.maintenanceTicket.findMany({
-        where: { propertyId, ticketNo: { contains: query } },
-        take: 3
-      })
     ]);
 
     const results = [
       ...orders.map((o: any) => ({ 
         id: o.id, type: 'Order', title: `Order #${o.orderNo}`, 
         subtitle: o.tableNo ? `Table: ${o.tableNo}` : o.orderType,
-        status: o.status, url: `/orders/${o.id}` 
+        status: o.status, url: `/orders` 
       })),
       ...invoices.map((i: any) => ({ 
         id: i.id, type: 'Invoice', title: `Bill #${i.invoiceNo}`, 
         subtitle: i.tableNo ? `Table: ${i.tableNo} • ₹${i.totalAmount}` : `₹${i.totalAmount}`,
-        status: i.paymentStatus, url: `/invoices/${i.id}` 
+        status: i.paymentStatus, url: `/all-bills` 
       })),
       ...kotTickets.map((k: any) => ({
         id: k.id, type: 'KOT', title: `KOT #${k.kotNo}`,
         subtitle: k.tableNo ? `Table: ${k.tableNo}` : 'Direct Order',
-        status: k.status, url: `/kitchen-display`
+        status: k.status, url: `/kots`
       })),
       ...reservations.map((r: any) => ({
         id: r.id, type: 'Reservation', title: `Res #${r.bookingNo}`,
         subtitle: `${r.guest?.firstName} ${r.guest?.lastName || ''} • ${r.status}`,
-        url: `/reservations`
-      })),
-      ...rooms.map((rm: any) => ({
-        id: rm.id, type: 'Room', title: `Room ${rm.roomNumber}`,
-        subtitle: `${rm.status} • ${rm.housekeepingStatus}`,
-        url: `/rooms`
+        url: `/table-reservations`
       })),
       ...products.map((p: any) => ({ 
         id: p.id, type: 'Product', title: p.name, 
         subtitle: `${p.category?.name || 'Item'} • ₹${p.sellingPrice}`,
-        url: `/inventory/products` 
+        url: `/products` 
       })),
       ...expenses.map((e: any) => ({
         id: e.id, type: 'Expense', title: `Expense #${e.expenseNo}`,
@@ -152,7 +132,7 @@ export async function GET(request: NextRequest) {
       ...vendors.map((v: any) => ({
         id: v.id, type: 'Vendor', title: v.name,
         subtitle: v.mobile || 'No phone',
-        url: `/vendors`
+        url: `/inventory`
       })),
       ...drivers.map((d: any) => ({
         id: d.id, type: 'Driver', title: d.name,
@@ -169,20 +149,10 @@ export async function GET(request: NextRequest) {
         subtitle: v.status,
         url: `/vouchers`
       })),
-      ...folios.map((f: any) => ({
-        id: f.id, type: 'Folio', title: `Folio #${f.folioNo}`,
-        subtitle: f.status,
-        url: `/folios`
-      })),
       ...receipts.map((r: any) => ({
         id: r.id, type: 'Receipt', title: `Receipt #${r.receiptNo}`,
         subtitle: `₹${r.amount}`,
-        url: `/receipts`
-      })),
-      ...maintenanceTickets.map((mt: any) => ({
-        id: mt.id, type: 'Maintenance', title: `Ticket #${mt.ticketNo}`,
-        subtitle: `${mt.issueType} • ${mt.status}`,
-        url: `/maintenance`
+        url: `/payments`
       })),
       ...tables.map((t: any) => ({ 
         id: t.id, type: 'Table', title: `Table ${t.name}`, 

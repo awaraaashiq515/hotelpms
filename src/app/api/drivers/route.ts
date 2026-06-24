@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
-    const { name, phone, vehicleNumber, vehicleType, propertyId: bodyPropertyId } = body;
+    const { name, phone, vehicleNumber, vehicleType, vehicleCapacity, propertyId: bodyPropertyId } = body;
 
     let propertyId = session.propertyId || bodyPropertyId;
     
@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
           phone,
           vehicleNumber,
           vehicleType: vehicleType || 'CAR',
+          vehicleCapacity: vehicleCapacity ? parseInt(vehicleCapacity) : null,
           isActive: true,
         }
       });

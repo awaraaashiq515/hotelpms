@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { toast } from 'sonner';
 
 export interface PrintBillModalProps {
   bill: any;
@@ -33,14 +34,15 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
       });
       const result = await response.json();
       if (result.success) {
-        console.log(`Bill printed successfully via Serial Port`);
+        toast.success('✅ Bill printed successfully!');
         onClose();
         return;
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || 'Direct printing failed');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn("Direct serial print failed, falling back to browser print:", e);
+      toast.error(`❌ Direct print failed: ${e.message}. Falling back to browser print.`);
     }
 
     const printWindow = window.open('', '_blank', 'width=450,height=700');

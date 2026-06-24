@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { printDirect, ESC_POS } from '@/lib/serial-printer';
 import { printToNetwork } from '@/lib/network-printer';
+import { printToSystem } from '@/lib/system-printer';
 import { prisma } from '@/lib/prisma';
 
 async function sendToPrinter(data: string | Buffer, printer: any) {
-  if (printer.connectionType === 'NETWORK' && printer.ipAddress) {
+  if (printer.connectionType === 'SYSTEM') {
+    const printerName = printer.ipAddress || printer.name;
+    await printToSystem(data, printerName);
+  } else if (printer.connectionType === 'NETWORK' && printer.ipAddress) {
     await printToNetwork(data, printer.ipAddress, printer.port || 9100);
   } else {
     // Default to Serial for USB/Bluetooth (assuming they map to serial ports)
@@ -19,10 +23,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { bill, property, isTest, kotData, printerId } = body;
-    const propertyId = property?.id;
+    let propertyId = property?.id;
 
+    // 🔍 If propertyId is missing, auto-detect from the database (single-property setup)
     if (!propertyId && !printerId) {
-      return NextResponse.json({ success: false, message: 'Property ID or Printer ID required' }, { status: 400 });
+      const anyProp = await prisma.property.findFirst({ select: { id: true } });
+      if (anyProp) {
+        propertyId = anyProp.id;
+        console.log(`[Print API] propertyId not supplied — auto-detected: ${propertyId}`);
+      } else {
+        return NextResponse.json({ success: false, message: 'No property found in database' }, { status: 400 });
+      }
     }
 
     // 1. Determine which printer to use
@@ -49,19 +60,26 @@ export async function POST(req: NextRequest) {
        if (p) targetPrinters.push(p);
     }
 
-    // Fallback to old behavior if no printer found in database
+    // Fallback: try any enabled printer for this property
     if (targetPrinters.length === 0) {
-      console.log('No specific printer found in DB, using fallback/default');
-      // For now, I'll allow it to fail or use a default if it's a test
-      if (!isTest && !property?.thermalPrinterName) {
-         return NextResponse.json({ success: false, message: 'No enabled printer found for this role' }, { status: 404 });
+      const fallback = await prisma.printer.findFirst({ 
+        where: { propertyId, isEnabled: true } 
+      });
+      if (fallback) {
+        console.log(`[Print API] No role-specific printer found, using fallback: ${fallback.name}`);
+        targetPrinters.push(fallback);
       }
-      
-      // Construct a "Virtual" printer for fallback
+    }
+
+    // Final fallback: use hardcoded MPT-II path
+    if (targetPrinters.length === 0) {
+      console.log('[Print API] No printer in DB, using default MPT-II path');
       targetPrinters.push({
-        connectionType: 'SERIAL',
-        name: property?.thermalPrinterName || 'MPT-II',
-        ipAddress: property?.thermalPrinterName || '/dev/tty.MPT-II'
+        connectionType: 'BLUETOOTH',
+        name: 'MPT-II',
+        ipAddress: '/dev/tty.MPT-II',
+        autoCut: true,
+        paperSize: '80mm'
       });
     }
 

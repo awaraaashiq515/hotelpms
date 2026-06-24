@@ -11,8 +11,17 @@ class OCRService:
     def extract_text(self, image_path: str) -> str:
         try:
             image = Image.open(image_path)
+            
+            # OPTIMIZATION: Downscale image if it's too large to make CPU OCR much faster
+            max_size = 1200
+            if max(image.size) > max_size:
+                ratio = max_size / max(image.size)
+                new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
+                
             W, H = image.size
             image_np = np.array(image)
+            # Use detail=0 or optimize parameters for speed if needed, but resizing is usually enough
             results = self.reader.readtext(image_np)
             
             if not results:

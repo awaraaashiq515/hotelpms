@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { 
   Search, FileText, Package, User, Users, MapPin, Command, X, ArrowRight, Loader2, 
-  CreditCard, Clock, Calendar, Bed, TrendingDown, Truck, Navigation, IdCard, 
-  Ticket, BookOpen, Receipt as ReceiptIcon, Wrench 
+  CreditCard, Clock, Calendar, TrendingDown, Truck, Navigation, IdCard, 
+  Ticket, Receipt as ReceiptIcon 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils';
 interface SearchResult {
   id: string;
   type: 'Order' | 'Invoice' | 'Product' | 'Table' | 'Customer' | 'Staff' | 'KOT' | 
-        'Reservation' | 'Room' | 'Expense' | 'Vendor' | 'Driver' | 'Membership' | 
-        'Voucher' | 'Folio' | 'Receipt' | 'Maintenance';
+        'Reservation' | 'Expense' | 'Vendor' | 'Driver' | 'Membership' | 
+        'Voucher' | 'Receipt';
   title: string;
   subtitle?: string;
   status?: string;
@@ -23,6 +23,9 @@ interface SearchResult {
 
 export const GlobalSearch = () => {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string | undefined;
+  const p = propertyCode ? `/${propertyCode}` : '';
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,7 +81,7 @@ export const GlobalSearch = () => {
   };
 
   const handleSelect = (result: SearchResult) => {
-    router.push(result.url);
+    router.push(`${p}${result.url}`);
     setIsOpen(false);
     setQuery('');
   };
@@ -122,15 +125,12 @@ export const GlobalSearch = () => {
       case 'Staff': return <User size={16} />;
       case 'KOT': return <Clock size={16} />;
       case 'Reservation': return <Calendar size={16} />;
-      case 'Room': return <Bed size={16} />;
       case 'Expense': return <TrendingDown size={16} />;
       case 'Vendor': return <Truck size={16} />;
       case 'Driver': return <Navigation size={16} />;
       case 'Membership': return <IdCard size={16} />;
       case 'Voucher': return <Ticket size={16} />;
-      case 'Folio': return <BookOpen size={16} />;
       case 'Receipt': return <ReceiptIcon size={16} />;
-      case 'Maintenance': return <Wrench size={16} />;
       default: return <Search size={16} />;
     }
   };

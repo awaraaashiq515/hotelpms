@@ -10,6 +10,7 @@ const driverSchema = z.object({
   phone: z.string().max(15).optional().or(z.literal('')),
   vehicleNumber: z.string().max(30).optional().or(z.literal('')),
   vehicleType: z.enum(['CAR', 'BUS', 'AUTO', 'VAN', 'BIKE']).default('CAR'),
+  vehicleCapacity: z.number().int().min(1).max(100).optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -31,6 +32,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
     phone: initialData?.phone || '',
     vehicleNumber: initialData?.vehicleNumber || '',
     vehicleType: initialData?.vehicleType || 'CAR',
+    vehicleCapacity: initialData?.vehicleCapacity ?? null as number | null,
     isActive: initialData !== undefined ? initialData.isActive : true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -40,7 +42,10 @@ export const DriverForm: React.FC<DriverFormProps> = ({
     setErrors({});
     
     try {
-      const validated = driverSchema.parse(formData);
+      const validated = driverSchema.parse({
+        ...formData,
+        vehicleCapacity: formData.vehicleCapacity ? Number(formData.vehicleCapacity) : undefined,
+      });
       await onSubmit(validated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -53,6 +58,9 @@ export const DriverForm: React.FC<DriverFormProps> = ({
     }
   };
 
+  const inputClass = (field?: string) =>
+    `w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border ${field && errors[field] ? 'border-red-400' : 'border-slate-200 dark:border-white/5'} rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all`;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
@@ -64,7 +72,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
           placeholder="John Driver"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border ${errors.name ? 'border-red-400' : 'border-slate-200 dark:border-white/5'} rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all`}
+          className={inputClass('name')}
         />
         {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.name}</p>}
       </div>
@@ -79,7 +87,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
             placeholder="9876543210"
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border ${errors.phone ? 'border-red-400' : 'border-slate-200 dark:border-white/5'} rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all`}
+            className={inputClass('phone')}
           />
           {errors.phone && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.phone}</p>}
         </div>
@@ -92,26 +100,54 @@ export const DriverForm: React.FC<DriverFormProps> = ({
             placeholder="ABC-1234"
             value={formData.vehicleNumber}
             onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all`}
+            className={inputClass()}
           />
         </div>
       </div>
-      
-      <div className="space-y-2">
-        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
-          Vehicle Type
-        </label>
-        <select
-          value={formData.vehicleType}
-          onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
-          className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all cursor-pointer"
-        >
-          <option value="CAR" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Car</option>
-          <option value="BUS" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Bus</option>
-          <option value="AUTO" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Auto Rickshaw</option>
-          <option value="VAN" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Van</option>
-          <option value="BIKE" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Bike</option>
-        </select>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
+            Vehicle Type
+          </label>
+          <select
+            value={formData.vehicleType}
+            onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all cursor-pointer"
+          >
+            <option value="CAR" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Car</option>
+            <option value="BUS" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Bus</option>
+            <option value="AUTO" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Auto Rickshaw</option>
+            <option value="VAN" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Van</option>
+            <option value="BIKE" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Bike</option>
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
+            Vehicle Seat Capacity
+          </label>
+          <input
+            type="number"
+            placeholder="e.g. 4"
+            min={1}
+            max={100}
+            value={formData.vehicleCapacity ?? ''}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                vehicleCapacity: e.target.value ? parseInt(e.target.value) : null,
+              })
+            }
+            className={inputClass('vehicleCapacity')}
+          />
+          {errors.vehicleCapacity && (
+            <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.vehicleCapacity}</p>
+          )}
+          <p className="text-[9px] text-slate-400 dark:text-slate-500 ml-1">
+            Maximum passengers this vehicle can carry
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 pt-2">
@@ -147,3 +183,4 @@ export const DriverForm: React.FC<DriverFormProps> = ({
     </form>
   );
 };
+

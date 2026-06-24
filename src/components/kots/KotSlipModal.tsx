@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { Utensils, X, Printer, ChefHat, Clock, CheckCircle } from 'lucide-react';
+import React from 'react';
+import { Utensils, X, Printer, ChefHat, CheckCircle } from 'lucide-react';
 
 interface KotSlipItem {
   name: string;
@@ -32,6 +32,8 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
   // Property Branding State
   const [property, setProperty] = React.useState<any>(null);
   const [seqNum, setSeqNum] = React.useState<number | null>(null);
+  // Must be declared before any early return (Rules of Hooks)
+  const [isPrinting, setIsPrinting] = React.useState(false);
 
   React.useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -77,7 +79,8 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
     ? `${kot.floorName.toUpperCase()} ORDER`
     : null;
 
-  const handlePrint = () => {
+
+  const doBrowserPrint = () => {
     const printWindow = window.open('', '_blank', 'width=450,height=700');
     if (!printWindow) return;
 
@@ -163,6 +166,45 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
       </html>
     `);
     printWindow.document.close();
+  };
+
+  const handlePrint = async () => {
+    // 🖨️ Try direct thermal printing first (no browser dialog)
+    if (property?.enableDirectPrinting) {
+      setIsPrinting(true);
+      try {
+        const kotPrintData = {
+          kotNo: kot.kotNo,
+          orderNo: kot.orderNo,
+          tableNo: kot.tableNo,
+          items: kot.items.map((item: any) => ({
+            name: item.name || item.itemName,
+            quantity: item.quantity,
+            notes: item.notes
+          }))
+        };
+        const res = await fetch('/api/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kotData: kotPrintData, property })
+        });
+        const result = await res.json();
+        if (result.success) {
+          // Direct print succeeded — no dialog needed
+          setIsPrinting(false);
+          return;
+        }
+        throw new Error(result.message || 'Direct print failed');
+      } catch (e: any) {
+        console.warn('[KOT] Direct print failed, falling back to browser print:', e.message);
+        // Fall through to browser print below
+      } finally {
+        setIsPrinting(false);
+      }
+    }
+
+    // 📄 Fallback: browser print dialog
+    doBrowserPrint();
   };
 
   const source = kot.tableNo
@@ -262,10 +304,18 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
           </button>
           <button
             onClick={handlePrint}
-            className="py-4 rounded-2xl bg-gray-900 text-white font-black text-[11px] uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-900/20"
+            disabled={isPrinting}
+            className="py-4 rounded-2xl bg-gray-900 text-white font-black text-[11px] uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-900/20 disabled:opacity-60 disabled:cursor-wait"
           >
-            <Printer size={16} />
-            Print KOT
+            {isPrinting ? (
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <Printer size={16} />
+            )}
+            {isPrinting ? 'Printing...' : 'Print KOT'}
           </button>
         </div>
       </div>

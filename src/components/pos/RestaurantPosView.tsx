@@ -893,8 +893,8 @@ export default function RestaurantPosView({
           }
 
           // Direct thermal printing via Backend API
-          // Skip paper print if showModal is false (Save & KOT flow)
-          if (property?.enableDirectPrinting && showModal) {
+          // Always print directly if silent server printing is enabled, even for Save & KOT flow
+          if (property?.enableDirectPrinting) {
             try {
               const kotPrintData = {
                 kotNo: latestKot.kotNo,
@@ -917,11 +917,11 @@ export default function RestaurantPosView({
               if (printResult.success) {
                 addToast('success', `KOT Printed successfully via Serial Port`);
               } else {
-                throw new Error(printResult.message);
+                throw new Error(printResult.message || printResult.error || 'Failed to print KOT');
               }
             } catch (printErr: any) {
               console.error('Serial printing failed:', printErr);
-              addToast('warning', 'Direct print failed, using browser print');
+              addToast('warning', `Direct print failed: ${printErr.message}. Using browser print.`);
             }
           }
         } else {

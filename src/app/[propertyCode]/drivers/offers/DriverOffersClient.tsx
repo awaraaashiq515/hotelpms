@@ -236,13 +236,13 @@ function DriverOffersContent() {
       />
 
       {/* Simple Info Box */}
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
-        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Activity size={16} className="text-blue-600" />
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-4 flex items-start gap-3">
+        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Activity size={16} className="text-blue-600 dark:text-blue-400" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-blue-900">How it works?</p>
-          <p className="text-sm text-blue-700 mt-0.5">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">How it works?</p>
+          <p className="text-sm text-blue-700 dark:text-blue-400 mt-0.5">
             Every time you select a driver on the POS Billing page, it counts as 1 customer for them.
             Once they reach their target, they automatically earn a cash or gift reward.
           </p>
@@ -250,11 +250,11 @@ function DriverOffersContent() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
         <button
           onClick={() => setActiveTab('tracker')}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'tracker' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            activeTab === 'tracker' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
           }`}
         >
           <Users size={15} />
@@ -263,7 +263,7 @@ function DriverOffersContent() {
         <button
           onClick={() => setActiveTab('rules')}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'rules' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            activeTab === 'rules' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
           }`}
         >
           <Gift size={15} />
@@ -282,39 +282,39 @@ function DriverOffersContent() {
               placeholder="Search driver by name or phone number..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
             />
           </div>
 
           {/* Driver Table */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
             {loading ? (
-              <div className="p-12 text-center text-slate-400 text-sm">Loading...</div>
+              <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-sm">Loading...</div>
             ) : filteredData.length === 0 ? (
               <div className="p-12 text-center">
-                <Users size={32} className="mx-auto text-slate-200 mb-3" />
-                <p className="text-sm font-semibold text-slate-600">No drivers found</p>
-                <p className="text-xs text-slate-400 mt-1">Assign a reward level to your drivers first.</p>
+                <Users size={32} className="mx-auto text-slate-200 dark:text-slate-700 mb-3" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No drivers found</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Assign a reward level to your drivers first.</p>
               </div>
             ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Driver</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Current Level</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Progress</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Wins</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Action</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-5 py-3">Driver</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Current Level</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Progress</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Wins</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                   {filteredData.map(row => {
                     const hasNoLevel = row.activeOffer === 'No Level Assigned';
                     const isDone = row.progressPercent >= 100;
                     const isNear = row.progressPercent >= 80 && row.progressPercent < 100;
 
                     return (
-                      <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                         {/* Driver Name */}
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -322,8 +322,8 @@ function DriverOffersContent() {
                               {row.name.substring(0, 2)}
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-slate-800">{row.name}</p>
-                              <p className="text-xs text-slate-400">{row.phone || 'No phone'}</p>
+                              <p className="text-sm font-semibold text-slate-800 dark:text-white">{row.name}</p>
+                              <p className="text-xs text-slate-400 dark:text-slate-500">{row.phone || 'No phone'}</p>
                             </div>
                           </div>
                         </td>
@@ -340,7 +340,7 @@ function DriverOffersContent() {
                           ) : (
                             <button
                               onClick={() => { setSelectedDriverId(row.id); setAssignForm({ offerId: '' }); setIsAssignModalOpen(true); }}
-                              className="text-xs font-semibold text-slate-700 border border-slate-200 bg-slate-50 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1"
+                              className="text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
                             >
                               {row.activeOffer} <ChevronDown size={12} />
                             </button>
@@ -350,20 +350,20 @@ function DriverOffersContent() {
                         {/* Progress */}
                         <td className="px-4 py-4">
                           {hasNoLevel ? (
-                            <span className="text-xs text-slate-300">—</span>
+                            <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
                           ) : (
                             <div className="w-44 space-y-1.5">
-                              <div className="flex justify-between text-xs text-slate-500">
+                              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
                                 <span>{row.completedRides} customers</span>
                                 <span>Target: {row.targetRides}</span>
                               </div>
-                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-700 ${isDone ? 'bg-emerald-500' : 'bg-pos-primary'}`}
                                   style={{ width: `${Math.min(row.progressPercent, 100)}%` }}
                                 />
                               </div>
-                              <p className={`text-xs font-semibold ${isDone ? 'text-emerald-600' : isNear ? 'text-orange-500' : 'text-slate-400'}`}>
+                              <p className={`text-xs font-semibold ${isDone ? 'text-emerald-600' : isNear ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'}`}>
                                 {isDone ? '✓ Target reached!' : isNear ? 'Almost there!' : `${row.progressPercent.toFixed(0)}%`}
                               </p>
                             </div>
@@ -373,8 +373,8 @@ function DriverOffersContent() {
                         {/* Wins */}
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <Trophy size={15} className={row.completedOffersCount > 0 ? 'text-amber-500' : 'text-slate-200'} />
-                            <span className="text-sm font-semibold text-slate-600">{row.completedOffersCount}</span>
+                            <Trophy size={15} className={row.completedOffersCount > 0 ? 'text-amber-500' : 'text-slate-200 dark:text-slate-700'} />
+                            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{row.completedOffersCount}</span>
                           </div>
                         </td>
 
@@ -390,7 +390,7 @@ function DriverOffersContent() {
                             </button>
                             <button
                               onClick={() => handleManageAction(row.id, 'RESET')}
-                              className="text-xs font-semibold text-slate-500 border border-slate-200 bg-white px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1"
+                              className="text-xs font-semibold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
                               title="Reset progress to zero"
                             >
                               <RotateCcw size={12} /> Reset
@@ -412,8 +412,8 @@ function DriverOffersContent() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-800">Reward Rules</h3>
-              <p className="text-sm text-slate-500">Set how many customers a driver must bring to earn a reward.</p>
+              <h3 className="text-base font-semibold text-slate-800 dark:text-white">Reward Rules</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Set how many customers a driver must bring to earn a reward.</p>
             </div>
             <Button
               className="h-10 px-4 text-sm font-medium bg-pos-primary text-white rounded-xl gap-2"
@@ -424,10 +424,10 @@ function DriverOffersContent() {
           </div>
 
           {offersList.length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-              <Gift size={32} className="mx-auto text-slate-200 mb-3" />
-              <p className="text-sm font-semibold text-slate-600">No reward rules yet</p>
-              <p className="text-xs text-slate-400 mt-1">Add your first rule to get started.</p>
+            <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-12 text-center">
+              <Gift size={32} className="mx-auto text-slate-200 dark:text-slate-700 mb-3" />
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No reward rules yet</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add your first rule to get started.</p>
               <Button
                 className="mt-5 h-10 px-5 text-sm bg-pos-primary text-white rounded-xl"
                 onClick={() => setIsOfferModalOpen(true)}
@@ -436,33 +436,33 @@ function DriverOffersContent() {
               </Button>
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Level</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Target</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Reward</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Baad mein</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">Action</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-5 py-3">Level</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Target</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Reward</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">After Completion</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                   {offersList.map(offer => (
-                    <tr key={offer.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={offer.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-pos-primary/10 text-pos-primary flex items-center justify-center text-xs font-bold">
                             {offer.priority}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-slate-800">{offer.title}</p>
-                            {!offer.isActive && <p className="text-xs text-slate-400">Inactive</p>}
+                            <p className="text-sm font-semibold text-slate-800 dark:text-white">{offer.title}</p>
+                            {!offer.isActive && <p className="text-xs text-slate-400 dark:text-slate-500">Inactive</p>}
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm text-slate-700">
+                        <span className="text-sm text-slate-700 dark:text-slate-300">
                           <span className="font-bold">{offer.targetRides}</span> customers
                         </span>
                       </td>
@@ -510,15 +510,16 @@ function DriverOffersContent() {
         isOpen={isOfferModalOpen}
         onClose={() => { setIsOfferModalOpen(false); setEditingOfferId(null); }}
         title={editingOfferId ? 'Edit Reward Rule' : 'Add New Reward Rule'}
+        isDark
       >
         <form onSubmit={handleCreateOrUpdateOffer} className="space-y-5 pt-2">
           {/* Level Name */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Level Name</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Level Name</label>
             <input
               required
               type="text"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+              className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-pos-primary/40 focus:border-pos-primary"
               value={offerForm.title}
               onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
               placeholder="e.g. Level 1 - Starter"
@@ -528,22 +529,22 @@ function DriverOffersContent() {
           {/* Target & Level Number */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Customers Required</label>
+              <label className="block text-sm font-semibold text-slate-300 mb-1.5">Customers Required</label>
               <input
                 required
                 type="number"
                 min="1"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+                className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40 focus:border-pos-primary"
                 value={offerForm.targetRides}
                 onChange={e => setOfferForm({ ...offerForm, targetRides: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Level Number</label>
+              <label className="block text-sm font-semibold text-slate-300 mb-1.5">Level Number</label>
               <input
                 type="number"
                 min="1"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
+                className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40 focus:border-pos-primary"
                 value={offerForm.priority}
                 onChange={e => setOfferForm({ ...offerForm, priority: parseInt(e.target.value) || 1 })}
               />
@@ -552,19 +553,27 @@ function DriverOffersContent() {
 
           {/* Reward Type */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Reward Type</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Reward Type</label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setOfferForm({ ...offerForm, rewardType: 'CASH' })}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${offerForm.rewardType === 'CASH' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                  offerForm.rewardType === 'CASH'
+                    ? 'bg-emerald-900/40 border-emerald-600 text-emerald-400'
+                    : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'
+                }`}
               >
                 💵 Cash
               </button>
               <button
                 type="button"
                 onClick={() => setOfferForm({ ...offerForm, rewardType: 'GIFT' })}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${offerForm.rewardType === 'GIFT' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-500'}`}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                  offerForm.rewardType === 'GIFT'
+                    ? 'bg-amber-900/40 border-amber-600 text-amber-400'
+                    : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'
+                }`}
               >
                 🎁 Gift
               </button>
@@ -575,12 +584,12 @@ function DriverOffersContent() {
           <div>
             {offerForm.rewardType === 'CASH' ? (
               <>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cash Amount (₹)</label>
+                <label className="block text-sm font-semibold text-slate-300 mb-1.5">Cash Amount (₹)</label>
                 <input
                   required
                   type="number"
                   min="0"
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                  className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
                   value={offerForm.rewardValue}
                   onChange={e => setOfferForm({ ...offerForm, rewardValue: parseFloat(e.target.value) || 0 })}
                   placeholder="e.g. 500"
@@ -588,11 +597,11 @@ function DriverOffersContent() {
               </>
             ) : (
               <>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Gift Item Name</label>
+                <label className="block text-sm font-semibold text-slate-300 mb-1.5">Gift Item Name</label>
                 <input
                   required
                   type="text"
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400"
+                  className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500"
                   placeholder="e.g. Helmet, T-Shirt"
                   value={offerForm.rewardItem}
                   onChange={e => setOfferForm({ ...offerForm, rewardItem: e.target.value })}
@@ -603,40 +612,40 @@ function DriverOffersContent() {
 
           {/* After completing */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">After target is reached?</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">After target is reached?</label>
             <select
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pos-primary/20"
+              className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40"
               value={offerForm.resetType}
               onChange={e => setOfferForm({ ...offerForm, resetType: e.target.value })}
             >
-              <option value="SAME_OFFER">Repeat the same level</option>
-              <option value="NEXT_OFFER">Move to next level</option>
-              <option value="CAMPAIGN_RESET">Stop after giving reward</option>
+              <option value="SAME_OFFER" className="bg-slate-800">Repeat the same level</option>
+              <option value="NEXT_OFFER" className="bg-slate-800">Move to next level</option>
+              <option value="CAMPAIGN_RESET" className="bg-slate-800">Stop after giving reward</option>
             </select>
           </div>
 
           {offerForm.resetType === 'NEXT_OFFER' && (
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Which level comes next?</label>
+              <label className="block text-sm font-semibold text-slate-300 mb-1.5">Which level comes next?</label>
               <select
                 required
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pos-primary/20"
+                className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40"
                 value={offerForm.nextOfferId}
                 onChange={e => setOfferForm({ ...offerForm, nextOfferId: e.target.value })}
               >
-                <option value="">-- Select a level --</option>
+                <option value="" className="bg-slate-800">-- Select a level --</option>
                 {offersList.filter(o => o.id !== editingOfferId).map(offer => (
-                  <option key={offer.id} value={offer.id}>{offer.title} (Level {offer.priority})</option>
+                  <option key={offer.id} value={offer.id} className="bg-slate-800">{offer.title} (Level {offer.priority})</option>
                 ))}
               </select>
             </div>
           )}
 
-          <div className="flex gap-3 pt-2 border-t border-slate-100">
+          <div className="flex gap-3 pt-2 border-t border-slate-700">
             <Button
               type="button"
               variant="secondary"
-              className="flex-1 h-11 rounded-xl border border-slate-200 text-sm font-semibold"
+              className="flex-1 h-11 rounded-xl border border-slate-600 text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
               onClick={() => { setIsOfferModalOpen(false); setEditingOfferId(null); }}
             >
               Cancel
@@ -656,37 +665,38 @@ function DriverOffersContent() {
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         title="Change Driver Level"
+        isDark
       >
         <form onSubmit={handleAssignOffer} className="space-y-5 pt-2">
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-800">
+          <div className="bg-amber-900/20 border border-amber-800/40 rounded-xl p-4 text-sm text-amber-300">
             ⚠️ Changing the level will reset this driver's current progress.
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select New Level</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Select New Level</label>
             <select
               required
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pos-primary/20"
+              className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40"
               value={assignForm.offerId}
               onChange={e => setAssignForm({ offerId: e.target.value })}
             >
-              <option value="" disabled>-- Choose a level --</option>
+              <option value="" disabled className="bg-slate-800">-- Choose a level --</option>
               {offersList.map(offer => (
-                <option key={offer.id} value={offer.id}>{offer.title} (Target: {offer.targetRides} customers)</option>
+                <option key={offer.id} value={offer.id} className="bg-slate-800">{offer.title} (Target: {offer.targetRides} customers)</option>
               ))}
             </select>
           </div>
-          <div className="flex gap-3 border-t border-slate-100 pt-2">
+          <div className="flex gap-3 border-t border-slate-700 pt-2">
             <Button
               type="button"
               variant="secondary"
-              className="flex-1 h-11 rounded-xl border border-slate-200 text-sm font-semibold"
+              className="flex-1 h-11 rounded-xl border border-slate-600 text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
               onClick={() => setIsAssignModalOpen(false)}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="flex-1 h-11 rounded-xl bg-slate-800 text-white text-sm font-semibold"
+              className="flex-1 h-11 rounded-xl bg-slate-200 text-slate-900 text-sm font-semibold hover:bg-white"
             >
               Change Level
             </Button>

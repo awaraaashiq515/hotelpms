@@ -7,6 +7,7 @@ import {
   Search, ArrowRight, TrendingUp, Activity, CheckCircle2, 
   ChevronRight, AlertCircle, Lock, Loader2, Gift
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const PAYMENT_METHODS = [
   { key: 'CASH',  label: 'Cash',  icon: Banknote,    color: 'bg-emerald-500', textColor: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
@@ -185,7 +186,19 @@ export default function CounterPaymentsPage() {
             },
             property: property
           })
-        }).catch(err => console.error('Print failed', err));
+        })
+        .then(async (printRes) => {
+          const printResult = await printRes.json().catch(() => ({}));
+          if (!printRes.ok || !printResult.success) {
+            toast.error(`❌ Print Failed: ${printResult.message || 'Direct printing failed'}`);
+          } else {
+            toast.success(`✅ Bill printed successfully!`);
+          }
+        })
+        .catch(err => {
+          console.error('Print failed', err);
+          toast.error(`❌ Print Failed: Network or Server error`);
+        });
 
         setTimeout(() => {
           setSettled(null);

@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { isValid, format } from 'date-fns';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { toast } from 'sonner';
 import { 
   X, Search, User, ReceiptText, 
   Printer, CreditCard, CheckCircle2,
@@ -351,13 +352,14 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
         });
         const result = await response.json();
         if (result.success) {
-          console.log(`Bill printed successfully via Serial Port`);
+          toast.success('✅ Bill printed successfully!');
           return;
         } else {
-          throw new Error(result.message);
+          throw new Error(result.message || 'Direct printing failed');
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn("Direct serial print failed, falling back to browser print:", e);
+        toast.error(`❌ Direct print failed: ${e.message}. Falling back to browser print.`);
       }
     }
 

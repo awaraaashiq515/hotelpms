@@ -7,6 +7,7 @@ export interface Driver {
   phone?: string;
   vehicleNumber?: string;
   vehicleType?: string;
+  vehicleCapacity?: number; // Kitni seat wali gaadi
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

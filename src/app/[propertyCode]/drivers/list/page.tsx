@@ -149,9 +149,16 @@ export default function DriversListingPage() {
           <span className="font-mono font-black text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-[11px] border border-slate-200 dark:border-slate-700">
             {row.vehicleNumber || 'UNREGISTERED'}
           </span>
-          <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">
-            {row.vehicleType || 'CAR'}
-          </span>
+          <div className="flex items-center gap-1.5 pl-1">
+            <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              {row.vehicleType || 'CAR'}
+            </span>
+            {row.vehicleCapacity && (
+              <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                🪑 {row.vehicleCapacity} Seat
+              </span>
+            )}
+          </div>
         </div>
       ),
       width: '180px'

@@ -23,6 +23,11 @@ export async function POST(request: NextRequest) {
     const pythonFormData = new FormData();
     pythonFormData.append('file', file);
     pythonFormData.append('scanMode', scanMode);
+    
+    const rawOcrText = formData.get('rawOcrText');
+    if (rawOcrText) {
+      pythonFormData.append('rawOcrText', rawOcrText as string);
+    }
 
     console.log("Forwarding menu image to local FastAPI backend on http://localhost:8000/api/scan-menu...");
     
@@ -88,6 +93,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Next.js Proxy AI Scan Error:', error);
+    try {
+      const fs = require('fs');
+      fs.writeFileSync('/Users/ritchie/Desktop/live website /posendwebsite/scratch/nextjs_error.log', error.stack || error.message);
+    } catch (e) {}
     return apiError(new Error(error.message || 'Scanning process failed'), 500);
   }
 }

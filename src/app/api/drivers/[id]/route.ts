@@ -7,7 +7,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, phone, vehicleNumber, vehicleType, isActive } = body;
+    const { name, phone, vehicleNumber, vehicleType, vehicleCapacity, isActive } = body;
     const { id } = await params;
 
     const updatedDriver = await (prisma as any).driver.update({
@@ -17,6 +17,7 @@ export async function PUT(
         ...(phone !== undefined && { phone }),
         ...(vehicleNumber !== undefined && { vehicleNumber }),
         ...(vehicleType !== undefined && { vehicleType }),
+        ...(vehicleCapacity !== undefined && { vehicleCapacity: vehicleCapacity ? parseInt(vehicleCapacity) : null }),
         ...(isActive !== undefined && { isActive }),
       }
     });

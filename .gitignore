@@ -51,3 +51,7 @@ dev_server.log
 # temporary scratch and agent folders
 /scratch/
 /.kilo/
+
+venv/
+menu-scanner/backend/venv/
+menu-scanner/backend/temp_uploads/

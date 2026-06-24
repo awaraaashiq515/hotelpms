@@ -26,7 +26,11 @@ def read_root():
     return {"status": "healthy", "service": settings.APP_NAME}
 
 @app.post("/api/scan-menu", response_model=StructuredMenuResponse)
-async def scan_menu(file: UploadFile = File(...), scanMode: str = Form("semantic")):
+async def scan_menu(
+    file: UploadFile = File(...), 
+    scanMode: str = Form("semantic"),
+    rawOcrText: str = Form(None)
+):
     # 1. Validate file extension
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in [".jpg", ".jpeg", ".png", ".webp"]:
@@ -38,9 +42,20 @@ async def scan_menu(file: UploadFile = File(...), scanMode: str = Form("semantic
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # 3. Step 1: Run local OCR to extract raw text (assists Vision model & acts as metadata)
-        raw_ocr_text = ocr_service.extract_text(temp_file_path)
-        
+        # 3. Step 1: Use provided OCR text from frontend, or fallback to local backend OCR
+        if rawOcrText and rawOcrText.strip():
+            print("Using pre-computed OCR text from frontend browser...")
+            raw_ocr_text = rawOcrText
+            # Save for debugging
+            try:
+                with open("/Users/ritchie/Desktop/live website /posendwebsite/scratch/last_ocr_raw.txt", "w") as f:
+                    f.write(raw_ocr_text)
+            except Exception as err:
+                print(f"Debug: failed to write OCR text: {err}")
+        else:
+            print("Running local backend OCR...")
+            raw_ocr_text = ocr_service.extract_text(temp_file_path)
+            
         # Save raw OCR text for debugging
         try:
             with open("/Users/ritchie/Desktop/live website /posendwebsite/scratch/last_ocr_raw.txt", "w") as f:
@@ -54,7 +69,10 @@ async def scan_menu(file: UploadFile = File(...), scanMode: str = Form("semantic
         return structured_menu
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process menu: {str(e)}")
+        import traceback
+        err_msg = f"Failed to process menu: {str(e)}\n{traceback.format_exc()}"
+        print(err_msg)
+        raise HTTPException(status_code=500, detail=err_msg)
         
     finally:
         # Cleanup temp file

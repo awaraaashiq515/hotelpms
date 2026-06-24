@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Tesseract from 'tesseract.js';
 import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers, Download, Sparkles, Upload, ArrowLeft, Check, AlertCircle, X, Flame, Leaf } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
@@ -83,7 +84,10 @@ export default function ProductsPage() {
     fetch('/api/setup/properties/current')
       .then(res => res.json())
       .then(data => {
-        if (data.success) setPropertyDetails(data.data);
+        if (data.success) {
+          setPropertyDetails(data.data);
+          setSelectedPropertyId(data.data.id);
+        }
       })
       .catch(err => console.error('Failed to fetch current property', err));
   }, []);
@@ -742,6 +746,7 @@ const AiScannerPanel: React.FC<AiScannerPanelProps> = ({ propertyId, properties,
   const [aiMenuType, setAiMenuType] = useState<'RESTAURANT' | 'BAR' | 'CAFE'>('RESTAURANT');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [scanStatus, setScanStatus] = useState('');
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -784,6 +789,7 @@ const AiScannerPanel: React.FC<AiScannerPanelProps> = ({ propertyId, properties,
   const startScan = async () => {
     if (!file) return;
     setScanning(true);
+    setScanStatus('📖 Step 1/2: Reading menu text with browser OCR...');
     setError('');
     const formData = new FormData();
     formData.append('file', file);
@@ -792,16 +798,76 @@ const AiScannerPanel: React.FC<AiScannerPanelProps> = ({ propertyId, properties,
     formData.append('scanMode', scanMode);
 
     try {
-      const res = await fetch('/api/ai/scan-menu', {
+      // Always run browser OCR first - much faster and more reliable than server-side
+      if (imagePreviewUrl) {
+        const { data: { text } } = await Tesseract.recognize(imagePreviewUrl, 'eng+hin', {
+          logger: () => {}
+        });
+        formData.append('rawOcrText', text);
+      }
+
+      setScanStatus('🧠 Step 2/2: AI is parsing menu items...');
+
+      setScanStatus('🧠 Step 2/2: AI is parsing menu items (may take a few minutes)...');
+
+      // Call local Python FastAPI backend directly to bypass Next.js 5-minute timeout!
+      const res = await fetch('http://localhost:8000/api/scan-menu', {
         method: 'POST',
         body: formData,
       });
-      const data = await res.json();
-      if (data.success) {
-        setScannedData(data.data);
-      } else {
-        setError(data.message || data.error || 'Failed to scan menu');
+      
+      if (!res.ok) {
+        const errText = await res.text();
+        setError(`Local scanning backend failed: ${errText}`);
+        return;
       }
+
+      const pythonData = await res.json();
+      
+      // Map Python backend response schema to Next.js products schema
+      const mappedCategories = (pythonData.categories || []).map((category: any) => {
+        const items = (category.items || []).map((item: any) => {
+          const sellingPrice = item.price || 0.0;
+          const halfPrice = item.half_price !== undefined && item.half_price !== null ? item.half_price : null;
+          const costPrice = Math.round(sellingPrice * 0.4 * 100) / 100; // 40% estimated cost price
+          const taxRate = item.gst_rate !== undefined ? item.gst_rate : (includeTax ? 5 : 0);
+          const hsnCode = item.hsn_code ? item.hsn_code : (includeHsn ? "9963" : "---");
+          
+          // Generate high-fidelity unique SKU from category and item name
+          const cleanCat = category.category_name?.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase() || 'GEN';
+          const cleanName = item.name?.replace(/[^a-zA-Z]/g, '').substring(0, 8).toUpperCase() || 'ITEM';
+          const randId = Math.floor(100 + Math.random() * 900);
+          const sku = `${cleanCat}-${cleanName}-${randId}`;
+          
+          // Generate random 8 digit barcode
+          const barcode = Math.floor(10000000 + Math.random() * 90000000).toString();
+
+          return {
+            name: item.name,
+            sellingPrice,
+            halfPrice,
+            costPrice,
+            hsnCode,
+            taxRate,
+            sku,
+            barcode,
+            productType: 'REVENUE_ITEM',
+            trackInventory: false,
+            isActive: true,
+            showInMenu: true,
+            description: item.description || `Delicious ${item.name}`,
+            isVeg: item.is_vegetarian !== undefined ? Boolean(item.is_vegetarian) : true,
+            isSpicy: item.is_spicy !== undefined ? Boolean(item.is_spicy) : false
+          };
+        });
+
+        return {
+          name: category.category_name,
+          items
+        };
+      });
+
+      setScannedData({ categories: mappedCategories });
     } catch (err: any) {
       console.error('Scan failed:', err);
       setError('Network error. Check connection and try again.');
@@ -1049,8 +1115,10 @@ const AiScannerPanel: React.FC<AiScannerPanelProps> = ({ propertyId, properties,
       {scanning && (
         <div className="py-16 flex flex-col items-center justify-center space-y-4">
           <div className="h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-          <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider animate-pulse">Running local OCR & parsing columns...</h3>
-          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">This takes less than 3 seconds. Do not close this page.</p>
+          <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider animate-pulse">
+            {scanStatus || 'Processing menu...'}
+          </h3>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Please wait. Do not close this page.</p>
         </div>
       )}
 

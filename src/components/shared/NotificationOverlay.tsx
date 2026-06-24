@@ -43,9 +43,9 @@ export function NotificationOverlay() {
   const seenIds = React.useRef<Set<string>>(new Set());
   const isFirstFetch = React.useRef(true);
 
-  const fetchPrefs = useCallback(async () => {
+  const fetchPrefs = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/settings/notifications');
+      const res = await fetch('/api/settings/notifications', { signal });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const soundMap: Record<string, boolean> = {};
@@ -55,7 +55,8 @@ export function NotificationOverlay() {
         });
         setPreferences(soundMap);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return; // component unmounted — ignore
       console.error('Failed to fetch notification preferences', err);
     }
   }, []);
@@ -85,11 +86,11 @@ export function NotificationOverlay() {
     }
   }, []);
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
     if (pathname?.includes('kitchen-display') || pathname?.includes('bar-display')) return;
     
     try {
-      const res = await fetch('/api/notifications?status=UNREAD');
+      const res = await fetch('/api/notifications?status=UNREAD', { signal });
       const json = await res.json();
       if (json.success) {
         const unread = json.data || [];
@@ -126,7 +127,8 @@ export function NotificationOverlay() {
         
         isFirstFetch.current = false;
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return; // component unmounted — ignore
       console.error('Failed to fetch notifications', err);
     }
   }, [playSound, pathname]);
@@ -135,10 +137,18 @@ export function NotificationOverlay() {
     setMounted(true);
     if (pathname?.includes('kitchen-display') || pathname?.includes('bar-display')) return;
 
-    fetchPrefs();
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 5000); // Poll every 5s for faster response
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    fetchPrefs(signal);
+    fetchNotifications(signal);
+
+    const interval = setInterval(() => fetchNotifications(signal), 5000);
+
+    return () => {
+      clearInterval(interval);
+      controller.abort(); // cancel any in-flight fetch on unmount
+    };
   }, [fetchNotifications, fetchPrefs, pathname]);
 
   const getIcon = (notification: Notification) => {

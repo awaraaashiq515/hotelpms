@@ -32,6 +32,19 @@ interface PrinterModalProps {
   onSuccess: () => void;
 }
 
+const cleanDeviceName = (path: string, friendlyName?: string): string => {
+  if (friendlyName && friendlyName !== path) return friendlyName;
+  let name = path;
+  if (name.startsWith('/dev/tty.')) {
+    name = name.slice(9);
+  } else if (name.startsWith('/dev/cu.')) {
+    name = name.slice(8);
+  } else if (name.startsWith('/dev/')) {
+    name = name.slice(5);
+  }
+  return name.replace(/_/g, ' ');
+};
+
 export const PrinterModal: React.FC<PrinterModalProps> = ({
   isOpen,
   onClose,
@@ -57,7 +70,10 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [detectedPorts, setDetectedPorts] = useState<any[]>([]);
+  const [detectedSystemPrinters, setDetectedSystemPrinters] = useState<any[]>([]);
+  const [detectedNetworkPrinters, setDetectedNetworkPrinters] = useState<any[]>([]);
   const [detecting, setDetecting] = useState(false);
+  const [scanningNetwork, setScanningNetwork] = useState(false);
 
   useEffect(() => {
     if (printer) {
@@ -86,23 +102,96 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
     try {
       const response = await fetch('/api/settings/printers/detect');
       const data = await response.json();
-      if (Array.isArray(data)) {
-        setDetectedPorts(data);
-        if (data.length > 0 && !formData.ipAddress) {
-           // Auto-fill if empty
-           // setFormData(prev => ({ ...prev, ipAddress: data[0].path }));
+      if (data.success) {
+        const serial = data.serialPorts || [];
+        const system = data.systemPrinters || [];
+        setDetectedPorts(serial);
+        setDetectedSystemPrinters(system);
+
+        // Smart Auto-fill printer/port if the field is empty
+        if (formData.connectionType === 'SYSTEM' && system.length > 0 && !formData.ipAddress) {
+          const sysPrinter = system[0];
+          setFormData(prev => ({
+            ...prev,
+            ipAddress: sysPrinter.portName || sysPrinter.name,
+            name: prev.name ? prev.name : sysPrinter.name
+          }));
+        } else if (formData.connectionType === 'BLUETOOTH' && serial.length > 0 && !formData.ipAddress) {
+          // Prioritize ports containing MPT, Bluetooth, BLTH, rfcomm
+          const btPort = serial.find((p: any) => /bt|bluetooth|mpt|blth|rfcomm/i.test(p.path || '')) || serial[0];
+          const friendlyName = cleanDeviceName(btPort.path, btPort.friendlyName);
+          setFormData(prev => ({
+            ...prev,
+            ipAddress: btPort.path,
+            name: prev.name ? prev.name : friendlyName
+          }));
+        } else if (formData.connectionType === 'USB' && serial.length > 0 && !formData.ipAddress) {
+          // Prioritize ports containing usb, usbmodem, com, ttyusb, ttyacm
+          const usbPort = serial.find((p: any) => /usb|usbmodem|ttyusb|ttyacm|com/i.test(p.path || '')) || serial[0];
+          const friendlyName = cleanDeviceName(usbPort.path, usbPort.friendlyName);
+          setFormData(prev => ({
+            ...prev,
+            ipAddress: usbPort.path,
+            name: prev.name ? prev.name : friendlyName
+          }));
         }
+
+        const total = serial.length + system.length;
+        if (total === 0) {
+          toast.info('No printers or ports found.');
+        } else {
+          toast.success(`Scan complete. Found ${system.length} system printer(s) and ${serial.length} COM port(s).`);
+        }
+      } else {
+        toast.error(data.error || 'Detection failed. Check server logs.');
       }
     } catch (error) {
-      console.error('Failed to detect printers');
+      toast.error('Could not scan ports. Server may be offline.');
+      console.error('Failed to detect printers', error);
     } finally {
       setDetecting(false);
     }
   };
 
+  const scanNetworkPrinters = async () => {
+    setScanningNetwork(true);
+    try {
+      const response = await fetch('/api/settings/printers/scan');
+      const data = await response.json();
+      if (data.success && Array.isArray(data.printers)) {
+        setDetectedNetworkPrinters(data.printers);
+        // Auto-fill network IP if empty
+        if (data.printers.length > 0 && !formData.ipAddress) {
+          setFormData(prev => ({
+            ...prev,
+            ipAddress: data.printers[0].ip,
+            port: 9100,
+            name: prev.name ? prev.name : data.printers[0].name
+          }));
+        }
+        if (data.printers.length === 0) {
+          toast.info('No network printers found. Check connection or enter IP manually.');
+        } else {
+          toast.success(`Found ${data.printers.length} network printer(s)!`);
+        }
+      } else {
+        toast.error(data.error || 'Network scan failed');
+      }
+    } catch (error) {
+      toast.error('Could not scan network. Server may be offline.');
+      console.error('Failed to scan network printers', error);
+    } finally {
+      setScanningNetwork(false);
+    }
+  };
+
   useEffect(() => {
-    if (isOpen && (formData.connectionType === 'USB' || formData.connectionType === 'BLUETOOTH')) {
-      detectPrinters();
+    if (isOpen) {
+      if (formData.connectionType === 'NETWORK') {
+        scanNetworkPrinters();
+      } else if (formData.connectionType === 'USB' || formData.connectionType === 'BLUETOOTH' || formData.connectionType === 'SYSTEM') {
+        detectPrinters();
+      }
     }
   }, [isOpen, formData.connectionType]);
 
@@ -137,6 +226,18 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
     }
   };
 
+  const getFilteredPorts = () => {
+    if (formData.connectionType === 'BLUETOOTH') {
+      const filtered = detectedPorts.filter((p: any) => /bt|bluetooth|mpt|blth|rfcomm/i.test(p.path || ''));
+      return filtered.length > 0 ? filtered : detectedPorts;
+    }
+    if (formData.connectionType === 'USB') {
+      const filtered = detectedPorts.filter((p: any) => /usb|usbmodem|ttyusb|ttyacm|com/i.test(p.path || ''));
+      return filtered.length > 0 ? filtered : detectedPorts;
+    }
+    return detectedPorts;
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -159,20 +260,61 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
             label="Connection Type"
             value={formData.connectionType}
             onChange={(e) => {
-                setFormData({ ...formData, connectionType: e.target.value, ipAddress: '' });
-                if (e.target.value !== 'NETWORK') detectPrinters();
+                setFormData(prev => ({ ...prev, connectionType: e.target.value, ipAddress: '', name: '' }));
             }}
             options={[
+              { label: 'OS Installed Printer', value: 'SYSTEM' },
               { label: 'Network (IP)', value: 'NETWORK' },
               { label: 'USB / Serial', value: 'USB' },
               { label: 'Bluetooth', value: 'BLUETOOTH' },
             ]}
           />
 
-          {formData.connectionType === 'NETWORK' ? (
+          {formData.connectionType === 'NETWORK' && (
             <>
+              <div className="flex flex-col gap-1 md:col-span-2">
+                 <label className="text-xs font-semibold text-gray-500 mb-1">Select Detected Network Printer (IP)</label>
+                 <div className="flex gap-2">
+                      <select 
+                          className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm font-semibold"
+                          value={formData.ipAddress || ''}
+                          onChange={(e) => {
+                              const ip = e.target.value;
+                              const matched = detectedNetworkPrinters.find(p => p.ip === ip);
+                              const defaultName = matched ? matched.name : (ip ? `Network Printer (${ip})` : '');
+                              setFormData(prev => ({
+                                  ...prev,
+                                  ipAddress: ip,
+                                  port: 9100,
+                                  name: !prev.name || prev.name.startsWith('Network Printer') || prev.name.startsWith('Printer (') ? defaultName : prev.name
+                              }));
+                          }}
+                      >
+                          <option value="">-- Select Detected Printer or Type Below --</option>
+                          {formData.ipAddress && !detectedNetworkPrinters.some(p => p.ip === formData.ipAddress) && (
+                              <option value={formData.ipAddress}>{formData.ipAddress} (Saved/Manual)</option>
+                          )}
+                          {detectedNetworkPrinters.map((prn) => (
+                              <option key={prn.ip} value={prn.ip}>
+                                  {prn.name}
+                              </option>
+                          ))}
+                      </select>
+                      <Button 
+                          type="button" 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={scanNetworkPrinters}
+                          loading={scanningNetwork}
+                          className="px-3 text-xs"
+                      >
+                          Scan Network
+                      </Button>
+                 </div>
+              </div>
+
               <Input
-                label="IP Address"
+                label="Confirm IP Address"
                 placeholder="192.168.1.100"
                 value={formData.ipAddress || ''}
                 onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
@@ -186,19 +328,34 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
                 required
               />
             </>
-          ) : (
+          )}
+
+          {formData.connectionType === 'SYSTEM' && (
             <div className="flex flex-col gap-1">
-               <label className="text-xs font-semibold text-gray-500 mb-1">Select Port / Printer</label>
+               <label className="text-xs font-semibold text-gray-500 mb-1">Select Printer</label>
                <div className="flex gap-2">
                     <select 
-                        className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm"
+                        className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm font-semibold"
                         value={formData.ipAddress || ''}
-                        onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            const matched = detectedSystemPrinters.find(p => (p.portName || p.name) === val);
+                            const defaultName = matched ? matched.name : val;
+                            setFormData(prev => ({
+                                ...prev,
+                                ipAddress: val,
+                                name: !prev.name || detectedSystemPrinters.some(p => p.name === prev.name || (p.portName || p.name) === prev.name) ? defaultName : prev.name
+                            }));
+                        }}
+                        required
                     >
-                        <option value="">-- Select Port --</option>
-                        {detectedPorts.map((port) => (
-                            <option key={port.path} value={port.path}>
-                                {port.friendlyName || port.path} {port.manufacturer ? `(${port.manufacturer})` : ''}
+                        <option value="">-- Select Printer --</option>
+                        {formData.ipAddress && !detectedSystemPrinters.some(p => (p.portName || p.name) === formData.ipAddress) && (
+                            <option value={formData.ipAddress}>{formData.ipAddress} (Saved)</option>
+                        )}
+                        {detectedSystemPrinters.map((prn) => (
+                            <option key={prn.portName || prn.name} value={prn.portName || prn.name}>
+                                {prn.name}
                             </option>
                         ))}
                     </select>
@@ -210,7 +367,52 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
                         loading={detecting}
                         className="px-2"
                     >
-                        Refresh
+                        Scan
+                    </Button>
+               </div>
+            </div>
+          )}
+
+          {(formData.connectionType === 'USB' || formData.connectionType === 'BLUETOOTH') && (
+            <div className="flex flex-col gap-1">
+               <label className="text-xs font-semibold text-gray-500 mb-1">Select Port / Device</label>
+               <div className="flex gap-2">
+                    <select 
+                        className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm"
+                        value={formData.ipAddress || ''}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            const port = getFilteredPorts().find(p => p.path === val);
+                            const defaultName = port ? cleanDeviceName(port.path, port.friendlyName) : val;
+                            setFormData(prev => ({
+                                ...prev,
+                                ipAddress: val,
+                                name: !prev.name || prev.name.startsWith('/dev/') || prev.name.startsWith('COM') || prev.name === 'Bluetooth Printer' || prev.name === 'USB Printer' || prev.name.startsWith('Printer (')
+                                    ? defaultName
+                                    : prev.name
+                            }));
+                        }}
+                        required
+                    >
+                        <option value="">-- Select Port / Device --</option>
+                        {formData.ipAddress && !getFilteredPorts().some(p => p.path === formData.ipAddress) && (
+                            <option value={formData.ipAddress}>{formData.ipAddress} (Saved)</option>
+                        )}
+                        {getFilteredPorts().map((port) => (
+                            <option key={port.path} value={port.path}>
+                                {cleanDeviceName(port.path, port.friendlyName)} ({port.path}){port.manufacturer ? ` [${port.manufacturer}]` : ''}
+                            </option>
+                        ))}
+                    </select>
+                    <Button 
+                        type="button" 
+                        variant="secondary" 
+                        size="sm" 
+                        onClick={detectPrinters}
+                        loading={detecting}
+                        className="px-2"
+                    >
+                        Scan
                     </Button>
                </div>
             </div>

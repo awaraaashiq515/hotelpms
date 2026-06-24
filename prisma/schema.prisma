@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -1366,6 +1366,7 @@ model Driver {
   phone             String?
   vehicleNumber     String?
   vehicleType       String                @default("CAR")
+  vehicleCapacity   Int?                  // Kitni seat wali gaadi hai
   isActive          Boolean               @default(true)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
