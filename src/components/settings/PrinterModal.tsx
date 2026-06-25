@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import { WebSerialPrinter } from '@/lib/web-serial-printer';
 
 interface Printer {
   id?: string;
@@ -267,6 +268,7 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
               { label: 'Network (IP)', value: 'NETWORK' },
               { label: 'USB / Serial', value: 'USB' },
               { label: 'Bluetooth', value: 'BLUETOOTH' },
+              { label: 'Web Serial (Live Website)', value: 'WEB_SERIAL' },
             ]}
           />
 
@@ -328,6 +330,44 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
                 required
               />
             </>
+          )}
+
+          {formData.connectionType === 'WEB_SERIAL' && (
+            <div className="flex flex-col gap-1 md:col-span-2">
+               <label className="text-xs font-semibold text-gray-500 mb-1">Pair Printer</label>
+               <div className="flex flex-col gap-2">
+                 <Button
+                   type="button"
+                   variant="secondary"
+                   className="w-fit"
+                   onClick={async () => {
+                     try {
+                       const port = await WebSerialPrinter.requestPort();
+                       if (port) {
+                         const info = port.getInfo();
+                         const ipStr = JSON.stringify({ usbVendorId: info.usbVendorId, usbProductId: info.usbProductId });
+                         setFormData(prev => ({
+                           ...prev,
+                           ipAddress: ipStr,
+                           name: prev.name || 'Web Serial Printer'
+                         }));
+                         toast.success('Printer paired successfully');
+                       }
+                     } catch (e: any) {
+                       toast.error(e.message);
+                     }
+                   }}
+                 >
+                   Pair Browser Printer
+                 </Button>
+                 {formData.ipAddress && formData.ipAddress.includes('usbVendorId') && (
+                   <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Printer is paired.</p>
+                 )}
+                 <p className="text-[10px] text-gray-400 font-medium">
+                   Note: You must pair the printer in each new browser or device you use.
+                 </p>
+               </div>
+            </div>
           )}
 
           {formData.connectionType === 'SYSTEM' && (

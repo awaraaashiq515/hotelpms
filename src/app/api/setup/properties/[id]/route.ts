@@ -72,29 +72,27 @@ export async function PUT(
       if (isCafeEnabled) selectedCount++;
 
       if (existingProperty.organization?.package) {
-        // 1. Enforce allowedPosCount
-        const limit = existingProperty.organization.package.allowedPosCount ?? 1;
-        if (selectedCount > limit) {
-          return apiError(new Error(`Your subscription plan allows a maximum of ${limit} POS terminal(s). You selected ${selectedCount}.`), 400);
+        // 1. Enforce allowedPosCount only if POS settings are being updated/changed
+        const isChangingPos = restaurantPosEnabled !== undefined || barPosEnabled !== undefined || cafePosEnabled !== undefined;
+        if (isChangingPos) {
+          const limit = existingProperty.organization.package.allowedPosCount ?? 1;
+          if (selectedCount > limit) {
+            return apiError(new Error(`Your subscription plan allows a maximum of ${limit} POS terminal(s). You selected ${selectedCount}.`), 400);
+          }
         }
 
-        // 2. Enforce specific module feature gating
+        // 2. Enforce specific module feature gating only if the module is being newly enabled or updated to true
         const packageFeatures = existingProperty.organization.package.features.map((f: any) => f.feature);
-        const isDelivEnabled = deliveryEnabled !== undefined ? deliveryEnabled : !!existingProperty.deliveryEnabled;
 
-        if (isRestEnabled && !packageFeatures.includes('POS')) {
+        if (restaurantPosEnabled === true && !packageFeatures.includes('POS')) {
           return apiError(new Error('Restaurant POS is not included in this package plan.'), 400);
         }
-        if (isBarEnabled && !packageFeatures.includes('BARPOS')) {
+        if (barPosEnabled === true && !packageFeatures.includes('BARPOS')) {
           return apiError(new Error('Bar POS is not included in this package plan.'), 400);
         }
-        if (isCafeEnabled && !packageFeatures.includes('CAFEPOS')) {
+        if (cafePosEnabled === true && !packageFeatures.includes('CAFEPOS')) {
           return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
         }
-        // Home Delivery is allowed for all package plans
-        // if (isDelivEnabled && !packageFeatures.includes('DRIVERS')) {
-        //   return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
-        // }
       }
     }
 
@@ -116,16 +114,11 @@ export async function PUT(
 
     console.log('Processed Update Data:', updateData);
 
-    const fields = Object.keys(updateData);
-    const values = Object.values(updateData);
-    
-    if (fields.length > 0) {
-      // PostgreSQL uses $1, $2... instead of ?
-      const setClause = fields.map((f, i) => `"${f}" = $${i + 1}`).join(', ');
-      const sql = `UPDATE "Property" SET ${setClause}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $${fields.length + 1}`;
-      console.log('Executing Raw SQL:', sql);
-      console.log('With Values:', [...values, id]);
-      await (prisma as any).$executeRawUnsafe(sql, ...values, id);
+    if (Object.keys(updateData).length > 0) {
+      await prisma.property.update({
+        where: { id },
+        data: updateData
+      });
     }
 
     const property = await prisma.property.findUnique({ where: { id } });
@@ -176,3 +169,5 @@ export async function GET(
     return apiError(error);
   }
 }
+
+export { PUT as PATCH };

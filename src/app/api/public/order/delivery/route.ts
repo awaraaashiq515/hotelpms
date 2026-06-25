@@ -113,16 +113,20 @@ export async function POST(request: NextRequest) {
       let subtotal = 0, taxAmount = 0, grandTotal = 0;
 
       for (const item of items) {
-        const product = await tx.product.findUnique({ where: { id: item.id } });
-        if (!product) throw new Error(`Product not found: ${item.id}`);
+        const productId = item.productId || item.id;
+        if (!productId) throw new Error('Product ID is missing in order items');
 
+        const product = await tx.product.findUnique({ where: { id: productId } });
+        if (!product) throw new Error(`Product not found: ${productId}`);
+
+        const itemUnitPrice = item.unitPrice || item.sellingPrice || 0;
         const newItem = await tx.posOrderItem.create({
           data: {
             posOrderId: order.id,
-            productId: item.id,
+            productId: productId,
             quantity: item.quantity,
-            unitPrice: item.sellingPrice || 0,
-            totalAmount: item.quantity * (item.sellingPrice || 0),
+            unitPrice: itemUnitPrice,
+            totalAmount: item.quantity * itemUnitPrice,
             variantId: item.variantId || null,
             variantName: item.variantName || null,
             portion: item.portion || 'FULL',
@@ -143,6 +147,7 @@ export async function POST(request: NextRequest) {
 
         newItemsForKot.push({
           ...item,
+          id: productId, // ensure the 'id' field is set to productId for downstream KOT mapping
           name: product.name,
           orderItemId: newItem.id,
           variantId: item.variantId || null,

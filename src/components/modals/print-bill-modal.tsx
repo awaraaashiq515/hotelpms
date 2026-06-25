@@ -34,6 +34,17 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
       });
       const result = await response.json();
       if (result.success) {
+        if (result.webSerialJobs && result.webSerialJobs.length > 0) {
+          const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+          for (const job of result.webSerialJobs) {
+            try {
+              await WebSerialPrinter.print(job.data, job.ipAddress);
+            } catch (e: any) {
+              toast.error(`Web Serial Print Failed: ${e.message}`);
+              throw e;
+            }
+          }
+        }
         toast.success('✅ Bill printed successfully!');
         onClose();
         return;

@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    let webSerialJobs: { printerId: string, ipAddress: string | null, data: string }[] = [];
+
     for (const printer of targetPrinters) {
         let data = '';
         data += ESC_POS.INIT;
@@ -104,7 +106,11 @@ export async function POST(req: NextRequest) {
           data += ESC_POS.FEED.repeat(6);
           if (printer.autoCut) data += ESC_POS.CUT;
           
-          await sendToPrinter(data, printer);
+          if (printer.connectionType === 'WEB_SERIAL') {
+            webSerialJobs.push({ printerId: printer.id, ipAddress: printer.ipAddress, data });
+          } else {
+            await sendToPrinter(data, printer);
+          }
           continue;
         }
 
@@ -133,7 +139,11 @@ export async function POST(req: NextRequest) {
             data += ESC_POS.FEED.repeat(6);
             if (printer.autoCut) data += ESC_POS.CUT;
             
-            await sendToPrinter(data, printer);
+            if (printer.connectionType === 'WEB_SERIAL') {
+              webSerialJobs.push({ printerId: printer.id, ipAddress: printer.ipAddress, data });
+            } else {
+              await sendToPrinter(data, printer);
+            }
             continue;
         }
 
@@ -177,12 +187,16 @@ export async function POST(req: NextRequest) {
             data += ESC_POS.FEED.repeat(6);
             if (printer.autoCut) data += ESC_POS.CUT;
 
-            await sendToPrinter(data, printer);
+            if (printer.connectionType === 'WEB_SERIAL') {
+              webSerialJobs.push({ printerId: printer.id, ipAddress: printer.ipAddress, data });
+            } else {
+              await sendToPrinter(data, printer);
+            }
             continue;
         }
     }
 
-    return NextResponse.json({ success: true, message: 'Print command(s) sent' });
+    return NextResponse.json({ success: true, message: 'Print command(s) processed', webSerialJobs });
   } catch (error: any) {
     console.error('Print API Error:', error);
     return NextResponse.json({ 

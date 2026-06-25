@@ -915,7 +915,18 @@ export default function RestaurantPosView({
               const printResult = await printRes.json();
               
               if (printResult.success) {
-                addToast('success', `KOT Printed successfully via Serial Port`);
+                if (printResult.webSerialJobs && printResult.webSerialJobs.length > 0) {
+                  const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+                  for (const job of printResult.webSerialJobs) {
+                    try {
+                      await WebSerialPrinter.print(job.data, job.ipAddress);
+                    } catch (e: any) {
+                      addToast('error', `Web Serial Print Failed: ${e.message}`);
+                      throw e;
+                    }
+                  }
+                }
+                addToast('success', `KOT Printed successfully`);
               } else {
                 throw new Error(printResult.message || printResult.error || 'Failed to print KOT');
               }

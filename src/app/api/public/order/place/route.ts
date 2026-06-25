@@ -108,14 +108,19 @@ export async function POST(request: NextRequest) {
       // 3. Process items for KOT
       const newItemsForKot: any[] = [];
       for (const item of items) {
+        const productId = item.productId || item.id;
+        if (!productId) throw new Error('Product ID is missing in order items');
+
         const variantId = item.variantId || null;
         const portion = item.portion || 'FULL';
 
-        const product = await tx.product.findUnique({ where: { id: item.id } });
-        if (!product) throw new Error(`Product not found: ${item.id}`);
+        const product = await tx.product.findUnique({ where: { id: productId } });
+        if (!product) throw new Error(`Product not found: ${productId}`);
+
+        const itemUnitPrice = item.unitPrice || item.sellingPrice || 0;
 
         const existingItem = (order as any).items.find((ei: any) => 
-          ei.productId === item.id && 
+          ei.productId === productId && 
           (ei.variantId || null) === variantId && 
           (ei.portion || 'FULL') === portion
         );
@@ -124,10 +129,11 @@ export async function POST(request: NextRequest) {
           const newTotalQty = existingItem.quantity + item.quantity;
           await tx.posOrderItem.update({
             where: { id: existingItem.id },
-            data: { quantity: newTotalQty, totalAmount: newTotalQty * (item.sellingPrice || 0) }
+            data: { quantity: newTotalQty, totalAmount: newTotalQty * itemUnitPrice }
           });
           newItemsForKot.push({ 
             ...item, 
+            id: productId, // ensure 'id' is set to productId for downstream KOT mapping
             name: product.name,
             quantity: item.quantity, 
             orderItemId: existingItem.id,
@@ -140,10 +146,10 @@ export async function POST(request: NextRequest) {
           const newItem = await tx.posOrderItem.create({
             data: {
               posOrderId: order!.id,
-              productId: item.id,
+              productId: productId,
               quantity: item.quantity,
-              unitPrice: item.sellingPrice || 0,
-              totalAmount: item.quantity * (item.sellingPrice || 0),
+              unitPrice: itemUnitPrice,
+              totalAmount: item.quantity * itemUnitPrice,
               variantId,
               variantName: item.variantName,
               portion
@@ -151,6 +157,7 @@ export async function POST(request: NextRequest) {
           });
           newItemsForKot.push({ 
             ...item, 
+            id: productId, // ensure 'id' is set to productId for downstream KOT mapping
             name: product.name,
             quantity: item.quantity, 
             orderItemId: newItem.id,

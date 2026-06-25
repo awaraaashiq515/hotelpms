@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Printer as PrinterIcon, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   PrinterCheck, ArrowLeft, Wifi, Usb, Bluetooth, Scan, RefreshCw,
-  Loader2, AlertTriangle, Check, Zap, Settings, Search, Network, Info
+  Loader2, AlertTriangle, Check, Zap, Settings, Search, Network, Info, Monitor
 } from 'lucide-react';
 
 interface Printer {
@@ -103,7 +103,7 @@ export default function PrinterSettingsPage() {
     const newValue = !directPrintEnabled;
     try {
       const res = await fetch(`/api/setup/properties/${propertyId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enableDirectPrinting: newValue }),
       });
@@ -229,6 +229,14 @@ export default function PrinterSettingsPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.message || data.error || 'Test print failed');
       }
+
+      if (data.webSerialJobs && data.webSerialJobs.length > 0) {
+        const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+        for (const job of data.webSerialJobs) {
+           await WebSerialPrinter.print(job.data, job.ipAddress);
+        }
+      }
+
       toast.success('✅ Test page sent to printer!');
     } catch (e: any) {
       toast.error(`❌ Print Error: ${e.message}`);
@@ -257,6 +265,7 @@ export default function PrinterSettingsPage() {
     if (type === 'USB') return <Usb size={14} />;
     if (type === 'BLUETOOTH') return <Bluetooth size={14} />;
     if (type === 'SYSTEM') return <Settings size={14} />;
+    if (type === 'WEB_SERIAL') return <Monitor size={14} />;
     return <Wifi size={14} />;
   };
 
@@ -264,6 +273,7 @@ export default function PrinterSettingsPage() {
     if (type === 'USB') return 'bg-orange-50 text-orange-600 border-orange-100';
     if (type === 'BLUETOOTH') return 'bg-blue-50 text-blue-600 border-blue-100';
     if (type === 'SYSTEM') return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    if (type === 'WEB_SERIAL') return 'bg-purple-50 text-purple-600 border-purple-100';
     return 'bg-indigo-50 text-indigo-600 border-indigo-100';
   };
 
@@ -530,6 +540,7 @@ export default function PrinterSettingsPage() {
             <div className="w-full md:w-64 space-y-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Supported Connections</p>
               {[
+                { icon: Monitor, label: 'Web Serial', desc: 'Live browser print', color: 'text-purple-500 bg-purple-50' },
                 { icon: Wifi, label: 'Network / WiFi', desc: 'IP Address + Port 9100', color: 'text-indigo-500 bg-indigo-50' },
                 { icon: Usb, label: 'USB / Serial', desc: 'COM port auto-detected', color: 'text-orange-500 bg-orange-50' },
                 { icon: Bluetooth, label: 'Bluetooth', desc: 'Paired BT printers', color: 'text-blue-500 bg-blue-50' },

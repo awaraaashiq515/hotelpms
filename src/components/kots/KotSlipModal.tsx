@@ -190,6 +190,17 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
         });
         const result = await res.json();
         if (result.success) {
+          if (result.webSerialJobs && result.webSerialJobs.length > 0) {
+            const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+            for (const job of result.webSerialJobs) {
+               try {
+                   await WebSerialPrinter.print(job.data, job.ipAddress);
+               } catch (e: any) {
+                   console.error(`Web Serial Print Failed: ${e.message}`);
+                   throw e;
+               }
+            }
+          }
           // Direct print succeeded — no dialog needed
           setIsPrinting(false);
           return;

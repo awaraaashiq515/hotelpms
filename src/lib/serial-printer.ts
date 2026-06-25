@@ -120,15 +120,6 @@ class SerialPrintQueue {
     throw new Error(`Failed to print — all known ports exhausted.`);
   }
 
-  /**
-   * Strategy:
-   *  1. Reuse the cached open port if still connected (fast path — RFCOMM stays alive forever).
-   *  2. On write error with cached port: close it, open fresh (auto-recovery).
-   *  3. On fresh open: retry up to MAX_RETRIES times with delay so macOS can
-   *     re-establish RFCOMM after the printer is powered on — no "forget & re-pair" needed.
-   *  4. Port is kept open indefinitely after printing.
-   *     This is safe because the queue serialises all jobs within this process.
-   */
   private executePrint(data: string | Buffer, portPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
       let finalPath = portPath;
@@ -142,17 +133,36 @@ class SerialPrintQueue {
         console.log(`🔌 Using cached open port: ${finalPath}`);
 
         const buffer = typeof data === 'string' ? Buffer.from(data, 'binary') : data;
-        cached.port.write(buffer, (writeErr) => {
-          if (writeErr) {
-            // Cached connection is stale — close and retry with fresh open
-            console.warn(`⚠️ Cached port write failed (${writeErr.message}), reconnecting...`);
+        let settled = false;
+
+        const writeTimeout = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            console.warn(`⏳ Cached port write/drain timeout for ${finalPath}. Reconnecting...`);
             this.closePort(finalPath);
             this.openAndPrint(data, finalPath, resolve, reject);
+          }
+        }, 5000); // 5 seconds timeout
+
+        cached.port.write(buffer, (writeErr) => {
+          if (writeErr) {
+            if (!settled) {
+              settled = true;
+              clearTimeout(writeTimeout);
+              console.warn(`⚠️ Cached port write failed (${writeErr.message}), reconnecting...`);
+              this.closePort(finalPath);
+              this.openAndPrint(data, finalPath, resolve, reject);
+            }
             return;
           }
+
           cached.port.drain(() => {
-            console.log('🖨️ Data sent to printer (cached)');
-            resolve();
+            if (!settled) {
+              settled = true;
+              clearTimeout(writeTimeout);
+              console.log('🖨️ Data sent to printer (cached)');
+              resolve();
+            }
           });
         });
         return;
@@ -229,16 +239,36 @@ class SerialPrintQueue {
         });
 
         const buffer = typeof data === 'string' ? Buffer.from(data, 'binary') : data;
+        let writeSettled = false;
+        
+        const writeTimer = setTimeout(() => {
+          if (!writeSettled) {
+            writeSettled = true;
+            console.error('❌ Write/drain timeout on fresh open');
+            this.closePort(finalPath);
+            reject(new Error('Write/drain timeout on fresh open'));
+          }
+        }, 5000);
+
         port.write(buffer, (writeErr) => {
           if (writeErr) {
-            console.error('❌ Write error:', writeErr.message);
-            this.closePort(finalPath);
-            return reject(writeErr);
+            if (!writeSettled) {
+              writeSettled = true;
+              clearTimeout(writeTimer);
+              console.error('❌ Write error:', writeErr.message);
+              this.closePort(finalPath);
+              return reject(writeErr);
+            }
+            return;
           }
           port.drain(() => {
-            console.log('🖨️ Data sent to printer');
-            // ✅ Port stays OPEN — RFCOMM remains connected indefinitely for next print
-            resolve();
+            if (!writeSettled) {
+              writeSettled = true;
+              clearTimeout(writeTimer);
+              console.log('🖨️ Data sent to printer');
+              // ✅ Keep port OPEN so it stays connected!
+              resolve();
+            }
           });
         });
       });
@@ -261,8 +291,14 @@ class SerialPrintQueue {
   }
 }
 
+declare global {
+  var printQueue: undefined | SerialPrintQueue;
+}
+
 // 📦 Singleton queue instance
-const printQueue = new SerialPrintQueue();
+const printQueue = globalThis.printQueue ?? new SerialPrintQueue();
+
+if (process.env.NODE_ENV !== 'production') globalThis.printQueue = printQueue;
 
 /**
  * Sends data to the printer via the serial queue.

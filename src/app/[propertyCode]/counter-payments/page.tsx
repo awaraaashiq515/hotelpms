@@ -192,6 +192,17 @@ export default function CounterPaymentsPage() {
           if (!printRes.ok || !printResult.success) {
             toast.error(`❌ Print Failed: ${printResult.message || 'Direct printing failed'}`);
           } else {
+            if (printResult.webSerialJobs && printResult.webSerialJobs.length > 0) {
+              const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+              for (const job of printResult.webSerialJobs) {
+                 try {
+                     await WebSerialPrinter.print(job.data, job.ipAddress);
+                 } catch (e: any) {
+                     toast.error(`Web Serial Print Failed: ${e.message}`);
+                     throw e;
+                 }
+              }
+            }
             toast.success(`✅ Bill printed successfully!`);
           }
         })

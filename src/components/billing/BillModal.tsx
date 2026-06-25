@@ -352,6 +352,17 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
         });
         const result = await response.json();
         if (result.success) {
+          if (result.webSerialJobs && result.webSerialJobs.length > 0) {
+            const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+            for (const job of result.webSerialJobs) {
+               try {
+                   await WebSerialPrinter.print(job.data, job.ipAddress);
+               } catch (e: any) {
+                   toast.error(`Web Serial Print Failed: ${e.message}`);
+                   throw e; // Throw so it falls back to browser print if needed, or just let it fail.
+               }
+            }
+          }
           toast.success('✅ Bill printed successfully!');
           return;
         } else {
@@ -986,6 +997,43 @@ Thank you! Visit again.`;
                         Cancel & Return
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {(!isProforma || !onSettle) && (
+              <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 p-6 flex flex-col items-center justify-center text-center gap-6 flex-1 min-h-[300px]">
+                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-500 rounded-full flex items-center justify-center">
+                  <ReceiptText size={32} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-1">Bill Details</h3>
+                  <p className="text-slate-450 dark:text-slate-500 font-medium text-xs">
+                    This order is already settled. You can print the receipt or share it via WhatsApp.
+                  </p>
+                </div>
+                
+                <div className="flex flex-col gap-3 w-full max-w-sm mt-2">
+                  <Button 
+                    onClick={() => handlePrint()} 
+                    className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs tracking-wider rounded-xl shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Printer size={16} /> Print Receipt
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => handleWhatsApp()} 
+                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs tracking-wider rounded-xl shadow-md flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={16} /> Share on WhatsApp
+                  </Button>
+                  
+                  <button 
+                    onClick={() => onClose(true)}
+                    className="text-xs font-semibold text-slate-450 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors py-2 mt-2"
+                  >
+                    Close Modal
+                  </button>
                 </div>
               </div>
             )}

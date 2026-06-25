@@ -87,7 +87,10 @@ export async function POST(request: NextRequest) {
       let grandTotalIncrease = 0;
 
       for (const item of items) {
-        const product = await tx.product.findUnique({ where: { id: item.id } });
+        const productId = item.productId || item.id;
+        if (!productId) continue;
+
+        const product = await tx.product.findUnique({ where: { id: productId } });
         if (!product) continue;
 
         const unitPrice = product.sellingPrice;
