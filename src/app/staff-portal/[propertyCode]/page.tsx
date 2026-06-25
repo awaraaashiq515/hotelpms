@@ -1127,7 +1127,9 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     socketRef.current?.disconnect()
     setSocketStatus('connecting')
     const socketUrl = typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:5002`
+      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? `${window.location.protocol}//${window.location.hostname}:5002`
+          : `${window.location.protocol}//${window.location.hostname}`)
       : 'http://localhost:5002'
     const socket = io(socketUrl, { auth: { token: wtTokenRef.current } })
     socketRef.current = socket

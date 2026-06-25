@@ -272,6 +272,7 @@ export default function RestaurantPosView({
   // Active orders from all tables — for bottom bar
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [property, setProperty] = useState<any>(null);
+  const [printers, setPrinters] = useState<any[]>([]);
   // Replace item state
   const [replaceTarget, setReplaceTarget] = useState<any | null>(null);
   const [replaceSearch, setReplaceSearch] = useState('');
@@ -434,6 +435,12 @@ export default function RestaurantPosView({
       if (comboRes.success) setCombos(comboRes.data);
       if (propData.success) {
         setProperty(propData.data);
+        fetch(`/api/settings/printers?propertyId=${propData.data.id}`)
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data)) setPrinters(data);
+          })
+          .catch(err => console.error('Failed to load printers in POS:', err));
         const pData = propData.data;
         const currentPropertyCode = pData.code || propertyCode;
         const pathPrefix = currentPropertyCode ? `/${currentPropertyCode}` : '';
@@ -892,7 +899,7 @@ export default function RestaurantPosView({
             setIsKotOpen(true);
           }
 
-          // Direct thermal printing via Backend API
+          // Direct thermal printing via Backend API or Client-side QZ Tray
           // Always print directly if silent server printing is enabled, even for Save & KOT flow
           if (property?.enableDirectPrinting) {
             try {
@@ -907,31 +914,33 @@ export default function RestaurantPosView({
                 }))
               };
               
-              const printRes = await fetch('/api/print', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kotData: kotPrintData, property })
-              });
-              const printResult = await printRes.json();
+              const kitchenPrinter = printers.find(p => p.isEnabled && p.isKitchen);
               
-              if (printResult.success) {
-                if (printResult.webSerialJobs && printResult.webSerialJobs.length > 0) {
-                  const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
-                  for (const job of printResult.webSerialJobs) {
-                    try {
-                      await WebSerialPrinter.print(job.data, job.ipAddress);
-                    } catch (e: any) {
-                      addToast('error', `Web Serial Print Failed: ${e.message}`);
-                      throw e;
-                    }
-                  }
-                }
-                addToast('success', `KOT Printed successfully`);
+              if (kitchenPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(kitchenPrinter.connectionType)) {
+                const nameToUse = kitchenPrinter.ipAddress || kitchenPrinter.name;
+                const rawData = printerService.formatKOT(kotPrintData);
+                await printerService.printRaw(nameToUse, rawData);
+                addToast('success', `KOT Printed successfully via QZ Tray on ${nameToUse}`);
               } else {
-                throw new Error(printResult.message || printResult.error || 'Failed to print KOT');
+                const printRes = await fetch('/api/print', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    kotData: kotPrintData, 
+                    property,
+                    printerId: kitchenPrinter?.id
+                  })
+                });
+                const printResult = await printRes.json();
+                
+                if (printResult.success) {
+                  addToast('success', `KOT Printed successfully`);
+                } else {
+                  throw new Error(printResult.message || printResult.error || 'Failed to print KOT');
+                }
               }
             } catch (printErr: any) {
-              console.error('Serial printing failed:', printErr);
+              console.error('KOT printing failed:', printErr);
               addToast('warning', `Direct print failed: ${printErr.message}. Using browser print.`);
             }
           }

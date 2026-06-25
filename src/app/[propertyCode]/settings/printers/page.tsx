@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { PrinterModal } from '@/components/settings/PrinterModal';
 import { toast } from 'sonner';
+import { printerService } from '@/lib/printer-service';
 import {
   Printer as PrinterIcon, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   PrinterCheck, ArrowLeft, Wifi, Usb, Bluetooth, Scan, RefreshCw,
-  Loader2, AlertTriangle, Check, Zap, Settings, Search, Network, Info, Monitor
+  Loader2, AlertTriangle, Check, Zap, Settings, Search, Network, Info
 } from 'lucide-react';
 
 interface Printer {
@@ -142,24 +143,58 @@ export default function PrinterSettingsPage() {
     setDetectingPorts(true);
     setDetectedPorts([]);
     setDetectedSystemPrinters([]);
+    
+    let localPrinters: any[] = [];
+    try {
+      const qzPrinters = await printerService.findPrinters();
+      if (Array.isArray(qzPrinters)) {
+        localPrinters = qzPrinters.map(name => ({
+          name,
+          portName: 'QZ Tray',
+          status: 'IDLE'
+        }));
+      }
+    } catch (e) {
+      console.log('QZ Tray not connected or active:', e);
+    }
+
     try {
       const res = await fetch('/api/settings/printers/detect');
       const data = await res.json();
       if (data.success) {
         setDetectedPorts(data.serialPorts || []);
-        setDetectedSystemPrinters(data.systemPrinters || []);
         
-        const total = (data.serialPorts?.length || 0) + (data.systemPrinters?.length || 0);
+        const serverPrinters = data.systemPrinters || [];
+        const mergedPrinters = [...localPrinters];
+        serverPrinters.forEach((sp: any) => {
+          if (!mergedPrinters.some(p => p.name.toLowerCase() === sp.name.toLowerCase())) {
+            mergedPrinters.push(sp);
+          }
+        });
+        
+        setDetectedSystemPrinters(mergedPrinters);
+        
+        const total = (data.serialPorts?.length || 0) + mergedPrinters.length;
         if (total === 0) {
-          toast.info('No printers or ports detected. Make sure your printers are turned on and connected.');
+          toast.info('No printers or ports detected. Make sure QZ Tray is running or printers are connected.');
         } else {
-          toast.success(`Found ${data.serialPorts?.length || 0} USB/Serial port(s) and ${data.systemPrinters?.length || 0} OS printer(s)!`);
+          toast.success(`Found ${data.serialPorts?.length || 0} USB/Serial port(s) and ${mergedPrinters.length} OS printer(s)!`);
         }
       } else {
-        toast.error(data.error || 'Detection failed');
+        if (localPrinters.length > 0) {
+          setDetectedSystemPrinters(localPrinters);
+          toast.success(`Found ${localPrinters.length} local printer(s) via QZ Tray!`);
+        } else {
+          toast.error(data.error || 'Detection failed');
+        }
       }
     } catch {
-      toast.error('Could not scan ports. Check server connection.');
+      if (localPrinters.length > 0) {
+        setDetectedSystemPrinters(localPrinters);
+        toast.success(`Found ${localPrinters.length} local printer(s) via QZ Tray!`);
+      } else {
+        toast.error('Could not scan ports. Check server connection.');
+      }
     } finally {
       setDetectingPorts(false);
     }
@@ -208,36 +243,35 @@ export default function PrinterSettingsPage() {
     setIsModalOpen(true);
   };
 
-  // ── Test Print ──────────────────────────────────────────────────────────
   const handleTestPrint = async (printer: Printer) => {
     setTestingId(printer.id);
     try {
-      const res = await fetch('/api/print', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          isTest: true,
-          printerId: printer.id,
-          property: {
-            name: session?.fullName || session?.name,
-            id: session?.propertyId,
-            thermalPrinterName: printer.ipAddress || printer.name
-          }
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || data.error || 'Test print failed');
-      }
-
-      if (data.webSerialJobs && data.webSerialJobs.length > 0) {
-        const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
-        for (const job of data.webSerialJobs) {
-           await WebSerialPrinter.print(job.data, job.ipAddress);
+      const isLocalConn = ['SYSTEM', 'USB', 'BLUETOOTH'].includes(printer.connectionType);
+      
+      if (isLocalConn) {
+        const nameToUse = printer.ipAddress || printer.name;
+        await printerService.testPrint(nameToUse);
+        toast.success(`✅ Test page sent to ${nameToUse} via QZ Tray!`);
+      } else {
+        const res = await fetch('/api/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isTest: true,
+            printerId: printer.id,
+            property: {
+              name: session?.fullName || session?.name,
+              id: session?.propertyId,
+              thermalPrinterName: printer.ipAddress || printer.name
+            }
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || data.error || 'Test print failed');
         }
+        toast.success('✅ Test page sent to printer!');
       }
-
-      toast.success('✅ Test page sent to printer!');
     } catch (e: any) {
       toast.error(`❌ Print Error: ${e.message}`);
     } finally {
@@ -265,7 +299,6 @@ export default function PrinterSettingsPage() {
     if (type === 'USB') return <Usb size={14} />;
     if (type === 'BLUETOOTH') return <Bluetooth size={14} />;
     if (type === 'SYSTEM') return <Settings size={14} />;
-    if (type === 'WEB_SERIAL') return <Monitor size={14} />;
     return <Wifi size={14} />;
   };
 
@@ -273,7 +306,6 @@ export default function PrinterSettingsPage() {
     if (type === 'USB') return 'bg-orange-50 text-orange-600 border-orange-100';
     if (type === 'BLUETOOTH') return 'bg-blue-50 text-blue-600 border-blue-100';
     if (type === 'SYSTEM') return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-    if (type === 'WEB_SERIAL') return 'bg-purple-50 text-purple-600 border-purple-100';
     return 'bg-indigo-50 text-indigo-600 border-indigo-100';
   };
 
@@ -540,7 +572,6 @@ export default function PrinterSettingsPage() {
             <div className="w-full md:w-64 space-y-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Supported Connections</p>
               {[
-                { icon: Monitor, label: 'Web Serial', desc: 'Live browser print', color: 'text-purple-500 bg-purple-50' },
                 { icon: Wifi, label: 'Network / WiFi', desc: 'IP Address + Port 9100', color: 'text-indigo-500 bg-indigo-50' },
                 { icon: Usb, label: 'USB / Serial', desc: 'COM port auto-detected', color: 'text-orange-500 bg-orange-50' },
                 { icon: Bluetooth, label: 'Bluetooth', desc: 'Paired BT printers', color: 'text-blue-500 bg-blue-50' },

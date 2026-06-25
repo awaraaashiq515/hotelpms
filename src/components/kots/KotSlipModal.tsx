@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Utensils, X, Printer, ChefHat, CheckCircle } from 'lucide-react';
+import { printerService } from '@/lib/printer-service';
 
 interface KotSlipItem {
   name: string;
@@ -29,11 +30,11 @@ interface KotSlipModalProps {
 }
 
 export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
-  // Property Branding State
   const [property, setProperty] = React.useState<any>(null);
   const [seqNum, setSeqNum] = React.useState<number | null>(null);
   // Must be declared before any early return (Rules of Hooks)
   const [isPrinting, setIsPrinting] = React.useState(false);
+  const [printers, setPrinters] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -45,6 +46,19 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
       })
       .catch(err => console.error('Failed to fetch property branding:', err));
   }, []);
+
+  React.useEffect(() => {
+    if (property?.id) {
+      fetch(`/api/settings/printers?propertyId=${property.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setPrinters(data);
+          }
+        })
+        .catch(err => console.error('Failed to fetch printers:', err));
+    }
+  }, [property?.id]);
 
   React.useEffect(() => {
     if (!kot) return;
@@ -173,6 +187,8 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
     if (property?.enableDirectPrinting) {
       setIsPrinting(true);
       try {
+        const kitchenPrinter = printers.find(p => p.isEnabled && p.isKitchen);
+        
         const kotPrintData = {
           kotNo: kot.kotNo,
           orderNo: kot.orderNo,
@@ -183,29 +199,30 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
             notes: item.notes
           }))
         };
-        const res = await fetch('/api/print', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kotData: kotPrintData, property })
-        });
-        const result = await res.json();
-        if (result.success) {
-          if (result.webSerialJobs && result.webSerialJobs.length > 0) {
-            const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
-            for (const job of result.webSerialJobs) {
-               try {
-                   await WebSerialPrinter.print(job.data, job.ipAddress);
-               } catch (e: any) {
-                   console.error(`Web Serial Print Failed: ${e.message}`);
-                   throw e;
-               }
-            }
-          }
-          // Direct print succeeded — no dialog needed
+
+        if (kitchenPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(kitchenPrinter.connectionType)) {
+          const nameToUse = kitchenPrinter.ipAddress || kitchenPrinter.name;
+          const rawData = printerService.formatKOT(kotPrintData);
+          await printerService.printRaw(nameToUse, rawData);
           setIsPrinting(false);
           return;
+        } else {
+          const res = await fetch('/api/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              kotData: kotPrintData, 
+              property,
+              printerId: kitchenPrinter?.id
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            setIsPrinting(false);
+            return;
+          }
+          throw new Error(result.message || 'Direct print failed');
         }
-        throw new Error(result.message || 'Direct print failed');
       } catch (e: any) {
         console.warn('[KOT] Direct print failed, falling back to browser print:', e.message);
         // Fall through to browser print below

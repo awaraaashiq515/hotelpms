@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
-import { WebSerialPrinter } from '@/lib/web-serial-printer';
+import { printerService } from '@/lib/printer-service';
 
 interface Printer {
   id?: string;
@@ -100,18 +100,40 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
 
   const detectPrinters = async () => {
     setDetecting(true);
+    let localPrinters: any[] = [];
+    try {
+      const qzPrinters = await printerService.findPrinters();
+      if (Array.isArray(qzPrinters)) {
+        localPrinters = qzPrinters.map(name => ({
+          name,
+          portName: 'QZ Tray',
+          status: 'IDLE'
+        }));
+      }
+    } catch (e) {
+      console.log('QZ Tray connection fallback:', e);
+    }
+
     try {
       const response = await fetch('/api/settings/printers/detect');
       const data = await response.json();
       if (data.success) {
         const serial = data.serialPorts || [];
-        const system = data.systemPrinters || [];
+        const serverSystem = data.systemPrinters || [];
+        
+        const mergedSystem = [...localPrinters];
+        serverSystem.forEach((sp: any) => {
+          if (!mergedSystem.some(p => p.name.toLowerCase() === sp.name.toLowerCase())) {
+            mergedSystem.push(sp);
+          }
+        });
+
         setDetectedPorts(serial);
-        setDetectedSystemPrinters(system);
+        setDetectedSystemPrinters(mergedSystem);
 
         // Smart Auto-fill printer/port if the field is empty
-        if (formData.connectionType === 'SYSTEM' && system.length > 0 && !formData.ipAddress) {
-          const sysPrinter = system[0];
+        if (formData.connectionType === 'SYSTEM' && mergedSystem.length > 0 && !formData.ipAddress) {
+          const sysPrinter = mergedSystem[0];
           setFormData(prev => ({
             ...prev,
             ipAddress: sysPrinter.portName || sysPrinter.name,
@@ -137,18 +159,28 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
           }));
         }
 
-        const total = serial.length + system.length;
+        const total = serial.length + mergedSystem.length;
         if (total === 0) {
           toast.info('No printers or ports found.');
         } else {
-          toast.success(`Scan complete. Found ${system.length} system printer(s) and ${serial.length} COM port(s).`);
+          toast.success(`Scan complete. Found ${mergedSystem.length} system printer(s) and ${serial.length} COM port(s).`);
         }
       } else {
-        toast.error(data.error || 'Detection failed. Check server logs.');
+        if (localPrinters.length > 0) {
+          setDetectedSystemPrinters(localPrinters);
+          toast.success(`Scan complete. Found ${localPrinters.length} local printer(s) via QZ Tray.`);
+        } else {
+          toast.error(data.error || 'Detection failed. Check server logs.');
+        }
       }
     } catch (error) {
-      toast.error('Could not scan ports. Server may be offline.');
-      console.error('Failed to detect printers', error);
+      if (localPrinters.length > 0) {
+        setDetectedSystemPrinters(localPrinters);
+        toast.success(`Scan complete. Found ${localPrinters.length} local printer(s) via QZ Tray.`);
+      } else {
+        toast.error('Could not scan ports. Server may be offline.');
+        console.error('Failed to detect printers', error);
+      }
     } finally {
       setDetecting(false);
     }
@@ -268,7 +300,6 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
               { label: 'Network (IP)', value: 'NETWORK' },
               { label: 'USB / Serial', value: 'USB' },
               { label: 'Bluetooth', value: 'BLUETOOTH' },
-              { label: 'Web Serial (Live Website)', value: 'WEB_SERIAL' },
             ]}
           />
 
@@ -330,44 +361,6 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
                 required
               />
             </>
-          )}
-
-          {formData.connectionType === 'WEB_SERIAL' && (
-            <div className="flex flex-col gap-1 md:col-span-2">
-               <label className="text-xs font-semibold text-gray-500 mb-1">Pair Printer</label>
-               <div className="flex flex-col gap-2">
-                 <Button
-                   type="button"
-                   variant="secondary"
-                   className="w-fit"
-                   onClick={async () => {
-                     try {
-                       const port = await WebSerialPrinter.requestPort();
-                       if (port) {
-                         const info = port.getInfo();
-                         const ipStr = JSON.stringify({ usbVendorId: info.usbVendorId, usbProductId: info.usbProductId });
-                         setFormData(prev => ({
-                           ...prev,
-                           ipAddress: ipStr,
-                           name: prev.name || 'Web Serial Printer'
-                         }));
-                         toast.success('Printer paired successfully');
-                       }
-                     } catch (e: any) {
-                       toast.error(e.message);
-                     }
-                   }}
-                 >
-                   Pair Browser Printer
-                 </Button>
-                 {formData.ipAddress && formData.ipAddress.includes('usbVendorId') && (
-                   <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Printer is paired.</p>
-                 )}
-                 <p className="text-[10px] text-gray-400 font-medium">
-                   Note: You must pair the printer in each new browser or device you use.
-                 </p>
-               </div>
-            </div>
           )}
 
           {formData.connectionType === 'SYSTEM' && (
