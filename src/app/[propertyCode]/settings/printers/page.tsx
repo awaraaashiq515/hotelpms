@@ -158,11 +158,63 @@ export default function PrinterSettingsPage() {
       console.log('QZ Tray not connected or active:', e);
     }
 
+    let localSerialPorts: any[] = [];
+    try {
+      const qzPorts = await printerService.findSerialPorts();
+      if (Array.isArray(qzPorts)) {
+        localSerialPorts = qzPorts.map(portPath => ({
+          path: portPath,
+          friendlyName: cleanDeviceName(portPath),
+          manufacturer: 'QZ Tray Serial',
+          source: 'QZ_SERIAL'
+        }));
+      }
+    } catch (e) {
+      console.log('Could not scan serial ports via QZ Tray:', e);
+    }
+
+    // Natively query browser's Web Serial API for authorized devices
+    if (typeof window !== 'undefined' && 'serial' in navigator) {
+      try {
+        const approvedPorts = await (navigator as any).serial.getPorts();
+        approvedPorts.forEach((port: any, idx: number) => {
+          const info = port.getInfo();
+          // Construct a path or friendly ID
+          const usbPath = info.usbVendorId && info.usbProductId
+            ? JSON.stringify({ usbVendorId: info.usbVendorId, usbProductId: info.usbProductId })
+            : undefined;
+          
+          const finalPath = usbPath || `COM_PORT_${idx + 1}`;
+          const displayName = info.usbVendorId 
+            ? `USB Device ${info.usbVendorId}:${info.usbProductId}`
+            : `Bluetooth/Serial Port #${idx + 1}`;
+
+          if (!localSerialPorts.some(p => p.path === finalPath)) {
+            localSerialPorts.push({
+              path: finalPath,
+              friendlyName: displayName,
+              manufacturer: 'Browser Serial',
+              source: 'WEB_SERIAL'
+            });
+          }
+        });
+      } catch (err) {
+        console.log('Could not scan Web Serial ports:', err);
+      }
+    }
+
     try {
       const res = await fetch('/api/settings/printers/detect');
       const data = await res.json();
       if (data.success) {
-        setDetectedPorts(data.serialPorts || []);
+        const serverPorts = data.serialPorts || [];
+        const mergedPorts = [...localSerialPorts];
+        serverPorts.forEach((sp: any) => {
+          if (!mergedPorts.some(p => p.path.toLowerCase() === sp.path.toLowerCase())) {
+            mergedPorts.push(sp);
+          }
+        });
+        setDetectedPorts(mergedPorts);
         
         const serverPrinters = data.systemPrinters || [];
         const mergedPrinters = [...localPrinters];
@@ -174,13 +226,14 @@ export default function PrinterSettingsPage() {
         
         setDetectedSystemPrinters(mergedPrinters);
         
-        const total = (data.serialPorts?.length || 0) + mergedPrinters.length;
+        const total = mergedPorts.length + mergedPrinters.length;
         if (total === 0) {
           toast.info('No printers or ports detected. Make sure QZ Tray is running or printers are connected.');
         } else {
-          toast.success(`Found ${data.serialPorts?.length || 0} USB/Serial port(s) and ${mergedPrinters.length} OS printer(s)!`);
+          toast.success(`Found ${mergedPorts.length} USB/Serial port(s) and ${mergedPrinters.length} OS printer(s)!`);
         }
       } else {
+        setDetectedPorts(localSerialPorts);
         if (localPrinters.length > 0) {
           setDetectedSystemPrinters(localPrinters);
           toast.success(`Found ${localPrinters.length} local printer(s) via QZ Tray!`);
@@ -189,6 +242,7 @@ export default function PrinterSettingsPage() {
         }
       }
     } catch {
+      setDetectedPorts(localSerialPorts);
       if (localPrinters.length > 0) {
         setDetectedSystemPrinters(localPrinters);
         toast.success(`Found ${localPrinters.length} local printer(s) via QZ Tray!`);
@@ -390,13 +444,36 @@ export default function PrinterSettingsPage() {
                     <p className="text-[10px] text-slate-400 font-bold">Scans system-installed printers and raw COM serial ports</p>
                   </div>
                 </div>
-                <Button
-                  onClick={handleDetectPorts}
-                  loading={detectingPorts}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md"
-                >
-                  {detectingPorts ? 'Scanning...' : 'Scan Devices'}
-                </Button>
+                <div className="flex gap-2">
+                  {typeof window !== 'undefined' && 'serial' in navigator && (
+                    <Button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+                          const port = await WebSerialPrinter.requestPort();
+                          if (port) {
+                            toast.success("Device paired successfully with browser!");
+                            handleDetectPorts();
+                          }
+                        } catch (err: any) {
+                          toast.error(err.message || "Failed to pair device");
+                        }
+                      }}
+                      variant="outline"
+                      className="border-indigo-200 text-indigo-650 hover:bg-indigo-50 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm"
+                    >
+                      Pair Browser Device
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleDetectPorts}
+                    loading={detectingPorts}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md"
+                  >
+                    {detectingPorts ? 'Scanning...' : 'Scan Devices'}
+                  </Button>
+                </div>
               </div>
 
               {/* OS Installed Printers */}

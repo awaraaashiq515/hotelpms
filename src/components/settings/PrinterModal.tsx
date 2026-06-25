@@ -408,46 +408,106 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
 
           {(formData.connectionType === 'USB' || formData.connectionType === 'BLUETOOTH') && (
             <div className="flex flex-col gap-1">
-               <label className="text-xs font-semibold text-gray-500 mb-1">Select Port / Device</label>
-               <div className="flex gap-2">
-                    <select 
-                        className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm"
-                        value={formData.ipAddress || ''}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            const port = getFilteredPorts().find(p => p.path === val);
-                            const defaultName = port ? cleanDeviceName(port.path, port.friendlyName) : val;
-                            setFormData(prev => ({
-                                ...prev,
-                                ipAddress: val,
-                                name: !prev.name || prev.name.startsWith('/dev/') || prev.name.startsWith('COM') || prev.name === 'Bluetooth Printer' || prev.name === 'USB Printer' || prev.name.startsWith('Printer (')
-                                    ? defaultName
-                                    : prev.name
-                            }));
-                        }}
-                        required
-                    >
-                        <option value="">-- Select Port / Device --</option>
-                        {formData.ipAddress && !getFilteredPorts().some(p => p.path === formData.ipAddress) && (
-                            <option value={formData.ipAddress}>{formData.ipAddress} (Saved)</option>
-                        )}
-                        {getFilteredPorts().map((port) => (
-                            <option key={port.path} value={port.path}>
-                                {cleanDeviceName(port.path, port.friendlyName)} ({port.path}){port.manufacturer ? ` [${port.manufacturer}]` : ''}
-                            </option>
-                        ))}
-                    </select>
-                    <Button 
-                        type="button" 
-                        variant="secondary" 
-                        size="sm" 
-                        onClick={detectPrinters}
-                        loading={detecting}
-                        className="px-2"
-                    >
-                        Scan
-                    </Button>
-               </div>
+               {getFilteredPorts().length > 0 ? (
+                 <>
+                   <label className="text-xs font-semibold text-gray-500 mb-1">Select Port / Device</label>
+                   <div className="flex gap-2">
+                        <select 
+                            className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm"
+                            value={formData.ipAddress || ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                const port = getFilteredPorts().find(p => p.path === val);
+                                const defaultName = port ? cleanDeviceName(port.path, port.friendlyName) : val;
+                                setFormData(prev => ({
+                                    ...prev,
+                                    ipAddress: val,
+                                    name: !prev.name || prev.name.startsWith('/dev/') || prev.name.startsWith('COM') || prev.name === 'Bluetooth Printer' || prev.name === 'USB Printer' || prev.name.startsWith('Printer (')
+                                        ? defaultName
+                                        : prev.name
+                                }));
+                            }}
+                            required
+                        >
+                            <option value="">-- Select Port / Device --</option>
+                            {formData.ipAddress && !getFilteredPorts().some(p => p.path === formData.ipAddress) && (
+                                <option value={formData.ipAddress}>{formData.ipAddress} (Saved)</option>
+                            )}
+                            {getFilteredPorts().map((port) => (
+                                <option key={port.path} value={port.path}>
+                                    {cleanDeviceName(port.path, port.friendlyName)} ({port.path}){port.manufacturer ? ` [${port.manufacturer}]` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={detectPrinters}
+                            loading={detecting}
+                            className="px-2"
+                        >
+                            Scan
+                        </Button>
+                   </div>
+                 </>
+               ) : (
+                 <div className="flex flex-col gap-2">
+                   <Input
+                     label="Port / Path (Manual)"
+                     placeholder="e.g. /dev/tty.BLTH or COM3"
+                     value={formData.ipAddress || ''}
+                     onChange={(e) => {
+                       const val = e.target.value;
+                       setFormData(prev => ({
+                         ...prev,
+                         ipAddress: val,
+                         name: !prev.name || prev.name.startsWith('/dev/') || prev.name.startsWith('COM') || prev.name === 'Bluetooth Printer' || prev.name === 'USB Printer' || prev.name.startsWith('Printer (')
+                           ? cleanDeviceName(val)
+                           : prev.name
+                       }));
+                     }}
+                     required
+                   />
+                   <div className="flex justify-between items-center mt-1">
+                     <p className="text-[10px] text-gray-400 font-bold uppercase">No local ports detected automatically.</p>
+                     <div className="flex gap-2">
+                       {typeof window !== 'undefined' && 'serial' in navigator && (
+                         <Button 
+                             type="button" 
+                             variant="outline" 
+                             size="sm" 
+                             onClick={async () => {
+                               try {
+                                 const { WebSerialPrinter } = await import('@/lib/web-serial-printer');
+                                 const port = await WebSerialPrinter.requestPort();
+                                 if (port) {
+                                   toast.success("Device paired successfully with browser!");
+                                   detectPrinters();
+                                 }
+                               } catch (err: any) {
+                                 toast.error(err.message || "Failed to pair device");
+                               }
+                             }}
+                             className="px-2 text-xs py-1 border-indigo-200 text-indigo-650"
+                         >
+                             Pair Browser Device
+                         </Button>
+                       )}
+                       <Button 
+                           type="button" 
+                           variant="secondary" 
+                           size="sm" 
+                           onClick={detectPrinters}
+                           loading={detecting}
+                           className="px-2 text-xs py-1"
+                       >
+                           Scan Again
+                       </Button>
+                     </div>
+                   </div>
+                 </div>
+               )}
             </div>
           )}
 

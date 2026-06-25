@@ -56,6 +56,24 @@ class PrinterService {
 
       await qz.print(config, data);
     } catch (e: any) {
+      // Fallback to Web Serial if QZ Tray is not connected or active or throws an error,
+      // and if the printerName looks like a serial/COM port path (starts with /dev/, COM, etc. or matches Bluetooth/USB patterns)
+      const looksLikeSerial = printerName.startsWith('/dev/') || printerName.startsWith('COM') || /usb|blue|mpt|blth|rfcomm/i.test(printerName);
+      if (looksLikeSerial && typeof window !== 'undefined') {
+        console.warn("QZ Tray printing failed or not connected. Trying Web Serial fallback for port:", printerName);
+        try {
+          const { WebSerialPrinter } = await import('./web-serial-printer');
+          // Format raw ESC/POS commands (strings or binary chars) into a single string
+          const dataString = data.join('');
+          await WebSerialPrinter.print(dataString, printerName);
+          console.log("Printed successfully via Web Serial fallback!");
+          return;
+        } catch (serialErr: any) {
+          console.error("Web Serial fallback failed:", serialErr);
+          throw new Error(`Printing failed: QZ Tray error (${e.message}) AND Web Serial fallback error (${serialErr.message})`);
+        }
+      }
+
       if (e.message.includes("find printer")) {
         try {
           const printers = await qz.printers.find();
@@ -237,6 +255,14 @@ class PrinterService {
   async findPrinters() {
     await this.connect();
     return await qz.printers.find();
+  }
+
+  /**
+   * Fetches the list of available serial ports from QZ Tray
+   */
+  async findSerialPorts() {
+    await this.connect();
+    return await qz.serial.findPorts();
   }
 }
 
