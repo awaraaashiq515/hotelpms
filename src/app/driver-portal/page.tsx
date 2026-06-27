@@ -405,6 +405,13 @@ export default function DriverPortalPage() {
         setSelectedDriver(parsed); 
       } catch (_) {} 
     }
+    // Check if query parameter specifies direct signup
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('signup') === 'true') {
+        setIsSigningUp(true);
+      }
+    }
   }, []);
 
   // Update states when driver logs in

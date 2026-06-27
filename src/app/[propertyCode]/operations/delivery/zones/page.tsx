@@ -87,10 +87,22 @@ export default function DeliveryZonesPage() {
     if (!editingZone?.name) return;
     setSaving(true);
     try {
+      const payload = {
+        ...editingZone,
+        radiusKm: editingZone.radiusKm !== undefined ? parseFloat(editingZone.radiusKm as any) || 0 : undefined,
+        deliveryFee: editingZone.deliveryFee !== undefined ? parseFloat(editingZone.deliveryFee as any) || 0 : undefined,
+        minOrderValue: editingZone.minOrderValue !== undefined ? parseFloat(editingZone.minOrderValue as any) || 0 : undefined,
+        etaMinutes: editingZone.etaMinutes !== undefined ? parseInt(editingZone.etaMinutes as any, 10) || 0 : undefined,
+        freeDeliveryThreshold: editingZone.freeDeliveryThreshold !== undefined ? (parseFloat(editingZone.freeDeliveryThreshold as any) || null) : undefined,
+        peakSurchargePercent: editingZone.peakSurchargePercent !== undefined ? parseFloat(editingZone.peakSurchargePercent as any) || 0 : undefined,
+        rainSurchargePercent: editingZone.rainSurchargePercent !== undefined ? parseFloat(editingZone.rainSurchargePercent as any) || 0 : undefined,
+        corporateDiscount: editingZone.corporateDiscount !== undefined ? parseFloat(editingZone.corporateDiscount as any) || 0 : undefined,
+      };
+
       const res = await fetch('/api/delivery-zones', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingZone)
+        body: JSON.stringify(payload)
       });
       const json = await res.json();
       if (json.success) {
@@ -123,9 +135,14 @@ export default function DeliveryZonesPage() {
     <div className="space-y-1.5">
       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{label}</label>
       <input
-        type={type}
+        type={type === 'number' ? 'text' : type}
+        inputMode={type === 'number' ? 'decimal' : undefined}
         value={(editingZone as any)?.[key] ?? ''}
-        onChange={e => setEditingZone(prev => ({ ...prev, [key]: type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value }))}
+        onChange={e => {
+          const val = e.target.value;
+          if (type === 'number' && val !== '' && !/^\d*\.?\d*$/.test(val)) return;
+          setEditingZone(prev => ({ ...prev, [key]: val }));
+        }}
         placeholder={placeholder}
         className="w-full h-10 px-3 rounded-xl bg-[#070b12] border border-[#1e293b] text-white placeholder-slate-600 focus:border-indigo-500 outline-none text-xs font-bold"
       />

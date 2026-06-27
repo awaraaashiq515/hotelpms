@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Phone, Lock, Upload, ArrowRight, MessageSquare, Mail, User, Shield, Camera, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -617,6 +618,12 @@ export function AuthShell({
           </div>
         </form>
       )}
+
+      <div className="text-center pt-2">
+        <Link href="/login" className="text-[10px] text-slate-500 hover:text-rose-400 font-black uppercase tracking-widest transition-colors duration-200">
+          ← Back to Main Login
+        </Link>
+      </div>
     </div>
   );
 }

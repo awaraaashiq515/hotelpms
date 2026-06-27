@@ -82,6 +82,30 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bebasNeue.variable} antialiased`}
       >
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                var ua = navigator.userAgent || navigator.vendor || window.opera;
+                if (ua.indexOf('Capacitor') > -1) {
+                  var baseUrl = 'https://localhost';
+                  if (ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1 || ua.indexOf('iPod') > -1) {
+                    baseUrl = 'capacitor://localhost';
+                  }
+                  console.log('Capacitor detected: Injecting native bridge scripts from ' + baseUrl);
+                  
+                  var cap = document.createElement('script');
+                  cap.src = baseUrl + '/capacitor.js';
+                  document.head.appendChild(cap);
+                  
+                  var cord = document.createElement('script');
+                  cord.src = baseUrl + '/cordova.js';
+                  document.head.appendChild(cord);
+                }
+              })();
+            `
+          }}
+        />
         <ThemeProvider>
           <ToastProvider>
             {(projectStatus.status === 'LOCKED' || projectStatus.status === 'TERMINATED') ? (

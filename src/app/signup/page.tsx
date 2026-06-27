@@ -15,7 +15,6 @@ import { MapPicker } from '@/components/menu/MapPicker';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLES = [
   { id: 'RESTAURANTS_ADMIN', label: 'Restaurant / Hotel Owner', icon: Store,  desc: 'Manage your restaurant or hotel' },
-  { id: 'DELIVERY_RIDER',    label: 'Delivery Rider',   icon: Truck,  desc: 'Deliver orders & track earnings' },
   { id: 'B2B_SUPPLIER',      label: 'B2B Supplier',     icon: Package, desc: 'Supply to businesses' },
 ];
 
@@ -445,7 +444,7 @@ function SignupForm() {
             {/* Role */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">I am signing up as a:</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {ROLES.map(r => (
                   <div key={r.id} onClick={() => setRoleName(r.id)}
                     className={`cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center text-center transition-all ${
@@ -526,6 +525,21 @@ function SignupForm() {
               Already have an account?{' '}
               <button type="button" onClick={()=>router.push('/login')} className="font-bold text-slate-900 hover:text-rose-600 transition-colors">Sign in</button>
             </p>
+
+            <div className="relative flex py-4 items-center">
+              <div className="flex-grow border-t border-slate-200"></div>
+              <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Riders / Drivers</span>
+              <div className="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push('/driver-portal?signup=true')}
+              className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 group"
+            >
+              Register as a Delivery Rider
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform text-slate-400 group-hover:text-slate-600" />
+            </button>
           </form>
         </div>
       </div>

@@ -47,6 +47,10 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/api/') ||
     url.pathname.includes('b2b') ||
     url.pathname.includes('socket.io') ||
+    url.pathname.includes('capacitor.js') ||
+    url.pathname.includes('cordova.js') ||
+    url.pathname.includes('cordova_plugins.js') ||
+    url.pathname.startsWith('/plugins/') ||
     url.port === '5002' ||
     url.hostname !== self.location.hostname
   ) {

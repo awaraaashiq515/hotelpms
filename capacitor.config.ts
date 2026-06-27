@@ -7,7 +7,8 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true, // Allows testing on local network HTTP
-    // url: "https://your-live-website.com" // We will set this when ready
+    url: "https://ordermint.in",
+    allowNavigation: ["ordermint.in", "*.ordermint.in"]
   }
 };
 

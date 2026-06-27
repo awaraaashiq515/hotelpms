@@ -42,9 +42,9 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   {
-    id: 'new',
-    statuses: ['OPEN', 'PENDING', 'PLACED'],
-    label: 'New Orders',
+    id: 'new_accepted',
+    statuses: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'KOT_RUNNING'],
+    label: 'New & Accepted',
     emoji: '🆕',
     icon: Flame,
     color: 'text-orange-400',
@@ -52,24 +52,9 @@ const COLUMNS: ColumnDef[] = [
     border: 'border-orange-500/25',
     badge: 'bg-orange-500',
     glow: 'shadow-orange-500/15',
-    nextStatus: 'ACCEPTED',
-    nextLabel: 'Accept Order',
-    nextBtnCls: 'bg-orange-500 hover:bg-orange-400 shadow-orange-500/30',
-  },
-  {
-    id: 'accepted',
-    statuses: ['ACCEPTED', 'KOT_RUNNING'],
-    label: 'Accepted',
-    emoji: '✅',
-    icon: CheckCircle2,
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/8',
-    border: 'border-blue-500/25',
-    badge: 'bg-blue-500',
-    glow: 'shadow-blue-500/15',
-    nextStatus: 'IN_KITCHEN',
-    nextLabel: 'Start Preparing',
-    nextBtnCls: 'bg-blue-500 hover:bg-blue-400 shadow-blue-500/30',
+    nextStatus: null,
+    nextLabel: '',
+    nextBtnCls: '',
   },
   {
     id: 'preparing',
@@ -82,9 +67,9 @@ const COLUMNS: ColumnDef[] = [
     border: 'border-amber-500/25',
     badge: 'bg-amber-500',
     glow: 'shadow-amber-500/15',
-    nextStatus: 'OUT_FOR_DELIVERY',
-    nextLabel: 'Out for Delivery',
-    nextBtnCls: 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/30',
+    nextStatus: null,
+    nextLabel: '',
+    nextBtnCls: '',
   },
   {
     id: 'out_for_delivery',
@@ -97,9 +82,9 @@ const COLUMNS: ColumnDef[] = [
     border: 'border-purple-500/25',
     badge: 'bg-purple-500',
     glow: 'shadow-purple-500/15',
-    nextStatus: 'SETTLED',
-    nextLabel: 'Mark Delivered',
-    nextBtnCls: 'bg-purple-500 hover:bg-purple-400 shadow-purple-500/30',
+    nextStatus: null,
+    nextLabel: '',
+    nextBtnCls: '',
   },
   {
     id: 'delivered',
@@ -158,6 +143,55 @@ function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+const getStatusStyles = (status: OrderStatus) => {
+  if (['OPEN', 'PENDING', 'PLACED'].includes(status)) {
+    return {
+      color: 'text-orange-400',
+      bg: 'bg-orange-500/8',
+      border: 'border-orange-500/25',
+      glow: 'shadow-orange-500/15',
+    };
+  }
+  if (['ACCEPTED', 'KOT_RUNNING'].includes(status)) {
+    return {
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/8',
+      border: 'border-blue-500/25',
+      glow: 'shadow-blue-500/15',
+    };
+  }
+  if (['IN_KITCHEN', 'READY'].includes(status)) {
+    return {
+      color: 'text-amber-400',
+      bg: 'bg-amber-500/8',
+      border: 'border-amber-500/25',
+      glow: 'shadow-amber-500/15',
+    };
+  }
+  if (status === 'OUT_FOR_DELIVERY') {
+    return {
+      color: 'text-purple-400',
+      bg: 'bg-purple-500/8',
+      border: 'border-purple-500/25',
+      glow: 'shadow-purple-500/15',
+    };
+  }
+  if (['SETTLED', 'COMPLETED'].includes(status)) {
+    return {
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/8',
+      border: 'border-emerald-500/25',
+      glow: 'shadow-emerald-500/15',
+    };
+  }
+  return {
+    color: 'text-red-400',
+    bg: 'bg-red-500/5',
+    border: 'border-red-500/20',
+    glow: 'shadow-red-500/10',
+  };
+};
+
 // ─── Order Card ───────────────────────────────────────────────────────────────
 
 function OrderCard({
@@ -185,22 +219,42 @@ function OrderCard({
   const isCOD = !isPrepaid && (order.deliveryPaymentMethod === 'CASH' || !order.deliveryPaymentMethod);
   const isOnline = !isPrepaid && order.deliveryPaymentMethod && order.deliveryPaymentMethod !== 'CASH';
 
-  const urgencyBorder = urgency === 'high'
-    ? 'border-l-red-500 animate-pulse-subtle'
-    : urgency === 'medium'
-    ? 'border-l-amber-400'
-    : `border-l-${column.color.replace('text-', '')}`;
+  const status = order.status as OrderStatus;
+  const styles = getStatusStyles(status);
+
+  // Dynamic next action based on actual status
+  let nextStatus: OrderStatus | null = null;
+  let nextLabel = '';
+  let nextBtnCls = '';
+
+  if (['OPEN', 'PENDING', 'PLACED'].includes(status)) {
+    nextStatus = 'ACCEPTED';
+    nextLabel = 'Accept Order';
+    nextBtnCls = 'bg-orange-500 hover:bg-orange-400 shadow-orange-500/30';
+  } else if (['ACCEPTED', 'KOT_RUNNING'].includes(status)) {
+    nextStatus = 'IN_KITCHEN';
+    nextLabel = 'Start Preparing';
+    nextBtnCls = 'bg-blue-500 hover:bg-blue-400 shadow-blue-500/30';
+  } else if (['IN_KITCHEN', 'READY'].includes(status)) {
+    nextStatus = 'OUT_FOR_DELIVERY';
+    nextLabel = 'Out for Delivery';
+    nextBtnCls = 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/30';
+  } else if (status === 'OUT_FOR_DELIVERY') {
+    nextStatus = 'SETTLED';
+    nextLabel = 'Mark Delivered';
+    nextBtnCls = 'bg-purple-500 hover:bg-purple-400 shadow-purple-500/30';
+  }
 
   return (
     <div
-      className={`relative rounded-2xl border ${column.border} ${column.bg} border-l-4 ${
-        urgency === 'high' ? 'border-l-red-500' : urgency === 'medium' ? 'border-l-amber-400' : column.border.replace('border-', 'border-l-')
-      } p-4 flex flex-col gap-3 transition-all hover:scale-[1.01] shadow-sm ${column.glow}`}
+      className={`relative rounded-xl border ${styles.border} ${styles.bg} border-l-4 ${
+        urgency === 'high' ? 'border-l-red-500' : urgency === 'medium' ? 'border-l-amber-400' : styles.border.replace('border-', 'border-l-')
+      } p-3 flex flex-col gap-2 transition-all hover:scale-[1.01] shadow-sm ${styles.glow}`}
     >
       {/* Order Header */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-1.5">
         <div className="flex flex-col gap-0.5 min-w-0">
-          <span className={`text-[9px] font-black uppercase tracking-widest ${column.color} opacity-70`}>
+          <span className={`text-[9px] font-black uppercase tracking-widest ${styles.color} opacity-70`}>
             {order.orderNo}
           </span>
           <span className="text-white font-black text-sm leading-tight truncate">
@@ -209,7 +263,7 @@ function OrderCard({
           {order.deliveryPhone && (
             <a
               href={`tel:${order.deliveryPhone}`}
-              className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white transition-colors font-semibold mt-0.5"
+              className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white transition-colors font-semibold"
             >
               <Phone size={9} />
               {order.deliveryPhone}
@@ -219,7 +273,7 @@ function OrderCard({
 
         {/* Timer */}
         <div
-          className={`flex flex-col items-end gap-1 shrink-0 px-2 py-1.5 rounded-xl border text-right ${
+          className={`flex flex-col items-end gap-1 shrink-0 px-1.5 py-1 rounded-lg border text-right ${
             urgency === 'high'
               ? 'bg-red-500/15 border-red-500/30 text-red-400'
               : urgency === 'medium'
@@ -227,67 +281,67 @@ function OrderCard({
               : 'bg-slate-800/60 border-slate-700/50 text-slate-400'
           }`}
         >
-          <Timer size={10} />
-          <span className="text-[10px] font-black tabular-nums leading-none">{formatElapsed(elapsed)}</span>
+          <Timer size={9} />
+          <span className="text-[9px] font-black tabular-nums leading-none">{formatElapsed(elapsed)}</span>
         </div>
       </div>
 
       {/* Address */}
       {order.deliveryAddress && order.orderType === 'DELIVERY' && (
-        <div className="flex items-start gap-1.5 bg-slate-900/50 rounded-xl px-3 py-2">
+        <div className="flex items-start gap-1 bg-slate-900/50 rounded-lg px-2 py-1">
           <MapPin size={10} className="text-slate-500 mt-0.5 shrink-0" />
-          <span className="text-[10px] text-slate-400 font-medium leading-relaxed line-clamp-2">
+          <span className="text-[9px] text-slate-400 font-medium leading-relaxed line-clamp-2">
             {order.deliveryAddress}
           </span>
         </div>
       )}
       {order.orderType === 'TAKEAWAY' && (
-        <div className="flex items-center gap-1.5 bg-slate-900/50 rounded-xl px-3 py-2">
+        <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg px-2 py-1">
           <ShoppingBag size={10} className="text-blue-400 shrink-0" />
-          <span className="text-[10px] text-blue-400 font-black uppercase tracking-wider">Self Pickup</span>
+          <span className="text-[9px] text-blue-400 font-black uppercase tracking-wider">Self Pickup</span>
         </div>
       )}
 
       {/* Items */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {order.items?.slice(0, 4).map((item: any, idx: number) => (
           <div key={idx} className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-slate-300 font-semibold truncate flex-1">
+            <span className="text-[10px] text-slate-300 font-semibold truncate flex-1">
               {item.product?.name || 'Item'}
             </span>
-            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg ${column.bg} ${column.color} border ${column.border}`}>
+            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${styles.bg} ${styles.color} border ${styles.border}`}>
               ×{item.quantity}
             </span>
           </div>
         ))}
         {order.items?.length > 4 && (
-          <p className={`text-[9px] font-black uppercase ${column.color} opacity-70`}>
+          <p className={`text-[9px] font-black uppercase ${styles.color} opacity-70`}>
             +{order.items.length - 4} more items
           </p>
         )}
       </div>
 
       {/* Footer: Total + Payment */}
-      <div className="flex items-center justify-between pt-1.5 border-t border-white/5 mt-auto">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between pt-1 border-t border-white/5 mt-auto">
+        <div className="flex items-center gap-1">
           {isPrepaid ? (
-            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
               <CreditCard size={8} />
               Prepaid
             </span>
           ) : isCOD ? (
-            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25">
+            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25">
               <Banknote size={8} />
               COD
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
+            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
               <CreditCard size={8} />
               Online
             </span>
           )}
           {urgency === 'high' && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-red-500/15 text-red-400 border border-red-500/25 animate-pulse">
+            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/25 animate-pulse">
               <AlertTriangle size={8} />
               Urgent
             </span>
@@ -299,18 +353,18 @@ function OrderCard({
       </div>
 
       {/* Action Button */}
-      {column.nextStatus && (
+      {nextStatus && (
         <button
-          onClick={() => onStatusUpdate(order.id, column.nextStatus!)}
+          onClick={() => onStatusUpdate(order.id, nextStatus!)}
           disabled={updating}
-          className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all shadow-md ${column.nextBtnCls} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer`}
+          className={`w-full py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white transition-all shadow-md ${nextBtnCls} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer`}
         >
           {updating ? (
             <RefreshCw size={11} className="animate-spin" />
           ) : (
             <>
               <Zap size={10} />
-              {column.nextLabel}
+              {nextLabel}
             </>
           )}
         </button>
@@ -319,24 +373,7 @@ function OrderCard({
   );
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({
-  label, value, icon: Icon, color, sub
-}: {
-  label: string; value: string | number; icon: React.ElementType; color: string; sub?: string;
-}) {
-  return (
-    <div className={`flex-1 min-w-[120px] bg-slate-900/60 border border-slate-800/70 rounded-2xl p-4 flex flex-col gap-2`}>
-      <div className="flex items-center justify-between">
-        <span className={`text-[9px] font-black uppercase tracking-widest ${color} opacity-80`}>{label}</span>
-        <Icon size={14} className={`${color} opacity-60`} />
-      </div>
-      <span className={`text-2xl font-black ${color} leading-none`}>{value}</span>
-      {sub && <span className="text-[9px] text-slate-500 font-semibold">{sub}</span>}
-    </div>
-  );
-}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -476,10 +513,19 @@ export default function DeliveryDisplayPage() {
   const stats = data?.stats || {};
   const property = data?.property;
 
-  const getColOrders = (col: ColumnDef) =>
-    orders
-      .filter((o) => col.statuses.includes(o.status as OrderStatus))
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const getColOrders = (col: ColumnDef) => {
+    const list = orders.filter((o) => col.statuses.includes(o.status as OrderStatus));
+    if (col.id === 'new_accepted') {
+      return list.sort((a, b) => {
+        const aNew = ['OPEN', 'PENDING', 'PLACED'].includes(a.status);
+        const bNew = ['OPEN', 'PENDING', 'PLACED'].includes(b.status);
+        if (aNew && !bNew) return -1;
+        if (!aNew && bNew) return 1;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+    }
+    return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  };
 
   if (!mounted || loading) {
     return (
@@ -499,47 +545,87 @@ export default function DeliveryDisplayPage() {
     <div className="h-full bg-[#030a14] text-white flex flex-col overflow-hidden select-none font-sans">
 
       {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-800/80 bg-[#060e1c]/90 backdrop-blur-md z-30">
+      <div className="shrink-0 flex items-center justify-between px-4 py-1.5 border-b border-slate-800/80 bg-[#060e1c]/90 backdrop-blur-md z-30">
 
-        {/* Left: Back + Logo + Title */}
+        {/* Left: Back + Logo + Title + Inline Stats */}
         <div className="flex items-center gap-3">
-          <Link
-            href={`${p}/operations`}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-400 hover:text-white transition-all"
-          >
-            <ChevronLeft size={18} />
-          </Link>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Link
+              href={`${p}/operations`}
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400 hover:text-white transition-all"
+            >
+              <ChevronLeft size={14} />
+            </Link>
 
-          {/* Property Logo from settings */}
-          {property?.logoUrl ? (
-            <img
-              src={property.logoUrl}
-              alt={property.brandName || property.name}
-              className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow-lg shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-lg shrink-0">
-              <Truck size={18} className="text-white" />
+            {/* Property Logo from settings */}
+            {property?.logoUrl ? (
+              <img
+                src={property.logoUrl}
+                alt={property.brandName || property.name}
+                className="w-8 h-8 rounded-lg object-cover border border-slate-700 shadow-lg shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-lg shrink-0">
+                <Truck size={14} className="text-white" />
+              </div>
+            )}
+
+            <div>
+              <h1 className="text-xs font-black uppercase tracking-[0.12em] leading-none text-white md:text-sm">
+                Online Order Portal
+              </h1>
+              <p className="text-[8px] font-bold text-teal-400 uppercase tracking-[0.2em] mt-0.5">
+                {property?.brandName || property?.name || 'Your Restaurant'} · Home Delivery
+              </p>
             </div>
-          )}
+          </div>
 
-          <div>
-            <h1 className="text-base font-black uppercase tracking-[0.12em] leading-none text-white">
-              Delivery Command Center
-            </h1>
-            <p className="text-[9px] font-bold text-teal-400 uppercase tracking-[0.3em] mt-0.5">
-              {property?.brandName || property?.name || 'Your Restaurant'} · Home Delivery &amp; Pickup
-            </p>
+          {/* Compact Inline Stats */}
+          <div className="flex items-center gap-1 bg-[#0b1528] px-2 py-1 rounded-lg border border-slate-800/80 shrink-0">
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sales</span>
+              <span className="text-xs font-black text-teal-400">{formatCurrency(stats.todaySales || 0)}</span>
+            </div>
+            <div className="w-[1px] h-3 bg-slate-800" />
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total</span>
+              <span className="text-xs font-black text-blue-400">{stats.totalOrders || 0}</span>
+            </div>
+            <div className="w-[1px] h-3 bg-slate-800" />
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">New</span>
+              <span className="text-xs font-black text-orange-400">{stats.newOrders || 0}</span>
+            </div>
+            <div className="w-[1px] h-3 bg-slate-800" />
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Prep</span>
+              <span className="text-xs font-black text-amber-400">{stats.preparingOrders || 0}</span>
+            </div>
+            <div className="w-[1px] h-3 bg-slate-800" />
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Out</span>
+              <span className="text-xs font-black text-purple-400">{stats.outForDelivery || 0}</span>
+            </div>
+            <div className="w-[1px] h-3 bg-slate-800" />
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Delivered</span>
+              <span className="text-xs font-black text-emerald-400">{stats.deliveredOrders || 0}</span>
+            </div>
+            <div className="w-[1px] h-3 bg-slate-800" />
+            <div className="flex items-center gap-1 px-1.5">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Cancel</span>
+              <span className="text-xs font-black text-red-400">{stats.cancelledOrders || 0}</span>
+            </div>
           </div>
         </div>
 
         {/* Right: Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
 
           {/* Active Orders Pill */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-teal-500/10 border border-teal-500/25 rounded-xl">
-            <Activity size={12} className="text-teal-400" />
-            <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest">
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-teal-500/10 border border-teal-500/25 rounded-lg">
+            <Activity size={10} className="text-teal-400" />
+            <span className="text-[8px] font-black text-teal-400 uppercase tracking-widest">
               {stats.activeOrders || 0} Active
             </span>
           </div>
@@ -547,14 +633,14 @@ export default function DeliveryDisplayPage() {
           {/* Voice Toggle */}
           <button
             onClick={() => setVoiceEnabled((v) => !v)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all ${
               voiceEnabled
                 ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
                 : 'bg-slate-800/60 border-slate-700 text-slate-500 hover:text-slate-300'
             }`}
           >
-            {voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-            <span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">
+            {voiceEnabled ? <Volume2 size={11} /> : <VolumeX size={11} />}
+            <span className="text-[8px] font-black uppercase tracking-widest hidden sm:block">
               {voiceEnabled ? 'Sound On' : 'Sound Off'}
             </span>
           </button>
@@ -562,15 +648,15 @@ export default function DeliveryDisplayPage() {
           {/* Refresh Button */}
           <button
             onClick={() => { fetchData(); startCountdown(); }}
-            className="p-2.5 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-all"
+            className="p-1.5 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-400 hover:text-white transition-all"
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={11} />
           </button>
 
           {/* Countdown ring */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/60 rounded-xl border border-slate-700">
-            <div className="relative w-5 h-5">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 -rotate-90">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800/60 rounded-lg border border-slate-700">
+            <div className="relative w-4 h-4">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 -rotate-90">
                 <circle cx="12" cy="12" r="10" fill="none" stroke="#1e293b" strokeWidth="3" />
                 <circle
                   cx="12" cy="12" r="10"
@@ -581,20 +667,20 @@ export default function DeliveryDisplayPage() {
                 />
               </svg>
             </div>
-            <span className="text-[10px] font-black text-slate-400 tabular-nums w-5">{countdown}s</span>
+            <span className="text-[8px] font-black text-slate-400 tabular-nums w-4">{countdown}s</span>
           </div>
 
           {/* Live indicator */}
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/60 rounded-xl border border-slate-700">
-            <Wifi size={12} className="text-emerald-400" />
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Live</span>
+          <div className="flex items-center gap-1 px-2 py-1 bg-slate-800/60 rounded-lg border border-slate-700">
+            <Wifi size={10} className="text-emerald-400" />
+            <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Live</span>
           </div>
 
           {/* Time */}
           {mounted && (
-            <div className="text-right hidden md:block">
-              <div className="text-lg font-black tabular-nums text-white">
+            <div className="text-right hidden md:block pl-1">
+              <div className="text-xs font-black tabular-nums text-white">
                 {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
@@ -602,60 +688,9 @@ export default function DeliveryDisplayPage() {
         </div>
       </div>
 
-      {/* ── STATS ROW ────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-stretch gap-3 px-5 py-3 border-b border-slate-800/60 bg-[#060e1c]/60 overflow-x-auto no-scrollbar">
-        <StatCard
-          label="Today's Sales"
-          value={formatCurrency(stats.todaySales || 0)}
-          icon={DollarSign}
-          color="text-teal-400"
-          sub="Delivered orders"
-        />
-        <StatCard
-          label="Total Orders"
-          value={stats.totalOrders || 0}
-          icon={ShoppingBag}
-          color="text-blue-400"
-          sub="Since today 12AM"
-        />
-        <StatCard
-          label="New"
-          value={stats.newOrders || 0}
-          icon={Flame}
-          color="text-orange-400"
-          sub="Awaiting acceptance"
-        />
-        <StatCard
-          label="Preparing"
-          value={stats.preparingOrders || 0}
-          icon={ChefHat}
-          color="text-amber-400"
-          sub="In kitchen"
-        />
-        <StatCard
-          label="Out for Delivery"
-          value={stats.outForDelivery || 0}
-          icon={Truck}
-          color="text-purple-400"
-          sub="On the way"
-        />
-        <StatCard
-          label="Delivered"
-          value={stats.deliveredOrders || 0}
-          icon={CheckCircle2}
-          color="text-emerald-400"
-          sub="Completed"
-        />
-        <StatCard
-          label="Cancelled"
-          value={stats.cancelledOrders || 0}
-          icon={XCircle}
-          color="text-red-400"
-          sub="Today"
-        />
-      </div>
 
-      {/* ── 6-COLUMN KANBAN ──────────────────────────────────────────────── */}
+
+      {/* ── 5-COLUMN KANBAN ──────────────────────────────────────────────── */}
       <div className="flex-1 flex gap-3 p-4 overflow-hidden">
         {COLUMNS.map((col) => {
           const colOrders = getColOrders(col);
@@ -664,7 +699,7 @@ export default function DeliveryDisplayPage() {
           return (
             <div
               key={col.id}
-              className={`flex flex-col flex-1 min-w-0 rounded-2xl border ${col.border} ${col.bg} overflow-hidden shadow-lg ${col.glow}`}
+              className={`flex flex-col ${col.id === 'new_accepted' ? 'flex-[1.6]' : 'flex-1'} min-w-0 rounded-2xl border ${col.border} ${col.bg} overflow-hidden shadow-lg ${col.glow}`}
             >
               {/* Column Header */}
               <div className={`shrink-0 flex items-center justify-between px-4 py-3 border-b ${col.border} bg-black/20`}>

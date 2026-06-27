@@ -38,6 +38,7 @@ interface DetectedPort {
   serialNumber?: string;
   vendorId?: string;
   productId?: string;
+  source?: string;
 }
 
 const cleanDeviceName = (path: string, friendlyName?: string): string => {
@@ -80,8 +81,39 @@ export default function PrinterSettingsPage() {
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [updatingProperty, setUpdatingProperty] = useState(false);
 
-  const bluetoothPorts = detectedPorts.filter(port => /bt|bluetooth|mpt|blth|rfcomm/i.test(port.path || ''));
-  const usbPorts = detectedPorts.filter(port => !/bt|bluetooth|mpt|blth|rfcomm/i.test(port.path || ''));
+  // Real-time native bridge diagnostics status
+  const [bridgeStatus, setBridgeStatus] = useState({
+    capacitor: false,
+    cordova: false,
+    bluetoothSerial: false,
+    platform: 'Web Browser'
+  });
+
+  useEffect(() => {
+    const checkBridge = () => {
+      const isCap = typeof window !== 'undefined' && !!(window as any).Capacitor;
+      const isCord = typeof window !== 'undefined' && !!(window as any).cordova;
+      const isBt = typeof window !== 'undefined' && !!(window as any).bluetoothSerial;
+      const plat = isCap ? (window as any).Capacitor.getPlatform() : 'Web Browser';
+      setBridgeStatus({
+        capacitor: isCap,
+        cordova: isCord,
+        bluetoothSerial: isBt,
+        platform: plat
+      });
+    };
+    checkBridge();
+    const timer = setInterval(checkBridge, 1500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const bluetoothPorts = detectedPorts.filter(port => 
+    /bt|bluetooth|mpt|blth|rfcomm/i.test(port.path || '') || 
+    /bt|bluetooth|mpt|blth|rfcomm/i.test(port.friendlyName || '') || 
+    port.manufacturer === 'Bluetooth' || 
+    port.source === 'ANDROID_BLUETOOTH'
+  );
+  const usbPorts = detectedPorts.filter(port => !bluetoothPorts.some(bp => bp.path === port.path));
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -138,39 +170,154 @@ export default function PrinterSettingsPage() {
 
   useEffect(() => { if (session) fetchPrinters(); }, [fetchPrinters, session]);
 
-  // ── Auto-detect USB/Serial Ports & OS Printers ────────────────────────────
   const handleDetectPorts = async () => {
     setDetectingPorts(true);
     setDetectedPorts([]);
     setDetectedSystemPrinters([]);
-    
-    let localPrinters: any[] = [];
-    try {
-      const qzPrinters = await printerService.findPrinters();
-      if (Array.isArray(qzPrinters)) {
-        localPrinters = qzPrinters.map(name => ({
-          name,
-          portName: 'QZ Tray',
-          status: 'IDLE'
-        }));
+
+    // Intercept printer scans inside Android Capacitor App to scan local Bluetooth devices
+    if (typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.getPlatform() === 'android') {
+      // Helper function to wait for plugins to load/initialize asynchronously
+      const waitForPlugins = () => {
+        return new Promise<void>((resolve) => {
+          if ((window as any).bluetoothSerial) {
+            resolve();
+            return;
+          }
+          const onDeviceReady = () => {
+            document.removeEventListener('deviceready', onDeviceReady);
+            resolve();
+          };
+          document.addEventListener('deviceready', onDeviceReady);
+          setTimeout(resolve, 4000); // 4 seconds timeout fallback
+        });
+      };
+
+      await waitForPlugins();
+
+      const bluetoothSerial = (window as any).bluetoothSerial;
+      const permissions = (window as any).plugins?.permissions;
+      
+      try {
+        if (permissions) {
+          await new Promise<void>((resolve) => {
+            const list = [
+              "android.permission.BLUETOOTH_SCAN",
+              "android.permission.BLUETOOTH_CONNECT",
+              "android.permission.ACCESS_FINE_LOCATION"
+            ];
+            permissions.requestPermissions(list, () => resolve(), () => resolve());
+          });
+        }
+
+        // Check and enable Bluetooth if it's off
+        if (bluetoothSerial) {
+          const isBtEnabled = await new Promise<boolean>((resolve) => {
+            bluetoothSerial.isEnabled(() => resolve(true), () => resolve(false));
+          });
+          if (!isBtEnabled) {
+            console.log("Bluetooth is disabled. Requesting user to turn it on...");
+            await new Promise<void>((resolve, reject) => {
+              bluetoothSerial.enable(() => resolve(), (err: any) => reject(new Error("Please turn on Bluetooth to scan printers.")));
+            });
+          }
+        }
+
+        if (!bluetoothSerial) {
+          toast.error("Bluetooth printer plugin is not ready yet. Please ensure Bluetooth is enabled on your device.");
+          setDetectingPorts(false);
+          return;
+        }
+
+        // 1. Get paired devices immediately
+        const pairedList: any[] = await new Promise((resolve) => {
+          bluetoothSerial.list((devices: any[]) => resolve(devices), () => resolve([]));
+        });
+
+        console.log("Capacitor Android paired bluetooth devices:", pairedList);
+
+        const mapDevice = (device: any) => ({
+          path: device.address || device.id,
+          friendlyName: device.name || 'Unknown Printer',
+          manufacturer: 'Bluetooth',
+          source: 'ANDROID_BLUETOOTH'
+        });
+
+        let allMapped = pairedList.map(mapDevice);
+        setDetectedPorts(allMapped);
+
+        toast.info("Scanning for all nearby Bluetooth devices (this takes ~10 seconds)...");
+
+        // 2. Discover unpaired/new nearby devices in the background
+        bluetoothSerial.discoverUnpaired((unpairedList: any[]) => {
+          console.log("Capacitor Android discovered unpaired bluetooth devices:", unpairedList);
+          
+          const newlyDiscovered = unpairedList.map(mapDevice);
+          
+          // Merge lists avoiding duplicates based on MAC address (path)
+          const merged = [...allMapped];
+          newlyDiscovered.forEach((nd) => {
+            if (!merged.some(p => p.path === nd.path)) {
+              merged.push(nd);
+            }
+          });
+          
+          setDetectedPorts(merged);
+          setDetectingPorts(false);
+          toast.success(`Scan complete! Found ${merged.length} total Bluetooth device(s).`);
+        }, (err: any) => {
+          console.warn("Unpaired bluetooth discovery error:", err);
+          setDetectingPorts(false);
+          toast.warning(`Discovery failed: ${err?.message || err || 'Check Bluetooth settings'}. Found ${allMapped.length} paired devices.`);
+        });
+      } catch (err: any) {
+        console.error("Bluetooth scan failed on Android:", err);
+        toast.error(`Bluetooth scan failed: ${err.message || err}`);
+        setDetectingPorts(false);
       }
+      return;
+    }
+
+    // Desktop/Browser detection: check if QZ Tray is running once to avoid duplicate timeouts
+    let qzActive = false;
+    try {
+      await printerService.connect();
+      qzActive = true;
     } catch (e) {
-      console.log('QZ Tray not connected or active:', e);
+      console.log('QZ Tray is not connected or active:', e);
+    }
+
+    let localPrinters: any[] = [];
+    if (qzActive) {
+      try {
+        const qzPrinters = await printerService.findPrinters();
+        if (Array.isArray(qzPrinters)) {
+          localPrinters = qzPrinters.map(name => ({
+            name,
+            portName: 'QZ Tray',
+            status: 'IDLE'
+          }));
+        }
+      } catch (e) {
+        console.log('QZ Tray printers search failed:', e);
+      }
     }
 
     let localSerialPorts: any[] = [];
-    try {
-      const qzPorts = await printerService.findSerialPorts();
-      if (Array.isArray(qzPorts)) {
-        localSerialPorts = qzPorts.map(portPath => ({
-          path: portPath,
-          friendlyName: cleanDeviceName(portPath),
-          manufacturer: 'QZ Tray Serial',
-          source: 'QZ_SERIAL'
-        }));
+    if (qzActive) {
+      try {
+        const qzPorts = await printerService.findSerialPorts();
+        if (Array.isArray(qzPorts)) {
+          localSerialPorts = qzPorts.map(portPath => ({
+            path: portPath,
+            friendlyName: cleanDeviceName(portPath),
+            manufacturer: 'QZ Tray Serial',
+            source: 'QZ_SERIAL'
+          }));
+        }
+      } catch (e) {
+        console.log('Could not scan serial ports via QZ Tray:', e);
       }
-    } catch (e) {
-      console.log('Could not scan serial ports via QZ Tray:', e);
     }
 
     // Natively query browser's Web Serial API for authorized devices
@@ -434,6 +581,24 @@ export default function PrinterSettingsPage() {
           </div>
 
           <div className="p-6 space-y-6">
+            {/* Native Bridge Diagnostics Status */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-850 flex flex-wrap gap-4 items-center justify-between text-xs animate-in fade-in">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-black text-slate-400 uppercase text-[9px] tracking-wider">Mobile App Status:</span>
+                <span className={`px-2.5 py-1 rounded-xl font-black text-[9px] uppercase border ${bridgeStatus.capacitor ? 'bg-emerald-50 dark:bg-emerald-950/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30' : 'bg-amber-50 dark:bg-amber-950/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'}`}>
+                  Capacitor: {bridgeStatus.capacitor ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+                <span className={`px-2.5 py-1 rounded-xl font-black text-[9px] uppercase border ${bridgeStatus.cordova ? 'bg-emerald-50 dark:bg-emerald-950/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30' : 'bg-amber-50 dark:bg-amber-950/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'}`}>
+                  Cordova: {bridgeStatus.cordova ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+                <span className={`px-2.5 py-1 rounded-xl font-black text-[9px] uppercase border ${bridgeStatus.bluetoothSerial ? 'bg-emerald-50 dark:bg-emerald-950/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30' : 'bg-red-50 dark:bg-red-950/10 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/30'}`}>
+                  BT Serial Plugin: {bridgeStatus.bluetoothSerial ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">
+                Mode: {bridgeStatus.platform === 'android' ? 'Android Device Wrapper' : bridgeStatus.platform === 'ios' ? 'iOS Device Wrapper' : 'Web Browser'}
+              </div>
+            </div>
             {/* Devices Scanner */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -580,6 +745,35 @@ export default function PrinterSettingsPage() {
                   <p className="text-[11px] font-bold">Click "Scan Devices" to auto-detect system-installed printers and USB ports.</p>
                 </div>
               )}
+
+              {/* Bluetooth Connection Guidelines */}
+              <div className="p-5 rounded-2xl border bg-slate-50/50 dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/50 space-y-3 mt-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                  <Bluetooth size={12} className="text-blue-500" /> Bluetooth Connection Guide
+                </p>
+                
+                {typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.getPlatform() === 'android' ? (
+                  <div className="space-y-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="font-bold text-slate-700 dark:text-slate-300">📱 Operating in Android App Mode:</p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Open your Android phone/tablet <strong>Bluetooth Settings</strong> and pair the thermal printer (e.g. MPT-II).</li>
+                      <li>Ensure both <strong>Bluetooth</strong> and <strong>Location Services</strong> are enabled.</li>
+                      <li>Return to the app and click <strong>Scan Devices</strong>. Your printer will appear under "Detected Bluetooth Printers".</li>
+                      <li>Click <strong>+ Quick Add</strong> to save it as your printer.</li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="font-bold text-slate-700 dark:text-slate-300">💻 Operating in Web Browser Mode:</p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Chrome/Safari on Mac/Windows cannot access Bluetooth Classic printers directly.</li>
+                      <li><strong>Step 1:</strong> Go to your Mac/Windows Bluetooth settings and pair your printer.</li>
+                      <li><strong>Step 2 (Recommended):</strong> Install and run <a href="https://qz.io/download/" target="_blank" rel="noreferrer" className="text-indigo-650 dark:text-indigo-400 underline font-bold">QZ Tray</a> on your computer, then add the printer as a native system printer. It will then appear under "OS Installed Printers" here.</li>
+                      <li><strong>Step 2 (Alternative):</strong> Click <strong>Pair Browser Device</strong> to open Chrome's native Web Serial dialog (if your Bluetooth printer creates a virtual tty/COM port).</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="border-t border-slate-100 dark:border-slate-800 pt-6">

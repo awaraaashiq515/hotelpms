@@ -26,7 +26,8 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   
   // SPECIAL OVERRIDE: Kitchen Display / Bar Display always uses POS Layout
   const isKitchenDisplay = relativePath.startsWith('/kitchen-display') || pathname.includes('/kitchen-display') ||
-    relativePath.startsWith('/bar-display') || pathname.includes('/bar-display');
+    relativePath.startsWith('/bar-display') || pathname.includes('/bar-display') ||
+    relativePath.startsWith('/delivery-display') || pathname.includes('/delivery-display');
 
   // Music page: show TopNavbar but hide sidebar for full DJ console view
   const isMusicPage = relativePath.startsWith('/music') || pathname.includes('/music');

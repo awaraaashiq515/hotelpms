@@ -369,18 +369,28 @@ export default function LoginPage() {
 
               <div className="relative flex py-4 items-center">
                 <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Staff Access</span>
+                <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Portal Access</span>
                 <div className="flex-grow border-t border-slate-200"></div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => router.push('/staff-portal')}
-                className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 group"
-              >
-                Go to Staff Portal
-                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform text-slate-400 group-hover:text-slate-600" />
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push('/staff-portal')}
+                  className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 group"
+                >
+                  Staff Portal
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform text-slate-400 group-hover:text-slate-600" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/driver-portal')}
+                  className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 group"
+                >
+                  Driver Portal
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform text-slate-400 group-hover:text-slate-600" />
+                </button>
+              </div>
             </form>
           ) : (
             <div className="space-y-6 text-center">

@@ -100,6 +100,119 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
 
   const detectPrinters = async () => {
     setDetecting(true);
+
+    // Intercept printer scans inside Android Capacitor App to scan local Bluetooth devices
+    if (typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.getPlatform() === 'android') {
+      // Helper function to wait for plugins to load/initialize asynchronously
+      const waitForPlugins = () => {
+        return new Promise<void>((resolve) => {
+          if ((window as any).bluetoothSerial) {
+            resolve();
+            return;
+          }
+          const onDeviceReady = () => {
+            document.removeEventListener('deviceready', onDeviceReady);
+            resolve();
+          };
+          document.addEventListener('deviceready', onDeviceReady);
+          setTimeout(resolve, 4000); // 4 seconds timeout fallback
+        });
+      };
+
+      await waitForPlugins();
+
+      const bluetoothSerial = (window as any).bluetoothSerial;
+      const permissions = (window as any).plugins?.permissions;
+      
+      try {
+        if (permissions) {
+          await new Promise<void>((resolve) => {
+            const list = [
+              "android.permission.BLUETOOTH_SCAN",
+              "android.permission.BLUETOOTH_CONNECT",
+              "android.permission.ACCESS_FINE_LOCATION"
+            ];
+            permissions.requestPermissions(list, () => resolve(), () => resolve());
+          });
+        }
+
+        // Check and enable Bluetooth if it's off
+        if (bluetoothSerial) {
+          const isBtEnabled = await new Promise<boolean>((resolve) => {
+            bluetoothSerial.isEnabled(() => resolve(true), () => resolve(false));
+          });
+          if (!isBtEnabled) {
+            console.log("Bluetooth is disabled. Requesting user to turn it on...");
+            await new Promise<void>((resolve, reject) => {
+              bluetoothSerial.enable(() => resolve(), (err: any) => reject(new Error("Please turn on Bluetooth to scan printers.")));
+            });
+          }
+        }
+
+        if (!bluetoothSerial) {
+          toast.error("Bluetooth printer plugin is not ready yet. Please ensure Bluetooth is enabled on your device.");
+          setDetecting(false);
+          return;
+        }
+
+        // 1. Get paired devices immediately
+        const pairedList: any[] = await new Promise((resolve) => {
+          bluetoothSerial.list((devices: any[]) => resolve(devices), () => resolve([]));
+        });
+
+        console.log("Capacitor Android paired bluetooth devices:", pairedList);
+
+        const mapDevice = (device: any) => ({
+          path: device.address || device.id,
+          friendlyName: device.name || 'Unknown Printer',
+          manufacturer: 'Bluetooth'
+        });
+
+        let allMapped = pairedList.map(mapDevice);
+        setDetectedPorts(allMapped);
+
+        // Smart Auto-fill printer port if the field is empty and we have paired devices
+        if (allMapped.length > 0 && !formData.ipAddress) {
+          const btPort = allMapped[0];
+          setFormData(prev => ({
+            ...prev,
+            ipAddress: btPort.path,
+            name: prev.name ? prev.name : btPort.friendlyName
+          }));
+        }
+
+        toast.info("Scanning for all nearby Bluetooth devices (this takes ~10 seconds)...");
+
+        // 2. Discover unpaired/new nearby devices in the background
+        bluetoothSerial.discoverUnpaired((unpairedList: any[]) => {
+          console.log("Capacitor Android discovered unpaired bluetooth devices:", unpairedList);
+          
+          const newlyDiscovered = unpairedList.map(mapDevice);
+          
+          // Merge lists avoiding duplicates based on MAC address (path)
+          const merged = [...allMapped];
+          newlyDiscovered.forEach((nd) => {
+            if (!merged.some(p => p.path === nd.path)) {
+              merged.push(nd);
+            }
+          });
+          
+          setDetectedPorts(merged);
+          setDetecting(false);
+          toast.success(`Scan complete! Found ${merged.length} total Bluetooth device(s).`);
+        }, (err: any) => {
+          console.warn("Unpaired bluetooth discovery error:", err);
+          setDetecting(false);
+          toast.warning(`Discovery failed: ${err?.message || err || 'Check Bluetooth settings'}. Found ${allMapped.length} paired devices.`);
+        });
+      } catch (err: any) {
+        console.error("Bluetooth scan failed on Android:", err);
+        toast.error(`Bluetooth scan failed: ${err.message || err}`);
+        setDetecting(false);
+      }
+      return;
+    }
+
     let localPrinters: any[] = [];
     try {
       const qzPrinters = await printerService.findPrinters();
@@ -261,7 +374,10 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
 
   const getFilteredPorts = () => {
     if (formData.connectionType === 'BLUETOOTH') {
-      const filtered = detectedPorts.filter((p: any) => /bt|bluetooth|mpt|blth|rfcomm/i.test(p.path || ''));
+      const filtered = detectedPorts.filter((p: any) => 
+        /bt|bluetooth|mpt|blth|rfcomm/i.test(p.path || '') || 
+        /bt|bluetooth|mpt|blth|rfcomm/i.test(p.friendlyName || '')
+      );
       return filtered.length > 0 ? filtered : detectedPorts;
     }
     if (formData.connectionType === 'USB') {

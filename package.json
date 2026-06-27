@@ -26,6 +26,8 @@
     "agora-token": "^2.0.3",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
+    "cordova-plugin-android-permissions": "^1.1.5",
+    "cordova-plugin-bluetooth-serial": "^0.4.7",
     "date-fns": "^4.1.0",
     "firebase-admin": "^12.1.1",
     "framer-motion": "^12.38.0",
