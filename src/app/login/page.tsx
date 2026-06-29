@@ -2,9 +2,48 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, Eye, EyeOff, ArrowRight, Shield, RefreshCcw } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, ArrowRight, Shield, RefreshCcw, Bluetooth } from 'lucide-react';
 import { authApi } from '@/lib/api/auth';
 import { APIError } from '@/lib/api/client';
+
+// ── Android Permission Request Helper ──
+// Requests Bluetooth permissions automatically when running inside the Android app.
+// Uses cordova-plugin-android-permissions (already installed).
+function requestAndroidPermissions() {
+  const win = window as any;
+
+  // Only run inside Capacitor Android app
+  const isCapacitor =
+    typeof win.Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor');
+  if (!isCapacitor) return;
+
+  const PERMISSIONS = [
+    'android.permission.BLUETOOTH_CONNECT',
+    'android.permission.BLUETOOTH_SCAN',
+    'android.permission.ACCESS_FINE_LOCATION',
+  ];
+
+  const tryRequest = () => {
+    const permissions = win.cordova?.plugins?.permissions;
+    if (!permissions) return; // plugin not ready yet, will retry
+
+    PERMISSIONS.forEach((perm) => {
+      permissions.checkPermission(
+        perm,
+        (status: any) => {
+          if (!status.hasPermission) {
+            permissions.requestPermission(perm, () => {}, () => {});
+          }
+        },
+        () => {}
+      );
+    });
+  };
+
+  // Try immediately, and also after deviceready fires (whichever comes first)
+  tryRequest();
+  document.addEventListener('deviceready', tryRequest, { once: true });
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,6 +62,18 @@ export default function LoginPage() {
   const [tempUserId, setTempUserId] = useState<string | null>(null);
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [permissionsMissing, setPermissionsMissing] = useState(false);
+
+  const openSettings = async () => {
+    try {
+      const { NativeSettings, AndroidSettings } = require('capacitor-native-settings');
+      await NativeSettings.openAndroid({
+        option: AndroidSettings.ApplicationDetails,
+      });
+    } catch (err) {
+      console.error('Error opening native settings', err);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/website/settings')
@@ -34,6 +85,52 @@ export default function LoginPage() {
       })
       .catch(() => {});
     refreshCaptcha();
+
+    // ── Check Android permissions on app load ──
+    const win = window as any;
+    const isCapacitor =
+      typeof win.Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor');
+
+    if (isCapacitor) {
+      const checkPermissionsOnly = () => {
+        const permissions = win.cordova?.plugins?.permissions;
+        if (!permissions) return;
+
+        const PERMISSIONS = [
+          'android.permission.BLUETOOTH_CONNECT',
+          'android.permission.BLUETOOTH_SCAN',
+          'android.permission.ACCESS_FINE_LOCATION',
+        ];
+
+        let missing = false;
+        let checked = 0;
+
+        PERMISSIONS.forEach((perm) => {
+          permissions.checkPermission(
+            perm,
+            (status: any) => {
+              checked++;
+              if (!status.hasPermission) {
+                missing = true;
+              }
+              if (checked === PERMISSIONS.length) {
+                setPermissionsMissing(missing);
+              }
+            },
+            () => {
+              checked++;
+              if (checked === PERMISSIONS.length) {
+                setPermissionsMissing(true); // default to warning on error
+              }
+            }
+          );
+        });
+      };
+
+      // Try immediately + on deviceready
+      checkPermissionsOnly();
+      document.addEventListener('deviceready', checkPermissionsOnly, { once: true });
+    }
   }, []);
 
   const refreshCaptcha = () => {
@@ -203,6 +300,25 @@ export default function LoginPage() {
                 : 'Enter your credentials to access your account.'}
             </p>
           </div>
+
+          {permissionsMissing && (
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-slate-850 text-sm font-medium animate-in slide-in-from-top-2">
+              <Bluetooth size={20} className="text-amber-600 flex-shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <span className="font-bold text-amber-900 block mb-1">App Permissions Required</span>
+                <span className="text-xs text-slate-650 block leading-relaxed">
+                  Bluetooth & Location permissions are turned off. Please go to settings and enable them to connect and print bills.
+                </span>
+                <button
+                  type="button"
+                  onClick={openSettings}
+                  className="mt-3 px-4 py-2 bg-amber-650 hover:bg-amber-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-sm"
+                >
+                  Open App Settings
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-3 text-rose-800 text-sm font-medium animate-in slide-in-from-top-2">

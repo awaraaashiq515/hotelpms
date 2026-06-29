@@ -25,6 +25,7 @@
     "agora-rtc-sdk-ng": "^4.24.4",
     "agora-token": "^2.0.3",
     "bcryptjs": "^3.0.3",
+    "capacitor-native-settings": "^8.1.0",
     "clsx": "^2.1.1",
     "cordova-plugin-android-permissions": "^1.1.5",
     "cordova-plugin-bluetooth-serial": "^0.4.7",
