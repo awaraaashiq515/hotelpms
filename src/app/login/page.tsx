@@ -63,6 +63,7 @@ export default function LoginPage() {
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [permissionsMissing, setPermissionsMissing] = useState(false);
+  const [androidVersion, setAndroidVersion] = useState(12);
 
   const openSettings = async () => {
     try {
@@ -96,11 +97,30 @@ export default function LoginPage() {
         const permissions = win.cordova?.plugins?.permissions;
         if (!permissions) return;
 
-        const PERMISSIONS = [
-          'android.permission.BLUETOOTH_CONNECT',
-          'android.permission.BLUETOOTH_SCAN',
-          'android.permission.ACCESS_FINE_LOCATION',
-        ];
+        // Parse Android version from User Agent
+        const ua = navigator.userAgent;
+        const androidMatch = ua.match(/Android\s+([0-9\.]+)/i);
+        let version = 12; // default to 12
+        if (androidMatch) {
+          version = parseFloat(androidMatch[1]);
+          setAndroidVersion(version);
+        }
+
+        // Determine which permissions to check based on Android version
+        let PERMISSIONS: string[] = [];
+        if (version >= 12) {
+          // Android 12+ requires Bluetooth Connect, Scan, and Fine Location
+          PERMISSIONS = [
+            'android.permission.BLUETOOTH_CONNECT',
+            'android.permission.BLUETOOTH_SCAN',
+            'android.permission.ACCESS_FINE_LOCATION',
+          ];
+        } else {
+          // Android 11 and lower only requires Location runtime permission
+          PERMISSIONS = [
+            'android.permission.ACCESS_FINE_LOCATION',
+          ];
+        }
 
         let missing = false;
         let checked = 0;
@@ -307,7 +327,9 @@ export default function LoginPage() {
               <div>
                 <span className="font-bold text-amber-900 block mb-1">App Permissions Required</span>
                 <span className="text-xs text-slate-650 block leading-relaxed">
-                  Nearby Devices (Bluetooth) & Location permissions are turned off. Please go to Settings and enable both permissions to connect and print bills.
+                  {androidVersion >= 12
+                    ? 'Nearby Devices (Bluetooth) & Location permissions are turned off. Please go to Settings and enable both permissions to connect and print bills.'
+                    : 'Location permission is turned off. Please go to Settings and enable Location permission to connect and print bills.'}
                 </span>
                 <button
                   type="button"
