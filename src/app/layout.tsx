@@ -87,7 +87,26 @@ export default function RootLayout({
             __html: `
               (function() {
                 var ua = navigator.userAgent || navigator.vendor || window.opera;
-                if (ua.indexOf('Capacitor') > -1) {
+                var isCapacitor = (typeof window.Capacitor !== 'undefined') || ua.indexOf('Capacitor') > -1;
+
+                // ── Android App Route Guard: Block only 6 marketing/website pages ──
+                if (isCapacitor) {
+                  var path = window.location.pathname;
+
+                  // Only these 6 website/marketing pages are blocked in the app
+                  var blockedRoutes = ['/', '/features', '/pricing', '/about', '/blog', '/contact'];
+                  var isBlocked = blockedRoutes.some(function(route) {
+                    return path === route || path.indexOf(route + '/') === 0;
+                  });
+
+                  if (isBlocked) {
+                    window.location.replace('/login');
+                    return;
+                  }
+                }
+
+                // ── Inject native bridge scripts ──
+                if (isCapacitor) {
                   var baseUrl = 'https://localhost';
                   if (ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1 || ua.indexOf('iPod') > -1) {
                     baseUrl = 'capacitor://localhost';

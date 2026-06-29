@@ -14,7 +14,22 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value
   const { pathname } = request.nextUrl
 
-  
+  const userAgent = request.headers.get('user-agent') || ''
+  const isCapacitor = userAgent.includes('Capacitor')
+
+  // ── Android App (Capacitor) Route Guard ──
+  // Block only the 6 public marketing/website pages in the mobile app.
+  // All other pages work normally.
+  if (isCapacitor) {
+    const blockedWebsiteRoutes = ['/', '/features', '/pricing', '/about', '/blog', '/contact']
+    const isBlockedRoute = blockedWebsiteRoutes.some(
+      route => pathname === route || pathname.startsWith(route + '/')
+    )
+    if (isBlockedRoute) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
   const parts = pathname.split('/').filter(Boolean)
   const dashboardRoots = [
     'dashboard', 'billing', 'bar-pos', 'counter-payments', 'invoices', 'payments',
