@@ -34,8 +34,15 @@ export const ActionTile: React.FC<ActionTileProps> = ({
     }
 
     if (path) {
+      const isCapacitor = typeof window !== 'undefined' && 
+        (typeof (window as any).Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor'));
+
       if (path.endsWith('/kitchen-display') || path.endsWith('/bar-display') || path.endsWith('/order-display')) {
-        window.open(path, '_blank');
+        if (isCapacitor) {
+          router.push(path);
+        } else {
+          window.open(path, '_blank');
+        }
         return;
       }
       // Standard Next.js navigation

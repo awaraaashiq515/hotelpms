@@ -369,7 +369,13 @@ export const TopNavbar: React.FC = () => {
                   <button 
                     onClick={() => {
                       const path = propertyCode ? `/${propertyCode}/kitchen-display` : '/kitchen-display';
-                      window.open(path, '_blank');
+                      const isCapacitor = typeof window !== 'undefined' && 
+                        (typeof (window as any).Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor'));
+                      if (isCapacitor) {
+                        router.push(path);
+                      } else {
+                        window.open(path, '_blank');
+                      }
                       setShowDisplayMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors"
@@ -384,7 +390,13 @@ export const TopNavbar: React.FC = () => {
                   <button 
                     onClick={() => {
                       const path = propertyCode ? `/${propertyCode}/bar-display` : '/bar-display';
-                      window.open(path, '_blank');
+                      const isCapacitor = typeof window !== 'undefined' && 
+                        (typeof (window as any).Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor'));
+                      if (isCapacitor) {
+                        router.push(path);
+                      } else {
+                        window.open(path, '_blank');
+                      }
                       setShowDisplayMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
@@ -399,7 +411,13 @@ export const TopNavbar: React.FC = () => {
                   <button 
                     onClick={() => {
                       const path = propertyCode ? `/${propertyCode}/delivery-display` : '/delivery-display';
-                      window.open(path, '_blank');
+                      const isCapacitor = typeof window !== 'undefined' && 
+                        (typeof (window as any).Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor'));
+                      if (isCapacitor) {
+                        router.push(path);
+                      } else {
+                        window.open(path, '_blank');
+                      }
                       setShowDisplayMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-teal-500 transition-colors border-t border-gray-50 dark:border-slate-800/50"
@@ -413,7 +431,14 @@ export const TopNavbar: React.FC = () => {
                 {(property?.restaurantPosEnabled !== false || property?.cafePosEnabled) && (
                   <button 
                     onClick={() => {
-                      window.open('/order-display', '_blank');
+                      const path = '/order-display';
+                      const isCapacitor = typeof window !== 'undefined' && 
+                        (typeof (window as any).Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor'));
+                      if (isCapacitor) {
+                        router.push(path);
+                      } else {
+                        window.open(path, '_blank');
+                      }
                       setShowDisplayMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-pos-primary transition-colors border-t border-gray-50 dark:border-slate-800/50"
