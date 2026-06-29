@@ -307,7 +307,7 @@ export default function LoginPage() {
               <div>
                 <span className="font-bold text-amber-900 block mb-1">App Permissions Required</span>
                 <span className="text-xs text-slate-650 block leading-relaxed">
-                  Bluetooth & Location permissions are turned off. Please go to settings and enable them to connect and print bills.
+                  Nearby Devices (Bluetooth) & Location permissions are turned off. Please go to Settings and enable both permissions to connect and print bills.
                 </span>
                 <button
                   type="button"
