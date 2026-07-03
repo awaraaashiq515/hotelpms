@@ -418,6 +418,7 @@ export async function POST(request: NextRequest) {
           balanceAmount: isPayLater ? grandTotal : 0,
           status: isPayLater ? 'PENDING' : 'COMPLETED',
           settlementDate: new Date(),
+          paymentModeId: isPayLater ? null : paymentModeId,
         }
       });
 

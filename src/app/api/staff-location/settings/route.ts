@@ -1,40 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
 /**
  * GET /api/staff-location/settings
- * Returns the current StaffLocationSettings for the logged-in property.
- * If no row exists yet, returns safe defaults.
+ * Supports WT Bearer token (mobile) AND session cookie (web portal).
+ * Returns base location from Property.latitude/longitude.
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    const wtUser = await getWTUserFromRequest(request);
     const session = await getSession();
-    if (!session?.propertyId) {
+    const propertyId: string | undefined = wtUser?.propertyId || session?.propertyId || undefined;
+
+    if (!propertyId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const [settings, property] = await Promise.all([
-      (prisma as any).staffLocationSettings.findUnique({
-        where: { propertyId: session.propertyId },
-      }),
-      prisma.property.findUnique({
-        where: { id: session.propertyId },
-        select: { latitude: true, longitude: true },
-      })
-    ]);
+    // Try StaffLocationSettings first, fallback to Property.latitude (graceful degradation)
+    let baseLat = 0;
+    let baseLng = 0;
+    let alertDistanceMeters = 500;
 
-    const baseLat = settings?.baseLat || property?.latitude || 0;
-    const baseLng = settings?.baseLng || property?.longitude || 0;
+    try {
+      // Try reading StaffLocationSettings if the table exists
+      const settings = await (prisma as any).staffLocationSettings?.findUnique?.({
+        where: { propertyId },
+      });
+      if (settings?.baseLat) baseLat = settings.baseLat;
+      if (settings?.baseLng) baseLng = settings.baseLng;
+      if (settings?.alertDistanceMeters) alertDistanceMeters = settings.alertDistanceMeters;
+    } catch (_) {
+      // StaffLocationSettings table may not exist — use Property fallback
+    }
+
+    // Always fallback to Property.latitude/longitude if settings not set
+    if (!baseLat || !baseLng) {
+      const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { latitude: true, longitude: true },
+      });
+      if (property?.latitude) baseLat = property.latitude;
+      if (property?.longitude) baseLng = property.longitude;
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        propertyId: session.propertyId,
+        propertyId,
         baseLat,
         baseLng,
-        alertDistanceMeters: settings?.alertDistanceMeters ?? 500,
-        trackingEnabled: settings?.trackingEnabled ?? true,
+        alertDistanceMeters,
+        trackingEnabled: true,
+        hasBaseLocation: baseLat !== 0 || baseLng !== 0,
       }
     });
   } catch (error: any) {

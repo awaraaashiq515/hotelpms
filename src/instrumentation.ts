@@ -14,7 +14,30 @@ export async function register() {
     const SOCKET_PORT = parseInt(process.env.SOCKET_PORT || '5001', 10)
 
     // Create a standalone HTTP server for socket only
-    const httpServer = createServer()
+    const httpServer = createServer((req, res) => {
+      if (req.method === 'POST' && req.url === '/api/broadcast-notification') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            const { propertyId, event, payload } = data;
+            if (propertyId && event) {
+              io.to(`prop_${propertyId}`).emit(event, payload);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+              return;
+            }
+          } catch (e) {}
+          res.writeHead(400);
+          res.end('Bad Request');
+        });
+      } else {
+        res.writeHead(404);
+        res.end('Not Found');
+      }
+    })
+
     const io = new SocketServer(httpServer, {
       cors: {
         origin: '*',
@@ -22,6 +45,7 @@ export async function register() {
       },
       transports: ['polling', 'websocket'],
     })
+
 
     // Authentication Middleware
     io.use(async (socket: any, next: any) => {

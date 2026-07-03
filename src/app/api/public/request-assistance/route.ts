@@ -65,8 +65,40 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Broadcast in real-time to the active property socket room
+    try {
+      const socketPorts = [5002, 5001]; // Try standalone WT port, fallback to Next.js port
+      for (const port of socketPorts) {
+        try {
+          await fetch(`http://127.0.0.1:${port}/api/broadcast-notification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              propertyId,
+              event: 'new_assistance_request',
+              payload: {
+                id: notification.id,
+                title,
+                message,
+                type: 'ASSISTANCE',
+                tableId,
+                tableName: metadata.tableName || null,
+                floorName: metadata.floorName || null,
+                parkingSlotId,
+                slotName: metadata.slotName || null,
+                createdAt: notification.createdAt,
+              }
+            })
+          });
+        } catch (_) {}
+      }
+    } catch (e) {
+      console.error('[Request Assistance Broadcast Error]', e);
+    }
+
     return apiResponse(notification, 'Request sent successfully', 201);
   } catch (error) {
     return apiError(error);
   }
 }
+

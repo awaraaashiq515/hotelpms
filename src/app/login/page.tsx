@@ -173,7 +173,8 @@ export default function LoginPage() {
       } else if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER') {
         router.push('/hotel');
       } else if (role === 'B2B_SUPPLIER') {
-        router.push('/b2b/supplier');
+        const propCode = data.user.propertyCode;
+        router.push(propCode ? `/${propCode}/b2b/supplier` : '/b2b/supplier');
       } else if (role === 'DELIVERY_RIDER') {
         router.push('/driver-portal');
       } else {

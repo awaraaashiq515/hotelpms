@@ -20,6 +20,7 @@ export default function InvoicesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL');
   const [selectedPropertyId, setSelectedPropertyId] = useState('all');
   const [properties, setProperties] = useState<any[]>([]);
   const [session, setSession] = useState<any>(null);
@@ -141,14 +142,19 @@ export default function InvoicesPage() {
 
   const filteredInvoices = invoices.filter(inv => {
     const s = search.toLowerCase();
-    return (
+    const matchesSearch = (
       inv.invoiceNo.toLowerCase().includes(s) ||
       inv.guest?.firstName?.toLowerCase().includes(s) ||
       inv.guest?.lastName?.toLowerCase().includes(s) ||
       inv.guest?.mobile?.includes(s) ||
       inv.tableNo?.toLowerCase().includes(s) ||
-      inv.orderType?.toLowerCase().includes(s)
+      inv.orderType?.toLowerCase().includes(s) ||
+      inv.paymentMethod?.toLowerCase().includes(s)
     );
+
+    const matchesMethod = paymentMethodFilter === 'ALL' || inv.paymentMethod === paymentMethodFilter;
+
+    return matchesSearch && matchesMethod;
   });
 
   const columns = [
@@ -214,6 +220,27 @@ export default function InvoicesPage() {
         </div>
       ),
       width: '180px'
+    },
+    { 
+      header: 'Payment Method', 
+      cell: (row: Invoice) => {
+        const method = row.paymentMethod || 'Cash';
+        const displayMap: Record<string, { label: string, color: string }> = {
+          'Cash': { label: 'Cash', color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30' },
+          'Credit Card': { label: 'Credit Card', color: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100 dark:border-blue-900/30' },
+          'UPI / QR': { label: 'UPI / QR', color: 'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400 border-purple-100 dark:border-purple-900/30' },
+          'Pay Later': { label: '⏳ Pay Later', color: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100 dark:border-amber-900/30' },
+        };
+        
+        const style = displayMap[method] || { label: method, color: 'bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300 border-gray-100 dark:border-slate-700' };
+        
+        return (
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border ${style.color}`}>
+            {style.label}
+          </span>
+        );
+      },
+      width: '130px'
     },
     { 
       header: 'Total', 
@@ -396,6 +423,20 @@ export default function InvoicesPage() {
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform group-hover:translate-y-[-40%]" />
               </div>
             )}
+            <div className="relative group">
+              <select
+                value={paymentMethodFilter}
+                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                className="pl-4 pr-8 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-widest text-gray-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-pos-primary/20 transition-all appearance-none cursor-pointer min-w-[140px]"
+              >
+                <option value="ALL">ALL METHODS</option>
+                <option value="Cash">CASH</option>
+                <option value="Credit Card">CREDIT CARD</option>
+                <option value="UPI / QR">UPI / QR</option>
+                <option value="Pay Later">PAY LATER</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
             <div className="flex bg-gray-100 dark:bg-slate-800/80 p-1 rounded-xl">
               {['ALL', 'PAID', 'UNPAID', 'PARTIAL'].map((status) => (
                 <button

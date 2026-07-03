@@ -66,6 +66,14 @@ export async function getSession() {
     const authHeader = (await headers()).get('Authorization') || (await headers()).get('authorization')
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
+      
+      // Try decrypting as standard session payload first
+      const sessionPayload = await decrypt(token)
+      if (sessionPayload) {
+        return sessionPayload as SessionPayload
+      }
+
+      // Fallback to walkie-talkie token format
       const { verifyWTToken } = await import('./walkie-talkie-auth')
       const wtPayload = await verifyWTToken(token)
       if (wtPayload && wtPayload.userId) {

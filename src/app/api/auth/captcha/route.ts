@@ -60,6 +60,21 @@ export async function GET(request: NextRequest) {
   const encryptedCaptcha = await encrypt(payload);
 
   const url = new URL(request.url);
+  if (url.searchParams.get('json') === 'true') {
+    const origin = request.headers.get('origin') || '*';
+    const response = NextResponse.json({
+      success: true,
+      svg: svg.trim(),
+      token: encryptedCaptcha
+    });
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT,OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Cookie, X-Captcha-Token');
+    response.headers.set('Access-Control-Expose-Headers', 'X-Captcha-Token');
+    return response;
+  }
+
   const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.startsWith('192.168.') || url.hostname.startsWith('10.') || url.hostname.startsWith('172.');
   const isSecure = process.env.NODE_ENV === 'production' && !isLocal;
 
@@ -76,6 +91,8 @@ export async function GET(request: NextRequest) {
     headers: {
       'Content-Type': 'image/svg+xml',
       'Cache-Control': 'no-store, max-age=0',
+      'X-Captcha-Token': encryptedCaptcha,
+      'Access-Control-Expose-Headers': 'X-Captcha-Token',
     },
   });
 }

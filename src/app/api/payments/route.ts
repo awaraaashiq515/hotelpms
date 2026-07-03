@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
           balanceAmount: balanceAfter,
           status: status,
           settlementDate: new Date(),
+          paymentModeId: parsedData.paymentModeId,
         }
       });
 

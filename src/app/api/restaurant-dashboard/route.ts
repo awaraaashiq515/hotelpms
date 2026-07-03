@@ -36,10 +36,16 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Date helpers ────────────────────────────────────────────────────────
+    const now = new Date();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    yearStart.setHours(0, 0, 0, 0);
 
     // ── Run all queries in parallel for speed ───────────────────────────────
     const [
@@ -54,6 +60,8 @@ export async function GET(request: NextRequest) {
       recentSettled,
       allTimeCustomers,
       allTimeRevenue,
+      monthInvoices,
+      yearInvoices,
       // Staff attendance today
       todayAttendanceRaw,
       // All active staff (users + staffMembers) for the property
@@ -206,6 +214,28 @@ export async function GET(request: NextRequest) {
         _sum: { totalAmount: true },
       }),
 
+      // 12. This month's invoices
+      prisma.invoice.aggregate({
+        where: {
+          propertyId,
+          invoiceDate: { gte: monthStart, lte: todayEnd },
+          invoiceStatus: { not: 'CANCELLED' },
+        },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+
+      // 13. This year's invoices
+      prisma.invoice.aggregate({
+        where: {
+          propertyId,
+          invoiceDate: { gte: yearStart, lte: todayEnd },
+          invoiceStatus: { not: 'CANCELLED' },
+        },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+
       // 12. Today's attendance records (both users & staff members)
       prisma.attendance.findMany({
         where: {
@@ -294,7 +324,6 @@ export async function GET(request: NextRequest) {
     );
 
     // ── Table summary ────────────────────────────────────────────────────────
-    const now = new Date();
     const totalTables = allTables.length;
     const occupiedTables = allTables.filter(
       (t: any) => t.status !== 'VACANT'
@@ -441,6 +470,13 @@ export async function GET(request: NextRequest) {
         allTime: {
           totalCustomers: allTimeCustomers._sum.guestCount || 0,
           totalRevenue: allTimeRevenue._sum.totalAmount || 0,
+        },
+        // Period totals
+        period: {
+          monthSales: monthInvoices._sum.totalAmount || 0,
+          monthInvoiceCount: monthInvoices._count.id || 0,
+          yearSales: yearInvoices._sum.totalAmount || 0,
+          yearInvoiceCount: yearInvoices._count.id || 0,
         },
         // Staff
         staff: {

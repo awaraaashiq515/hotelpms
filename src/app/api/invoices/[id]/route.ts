@@ -37,23 +37,51 @@ export async function GET(
       return apiError(new Error('Forbidden'), 403);
     }
 
-    // Fetch Settlements (Payment History)
+    // Fetch Settlements (Payment History), supporting both Invoice and POS Order sources
     const settlements = await prisma.settlement.findMany({
       where: {
-        sourceId: id,
-        sourceType: 'INVOICE'
+        OR: [
+          { sourceId: id, sourceType: 'INVOICE' },
+          { sourceId: invoice.posOrderId || undefined, sourceType: 'POS_ORDER' }
+        ].filter(cond => cond.sourceId !== undefined)
       },
       orderBy: { settlementDate: 'desc' }
     });
 
-    const paidAmount = settlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
+    const paymentModes = await prisma.paymentMode.findMany({
+      where: { propertyId: session.propertyId! }
+    });
+    const modeMap = new Map<string, any>(paymentModes.map((m: any) => [m.id, m]));
+
+    const enhancedSettlements = settlements.map((s: any) => ({
+      ...s,
+      paymentModeName: s.paymentModeId ? (modeMap.get(s.paymentModeId)?.name || null) : null
+    }));
+
+    const paidAmount = enhancedSettlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
     const dueAmount = invoice.totalAmount - paidAmount;
+
+    let paymentMethod = 'Pay Later';
+    if (invoice.paymentStatus === 'PAID' || paidAmount > 0) {
+      const modesUsed = enhancedSettlements
+        .map((s: any) => s.paymentModeName)
+        .filter(Boolean);
+      
+      if (modesUsed.length > 0) {
+        paymentMethod = Array.from(new Set(modesUsed)).join(', ');
+      } else {
+        paymentMethod = invoice.paymentStatus === 'PAID' ? 'Cash' : 'Pay Later';
+      }
+    } else if (invoice.paymentStatus === 'UNPAID' || invoice.paymentStatus === 'PARTIAL') {
+      paymentMethod = 'Pay Later';
+    }
 
     return apiResponse({ 
       ...invoice, 
-      settlements,
+      settlements: enhancedSettlements,
       paidAmount,
-      dueAmount
+      dueAmount,
+      paymentMethod
     });
   } catch (error) {
     return apiError(error);

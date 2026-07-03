@@ -10,16 +10,20 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   captchaText: z.string().optional().nullable(),
+  captchaToken: z.string().optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, captchaText } = loginSchema.parse(body)
+    const { email, password, captchaText, captchaToken } = loginSchema.parse(body)
 
     // 0. Verify Local Captcha
     const cookieStore = await cookies()
-    const captchaCookie = cookieStore.get('captcha')?.value
+    let captchaCookie = cookieStore.get('captcha')?.value
+    if (!captchaCookie) {
+      captchaCookie = captchaToken || request.headers.get('x-captcha-token') || undefined
+    }
 
     if (!captchaCookie) {
       return apiError(new Error('Captcha expired or not found. Please refresh.'), 400)
@@ -31,7 +35,9 @@ export async function POST(request: NextRequest) {
         return apiError(new Error('Invalid captcha code. Please try again.'), 400)
       }
       // Clear the captcha cookie after use
-      cookieStore.delete('captcha')
+      try {
+        cookieStore.delete('captcha')
+      } catch (_) {}
     } catch (err) {
       return apiError(new Error('Captcha verification failed. Please refresh.'), 400)
     }

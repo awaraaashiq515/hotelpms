@@ -12,6 +12,7 @@ const signupSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   businessName: z.string().min(2, 'Business name must be at least 2 characters').optional().nullable(),
   captchaText: z.string().min(1, 'Security code is required'),
+  captchaToken: z.string().optional().nullable(),
   roleName: z.string().optional().default('RESTAURANTS_ADMIN'),
   packageId: z.string().optional().nullable(),
   paymentReference: z.string().optional().nullable(), // UPI/bank transaction ref submitted during signup
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { 
-      fullName, email, password, businessName, captchaText, roleName, packageId, paymentReference, paymentAmount,
+      fullName, email, password, businessName, captchaText, captchaToken, roleName, packageId, paymentReference, paymentAmount,
       branchName, branchCode, branchCity, branchAddress, branchPhone,
       posFullName, posEmail, posPassword,
       phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius, gstNumber, category, address,
@@ -56,7 +57,10 @@ export async function POST(request: NextRequest) {
 
     // 1. Verify Security Captcha
     const cookieStore = await cookies()
-    const captchaCookie = cookieStore.get('captcha')?.value
+    let captchaCookie = cookieStore.get('captcha')?.value
+    if (!captchaCookie) {
+      captchaCookie = captchaToken || request.headers.get('x-captcha-token') || undefined
+    }
 
     if (!captchaCookie) {
       return apiError(new Error('Security code expired or not found. Please refresh.'), 400)
@@ -68,7 +72,9 @@ export async function POST(request: NextRequest) {
         return apiError(new Error('Invalid security code. Please try again.'), 400)
       }
       // Delete the captcha cookie after successful validation
-      cookieStore.delete('captcha')
+      try {
+        cookieStore.delete('captcha')
+      } catch (_) {}
     } catch (err) {
       return apiError(new Error('Security code verification failed. Please refresh.'), 400)
     }

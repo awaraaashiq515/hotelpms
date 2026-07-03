@@ -11,8 +11,22 @@ const key = new TextEncoder().encode(secretKey)
  * and role/permission-based access control.
  */
 export async function middleware(request: NextRequest) {
-  const sessionCookie = request.cookies.get('session')?.value
   const { pathname } = request.nextUrl
+  const origin = request.headers.get('origin') || '*'
+
+  // Handle preflight OPTIONS request
+  if (pathname.startsWith('/api/')) {
+    if (request.method === 'OPTIONS') {
+      const response = new NextResponse(null, { status: 204 })
+      response.headers.set('Access-Control-Allow-Credentials', 'true')
+      response.headers.set('Access-Control-Allow-Origin', origin)
+      response.headers.set('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT,OPTIONS')
+      response.headers.set('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Cookie')
+      return response
+    }
+  }
+
+  const sessionCookie = request.cookies.get('session')?.value
 
   const userAgent = request.headers.get('user-agent') || ''
   const isCapacitor = userAgent.includes('Capacitor')
@@ -118,7 +132,8 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (isDashboardRoute && !hasPropertyCode && payload.propertyCode) {
+    // Skip redirect for /b2b/* — these are standalone supplier portal routes (no propertyCode needed)
+    if (isDashboardRoute && !hasPropertyCode && payload.propertyCode && !pathname.startsWith('/b2b/')) {
       const urlKey = payload.propertySlug || payload.propertyCode
       return NextResponse.redirect(new URL(`/${urlKey}${pathname}`, request.url))
     }
@@ -128,7 +143,7 @@ export async function middleware(request: NextRequest) {
 
     if (role !== 'SUPER_ADMIN') {
       if (status === 'PENDING_PAYMENT' || status === 'PENDING_APPROVAL') {
-        if (pathname !== '/payment-pending') {
+        if (pathname !== '/payment-pending' && !pathname.startsWith('/api/')) {
           return NextResponse.redirect(new URL('/payment-pending', request.url))
         }
       } else {
@@ -179,6 +194,14 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
       }
       return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
+    }
+
+    // ── B2B Supplier: always redirect to their propertyCode-prefixed route ──
+    if (role === 'B2B_SUPPLIER') {
+      const urlKey = payload.propertySlug || payload.propertyCode
+      if (urlKey && !hasPropertyCode && isDashboardRoute) {
+        return NextResponse.redirect(new URL(`/${urlKey}${pathname}`, request.url))
+      }
     }
 
     // ── Dynamic /dashboard → /restaurantadmin/[slug] redirect ──
@@ -357,6 +380,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (pathname.startsWith('/api/')) {
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+    response.headers.set('Access-Control-Allow-Origin', origin)
+    response.headers.set('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT,OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Cookie')
+  }
+
   return response
 }
 
@@ -366,13 +396,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - downloads (application downloads)
      * - icon-192.png, icon-512.png, manifest.json, etc.
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|downloads|manifest.json|icon-.*\\.png|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|exe|dmg|zip)).*)',
+    '/((?!_next/static|_next/image|downloads|manifest.json|icon-.*\\.png|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|exe|dmg|zip)).*)',
   ],
 }

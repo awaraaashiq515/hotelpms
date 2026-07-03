@@ -1127,9 +1127,9 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     socketRef.current?.disconnect()
     setSocketStatus('connecting')
     const socketUrl = typeof window !== 'undefined'
-      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-          ? `${window.location.protocol}//${window.location.hostname}:5002`
-          : `${window.location.protocol}//${window.location.hostname}`)
+      ? (window.location.hostname.includes('ordermint.in')
+          ? `${window.location.protocol}//${window.location.hostname}`
+          : `${window.location.protocol}//${window.location.hostname}:5002`)
       : 'http://localhost:5002'
     const socket = io(socketUrl, { auth: { token: wtTokenRef.current } })
     socketRef.current = socket

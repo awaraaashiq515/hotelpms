@@ -11,10 +11,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
     const floorId = searchParams.get('floorId');
+    const showAll = searchParams.get('showAll') === 'true'; // bypass assignment filter for Take Order
 
     const isWaiter = session.role?.toLowerCase() === 'staff';
     let assignedTableIds: string[] | null = null;
-    if (isWaiter) {
+    if (isWaiter && !showAll) {
       const assignments = await prisma.tableAssignment.findMany({
         where: { userId: session.id },
         select: { tableId: true }
@@ -80,10 +81,17 @@ export async function GET(request: NextRequest) {
         activeOrder: {
           id: activeOrder.id,
           orderNo: activeOrder.orderNo,
+          orderType: activeOrder.orderType,
+          guestCount: activeOrder.guestCount,
+          subtotal: activeOrder.subtotal,
+          taxAmount: activeOrder.taxAmount,
+          discountAmount: activeOrder.discountAmount,
+          grandTotal: activeOrder.grandTotal,
           amount: activeOrder.grandTotal,
           itemCount: totalQuantity,
           kotCount,
           elapsedTime,
+          createdAt: activeOrder.createdAt,
           staffMemberId: activeOrder.staffMemberId,
           staffMember: activeOrder.staffMember,
           kotTickets: activeOrder.kotTickets,

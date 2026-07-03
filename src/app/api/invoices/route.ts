@@ -127,18 +127,54 @@ export async function GET(request: NextRequest) {
       take: 100
     })
 
-    // Enhance with Paid/Due amounts from Settlements
-    const enhancedInvoices = await Promise.all(invoices.map(async (inv: any) => {
-      const settlements = await prisma.settlement.findMany({
-        where: { sourceId: inv.id, sourceType: 'INVOICE' }
-      });
-      const paidAmount = settlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
+    // Fetch payment modes to map IDs to names
+    const paymentModes = await prisma.paymentMode.findMany({
+      where: { propertyId: session.propertyId! }
+    });
+    const modeMap = new Map<string, any>(paymentModes.map((m: any) => [m.id, m]));
+
+    const invoiceIds = invoices.map((i: any) => i.id);
+    const posOrderIds = invoices.map((i: any) => i.posOrderId).filter(Boolean) as string[];
+
+    const settlements = await prisma.settlement.findMany({
+      where: {
+        OR: [
+          { sourceId: { in: invoiceIds }, sourceType: 'INVOICE' },
+          { sourceId: { in: posOrderIds }, sourceType: 'POS_ORDER' }
+        ]
+      }
+    });
+
+    // Enhance with Paid/Due amounts and Payment Method from Settlements
+    const enhancedInvoices = invoices.map((inv: any) => {
+      const invSettlements = settlements.filter((s: any) => 
+        (s.sourceId === inv.id && s.sourceType === 'INVOICE') ||
+        (inv.posOrderId && s.sourceId === inv.posOrderId && s.sourceType === 'POS_ORDER')
+      );
+      const paidAmount = invSettlements.reduce((sum: any, s: any) => sum + s.paidAmount, 0);
+      
+      let paymentMethod = 'Pay Later';
+      if (inv.paymentStatus === 'PAID' || paidAmount > 0) {
+        const modesUsed = invSettlements
+          .map((s: any) => s.paymentModeId ? modeMap.get(s.paymentModeId)?.name : null)
+          .filter(Boolean);
+        
+        if (modesUsed.length > 0) {
+          paymentMethod = Array.from(new Set(modesUsed)).join(', ');
+        } else {
+          paymentMethod = inv.paymentStatus === 'PAID' ? 'Cash' : 'Pay Later';
+        }
+      } else if (inv.paymentStatus === 'UNPAID' || inv.paymentStatus === 'PARTIAL') {
+        paymentMethod = 'Pay Later';
+      }
+
       return {
         ...inv,
         paidAmount,
-        dueAmount: inv.totalAmount - paidAmount
+        dueAmount: inv.totalAmount - paidAmount,
+        paymentMethod
       };
-    }));
+    });
 
     return apiResponse(enhancedInvoices, 'Invoices fetched successfully')
   } catch (error) {

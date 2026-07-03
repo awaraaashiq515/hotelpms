@@ -96,6 +96,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
             <div class="total-row"><span>INV NO:</span> <span>${invoice.invoiceNo}</span></div>
             <div class="total-row"><span>DATE:</span> <span>${new Date(invoice.invoiceDate).toLocaleDateString()}</span></div>
             <div class="total-row"><span>TIME:</span> <span>${new Date(invoice.invoiceDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+            <div class="total-row"><span>PAY METHOD:</span> <span>${(invoice as any).paymentMethod || 'CASH'}</span></div>
             <div class="total-row"><span>GUEST:</span> <span style="font-size: 14px;">${invoice.guest ? `${invoice.guest.firstName} ${invoice.guest.lastName || ''}` : 'WALK-IN'}</span></div>
             ${invoice.guest?.mobile ? `<div class="total-row"><span>MOB:</span> <span>${invoice.guest.mobile}</span></div>` : ''}
           </div>
@@ -198,7 +199,7 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
       </div>
 
       {/* Addresses */}
-      <div className="grid grid-cols-2 gap-8 border-y border-gray-100 dark:border-slate-800 py-5">
+      <div className="grid grid-cols-3 gap-8 border-y border-gray-100 dark:border-slate-800 py-5">
         <div className="space-y-3">
           <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">Customer</p>
           <div className="space-y-1">
@@ -211,6 +212,20 @@ export function InvoiceDetailModal({ invoiceId, onClose }: InvoiceDetailModalPro
           <div className="space-y-1">
             <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tighter">{invoice.invoiceStatus}</p>
             <p className="text-xs text-gray-400 dark:text-slate-500 font-bold">Managed at Front Desk</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">Payment Method</p>
+          <div className="space-y-1">
+            <p className={`text-sm font-black uppercase tracking-tighter ${
+              (invoice as any).paymentMethod === 'Credit Card' ? 'text-blue-600 dark:text-blue-400' :
+              (invoice as any).paymentMethod === 'UPI / QR' ? 'text-purple-600 dark:text-purple-400' :
+              (invoice as any).paymentMethod === 'Pay Later' ? 'text-amber-600 dark:text-amber-400' :
+              'text-emerald-600 dark:text-emerald-400'
+            }`}>
+              {(invoice as any).paymentMethod || 'Cash'}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 font-bold">Settle Method</p>
           </div>
         </div>
       </div>

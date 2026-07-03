@@ -53,6 +53,7 @@ export interface Invoice {
   settlements?: Settlement[];
   paidAmount?: number;
   dueAmount?: number;
+  paymentMethod?: string;
   cancelReason?: string;
   tableNo?: string;
   orderType?: string;

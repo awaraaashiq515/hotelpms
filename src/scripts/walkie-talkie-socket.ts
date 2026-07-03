@@ -11,13 +11,40 @@ import { verifyWTToken } from '../lib/walkie-talkie-auth'
 
 const PORT = parseInt(process.env.PORT || '5002', 10)
 
-const httpServer = createServer()
+const httpServer = createServer((req, res) => {
+  // Support local Next.js REST API route broadcasts
+  if (req.method === 'POST' && req.url === '/api/broadcast-notification') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const { propertyId, event, payload } = data;
+        if (propertyId && event) {
+          io.to(`prop_${propertyId}`).emit(event, payload);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+          return;
+        }
+      } catch (e) {
+        console.error('[Socket HTTP Broadcast Error]', e);
+      }
+      res.writeHead(400);
+      res.end('Bad Request');
+    });
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
+})
+
 const io = new Server(httpServer, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
   }
 })
+
 
 // Authentication Middleware for Socket.IO
 io.use(async (socket, next) => {

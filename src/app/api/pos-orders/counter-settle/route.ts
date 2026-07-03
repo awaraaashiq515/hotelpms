@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
           balanceAmount: 0,
           status: 'COMPLETED',
           settlementDate: new Date(),
+          paymentModeId: payMode?.id || null,
         },
       });
 
