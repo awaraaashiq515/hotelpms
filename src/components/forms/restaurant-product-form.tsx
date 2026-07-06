@@ -54,9 +54,9 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
     description: (initialData as any)?.description || '',
     categoryId: initialData?.categoryId || '',
     productType: initialData?.productType || 'REVENUE',
-    costPrice: initialData?.costPrice || 0,
-    sellingPrice: initialData?.sellingPrice || 0,
-    halfPrice: (initialData as any)?.halfPrice || '',
+    costPrice: initialData?.costPrice !== undefined ? String(initialData.costPrice) : '',
+    sellingPrice: initialData?.sellingPrice !== undefined ? String(initialData.sellingPrice) : '',
+    halfPrice: (initialData as any)?.halfPrice !== undefined && (initialData as any)?.halfPrice !== null ? String((initialData as any).halfPrice) : '',
     sku: initialData?.sku || '',
     barcode: initialData?.barcode || '',
     hsnCode: initialData?.hsnCode || '',
@@ -85,7 +85,13 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const validated = restaurantProductSchema.parse(formData);
+      const dataToValidate = {
+        ...formData,
+        costPrice: parseFloat(formData.costPrice) || 0,
+        sellingPrice: parseFloat(formData.sellingPrice) || 0,
+        halfPrice: formData.halfPrice === '' ? null : (parseFloat(formData.halfPrice) || 0),
+      };
+      const validated = restaurantProductSchema.parse(dataToValidate);
       await onSubmit(validated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -284,7 +290,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</div>
               <input
                 type="number" step="0.01" value={formData.sellingPrice}
-                onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
                 className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
@@ -295,7 +301,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</div>
               <input
                 type="number" step="0.01" value={formData.halfPrice}
-                onChange={(e) => setFormData({ ...formData, halfPrice: e.target.value ? parseFloat(e.target.value) : '' })}
+                onChange={(e) => setFormData({ ...formData, halfPrice: e.target.value })}
                 className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
@@ -306,7 +312,7 @@ export const RestaurantProductForm: React.FC<RestaurantProductFormProps> = ({
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</div>
               <input
                 type="number" step="0.01" value={formData.costPrice}
-                onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
                 className="w-full pl-8 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>

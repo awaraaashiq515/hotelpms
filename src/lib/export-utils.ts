@@ -28,6 +28,16 @@ export function exportToExcel(
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
+function sanitizePDFString(str: string | number): string {
+  if (str === null || str === undefined) return '';
+  const s = String(str);
+  return s
+    .replace(/₹/g, 'Rs.')
+    .replace(/→/g, 'to')
+    .replace(/➔/g, 'to')
+    .replace(/—/g, '-');
+}
+
 /**
  * Export a table as a PDF file.
  * @param columns   Column header labels array
@@ -45,6 +55,12 @@ export function exportToPDF(
 ) {
   const doc = new jsPDF({ orientation: 'landscape' });
 
+  // Sanitize all inputs to prevent character encoding issues (like ₹ showing as ' or !)
+  const cleanTitle = sanitizePDFString(title);
+  const cleanSubtitle = subtitle ? sanitizePDFString(subtitle) : undefined;
+  const cleanColumns = columns.map(c => sanitizePDFString(c));
+  const cleanRows = rows.map(r => r.map(cell => sanitizePDFString(cell)));
+
   // Header bar
   doc.setFillColor(...POS_RED);
   doc.rect(0, 0, doc.internal.pageSize.getWidth(), 18, 'F');
@@ -57,13 +73,13 @@ export function exportToPDF(
   doc.setTextColor(...POS_DARK);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, 14, 30);
+  doc.text(cleanTitle, 14, 30);
 
-  if (subtitle) {
+  if (cleanSubtitle) {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(subtitle, 14, 37);
+    doc.text(cleanSubtitle, 14, 37);
   }
 
   const generatedAt = `Generated: ${new Date().toLocaleString('en-IN')}`;
@@ -72,9 +88,9 @@ export function exportToPDF(
   doc.text(generatedAt, doc.internal.pageSize.getWidth() - 14, 12, { align: 'right' });
 
   autoTable(doc, {
-    startY: subtitle ? 44 : 38,
-    head: [columns],
-    body: rows,
+    startY: cleanSubtitle ? 44 : 38,
+    head: [cleanColumns],
+    body: cleanRows,
     theme: 'grid',
     headStyles: {
       fillColor: POS_RED,

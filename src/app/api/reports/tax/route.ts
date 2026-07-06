@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         propertyId: session.propertyId!,
         paymentStatus: 'PAID',
         invoiceDate: { gte: start, lte: end },
+        posOrderId: null, // Exclude invoices linked to POS orders to avoid double counting
       },
       select: {
         invoiceNo: true,

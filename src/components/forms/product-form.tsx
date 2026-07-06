@@ -59,13 +59,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     description: (initialData as any)?.description || '',
     categoryId: initialData?.categoryId || '',
     productType: initialData?.productType || 'REVENUE',
-    costPrice: initialData?.costPrice || 0,
-    sellingPrice: initialData?.sellingPrice || 0,
-    halfPrice: (initialData as any)?.halfPrice || '',
+    costPrice: initialData?.costPrice !== undefined ? String(initialData.costPrice) : '',
+    sellingPrice: initialData?.sellingPrice !== undefined ? String(initialData.sellingPrice) : '',
+    halfPrice: (initialData as any)?.halfPrice !== undefined && (initialData as any)?.halfPrice !== null ? String((initialData as any).halfPrice) : '',
     sku: initialData?.sku || '',
     barcode: initialData?.barcode || '',
     hsnCode: initialData?.hsnCode || '',
-    taxRate: initialData?.taxRate ?? null,
+    taxRate: initialData?.taxRate !== undefined && initialData?.taxRate !== null ? String(initialData.taxRate) : '',
     taxType: initialData?.taxType || 'EXCLUSIVE',
     image: initialData?.image || '',
     trackInventory: initialData?.trackInventory ?? false,
@@ -103,8 +103,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   // Sync selling price with peg price for bar items if selling price is 0
   useEffect(() => {
-    if (formData.menuType === 'BAR' && formData.pegPrice && formData.sellingPrice === 0) {
-      setFormData(prev => ({ ...prev, sellingPrice: prev.pegPrice || 0 }));
+    if (formData.menuType === 'BAR' && formData.pegPrice && (parseFloat(formData.sellingPrice) || 0) === 0) {
+      setFormData(prev => ({ ...prev, sellingPrice: String(prev.pegPrice || 0) }));
     }
   }, [formData.pegPrice, formData.menuType]);
 
@@ -113,7 +113,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     setErrors({});
     
     try {
-      const validated = productSchema.parse(formData);
+      const dataToValidate = {
+        ...formData,
+        costPrice: parseFloat(formData.costPrice) || 0,
+        sellingPrice: parseFloat(formData.sellingPrice) || 0,
+        halfPrice: formData.halfPrice === '' ? null : (parseFloat(formData.halfPrice) || 0),
+        taxRate: formData.taxRate === '' ? null : (parseFloat(formData.taxRate) || 0),
+      };
+      const validated = productSchema.parse(dataToValidate);
       await onSubmit(validated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -371,7 +378,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <input
               type="number" step="0.01"
               value={formData.sellingPrice}
-              onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
               className={`w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border ${errors.sellingPrice ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all`}
             />
           </div>
@@ -383,7 +390,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <input
               type="number" step="0.01" placeholder="Auto 50%"
               value={formData.halfPrice}
-              onChange={(e) => setFormData({ ...formData, halfPrice: e.target.value ? parseFloat(e.target.value) : '' })}
+              onChange={(e) => setFormData({ ...formData, halfPrice: e.target.value })}
               className="w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all"
             />
           </div>
@@ -395,7 +402,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <input
               type="number" step="0.01"
               value={formData.costPrice}
-              onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
               className="w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all"
             />
           </div>
@@ -450,8 +457,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><DollarSign size={14} /></div>
             <input
               type="number" step="0.01" placeholder="e.g. 5"
-              value={formData.taxRate !== null && formData.taxRate !== undefined ? formData.taxRate : ''}
-              onChange={(e) => setFormData({ ...formData, taxRate: e.target.value ? parseFloat(e.target.value) : null })}
+              value={formData.taxRate}
+              onChange={(e) => setFormData({ ...formData, taxRate: e.target.value })}
               className={`w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border ${errors.taxRate ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 transition-all`}
             />
           </div>

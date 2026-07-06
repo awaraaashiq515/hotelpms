@@ -6,7 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import { Button } from './Button';
 
 interface PageHeaderProps {
-  title: string;
+  title: React.ReactNode;
   description?: string;
   showBack?: boolean;
   backUrl?: string;

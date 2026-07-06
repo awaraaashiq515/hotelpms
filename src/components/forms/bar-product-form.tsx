@@ -54,12 +54,12 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
     description: (initialData as any)?.description || '',
     categoryId: initialData?.categoryId || '',
     productType: initialData?.productType || 'REVENUE',
-    costPrice: initialData?.costPrice || 0,
+    costPrice: initialData?.costPrice !== undefined ? String(initialData.costPrice) : '',
     sellingPrice: initialData?.sellingPrice || 0,
     sku: initialData?.sku || '',
     barcode: initialData?.barcode || '',
     hsnCode: initialData?.hsnCode || '',
-    taxRate: initialData?.taxRate ?? null,
+    taxRate: initialData?.taxRate !== undefined && initialData?.taxRate !== null ? String(initialData.taxRate) : '',
     taxType: initialData?.taxType || 'EXCLUSIVE',
     image: initialData?.image || '',
     trackInventory: initialData?.trackInventory ?? false,
@@ -67,9 +67,9 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
     mealTimes: initialData?.mealTimes ?? '',
     menuType: 'BAR' as const,
     bottleSize: (initialData as any)?.bottleSize ?? 750,
-    bottlePrice: (initialData as any)?.bottlePrice ?? 0,
+    bottlePrice: (initialData as any)?.bottlePrice !== undefined && (initialData as any)?.bottlePrice !== null ? String((initialData as any).bottlePrice) : '',
     stockItemId: (initialData as any)?.stockItemId || '',
-    variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: v.price })) || [{ name: '30ml', price: 0 }] as { name: string, price: number }[],
+    variants: (initialData as any)?.variants?.map((v: any) => ({ name: v.name, price: String(v.price) })) || [{ name: '30ml', price: '' }] as { name: string, price: string }[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -91,9 +91,16 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
     e.preventDefault();
     try {
       // Set sellingPrice to the first variant price if available
-      const finalFormData = { ...formData };
-      if (formData.variants.length > 0) {
-        finalFormData.sellingPrice = formData.variants[0].price;
+      const parsedVariants = formData.variants.map((v: any) => ({ name: v.name, price: parseFloat(v.price) || 0 }));
+      const finalFormData = { 
+        ...formData, 
+        costPrice: parseFloat(formData.costPrice) || 0,
+        taxRate: formData.taxRate === '' ? null : (parseFloat(formData.taxRate) || 0),
+        bottlePrice: formData.bottlePrice === '' ? null : (parseFloat(formData.bottlePrice) || 0),
+        variants: parsedVariants,
+      };
+      if (parsedVariants.length > 0) {
+        finalFormData.sellingPrice = parsedVariants[0].price;
       }
       
       const validated = barProductSchema.parse(finalFormData);
@@ -125,7 +132,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
   const addVariant = () => {
     setFormData({
       ...formData,
-      variants: [...formData.variants, { name: '', price: 0 }]
+      variants: [...formData.variants, { name: '', price: '' }]
     });
   };
 
@@ -185,7 +192,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</div>
                   <input
                     type="number" step="0.01" value={formData.costPrice}
-                    onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
                     className="w-full pl-7 pr-3 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-2xl text-sm font-bold dark:text-white shadow-sm"
                   />
                 </div>
@@ -257,7 +264,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">Tax Rate (%)</label>
-                    <input type="number" step="0.1" value={formData.taxRate ?? ''} onChange={(e) => setFormData({...formData, taxRate: e.target.value ? parseFloat(e.target.value) : null})} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white" />
+                    <input type="number" step="0.1" value={formData.taxRate} onChange={(e) => setFormData({...formData, taxRate: e.target.value})} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">Tax Type</label>
@@ -308,8 +315,8 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/50 font-bold text-[10px]">₹</div>
                         <input
                           type="number" placeholder="Price"
-                          value={variant.price || ''}
-                          onChange={(e) => updateVariant(index, 'price', parseFloat(e.target.value) || 0)}
+                          value={variant.price}
+                          onChange={(e) => updateVariant(index, 'price', e.target.value)}
                           className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-black dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none text-right"
                         />
                      </div>
@@ -336,7 +343,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-amber-800/60 uppercase ml-1">Bottle Size (ml)</label>
                       <div className="relative">
-                        <input type="number" value={formData.bottleSize || ''} onChange={(e) => setFormData({...formData, bottleSize: Number(e.target.value)})} className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none" />
+                        <input type="number" value={formData.bottleSize || ''} onChange={(e) => setFormData({...formData, bottleSize: e.target.value ? parseInt(e.target.value) || 0 : 0})} className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-amber-600/40">ML</span>
                       </div>
                     </div>
@@ -344,7 +351,7 @@ export const BarProductForm: React.FC<BarProductFormProps> = ({
                       <label className="text-[9px] font-black text-amber-800/60 uppercase ml-1">Bottle Selling Price</label>
                       <div className="relative">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/50 font-bold text-[10px]">₹</div>
-                        <input type="number" value={formData.bottlePrice || ''} onChange={(e) => setFormData({...formData, bottlePrice: Number(e.target.value)})} className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none text-right" />
+                        <input type="number" value={formData.bottlePrice} onChange={(e) => setFormData({...formData, bottlePrice: e.target.value})} className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-xs font-bold dark:text-white focus:ring-2 focus:ring-amber-400/20 outline-none text-right" />
                       </div>
                     </div>
                   </div>

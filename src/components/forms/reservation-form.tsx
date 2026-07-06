@@ -95,7 +95,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
             placeholder="John Doe"
             value={formData.customerName}
             onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 border ${errors.customerName ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.customerName ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all shadow-sm`}
           />
           {errors.customerName && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.customerName}</p>}
         </div>
@@ -108,7 +108,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
             placeholder="9876543210"
             value={formData.customerPhone}
             onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-            className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all shadow-sm"
           />
         </div>
       </div>
@@ -122,7 +122,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 border ${errors.date ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.date ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all shadow-sm`}
           />
         </div>
         <div className="space-y-2">
@@ -133,7 +133,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
             type="time"
             value={formData.time}
             onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-            className={`w-full px-4 py-3 bg-gray-50 border ${errors.time ? 'border-red-400' : 'border-transparent'} rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all`}
+            className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border ${errors.time ? 'border-red-400' : 'border-transparent dark:border-slate-700'} rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all shadow-sm`}
           />
         </div>
       </div>
@@ -149,7 +149,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
                min="1"
                value={formData.numberOfTables}
                onChange={(e) => setFormData({ ...formData, numberOfTables: parseInt(e.target.value) || 1 })}
-               className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+               className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all shadow-sm"
                placeholder="Qty"
              />
            </div>
@@ -162,7 +162,7 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
                min="1"
                value={formData.guestCount}
                onChange={(e) => setFormData({ ...formData, guestCount: parseInt(e.target.value) || 1 })}
-               className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all"
+               className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all shadow-sm"
                placeholder="Pax"
              />
            </div>
@@ -174,12 +174,12 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
           <select
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-            className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all appearance-none"
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all appearance-none shadow-sm"
           >
-            <option value="PENDING">PENDING</option>
-            <option value="CONFIRMED">CONFIRMED</option>
-            <option value="COMPLETED">COMPLETED</option>
-            <option value="CANCELLED">CANCELLED</option>
+            <option value="PENDING" className="dark:bg-slate-800">PENDING</option>
+            <option value="CONFIRMED" className="dark:bg-slate-800">CONFIRMED</option>
+            <option value="COMPLETED" className="dark:bg-slate-800">COMPLETED</option>
+            <option value="CANCELLED" className="dark:bg-slate-800">CANCELLED</option>
           </select>
         </div>
       </div>
@@ -191,11 +191,11 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
         <select
           value={formData.tableId}
           onChange={(e) => setFormData({ ...formData, tableId: e.target.value })}
-          className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all appearance-none"
+          className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all appearance-none shadow-sm"
         >
-          <option value="">Any Table / Unassigned</option>
+          <option value="" className="dark:bg-slate-800">Any Table / Unassigned</option>
           {tables.map(t => (
-            <option key={t.id} value={t.id}>{t.name} ({t.floorName})</option>
+            <option key={t.id} value={t.id} className="dark:bg-slate-800">{t.name} ({t.floorName})</option>
           ))}
         </select>
       </div>
@@ -207,11 +207,11 @@ export const ReservationForm: React.FC<ReservationFormProps> = ({
         <select
           value={formData.driverId}
           onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
-          className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:bg-white focus:border-pos-primary/20 transition-all appearance-none"
+          className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-pos-primary/20 transition-all appearance-none shadow-sm"
         >
-          <option value="">No Driver Reference</option>
+          <option value="" className="dark:bg-slate-800">No Driver Reference</option>
           {drivers.map((d: any) => (
-            <option key={d.id} value={d.id}>{d.name} ({d.vehicleNumber || 'N/A'})</option>
+            <option key={d.id} value={d.id} className="dark:bg-slate-800">{d.name} ({d.vehicleNumber || 'N/A'})</option>
           ))}
         </select>
       </div>

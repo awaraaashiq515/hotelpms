@@ -17,11 +17,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { month, year, returnType = 'GSTR-1', saveDraft = false } = body;
-
-    if (!month || !year) {
-      return apiError(new Error('Month and Year are required'), 400);
-    }
+    const { month, year, date, returnType = 'GSTR-1', saveDraft = false } = body;
 
     const propertyId = await resolveAdminProperty(session, prisma);
     if (!propertyId) return apiError(new Error('No property found'), 404);
@@ -34,16 +30,29 @@ export async function POST(request: NextRequest) {
 
     if (!property) return apiError(new Error('Property not found'), 404);
 
-
     const gstin = property.organization?.gstNumber || '';
     const stateCode = property.stateCode || '27'; // default Maharashtra
-    const filingPeriod = `${month.toString().padStart(2, '0')}${year}`; // "032026"
 
-    // ── 2. Date range for the period ─────────────────────────────────────────
-    const startDate = new Date(`${year}-${month.toString().padStart(2, '0')}-01T00:00:00`);
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + 1);
-    endDate.setMilliseconds(-1);
+    let startDate: Date;
+    let endDate: Date;
+    let filingPeriod: string;
+
+    if (date) {
+      // Daily period selection
+      startDate = new Date(`${date}T00:00:00`);
+      endDate = new Date(`${date}T23:59:59.999`);
+      filingPeriod = `D${date.split('-').reverse().join('')}`; // e.g. "D06072026"
+    } else {
+      // Monthly period selection
+      if (!month || !year) {
+        return apiError(new Error('Month and Year are required'), 400);
+      }
+      startDate = new Date(`${year}-${month.toString().padStart(2, '0')}-01T00:00:00`);
+      endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + 1);
+      endDate.setMilliseconds(-1);
+      filingPeriod = `${month.toString().padStart(2, '0')}${year}`; // e.g. "072026"
+    }
 
     // ── 3. Fetch all completed/settled POS orders with items ─────────────────
     const orders = await prisma.posOrder.findMany({
@@ -69,7 +78,34 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: 'asc' }
     });
 
-    if (orders.length === 0) {
+    // ── 3.5 Fetch all settled Invoices (from PMS/Room Service / PM) ───────────
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        propertyId: propertyId,
+        paymentStatus: 'PAID',
+        invoiceDate: { gte: startDate, lte: endDate },
+        posOrderId: null, // Exclude invoices linked to POS orders to avoid double counting
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                hsnCode: true,
+                name: true,
+                taxRate: true,
+                unit: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: { invoiceDate: 'asc' }
+    });
+
+    const totalInvoiceCount = orders.length + invoices.length;
+
+    if (totalInvoiceCount === 0) {
       return apiResponse({
         json: null,
         summary: {
@@ -79,8 +115,11 @@ export async function POST(request: NextRequest) {
           totalSGST: 0,
           totalIGST: 0,
           totalGrandTotal: 0,
+          period: filingPeriod,
+          gstin,
         },
-        message: 'No completed orders found for this period.',
+        detailedInvoices: [],
+        message: 'No completed POS orders or PMS invoices found for this period.',
       }, 'No orders found');
     }
 
@@ -105,31 +144,26 @@ export async function POST(request: NextRequest) {
 
     const detailedInvoices: any[] = [];
 
+    // Loop through POS Orders
     orders.forEach((order: any, idx: any) => {
-      if (idx === 0) firstOrderNo = order.orderNo;
-      lastOrderNo = order.orderNo;
+      if (idx === 0 && !firstOrderNo) firstOrderNo = order.orderNo;
+      if (order.orderNo) lastOrderNo = order.orderNo;
 
       let orderTaxable = 0;
       let orderCgst = 0;
       let orderSgst = 0;
 
-      // For each item in the order
       order.items.forEach((item: any) => {
-        // Get the effective tax rate
         const taxRate = item.product?.taxRate ?? 0;
         const hsnCode = item.product?.hsnCode || '996331'; // default restaurant SAC
         const itemName = item.product?.name || 'Service';
         const unit = item.product?.unit || 'OTH';
 
-        // Calculate amounts from the item
         const totalAmt = item.totalAmount;
         const taxAmt = item.taxAmount || 0;
-        // taxable = total - tax
-        // For CGST+SGST (intra-state): tax split 50/50
         const taxable = round2(totalAmt - taxAmt);
         const cgst = round2(taxAmt / 2);
         const sgst = round2(taxAmt / 2);
-        const igst = 0; // Restaurant is always intra-state
 
         totalTaxable += taxable;
         totalCgst += cgst;
@@ -140,7 +174,7 @@ export async function POST(request: NextRequest) {
         orderCgst += cgst;
         orderSgst += sgst;
 
-        // ── B2CS aggregation ────────────────────────────────────────────────
+        // B2CS
         const b2csKey = `${taxRate}|${stateCode}`;
         if (!b2csMap[b2csKey]) {
           b2csMap[b2csKey] = { rt: taxRate, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 };
@@ -149,7 +183,7 @@ export async function POST(request: NextRequest) {
         b2csMap[b2csKey].camt = round2(b2csMap[b2csKey].camt + cgst);
         b2csMap[b2csKey].samt = round2(b2csMap[b2csKey].samt + sgst);
 
-        // ── HSN aggregation ─────────────────────────────────────────────────
+        // HSN
         const hsnKey = `${hsnCode}|${taxRate}`;
         if (!hsnMap[hsnKey]) {
           hsnMap[hsnKey] = {
@@ -175,6 +209,74 @@ export async function POST(request: NextRequest) {
         sgst: round2(orderSgst),
         total: order.grandTotal,
         status: order.status
+      });
+    });
+
+    // Loop through PMS Room Invoices
+    invoices.forEach((inv: any) => {
+      if (!firstOrderNo) firstOrderNo = inv.invoiceNo;
+      if (inv.invoiceNo) lastOrderNo = inv.invoiceNo;
+
+      let invTaxable = 0;
+      let invCgst = 0;
+      let invSgst = 0;
+
+      inv.items.forEach((item: any) => {
+        const taxRate = item.taxRate ?? item.product?.taxRate ?? 0;
+        const hsnCode = item.product?.hsnCode || (item.productName?.toLowerCase().includes('room') ? '996311' : '996331');
+        const itemName = item.productName || item.product?.name || 'Service';
+        const unit = item.product?.unit || 'OTH';
+
+        const totalAmt = item.totalAmount;
+        const taxAmt = item.taxAmount || 0;
+        const taxable = round2(totalAmt - taxAmt);
+        const cgst = round2(taxAmt / 2);
+        const sgst = round2(taxAmt / 2);
+
+        totalTaxable += taxable;
+        totalCgst += cgst;
+        totalSgst += sgst;
+        totalGrand += totalAmt;
+        
+        invTaxable += taxable;
+        invCgst += cgst;
+        invSgst += sgst;
+
+        // B2CS
+        const b2csKey = `${taxRate}|${stateCode}`;
+        if (!b2csMap[b2csKey]) {
+          b2csMap[b2csKey] = { rt: taxRate, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 };
+        }
+        b2csMap[b2csKey].txval = round2(b2csMap[b2csKey].txval + taxable);
+        b2csMap[b2csKey].camt = round2(b2csMap[b2csKey].camt + cgst);
+        b2csMap[b2csKey].samt = round2(b2csMap[b2csKey].samt + sgst);
+
+        // HSN
+        const hsnKey = `${hsnCode}|${taxRate}`;
+        if (!hsnMap[hsnKey]) {
+          hsnMap[hsnKey] = {
+            hsn_sc: hsnCode,
+            desc: itemName.substring(0, 30),
+            uqc: unit === 'NOS' ? 'NOS' : 'OTH',
+            cnt: 0,
+            txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0,
+            rt: taxRate
+          };
+        }
+        hsnMap[hsnKey].cnt += item.quantity;
+        hsnMap[hsnKey].txval = round2(hsnMap[hsnKey].txval + taxable);
+        hsnMap[hsnKey].camt = round2(hsnMap[hsnKey].camt + cgst);
+        hsnMap[hsnKey].samt = round2(hsnMap[hsnKey].samt + sgst);
+      });
+
+      detailedInvoices.push({
+        orderNo: inv.invoiceNo,
+        date: inv.invoiceDate,
+        taxable: round2(invTaxable),
+        cgst: round2(invCgst),
+        sgst: round2(invSgst),
+        total: inv.totalAmount,
+        status: inv.invoiceStatus || 'PAID'
       });
     });
 
@@ -225,9 +327,9 @@ export async function POST(request: NextRequest) {
           num: 1,
           from: firstOrderNo,
           to: lastOrderNo,
-          totnum: orders.length,
+          totnum: totalInvoiceCount,
           cancel: 0,
-          net_issue: orders.length,
+          net_issue: totalInvoiceCount,
         }]
       }]
     };
@@ -238,8 +340,8 @@ export async function POST(request: NextRequest) {
       hash: 'hash',
       gstin: gstin,
       fp: filingPeriod,
-      gt: 0, // usually previous year's annual turnover
-      cur_gt: 0, // usually current year's annual turnover
+      gt: 0,
+      cur_gt: 0,
       ...(b2cs.length > 0 && { b2cs }),
       ...(hsnData.length > 0 && { hsn: { data: hsnData } }),
       doc_issue,
@@ -267,7 +369,7 @@ export async function POST(request: NextRequest) {
             totalSgst,
             totalIgst,
             totalAmount: totalGrand,
-            invoiceCount: orders.length,
+            invoiceCount: totalInvoiceCount,
             generatedAt: new Date(),
           }
         });
@@ -285,7 +387,7 @@ export async function POST(request: NextRequest) {
             totalSgst,
             totalIgst,
             totalAmount: totalGrand,
-            invoiceCount: orders.length,
+            invoiceCount: totalInvoiceCount,
           }
         });
         filingId = created.id;
@@ -297,7 +399,7 @@ export async function POST(request: NextRequest) {
       json: gstJson,
       detailedInvoices,
       summary: {
-        totalInvoices: orders.length,
+        totalInvoices: totalInvoiceCount,
         totalTaxableValue: totalTaxable,
         totalCGST: totalCgst,
         totalSGST: totalSgst,

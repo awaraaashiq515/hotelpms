@@ -360,6 +360,9 @@ export default function InvoicesPage() {
     },
   ];
 
+  const totalAmountSum = filteredInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+  const totalGstSum = filteredInvoices.reduce((sum, inv) => sum + (inv.taxAmount || 0), 0);
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -367,6 +370,18 @@ export default function InvoicesPage() {
         description="Manage billing history and cancellations"
         showBack
         backUrl="/operations"
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 dark:border-indigo-500/30 rounded-2xl shadow-sm text-xs md:text-sm font-bold tracking-tight">
+              <span className="text-[9px] md:text-[10px] uppercase font-black tracking-wider opacity-75">Total GST:</span>
+              <span>₹{totalGstSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30 rounded-2xl shadow-sm text-xs md:text-sm font-bold tracking-tight">
+              <span className="text-[9px] md:text-[10px] uppercase font-black tracking-wider opacity-75">Total Amount:</span>
+              <span>₹{totalAmountSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        }
       />
 
       <div className="bg-white dark:bg-slate-900/50 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">

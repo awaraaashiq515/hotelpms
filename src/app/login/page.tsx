@@ -57,7 +57,8 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [captchaText, setCaptchaText] = useState('');
-  const [captchaUrl, setCaptchaUrl] = useState('/api/auth/captcha');
+  const [captchaSvg, setCaptchaSvg] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [otpToken, setOtpToken] = useState('');
   const [tempUserId, setTempUserId] = useState<string | null>(null);
   const [verifying2FA, setVerifying2FA] = useState(false);
@@ -153,9 +154,22 @@ export default function LoginPage() {
     }
   }, []);
 
-  const refreshCaptcha = () => {
-    setCaptchaUrl(`/api/auth/captcha?t=${Date.now()}`);
+  const refreshCaptcha = async () => {
     setCaptchaText('');
+    setCaptchaSvg(null);
+    setCaptchaToken(null);
+    try {
+      const res = await fetch(`/api/auth/captcha?json=true&t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setCaptchaSvg(json.svg);
+          setCaptchaToken(json.token);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load captcha', e);
+    }
   };
 
   const completeLogin = async () => {
@@ -194,7 +208,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await authApi.login({ email, password, captchaText });
+      const response = await authApi.login({ email, password, captchaText, captchaToken });
 
       if (response.twoFactorRequired) {
         setTempUserId(response.userId || null);
@@ -463,7 +477,13 @@ export default function LoginPage() {
               {!isForgotPassword && (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center gap-4">
                   <div className="h-12 w-32 bg-white rounded-lg border border-slate-200 overflow-hidden relative shadow-sm">
-                    <img src={captchaUrl} alt="Captcha" className="w-full h-full object-contain" />
+                    {captchaSvg ? (
+                      <div dangerouslySetInnerHTML={{ __html: captchaSvg }} className="w-full h-full flex items-center justify-center" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

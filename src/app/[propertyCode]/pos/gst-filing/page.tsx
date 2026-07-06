@@ -2,14 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import {
-  FileJson, Download, Eye, CheckCircle2, AlertCircle,
-  Loader2, CalendarDays, BarChart3, Receipt, ChevronRight,
-  RefreshCw, Trash2, BadgeCheck, Clock, FileText, FileSpreadsheet, Printer,
-  PlusCircle, X, Bell, TrendingUp, Shield, AlarmClock
-} from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { DueDatesCard } from './components/due-dates-card';
+import { PeriodSelectCard } from './components/period-select-card';
+import { SummaryPreviewCard } from './components/summary-preview-card';
+import { UploadInstructionsCard } from './components/upload-instructions-card';
+import { FilingHistoryCard } from './components/filing-history-card';
 
 const MONTHS = [
   { val: '01', label: 'January — Jan' },
@@ -27,37 +25,31 @@ const MONTHS = [
 ];
 
 const currentDate = new Date();
-const currentYear = currentDate.getFullYear().toString();
-const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-// Filing is for previous month
 const prevMonth = currentDate.getMonth() === 0 
   ? '12' 
   : String(currentDate.getMonth()).padStart(2, '0');
 const prevYear = currentDate.getMonth() === 0
   ? String(currentDate.getFullYear() - 1)
-  : currentYear;
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-}
+  : currentDate.getFullYear().toString();
 
 function formatPeriod(fp: string) {
-  if (!fp || fp.length < 6) return fp;
+  if (!fp) return fp;
+  if (fp.startsWith('D')) {
+    // Daily period format: "D06072026" -> "06 Jul 2026"
+    const d = fp.slice(1, 3);
+    const m = fp.slice(3, 5);
+    const y = fp.slice(5);
+    const mo = MONTHS.find(x => x.val === m);
+    const mName = mo ? mo.label.split('—')[0].trim() : m;
+    return `${d} ${mName} ${y}`;
+  }
+  if (fp.length < 6) return fp;
   const m = fp.slice(0, 2);
   const y = fp.slice(2);
   const mo = MONTHS.find(x => x.val === m);
   if (!mo) return `${m}/${y}`;
   return `${mo.label.split('—')[0].trim()} ${y}`;
 }
-
-// ─── GST Return Types with standard due dates ───────────────────────────────
-const GST_RETURN_TYPES = [
-  { type: 'GSTR-1', name: 'GSTR-1', desc: 'Outward Supplies', dueDayOfMonth: 11, color: 'blue', freq: 'Monthly' },
-  { type: 'GSTR-3B', name: 'GSTR-3B', desc: 'Monthly Summary Return', dueDayOfMonth: 20, color: 'purple', freq: 'Monthly' },
-  { type: 'GSTR-9', name: 'GSTR-9', desc: 'Annual Return', dueDayOfMonth: 31, color: 'emerald', freq: 'Annual' },
-  { type: 'GSTR-9C', name: 'GSTR-9C', desc: 'Reconciliation Statement', dueDayOfMonth: 31, color: 'orange', freq: 'Annual' },
-  { type: 'GSTR-4', name: 'GSTR-4', desc: 'Composition Dealer Annual', dueDayOfMonth: 30, color: 'pink', freq: 'Annual' },
-];
 
 export default function GstFilingPage() {
   // Step state
@@ -67,6 +59,8 @@ export default function GstFilingPage() {
   const [month, setMonth] = useState(prevMonth || '01');
   const [year, setYear] = useState(prevYear);
   const [returnType] = useState('GSTR-1');
+  const [periodType, setPeriodType] = useState<'monthly' | 'daily'>('monthly');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Results
   const [generating, setGenerating] = useState(false);
@@ -79,18 +73,6 @@ export default function GstFilingPage() {
   // History
   const [filings, setFilings] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-
-  // ── GST Return Due Dates ──────────────────────────────────────────────────
-  const [returnDues, setReturnDues] = useState<any[]>([]);
-  const [duesLoading, setDuesLoading] = useState(true);
-  const [showAddDue, setShowAddDue] = useState(false);
-  const [dueForm, setDueForm] = useState({
-    returnType: 'GSTR-1',
-    period: `${prevMonth}${prevYear}`,
-    dueDate: '',
-    notes: '',
-  });
-  const [dueSubmitting, setDueSubmitting] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -110,84 +92,17 @@ export default function GstFilingPage() {
     setHistoryLoading(false);
   };
 
-  const loadReturnDues = async () => {
-    setDuesLoading(true);
-    try {
-      const r = await fetch('/api/gst/return-dues');
-      const d = await r.json();
-      if (d.success) {
-        // Auto-update status for overdue items
-        const now = new Date();
-        const updated = (d.data || []).map((due: any) => ({
-          ...due,
-          status: due.status === 'FILED' ? 'FILED'
-            : new Date(due.dueDate) < now ? 'OVERDUE'
-            : 'PENDING',
-        }));
-        setReturnDues(updated);
-      }
-    } catch {}
-    setDuesLoading(false);
-  };
-
-  const handleAddDue = async () => {
-    if (!dueForm.returnType || !dueForm.period || !dueForm.dueDate) {
-      showToast('error', 'Return type, period aur due date zaroori hai!');
-      return;
-    }
-    setDueSubmitting(true);
-    try {
-      const r = await fetch('/api/gst/return-dues', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dueForm),
-      });
-      const d = await r.json();
-      if (d.success) {
-        showToast('success', 'GST Return Due Date add ho gayi!');
-        setShowAddDue(false);
-        setDueForm({ returnType: 'GSTR-1', period: `${prevMonth}${prevYear}`, dueDate: '', notes: '' });
-        loadReturnDues();
-      } else {
-        showToast('error', d.message || 'Error adding due date');
-      }
-    } catch {
-      showToast('error', 'Network error');
-    }
-    setDueSubmitting(false);
-  };
-
-  const handleMarkFiled = async (id: string) => {
-    const r = await fetch('/api/gst/return-dues', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, filedDate: new Date().toISOString() }),
-    });
-    const d = await r.json();
-    if (d.success) {
-      showToast('success', 'Return FILED mark ho gaya! ✅');
-      loadReturnDues();
-    }
-  };
-
-  const handleDeleteDue = async (id: string) => {
-    if (!confirm('Yeh entry delete karein?')) return;
-    const r = await fetch(`/api/gst/return-dues?id=${id}`, { method: 'DELETE' });
-    const d = await r.json();
-    if (d.success) {
-      showToast('success', 'Entry deleted');
-      loadReturnDues();
-    }
-  };
-
   useEffect(() => {
     loadHistory();
-    loadReturnDues();
   }, []);
 
   const handleGenerate = async () => {
-    if (!month || !year) {
+    if (periodType === 'monthly' && (!month || !year)) {
       showToast('error', 'Please select month and year');
+      return;
+    }
+    if (periodType === 'daily' && !selectedDate) {
+      showToast('error', 'Please select a date');
       return;
     }
     setGenerating(true);
@@ -196,10 +111,14 @@ export default function GstFilingPage() {
     setDetailedInvoices([]);
     setFilingId(null);
     try {
+      const payload = periodType === 'daily'
+        ? { date: selectedDate, returnType, saveDraft: true }
+        : { month, year, returnType, saveDraft: true };
+
       const res = await fetch('/api/gst/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, year, returnType, saveDraft: true })
+        body: JSON.stringify(payload)
       });
       const d = await res.json();
       if (d.success && d.data) {
@@ -238,10 +157,19 @@ export default function GstFilingPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this draft filing?')) return;
+    const r = await fetch(`/api/gst/filings?id=${id}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.success) {
+      showToast('success', 'Draft deleted successfully');
+      loadHistory();
+    }
+  };
+
   const handleDownloadExcel = async () => {
     if (!gstJson) return;
     
-    // Dynamically load the 'xlsx' library if not present
     if (!(window as any).XLSX) {
       setGenerating(true);
       try {
@@ -305,7 +233,7 @@ export default function GstFilingPage() {
     const cdnrData = [
       ["Summary For CDNR(9B)"],
       ["No. of Recipients", "", "No. of Notes/Vouchers", "", "", "", "", "", "", "", "", "Total Taxable Value", "Total Cess"],
-      [0, "", 0, "", "", "", "", "", "", "", "", "0.00", "0.00"],
+      [0, "", 0, "", "0.00", "", "", "", "", "", "0.00", "0.00"],
       ["GSTIN/UIN of Recipient", "Receiver Name", "Note/Refund Voucher Number", "Note/Refund Voucher date", "Document Type", "Place Of Supply", "Reverse Charge", "Note/Refund Voucher Value", "Applicable % of Tax Rate", "Rate", "Taxable Value", "Cess Amount"]
     ];
     addSheet(cdnrData, "cdnr", []);
@@ -405,7 +333,6 @@ export default function GstFilingPage() {
       addSheet(invData, "Detailed Invoices", [{ wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }]);
     }
 
-    // Write file natively
     XLSX.writeFile(wb, `GSTR-1_Report_${summary?.period || ''}.xlsx`);
     showToast('success', 'Govt Template Excel downloaded!');
   };
@@ -431,11 +358,11 @@ export default function GstFilingPage() {
             th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
             th { background-color: #f8fafc; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
             tbody tr:nth-child(even) { background-color: #fcfdfe; }
-            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
             .stat { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; }
             .stat-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 8px; }
             .stat-val { font-size: 18px; font-weight: 700; color: #0f172a; }
-            .grand-total-box { margin-top: 20px; text-align: right; border-top: 2px solid #3b82f6; padding-top: 15px; }
+            .grand-total-box { margin-top: 20px; border-top: 2px solid #3b82f6; padding-top: 15px; }
             .grand-total-label { font-size: 14px; color: #64748b; font-weight: 600; }
             .grand-total-val { font-size: 24px; font-weight: 800; color: #3b82f6; }
             .page-break { page-break-before: always; height: 1px; margin-top: 30px; }
@@ -452,21 +379,28 @@ export default function GstFilingPage() {
           
           <div class="header-info">
             <div><strong>GSTIN:</strong> ${summary?.gstin || 'N/A'}</div>
-            <div><strong>Filing Period:</strong> ${summary?.period || 'N/A'}</div>
+            <div><strong>Filing Period:</strong> ${formatPeriod(summary?.period) || 'N/A'}</div>
             <div><strong>Return Type:</strong> GSTR-1 (Outward Supplies)</div>
-            <div><strong>Status:</strong> Generated - Ready for CA Review</div>
+            <div><strong>Total GST Payable:</strong> ₹${((summary?.totalCGST || 0) + (summary?.totalSGST || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
           </div>
           
           <div class="grid">
-            <div class="stat"><div class="stat-label">Total Orders</div><div class="stat-val">${summary?.totalInvoices || 0}</div></div>
+            <div class="stat"><div class="stat-label">Total Orders/Invoices</div><div class="stat-val">${summary?.totalInvoices || 0}</div></div>
             <div class="stat"><div class="stat-label">Taxable Value</div><div class="stat-val">₹${summary?.totalTaxableValue?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</div></div>
-            <div class="stat"><div class="stat-label">Total CGST (2.5%)</div><div class="stat-val">₹${summary?.totalCGST?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</div></div>
-            <div class="stat"><div class="stat-label">Total SGST (2.5%)</div><div class="stat-val">₹${summary?.totalSGST?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</div></div>
+            <div class="stat"><div class="stat-label">Total CGST</div><div class="stat-val">₹${summary?.totalCGST?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</div></div>
+            <div class="stat"><div class="stat-label">Total SGST</div><div class="stat-val">₹${summary?.totalSGST?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</div></div>
+            <div class="stat" style="background: #fef2f2; border: 1px solid #fecaca;"><div class="stat-label" style="color: #ef4444;">Total GST Payable</div><div class="stat-val" style="color: #dc2626;">₹${((summary?.totalCGST || 0) + (summary?.totalSGST || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div></div>
           </div>
-
-          <div class="grand-total-box">
-            <span class="grand-total-label">Grand Total Value:</span><br/>
-            <span class="grand-total-val">₹${summary?.totalGrandTotal?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</span>
+ 
+          <div class="grand-total-box" style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div style="text-align: left;">
+              <span class="grand-total-label" style="color: #ef4444;">Total GST Payable:</span><br/>
+              <span class="grand-total-val" style="color: #dc2626;">₹${((summary?.totalCGST || 0) + (summary?.totalSGST || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+            </div>
+            <div style="text-align: right;">
+              <span class="grand-total-label">Grand Total Value:</span><br/>
+              <span class="grand-total-val">₹${summary?.totalGrandTotal?.toLocaleString('en-IN', {minimumFractionDigits: 2}) || 0}</span>
+            </div>
           </div>
 
           <div class="page-break"></div>
@@ -577,23 +511,7 @@ export default function GstFilingPage() {
     showToast('success', 'Professional PDF Report Generated!');
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this draft filing?')) return;
-    const r = await fetch(`/api/gst/filings?id=${id}`, { method: 'DELETE' });
-    const d = await r.json();
-    if (d.success) {
-      showToast('success', 'Draft deleted successfully');
-      loadHistory();
-    }
-  };
-
   const years = Array.from({ length: 5 }, (_, i) => String(currentDate.getFullYear() - i));
-
-  // ─── Computed stats for due dates ─────────────────────────────────────────
-  const totalDues = returnDues.length;
-  const filedDues = returnDues.filter(d => d.status === 'FILED').length;
-  const pendingDues = returnDues.filter(d => d.status === 'PENDING').length;
-  const overdueDues = returnDues.filter(d => d.status === 'OVERDUE').length;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -614,224 +532,11 @@ export default function GstFilingPage() {
         backUrl="/operations"
       />
 
-      {/* ── GST Return Due Date Dashboard ──────────────────────────────── */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl">
-              <Bell className="text-amber-500" size={20} />
-            </div>
-            <div>
-              <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">GST Return Due Dates</h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">Sabhi GST returns ki due dates track karo</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowAddDue(!showAddDue)}
-            className="flex items-center gap-2 px-4 py-2 bg-pos-primary text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
-          >
-            {showAddDue ? <X size={13} /> : <PlusCircle size={13} />}
-            {showAddDue ? 'Cancel' : 'Due Date Add Karo'}
-          </button>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          {[
-            { label: 'Total Returns', val: totalDues, icon: <TrendingUp size={14} />, color: 'blue' },
-            { label: 'Filed ✅', val: filedDues, icon: <BadgeCheck size={14} />, color: 'emerald' },
-            { label: 'Pending ⏳', val: pendingDues, icon: <AlarmClock size={14} />, color: 'amber' },
-            { label: 'Overdue ❌', val: overdueDues, icon: <AlertCircle size={14} />, color: 'red' },
-          ].map((s, i) => (
-            <div key={i} className={`p-3 rounded-xl bg-${s.color}-50 dark:bg-${s.color}-500/10 border border-${s.color}-100 dark:border-${s.color}-500/20 flex items-center gap-3`}>
-              <span className={`text-${s.color}-500`}>{s.icon}</span>
-              <div>
-                <p className={`text-[10px] font-black text-${s.color}-500 uppercase tracking-widest`}>{s.label}</p>
-                <p className={`text-xl font-black text-${s.color}-700 dark:text-${s.color}-300`}>{s.val}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Add Due Date Form */}
-        {showAddDue && (
-          <div className="mb-5 p-5 rounded-2xl border border-dashed border-pos-primary/30 bg-pos-primary/5">
-            <h3 className="text-[11px] font-black text-pos-primary uppercase tracking-widest mb-4">🗓 Nayi Due Date Add Karo</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Return Type</label>
-                <select
-                  value={dueForm.returnType}
-                  onChange={e => setDueForm(f => ({ ...f, returnType: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100"
-                >
-                  {GST_RETURN_TYPES.map(t => (
-                    <option key={t.type} value={t.type}>{t.name} - {t.desc}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Period (MM/YYYY)</label>
-                <div className="flex gap-2">
-                  <select
-                    value={dueForm.period.slice(0, 2)}
-                    onChange={e => setDueForm(f => ({ ...f, period: e.target.value + f.period.slice(2) }))}
-                    className="w-1/2 px-2 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 dark:text-slate-100"
-                  >
-                    {MONTHS.map(m => <option key={m.val} value={m.val}>{m.label.split('—')[0].trim()}</option>)}
-                  </select>
-                  <select
-                    value={dueForm.period.slice(2)}
-                    onChange={e => setDueForm(f => ({ ...f, period: f.period.slice(0, 2) + e.target.value }))}
-                    className="w-1/2 px-2 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 dark:text-slate-100"
-                  >
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Due Date</label>
-                <input
-                  type="date"
-                  value={dueForm.dueDate}
-                  onChange={e => setDueForm(f => ({ ...f, dueDate: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Notes (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Koi notes..."
-                  value={dueForm.notes}
-                  onChange={e => setDueForm(f => ({ ...f, notes: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100 placeholder:text-gray-300"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              <Button
-                onClick={handleAddDue}
-                disabled={dueSubmitting}
-                className="bg-pos-primary hover:bg-red-700 text-white font-black tracking-widest px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2 text-sm"
-              >
-                {dueSubmitting ? <Loader2 size={14} className="animate-spin" /> : <PlusCircle size={14} />}
-                Due Date Save Karo
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Due Dates Table */}
-        {duesLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="animate-spin text-gray-400" size={24} />
-          </div>
-        ) : returnDues.length === 0 ? (
-          <div className="text-center py-10 bg-gray-50 dark:bg-slate-800/30 rounded-2xl">
-            <Bell size={32} className="mx-auto mb-2 text-gray-300" />
-            <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Abhi koi due date add nahi ki</p>
-            <p className="text-[10px] text-gray-300 mt-1">Upar &quot;Due Date Add Karo&quot; button click karo</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-slate-800">
-                  {['Return Type', 'Period', 'Due Date', 'Days Left', 'Status', 'Filed On', 'Actions'].map(h => (
-                    <th key={h} className="text-left text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pb-3 pr-4">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-slate-800/50">
-                {returnDues.map((due) => {
-                  const dueD = new Date(due.dueDate);
-                  const today = new Date();
-                  const diffMs = dueD.getTime() - today.getTime();
-                  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                  const rtInfo = GST_RETURN_TYPES.find(t => t.type === due.returnType);
-
-                  return (
-                    <tr key={due.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 pr-4">
-                        <span className={`px-2 py-1 bg-${rtInfo?.color || 'blue'}-50 dark:bg-${rtInfo?.color || 'blue'}-500/10 text-${rtInfo?.color || 'blue'}-600 dark:text-${rtInfo?.color || 'blue'}-400 rounded text-[10px] font-black uppercase`}>
-                          {due.returnType}
-                        </span>
-                        {rtInfo && <p className="text-[9px] text-gray-400 mt-0.5">{rtInfo.desc}</p>}
-                      </td>
-                      <td className="py-3 pr-4 text-sm font-bold text-slate-700 dark:text-slate-300">
-                        {formatPeriod(due.period)}
-                      </td>
-                      <td className="py-3 pr-4 text-sm font-bold text-slate-700 dark:text-slate-300">
-                        {dueD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {due.status === 'FILED' ? (
-                          <span className="text-[10px] text-emerald-500 font-black">— Filed —</span>
-                        ) : diffDays > 0 ? (
-                          <span className={`text-[11px] font-black ${ diffDays <= 7 ? 'text-orange-500' : 'text-slate-500 dark:text-slate-400' }`}>
-                            {diffDays} din bache
-                          </span>
-                        ) : (
-                          <span className="text-[11px] font-black text-red-500">{Math.abs(diffDays)} din late!</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <span className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-black uppercase w-fit ${
-                          due.status === 'FILED'
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600'
-                            : due.status === 'OVERDUE'
-                            ? 'bg-red-50 dark:bg-red-500/10 text-red-600'
-                            : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600'
-                        }`}>
-                          {due.status === 'FILED' ? <BadgeCheck size={11} /> : due.status === 'OVERDUE' ? <AlertCircle size={11} /> : <Clock size={11} />}
-                          {due.status}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4 text-[11px] text-slate-400 font-bold">
-                        {due.filedDate ? new Date(due.filedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-2">
-                          {due.status !== 'FILED' && (
-                            <button
-                              onClick={() => handleMarkFiled(due.id)}
-                              className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all text-emerald-600"
-                              title="Mark as Filed"
-                            >
-                              <BadgeCheck size={13} />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteDue(due.id)}
-                            className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 hover:bg-red-500 hover:text-white transition-all text-red-400"
-                            title="Delete"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Legend */}
-        {returnDues.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800 flex flex-wrap gap-4">
-            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">GST Return Types Ki Due Dates:</div>
-            {GST_RETURN_TYPES.map(t => (
-              <div key={t.type} className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full bg-${t.color}-400`} />
-                <span className="text-[10px] font-bold text-gray-500">{t.name} — {t.freq} (Day {t.dueDayOfMonth})</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      {/* ── GST Return Due Date Dashboard Component ────────────────────── */}
+      <DueDatesCard
+        showToast={showToast}
+        formatPeriod={formatPeriod}
+      />
 
       {/* ── Step Wizard Bar ───────────────────────────────────────────── */}
       <div className="flex items-center gap-0">
@@ -862,291 +567,60 @@ export default function GstFilingPage() {
         ))}
       </div>
 
-      {/* ── Step 1: Period Selection ──────────────────────────────────── */}
-      <Card className="p-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="bg-pos-primary/10 p-3 rounded-xl"><CalendarDays className="text-pos-primary" size={22} /></div>
-          <div>
-            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Select Filing Period</h2>
-            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">Sales data for the selected period will be compiled for filing</p>
-          </div>
-        </div>
+      {/* ── Step 1: Period Selection Component ────────────────────────── */}
+      {step === 1 && (
+        <PeriodSelectCard
+          month={month}
+          setMonth={setMonth}
+          year={year}
+          setYear={setYear}
+          periodType={periodType}
+          setPeriodType={setPeriodType}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          generating={generating}
+          handleGenerate={handleGenerate}
+          years={years}
+        />
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Month</label>
-            <select
-              id="gst-month-select"
-              value={month}
-              onChange={e => setMonth(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100 dark:placeholder:text-slate-600"
-            >
-              {MONTHS.map(m => (
-                <option key={m.val} value={m.val}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Year</label>
-            <select
-              id="gst-year-select"
-              value={year}
-              onChange={e => setYear(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100 dark:placeholder:text-slate-600"
-            >
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Return Type</label>
-            <div className="px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 text-sm font-bold text-gray-600 dark:text-slate-300 uppercase tracking-tight">
-              GSTR-1 (Outward Supplies)
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <Button
-            id="generate-gst-btn"
-            onClick={handleGenerate}
-            disabled={generating}
-            className="bg-pos-primary hover:bg-red-700 text-white font-black tracking-widest px-8 py-4 rounded-xl shadow-lg shadow-red-100 flex items-center gap-2"
-          >
-            {generating
-              ? <><Loader2 size={18} className="animate-spin" /> Generating JSON...</>
-              : <><FileJson size={18} /> Generate GSTR-1 JSON</>
-            }
-          </Button>
-        </div>
-      </Card>
-
-      {/* ── Step 2: Summary Preview ───────────────────────────────────── */}
+      {/* ── Step 2: Summary Preview Component ─────────────────────────── */}
       {summary && (
-        <Card className="p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-emerald-50 p-3 rounded-xl"><BarChart3 className="text-emerald-500" size={22} /></div>
-              <div>
-                <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Sales Summary Preview</h2>
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">
-                  {(MONTHS.find(m => m.val === month)?.label || 'Selected Period')?.split('—')[0].trim()} {year} — {summary.totalInvoices} Orders
-                </p>
-              </div>
-            </div>
-            <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
-              ✓ GSTN Ready
-            </span>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {[
-              { label: 'Taxable Value', value: `₹${fmt(summary.totalTaxableValue)}`, color: 'blue' },
-              { label: 'CGST', value: `₹${fmt(summary.totalCGST)}`, color: 'purple' },
-              { label: 'SGST', value: `₹${fmt(summary.totalSGST)}`, color: 'orange' },
-              { label: 'Grand Total', value: `₹${fmt(summary.totalGrandTotal)}`, color: 'emerald' },
-            ].map((stat, i) => (
-              <div key={i} className={`p-4 rounded-xl bg-${stat.color}-50 dark:bg-${stat.color}-500/10 border border-${stat.color}-100 dark:border-${stat.color}-500/20`}>
-                <p className={`text-[10px] font-black text-${stat.color}-500 dark:text-${stat.color}-400 uppercase tracking-widest mb-1`}>{stat.label}</p>
-                <p className={`text-lg font-black text-${stat.color}-700 dark:text-${stat.color}-300`}>{stat.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* GSTN Info */}
-          {summary.gstin && (
-            <div className="flex items-center gap-2 mb-6 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
-              <Receipt size={14} />
-              GSTIN: <span className="font-mono text-slate-800 dark:text-slate-200">{summary.gstin}</span>
-              &nbsp;|&nbsp; Period: <span className="font-mono text-slate-800 dark:text-slate-200">{summary.period}</span>
-              &nbsp;|&nbsp; Invoices: <span className="text-slate-800 dark:text-slate-200">{summary.totalInvoices}</span>
-            </div>
-          )}
-
-          {/* JSON Preview Toggle */}
-          <button
-            id="preview-json-btn"
-            onClick={() => setShowPreview(!showPreview)}
-            className="flex items-center gap-2 text-[11px] font-black text-gray-500 uppercase tracking-widest hover:text-pos-primary transition-colors mb-4"
-          >
-            <Eye size={14} />
-            {showPreview ? 'Close JSON Preview' : 'View JSON Preview'}
-            <ChevronRight size={12} className={`transition-transform ${showPreview ? 'rotate-90' : ''}`} />
-          </button>
-
-          {showPreview && gstJson && (
-            <div className="bg-gray-950 rounded-2xl p-5 mb-5 overflow-auto max-h-64">
-              <pre className="text-[11px] text-green-400 font-mono leading-relaxed">
-                {JSON.stringify(gstJson, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            {filingId && (
-              <Button
-                id="download-json-btn"
-                onClick={() => handleDownload(filingId)}
-                className="bg-pos-primary hover:bg-red-700 text-white font-black tracking-widest px-6 py-3 rounded-xl shadow-md flex items-center gap-2"
-              >
-                <Download size={16} />
-                Download JSON (Portal)
-              </Button>
-            )}
-            
-            {gstJson && (
-              <>
-                <Button
-                  onClick={handleDownloadExcel}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black tracking-widest px-6 py-3 rounded-xl shadow-md flex items-center gap-2"
-                >
-                  <FileSpreadsheet size={16} />
-                  Download Excel
-                </Button>
-                
-                <Button
-                  onClick={handleDownloadPDF}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-black tracking-widest px-6 py-3 rounded-xl shadow-md flex items-center gap-2"
-                >
-                  <Printer size={16} />
-                  Print PDF
-                </Button>
-              </>
-            )}
-
-            <Button
-              id="refresh-gst-btn"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-400 font-black tracking-widest px-6 py-3 rounded-xl flex items-center gap-2 text-sm bg-white dark:bg-slate-900"
-            >
-              <RefreshCw size={15} />
-              Re-Generate
-            </Button>
-          </div>
-        </Card>
+        <SummaryPreviewCard
+          summary={summary}
+          gstJson={gstJson}
+          detailedInvoices={detailedInvoices}
+          filingId={filingId}
+          showPreview={showPreview}
+          setShowPreview={setShowPreview}
+          handleDownload={handleDownload}
+          handleDownloadExcel={handleDownloadExcel}
+          handleDownloadPDF={handleDownloadPDF}
+          handleGenerate={handleGenerate}
+          generating={generating}
+          formatPeriod={formatPeriod}
+        />
       )}
 
-      {/* ── Step 3: Upload Instructions ──────────────────────────────── */}
+      {/* ── Step 3: Upload Instructions Component ─────────────────────── */}
       {step === 3 && (
-        <Card className="p-8 border-l-4 border-l-emerald-400">
-          <div className="flex items-center gap-3 mb-4">
-            <CheckCircle2 className="text-emerald-500" size={24} />
-            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">JSON Downloaded! Now Upload to GST Portal</h2>
-          </div>
-          <ol className="space-y-2 text-[12px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-            <li className="flex items-start gap-2"><span className="text-pos-primary font-black">1.</span> Login to gst.gov.in</li>
-            <li className="flex items-start gap-2"><span className="text-pos-primary font-black">2.</span> Go to Services → Returns → Returns Dashboard</li>
-            <li className="flex items-start gap-2"><span className="text-pos-primary font-black">3.</span> Under GSTR-1, click "Upload JSON"</li>
-            <li className="flex items-start gap-2"><span className="text-pos-primary font-black">4.</span> Select the downloaded file and submit</li>
-            <li className="flex items-start gap-2"><span className="text-pos-primary font-black">5.</span> After successful upload, click "Mark as Submitted" below</li>
-          </ol>
-          {filingId && (
-            <Button
-              id="mark-submitted-btn"
-              onClick={() => { handleMarkSubmitted(filingId); setStep(1); }}
-              className="mt-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black tracking-widest px-6 py-3 rounded-xl flex items-center gap-2"
-            >
-              <BadgeCheck size={16} />
-              Mark as Submitted
-            </Button>
-          )}
-        </Card>
+        <UploadInstructionsCard
+          filingId={filingId}
+          handleMarkSubmitted={handleMarkSubmitted}
+          setStep={setStep}
+        />
       )}
 
-      {/* ── Filing History ────────────────────────────────────────────── */}
-      <Card className="p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-gray-100 dark:bg-slate-800 p-3 rounded-xl"><FileText className="text-gray-500 dark:text-slate-400" size={22} /></div>
-            <div>
-              <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Filing History</h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">Track all your past GST filings</p>
-            </div>
-          </div>
-          <button onClick={loadHistory} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <RefreshCw size={15} className="text-gray-400" />
-          </button>
-        </div>
-
-        {historyLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="animate-spin text-gray-400" size={24} />
-          </div>
-        ) : filings.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
-            <FileJson size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-[11px] font-black uppercase tracking-widest">No filings found yet</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-slate-800">
-                  {['Period', 'Type', 'Invoices', 'Total Amount', 'Status', 'Generated', 'Actions'].map(h => (
-                    <th key={h} className="text-left text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pb-3 pr-4">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filings.map((f) => (
-                  <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-50 dark:border-slate-800/50">
-                    <td className="py-3 pr-4 text-sm font-bold text-slate-800 dark:text-slate-200">{formatPeriod(f.filingMonth)}</td>
-                    <td className="py-3 pr-4">
-                      <span className="px-2 py-1 bg-pos-primary/10 text-pos-primary rounded text-[10px] font-black uppercase">{f.returnType}</span>
-                    </td>
-                    <td className="py-3 pr-4 text-sm text-slate-600 dark:text-slate-400 font-bold">{f.invoiceCount}</td>
-                    <td className="py-3 pr-4 text-sm font-bold text-slate-800 dark:text-slate-200">₹{fmt(f.totalAmount)}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-black uppercase w-fit ${
-                        f.status === 'SUBMITTED'
-                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        {f.status === 'SUBMITTED' ? <BadgeCheck size={11} /> : <Clock size={11} />}
-                        {f.status}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-[11px] text-slate-400 dark:text-slate-500 font-bold">
-                      {new Date(f.generatedAt).toLocaleDateString('en-IN')}
-                    </td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleDownload(f.id)}
-                          className="p-2 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-pos-primary hover:text-white transition-all text-gray-500 dark:text-slate-400"
-                          title="Download JSON"
-                        >
-                          <Download size={13} />
-                        </button>
-                        {f.status === 'DRAFT' && (
-                          <>
-                            <button
-                              onClick={() => handleMarkSubmitted(f.id)}
-                              className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all text-emerald-600 dark:text-emerald-400"
-                              title="Mark as Submitted"
-                            >
-                              <BadgeCheck size={13} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(f.id)}
-                              className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 hover:bg-red-500 hover:text-white transition-all text-red-400 dark:text-red-400"
-                              title="Delete Draft"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* ── Filing History Component ──────────────────────────────────── */}
+      <FilingHistoryCard
+        filings={filings}
+        historyLoading={historyLoading}
+        loadHistory={loadHistory}
+        handleDownload={handleDownload}
+        handleMarkSubmitted={handleMarkSubmitted}
+        handleDelete={handleDelete}
+        formatPeriod={formatPeriod}
+      />
     </div>
   );
 }

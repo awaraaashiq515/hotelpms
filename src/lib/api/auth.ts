@@ -4,6 +4,7 @@ export interface LoginCredentials {
   email: string;
   password: string;
   captchaText?: string | null;
+  captchaToken?: string | null;
 }
 
 export interface RegisterCredentials {
@@ -12,6 +13,7 @@ export interface RegisterCredentials {
   password: string;
   businessName?: string | null;
   captchaText: string;
+  captchaToken?: string | null;
   packageId?: string | null;
   roleName?: string;
   paymentReference?: string | null;

@@ -155,7 +155,8 @@ function SignupForm() {
   const [businessName, setBusinessName] = useState('');
   const [captchaText, setCaptchaText]   = useState('');
   const [roleName, setRoleName]         = useState('RESTAURANTS_ADMIN');
-  const [captchaUrl, setCaptchaUrl]     = useState('/api/auth/captcha');
+  const [captchaSvg, setCaptchaSvg]     = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [logoUrl, setLogoUrl]           = useState<string | null>(null);
@@ -279,7 +280,23 @@ function SignupForm() {
     } catch { /* silent */ }
   };
 
-  const refreshCaptcha = () => { setCaptchaUrl(`/api/auth/captcha?t=${Date.now()}`); setCaptchaText(''); };
+  const refreshCaptcha = async () => {
+    setCaptchaText('');
+    setCaptchaSvg(null);
+    setCaptchaToken(null);
+    try {
+      const res = await fetch(`/api/auth/captcha?json=true&t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setCaptchaSvg(json.svg);
+          setCaptchaToken(json.token);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load captcha', e);
+    }
+  };
 
   // ── Step 1 submit ─────────────────────────────────────────────────────────────
   const handleStep1 = (e: React.FormEvent) => {
@@ -359,6 +376,7 @@ function SignupForm() {
         password,
         businessName: businessName || null,
         captchaText,
+        captchaToken,
         roleName,
         packageId: selectedPackageId,
         paymentReference: paymentRef.trim() || null,
@@ -505,7 +523,13 @@ function SignupForm() {
             {/* Captcha */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center gap-3">
               <div className="h-11 w-28 bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm shrink-0">
-                <img src={captchaUrl} alt="Captcha" className="w-full h-full object-contain" />
+                {captchaSvg ? (
+                  <div dangerouslySetInnerHTML={{ __html: captchaSvg }} className="w-full h-full flex items-center justify-center" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
               <button type="button" onClick={refreshCaptcha} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0">
                 <RefreshCcw size={15} />
