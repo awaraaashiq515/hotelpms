@@ -2,14 +2,29 @@
 
 import React, { useState } from 'react';
 import { z } from 'zod';
+import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Driver } from '@/lib/api/drivers';
+
+// Known preset types
+const PRESET_VEHICLE_TYPES = [
+  { value: 'CAR',       label: '🚗 Car' },
+  { value: 'BUS',       label: '🚌 Bus' },
+  { value: 'AUTO',      label: '🛺 Auto Rickshaw' },
+  { value: 'VAN',       label: '🚐 Van' },
+  { value: 'BIKE',      label: '🏍️ Bike / Scooter' },
+  { value: 'BICYCLE',   label: '🚲 Bicycle' },
+  { value: 'TEMPO',     label: '🚛 Tempo' },
+  { value: 'ERICKSHAW', label: '⚡ E-Rickshaw' },
+];
+
+const PRESET_VALUES = PRESET_VEHICLE_TYPES.map(t => t.value);
 
 const driverSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50),
   phone: z.string().max(15).optional().or(z.literal('')),
   vehicleNumber: z.string().max(30).optional().or(z.literal('')),
-  vehicleType: z.enum(['CAR', 'BUS', 'AUTO', 'VAN', 'BIKE']).default('CAR'),
+  vehicleType: z.string().min(1, 'Vehicle type is required'),
   vehicleCapacity: z.number().int().min(1).max(100).optional(),
   isActive: z.boolean().default(true),
 });
@@ -27,23 +42,37 @@ export const DriverForm: React.FC<DriverFormProps> = ({
   onCancel,
   loading
 }) => {
+  // Determine if initial vehicleType is a preset or custom
+  const initType = initialData?.vehicleType || 'CAR';
+  const isCustomInit = !!initType && !PRESET_VALUES.includes(initType);
+
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     phone: initialData?.phone || '',
     vehicleNumber: initialData?.vehicleNumber || '',
-    vehicleType: initialData?.vehicleType || 'CAR',
+    vehicleType: isCustomInit ? 'CUSTOM' : initType,
     vehicleCapacity: initialData?.vehicleCapacity ?? null as number | null,
     isActive: initialData !== undefined ? initialData.isActive : true,
   });
+  const [customType, setCustomType] = useState(isCustomInit ? initType : '');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const isCustom = formData.vehicleType === 'CUSTOM';
+  const finalVehicleType = isCustom ? customType.trim().toUpperCase() : formData.vehicleType;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    
+
+    if (isCustom && !customType.trim()) {
+      setErrors({ vehicleType: 'Please enter a vehicle type name' });
+      return;
+    }
+
     try {
       const validated = driverSchema.parse({
         ...formData,
+        vehicleType: finalVehicleType,
         vehicleCapacity: formData.vehicleCapacity ? Number(formData.vehicleCapacity) : undefined,
       });
       await onSubmit(validated);
@@ -63,6 +92,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Driver Name */}
       <div className="space-y-2">
         <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
           Driver Name
@@ -77,6 +107,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
         {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.name}</p>}
       </div>
 
+      {/* Phone + Vehicle Number */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
@@ -105,6 +136,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
         </div>
       </div>
 
+      {/* Vehicle Type + Capacity */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
@@ -112,15 +144,55 @@ export const DriverForm: React.FC<DriverFormProps> = ({
           </label>
           <select
             value={formData.vehicleType}
-            onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, vehicleType: e.target.value });
+              if (e.target.value !== 'CUSTOM') setCustomType('');
+            }}
             className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-pos-primary/20 dark:focus:border-pos-primary/40 transition-all cursor-pointer"
           >
-            <option value="CAR" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Car</option>
-            <option value="BUS" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Bus</option>
-            <option value="AUTO" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Auto Rickshaw</option>
-            <option value="VAN" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Van</option>
-            <option value="BIKE" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Bike</option>
+            {PRESET_VEHICLE_TYPES.map(t => (
+              <option key={t.value} value={t.value} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                {t.label}
+              </option>
+            ))}
+            <option value="CUSTOM" className="bg-white dark:bg-slate-900 font-bold">
+              ➕ Add Custom Type...
+            </option>
           </select>
+
+          {/* Custom type input */}
+          {isCustom && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="relative flex-1">
+                <Plus size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. Tempo, E-Rickshaw, Tractor..."
+                  value={customType}
+                  onChange={(e) => setCustomType(e.target.value)}
+                  autoFocus
+                  className="w-full pl-9 pr-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-400 transition-all placeholder:text-slate-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setFormData({ ...formData, vehicleType: 'CAR' }); setCustomType(''); }}
+                className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                title="Cancel custom type"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {errors.vehicleType && <p className="text-[10px] text-red-500 font-bold uppercase ml-1">{errors.vehicleType}</p>}
+
+          {/* Preview of final value */}
+          {isCustom && customType.trim() && (
+            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold ml-1 uppercase tracking-widest">
+              Will be saved as: {customType.trim().toUpperCase()}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -150,6 +222,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
         </div>
       </div>
 
+      {/* Active Status */}
       <div className="flex items-center gap-2 pt-2">
         <input
           type="checkbox"
@@ -163,6 +236,7 @@ export const DriverForm: React.FC<DriverFormProps> = ({
         </label>
       </div>
 
+      {/* Actions */}
       <div className="flex gap-3 pt-4">
         <Button
           type="button"
@@ -183,4 +257,3 @@ export const DriverForm: React.FC<DriverFormProps> = ({
     </form>
   );
 };
-

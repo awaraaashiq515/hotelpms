@@ -217,7 +217,10 @@ export default function TableManagementPage() {
       grandTotal: order.grandTotal,
       createdAt: order.createdAt,
       tableId: table.id,
-      orderId: order.id
+      orderId: order.id,
+      driverId: order.driverId || undefined,
+      staffMemberId: order.staffMemberId || undefined,
+      guestCount: order.guestCount || 1
     });
 
     try {

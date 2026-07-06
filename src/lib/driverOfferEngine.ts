@@ -1,14 +1,14 @@
 import { prisma } from "@/lib/prisma"
 
-export async function processDriverRide(driverId: string) {
-  await processDriverAction(driverId, "rides");
+export async function processDriverRide(driverId: string, incrementCount: number = 1) {
+  await processDriverAction(driverId, "rides", incrementCount);
 }
 
-export async function processDriverReferral(driverId: string) {
-  await processDriverAction(driverId, "referrals");
+export async function processDriverReferral(driverId: string, incrementCount: number = 1) {
+  await processDriverAction(driverId, "referrals", incrementCount);
 }
 
-async function processDriverAction(driverId: string, actionType: "rides" | "referrals") {
+async function processDriverAction(driverId: string, actionType: "rides" | "referrals", incrementCount: number = 1) {
   // Check if driver has an active offer progress
   let progress = await prisma.driverOfferProgress.findFirst({
     where: { driverId, status: "ACTIVE" },
@@ -18,8 +18,8 @@ async function processDriverAction(driverId: string, actionType: "rides" | "refe
   if (!progress) return; // No active offer to progress
 
   // Increment the corresponding count
-  const nextRides = actionType === "rides" ? progress.completedRides + 1 : progress.completedRides;
-  const nextReferrals = actionType === "referrals" ? progress.completedReferrals + 1 : progress.completedReferrals;
+  const nextRides = actionType === "rides" ? progress.completedRides + incrementCount : progress.completedRides;
+  const nextReferrals = actionType === "referrals" ? progress.completedReferrals + incrementCount : progress.completedReferrals;
 
   // Check if thresholds met
   const targetRides = progress.offer.targetRides;

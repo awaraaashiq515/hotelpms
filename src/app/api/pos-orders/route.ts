@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Clean up driverId — treat null as undefined
     const isDelivery = parsedData.orderType === 'DELIVERY';
-    const driverId = isDelivery ? undefined : (parsedData.driverId || undefined);
+    const driverId = parsedData.driverId || undefined;
     const deliveryRiderId = isDelivery ? (parsedData.driverId || undefined) : undefined;
 
     const orderData = {

@@ -185,7 +185,10 @@ export default function ParkingOperationsPage() {
       createdAt: order.createdAt,
       tableId: undefined, // Parking doesn't use tableId for settlement this way
       orderId: order.id,
-      parkingSlotId: slot.id // Add parkingSlotId to BillData
+      parkingSlotId: slot.id, // Add parkingSlotId to BillData
+      driverId: order.driverId || undefined,
+      staffMemberId: order.staffMemberId || undefined,
+      guestCount: order.guestCount || 1
     } as any);
 
     try {

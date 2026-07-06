@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp, couponCode, loyaltyPointsRedeemed } = body;
+    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp, couponCode, loyaltyPointsRedeemed, guestCount } = body;
 
     // --- COMBO EXPANSION ---
     const expandedItems: any[] = [];
@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
           data: {
             propertyId: session.propertyId!,
             outletId: outlet.id,
+            guestCount: guestCount ? Number(guestCount) : 1,
             orderNo: `POS-${Date.now()}`,
             orderType: orderType || 'DINE_IN',
             status: 'SETTLED',
@@ -565,12 +566,12 @@ export async function POST(request: NextRequest) {
         console.error('Inventory Deduction Error (Non-blocking):', invErr);
       }
 
-      return { invoice, orderNo: posOrder.orderNo, grandTotal, driverId: posOrder.driverId || driverId };
+      return { invoice, orderNo: posOrder.orderNo, grandTotal, driverId: posOrder.driverId || driverId, guestCount: posOrder.guestCount || (guestCount ? Number(guestCount) : 1) };
     });
 
     // Check Driver Offer rule
     if (result.driverId) {
-      processDriverRide(result.driverId).catch(err => console.error('Driver Engine Error:', err));
+      processDriverRide(result.driverId, result.guestCount || 1).catch(err => console.error('Driver Engine Error:', err));
     }
 
     // Notifications (SMS & WhatsApp)

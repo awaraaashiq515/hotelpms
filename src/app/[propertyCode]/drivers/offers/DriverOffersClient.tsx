@@ -1,716 +1,342 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  Trophy,
-  RefreshCw,
-  Plus,
-  Gift,
-  Edit,
-  Trash2,
-  Activity,
-  Award,
-  Search,
-  Users,
-  Target,
-  RotateCcw,
-  ChevronDown
-} from 'lucide-react';
+import { RefreshCw, Plus, Gift, Users, Trophy, TrendingUp, Star, BarChart3, Zap, ArrowRight } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 
-// Types
-export interface DriverProgress {
-  id: string;
-  name: string;
-  phone: string;
-  status: string;
-  activeOffer: string;
-  completedRides: number;
-  referredCustomers: number;
-  targetRides: number;
-  targetReferrals: number;
-  progressPercent: number;
-  completedOffersCount: number;
-}
+// ── Sub-components ──────────────────────────────────────
+import RewardRulesTab from './components/RewardRulesTab';
+import DriverOverviewTab from './components/DriverOverviewTab';
+import HistoryTab from './components/HistoryTab';
+import AddRuleModal from './components/AddRuleModal';
 
-function DriverOffersContent() {
-  const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'tracker' | 'rules'>(
-    searchParams.get('tab') === 'slabs' ? 'rules' : 'tracker'
-  );
+// ── Types ───────────────────────────────────────────────
+import {
+  ActiveTab, DriverProgress, OfferRule, HistoryEntry,
+  HistorySummary, OfferForm,
+} from './types';
 
-  const [data, setData] = useState<DriverProgress[]>([]);
-  const [offersList, setOffersList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [propertyId, setPropertyId] = useState<string | null>(null);
-
-  // Modal states
-  const [isOfferModalOpen, setIsOfferModalOpen] = useState(searchParams.get('action') === 'new-slab');
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
-
-  // Form states
-  const [offerForm, setOfferForm] = useState({
-    title: '',
-    offerType: 'RIDES',
-    targetRides: 0,
-    targetReferrals: 0,
-    rewardValue: 0,
-    rewardType: 'CASH',
-    rewardItem: '',
-    resetType: 'SAME_OFFER',
-    priority: 1,
-    nextOfferId: ''
-  });
-  const [assignForm, setAssignForm] = useState({ offerId: '' });
-
-  const fetchProgress = async (pid?: string) => {
-    const activePid = pid || propertyId;
-    setLoading(true);
-    try {
-      const respOffers = await fetch(`/api/drivers/offers${activePid ? `?propertyId=${activePid}` : ''}`);
-      if (respOffers.status === 401) return;
-      const resultOffers = await respOffers.json();
-      if (resultOffers.success) setOffersList(resultOffers.data);
-
-      const progressUrl = `/api/drivers/offers/progress${activePid ? `?propertyId=${activePid}` : ''}`;
-      const response = await fetch(progressUrl);
-      if (response.status === 401) return;
-      const result = await response.json();
-      if (result.success) setData(result.data);
-    } catch (error) {
-      console.error('Failed to fetch tracking data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const sessionResponse = await fetch('/api/auth/session').then(res => res.json());
-        const role = sessionResponse.user?.role;
-        const orgId = sessionResponse.user?.organizationId;
-        let currentPid = sessionResponse.user?.propertyId;
-
-        if (!currentPid && (role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN') && orgId) {
-          const propResp = await fetch(`/api/setup/properties?organizationId=${orgId}`).then(res => res.json());
-          if (propResp.success && propResp.data.length > 0) {
-            currentPid = propResp.data[0].id;
-          }
-        }
-
-        if (currentPid) {
-          setPropertyId(currentPid);
-          fetchProgress(currentPid);
-        } else {
-          fetchProgress();
-        }
-      } catch (err) {
-        console.error('Session init failed:', err);
-        fetchProgress();
-      }
-    };
-    init();
-  }, []);
-
-  const handleCreateOrUpdateOffer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const url = editingOfferId ? `/api/drivers/offers/${editingOfferId}` : '/api/drivers/offers';
-      const method = editingOfferId ? 'PATCH' : 'POST';
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...offerForm, propertyId })
-      });
-      setIsOfferModalOpen(false);
-      setEditingOfferId(null);
-      setOfferForm({ title: '', offerType: 'RIDES', targetRides: 0, targetReferrals: 0, rewardValue: 0, rewardType: 'CASH', rewardItem: '', resetType: 'SAME_OFFER', priority: 1, nextOfferId: '' });
-      fetchProgress();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeleteOffer = async (id: string) => {
-    if (!confirm('Kya aap yeh reward rule delete karna chahte hain?')) return;
-    try {
-      await fetch(`/api/drivers/offers/${id}`, { method: 'DELETE' });
-      fetchProgress();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleAssignOffer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDriverId || !assignForm.offerId) return;
-    try {
-      await fetch('/api/drivers/offers/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId: selectedDriverId, offerId: assignForm.offerId, propertyId })
-      });
-      setIsAssignModalOpen(false);
-      fetchProgress();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const [syncing, setSyncing] = useState(false);
-
-  const handleReSync = async () => {
-    setSyncing(true);
-    try {
-      await fetch('/api/drivers/offers/re-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId })
-      });
-      await fetchProgress();
-      alert('Done! All driver progress has been updated.');
-    } catch (err) {
-      console.error('Sync failed:', err);
-      alert('Update failed. Please try again.');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleManageAction = async (driverId: string, action: 'RESET' | 'REDEEM_AND_RESET') => {
-    const confirmMsg = action === 'RESET'
-      ? 'Are you sure you want to reset this driver\'s progress to zero?'
-      : 'Give reward and restart this driver from zero?';
-    if (!confirm(confirmMsg)) return;
-    try {
-      await fetch('/api/drivers/offers/manage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId, action, propertyId })
-      });
-      fetchProgress();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const filteredData = data.filter(d => {
-    const s = search.toLowerCase();
-    return d.name.toLowerCase().includes(s) || (d.phone || '').includes(s);
-  });
-
+// ── Small Stat Card ─────────────────────────────────────
+function StatCard({ icon, label, value, sub, color }: {
+  icon: React.ReactNode; label: string;
+  value: string | number; sub?: string; color: string;
+}) {
   return (
-    <div className="space-y-6 pb-16">
-      <PageHeader
-        title="Driver Progress"
-        subtitle="Track how many customers your drivers bring and give them rewards."
-        showBack
-        backUrl="/drivers"
-        actions={
-          <div className="flex items-center gap-3">
-            <Button
-              disabled={syncing}
-              variant="secondary"
-              className="h-10 px-4 text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-600 gap-2"
-              onClick={handleReSync}
-            >
-              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? 'Updating...' : 'Refresh'}
-            </Button>
-            <Button
-              className="h-10 px-4 text-sm font-medium bg-pos-primary text-white rounded-xl gap-2"
-              onClick={() => { setActiveTab('rules'); setIsOfferModalOpen(true); }}
-            >
-              <Plus size={14} />
-              Add Reward Rule
-            </Button>
-          </div>
-        }
-      />
-
-      {/* Simple Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-4 flex items-start gap-3">
-        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Activity size={16} className="text-blue-600 dark:text-blue-400" />
-        </div>
+    <div className={`relative overflow-hidden rounded-2xl border p-5 ${color}`}>
+      <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">How it works?</p>
-          <p className="text-sm text-blue-700 dark:text-blue-400 mt-0.5">
-            Every time you select a driver on the POS Billing page, it counts as 1 customer for them.
-            Once they reach their target, they automatically earn a cash or gift reward.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wider opacity-70">{label}</p>
+          <p className="text-2xl font-bold mt-1">{value}</p>
+          {sub && <p className="text-xs mt-1 opacity-60">{sub}</p>}
         </div>
+        <div className="opacity-80">{icon}</div>
       </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
-        <button
-          onClick={() => setActiveTab('tracker')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'tracker' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-          }`}
-        >
-          <Users size={15} />
-          Driver Progress
-        </button>
-        <button
-          onClick={() => setActiveTab('rules')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'rules' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-          }`}
-        >
-          <Gift size={15} />
-          Reward Rules
-        </button>
-      </div>
-
-      {/* TAB: Driver Progress */}
-      {activeTab === 'tracker' && (
-        <div className="space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search driver by name or phone number..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary"
-            />
-          </div>
-
-          {/* Driver Table */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
-            {loading ? (
-              <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-sm">Loading...</div>
-            ) : filteredData.length === 0 ? (
-              <div className="p-12 text-center">
-                <Users size={32} className="mx-auto text-slate-200 dark:text-slate-700 mb-3" />
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No drivers found</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Assign a reward level to your drivers first.</p>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-5 py-3">Driver</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Current Level</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Progress</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Wins</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                  {filteredData.map(row => {
-                    const hasNoLevel = row.activeOffer === 'No Level Assigned';
-                    const isDone = row.progressPercent >= 100;
-                    const isNear = row.progressPercent >= 80 && row.progressPercent < 100;
-
-                    return (
-                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        {/* Driver Name */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-pos-primary/10 text-pos-primary flex items-center justify-center text-xs font-bold flex-shrink-0 uppercase">
-                              {row.name.substring(0, 2)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-800 dark:text-white">{row.name}</p>
-                              <p className="text-xs text-slate-400 dark:text-slate-500">{row.phone || 'No phone'}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Level */}
-                        <td className="px-4 py-4">
-                          {hasNoLevel ? (
-                            <button
-                              onClick={() => { setSelectedDriverId(row.id); setAssignForm({ offerId: '' }); setIsAssignModalOpen(true); }}
-                              className="text-xs font-semibold text-red-500 border border-red-200 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
-                            >
-                              <Plus size={12} /> Assign Level
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => { setSelectedDriverId(row.id); setAssignForm({ offerId: '' }); setIsAssignModalOpen(true); }}
-                              className="text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
-                            >
-                              {row.activeOffer} <ChevronDown size={12} />
-                            </button>
-                          )}
-                        </td>
-
-                        {/* Progress */}
-                        <td className="px-4 py-4">
-                          {hasNoLevel ? (
-                            <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
-                          ) : (
-                            <div className="w-44 space-y-1.5">
-                              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                                <span>{row.completedRides} customers</span>
-                                <span>Target: {row.targetRides}</span>
-                              </div>
-                              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-700 ${isDone ? 'bg-emerald-500' : 'bg-pos-primary'}`}
-                                  style={{ width: `${Math.min(row.progressPercent, 100)}%` }}
-                                />
-                              </div>
-                              <p className={`text-xs font-semibold ${isDone ? 'text-emerald-600' : isNear ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'}`}>
-                                {isDone ? '✓ Target reached!' : isNear ? 'Almost there!' : `${row.progressPercent.toFixed(0)}%`}
-                              </p>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Wins */}
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <Trophy size={15} className={row.completedOffersCount > 0 ? 'text-amber-500' : 'text-slate-200 dark:text-slate-700'} />
-                            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{row.completedOffersCount}</span>
-                          </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleManageAction(row.id, 'REDEEM_AND_RESET')}
-                              className="text-xs font-semibold text-amber-600 border border-amber-200 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1"
-                              title="Give reward and restart"
-                            >
-                              <Award size={12} /> Force Win
-                            </button>
-                            <button
-                              onClick={() => handleManageAction(row.id, 'RESET')}
-                              className="text-xs font-semibold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
-                              title="Reset progress to zero"
-                            >
-                              <RotateCcw size={12} /> Reset
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB: Reward Rules */}
-      {activeTab === 'rules' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-slate-800 dark:text-white">Reward Rules</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Set how many customers a driver must bring to earn a reward.</p>
-            </div>
-            <Button
-              className="h-10 px-4 text-sm font-medium bg-pos-primary text-white rounded-xl gap-2"
-              onClick={() => setIsOfferModalOpen(true)}
-            >
-              <Plus size={14} /> Add New Rule
-            </Button>
-          </div>
-
-          {offersList.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-12 text-center">
-              <Gift size={32} className="mx-auto text-slate-200 dark:text-slate-700 mb-3" />
-              <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No reward rules yet</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add your first rule to get started.</p>
-              <Button
-                className="mt-5 h-10 px-5 text-sm bg-pos-primary text-white rounded-xl"
-                onClick={() => setIsOfferModalOpen(true)}
-              >
-                <Plus size={14} className="mr-1" /> Add Rule
-              </Button>
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-5 py-3">Level</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Target</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Reward</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">After Completion</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                  {offersList.map(offer => (
-                    <tr key={offer.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-pos-primary/10 text-pos-primary flex items-center justify-center text-xs font-bold">
-                            {offer.priority}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800 dark:text-white">{offer.title}</p>
-                            {!offer.isActive && <p className="text-xs text-slate-400 dark:text-slate-500">Inactive</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="text-sm text-slate-700 dark:text-slate-300">
-                          <span className="font-bold">{offer.targetRides}</span> customers
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        {offer.rewardType === 'CASH' ? (
-                          <span className="text-sm font-bold text-emerald-600">₹{offer.rewardValue} cash</span>
-                        ) : (
-                          <span className="text-sm font-bold text-amber-600 flex items-center gap-1">
-                            <Gift size={13} /> {offer.rewardItem}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="text-xs text-slate-500">
-                          {offer.resetType === 'SAME_OFFER' ? 'Repeat same level' : offer.resetType === 'NEXT_OFFER' ? 'Move to next level' : 'Stop after reward'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => { setEditingOfferId(offer.id); setOfferForm({ ...offer, rewardItem: offer.rewardItem || '' }); setIsOfferModalOpen(true); }}
-                            className="text-xs font-semibold text-pos-primary border border-pos-primary/20 bg-pos-primary/5 px-3 py-1.5 rounded-lg hover:bg-pos-primary/10 transition-colors flex items-center gap-1"
-                          >
-                            <Edit size={12} /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteOffer(offer.id)}
-                            className="text-xs font-semibold text-red-500 border border-red-200 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal: Add / Edit Reward Rule */}
-      <Modal
-        isOpen={isOfferModalOpen}
-        onClose={() => { setIsOfferModalOpen(false); setEditingOfferId(null); }}
-        title={editingOfferId ? 'Edit Reward Rule' : 'Add New Reward Rule'}
-        isDark
-      >
-        <form onSubmit={handleCreateOrUpdateOffer} className="space-y-5 pt-2">
-          {/* Level Name */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Level Name</label>
-            <input
-              required
-              type="text"
-              className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-pos-primary/40 focus:border-pos-primary"
-              value={offerForm.title}
-              onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
-              placeholder="e.g. Level 1 - Starter"
-            />
-          </div>
-
-          {/* Target & Level Number */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-1.5">Customers Required</label>
-              <input
-                required
-                type="number"
-                min="1"
-                className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40 focus:border-pos-primary"
-                value={offerForm.targetRides}
-                onChange={e => setOfferForm({ ...offerForm, targetRides: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-1.5">Level Number</label>
-              <input
-                type="number"
-                min="1"
-                className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40 focus:border-pos-primary"
-                value={offerForm.priority}
-                onChange={e => setOfferForm({ ...offerForm, priority: parseInt(e.target.value) || 1 })}
-              />
-            </div>
-          </div>
-
-          {/* Reward Type */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Reward Type</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setOfferForm({ ...offerForm, rewardType: 'CASH' })}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
-                  offerForm.rewardType === 'CASH'
-                    ? 'bg-emerald-900/40 border-emerald-600 text-emerald-400'
-                    : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'
-                }`}
-              >
-                💵 Cash
-              </button>
-              <button
-                type="button"
-                onClick={() => setOfferForm({ ...offerForm, rewardType: 'GIFT' })}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
-                  offerForm.rewardType === 'GIFT'
-                    ? 'bg-amber-900/40 border-amber-600 text-amber-400'
-                    : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'
-                }`}
-              >
-                🎁 Gift
-              </button>
-            </div>
-          </div>
-
-          {/* Reward value */}
-          <div>
-            {offerForm.rewardType === 'CASH' ? (
-              <>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">Cash Amount (₹)</label>
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
-                  value={offerForm.rewardValue}
-                  onChange={e => setOfferForm({ ...offerForm, rewardValue: parseFloat(e.target.value) || 0 })}
-                  placeholder="e.g. 500"
-                />
-              </>
-            ) : (
-              <>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">Gift Item Name</label>
-                <input
-                  required
-                  type="text"
-                  className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500"
-                  placeholder="e.g. Helmet, T-Shirt"
-                  value={offerForm.rewardItem}
-                  onChange={e => setOfferForm({ ...offerForm, rewardItem: e.target.value })}
-                />
-              </>
-            )}
-          </div>
-
-          {/* After completing */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1.5">After target is reached?</label>
-            <select
-              className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40"
-              value={offerForm.resetType}
-              onChange={e => setOfferForm({ ...offerForm, resetType: e.target.value })}
-            >
-              <option value="SAME_OFFER" className="bg-slate-800">Repeat the same level</option>
-              <option value="NEXT_OFFER" className="bg-slate-800">Move to next level</option>
-              <option value="CAMPAIGN_RESET" className="bg-slate-800">Stop after giving reward</option>
-            </select>
-          </div>
-
-          {offerForm.resetType === 'NEXT_OFFER' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-1.5">Which level comes next?</label>
-              <select
-                required
-                className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40"
-                value={offerForm.nextOfferId}
-                onChange={e => setOfferForm({ ...offerForm, nextOfferId: e.target.value })}
-              >
-                <option value="" className="bg-slate-800">-- Select a level --</option>
-                {offersList.filter(o => o.id !== editingOfferId).map(offer => (
-                  <option key={offer.id} value={offer.id} className="bg-slate-800">{offer.title} (Level {offer.priority})</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-2 border-t border-slate-700">
-            <Button
-              type="button"
-              variant="secondary"
-              className="flex-1 h-11 rounded-xl border border-slate-600 text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
-              onClick={() => { setIsOfferModalOpen(false); setEditingOfferId(null); }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1 h-11 rounded-xl bg-pos-primary text-white text-sm font-semibold"
-            >
-              {editingOfferId ? 'Save Changes' : 'Add Rule'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Modal: Assign Level */}
-      <Modal
-        isOpen={isAssignModalOpen}
-        onClose={() => setIsAssignModalOpen(false)}
-        title="Change Driver Level"
-        isDark
-      >
-        <form onSubmit={handleAssignOffer} className="space-y-5 pt-2">
-          <div className="bg-amber-900/20 border border-amber-800/40 rounded-xl p-4 text-sm text-amber-300">
-            ⚠️ Changing the level will reset this driver's current progress.
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Select New Level</label>
-            <select
-              required
-              className="w-full border border-slate-600 rounded-xl px-4 py-3 text-sm bg-slate-800 text-white outline-none focus:ring-2 focus:ring-pos-primary/40"
-              value={assignForm.offerId}
-              onChange={e => setAssignForm({ offerId: e.target.value })}
-            >
-              <option value="" disabled className="bg-slate-800">-- Choose a level --</option>
-              {offersList.map(offer => (
-                <option key={offer.id} value={offer.id} className="bg-slate-800">{offer.title} (Target: {offer.targetRides} customers)</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-3 border-t border-slate-700 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              className="flex-1 h-11 rounded-xl border border-slate-600 text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
-              onClick={() => setIsAssignModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1 h-11 rounded-xl bg-slate-200 text-slate-900 text-sm font-semibold hover:bg-white"
-            >
-              Change Level
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }
 
+// ── Default offer form ───────────────────────────────────
+const DEFAULT_FORM: OfferForm = {
+  title: '', offerType: 'RIDES', targetRides: 0, targetReferrals: 0,
+  rewardValue: 0, rewardType: 'CASH', rewardItem: '',
+  resetType: 'SAME_OFFER', priority: 1, nextOfferId: '', isActive: true,
+};
+
+// ═══════════════════════════════════════════════════════
+// Main Content
+// ═══════════════════════════════════════════════════════
+function DriverOffersContent() {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    (searchParams.get('tab') as ActiveTab) || 'rules'
+  );
+
+  // ── Core state ───────────────────────────────────────
+  const [driversData, setDriversData]     = useState<DriverProgress[]>([]);
+  const [offersList, setOffersList]       = useState<OfferRule[]>([]);
+  const [historyData, setHistoryData]     = useState<HistoryEntry[]>([]);
+  const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [propertyId, setPropertyId]       = useState<string | null>(null);
+  const [syncing, setSyncing]             = useState(false);
+
+  // ── Driver overview search ───────────────────────────
+  const [search, setSearch] = useState('');
+
+  // ── History filters ──────────────────────────────────
+  const [historyPeriod, setHistoryPeriod] = useState<'day' | 'month' | 'year' | 'custom'>('month');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo]     = useState('');
+  const [historyDriverFilter, setHistoryDriverFilter] = useState('');
+  const [historyOfferFilter, setHistoryOfferFilter]   = useState('');
+
+  // ── Modal state ──────────────────────────────────────
+  const [isOfferModalOpen,  setIsOfferModalOpen]  = useState(searchParams.get('action') === 'new-slab');
+  const [editingOfferId,    setEditingOfferId]     = useState<string | null>(null);
+  const [offerForm,         setOfferForm]          = useState<OfferForm>(DEFAULT_FORM);
+
+  // ── Fetch core data ──────────────────────────────────
+  const fetchData = useCallback(async (pid?: string) => {
+    const activePid = pid || propertyId;
+    setLoading(true);
+    try {
+      const [oR, pR] = await Promise.all([
+        fetch(`/api/drivers/offers${activePid ? `?propertyId=${activePid}` : ''}`),
+        fetch(`/api/drivers/offers/progress${activePid ? `?propertyId=${activePid}` : ''}`),
+      ]);
+      if (oR.status === 401 || pR.status === 401) return;
+      const [od, pd] = await Promise.all([oR.json(), pR.json()]);
+      if (od.success) setOffersList(od.data);
+      if (pd.success) setDriversData(pd.data);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [propertyId]);
+
+  // ── Fetch history ────────────────────────────────────
+  const fetchHistory = useCallback(async (pid?: string) => {
+    const activePid = pid || propertyId;
+    setHistoryLoading(true);
+    try {
+      const now = new Date();
+      let s = historyDateFrom, e2 = historyDateTo;
+      if (historyPeriod === 'day') {
+        const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        s = e2 = t.toISOString().split('T')[0];
+      } else if (historyPeriod === 'month') {
+        s = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        e2 = now.toISOString().split('T')[0];
+      } else if (historyPeriod === 'year') {
+        s = `${now.getFullYear()}-01-01`;
+        e2 = now.toISOString().split('T')[0];
+      }
+      const params = new URLSearchParams();
+      if (activePid)           params.set('propertyId', activePid);
+      if (s)                   params.set('startDate', s);
+      if (e2)                  params.set('endDate', e2);
+      if (historyDriverFilter) params.set('driverId', historyDriverFilter);
+      if (historyOfferFilter)  params.set('offerId', historyOfferFilter);
+
+      const res = await fetch(`/api/drivers/offers/history?${params}`);
+      if (res.status === 401) return;
+      const data = await res.json();
+      if (data.success) { setHistoryData(data.data.histories); setHistorySummary(data.data.summary); }
+    } catch (e) { console.error(e); }
+    finally { setHistoryLoading(false); }
+  }, [propertyId, historyPeriod, historyDateFrom, historyDateTo, historyDriverFilter, historyOfferFilter]);
+
+  // ── Init session + auto-sync L1 for unassigned drivers ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await fetch('/api/auth/session').then(r => r.json());
+        let pid = s.user?.propertyId;
+        if (!pid && (s.user?.role === 'RESTAURANTS_ADMIN' || s.user?.role === 'SUPER_ADMIN') && s.user?.organizationId) {
+          const p = await fetch(`/api/setup/properties?organizationId=${s.user.organizationId}`).then(r => r.json());
+          if (p.success && p.data.length > 0) pid = p.data[0].id;
+        }
+        setPropertyId(pid || null);
+        // Auto-sync first — assigns L1 to any driver without a level
+        if (pid) {
+          await fetch('/api/drivers/offers/re-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyId: pid }),
+          }).catch(() => {});
+        }
+        fetchData(pid);
+      } catch { fetchData(); }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'history' && propertyId) fetchHistory(propertyId);
+  }, [activeTab, historyPeriod, historyDriverFilter, historyOfferFilter]);
+
+  // ── Handlers ─────────────────────────────────────────
+  const handleReSync = async () => {
+    setSyncing(true);
+    try {
+      await fetch('/api/drivers/offers/re-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId }) });
+      await fetchData();
+      if (activeTab === 'history') fetchHistory();
+    } catch (e) { console.error(e); }
+    finally { setSyncing(false); }
+  };
+
+  const handleCreateOrUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = editingOfferId ? `/api/drivers/offers/${editingOfferId}` : '/api/drivers/offers';
+    await fetch(url, { method: editingOfferId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...offerForm, propertyId }) });
+    setIsOfferModalOpen(false); setEditingOfferId(null); setOfferForm(DEFAULT_FORM); fetchData();
+  };
+
+  const handleDeleteOffer = async (id: string) => {
+    if (!confirm('Delete this reward rule?')) return;
+    await fetch(`/api/drivers/offers/${id}`, { method: 'DELETE' });
+    fetchData();
+  };
+
+  const openEditOffer = (offer: OfferRule) => {
+    setEditingOfferId(offer.id);
+    setOfferForm({ title: offer.title, offerType: offer.offerType, targetRides: offer.targetRides, targetReferrals: offer.targetReferrals, rewardValue: offer.rewardValue, rewardType: offer.rewardType, rewardItem: offer.rewardItem || '', resetType: offer.resetType, priority: offer.priority, nextOfferId: offer.nextOfferId || '', isActive: offer.isActive });
+    setIsOfferModalOpen(true);
+  };
+
+  const openAddRule = () => { setOfferForm(DEFAULT_FORM); setEditingOfferId(null); setIsOfferModalOpen(true); };
+
+  // ── Derived ──────────────────────────────────────────
+  const sortedOffers = [...offersList].sort((a, b) => a.priority - b.priority);
+  const filteredDrivers = driversData.filter(d => {
+    const s = search.toLowerCase();
+    return d.name.toLowerCase().includes(s) || (d.phone || '').includes(s);
+  });
+  const activeOffers    = offersList.filter(o => o.isActive);
+  const totalAssigned   = driversData.filter(d => d.activeOffer !== 'No Level Assigned').length;
+  const totalCompleted  = driversData.reduce((sum, d) => sum + d.completedOffersCount, 0);
+
+  // ── Render ───────────────────────────────────────────
+  return (
+    <div className="space-y-6 pb-16">
+      {/* Header */}
+      <PageHeader
+        title="Driver Rewards"
+        subtitle="Create reward rules, track driver progress, and view performance history."
+        showBack
+        backUrl="/drivers"
+        actions={
+          <div className="flex items-center gap-2">
+            <button disabled={syncing} onClick={handleReSync}
+              className="flex items-center gap-2 h-9 px-4 text-sm font-medium border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50">
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'Syncing...' : 'Sync Progress'}
+            </button>
+            <button onClick={openAddRule}
+              className="flex items-center gap-2 h-9 px-4 text-sm font-semibold bg-pos-primary text-white rounded-xl hover:opacity-90 transition-all">
+              <Plus size={14} /> Add Reward Rule
+            </button>
+          </div>
+        }
+      />
+
+      {/* Auto Level-Up Banner */}
+      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-950/40 dark:to-violet-950/40 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/60 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Zap size={15} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">Automatic Level-Up System</p>
+            <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-0.5 leading-relaxed">
+              When a driver completes the required customers, they <strong>automatically earn their reward</strong> and move to the next level.
+              Set this up in Reward Rules → "Auto Level-Up".
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+            <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">Level 1</span>
+            <ArrowRight size={12} />
+            <span className="px-2 py-1 bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400 rounded-lg">Level 2</span>
+            <ArrowRight size={12} />
+            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-lg">Level 3</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard icon={<Gift size={22} className="text-indigo-500" />}  label="Total Rules"       value={offersList.length}  sub={`${activeOffers.length} active`}         color="bg-indigo-50 dark:bg-indigo-950/40 border-indigo-100 dark:border-indigo-900/50 text-indigo-900 dark:text-indigo-100" />
+        <StatCard icon={<Users size={22} className="text-violet-500" />} label="On Reward"         value={totalAssigned}      sub={`of ${driversData.length} total`}         color="bg-violet-50 dark:bg-violet-950/40 border-violet-100 dark:border-violet-900/50 text-violet-900 dark:text-violet-100" />
+        <StatCard icon={<Trophy size={22} className="text-amber-500" />} label="Total Wins"        value={totalCompleted}     sub="all time completions"                     color="bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900/50 text-amber-900 dark:text-amber-100" />
+        <StatCard icon={<TrendingUp size={22} className="text-emerald-500" />} label="Active Drivers" value={driversData.filter(d => d.status === 'Active').length} sub="currently active" color="bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100" />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
+        {([
+          { key: 'rules',   label: 'Reward Rules',      icon: <Star size={14} /> },
+          { key: 'drivers', label: 'Driver Overview',   icon: <Users size={14} /> },
+          { key: 'history', label: 'Reports & History', icon: <BarChart3 size={14} /> },
+        ] as { key: ActiveTab; label: string; icon: React.ReactNode }[]).map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.key ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+            {tab.icon}{tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Panels */}
+      {activeTab === 'rules' && (
+        <RewardRulesTab
+          offersList={offersList}
+          sortedOffers={sortedOffers}
+          activeOffersCount={activeOffers.length}
+          onAddRule={openAddRule}
+          onEditOffer={openEditOffer}
+          onDeleteOffer={handleDeleteOffer}
+        />
+      )}
+
+      {activeTab === 'drivers' && (
+        <DriverOverviewTab
+          drivers={filteredDrivers}
+          offersList={offersList}
+          loading={loading}
+          search={search}
+          propertyId={propertyId}
+          onSearchChange={setSearch}
+          onRewardGiven={() => { fetchData(); }}
+        />
+      )}
+
+      {activeTab === 'history' && (
+        <HistoryTab
+          historyData={historyData}
+          historySummary={historySummary}
+          historyLoading={historyLoading}
+          historyPeriod={historyPeriod}
+          historyDateFrom={historyDateFrom}
+          historyDateTo={historyDateTo}
+          historyDriverFilter={historyDriverFilter}
+          historyOfferFilter={historyOfferFilter}
+          driversData={driversData}
+          offersList={offersList}
+          onPeriodChange={setHistoryPeriod}
+          onDateFromChange={setHistoryDateFrom}
+          onDateToChange={setHistoryDateTo}
+          onDriverFilterChange={setHistoryDriverFilter}
+          onOfferFilterChange={setHistoryOfferFilter}
+          onApplyCustomRange={() => fetchHistory()}
+        />
+      )}
+
+      {/* Modals */}
+      <AddRuleModal
+        isOpen={isOfferModalOpen}
+        editingOfferId={editingOfferId}
+        offerForm={offerForm}
+        offersList={offersList}
+        onClose={() => { setIsOfferModalOpen(false); setEditingOfferId(null); }}
+        onSubmit={handleCreateOrUpdate}
+        onChange={setOfferForm}
+      />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// Page Export
+// ═══════════════════════════════════════════════════════
 export default function DriverOffersPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-400">Loading...</div>}>
+    <Suspense fallback={
+      <div className="p-12 text-center">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-slate-400 mt-3">Loading Driver Rewards...</p>
+      </div>
+    }>
       <DriverOffersContent />
     </Suspense>
   );
 }
+ 

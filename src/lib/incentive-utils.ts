@@ -86,7 +86,7 @@ export async function recordDriverActivity(driverId: string, type: ActivityType,
       }) + '\n');
     } catch {}
 
-    // 5. Handle Completion (Progress reached 100%)
+    // 5. Handle Completion (Progress reached 100%) — auto-advance + record payout
     if (totalProgress >= 100) {
       // Record to HISTORY
       await (prisma as any).driverOfferHistory.create({
@@ -101,7 +101,18 @@ export async function recordDriverActivity(driverId: string, type: ActivityType,
         }
       });
 
-      // Handle Cycle Logic
+      // Create a PENDING payout record so admin knows gift hasn't been given yet
+      await (prisma as any).rewardPayout.create({
+        data: {
+          driverId,
+          offerId: offer.id,
+          amount: offer.rewardValue,
+          itemName: offer.rewardItem || null,
+          payoutStatus: 'PENDING',
+        }
+      });
+
+      // Cycle Logic — auto-advance
       if (offer.resetType === 'SAME_OFFER') {
         // Reset progress but stay on same offer
         return await (prisma as any).driverOfferProgress.update({
@@ -110,6 +121,7 @@ export async function recordDriverActivity(driverId: string, type: ActivityType,
             completedRides: 0,
             completedReferrals: 0,
             progressPercent: 0,
+            status: 'ACTIVE',
             resetCount: { increment: 1 },
             updatedAt: new Date()
           }
@@ -121,7 +133,7 @@ export async function recordDriverActivity(driverId: string, type: ActivityType,
           data: {
             driverId,
             offerId: offer.nextOfferId,
-            status: "ACTIVE",
+            status: 'ACTIVE',
             completedRides: 0,
             completedReferrals: 0,
             progressPercent: 0,
@@ -133,7 +145,7 @@ export async function recordDriverActivity(driverId: string, type: ActivityType,
         return await (prisma as any).driverOfferProgress.update({
           where: { id: activeProgress.id },
           data: {
-            status: "COMPLETED",
+            status: 'COMPLETED',
             completedRides: newRides,
             completedReferrals: newReferrals,
             progressPercent: 100,

@@ -1068,6 +1068,7 @@ export default function RestaurantPosView({
       tableId: tableId || undefined,
       driverId: selectedDriver?.id || activeOrder?.driverId,
       staffMemberId: selectedStaffId || activeOrder?.staffMemberId || undefined,
+      guestCount: guestCount || orderToPrint.guestCount || 1,
       membershipDiscount: membershipDiscountAmount || orderToPrint.membershipDiscount || 0,
       manualDiscount: manualDiscountAmount || orderToPrint.manualDiscount || 0,
       membershipCard: membershipCard || orderToPrint.membershipCard

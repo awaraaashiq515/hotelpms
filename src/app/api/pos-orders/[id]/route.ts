@@ -86,11 +86,10 @@ export async function PUT(
     }
     
     if (driverId !== undefined) {
+      dataToUpdate.driverId = driverId || null;
       if (isDelivery) {
         dataToUpdate.deliveryRiderId = driverId || null;
-        dataToUpdate.driverId = null;
       } else {
-        dataToUpdate.driverId = driverId || null;
         dataToUpdate.deliveryRiderId = null;
       }
     }

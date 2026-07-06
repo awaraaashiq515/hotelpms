@@ -40,6 +40,8 @@ export interface BillData {
   taxLabel?: string;
   propertyId?: string;
   staffMemberId?: string;
+  driverId?: string;
+  guestCount?: number;
 }
 
 interface BillModalProps {
@@ -321,7 +323,9 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
                 isCombo: (i as any).isCombo || false
               })),
               sendWhatsApp: sendWhatsApp,
-              staffMemberId: bill.staffMemberId || undefined
+              staffMemberId: bill.staffMemberId || undefined,
+              driverId: (bill as any).driverId || undefined,
+              guestCount: bill.guestCount || 1
           })
       });
       const result = await response.json();

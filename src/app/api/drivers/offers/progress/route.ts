@@ -17,10 +17,13 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         offerProgresses: {
-          where: { status: "ACTIVE" },
+          where: { status: 'ACTIVE' },
           include: { offer: true },
         },
         offerHistories: true,
+        rewardPayouts: {
+          where: { payoutStatus: 'PENDING' },
+        },
       },
       orderBy: { createdAt: "desc" }
     });
@@ -28,6 +31,7 @@ export async function GET(request: NextRequest) {
     const progressData = (drivers as any[]).map(driver => {
       const activeProgress = driver.offerProgresses[0] || null;
       const completedOffersCount = driver.offerHistories.length;
+      const pendingRewardsCount = driver.rewardPayouts?.length || 0;
 
       return {
         id: driver.id,
@@ -42,6 +46,8 @@ export async function GET(request: NextRequest) {
         targetReferrals: activeProgress ? activeProgress.offer.targetReferrals : 0,
         progressPercent: activeProgress ? activeProgress.progressPercent : 0,
         completedOffersCount,
+        pendingRewardsCount,
+        rewardPending: pendingRewardsCount > 0,
       };
     });
 

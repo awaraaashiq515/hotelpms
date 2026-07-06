@@ -351,7 +351,10 @@ export default function DeliveryOperationsPage() {
       grandTotal: order.grandTotal,
       createdAt: order.createdAt,
       tableId: undefined,
-      orderId: order.id
+      orderId: order.id,
+      driverId: order.driverId || order.deliveryRiderId || undefined,
+      staffMemberId: order.staffMemberId || undefined,
+      guestCount: order.guestCount || 1
     } as any);
   };
 
