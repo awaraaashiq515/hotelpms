@@ -79,8 +79,17 @@ export async function sendWhatsAppMessage({
       return { success: true, data, mode: 'API' };
     }
 
-    if (provider === 'META') {
-      if (!property.metaAccessToken || !property.metaPhoneId) {
+    if (provider === 'AUTHKEY' || provider === 'META') {
+      const authKey = property?.whatsAppApiKey || process.env.AUTHKEY_API_KEY;
+      if (provider === 'AUTHKEY' && authKey) {
+        const cleanMobile = mobile.replace(/[^0-9]/g, '').slice(-10);
+        const url = `https://api.authkey.io/request?authkey=${authKey}&mobile=${cleanMobile}&country_code=91&sid=guest_booking_confirmation&1=Guest&2=${encodeURIComponent(property?.name || 'Hotel')}&3=${encodeURIComponent(message)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        return { success: data.status === 'success' || data.code === 200, data, mode: 'API' };
+      }
+
+      if (!property?.metaAccessToken || !property?.metaPhoneId) {
         throw new Error('Meta Graph credentials not configured');
       }
       const url = `https://graph.facebook.com/v20.0/${property.metaPhoneId}/messages`;
@@ -116,6 +125,67 @@ export async function sendWhatsAppMessage({
     console.error('WhatsApp Outbound API Error:', error);
     const encodedMessage = encodeURIComponent(message);
     return { success: false, url: `https://wa.me/${mobile}?text=${encodedMessage}`, mode: 'MANUAL', error };
+  }
+}
+
+// Function to send AuthKey WhatsApp Approved Template
+// Uses authkey.io API with wid (WhatsApp Template ID)
+export async function sendAuthKeyWhatsAppTemplate({
+  mobile,
+  templateId,       // wid = numeric template ID from authkey.io console
+  guestName,
+  hotelName,
+  portalUrl,
+  username,
+  password,
+  authKey,
+  roomNumber,
+  floor,
+  roomPrice,
+}: {
+  mobile: string;
+  templateId?: string;   // wid - the numeric ID shown in authkey template list
+  guestName: string;
+  hotelName: string;
+  portalUrl: string;
+  username: string;
+  password: string;
+  authKey?: string;
+  roomNumber?: string;
+  floor?: string;
+  roomPrice?: string;
+}) {
+  const key = authKey || process.env.AUTHKEY_API_KEY || '';
+  const cleanMobile = mobile.replace(/[^0-9]/g, '').slice(-10);
+
+  const params: Record<string, string> = {
+    authkey: key,
+    mobile: cleanMobile,
+    country_code: '91',
+    '1': guestName,
+    '2': password,
+  };
+
+  // Use wid if templateId is provided (authkey.io WhatsApp template ID)
+  if (templateId) {
+    params['wid'] = templateId;
+  }
+
+  const queryParams = new URLSearchParams(params);
+  const url = `https://api.authkey.io/request?${queryParams.toString()}`;
+
+  console.log('[AuthKey WhatsApp] Sending to:', cleanMobile, '| wid:', templateId);
+
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    const data = await res.json();
+    console.log('[AuthKey WhatsApp] Response:', data);
+    const isSuccess = data.status === 'success' || data.code === 200 || data.Message === 'Submitted Successfully' || !!data.LogID;
+    return { success: isSuccess, data };
+  } catch (error) {
+    console.error('AuthKey API Error:', error);
+
+    return { success: false, error };
   }
 }
 

@@ -57,8 +57,8 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // UPI configuration
-  const upiId = paymentSettings?.upiId || 'pay@ordermint';
-  const upiName = paymentSettings?.upiName || 'OrderMint';
+  const upiId = paymentSettings?.upiId || 'pay@guestflow';
+  const upiName = paymentSettings?.upiName || 'GuestFlow';
   const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent(`Sub-${org.name}`)}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUrl)}`;
 
@@ -182,7 +182,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
               <span className="text-white font-black text-xl italic">O</span>
             </div>
-            <span className="text-white font-black text-2xl tracking-tighter uppercase">OrderMint</span>
+            <span className="text-white font-black text-2xl tracking-tighter uppercase">GuestFlow</span>
           </div>
           <button 
             onClick={handleLogout}
@@ -207,7 +207,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
                   {pendingPackage ? pendingPackage.name : 'Premium Plan'}
                 </h1>
                 <p className="text-slate-400 text-sm mt-2 leading-relaxed">
-                  {pendingPackage?.description || 'Get full access to OrderMint’s point-of-sale terminal, invoicing, reports, inventory, and kitchen management suites.'}
+                  {pendingPackage?.description || 'Get full access to GuestFlow’s point-of-sale terminal, invoicing, reports, inventory, and kitchen management suites.'}
                 </p>
               </div>
 
@@ -267,7 +267,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
 
             <div className="pt-6 border-t border-white/5 text-[10px] text-slate-500 font-medium flex items-center gap-2">
               <AlertCircle size={12} className="text-slate-600" />
-              Need billing assistance? Contact billing@ordermint.com
+              Need billing assistance? Contact billing@guestflow.com
             </div>
           </div>
 
@@ -328,7 +328,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
                       <img src={qrCodeUrl} alt="UPI QR Code" className="w-[200px] h-[200px]" />
                     </div>
                     <div className="mt-4">
-                      <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">OrderMint UPI ID</p>
+                      <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">GuestFlow UPI ID</p>
                       <div className="flex items-center gap-2 justify-center mt-1">
                         <span className="text-sm font-bold text-indigo-400">{upiId}</span>
                         <button
@@ -358,7 +358,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
                     <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-1 border-t border-white/5">
                       <div>
                         <span className="text-[10px] text-slate-500 uppercase tracking-wide block">Bank Name</span>
-                        <span className="text-slate-300 font-semibold">{paymentSettings?.bankName || 'OrderMint Global Bank'}</span>
+                        <span className="text-slate-300 font-semibold">{paymentSettings?.bankName || 'GuestFlow Global Bank'}</span>
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-500 uppercase tracking-wide block">Account Number</span>

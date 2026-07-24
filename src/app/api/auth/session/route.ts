@@ -45,17 +45,20 @@ export async function GET(request: NextRequest) {
       subscriptionStatus = org?.subscriptionStatus || 'TRIAL';
     }
 
-    // Fetch propertyCode + propertySlug
+    // Fetch propertyCode + propertySlug + propertyType
     let propertyCode = null;
     let propertySlug = null;
+    let propertyType = null;
     if (session.propertyId) {
-      const prop = await prisma.property.findUnique({ where: { id: session.propertyId }, select: { code: true, name: true } });
+      const prop = await prisma.property.findUnique({ where: { id: session.propertyId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
       propertySlug = prop?.name ? slugify(prop.name) : session.propertySlug || null;
+      propertyType = prop?.type || null;
     } else if (session.organizationId) {
-      const prop = await prisma.property.findFirst({ where: { organizationId: session.organizationId }, select: { code: true, name: true } });
+      const prop = await prisma.property.findFirst({ where: { organizationId: session.organizationId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
       propertySlug = prop?.name ? slugify(prop.name) : session.propertySlug || null;
+      propertyType = prop?.type || null;
     }
 
     return NextResponse.json({
@@ -70,6 +73,7 @@ export async function GET(request: NextRequest) {
         subscriptionStatus,
         propertyCode,
         propertySlug,
+        propertyType,
       },
       // Also expose at top level for usePackage hook
       packageFeatures,

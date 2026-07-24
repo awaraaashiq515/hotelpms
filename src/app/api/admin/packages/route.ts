@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, description, discountPercent, priceUSD, priceINR, isActive, color, allowedPosCount, allowedPropertyCount, features = [], permissions = [] } = body;
+  const { name, description, discountPercent, priceUSD, priceINR, isActive, color, allowedPosCount, allowedPropertyCount, allowedHotelCount, features = [], permissions = [] } = body;
 
   if (!name) {
     return NextResponse.json({ success: false, error: 'Package name is required' }, { status: 400 });
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       color: color ?? '#6366f1',
       allowedPosCount: allowedPosCount !== undefined ? Number(allowedPosCount) : 1,
       allowedPropertyCount: allowedPropertyCount !== undefined ? Number(allowedPropertyCount) : 1,
+      allowedHotelCount: allowedHotelCount !== undefined ? Number(allowedHotelCount) : 0,
       features: {
         create: (features as string[]).map((f) => ({ feature: f })),
       },
@@ -70,7 +71,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, name, description, discountPercent, priceUSD, priceINR, isActive, color, allowedPosCount, allowedPropertyCount, features = [], permissions = [] } = body;
+  const { id, name, description, discountPercent, priceUSD, priceINR, isActive, color, allowedPosCount, allowedPropertyCount, allowedHotelCount, features = [], permissions = [] } = body;
 
   if (!id) {
     return NextResponse.json({ success: false, error: 'Package ID is required' }, { status: 400 });
@@ -92,6 +93,7 @@ export async function PUT(req: NextRequest) {
       color: color ?? '#6366f1',
       allowedPosCount: allowedPosCount !== undefined ? Number(allowedPosCount) : 1,
       allowedPropertyCount: allowedPropertyCount !== undefined ? Number(allowedPropertyCount) : 1,
+      allowedHotelCount: allowedHotelCount !== undefined ? Number(allowedHotelCount) : 0,
       features: {
         create: (features as string[]).map((f) => ({ feature: f })),
       },

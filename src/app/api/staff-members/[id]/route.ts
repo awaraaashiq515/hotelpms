@@ -15,8 +15,9 @@ const staffSchema = z.object({
   joiningDate: z.string().optional(),
   isActive: z.boolean().optional(),
   shiftHours: z.number().min(0.1).optional(),
-  username: z.string().min(3).optional().or(z.literal('')),
+  email: z.string().email().optional().or(z.literal('')),
   password: z.string().min(6).optional().or(z.literal('')),
+  propertyId: z.string().optional().or(z.literal('')),
 });
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,8 +43,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       let targetUserId = currentStaff.userId;
 
-      if (parsedData.username) {
-        const email = `${parsedData.username.toLowerCase()}@pos-staff.local`;
+      if (parsedData.email) {
+        const email = parsedData.email.toLowerCase().trim();
 
         if (targetUserId) {
           // Check if another user is using this email
@@ -54,15 +55,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             }
           });
           if (duplicate) {
-            throw new Error(`Username "${parsedData.username}" is already taken.`);
+            throw new Error(`Email "${email}" is already registered to another staff.`);
           }
+
+          const targetPropertyId = parsedData.propertyId || currentStaff.propertyId;
 
           // Update existing user details
           const updateData: any = {
             fullName: parsedData.name,
             email,
             phone: parsedData.phone || null,
-            isActive: parsedData.isActive !== undefined ? parsedData.isActive : true
+            isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
+            propertyId: targetPropertyId
           };
 
           if (parsedData.password) {
@@ -82,7 +86,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
           const existingUser = await tx.user.findUnique({ where: { email } });
           if (existingUser) {
-            throw new Error(`Username "${parsedData.username}" is already taken.`);
+            throw new Error(`Email "${email}" is already registered.`);
           }
 
           const salt = await bcrypt.genSalt(10);
@@ -100,10 +104,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             });
           }
 
+          const targetPropertyId = parsedData.propertyId || currentStaff.propertyId;
           const newUser = await tx.user.create({
             data: {
               organizationId: session.organizationId,
-              propertyId: session.propertyId!,
+              propertyId: targetPropertyId,
               roleId: role.id,
               fullName: parsedData.name,
               email,
@@ -116,13 +121,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           targetUserId = newUser.id;
         }
       } else if (targetUserId) {
-        // If username was deleted/cleared in the form, we should delete the associated user
+        // If email was cleared, remove the associated user login
         await tx.user.delete({
           where: { id: targetUserId }
         });
         targetUserId = null;
       }
 
+      const targetPropertyId = parsedData.propertyId || currentStaff.propertyId;
       return await tx.staffMember.update({
         where: { id },
         data: {
@@ -135,6 +141,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           joiningDate: parsedData.joiningDate ? new Date(parsedData.joiningDate) : undefined,
           isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
           shiftHours: parsedData.shiftHours !== undefined ? Number(parsedData.shiftHours) : undefined,
+          propertyId: targetPropertyId,
           userId: targetUserId
         },
         include: {

@@ -54,7 +54,7 @@ export default function AboutPage() {
                 }}>Hospitality Ops.</span>
               </h1>
               <p className="text-xl text-white/50 max-w-2xl mx-auto leading-relaxed">
-                OrderMint was born from a simple obsession: to eliminate the friction 
+                GuestFlow was born from a simple obsession: to eliminate the friction 
                 between the kitchen and the counter. We build software that works 
                 at the speed of a high-pressure dinner rush.
               </p>
@@ -81,7 +81,7 @@ export default function AboutPage() {
           <div className="container mx-auto px-6 max-w-7xl">
             <div className="flex flex-col lg:flex-row items-center gap-20">
               <div className="flex-1 space-y-8">
-                <h2 className="text-3xl md:text-5xl font-black tracking-tight">The OrderMint <br />Story</h2>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">The GuestFlow <br />Story</h2>
                 <div className="space-y-6 text-lg text-white/40 leading-relaxed">
                   <p>
                     It started in a busy kitchen. We saw staff struggling with slow, bulky systems that 
@@ -93,7 +93,7 @@ export default function AboutPage() {
                     staff actually enjoy using.
                   </p>
                   <p>
-                    Today, OrderMint is the backbone of elite restaurants, bars, and hotels worldwide, 
+                    Today, GuestFlow is the backbone of elite restaurants, bars, and hotels worldwide, 
                     providing the precision of enterprise software with the simplicity of a mobile app.
                   </p>
                 </div>
@@ -101,7 +101,7 @@ export default function AboutPage() {
               <div className="flex-1 relative group">
                 <div className="absolute inset-0 bg-rose-500/10 rounded-[3rem] blur-3xl opacity-50 group-hover:opacity-100 transition-opacity" />
                 <div className="relative aspect-square rounded-[3rem] overflow-hidden border border-white/10 p-2 bg-white/5">
-                   <Image src="/images/ordermint-hero.png" alt="Our Story" fill className="object-cover rounded-[2.5rem]" />
+                   <Image src="/images/guestflow-hero.png" alt="Our Story" fill className="object-cover rounded-[2.5rem]" />
                 </div>
               </div>
             </div>

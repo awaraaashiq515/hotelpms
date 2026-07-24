@@ -3,13 +3,44 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
+function generateWiFiPassword(roomNumber: string): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let randomPart = '';
+  for (let i = 0; i < 4; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `${roomNumber}-${randomPart}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const propertyId = body.propertyId || await resolveAdminProperty(session, prisma);
+    let propertyId = body.propertyId || await resolveAdminProperty(session, prisma);
+
+    if (propertyId) {
+      const prop = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { hmsEnabled: true, type: true, organizationId: true }
+      });
+      if (prop && !prop.hmsEnabled && prop.type !== 'HOTEL') {
+        const hotelProp = await prisma.property.findFirst({
+          where: {
+            organizationId: prop.organizationId || session.organizationId,
+            OR: [
+              { hmsEnabled: true },
+              { type: 'HOTEL' }
+            ]
+          },
+          select: { id: true }
+        });
+        if (hotelProp) {
+          propertyId = hotelProp.id;
+        }
+      }
+    }
 
     if (!propertyId) {
       return apiError(new Error('No property context found.'), 400);
@@ -84,6 +115,7 @@ export async function POST(request: NextRequest) {
           roomTypeId: room.roomTypeId,
           assignedRoomId: roomId,
           status: 'CHECKED_IN',
+          wifiPassword: generateWiFiPassword(room.roomNumber),
           totalAmount: roomRentTotal,
           advanceAmount: Number(walkInData?.advanceAmount || 0),
           dueAmount: roomRentTotal - Number(walkInData?.advanceAmount || 0),
@@ -99,12 +131,19 @@ export async function POST(request: NextRequest) {
       });
       finalReservationId = walkInRes.id;
     } else {
-      // Update existing reservation status to CHECKED_IN
+      // Update existing reservation status to CHECKED_IN and update room assignment in ReservationRoom
       const reservation = await prisma.reservation.update({
         where: { id: reservationId },
         data: {
           status: 'CHECKED_IN',
-          assignedRoomId: roomId
+          assignedRoomId: roomId,
+          wifiPassword: generateWiFiPassword(room.roomNumber),
+          rooms: {
+            updateMany: {
+              where: { reservationId },
+              data: { roomId }
+            }
+          }
         }
       });
       roomRentTotal = reservation.totalAmount;

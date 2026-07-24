@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
       settings = await prisma.paymentSetting.create({
         data: {
           id: 'system',
-          upiId: 'pay@ordermint',
-          upiName: 'OrderMint',
-          bankName: 'OrderMint Global Bank',
+          upiId: 'pay@guestflow',
+          upiName: 'GuestFlow',
+          bankName: 'GuestFlow Global Bank',
           bankAccount: '1200384819283',
           bankIfsc: 'ORDM0001092',
           bankSwift: 'ORDMININBB'

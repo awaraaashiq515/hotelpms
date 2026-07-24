@@ -15,8 +15,9 @@ const staffSchema = z.object({
   joiningDate: z.string().optional(),
   isActive: z.boolean().optional(),
   shiftHours: z.number().min(0.1).optional(),
-  username: z.string().min(3).optional().or(z.literal('')),
+  email: z.string().email().optional().or(z.literal('')),
   password: z.string().min(6).optional().or(z.literal('')),
+  propertyId: z.string().optional().or(z.literal('')),
 });
 
 export async function GET(request: NextRequest) {
@@ -35,8 +36,12 @@ export async function GET(request: NextRequest) {
       include: {
         user: {
           select: {
-            email: true
+            email: true,
+            role: { select: { name: true } },
           }
+        },
+        property: {
+          select: { id: true, name: true, code: true }
         }
       }
     });
@@ -60,36 +65,36 @@ export async function POST(request: NextRequest) {
     const staffMember = await prisma.$transaction(async (tx: any) => {
       let createdUserId: string | null = null;
 
-      if (parsedData.username && parsedData.password) {
-        const email = `${parsedData.username.toLowerCase()}@pos-staff.local`;
+      if (parsedData.email && parsedData.password) {
+        const email = parsedData.email.toLowerCase().trim();
         
-        // Check duplicate email/username
+        // Check duplicate email
         const existingUser = await tx.user.findUnique({ where: { email } });
         if (existingUser) {
-          throw new Error(`Username "${parsedData.username}" is already taken.`);
+          throw new Error(`Email "${email}" is already registered.`);
         }
 
         // Hashing password
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(parsedData.password, salt);
 
-        // Get appropriate role
+        // Get appropriate role — match designation name first, then fallback
+        const targetDesignation = parsedData.designation || 'Waiter';
         let role = await tx.role.findFirst({
-          where: { name: parsedData.designation || 'Waiter' }
+          where: { name: targetDesignation }
         });
         if (!role) {
-          role = await tx.role.findFirst({ where: { name: 'Staff' } });
-        }
-        if (!role) {
+          // Create the role with the designation name so it persists
           role = await tx.role.create({
-            data: { name: 'Staff', description: 'System Staff' }
+            data: { name: targetDesignation, description: `${targetDesignation} role (auto-created)` }
           });
         }
 
+        const targetPropertyId = parsedData.propertyId || session.propertyId!;
         const newUser = await tx.user.create({
           data: {
             organizationId: session.organizationId,
-            propertyId: session.propertyId!,
+            propertyId: targetPropertyId,
             roleId: role.id,
             fullName: parsedData.name,
             email: email,
@@ -102,6 +107,7 @@ export async function POST(request: NextRequest) {
         createdUserId = newUser.id;
       }
 
+      const targetPropertyId = parsedData.propertyId || session.propertyId!;
       return await tx.staffMember.create({
         data: {
           name: parsedData.name,
@@ -113,7 +119,7 @@ export async function POST(request: NextRequest) {
           joiningDate: parsedData.joiningDate ? new Date(parsedData.joiningDate) : new Date(),
           isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
           shiftHours: parsedData.shiftHours !== undefined ? Number(parsedData.shiftHours) : 8,
-          propertyId: session.propertyId!,
+          propertyId: targetPropertyId,
           userId: createdUserId
         },
         include: {

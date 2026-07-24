@@ -178,7 +178,7 @@ export default function QRGalleryPage() {
       // Bottom Brand text
       ctx.fillStyle = '#94a3b8';
       ctx.font = 'bold 12px Inter, system-ui, sans-serif';
-      ctx.fillText('POWERED BY ORDERMINT', width / 2, 800);
+      ctx.fillText('POWERED BY GUESTFLOW', width / 2, 800);
 
       // Trigger download
       const pngFile = canvas.toDataURL('image/png');

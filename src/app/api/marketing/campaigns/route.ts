@@ -184,13 +184,13 @@ export async function POST(request: NextRequest) {
             const htmlContent = `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
                 <div style="text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9;">
-                  <h2 style="color: #ef4444; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">OrderMint Special Offer</h2>
+                  <h2 style="color: #ef4444; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">GuestFlow Special Offer</h2>
                 </div>
                 <div style="font-size: 15px; color: #334155; line-height: 1.6; white-space: pre-wrap; margin-bottom: 24px;">
                   ${personalMessage}
                 </div>
                 <div style="text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; text-transform: uppercase; letter-spacing: 0.1em;">
-                  Sent via OrderMint CRM Hub. Thank you for being our valued guest!
+                  Sent via GuestFlow CRM Hub. Thank you for being our valued guest!
                 </div>
               </div>
             `;

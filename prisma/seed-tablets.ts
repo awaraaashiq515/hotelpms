@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -33,22 +34,27 @@ async function main() {
     if (!floor) {
       floor = await prisma.floor.create({
         data: {
+          id: randomUUID(),
           name: 'Ground Floor',
           propertyId: property.id,
-          order: 1
+          order: 1,
+          updatedAt: new Date(),
         }
       });
     }
 
     const table = await prisma.table.upsert({
       where: { id: `table-${t.name}` },
-      update: {},
+      update: {
+        updatedAt: new Date(),
+      },
       create: {
         id: `table-${t.name}`,
         name: t.name,
         capacity: t.capacity,
         propertyId: property.id,
         floorId: floor.id,
+        updatedAt: new Date(),
       }
     });
     createdTables.push(table);
@@ -69,6 +75,7 @@ async function main() {
       update: {
         mode: t.mode,
         tableId: t.tableId || null,
+        updatedAt: new Date(),
       },
       create: {
         id: `tablet-${t.name.toLowerCase().replace(/\s+/g, '-')}`,
@@ -76,6 +83,7 @@ async function main() {
         mode: t.mode,
         propertyId: property.id,
         tableId: t.tableId || null,
+        updatedAt: new Date(),
       }
     });
   }

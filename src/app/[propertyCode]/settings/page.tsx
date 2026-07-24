@@ -243,7 +243,7 @@ const navGroups: NavGroup[] = [
       },
       {
         id: 'website',
-        label: 'Website (OrderMint)',
+        label: 'Website (GuestFlow)',
         description: 'Branding, logo & online ordering',
         icon: Globe,
         color: 'text-rose-600 dark:text-rose-400',

@@ -27,11 +27,11 @@ function generateCaptcha() {
       </defs>
       <rect width="100%" height="100%" fill="url(#mathGrad)" rx="12" />
       
-      {/* Subtle Security Background */}
+      <!-- Subtle Security Background -->
       <text x="5" y="15" font-family="monospace" font-size="8" fill="#e2e8f0" opacity="0.5">MATH_SEC_V2</text>
       <line x1="0" y1="24" x2="120" y2="24" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="2 2" />
       
-      {/* The Question */}
+      <!-- The Question -->
       <text 
         x="50%" 
         y="50%" 
@@ -52,7 +52,7 @@ function generateCaptcha() {
   return { code, svg };
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request): Promise<Response> {
   const { code, svg } = generateCaptcha();
 
   // Encrypt the captcha text and store in a short-lived cookie

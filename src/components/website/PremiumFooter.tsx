@@ -46,7 +46,7 @@ export function PremiumFooter() {
                  {settings?.logoUrl ? (
                    <img 
                      src={settings.logoUrl} 
-                     alt={settings.hotelName || "OrderMint"} 
+                     alt={settings.hotelName || "GuestFlow"} 
                      className="h-full w-auto object-contain brightness-0 invert opacity-80 transition-transform duration-300 group-hover:scale-105" 
                    />
                  ) : (
@@ -113,7 +113,7 @@ export function PremiumFooter() {
 
         <div className="border-t border-white/5 pt-12 flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm font-medium text-slate-600">
-            © {new Date().getFullYear()} {settings?.hotelName || "OrderMint"} Inc. Crafted with passion for hospitality.
+            © {new Date().getFullYear()} {settings?.hotelName || "GuestFlow"} Inc. Crafted with passion for hospitality.
           </p>
           <div className="flex gap-3">
             <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-400 text-xs font-bold uppercase tracking-widest">

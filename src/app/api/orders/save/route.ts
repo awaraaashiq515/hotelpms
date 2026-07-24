@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, restaurantTableId, orderType = 'DINE_IN', staffMemberId, driverId } = body;
+    const { items, restaurantTableId, orderType = 'DINE_IN', staffMemberId, driverId, roomNumber, postToFolio } = body;
 
     if (!restaurantTableId && orderType === 'DINE_IN') {
       return apiError(new Error('Table ID is required for Dine-In orders'), 400);
@@ -38,17 +38,40 @@ export async function POST(request: NextRequest) {
         throw new Error('POS Outlet not found for this property.');
       }
 
+      const instructions = roomNumber ? `ROOM:${roomNumber}` : null;
+
       if (!order) {
         const table = await tx.table.findUnique({ where: { id: restaurantTableId } });
+
+        // Auto-resolve Folio if roomNumber is provided
+        let resolvedFolioId = null;
+        if (roomNumber) {
+          const room = await tx.room.findFirst({
+            where: { propertyId: session.propertyId!, roomNumber: String(roomNumber) }
+          });
+          if (room) {
+            const resRoom = await tx.reservationRoom.findFirst({
+              where: { roomId: room.id },
+              include: { reservation: { include: { folios: true } } },
+              orderBy: { id: 'desc' }
+            });
+            if (resRoom?.reservation?.folios?.[0]) {
+              resolvedFolioId = resRoom.reservation.folios[0].id;
+            }
+          }
+        }
+
         order = await tx.posOrder.create({
           data: {
             propertyId: session.propertyId!,
             outletId: outlet.id,
+            folioId: resolvedFolioId,
             orderNo: `POS-${Date.now()}`,
             orderType: 'DINE_IN',
             status: 'OPEN',
             restaurantTableId: restaurantTableId,
-            tableNo: table?.name || null,
+            tableNo: table?.name ? (roomNumber ? `${table.name} (Room ${roomNumber})` : table.name) : (roomNumber ? `Room ${roomNumber}` : null),
+            deliveryInstructions: instructions,
             staffMemberId: staffMemberId || null,
             driverId: driverId || null,
             servedById: session.id, // Set the user placing the order
@@ -248,11 +271,11 @@ export async function POST(request: NextRequest) {
         }, tx);
       }
 
-      // 5. Update Table Status to KOT_RUNNING
+      // 5. Update Table Status to OCCUPIED
       if (restaurantTableId) {
         await (tx as any).table.update({
           where: { id: restaurantTableId },
-          data: { status: 'KOT_RUNNING' }
+          data: { status: 'OCCUPIED' }
         });
       }
 

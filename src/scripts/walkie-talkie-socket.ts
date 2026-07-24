@@ -9,7 +9,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') })
 import { prisma } from '../lib/prisma'
 import { verifyWTToken } from '../lib/walkie-talkie-auth'
 
-const PORT = parseInt(process.env.PORT || '5002', 10)
+const PORT = parseInt(process.env.PORT || '5005', 10)
 
 const httpServer = createServer((req, res) => {
   // Support local Next.js REST API route broadcasts
@@ -335,6 +335,6 @@ async function releaseMicLock(channelId: string, speakerId: string, talkHistoryI
 }
 
 // Start HTTP Server
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Walkie-Talkie Socket.IO Server running on port ${PORT}`)
 })

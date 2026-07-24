@@ -2,24 +2,47 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
 export async function GET(request: NextRequest) {
   try {
+    // Support both cookie session (admin/POS) and WT Bearer token (staff portal)
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    const wtUser = await getWTUserFromRequest(request);
+
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
 
-    const products = await prisma.product.findMany({
-      where: getMultiTenantWhere(session, propertyIdParam),
-      include: { 
-        category: true,
-        variants: true,
-        property: { select: { name: true, city: true } }
-      },
-      orderBy: { name: 'asc' },
-    });
+    let products;
+
+    if (session) {
+      // Normal session-based fetch (admin, POS, etc.)
+      products = await prisma.product.findMany({
+        where: getMultiTenantWhere(session, propertyIdParam),
+        include: {
+          category: true,
+          variants: true,
+          property: { select: { name: true, city: true } }
+        },
+        orderBy: { name: 'asc' },
+      });
+    } else {
+      // WT token-based fetch (Staff Portal)
+      const propertyId = propertyIdParam || wtUser?.propertyId || undefined;
+      if (!propertyId) return apiError(new Error('No property context'), 400);
+
+      products = await prisma.product.findMany({
+        where: { propertyId, isActive: true },
+        include: {
+          category: true,
+          variants: true,
+          property: { select: { name: true, city: true } }
+        },
+        orderBy: { name: 'asc' },
+      });
+    }
 
     return apiResponse(products);
   } catch (error) {

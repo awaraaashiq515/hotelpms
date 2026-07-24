@@ -125,6 +125,7 @@ type Pkg = {
   color: string | null;
   allowedPosCount: number;
   allowedPropertyCount: number;
+  allowedHotelCount: number;
   features: Feature[];
   permissions: Permission[];
   _count: { organizations: number };
@@ -141,6 +142,7 @@ const emptyForm = () => ({
   color: '#6366f1',
   allowedPosCount: 1,
   allowedPropertyCount: 1,
+  allowedHotelCount: 0,
   features: [] as string[],
   permissions: [] as { module: string; action: string }[],
 });
@@ -231,12 +233,23 @@ function PackageCard({
         </div>
 
         {/* Property Limit */}
-        <div className="flex items-center gap-2 mb-4 p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100/30 dark:border-purple-900/30">
+        <div className="flex items-center gap-2 mb-2 p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100/30 dark:border-purple-900/30">
           <Building2 size={13} className="text-purple-500 shrink-0" />
           <p className="text-xs font-bold text-purple-600 dark:text-purple-400">
             Property Limit: {pkg.allowedPropertyCount ?? 1} Venue{(pkg.allowedPropertyCount ?? 1) !== 1 ? 's' : ''}
           </p>
         </div>
+
+        {/* Hotel Limit — only show if HMS feature is in the package */}
+        {(featureKeys.includes('HMS') || (pkg.allowedHotelCount ?? 0) > 0) && (
+          <div className="flex items-center gap-2 mb-4 p-2.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100/30 dark:border-amber-900/30">
+            <span className="text-sm shrink-0">🏨</span>
+            <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              Hotel Limit: {pkg.allowedHotelCount ?? 0} Hotel{(pkg.allowedHotelCount ?? 0) !== 1 ? 's' : ''}
+              {(pkg.allowedHotelCount ?? 0) === 0 && <span className="ml-1 text-amber-400/70">(Not included)</span>}
+            </p>
+          </div>
+        )}
 
         {/* Permission count */}
         {totalPerms > 0 && (
@@ -358,6 +371,7 @@ function PackageFormModal({
         color: editing.color || '#6366f1',
         allowedPosCount: editing.allowedPosCount ?? 1,
         allowedPropertyCount: editing.allowedPropertyCount ?? 1,
+        allowedHotelCount: editing.allowedHotelCount ?? 0,
         features: editing.features.map((f) => f.feature),
         permissions: editing.permissions.map((p) => ({ module: p.module, action: p.action })),
       });
@@ -583,6 +597,36 @@ function PackageFormModal({
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-bold"
                 />
                 <p className="text-[10px] text-slate-400 mt-1 font-medium">Limits the number of business properties/venues this organization can create under this plan.</p>
+              </div>
+
+              {/* Hotel (HMS) Properties limit */}
+              <div className="p-4 rounded-2xl border-2 border-dashed border-amber-200 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">🏨</span>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Hotel (HMS) Properties Limit
+                    </label>
+                    <p className="text-[10px] text-slate-400 font-medium">0 = Hotel module NOT included. Set ≥ 1 to allow hotel properties.</p>
+                  </div>
+                </div>
+                <input
+                  type="number" min={0}
+                  value={form.allowedHotelCount}
+                  onChange={(e) => setForm({ ...form, allowedHotelCount: Math.max(0, Number(e.target.value)) })}
+                  className="w-full px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-bold"
+                  placeholder="0 = Not included"
+                />
+                {form.allowedHotelCount > 0 && !form.features.includes('HMS') && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 font-bold">
+                    ⚠️ HMS feature bhi ON karo — Step 2 mein "Hotel Management" toggle karo
+                  </p>
+                )}
+                {form.allowedHotelCount > 0 && form.features.includes('HMS') && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2 font-bold">
+                    ✅ HMS feature active hai — {form.allowedHotelCount} hotel{form.allowedHotelCount !== 1 ? 's' : ''} allowed
+                  </p>
+                )}
               </div>
 
               {/* Active toggle */}

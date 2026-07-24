@@ -37,6 +37,8 @@ export default function PropertiesPage() {
     showCafeInQrMenu: true,
     deliveryEnabled: false,
     showDeliveryInQrMenu: true,
+    bookingEmail: '',
+    gmailAppPassword: '',
   });
 
   useEffect(() => {
@@ -82,6 +84,8 @@ export default function PropertiesPage() {
         showCafeInQrMenu: property.showCafeInQrMenu !== false,
         deliveryEnabled: !!property.deliveryEnabled,
         showDeliveryInQrMenu: property.showDeliveryInQrMenu !== false,
+        bookingEmail: property.bookingEmail || '',
+        gmailAppPassword: property.gmailAppPassword || '',
       });
     } else {
       setEditingId(null);
@@ -101,6 +105,8 @@ export default function PropertiesPage() {
         showCafeInQrMenu: false,
         deliveryEnabled: false,
         showDeliveryInQrMenu: false,
+        bookingEmail: '',
+        gmailAppPassword: '',
       });
     }
     setIsModalOpen(true);
@@ -155,6 +161,9 @@ export default function PropertiesPage() {
 
   const handleSwitchProperty = async (id: string, name: string) => {
     try {
+      const prop = properties.find((p: any) => p.id === id);
+      const isHotel = prop?.type === 'HOTEL';
+
       const res = await fetch('/api/setup/properties/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,7 +172,11 @@ export default function PropertiesPage() {
       const data = await res.json();
       if (data.success) {
         alert(`Switched to "${name}" successfully!`);
-        router.push('/dashboard');
+        if (isHotel) {
+          router.push('/hotel');
+        } else {
+          router.push('/dashboard');
+        }
         router.refresh();
       } else {
         alert(data.error || 'Failed to switch property');
@@ -456,6 +469,35 @@ export default function PropertiesPage() {
               </div>
             </div>
           </div>
+
+          {/* Email Booking Integration */}
+          {formData.type === 'HOTEL' && (
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 mb-4">
+                Email Booking Integration (Gmail)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Hotel Booking Email (Gmail)"
+                  placeholder="e.g. royalhotel@gmail.com"
+                  value={formData.bookingEmail || ''}
+                  onChange={(e) => setFormData({ ...formData, bookingEmail: e.target.value })}
+                  className="rounded-xl border-slate-200"
+                />
+                <Input
+                  label="Gmail App Password (16-digit)"
+                  type="password"
+                  placeholder="xxxx xxxx xxxx xxxx"
+                  value={formData.gmailAppPassword || ''}
+                  onChange={(e) => setFormData({ ...formData, gmailAppPassword: e.target.value })}
+                  className="rounded-xl border-slate-200"
+                />
+              </div>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide mt-2 ml-1">
+                ⚙️ Go to hotel Gmail → Settings → Security → App Passwords → Generate 16-digit key
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)} type="button" className="rounded-xl font-black text-xs uppercase tracking-widest">

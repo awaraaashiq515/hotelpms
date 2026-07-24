@@ -43,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // Completely silent to avoid polluting build logs
   }
 
-  const title = settings?.hotelName || "OrderMint";
+  const title = settings?.hotelName || "GuestFlow";
   const tagline = settings?.tagline || "Advanced POS & Management System";
   
   return {

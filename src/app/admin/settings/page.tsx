@@ -31,6 +31,8 @@ export default function WebsiteSettingsPage() {
     windowsComingSoon: false,
     macComingSoon: false,
     androidComingSoon: false,
+    geminiApiKey: '',
+    openAiApiKey: '',
     maintenanceMode: false,
     hotelEnabled: false,
   });
@@ -66,6 +68,8 @@ export default function WebsiteSettingsPage() {
             windowsComingSoon: fetchedData.windowsComingSoon ?? false,
             macComingSoon: fetchedData.macComingSoon ?? false,
             androidComingSoon: fetchedData.androidComingSoon ?? false,
+            geminiApiKey: fetchedData.geminiApiKey || '',
+            openAiApiKey: fetchedData.openAiApiKey || '',
             maintenanceMode: fetchedData.maintenanceMode ?? false,
             hotelEnabled: fetchedData.hotelEnabled ?? false,
           });
@@ -226,6 +230,30 @@ export default function WebsiteSettingsPage() {
               value={settings.tagline}
               onChange={e => setSettings({ ...settings, tagline: e.target.value })}
               placeholder="Enter Site Tagline"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all dark:text-white font-medium"
+            />
+          </div>
+        </div>
+
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 uppercase tracking-widest text-xs">AI & API Settings</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">OpenAI API Key</label>
+            <input
+              type="password"
+              value={settings.openAiApiKey}
+              onChange={e => setSettings({ ...settings, openAiApiKey: e.target.value })}
+              placeholder="sk-proj-..."
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all dark:text-white font-medium"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">Gemini API Key</label>
+            <input
+              type="password"
+              value={settings.geminiApiKey}
+              onChange={e => setSettings({ ...settings, geminiApiKey: e.target.value })}
+              placeholder="AIzaSy..."
               className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all dark:text-white font-medium"
             />
           </div>

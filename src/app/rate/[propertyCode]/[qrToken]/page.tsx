@@ -306,7 +306,7 @@ export default function PublicRatePage() {
             <Sparkles size={14} className="text-orange-400" />
             <div className="h-px w-8 bg-slate-200 dark:bg-slate-800" />
           </div>
-          <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.4em] mb-2">Powered by OrderMint</p>
+          <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.4em] mb-2">Powered by GuestFlow</p>
           <p className="text-[8px] font-bold text-slate-400 dark:text-slate-600 px-8 leading-loose">
             Your feedback is anonymous and helps us improve our service. Thank you for being a valued guest.
           </p>

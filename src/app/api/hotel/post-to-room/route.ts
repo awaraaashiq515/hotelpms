@@ -10,34 +10,55 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const roomNumber = searchParams.get('roomNumber');
+    const roomId = searchParams.get('roomId');
     const propertyId = searchParams.get('propertyId') || await resolveAdminProperty(session, prisma);
 
-    if (!roomNumber) {
-      return apiError(new Error('Room number is required.'), 400);
+    if (!roomNumber && !roomId) {
+      return apiError(new Error('Room number or Room ID is required.'), 400);
     }
     if (!propertyId) {
       return apiError(new Error('No property context found.'), 400);
     }
 
-    // Find the room first
-    const room = await prisma.room.findFirst({
-      where: {
-        roomNumber,
-        propertyId,
+    let targetPropertyId = propertyId;
+    if (propertyId) {
+      const prop = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { hmsEnabled: true, type: true, organizationId: true }
+      });
+      if (prop && !prop.hmsEnabled && prop.type !== 'HOTEL') {
+        const hotelProp = await prisma.property.findFirst({
+          where: {
+            organizationId: prop.organizationId || session.organizationId,
+            OR: [
+              { hmsEnabled: true },
+              { type: 'HOTEL' }
+            ]
+          },
+          select: { id: true }
+        });
+        if (hotelProp) {
+          targetPropertyId = hotelProp.id;
+        }
       }
-    });
-
-    if (!room) {
-      return apiError(new Error('Room not found.'), 404);
     }
 
     // Find the active checkin for this room
     const activeCheckIn = await prisma.checkIn.findFirst({
       where: {
-        roomId: room.id,
+        ...(roomId ? { roomId } : {
+          room: {
+            roomNumber: roomNumber!,
+            propertyId: targetPropertyId,
+          }
+        }),
         status: 'ACTIVE',
       },
+      orderBy: {
+        checkedInAt: 'desc',
+      },
       include: {
+        room: true,
         guest: true,
         reservation: {
           include: {
@@ -60,8 +81,8 @@ export async function GET(request: NextRequest) {
     }
 
     return apiResponse({
-      roomId: room.id,
-      roomNumber: room.roomNumber,
+      roomId: activeCheckIn.roomId,
+      roomNumber: activeCheckIn.room.roomNumber,
       guestName: `${activeCheckIn.guest.firstName} ${activeCheckIn.guest.lastName || ''}`.trim(),
       guestId: activeCheckIn.guestId,
       folioId: folio.id,
@@ -89,25 +110,44 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('No property context found.'), 400);
     }
 
-    // Find the room
-    const room = await prisma.room.findFirst({
-      where: {
-        roomNumber,
-        propertyId,
+    let targetPropertyId = propertyId;
+    if (propertyId) {
+      const prop = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { hmsEnabled: true, type: true, organizationId: true }
+      });
+      if (prop && !prop.hmsEnabled && prop.type !== 'HOTEL') {
+        const hotelProp = await prisma.property.findFirst({
+          where: {
+            organizationId: prop.organizationId || session.organizationId,
+            OR: [
+              { hmsEnabled: true },
+              { type: 'HOTEL' }
+            ]
+          },
+          select: { id: true }
+        });
+        if (hotelProp) {
+          targetPropertyId = hotelProp.id;
+        }
       }
-    });
-
-    if (!room) {
-      return apiError(new Error('Room not found.'), 404);
     }
 
+    // Find the room
     // Get active check-in
     const activeCheckIn = await prisma.checkIn.findFirst({
       where: {
-        roomId: room.id,
+        room: {
+          roomNumber,
+          propertyId: targetPropertyId,
+        },
         status: 'ACTIVE',
       },
+      orderBy: {
+        checkedInAt: 'desc',
+      },
       include: {
+        room: true,
         reservation: {
           include: {
             folios: {
@@ -154,6 +194,24 @@ export async function POST(request: NextRequest) {
         closingBalance: newClosing,
       }
     });
+
+    // Reset Table status to VACANT if sourceRefId was a dining table order
+    if (sourceRefId) {
+      try {
+        const order = await prisma.posOrder.findUnique({
+          where: { id: sourceRefId },
+          select: { restaurantTableId: true }
+        });
+        if (order?.restaurantTableId) {
+          await prisma.table.update({
+            where: { id: order.restaurantTableId },
+            data: { status: 'VACANT' }
+          });
+        }
+      } catch (e) {
+        console.error('[post-to-room] Failed to reset table status:', e);
+      }
+    }
 
     return apiResponse(transaction, 'Charge posted to room successfully', 201);
   } catch (error) {

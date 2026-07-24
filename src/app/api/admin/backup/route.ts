@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
             <b>Security Note:</b> This file contains sensitive business information. Store it securely and do not share it with unauthorized personnel.
           </p>
           <p style="font-size: 12px; color: #666;">
-            Sent via OrderMint POS Backup System.
+            Sent via GuestFlow POS Backup System.
           </p>
         </div>
       `,

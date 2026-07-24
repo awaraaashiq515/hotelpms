@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp, couponCode, loyaltyPointsRedeemed, guestCount } = body;
+    let { items, paymentModeId, totalAmount, guestId, restaurantTableId, parkingSlotId, driverId, staffMemberId, orderType, membershipCardId, membershipDiscount, manualDiscount, sendWhatsApp, couponCode, loyaltyPointsRedeemed, guestCount, roomId, folioId } = body;
 
     // --- COMBO EXPANSION ---
     const expandedItems: any[] = [];
@@ -76,6 +76,35 @@ export async function POST(request: NextRequest) {
           }
         });
         posOrder = posOrders.length > 0 ? posOrders[0] : null;
+      } else if (roomId) {
+        posOrders = await (tx as any).posOrder.findMany({
+          where: {
+            roomId,
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] }
+          }
+        });
+        posOrder = posOrders.length > 0 ? posOrders[0] : null;
+      }
+
+      // Resolve active check-in folio if roomId/folioId is present
+      let activeFolio = null;
+      if (folioId) {
+        activeFolio = await tx.folio.findUnique({ where: { id: folioId } });
+      } else if (roomId) {
+        const activeCheckIn = await tx.checkIn.findFirst({
+          where: { roomId, status: 'ACTIVE' },
+          include: {
+            reservation: {
+              include: {
+                folios: { where: { status: 'OPEN' } }
+              }
+            }
+          }
+        });
+        activeFolio = activeCheckIn?.reservation?.folios?.[0];
+        if (activeFolio) {
+          folioId = activeFolio.id;
+        }
       }
 
       // Calculate true totals from items
@@ -186,6 +215,9 @@ export async function POST(request: NextRequest) {
             discountAmount: totalDiscount,
             ...(driverId && { driverId }),
             ...(staffMemberId && { staffMemberId }),
+            ...(roomId && { roomId }),
+            ...(folioId && { folioId }),
+            ...(orderType === 'ROOM_SERVICE' && body.roomServiceRoomNo && { tableNo: `Room ${body.roomServiceRoomNo}` }),
             membershipCardId: membershipCardId || null,
             membershipDiscount: membershipDiscount || 0,
             couponId: couponRecord?.id || null,
@@ -202,6 +234,8 @@ export async function POST(request: NextRequest) {
             subtotal: subtotal,
             taxAmount: taxAmount,
             grandTotal: grandTotal,
+            ...(roomId && { roomId }),
+            ...(folioId && { folioId }),
             couponId: couponRecord?.id || null,
             loyaltyPointsEarned: pointsEarned,
             loyaltyPointsRedeemed: redeemPoints,
@@ -230,9 +264,11 @@ export async function POST(request: NextRequest) {
             discountAmount: totalDiscount,
             grandTotal: grandTotal,
             restaurantTableId: restaurantTableId || null,
-            tableNo: table?.name || null,
+            tableNo: table?.name || (orderType === 'ROOM_SERVICE' && body.roomServiceRoomNo ? `Room ${body.roomServiceRoomNo}` : null) || null,
             driverId: driverId || null,
             staffMemberId: staffMemberId || null,
+            roomId: roomId || null,
+            folioId: folioId || null,
             membershipCardId: membershipCardId || null,
             membershipDiscount: membershipDiscount || 0,
             couponId: couponRecord?.id || null,
@@ -464,6 +500,56 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // 7.5. POST DEBIT CHARGE TO GUEST FOLIO
+      if (activeFolio) {
+        const outletInfo = await tx.outlet.findUnique({
+          where: { id: posOrder.outletId },
+          select: { name: true }
+        });
+        const description = `${outletInfo?.name || 'Restaurant'} – Bill #${posOrder.orderNo}`;
+
+        const existingTxn = await tx.folioTransaction.findFirst({
+          where: { folioId: activeFolio.id, sourceRefId: posOrder.id, sourceModule: 'POS' }
+        });
+
+        if (existingTxn) {
+          await tx.folioTransaction.update({
+            where: { id: existingTxn.id },
+            data: {
+              debitAmount: grandTotal,
+              taxAmount: taxAmount || 0,
+              netAmount: grandTotal,
+              description
+            }
+          });
+        } else {
+          await tx.folioTransaction.create({
+            data: {
+              folioId: activeFolio.id,
+              txnType: 'DEBIT',
+              sourceModule: 'POS',
+              sourceRefId: posOrder.id,
+              description,
+              debitAmount: grandTotal,
+              creditAmount: 0,
+              taxAmount: taxAmount || 0,
+              netAmount: grandTotal,
+            }
+          });
+        }
+
+        // Recalculate folio balances
+        const allTxns = await tx.folioTransaction.findMany({
+          where: { folioId: activeFolio.id }
+        });
+        const totalCharges = allTxns.reduce((s: number, t: any) => s + t.debitAmount, 0);
+        const totalPayments = allTxns.reduce((s: number, t: any) => s + t.creditAmount, 0);
+        await tx.folio.update({
+          where: { id: activeFolio.id },
+          data: { totalCharges, totalPayments, closingBalance: totalCharges - totalPayments }
+        });
+      }
+
       // 8. Inventory Deduction (Recipes)
       try {
         const warehouse = await tx.warehouse.findFirst({
@@ -596,7 +682,7 @@ export async function POST(request: NextRequest) {
         sendSMS(guest.mobile, 'TEMPLATE_BILL_PAID', {
           NAME: guest.firstName || 'Guest',
           AMOUNT: result.grandTotal.toString(),
-          HOTEL: property?.name || 'OrderMint Solutions',
+          HOTEL: property?.name || 'GuestFlow Solutions',
           ORDER_NO: result.orderNo
         }).catch(err => console.error('Failed to trigger SMS:', err));
       }

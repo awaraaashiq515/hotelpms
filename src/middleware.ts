@@ -62,7 +62,44 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal'].includes(parts[0])) {
+  // singer-portal is a standalone portal — skip dashboard auth logic
+  if (pathname.startsWith('/singer-portal')) {
+    return NextResponse.next()
+  }
+
+  // housekeeper-portal is a standalone portal — skip all dashboard auth logic
+  if (pathname.startsWith('/housekeeper-portal')) {
+    return NextResponse.next()
+  }
+
+  // guest-portal is a public self-service portal — no auth required
+  if (pathname.startsWith('/guest-portal')) {
+    return NextResponse.next()
+  }
+
+  // guest-portal API routes are public
+  if (pathname.startsWith('/api/guest-portal')) {
+    return NextResponse.next()
+  }
+
+  // singer API routes bypass dashboard session logic
+  if (pathname.startsWith('/api/singer')) {
+    return NextResponse.next()
+  }
+
+  // housekeeper portal API routes use WT token auth (not session) — bypass session check
+  if (
+    pathname.startsWith('/api/housekeeper') || 
+    pathname.startsWith('/api/housekeeping-rooms') || 
+    pathname.startsWith('/api/staff-attendance') ||
+    pathname.startsWith('/api/inventory/stock-items') ||
+    pathname.startsWith('/api/inventory/seed') ||
+    (pathname.startsWith('/api/hotel/maintenance') && request.method === 'POST')
+  ) {
+    return NextResponse.next()
+  }
+
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname
@@ -99,6 +136,9 @@ export async function middleware(request: NextRequest) {
 
   
   const getOperationsUrl = () => {
+    if (payload?.propertyType === 'HOTEL') {
+      return '/hotel'
+    }
     const urlKey = payload?.propertySlug || payload?.propertyCode
     return urlKey ? `/${urlKey}/operations` : '/operations'
   }
@@ -222,8 +262,13 @@ export async function middleware(request: NextRequest) {
 
     // Dashboard/Operations Route Access
     if (isDashboardRoute) {
+      // Redirect hotel properties directly to hotel dashboard unless already on a hotel sub-route
+      if (payload?.propertyType === 'HOTEL' && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel')) {
+        return NextResponse.redirect(new URL('/hotel', request.url))
+      }
+
       // Permissions-based Access Control for non-admins
-      if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN') {
+      if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN' && role !== 'HOTEL_ADMIN' && role !== 'HOTEL_MANAGER') {
         // Hard block for property management and restaurant admin path for non-admins
         if (pathname === '/manage-properties' || pathname.startsWith('/manage-properties/')) {
           return NextResponse.redirect(new URL(getOperationsUrl(), request.url))

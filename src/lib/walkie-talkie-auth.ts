@@ -3,8 +3,11 @@ import { jwtVerify, SignJWT } from 'jose'
 import { prisma } from './prisma'
 
 const FIREBASE_MOCK_MODE = process.env.FIREBASE_MOCK_MODE === 'true'
-const secretKey = process.env.JWT_SECRET || 'walkie-talkie-super-secret-key-change-in-production'
-const key = new TextEncoder().encode(secretKey)
+
+function getKey() {
+  const secretKey = process.env.JWT_SECRET || 'walkie-talkie-super-secret-key-change-in-production'
+  return new TextEncoder().encode(secretKey)
+}
 
 export type WTTokenPayload = {
   userId: string
@@ -57,7 +60,7 @@ export async function signWTToken(userId: string, phone: string): Promise<string
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d') // Walkie-Talkie mobile session persists for 30 days
-    .sign(key)
+    .sign(getKey())
 }
 
 /**
@@ -65,7 +68,7 @@ export async function signWTToken(userId: string, phone: string): Promise<string
  */
 export async function verifyWTToken(token: string): Promise<WTTokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, key, {
+    const { payload } = await jwtVerify(token, getKey(), {
       algorithms: ['HS256'],
     })
     return payload as WTTokenPayload

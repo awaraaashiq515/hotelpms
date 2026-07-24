@@ -18,9 +18,9 @@ export async function GET(req: NextRequest) {
       settings = await prisma.paymentSetting.create({
         data: {
           id: 'system',
-          upiId: 'pay@ordermint',
-          upiName: 'OrderMint',
-          bankName: 'OrderMint Global Bank',
+          upiId: 'pay@guestflow',
+          upiName: 'GuestFlow',
+          bankName: 'GuestFlow Global Bank',
           bankAccount: '1200384819283',
           bankIfsc: 'ORDM0001092',
           bankSwift: 'ORDMININBB'
@@ -48,17 +48,17 @@ export async function PUT(req: NextRequest) {
       where: { id: 'system' },
       create: {
         id: 'system',
-        upiId: upiId || 'pay@ordermint',
-        upiName: upiName || 'OrderMint',
-        bankName: bankName || 'OrderMint Global Bank',
+        upiId: upiId || 'pay@guestflow',
+        upiName: upiName || 'GuestFlow',
+        bankName: bankName || 'GuestFlow Global Bank',
         bankAccount: bankAccount || '1200384819283',
         bankIfsc: bankIfsc || 'ORDM0001092',
         bankSwift: bankSwift || 'ORDMININBB'
       },
       update: {
-        upiId: upiId || 'pay@ordermint',
-        upiName: upiName || 'OrderMint',
-        bankName: bankName || 'OrderMint Global Bank',
+        upiId: upiId || 'pay@guestflow',
+        upiName: upiName || 'GuestFlow',
+        bankName: bankName || 'GuestFlow Global Bank',
         bankAccount: bankAccount || '1200384819283',
         bankIfsc: bankIfsc || 'ORDM0001092',
         bankSwift: bankSwift || 'ORDMININBB'

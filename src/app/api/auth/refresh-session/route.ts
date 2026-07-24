@@ -45,12 +45,18 @@ export async function POST(request: NextRequest) {
     const discountPercent = orgPackage?.discountPercent ?? 0
 
     let propertyCode = null;
+    let propertySlug = null;
+    let propertyType = null;
     if (user.propertyId) {
-      const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true } });
+      const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
+      propertySlug = prop?.name ? slugify(prop.name) : null;
+      propertyType = prop?.type || null;
     } else if (user.organizationId) {
-      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true } });
+      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
+      propertySlug = prop?.name ? slugify(prop.name) : null;
+      propertyType = prop?.type || null;
     }
 
     const sessionData: SessionPayload = {
@@ -70,6 +76,8 @@ export async function POST(request: NextRequest) {
       packageEndDate: user.organization?.packageEndDate?.toISOString() ?? null,
       subscriptionStatus: user.organization?.subscriptionStatus ?? 'TRIAL',
       propertyCode,
+      propertySlug,
+      propertyType,
     }
 
     const token = await encrypt(sessionData)

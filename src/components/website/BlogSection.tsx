@@ -94,7 +94,7 @@ export const BlogSection = () => {
                   </h3>
                   
                   <p className="text-gray-500 text-sm font-medium leading-relaxed line-clamp-3 mb-8 opacity-80">
-                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with OrderMint.'}
+                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with GuestFlow.'}
                   </p>
                   
                   <div className="mt-auto pt-8 border-t border-gray-100 flex items-center justify-between group-hover:border-pos-primary/20 transition-colors">

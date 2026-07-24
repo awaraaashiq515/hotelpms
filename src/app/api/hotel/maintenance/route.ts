@@ -29,13 +29,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
+
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    let session = await getSession();
+    let staff: any = null;
+    if (!session) {
+      staff = await getWTUserFromRequest(request as any);
+    }
+    if (!session && !staff) {
+      return apiError(new Error('Unauthorized'), 401);
+    }
 
     const body = await request.json();
-    const propertyId = body.propertyId || await resolveAdminProperty(session, prisma);
+    const propertyId = body.propertyId || (session ? await resolveAdminProperty(session, prisma) : staff.propertyId);
 
     if (!propertyId) {
       return apiError(new Error('No property context found.'), 400);
@@ -49,11 +57,16 @@ export async function POST(request: NextRequest) {
 
     const ticketNo = `MNT-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
 
-    const userObj = await prisma.user.findUnique({
-      where: { id: session.id },
-      select: { fullName: true }
-    });
-    const raisedByName = userObj?.fullName || session.email || 'System';
+    let raisedByName = 'System';
+    if (session) {
+      const userObj = await prisma.user.findUnique({
+        where: { id: session.id },
+        select: { fullName: true }
+      });
+      raisedByName = userObj?.fullName || session.email || 'System';
+    } else if (staff) {
+      raisedByName = staff.fullName || 'Housekeeper';
+    }
 
     const ticket = await prisma.$transaction(async (tx: any) => {
       // 1. Create the maintenance ticket

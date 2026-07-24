@@ -9,7 +9,7 @@ import {
   X, Search, User, ReceiptText, 
   Printer, CreditCard, CheckCircle2,
   Banknote, QrCode, Smartphone, Star,
-  MessageCircle, Gift, Tag
+  MessageCircle, Gift, Tag, Save
 } from 'lucide-react';
 import { printerService } from '@/lib/printer-service';
 
@@ -80,6 +80,35 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [appliedCoupon, setAppliedCoupon] = React.useState<any>(null);
   const [couponError, setCouponError] = React.useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+
+  // Room Charging States
+  const [occupiedRooms, setOccupiedRooms] = React.useState<any[]>([]);
+  const [loadingRooms, setLoadingRooms] = React.useState(false);
+  const [selectedRoomIdState, setSelectedRoomIdState] = React.useState<string>('');
+
+  React.useEffect(() => {
+    if (selectedModeId === 'POST_TO_ROOM' || bill?.roomId) {
+      setLoadingRooms(true);
+      fetch('/api/hotel/bookings')
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.data) {
+            const active = d.data.filter((b: any) => b.status === 'CHECKED_IN' && b.rooms?.[0]?.room);
+            setOccupiedRooms(active);
+          }
+        })
+        .catch(err => console.error(err))
+        .finally(() => setLoadingRooms(false));
+    }
+  }, [selectedModeId, bill?.roomId]);
+
+  React.useEffect(() => {
+    if (bill?.roomId) {
+      setSelectedRoomIdState(bill.roomId);
+    } else {
+      setSelectedRoomIdState('');
+    }
+  }, [bill?.roomId]);
 
   const handleApplyCoupon = async () => {
     if (!couponCodeInput) return;
@@ -299,6 +328,29 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (!onSettle || !selectedModeId) return;
     setIsSettling(true);
     try {
+      let activePaymentModeId = selectedModeId;
+      if (selectedModeId === 'POST_TO_ROOM') {
+        const selectedRoom = occupiedRooms.find((b: any) => b.rooms?.[0]?.room?.id === selectedRoomIdState);
+        const roomNo = selectedRoom ? selectedRoom.rooms[0].room.roomNumber : (bill.tableNo ? bill.tableNo.replace('Room ', '').trim() : '');
+        const postResponse = await fetch('/api/hotel/post-to-room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomNumber: roomNo,
+            amount: currentGrandTotal,
+            description: `Room Service Order ${bill.orderNo}`,
+            sourceRefId: bill.orderId || null,
+            propertyId: bill.propertyId || undefined
+          })
+        });
+        const postResult = await postResponse.json();
+        if (!postResult.success) {
+          throw new Error(postResult.message || 'Failed to post charges to the room bill.');
+        }
+        // Mark as PAY_LATER on the restaurant order since hotel folio now holds the charge
+        activePaymentModeId = 'PAY_LATER';
+      }
+
       const response = await fetch('/api/orders/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -306,8 +358,11 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
               orderId: (bill as any).orderId,
               restaurantTableId: (bill as any).tableId,
               parkingSlotId: (bill as any).parkingSlotId,
+              roomId: selectedRoomIdState || (bill as any).roomId || undefined,
+              folioId: (bill as any).folioId || undefined,
+              roomServiceRoomNo: bill.tableNo && bill.tableNo.includes('Room') ? bill.tableNo.replace('Room ', '').trim() : undefined,
               orderType: (bill as any).orderType || 'DINE_IN',
-              paymentModeId: selectedModeId,
+              paymentModeId: activePaymentModeId,
               guestId: selectedGuestId || undefined,
               totalAmount: currentGrandTotal,
               membershipCardId: membershipCard?.id || null,
@@ -351,11 +406,15 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ rating, comments: ratingComments })
         });
-        handlePrint();
+        if (selectedModeId !== 'POST_TO_ROOM') {
+          handlePrint();
+        }
         onClose(true);
     } catch (err) {
         console.error('Rating failed', err);
-        handlePrint();
+        if (selectedModeId !== 'POST_TO_ROOM') {
+          handlePrint();
+        }
         onClose(true);
     }
   };
@@ -970,7 +1029,46 @@ Thank you! Visit again.`;
                     <span className="text-xs">⏳</span>
                     <span className="text-[10px] font-semibold uppercase tracking-wider">Pay Later</span>
                   </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => setSelectedModeId(selectedModeId === 'POST_TO_ROOM' ? null : 'POST_TO_ROOM')}
+                    className={`p-2 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                      selectedModeId === 'POST_TO_ROOM'
+                      ? 'border-indigo-500 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20 text-indigo-650 dark:text-indigo-400 shadow-sm font-bold animate-pulse' 
+                      : 'border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 hover:bg-slate-100 dark:hover:bg-slate-850/80 text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                    <span className="text-xs">🏨</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider">Post to Room</span>
+                  </button>
                 </div>
+
+                {selectedModeId === 'POST_TO_ROOM' && (
+                  <div className="mb-4 p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 space-y-2">
+                    <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-wide">Charge to Room Folio</label>
+                    {loadingRooms ? (
+                      <p className="text-[10px] text-slate-500 italic">Loading active stays...</p>
+                    ) : (
+                      <select
+                        value={selectedRoomIdState}
+                        onChange={(e) => setSelectedRoomIdState(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200/60 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-100 text-xs font-bold focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="">-- SELECT GUEST ROOM --</option>
+                        {occupiedRooms.map((b: any) => {
+                          const roomNo = b.rooms?.[0]?.room?.roomNumber || 'N/A';
+                          const guestName = `${b.guest.firstName} ${b.guest.lastName || ''}`;
+                          return (
+                            <option key={b.id} value={b.rooms[0].room.id}>
+                              Room {roomNo} - {guestName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 mb-4 bg-slate-50 dark:bg-slate-950/45 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800/80">
                     <button 
@@ -988,7 +1086,7 @@ Thank you! Visit again.`;
 
                 <div className="mt-auto">
                   <button 
-                    disabled={!selectedModeId || isSettling}
+                    disabled={!selectedModeId || isSettling || (selectedModeId === 'POST_TO_ROOM' && !selectedRoomIdState)}
                     onClick={handleSettle}
                     className={`w-full h-13 rounded-xl transition-all flex items-center justify-between border shadow-sm active:scale-[0.98] ${
                       selectedModeId 
@@ -998,14 +1096,18 @@ Thank you! Visit again.`;
                   >
                     <div className="flex items-center gap-2.5 pl-4">
                        {isSettling ? (
-                          <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2500/svg" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
+                       ) : selectedModeId === 'POST_TO_ROOM' ? (
+                          <Save size={16} />
                        ) : (
                           <Printer size={16} />
                        )}
-                       <span className="text-xs font-bold tracking-wider uppercase">Save & Print Bill</span>
+                       <span className="text-xs font-bold tracking-wider uppercase">
+                         {selectedModeId === 'POST_TO_ROOM' ? 'Save & Charge to Room' : 'Save & Print Bill'}
+                       </span>
                     </div>
                     <div className="pr-4 flex items-center gap-1.5">
                        <span className="text-[9px] uppercase tracking-wider opacity-60">Payable:</span>
@@ -1060,7 +1162,7 @@ Thank you! Visit again.`;
                 onClick={submitRating}
                 className="w-full h-11 bg-indigo-600 text-white font-semibold text-xs tracking-wider rounded-xl shadow-md"
               >
-                Submit & Print Bill
+                {selectedModeId === 'POST_TO_ROOM' ? 'Submit & Complete' : 'Submit & Print Bill'}
               </Button>
               <Button 
                 onClick={handleWhatsApp}
@@ -1070,7 +1172,12 @@ Thank you! Visit again.`;
                 Send via WhatsApp
               </Button>
               <button 
-                onClick={() => { handlePrint(); onClose(true); }}
+                onClick={() => { 
+                  if (selectedModeId !== 'POST_TO_ROOM') {
+                    handlePrint(); 
+                  }
+                  onClose(true); 
+                }}
                 className="text-xs font-semibold text-slate-400 dark:text-slate-505 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1"
               >
                 Skip Rating

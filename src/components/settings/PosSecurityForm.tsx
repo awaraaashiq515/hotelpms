@@ -133,7 +133,7 @@ export const PosSecurityForm = () => {
                   </div>
                   <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-400">
                      <span>Terminal PIN</span>
-                     <span className="text-pos-primary font-mono tracking-widest">{prop.posTerminalPin ? '••••••' : 'NONE'}</span>
+                     <span className="text-pos-primary font-mono tracking-widest">{prop.posTerminalPin ? '•'.repeat(prop.posTerminalPin.length) : 'NONE'}</span>
                   </div>
                </div>
 
@@ -174,10 +174,10 @@ export const PosSecurityForm = () => {
                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Terminal PIN</label>
                    <input 
                       type="text" 
-                      maxLength={6}
+                      maxLength={8}
                       value={terminalPin}
                       onChange={(e) => setTerminalPin(e.target.value.replace(/\D/g, ''))}
-                      placeholder="------"
+                      placeholder="Enter PIN"
                       className="w-full bg-transparent text-2xl font-black text-pos-primary tracking-[0.5em] text-center outline-none"
                    />
                 </div>

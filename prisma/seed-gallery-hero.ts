@@ -19,16 +19,19 @@ async function main() {
         heroSubtitle: "Delicious food, great atmosphere, and unforgettable memories.",
         heroVideo: videoUrl,
         heroImage: imageUrl,
+        updatedAt: new Date(),
       },
     });
     console.log('Website settings seeded successfully with hero data.');
   } else {
     await prisma.websiteSettings.create({
       data: {
+        id: 'default-settings',
         heroTitle: "Experience the Best Dining",
         heroSubtitle: "Delicious food, great atmosphere, and unforgettable memories.",
         heroVideo: videoUrl,
         heroImage: imageUrl,
+        updatedAt: new Date(),
       },
     });
     console.log('New hero settings created.');

@@ -29,6 +29,7 @@ export type SessionPayload = {
   propertyId: string | null
   propertyCode?: string | null
   propertySlug?: string | null      // URL-safe slug derived from property name
+  propertyType?: string | null      // Business type (HOTEL, RESTAURANT, CAFE)
   supplierId?: string | null
   onboardingCompleted: boolean
   permissions?: string[]
@@ -69,7 +70,7 @@ export async function getSession() {
       
       // Try decrypting as standard session payload first
       const sessionPayload = await decrypt(token)
-      if (sessionPayload) {
+      if (sessionPayload && sessionPayload.id) {
         return sessionPayload as SessionPayload
       }
 

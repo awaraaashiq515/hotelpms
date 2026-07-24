@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     let prompt = '';
     if (type === 'blog') {
-      prompt = `Generate a professional, SEO-optimized blog post for a restaurant POS system website called OrderMint.
+      prompt = `Generate a professional, SEO-optimized blog post for a restaurant POS system website called GuestFlow.
       Topic: ${topic}
       
       Return the response in JSON format with the following fields:

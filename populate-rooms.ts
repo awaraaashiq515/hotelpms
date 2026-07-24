@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -30,6 +31,7 @@ async function main() {
       where: { slug: cat.slug },
       update: {},
       create: {
+        id: cat.slug,
         name: cat.name,
         slug: cat.slug,
         description: cat.description,
@@ -37,12 +39,14 @@ async function main() {
         capacity: cat.capacity,
         type: cat.type,
         isActive: true,
+        updatedAt: new Date(),
       }
     });
 
     // 2. Create RoomType
     const roomType = await prisma.roomType.create({
       data: {
+        id: randomUUID(),
         propertyId: property.id,
         name: cat.name,
         code: cat.code,
@@ -56,6 +60,7 @@ async function main() {
       const roomNum = (cat.startRoom + i).toString();
       await prisma.room.create({
         data: {
+          id: randomUUID(),
           propertyId: property.id,
           roomTypeId: roomType.id,
           roomNumber: roomNum,

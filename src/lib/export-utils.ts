@@ -1,5 +1,5 @@
 /**
- * OrderMint POS — Export Utilities
+ * GuestFlow POS — Export Utilities
  * Universal Excel (XLSX) + PDF export for all report pages.
  */
 
@@ -67,7 +67,7 @@ export function exportToPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('OrderMint POS', 14, 12);
+  doc.text('GuestFlow POS', 14, 12);
 
   // Title
   doc.setTextColor(...POS_DARK);

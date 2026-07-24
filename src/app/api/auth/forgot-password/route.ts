@@ -57,12 +57,12 @@ export async function POST(req: NextRequest) {
     
     const mailSent = await sendMail({
       to: email,
-      subject: 'Password Reset Request - OrderMint POS',
+      subject: 'Password Reset Request - GuestFlow POS',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
           <h2 style="color: #333; border-bottom: 2px solid #b91c1c; padding-bottom: 10px;">Password Reset</h2>
           <p>Hello ${user.fullName},</p>
-          <p>We received a request to reset your password for your OrderMint POS account. Click the button below to set a new password:</p>
+          <p>We received a request to reset your password for your GuestFlow POS account. Click the button below to set a new password:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetUrl}" style="background-color: #b91c1c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
           </div>

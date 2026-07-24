@@ -2,19 +2,41 @@
 
 import React, { useState, useEffect } from 'react';
 import { HotelSidebar } from '@/components/hotel/sidebar';
-import { useRouter } from 'next/navigation';
-import { Building2, User, ChevronDown } from 'lucide-react';
+import { SidebarProvider, useSidebar } from '@/components/hotel/SidebarContext';
+import { useRouter, usePathname } from 'next/navigation';
+import { Building2, User, ChevronDown, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { NotificationBell } from '@/components/hotel/NotificationBell';
 
-export default function HotelLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// Inner layout that can access sidebar context
+function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { isOpen, toggle, setIsOpen } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
+
+  // Auto-collapse sidebar on calendar page for full-width view
+  useEffect(() => {
+    if (pathname === '/hotel/calendar') {
+      setIsOpen(false);
+    } else {
+      setIsOpen(true);
+    }
+  }, [pathname, setIsOpen]);
+
+  // Force dark mode on html tag for hotel dashboard
+  useEffect(() => {
+    const html = document.documentElement;
+    const hadDark = html.classList.contains('dark');
+    html.classList.add('dark');
+    
+    return () => {
+      if (!hadDark) {
+        html.classList.remove('dark');
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // 1. Fetch Session
@@ -23,10 +45,10 @@ export default function HotelLayout({
       .then((data) => {
         if (data.authenticated) {
           const role = data.user.role;
-          const allowedRoles = ['HOTEL_ADMIN', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'SUPER_ADMIN'];
+          // Allow RESTAURANTS_ADMIN and SUPER_ADMIN to also access hotel (for management)
+          const allowedRoles = ['HOTEL_ADMIN', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'SUPER_ADMIN', 'RESTAURANTS_ADMIN'];
           
           if (!allowedRoles.includes(role)) {
-            // Redirect to main operations if unauthorized
             router.push('/operations');
           } else {
             setSession(data.user);
@@ -35,10 +57,17 @@ export default function HotelLayout({
               .then((res) => res.json())
               .then((propData) => {
                 if (propData.success && Array.isArray(propData.data)) {
-                  setProperties(propData.data);
-                  // Find current property context
                   const current = propData.data.find((p: any) => p.id === data.user.propertyId) || propData.data[0];
                   setSelectedProperty(current);
+
+                  // ── HMS Feature Gate ──────────────────────────────────────
+                  // Allow access if the property type is HOTEL, OR if super/admin role
+                  const isHotelProperty = current?.type === 'HOTEL' || current?.hmsEnabled;
+                  if (current && !isHotelProperty && role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN') {
+                    router.push('/feature-locked?feature=HMS');
+                    return;
+                  }
+                  // ─────────────────────────────────────────────────────────
                 }
               })
               .catch(() => {});
@@ -70,17 +99,31 @@ export default function HotelLayout({
 
   if (!session) return null;
 
+  const isCalendar = pathname === '/hotel/calendar';
+
   return (
-    <div className="min-h-screen flex bg-[#090d16] text-slate-100 selection:bg-indigo-600 selection:text-white">
+    <div className="dark min-h-screen flex bg-[#090d16] text-slate-100 selection:bg-indigo-600 selection:text-white">
       {/* Collapsible Hotel Navigation Sidebar */}
       <HotelSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Portal Header */}
-        <header className="h-16 border-b border-slate-800 bg-[#0f172a]/60 backdrop-blur-md px-6 flex items-center justify-between shrink-0">
-          {/* Active Property Status */}
-          <div className="flex items-center gap-2.5">
+        <header className="h-16 border-b border-slate-800 bg-[#0f172a]/60 backdrop-blur-md px-4 flex items-center justify-between shrink-0 relative z-30">
+          {/* Left: Sidebar Toggle + Property */}
+          <div className="flex items-center gap-3">
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={toggle}
+              title={isOpen ? 'Collapse sidebar' : 'Open sidebar'}
+              className="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all"
+            >
+              {isOpen
+                ? <PanelLeftClose size={16} />
+                : <PanelLeftOpen size={16} />
+              }
+            </button>
+
             <Building2 className="text-indigo-400" size={18} />
             <div className="flex flex-col text-left">
               <span className="text-xs font-semibold text-slate-400">Current Property</span>
@@ -90,13 +133,26 @@ export default function HotelLayout({
             </div>
           </div>
 
-          {/* Right Action Tray (User profile context) */}
+          {/* Right Action Tray */}
           <div className="flex items-center gap-4">
-            {/* Quick Stats Pill */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-[10px] font-black uppercase tracking-widest text-indigo-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Desk
-            </div>
+            {/* Calendar indicator pill */}
+            {isCalendar && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-black uppercase tracking-widest text-indigo-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                Full View
+              </div>
+            )}
+
+            {/* Live Desk Pill */}
+            {!isCalendar && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-[10px] font-black uppercase tracking-widest text-indigo-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live Desk
+              </div>
+            )}
+
+            {/* Notification Bell Dropdown */}
+            <NotificationBell />
 
             {/* Profile Dropdown */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-slate-800/40 transition-colors cursor-pointer border border-transparent hover:border-slate-800">
@@ -114,9 +170,28 @@ export default function HotelLayout({
 
         {/* Scrollable View Area */}
         <main className="flex-1 overflow-y-auto no-scrollbar bg-[#090d16] p-6 md:p-8">
-          {children}
+          {pathname === '/hotel' || pathname === '/hotel/calendar' ? (
+            children
+          ) : (
+            <div className="bg-[#0f172a]/45 border border-slate-800/80 rounded-[24px] p-6 md:p-8 shadow-xl min-h-full">
+              {children}
+            </div>
+          )}
         </main>
       </div>
     </div>
+  );
+}
+
+// Outer layout wraps with SidebarProvider
+export default function HotelLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <SidebarProvider>
+      <HotelLayoutInner>{children}</HotelLayoutInner>
+    </SidebarProvider>
   );
 }

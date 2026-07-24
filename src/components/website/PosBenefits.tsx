@@ -56,7 +56,7 @@ export const PosBenefits = () => {
             </div>
             <h2 className="text-4xl lg:text-6xl font-black mb-6 leading-tight tracking-tight">
               Why Businesses <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pos-primary to-pos-primary-light">Choose OrderMint</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pos-primary to-pos-primary-light">Choose GuestFlow</span>
             </h2>
             <p className="text-xl text-slate-400 leading-relaxed max-w-lg font-medium">
               We're your dedicated partner in growth, providing high-performance tools for modern scale.

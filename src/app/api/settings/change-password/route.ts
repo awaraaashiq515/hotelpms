@@ -64,13 +64,13 @@ export async function POST(req: NextRequest) {
           </div>
           <p style="color: #64748b; font-size: 12px; line-height: 1.5; text-align: center; margin: 0 0 24px;">This code is valid for <strong>15 minutes</strong>. If you did not make this request, you can safely ignore this email.</p>
           <hr style="border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 20px;" />
-          <p style="color: #94a3b8; font-size: 10px; text-align: center; margin: 0;">OrderMint POS Security Center · Automated Notification</p>
+          <p style="color: #94a3b8; font-size: 10px; text-align: center; margin: 0;">GuestFlow POS Security Center · Automated Notification</p>
         </div>
       `;
 
       const emailSent = await sendMail({
         to: email,
-        subject: 'Verification Code for Password Change - OrderMint POS',
+        subject: 'Verification Code for Password Change - GuestFlow POS',
         html: emailHtml,
       });
 

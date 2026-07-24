@@ -58,7 +58,7 @@ export default function ContactPage() {
               Let's Talk <span className="text-pos-primary">Scale</span>
             </h1>
             <p className="text-slate-600 max-w-2xl mx-auto font-medium text-lg leading-relaxed">
-              Based in Himachal, Serving the World. Our team is ready to help you build a smarter operation with OrderMint.
+              Based in Himachal, Serving the World. Our team is ready to help you build a smarter operation with GuestFlow.
             </p>
           </div>
         </div>
@@ -101,7 +101,7 @@ export default function ContactPage() {
                   </div>
                   <h4 className="text-sm font-medium text-slate-500 mb-1">Email</h4>
                   <p className="text-base font-semibold text-slate-900">
-                    support@ordermint.com
+                    support@guestflow.com
                   </p>
                 </div>
 
@@ -120,7 +120,7 @@ export default function ContactPage() {
             <div className="p-10 bg-slate-900 rounded-[40px] text-white">
               <h3 className="text-lg font-bold uppercase tracking-tight mb-4">Request a Personal Demo</h3>
               <p className="text-slate-400 text-sm mb-8 leading-relaxed font-medium">
-                Want to see OrderMint in action? Schedule a one-on-one session with our product experts to explore how we can optimize your workflow.
+                Want to see GuestFlow in action? Schedule a one-on-one session with our product experts to explore how we can optimize your workflow.
               </p>
               <button 
                 onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}
@@ -144,7 +144,7 @@ export default function ContactPage() {
               <div className="bg-green-50 text-green-700 p-8 rounded-3xl flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-500">
                 <CheckCircle size={48} className="mb-4 text-green-500" />
                 <h3 className="text-xl font-bold uppercase tracking-tight mb-2">Enquiry Received!</h3>
-                <p className="font-medium text-green-600/80">Thank you for your interest in OrderMint. Our sales team will contact you shortly.</p>
+                <p className="font-medium text-green-600/80">Thank you for your interest in GuestFlow. Our sales team will contact you shortly.</p>
                 <button 
                   onClick={() => setSuccess(false)}
                   className="mt-6 px-6 py-2 bg-green-100 font-bold uppercase tracking-widest text-xs rounded-full hover:bg-green-200 transition-colors"

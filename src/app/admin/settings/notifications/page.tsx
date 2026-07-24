@@ -143,7 +143,7 @@ export default function NotificationSettingsPage() {
                 value={settings.SMS_SENDER_ID}
                 onChange={e => setSettings({ ...settings, SMS_SENDER_ID: e.target.value })}
                 className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all font-mono text-sm uppercase dark:text-white"
-                placeholder="e.g. TXTIND or OrderMint"
+                placeholder="e.g. TXTIND or GuestFlow"
                 maxLength={6}
               />
             </div>

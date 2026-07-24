@@ -257,7 +257,7 @@ export const TopNavbar: React.FC = () => {
                   <div className="flex flex-col leading-none">
                     <span className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">
                       {(() => {
-                        const hName = websiteSettings?.hotelName || 'OrderMint';
+                        const hName = websiteSettings?.hotelName || 'GuestFlow';
                         return (
                           <>{hName.split(' ')[0]}<span className="text-pos-primary font-light">{hName.split(' ').slice(1).join(' ')}</span></>
                         );
@@ -312,7 +312,7 @@ export const TopNavbar: React.FC = () => {
               </Button>
 
               {showLiveOrderMenu && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="absolute top-full left-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-300">
                   <button 
                     onClick={() => {
                       router.push(`${p}/billing?type=DELIVERY`);
@@ -337,6 +337,21 @@ export const TopNavbar: React.FC = () => {
                     </div>
                     🛍️ Pick Up
                   </button>
+                  {/* Room Service — only show if property has HMS/Hotel enabled */}
+                  {(property?.hmsEnabled || property?.type === 'HOTEL') && (
+                    <button 
+                      onClick={() => {
+                        router.push(`${p}/billing?type=ROOM_SERVICE`);
+                        setShowLiveOrderMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-indigo-500 transition-all border-t border-gray-100 dark:border-white/5"
+                    >
+                      <div className="w-8 h-8 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500">
+                        <Plus size={14} />
+                      </div>
+                      🏨 Room Service
+                    </button>
+                  )}
                 </div>
               )}
             </div>

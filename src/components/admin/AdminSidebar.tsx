@@ -26,6 +26,7 @@ import {
   X,
   CreditCard,
   Bike,
+  MessageCircle,
 } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -56,6 +57,7 @@ export const AdminSidebar = () => {
     { name: 'Properties / POS', path: '/admin/properties', icon: Home },
     { name: 'Website Settings', path: '/admin/settings', icon: Settings },
     { name: 'Notifications (SMS)', path: '/admin/settings/notifications', icon: MessageSquare },
+    { name: 'WhatsApp Settings', path: '/admin/settings/whatsapp', icon: MessageCircle },
     { name: 'Blog', path: '/admin/blogs', icon: MessageSquare },
     { name: 'Contact Enquiries', path: '/admin/enquiries', icon: Mail },
   ];
@@ -84,7 +86,7 @@ export const AdminSidebar = () => {
       >
         <div className="p-8 flex items-center justify-between border-b border-slate-800/50 bg-slate-950/20">
           <div className="flex flex-col">
-            <span className="text-3xl font-black text-white tracking-tighter uppercase leading-none">OrderMint</span>
+            <span className="text-3xl font-black text-white tracking-tighter uppercase leading-none">GuestFlow</span>
             <span className="text-pos-primary text-xs font-bold tracking-[0.2em] mt-1 uppercase">Admin Panel</span>
             <span className="text-[10px] font-bold tracking-widest mt-2 opacity-50 uppercase">POS · by Ritchie</span>
           </div>

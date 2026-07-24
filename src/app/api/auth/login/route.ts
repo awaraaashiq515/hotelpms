@@ -79,7 +79,15 @@ export async function POST(request: NextRequest) {
     if (isHotelRole) {
       const settings = await prisma.websiteSettings.findFirst();
       const hotelEnabled = settings?.hotelEnabled ?? false;
-      if (!hotelEnabled) {
+      
+      const organizationHasHotel = user.organizationId ? await prisma.property.findFirst({
+        where: {
+          organizationId: user.organizationId,
+          type: 'HOTEL'
+        }
+      }) : null;
+
+      if (!hotelEnabled && !organizationHasHotel) {
         return apiError(new Error('Hotel features are currently disabled by the system administrator.'), 403)
       }
     }
@@ -108,14 +116,17 @@ export async function POST(request: NextRequest) {
 
     let propertyCode = null;
     let propertySlug = null;
+    let propertyType = null;
     if (user.propertyId) {
-      const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true, name: true } });
+      const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
       propertySlug = prop?.name ? slugify(prop.name) : null;
+      propertyType = prop?.type || null;
     } else if (user.organizationId) {
-      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true, name: true } });
+      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
       propertySlug = prop?.name ? slugify(prop.name) : null;
+      propertyType = prop?.type || null;
     }
 
     const sessionData: SessionPayload = {
@@ -136,6 +147,7 @@ export async function POST(request: NextRequest) {
       subscriptionStatus: user.organization?.subscriptionStatus ?? 'TRIAL',
       propertyCode,
       propertySlug,
+      propertyType,
     }
 
     const token = await encrypt(sessionData)

@@ -13,9 +13,9 @@ export async function GET() {
       // Create default settings if not exists
       const newSettings = await prisma.websiteSettings.create({
         data: {
-          hotelName: 'OrderMint Solutions',
+          hotelName: 'GuestFlow Solutions',
           address: '123 Tech Park, Silicon Valley, CA 94025, USA',
-          email: 'support@ordermint.com',
+          email: 'support@guestflow.com',
           storyTitle: 'Our Mission – Redefining POS for the Modern Era',
         },
       });
@@ -43,7 +43,7 @@ export async function PUT(req: NextRequest) {
         'heroTitle', 'heroSubtitle', 'heroVideo', 'heroImage',
         'galleryHeroVideoUrl', 'galleryHeroImageUrl', 'bookingRedirectToContact',
         'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'contactReceiverEmail',
-        'windowsComingSoon', 'macComingSoon', 'androidComingSoon', 'geminiApiKey', 'maintenanceMode', 'hotelEnabled'
+        'windowsComingSoon', 'macComingSoon', 'androidComingSoon', 'geminiApiKey', 'openAiApiKey', 'maintenanceMode', 'hotelEnabled'
       ];
       
       fields.forEach(field => {

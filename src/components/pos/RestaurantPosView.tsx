@@ -197,6 +197,9 @@ export default function RestaurantPosView({
   const parkingSlotId = searchParams.get('parkingSlotId');
   const slotName = searchParams.get('slotName');
   const orderIdParam = searchParams.get('orderId');
+  // Restaurant → Room Billing: pre-selected room from tables page
+  const preSelectedBookingId = searchParams.get('bookingId');
+  const preSelectedRoomNo = searchParams.get('roomNo');
 
   const [themeChecked, setThemeChecked] = useState(true);
 
@@ -235,7 +238,15 @@ export default function RestaurantPosView({
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
   const [driverMutationLoading, setDriverMutationLoading] = useState(false);
   // Order type toggle
-  const [orderType, setOrderType] = useState<'DINE_IN' | 'DELIVERY' | 'PICKUP'>('DINE_IN');
+  const [orderType, setOrderType] = useState<'DINE_IN' | 'DELIVERY' | 'PICKUP' | 'ROOM_SERVICE'>('DINE_IN');
+  // Room Service
+  const [roomServiceRoomNo, setRoomServiceRoomNo] = useState<string>('');
+  const [hotelRooms, setHotelRooms] = useState<any[]>([]);
+  const [roomServiceRoomId, setRoomServiceRoomId] = useState<string>('');
+  const [roomServiceFolioId, setRoomServiceFolioId] = useState<string>('');
+  const [showRoomDropdown, setShowRoomDropdown] = useState(false);
+  const [roomSearch, setRoomSearch] = useState('');
+  const [occupiedRooms, setOccupiedRooms] = useState<any[]>([]);
   // Delivery details states
   const [deliveryCustomerName, setDeliveryCustomerName] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
@@ -251,6 +262,12 @@ export default function RestaurantPosView({
   const [manualDiscountType, setManualDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [showDiscountInput, setShowDiscountInput] = useState(false);
   
+  // Pre-selected room for restaurant → room billing (from tables page)
+  const [preSelectedRoomId, setPreSelectedRoomId] = useState<string>('');
+  const [preSelectedRoomFolioId, setPreSelectedRoomFolioId] = useState<string>('');
+  const [preSelectedRoomGuestId, setPreSelectedRoomGuestId] = useState<string>('');
+  const [preSelectedRoomLoaded, setPreSelectedRoomLoaded] = useState(false);
+
   // CRM Loyalty & Coupon states
   const [redeemPointsInput, setRedeemPointsInput] = useState<number>(0);
   const [couponCodeInput, setCouponCodeInput] = useState<string>('');
@@ -347,7 +364,76 @@ export default function RestaurantPosView({
     if (type === 'DELIVERY') setOrderType('DELIVERY');
     if (type === 'PICKUP') setOrderType('PICKUP');
     if (type === 'DINE_IN') setOrderType('DINE_IN');
+    if (type === 'ROOM_SERVICE') setOrderType('ROOM_SERVICE');
+    const roomNo = searchParams.get('room');
+    if (roomNo) setRoomServiceRoomNo(roomNo);
   }, [searchParams]);
+
+  // Auto-fetch room folio details when bookingId is pre-selected from tables page
+  useEffect(() => {
+    if (preSelectedBookingId && preSelectedRoomNo && !preSelectedRoomLoaded) {
+      setPreSelectedRoomLoaded(true);
+      fetch(`/api/hotel/post-to-room?roomNumber=${encodeURIComponent(preSelectedRoomNo)}`)
+        .then(res => res.json())
+        .then(d => {
+          if (d.success && d.data) {
+            setPreSelectedRoomId(d.data.roomId || '');
+            setPreSelectedRoomFolioId(d.data.folioId || '');
+            setPreSelectedRoomGuestId(d.data.guestId || '');
+            if (d.data.guestId) setSelectedGuestId(d.data.guestId);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [preSelectedBookingId, preSelectedRoomNo, preSelectedRoomLoaded]);
+
+  // Fetch hotel rooms and active bookings for room service dropdown
+  useEffect(() => {
+    if (orderType === 'ROOM_SERVICE') {
+      fetch('/api/hotel/rooms')
+        .then(r => r.json())
+        .then(d => { if (d.success) setHotelRooms(d.data ?? []); })
+        .catch(() => {});
+
+      fetch('/api/hotel/bookings')
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.data) {
+            const active = d.data.filter((b: any) => b.status === 'CHECKED_IN' && b.rooms?.[0]?.room);
+            setOccupiedRooms(active);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [orderType]);
+
+  // Fetch active checkin/folio details when roomServiceRoomNo changes
+  useEffect(() => {
+    if (orderType === 'ROOM_SERVICE' && roomServiceRoomNo) {
+      const url = roomServiceRoomId ? `/api/hotel/post-to-room?roomNumber=${roomServiceRoomNo}&roomId=${roomServiceRoomId}` : `/api/hotel/post-to-room?roomNumber=${roomServiceRoomNo}`;
+      fetch(url)
+        .then(res => res.json())
+        .then(d => {
+          if (d.success && d.data) {
+            setRoomServiceFolioId(d.data.folioId || '');
+            if (d.data.roomId) {
+              setRoomServiceRoomId(d.data.roomId);
+            }
+            if (d.data.guestId) {
+              setSelectedGuestId(d.data.guestId);
+            }
+          } else {
+            setRoomServiceFolioId('');
+          }
+        })
+        .catch(() => {
+          setRoomServiceFolioId('');
+        });
+    } else {
+      setRoomServiceRoomId('');
+      setRoomServiceFolioId('');
+    }
+  }, [roomServiceRoomNo, orderType, roomServiceRoomId]);
 
   const fetchDrivers = async (propertyId?: string | null) => {
     try {
@@ -792,6 +878,9 @@ export default function RestaurantPosView({
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined,
         orderId: orderIdParam || activeOrder?.id || undefined,
+        roomId: orderType === 'ROOM_SERVICE' ? roomServiceRoomId || undefined : undefined,
+        folioId: orderType === 'ROOM_SERVICE' ? roomServiceFolioId || undefined : undefined,
+        roomServiceRoomNo: orderType === 'ROOM_SERVICE' ? roomServiceRoomNo || undefined : undefined,
         deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
         deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
         deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
@@ -859,6 +948,9 @@ export default function RestaurantPosView({
         guestCount: orderType === 'DINE_IN' ? guestCount : 1,
         driverId: selectedDriver?.id || undefined,
         orderId: orderIdParam || activeOrder?.id || undefined,
+        roomId: orderType === 'ROOM_SERVICE' ? roomServiceRoomId || undefined : undefined,
+        folioId: orderType === 'ROOM_SERVICE' ? roomServiceFolioId || undefined : undefined,
+        roomServiceRoomNo: orderType === 'ROOM_SERVICE' ? roomServiceRoomNo || undefined : undefined,
         deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
         deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
         deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
@@ -884,7 +976,7 @@ export default function RestaurantPosView({
           setKotData({
             kotNo: latestKot.kotNo,
             orderNo: orderData.orderNo,
-            tableNo: slotName || tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
+            tableNo: slotName || tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : orderType === 'ROOM_SERVICE' ? `Room ${roomServiceRoomNo || '?'}` : 'Counter'),
             orderType: orderData.orderType,
             createdAt: latestKot.createdAt,
             items: latestKot.items.map((item: any) => ({
@@ -1001,6 +1093,9 @@ export default function RestaurantPosView({
           guestId: selectedGuestId || undefined,
           guestCount: orderType === 'DINE_IN' ? guestCount : 1,
           driverId: selectedDriver?.id || undefined,
+          roomId: orderType === 'ROOM_SERVICE' ? roomServiceRoomId || undefined : undefined,
+          folioId: orderType === 'ROOM_SERVICE' ? roomServiceFolioId || undefined : undefined,
+          roomServiceRoomNo: orderType === 'ROOM_SERVICE' ? roomServiceRoomNo || undefined : undefined,
           deliveryCustomerName: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryCustomerName || undefined : undefined,
           deliveryPhone: orderType === 'DELIVERY' || orderType === 'PICKUP' ? deliveryPhone || undefined : undefined,
           deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress || undefined : undefined,
@@ -1051,7 +1146,7 @@ export default function RestaurantPosView({
 
     const mappedBill: BillData = {
       orderNo: orderToPrint.orderNo,
-      tableNo: slotName || tableName || orderToPrint.tableNo || (orderToPrint.orderType === 'DELIVERY' ? 'Delivery' : (orderToPrint.orderType === 'TAKEAWAY' || orderToPrint.orderType === 'PICKUP' || orderToPrint.orderType === 'PARKING') ? 'Take Away' : 'Walk-in'),
+      tableNo: slotName || tableName || (orderType === 'ROOM_SERVICE' && roomServiceRoomNo ? `Room ${roomServiceRoomNo}` : orderToPrint.tableNo) || (orderToPrint.orderType === 'DELIVERY' ? 'Delivery' : (orderToPrint.orderType === 'TAKEAWAY' || orderToPrint.orderType === 'PICKUP' || orderToPrint.orderType === 'PARKING') ? 'Take Away' : 'Walk-in'),
       items: orderToPrint.items.map((i: any) => ({
         id: i.productId || i.id,
         name: i.product?.name || i.itemName || 'Item',
@@ -1066,6 +1161,9 @@ export default function RestaurantPosView({
       createdAt: orderToPrint.createdAt,
       orderId: orderToPrint.id,
       tableId: tableId || undefined,
+      roomId: preSelectedRoomId || (orderType === 'ROOM_SERVICE' ? roomServiceRoomId || undefined : undefined),
+      folioId: preSelectedRoomFolioId || (orderType === 'ROOM_SERVICE' ? roomServiceFolioId || undefined : undefined),
+      orderType: orderType,
       driverId: selectedDriver?.id || activeOrder?.driverId,
       staffMemberId: selectedStaffId || activeOrder?.staffMemberId || undefined,
       guestCount: guestCount || orderToPrint.guestCount || 1,
@@ -1092,8 +1190,11 @@ export default function RestaurantPosView({
         orderType: parkingSlotId ? 'PARKING' : (orderType === 'PICKUP' ? 'TAKEAWAY' : orderType),
         staffMemberId: selectedStaffId || undefined,
         paymentModeId: paymentModeId,
-        guestId: guestId || selectedGuestId || undefined,
+        guestId: guestId || selectedGuestId || preSelectedRoomGuestId || undefined,
         driverId: driverId || selectedDriver?.id || undefined,
+        roomId: preSelectedRoomId || (orderType === 'ROOM_SERVICE' ? roomServiceRoomId || undefined : undefined),
+        folioId: preSelectedRoomFolioId || (orderType === 'ROOM_SERVICE' ? roomServiceFolioId || undefined : undefined),
+        roomServiceRoomNo: orderType === 'ROOM_SERVICE' ? roomServiceRoomNo || undefined : undefined,
         totalAmount: grandTotal,
         membershipCardId: membershipCard?.id || null,
         membershipDiscount: membershipDiscountAmount || 0,
@@ -2692,6 +2793,18 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em]">
                    {tableName || (orderType === 'DELIVERY' ? 'Delivery Order' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter Service')}
                  </p>
+                 {/* Room billing indicator */}
+                 {preSelectedRoomNo && (
+                   <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/25">
+                     <span className="text-sm">🏨</span>
+                     <span className="text-[9px] font-black text-violet-400 uppercase tracking-wider">
+                       Room {preSelectedRoomNo} — Bill to Room
+                     </span>
+                     {preSelectedRoomId && (
+                       <span className="text-[8px] text-emerald-400 font-bold ml-1">✓ Folio Linked</span>
+                     )}
+                   </div>
+                 )}
               </div>
               
               <div className="flex items-center gap-2 ml-auto">
@@ -2809,23 +2922,23 @@ Total Amount: ₹${grandTotal.toFixed(2)}
              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 ml-1">
                ⚙️ Assignment & Settings
              </span>
-             <div className={orderType === 'DELIVERY' ? "grid grid-cols-1" : "grid grid-cols-2 gap-2"}>
+             <div className="grid grid-cols-3 gap-2">
                {/* Customer Button */}
                <div className="relative group">
                   <button 
-                    onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); }}
-                    className={`w-full flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
+                    onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setShowDriverDropdown(false); setShowRoomDropdown(false); }}
+                    className={`w-full flex items-center justify-between gap-1.5 py-2 px-2.5 rounded-xl border transition-all duration-300 ${selectedGuestId ? 'bg-pos-primary border-pos-primary text-white shadow-lg shadow-pos-primary/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-pos-primary/40'}`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <UserIcon size={12} className={selectedGuestId ? 'text-white' : 'text-pos-primary'} />
-                      <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                      <span className="text-[9px] font-black uppercase tracking-wider truncate">
                         {selectedGuestId ? (customers.find(c => c.id === selectedGuestId)?.firstName || 'Guest') : 'Customer'}
                       </span>
                     </div>
                     {selectedGuestId && (
                       <div 
                         onClick={(e) => { e.stopPropagation(); setSelectedGuestId(''); }}
-                        className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
                       >
                         <Trash2 size={10} />
                       </div>
@@ -2834,33 +2947,117 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                </div>
                
                {/* Driver Button */}
-               {orderType !== 'DELIVERY' && (
-                 <div className="relative group">
-                    <button 
-                      onClick={() => { setShowDriverDropdown(!showDriverDropdown); setShowCustomerDropdown(false); }}
-                      className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-2xl border transition-all duration-300 ${selectedDriver ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-amber-500/40'}`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <CarFront size={12} className={selectedDriver ? 'text-white' : 'text-amber-500'} />
-                        <span className="text-[10px] font-black uppercase tracking-wider truncate">
-                          {selectedDriver ? selectedDriver.name : 'Driver'}
-                        </span>
+               <div className="relative group">
+                  <button 
+                    onClick={() => { setShowDriverDropdown(!showDriverDropdown); setShowCustomerDropdown(false); setShowRoomDropdown(false); }}
+                    className={`w-full flex items-center justify-between gap-1.5 py-2 px-2.5 rounded-xl border transition-all duration-300 ${selectedDriver ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-amber-500/40'}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <CarFront size={12} className={selectedDriver ? 'text-white' : 'text-amber-500'} />
+                      <span className="text-[9px] font-black uppercase tracking-wider truncate">
+                        {selectedDriver ? selectedDriver.name : 'Driver'}
+                      </span>
+                    </div>
+                    {selectedDriver && (
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); setSelectedDriver(null); }}
+                        className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
+                      >
+                        <Trash2 size={10} />
                       </div>
-                      {selectedDriver && (
-                        <div 
-                          onClick={(e) => { e.stopPropagation(); setSelectedDriver(null); }}
-                          className="p-1 hover:bg-white/20 rounded-md transition-colors"
-                        >
-                          <Trash2 size={10} />
-                        </div>
-                      )}
-                    </button>
-                 </div>
-               )}
+                    )}
+                  </button>
+               </div>
+
+               {/* Room Button */}
+               <div className="relative group">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (orderType === 'ROOM_SERVICE') {
+                        setShowRoomDropdown(!showRoomDropdown);
+                      } else {
+                        setOrderType('ROOM_SERVICE');
+                        setShowRoomDropdown(true);
+                      }
+                      setShowCustomerDropdown(false);
+                      setShowDriverDropdown(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-1.5 py-2 px-2.5 rounded-xl border transition-all duration-300 ${orderType === 'ROOM_SERVICE' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-white/5 text-slate-500 hover:border-indigo-500/40'}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs">🏨</span>
+                      <span className="text-[9px] font-black uppercase tracking-wider truncate">
+                        {roomServiceRoomNo ? `Rm ${roomServiceRoomNo}` : 'Room'}
+                      </span>
+                    </div>
+                    {orderType === 'ROOM_SERVICE' && roomServiceRoomNo && (
+                      <div 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setRoomServiceRoomNo(''); 
+                          setOrderType('DINE_IN');
+                          setShowRoomDropdown(false);
+                        }}
+                        className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
+                      >
+                        <Trash2 size={10} />
+                      </div>
+                    )}
+                  </button>
+               </div>
              </div>
            </div>
 
             {/* 🔍 2. SEARCH INTERFACES (Toggled) */}
+            {(showRoomDropdown && orderType === 'ROOM_SERVICE') && (
+              <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
+                 <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>
+                    <Search size={14} className="text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search room or guest..."
+                      autoFocus
+                      value={roomSearch}
+                      onChange={(e) => setRoomSearch(e.target.value)}
+                      className="bg-transparent text-[11px] font-bold outline-none flex-1"
+                    />
+                 </div>
+                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-48 overflow-y-auto no-scrollbar">
+                   {occupiedRooms.length === 0 ? (
+                     <div className="px-4 py-3 text-xs text-slate-500 italic">No currently occupied rooms.</div>
+                   ) : (
+                     occupiedRooms
+                       .filter(b => {
+                         const roomNo = b.rooms?.[0]?.room?.roomNumber || '';
+                         const guestName = `${b.guest.firstName} ${b.guest.lastName || ''}`.toLowerCase();
+                         const q = roomSearch.toLowerCase();
+                         return !roomSearch || roomNo.includes(q) || guestName.includes(q);
+                       })
+                       .map(b => {
+                         const roomNo = b.rooms[0].room.roomNumber;
+                         const guestName = `${b.guest.firstName} ${b.guest.lastName || ''}`;
+                         return (
+                           <button
+                             key={b.id}
+                             type="button"
+                             onMouseDown={() => { 
+                               setRoomServiceRoomNo(roomNo); 
+                               setShowRoomDropdown(false); 
+                               setRoomSearch(''); 
+                             }}
+                             className="w-full px-4 py-3 text-left hover:bg-indigo-600 hover:text-white transition-colors group border-b border-slate-50 dark:border-white/5 last:border-0"
+                           >
+                              <p className="text-[12px] font-black text-slate-800 dark:text-white group-hover:text-white">Room {roomNo}</p>
+                              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-white/80">{guestName}</p>
+                           </button>
+                         );
+                       })
+                   )}
+                 </div>
+              </div>
+            )}
+
             {(showCustomerDropdown && !selectedGuestId) && (
               <div className="relative animate-in slide-in-from-top-2 duration-300 z-50">
                  <div className={`flex items-center gap-2 rounded-2xl px-3.5 py-2.5 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'} border shadow-xl`}>

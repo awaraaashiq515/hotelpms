@@ -34,7 +34,7 @@ export async function sendMail({ to, subject, html, attachments }: {
   const settings = await prisma.websiteSettings.findFirst();
   
   const mailOptions = {
-    from: `"${settings?.hotelName || 'OrderMint POS'}" <${settings?.smtpEmail}>`,
+    from: `"${settings?.hotelName || 'GuestFlow POS'}" <${settings?.smtpEmail}>`,
     to,
     subject,
     html,

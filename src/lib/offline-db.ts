@@ -1,9 +1,9 @@
 /**
- * OrderMint Offline Queue — IndexedDB-based action queue for offline mode.
+ * GuestFlow Offline Queue — IndexedDB-based action queue for offline mode.
  * Orders/KOTs placed offline are stored here and synced when connection returns.
  */
 
-const DB_NAME = 'ordermint-offline-v1';
+const DB_NAME = 'guestflow-offline-v1';
 const DB_VERSION = 1;
 const STORE_NAME = 'actions';
 

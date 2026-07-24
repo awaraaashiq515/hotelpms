@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(tileUrl, {
       headers: {
-        'User-Agent': 'OrderMint-POS-Manager/1.0',
+        'User-Agent': 'GuestFlow-POS-Manager/1.0',
       },
     });
 

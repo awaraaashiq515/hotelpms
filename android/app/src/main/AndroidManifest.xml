@@ -40,6 +40,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Camera Permission (QR scan / menu scan ke liye) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <!-- Bluetooth Permissions -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />

@@ -28,6 +28,17 @@ export async function GET(request: NextRequest) {
         role: { select: { id: true, name: true, description: true } },
         servedOrders: { select: { grandTotal: true } },
         supplier: { select: { id: true, name: true } },
+        staffMember: {
+          select: {
+            id: true,
+            designation: true,
+            salary: true,
+            address: true,
+            emergencyContact: true,
+            joiningDate: true,
+            shiftHours: true
+          }
+        },
         deliveryOrders: {
           where: {
             status: 'SETTLED',
@@ -78,8 +89,10 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Missing required fields: fullName, email, password, roleName'), 400);
     }
 
-    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles
-    const allowedRolesForOperator = ['DELIVERY_RIDER', 'Staff'];
+    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles (HOTEL_ADMIN can also manage HOTEL roles)
+    const allowedRolesForOperator = session.role === 'HOTEL_ADMIN'
+      ? ['DELIVERY_RIDER', 'Staff', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'HOTEL_ADMIN']
+      : ['DELIVERY_RIDER', 'Staff'];
     if (
       (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') &&
       !allowedRolesForOperator.includes(roleName)
@@ -240,8 +253,10 @@ export async function PUT(request: NextRequest) {
       return apiError(new Error('Missing required fields: id, fullName, email, roleName'), 400);
     }
 
-    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles
-    const allowedRolesForOperator = ['DELIVERY_RIDER', 'Staff'];
+    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles (HOTEL_ADMIN can also manage HOTEL roles)
+    const allowedRolesForOperator = session.role === 'HOTEL_ADMIN'
+      ? ['DELIVERY_RIDER', 'Staff', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'HOTEL_ADMIN']
+      : ['DELIVERY_RIDER', 'Staff'];
     if (
       (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') &&
       !allowedRolesForOperator.includes(roleName)

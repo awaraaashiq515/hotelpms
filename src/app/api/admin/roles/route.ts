@@ -24,8 +24,15 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
-    const settings = await prisma.websiteSettings.findFirst();
-    const hotelEnabled = settings?.hotelEnabled ?? false;
+    // Show hotel roles if any hotel properties exist in this organization, or if the user is a super admin
+    const hasHotelProperty = session.role === 'SUPER_ADMIN' ? true : await prisma.property.findFirst({
+      where: {
+        organizationId: session.organizationId,
+        type: 'HOTEL'
+      }
+    });
+
+    const hotelEnabled = !!hasHotelProperty;
     if (!hotelEnabled) {
       roles = roles.filter((r: any) => !r.name.toUpperCase().includes('HOTEL'));
     }

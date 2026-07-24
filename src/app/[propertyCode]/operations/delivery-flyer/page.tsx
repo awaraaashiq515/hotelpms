@@ -153,7 +153,7 @@ export default function DeliveryFlyerPage() {
       // 7. Bottom Brand Watermark
       ctx.fillStyle = '#cbd5e1';
       ctx.font = 'bold 14px Inter, system-ui, sans-serif';
-      ctx.fillText('POWERED BY ORDERMINT', width / 2, 1050);
+      ctx.fillText('POWERED BY GUESTFLOW', width / 2, 1050);
 
       // Trigger download
       const pngFile = canvas.toDataURL('image/png');

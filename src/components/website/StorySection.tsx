@@ -42,7 +42,7 @@ export const StorySection = () => {
           <div className="w-1/2 aspect-square absolute -bottom-10 -right-4 rounded-2xl overflow-hidden shadow-2xl border-8 border-white z-20">
             <img
               src={settings.storyImage2 || 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=1000'}
-              alt="OrderMint in Action"
+              alt="GuestFlow in Action"
               className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-700"
             />
           </div>
@@ -51,7 +51,7 @@ export const StorySection = () => {
         {/* Content */}
         <div className="lg:w-1/2">
           <span className="text-pos-primary font-bold tracking-widest uppercase text-xs mb-4 block">
-            The OrderMint Story
+            The GuestFlow Story
           </span>
           <h2 className="text-4xl lg:text-5xl font-semibold text-slate-900 mb-6 tracking-tight leading-tight">
             {settings.storyTitle || 'Built for modern hospitality. Engineered for speed.'}
@@ -59,7 +59,7 @@ export const StorySection = () => {
           <div className="space-y-6 text-slate-600 leading-relaxed text-lg font-medium">
             {settings.storyContent ? <p>{settings.storyContent}</p> : null}
             <p>
-              Born out of a need for smarter, faster business operations, OrderMint has been a game-changer for restaurant owners seeking efficiency and modern management tools. Our journey is one of innovation, cutting through the noise to provide a truly seamless retail experience.
+              Born out of a need for smarter, faster business operations, GuestFlow has been a game-changer for restaurant owners seeking efficiency and modern management tools. Our journey is one of innovation, cutting through the noise to provide a truly seamless retail experience.
             </p>
           </div>
           <button className="mt-12 group flex items-center gap-4 text-pos-primary font-bold uppercase tracking-widest text-sm">

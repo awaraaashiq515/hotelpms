@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding B2B data...');
-
   // 1. Create B2B Suppliers
   const suppliers = [
     {
@@ -37,7 +37,10 @@ async function main() {
     const supplier = await prisma.b2BSupplier.upsert({
       where: { email: s.email },
       update: {},
-      create: s,
+      create: {
+        id: randomUUID(),
+        ...s,
+      },
     });
 
     // 2. Create Products for each supplier
@@ -50,7 +53,11 @@ async function main() {
       ];
       for (const p of vegProducts) {
         await prisma.b2BProduct.create({
-          data: { ...p, supplierId: supplier.id },
+          data: { 
+            id: randomUUID(),
+            ...p, 
+            supplierId: supplier.id 
+          },
         });
       }
     } else if (s.category === 'Dairy') {
@@ -61,7 +68,11 @@ async function main() {
       ];
       for (const p of dairyProducts) {
         await prisma.b2BProduct.create({
-          data: { ...p, supplierId: supplier.id },
+          data: { 
+            id: randomUUID(),
+            ...p, 
+            supplierId: supplier.id 
+          },
         });
       }
     }

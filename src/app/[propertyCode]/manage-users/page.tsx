@@ -403,14 +403,14 @@ export default function UsersPage() {
             </select>
           </div>
 
-          {(formData.roleName === 'POSSYSTEM' || formData.roleName === 'RESTAURANTS_ADMIN') && (
+          {(formData.roleName === 'POSSYSTEM' || formData.roleName === 'RESTAURANTS_ADMIN' || formData.roleName.startsWith('HOTEL_')) && (
             <div className="space-y-1">
               <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Assign to Terminal (Property)</label>
               <select
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
                 value={formData.propertyId}
                 onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
-                required={formData.roleName === 'POSSYSTEM'}
+                required={formData.roleName === 'POSSYSTEM' || formData.roleName.startsWith('HOTEL_')}
               >
                 <option value="">-- Select Target Property --</option>
                 {properties.map((prop) => (

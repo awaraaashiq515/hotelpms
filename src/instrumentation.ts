@@ -219,7 +219,7 @@ export async function register() {
           })
         }
       })
-      io.to(channelId).emit('speaker_stopped', { userId: speakerId, channelId })
+      io.to(channelId).emit('speaker_stopped', { userId: speakerId, channelId, talkId: talkHistoryId })
       await prisma.user
         .update({ where: { id: speakerId }, data: { wtStatus: 'online' } })
         .catch(console.error)

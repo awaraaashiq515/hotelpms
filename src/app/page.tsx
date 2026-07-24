@@ -42,13 +42,13 @@ const featuresList = [
     tag: "Intelligence",
     title: "Real-time Analytics",
     desc: "Gain a competitive edge with deep insights into your revenue trends, peak hours, and staff performance. Our AI-driven engine forecasts inventory needs to eliminate wastage and maximize your margins.",
-    img: "/images/ordermint-analytics.png",
+    img: "/images/guestflow-analytics.png",
   },
   {
     tag: "Efficiency",
     title: "Enterprise-Grade KDS",
     desc: "Eliminate kitchen chaos with our intelligent Kitchen Display System. Route orders instantly to specific stations, track preparation times, and ensure every dish is served at its peak quality.",
-    img: "/images/ordermint-kds.png",
+    img: "/images/guestflow-kds.png",
   },
 ];
 
@@ -102,7 +102,7 @@ export default function HomePage() {
       desc: 'Optimized for POS tablets & Handheld devices.',
       comingSoon: settings?.androidComingSoon ?? false,
       btnLabel: 'Download APK',
-      link: '/downloads/ordermint.apk',
+      link: '/downloads/guestflow.apk',
     },
     {
       id: 'windows',
@@ -111,7 +111,7 @@ export default function HomePage() {
       desc: 'High-speed desktop administration & local KOT.',
       comingSoon: settings?.windowsComingSoon ?? true,
       btnLabel: 'Download EXE',
-      link: '/downloads/ordermint.exe',
+      link: '/downloads/guestflow.exe',
     },
     {
       id: 'mac',
@@ -120,7 +120,7 @@ export default function HomePage() {
       desc: 'Seamless desktop experience for Apple Silicon.',
       comingSoon: settings?.macComingSoon ?? true,
       btnLabel: 'Download DMG',
-      link: '/downloads/ordermint.dmg',
+      link: '/downloads/guestflow.dmg',
     },
   ];
 
@@ -156,7 +156,7 @@ export default function HomePage() {
           className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 pb-14"
         >
           <div className="absolute inset-0 z-0">
-            <Image src="/images/ordermint-hero.png" alt="Hero" fill className="object-cover" style={{ opacity: 0.14 }} priority />
+            <Image src="/images/guestflow-hero.png" alt="Hero" fill className="object-cover" style={{ opacity: 0.14 }} priority />
             <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${BG}99, ${BG}55, ${BG})` }} />
             <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${BG}dd, transparent, ${BG}dd)` }} />
           </div>
@@ -173,7 +173,7 @@ export default function HomePage() {
                     style={{ background: 'rgba(232,160,160,0.09)', border: '1px solid rgba(232,160,160,0.18)' }}>
                     <Sparkles className="w-3 h-3" style={{ color: PINK }} />
                     <span className="font-semibold text-[10px] uppercase tracking-[0.25em]" style={{ color: PINK }}>
-                      OrderMint Ecosystem
+                      GuestFlow Ecosystem
                     </span>
                   </div>
 
@@ -234,10 +234,10 @@ export default function HomePage() {
                     style={{ background: 'rgba(232,160,160,0.12)' }} />
                   <div className="relative w-[196px] h-[392px] rounded-[2.4rem] overflow-hidden z-10"
                     style={{ border: '1px solid rgba(255,255,255,0.1)', background: '#0f0606', boxShadow: '0 48px 96px rgba(0,0,0,0.6)' }}>
-                    <Image src="/images/pos-mobile-1.png" alt="OrderMint POS" fill className="object-cover" style={{ opacity: 0.8 }} />
+                    <Image src="/images/pos-mobile-1.png" alt="GuestFlow POS" fill className="object-cover" style={{ opacity: 0.8 }} />
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent 50%, rgba(0,0,0,0.18))' }} />
                     <div className="absolute bottom-6 left-0 right-0 text-center">
-                      <div className="font-black text-sm italic tracking-tight text-white">OrderMint POS</div>
+                      <div className="font-black text-sm italic tracking-tight text-white">GuestFlow POS</div>
                       <div className="text-[8px] font-bold uppercase tracking-[0.28em] mt-0.5" style={{ color: PINK }}>Live Terminal</div>
                     </div>
                     <div className="absolute top-3.5 left-1/2 -translate-x-1/2 w-16 h-3.5 bg-black rounded-full" />
@@ -295,7 +295,7 @@ export default function HomePage() {
                 One Platform, <span style={{ color: 'rgba(255,255,255,0.28)' }}>Any Format.</span>
               </h2>
               <p className="text-sm max-w-sm mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                Fine dining, busy bars, or full hotels — OrderMint adapts perfectly to your venue.
+                Fine dining, busy bars, or full hotels — GuestFlow adapts perfectly to your venue.
               </p>
             </div>
 
@@ -351,7 +351,7 @@ export default function HomePage() {
                 <span className="font-bold text-[10px] uppercase tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.35)' }}>Universal Ecosystem</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white mb-3">
-                Deploy OrderMint <span style={{ color: 'rgba(255,255,255,0.28)' }}>Anywhere.</span>
+                Deploy GuestFlow <span style={{ color: 'rgba(255,255,255,0.28)' }}>Anywhere.</span>
               </h2>
               <p className="text-sm max-w-sm mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.35)' }}>
                 High-performance apps for every platform. One login, every device.
@@ -371,7 +371,7 @@ export default function HomePage() {
                     Instant <br /><span style={{ color: PINK }}>Deployment.</span>
                   </h3>
                   <p className="text-sm leading-relaxed mb-7 max-w-md" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                    Empower your staff with the OrderMint mobile ecosystem. Scan, install, and start serving in minutes. Zero configuration required.
+                    Empower your staff with the GuestFlow mobile ecosystem. Scan, install, and start serving in minutes. Zero configuration required.
                   </p>
                   <div className="flex flex-wrap gap-8 mb-10 justify-center lg:justify-start">
                     {[{ val: "0.5s", lbl: "Order Sync Speed" }, { val: "Instant", lbl: "Real-time Sync" }].map(s => (
@@ -433,7 +433,7 @@ export default function HomePage() {
                       <Image src="/images/pos-mobile-1.png" alt="POS App Mockup 1" fill className="object-cover" />
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent 40%)' }} />
                       <div className="absolute bottom-6 left-0 right-0 text-center">
-                        <div className="font-black text-lg italic tracking-tight text-white">OrderMint POS</div>
+                        <div className="font-black text-lg italic tracking-tight text-white">GuestFlow POS</div>
                         <div className="text-[9px] font-bold uppercase tracking-[0.3em] mt-1" style={{ color: PINK }}>Enterprise Terminal</div>
                       </div>
                       {/* Notch */}
@@ -550,7 +550,7 @@ export default function HomePage() {
         {/* ══ FINAL CTA ══════════════════════════════════════════ */}
         <section className="py-24 relative text-center overflow-hidden">
           <div className="absolute inset-0 z-0">
-            <Image src="/images/ordermint-hero.png" alt="CTA" fill className="object-cover" style={{ opacity: 0.09 }} />
+            <Image src="/images/guestflow-hero.png" alt="CTA" fill className="object-cover" style={{ opacity: 0.09 }} />
             <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${BG}, ${BG}88, ${BG})` }} />
           </div>
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -569,7 +569,7 @@ export default function HomePage() {
                 }}>Dominate?</span>
               </h2>
               <p className="text-base max-w-sm mx-auto mb-9 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                Join elite hospitality leaders using OrderMint to drive exponential growth.
+                Join elite hospitality leaders using GuestFlow to drive exponential growth.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link href="/contact" className="px-10 py-3.5 text-white rounded-2xl font-bold text-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"

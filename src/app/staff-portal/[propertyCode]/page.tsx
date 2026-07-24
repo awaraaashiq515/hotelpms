@@ -16,6 +16,8 @@ interface StaffUser {
   propertyId: string | null
   property?: { id: string; name: string; code: string; upiId?: string; upiName?: string } | null
   role?: { name: string } | null
+  designation?: string | null
+  staffMember?: { designation?: string | null } | null
 }
 interface PosOrder {
   id: string; orderNo: string; status: string; tableNo: string | null; orderType?: string;
@@ -40,7 +42,7 @@ interface PosOrder {
 }
 interface Contact { id: string; name: string; designation: string; wtStatus: string }
 interface Channel { id: string; name: string; type: string; isEmergency: boolean; membersCount?: number }
-type Tab = 'ptt' | 'messages' | 'pos' | 'attendance' | 'settings'
+type Tab = 'ptt' | 'messages' | 'pos' | 'room-order' | 'attendance' | 'settings'
 
 /* ─── Mobile Audio Unlock System ──────────────────────────────────
    Mobile browsers (iOS Safari, Chrome Android) block ALL audio 
@@ -228,8 +230,8 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
   const [tipAmount, setTipAmount] = useState(0);
   const [tipInput, setTipInput] = useState('');
   const totalWithTip = order.grandTotal + tipAmount;
-  const activeUpiId = upiId || 'pay@ordermint';
-  const activeUpiName = upiName || 'OrderMint';
+  const activeUpiId = upiId || 'pay@guestflow';
+  const activeUpiName = upiName || 'GuestFlow';
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${activeUpiId}&pn=${encodeURIComponent(activeUpiName)}&am=${totalWithTip.toFixed(2)}&cu=INR`)}`;
 
   return (
@@ -344,6 +346,69 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
         }} disabled={marking} style={{ flex: 1, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#6ee7b7', cursor: marking ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.2s', fontFamily: 'inherit' }}>
           {marking ? '...' : (order.status === 'SERVED' ? '✓ Served' : 'Mark Served')}
         </button>
+        {/* Linked Room Folio Billing Option for Table Orders */}
+        {(() => {
+          const linkedRoom = (() => {
+            const instructions = (order as any).deliveryInstructions;
+            if (instructions) {
+              const m = instructions.match(/ROOM:([^|]+)/);
+              if (m) return m[1];
+            }
+            if (order.tableNo && order.tableNo.includes('Room')) {
+              const m = order.tableNo.match(/Room\s*([A-Za-z0-9-]+)/i);
+              if (m) return m[1];
+            }
+            return null;
+          })();
+
+          if (!linkedRoom) return null;
+
+          return (
+            <button
+              onClick={async () => {
+                setMarking(true);
+                try {
+                  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                  if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
+                  await fetch('/api/hotel/post-to-room', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                      roomNumber: linkedRoom,
+                      amount: order.grandTotal,
+                      description: `Dining Table ${tableName || order.tableNo || ''} (Order #${order.orderNo})`,
+                      sourceRefId: order.id
+                    })
+                  });
+                  await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'COMPLETED' }) });
+                  toast.success(`₹${order.grandTotal} billed to Room ${linkedRoom} Folio!`);
+                  onDone(order.id);
+                } catch {
+                  toast.error('Failed to post bill to room.');
+                };
+                setMarking(false);
+              }}
+              disabled={marking}
+              style={{
+                flex: '1 1 100%',
+                background: 'rgba(129,140,248,0.18)',
+                border: '1px solid rgba(129,140,248,0.4)',
+                borderRadius: 10,
+                padding: '10px 0',
+                fontSize: 11,
+                fontWeight: 900,
+                color: '#a5b4fc',
+                cursor: marking ? 'not-allowed' : 'pointer',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                fontFamily: 'inherit'
+              }}
+            >
+              {marking ? '...' : `📋 Post Bill to Room ${linkedRoom}`}
+            </button>
+          );
+        })()}
+
         {order.status === 'PAYMENT_AWAITING_APPROVAL' ? (
           <div style={{ flex: '1 1 100%', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.5)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#fbbf24', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             ⏳ Awaiting Payment Approval
@@ -545,32 +610,148 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
 
 
 
+/* ── Room Order Card Component (Clean Room Folio Billing) ── */
+function RoomOrderCard({
+  order,
+  wtToken,
+  onRefresh,
+}: {
+  order: any;
+  wtToken: string;
+  onRefresh: () => void;
+}) {
+  const [marking, setMarking] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const statusColor = order.status === 'CONFIRMED' ? '#fbbf24' : order.status === 'SERVED' ? '#34d399' : order.status === 'COMPLETED' ? '#818cf8' : '#94a3b8';
+  const statusBg = order.status === 'CONFIRMED' ? 'rgba(251,191,36,0.1)' : order.status === 'SERVED' ? 'rgba(52,211,153,0.1)' : order.status === 'COMPLETED' ? 'rgba(129,140,248,0.1)' : 'rgba(255,255,255,0.04)';
+
+  const grandTotal = order.totalAmount || order.grandTotal || 0;
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px', position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.1em', fontFamily: 'monospace' }}>{order.orderNo}</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', marginTop: 2 }}>🏨 Room {order.roomNumber || '—'}</div>
+          {order.guestName && <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{order.guestName}</div>}
+        </div>
+        <span style={{ background: statusBg, color: statusColor, border: `1px solid ${statusColor}40`, borderRadius: 6, padding: '3px 9px', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {order.status}
+        </span>
+      </div>
+
+      {/* Itemized preview */}
+      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '10px', marginBottom: 10 }}>
+        {(order.items || []).slice(0, 4).map((item: any, idx: number) => (
+          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#e2e8f0', padding: '3px 0', borderBottom: idx < Math.min((order.items || []).length, 4) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+            <span style={{ fontWeight: 700 }}>{item.qty || item.quantity}x {item.name || item.product?.name}</span>
+            <span style={{ color: '#818cf8', fontWeight: 800 }}>₹{(item.lineTotal || item.totalAmount || item.unitPrice * (item.qty || item.quantity) || 0).toFixed(0)}</span>
+          </div>
+        ))}
+        {order.items?.length > 4 && <div style={{ fontSize: 10, color: '#475569', marginTop: 4, textAlign: 'center' }}>+{order.items.length - 4} more items</div>}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>₹{grandTotal.toFixed(0)}</div>
+        <div style={{ fontSize: 10, color: '#818cf8', fontWeight: 800, background: 'rgba(129,140,248,0.12)', padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(129,140,248,0.3)' }}>
+          📋 Room Folio Bill
+        </div>
+      </div>
+
+      {order.specialNote && (
+        <div style={{ marginBottom: 10, fontSize: 10, color: '#94a3b8', background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '5px 8px', fontStyle: 'italic' }}>
+          📝 {order.specialNote}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
+        {/* Step 1: Mark Served */}
+        <button
+          onClick={async () => {
+            setMarking(true);
+            try {
+              const headers: HeadersInit = { 'Content-Type': 'application/json' };
+              if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
+              await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'SERVED' }) });
+              onRefresh();
+            } catch {};
+            setMarking(false);
+          }}
+          disabled={marking || order.status === 'SERVED'}
+          style={{
+            width: '100%',
+            background: order.status === 'SERVED' ? 'rgba(52,211,153,0.08)' : 'rgba(52,211,153,0.15)',
+            border: '1px solid rgba(52,211,153,0.4)',
+            borderRadius: 10,
+            padding: '10px 0',
+            fontSize: 12,
+            fontWeight: 800,
+            color: '#6ee7b7',
+            cursor: (marking || order.status === 'SERVED') ? 'not-allowed' : 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontFamily: 'inherit',
+          }}
+        >
+          {marking ? '...' : (order.status === 'SERVED' ? '✓ Served to Room' : 'Mark Served')}
+        </button>
+
+        {/* Step 2: Billed to Room (Click to Complete & Clear Order) */}
+        <button
+          onClick={async () => {
+            setClearing(true);
+            try {
+              const headers: HeadersInit = { 'Content-Type': 'application/json' };
+              if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
+              await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'COMPLETED' }) });
+              onRefresh();
+            } catch {};
+            setClearing(false);
+          }}
+          disabled={clearing}
+          style={{
+            width: '100%',
+            background: 'rgba(129,140,248,0.18)',
+            border: '1px solid rgba(129,140,248,0.4)',
+            borderRadius: 10,
+            padding: '10px 0',
+            fontSize: 11,
+            fontWeight: 900,
+            color: '#a5b4fc',
+            cursor: clearing ? 'not-allowed' : 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontFamily: 'inherit',
+            transition: 'all 0.2s',
+          }}
+        >
+          {clearing ? 'Clearing...' : `📋 Billed to Room ${order.roomNumber || ''} (Clear Order)`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+
+
 /* ── Location Sharing Panel ─────────────────────────────────
    Embedded in the Settings tab.
-   Edit this component to change the look of the location sharing UI.
+   Shows live GPS status — always ON, no toggle needed.
 ──────────────────────────────────────────────────────────── */
 function LocationSharingPanel({
   sharing,
   status,
   lastDist,
   error,
-  startSharing,
-  stopSharing
 }: {
   sharing: boolean;
   status: string;
   lastDist: string | null;
   error: string | null;
-  startSharing: () => void;
-  stopSharing: () => void;
 }) {
-  const toggleStyle: React.CSSProperties = {
-    width: 42, height: 23, borderRadius: 12, cursor: 'pointer',
-    transition: 'background 0.2s',
-    background: sharing ? '#34d399' : 'rgba(255,255,255,0.1)',
-    position: 'relative', flexShrink: 0,
-  }
-
   return (
     <div style={{ marginTop: 22, marginBottom: 4 }}>
       <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 11 }}>📍 Location Sharing</div>
@@ -597,17 +778,24 @@ function LocationSharingPanel({
             </div>
             {error && <div style={{ fontSize: 9, color: '#f87171', marginTop: 3 }}>{error}</div>}
           </div>
-          {/* Toggle */}
-          <div onClick={() => sharing ? stopSharing() : startSharing()} style={toggleStyle}>
-            <div style={{
-              position: 'absolute', top: 2, left: sharing ? 20 : 2,
-              width: 19, height: 19, borderRadius: '50%', background: '#fff',
-              transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-            }} />
+          {/* Always ON indicator */}
+          <div style={{
+            background: sharing ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${sharing ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 8,
+            padding: '4px 10px',
+            fontSize: 9,
+            fontWeight: 900,
+            color: sharing ? '#34d399' : '#475569',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            flexShrink: 0,
+          }}>
+            {sharing ? '● Active' : '◌ Starting…'}
           </div>
         </div>
         <div style={{ marginTop: 10, fontSize: 9, color: '#334155', lineHeight: 1.5 }}>
-          Toggle ON to share GPS location with manager. Sends every 30 seconds automatically. Page refresh pe bhi ON rahegi.
+          GPS location is shared automatically with your manager. Always active while logged in.
         </div>
       </div>
     </div>
@@ -631,7 +819,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const [wtToken, setWtToken] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState('')
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
 
@@ -665,11 +853,29 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const [tablesLoading, setTablesLoading] = useState(false)
   const [productsLoading, setProductsLoading] = useState(false)
   const [orderTableId, setOrderTableId] = useState('')
+  const [orderRoomNumber, setOrderRoomNumber] = useState('')
   const [orderCart, setOrderCart] = useState<{ [itemId: string]: { id: string; name: string; unitPrice: number; quantity: number; variantId?: string | null; variantName?: string | null; portion?: string } }>({})
   const [orderSearchQuery, setOrderSearchQuery] = useState('')
   const [orderCategory, setOrderCategory] = useState('all')
   const [placingOrder, setPlacingOrder] = useState(false)
   const [selectedProductForVariant, setSelectedProductForVariant] = useState<any | null>(null)
+
+  /* Room Order Flow */
+  const [showRoomOrderModal, setShowRoomOrderModal] = useState(false)
+  const [dbRooms, setDbRooms] = useState<any[]>([])
+  const [roomsLoading, setRoomsLoading] = useState(false)
+  const [selectedRoomId, setSelectedRoomId] = useState('')
+  const [selectedRoomNumber, setSelectedRoomNumber] = useState('')
+  const [roomOrderCart, setRoomOrderCart] = useState<{ [itemId: string]: { id: string; name: string; unitPrice: number; quantity: number; variantId?: string | null; variantName?: string | null } }>({})
+  const [roomOrderSearch, setRoomOrderSearch] = useState('')
+  const [roomOrderCategory, setRoomOrderCategory] = useState('all')
+  const [placingRoomOrder, setPlacingRoomOrder] = useState(false)
+  const [roomOrderProductForVariant, setRoomOrderProductForVariant] = useState<any | null>(null)
+  const [roomSpecialNote, setRoomSpecialNote] = useState('')
+  const [postToFolio, setPostToFolio] = useState(true)
+  const [roomServiceOrders, setRoomServiceOrders] = useState<any[]>([])
+  const [roomServiceOrdersLoading, setRoomServiceOrdersLoading] = useState(false)
+  const [markingRoomOrderId, setMarkingRoomOrderId] = useState<string | null>(null)
 
   /* Socket / PTT */
   const [socketStatus, setSocketStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
@@ -692,7 +898,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const [rtcStatus, setRtcStatus] = useState('Standby')
 
   /* Settings */
-  const [settings, setSettings] = useState({ autoBroadcast: false, ttsEnabled: false, autoPlayVoice: true, autoAttendance: false })
+  const [settings, setSettings] = useState({ autoBroadcast: false, ttsEnabled: false })
 
   /* ── Global background auto-play hook ─────────────────────────
      Plays incoming voice messages automatically on ANY tab.
@@ -700,7 +906,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   ────────────────────────────────────────────────────────────── */
   const { triggerPlay, playingInfo, stopAll } = useAutoPlay({
     wtToken: wtToken,
-    autoPlayEnabled: settings.autoPlayVoice,
+    autoPlayEnabled: true,
     currentUserId: user?.id || ''
   })
 
@@ -751,13 +957,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
   const sendPing = useCallback(async (lat: number, lng: number) => {
     if (!wtTokenRef.current) return
-    let autoAttendance = false
-    try {
-      const stored = localStorage.getItem('staff_portal_settings')
-      if (stored) {
-        autoAttendance = JSON.parse(stored).autoAttendance === true
-      }
-    } catch {}
+    // autoAttendance is always true — always clock in/out automatically
+    const autoAttendance = true
 
     try {
       const res = await fetch('/api/staff-location/update', {
@@ -790,25 +991,26 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
     const getOptions = (highAccuracy: boolean) => ({
       enableHighAccuracy: highAccuracy,
-      maximumAge: 0, // Force fresh coordinates, no cache
-      timeout: 10000,    // 10 seconds to resolve
+      maximumAge: 30000,  // Allow cached position up to 30s for fast & reliable lock
+      timeout: 30000,     // 30 seconds timeout so GPS chip has enough time to acquire lock
     })
 
     const updateLocation = (pos: GeolocationPosition) => {
+      setSharingError(null)
       const now = Date.now()
       const timeSinceLastSuccess = lastUpdateTimeRef.current ? (now - lastUpdateTimeRef.current) : Infinity
 
       // Dynamic accuracy: allow wider accuracy if we haven't had updates recently
-      let maxAllowedAccuracy = 150 // default high accuracy
+      let maxAllowedAccuracy = 300 // default accuracy allowance
       if (timeSinceLastSuccess > 300000) { // 5 minutes
-        maxAllowedAccuracy = 500
+        maxAllowedAccuracy = 1000
       } else if (timeSinceLastSuccess > 120000) { // 2 minutes
-        maxAllowedAccuracy = 350
+        maxAllowedAccuracy = 500
       }
 
       if (pos.coords.accuracy && pos.coords.accuracy > maxAllowedAccuracy) {
         console.warn(`[GPS] Skipping low accuracy coordinate: ${pos.coords.accuracy}m (max allowed: ${maxAllowedAccuracy}m)`)
-        setSharingStatus(`Seeking GPS signal (accuracy ${Math.round(pos.coords.accuracy)}m)…`)
+        setSharingStatus(`Seeking GPS signal (${Math.round(pos.coords.accuracy)}m)…`)
         return
       }
 
@@ -824,14 +1026,20 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     const handleLocationError = (err: GeolocationPositionError) => {
       console.warn('Geolocation error:', err)
       
-      // If high accuracy failed with timeout or unavailable, try low accuracy (wi-fi/IP fallback)
+      // If high accuracy failed with timeout (code 3) or position unavailable (code 2), fallback silently to low accuracy (WiFi/Cell)
       if (err.code === 3 || err.code === 2) {
+        setSharingError(null) // clear temporary timeout error
+        setSharingStatus(`Seeking location (network fallback)…`)
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             updateLocation,
             (fallbackErr) => {
-              setSharingError(`Location error: ${fallbackErr.message} (Code ${fallbackErr.code})`)
-              setSharingStatus(`Seeking GPS signal…`)
+              // Only set error if even network fallback fails
+              if (fallbackErr.code === 1) {
+                setSharingError('Location permission denied.')
+              } else {
+                setSharingStatus(`Retrying location fix…`)
+              }
               if (lastCoordsRef.current) {
                 sendPing(lastCoordsRef.current.lat, lastCoordsRef.current.lng)
               }
@@ -842,10 +1050,9 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         }
       }
 
-      setSharingError(`Location error: ${err.message} (Code ${err.code})`)
-      
-      // Only turn off if permission is denied (code 1)
+      // Only turn off / show error if permission is denied (code 1)
       if (err.code === 1) {
+        setSharingError(`Location permission denied. Please allow location access in browser.`)
         setSharing(false)
         setSharingStatus('Off')
         try { localStorage.removeItem('loc_sharing') } catch { }
@@ -897,14 +1104,12 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     try { localStorage.removeItem('loc_sharing') } catch { }
   }, [])
 
-  // Auto-start if user had it on before refresh (and token is ready)
+  // Auto-start GPS sharing as soon as user logs in (always ON)
+  // Permission is requested once by the browser; after that it auto-starts every session
   useEffect(() => {
     if (!wtToken) return
-    try {
-      if (localStorage.getItem('loc_sharing') === '1') {
-        startSharing()
-      }
-    } catch { }
+    // Always start sharing automatically — no toggle needed
+    startSharing()
   }, [wtToken, startSharing])
 
   // Cleanup on unmount
@@ -971,7 +1176,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     loadChannels(wtToken)
     loadContacts(wtToken)
     addLog(`✅ Welcome, ${user.fullName}!`)
-  }, [user?.id])
+  }, [user?.id, wtToken])
 
   /* ── Auto-refresh orders every 8 seconds in background when user is logged in ── */
   useEffect(() => {
@@ -1087,10 +1292,22 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       const res = await fetch('/api/walkie-talkie/staff-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password, propertyCode }),
+        body: JSON.stringify({ username: email.trim(), password, propertyCode }),
       })
       const data = await res.json()
       if (!res.ok) { setAuthError(data.message || 'Login failed'); return }
+
+      // ── Role-based portal redirect ──────────────────────────────────────
+      // If backend says this user belongs to a different portal (e.g. Housekeeper),
+      // save their session there and redirect — they never land on this portal.
+      if (data.portalRedirect) {
+        // Save session for the target portal
+        localStorage.setItem('hk_portal_session', JSON.stringify({ user: data.user, wtToken: data.wtToken }))
+        window.location.href = data.portalRedirect
+        return
+      }
+
+      // ── Normal staff (Waiter, Captain, etc.) stays here ────────────────
       setUser(data.user); setWtToken(data.wtToken)
       localStorage.setItem('staff_portal_session', JSON.stringify({ user: data.user, wtToken: data.wtToken }))
 
@@ -1127,11 +1344,14 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     socketRef.current?.disconnect()
     setSocketStatus('connecting')
     const socketUrl = typeof window !== 'undefined'
-      ? (window.location.hostname.includes('ordermint.in')
+      ? (window.location.hostname.includes('guestflow.in')
           ? `${window.location.protocol}//${window.location.hostname}`
-          : `${window.location.protocol}//${window.location.hostname}:5002`)
-      : 'http://localhost:5002'
-    const socket = io(socketUrl, { auth: { token: wtTokenRef.current } })
+          : `${window.location.protocol}//${window.location.hostname}:5005`)
+      : 'http://localhost:5005'
+    const socket = io(socketUrl, {
+      auth: { token: wtTokenRef.current },
+      transports: ['websocket']
+    })
     socketRef.current = socket
 
     socket.on('connect', () => {
@@ -1142,7 +1362,22 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         const t = Date.now()
         socket.emit('ping_ptt', {}, () => setLatency(Date.now() - t))
       }, 5000)
-      socket.once('disconnect', () => clearInterval(pid))
+      socket.once('disconnect', () => {
+        clearInterval(pid)
+        setSocketStatus('disconnected')
+        addLog(`🔌 Socket disconnected from ${socketUrl}`)
+      })
+    })
+
+    socket.on('connect_error', (err: any) => {
+      setSocketStatus('disconnected')
+      addLog(`❌ Socket connection error: ${err.message}`)
+      console.error('[Socket Connect Error]', err)
+    })
+
+    socket.on('error', (err: any) => {
+      addLog(`❌ Socket error: ${err}`)
+      console.error('[Socket Error]', err)
     })
 
     socket.on('joined_channel_success', (d: any) => {
@@ -1570,6 +1805,125 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     }
   }, [showOrderModal, fetchTables, fetchProducts])
 
+  const fetchRooms = useCallback(async () => {
+    setRoomsLoading(true)
+    try {
+      const headers: HeadersInit = {}
+      const token = wtTokenRef.current || wtToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const r = await fetch('/api/hotel/rooms', { headers, cache: 'no-store' })
+      if (r.ok) {
+        const d = await r.json()
+        setDbRooms(d.data || d || [])
+      }
+    } catch (err) {
+      console.error('Error fetching rooms:', err)
+    } finally {
+      setRoomsLoading(false)
+    }
+  }, [wtToken])
+
+  const fetchRoomServiceOrders = useCallback(async () => {
+    setRoomServiceOrdersLoading(true)
+    try {
+      const headers: HeadersInit = {}
+      const token = wtTokenRef.current || wtToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const r = await fetch('/api/hotel/room-service', { headers, cache: 'no-store' })
+      if (r.ok) {
+        const d = await r.json()
+        setRoomServiceOrders(d.data || [])
+      }
+    } catch (err) {
+      console.error('Error fetching room service orders:', err)
+    } finally {
+      setRoomServiceOrdersLoading(false)
+    }
+  }, [wtToken])
+
+  useEffect(() => {
+    if (showRoomOrderModal) {
+      fetchRooms()
+      fetchProducts()
+    }
+  }, [showRoomOrderModal, fetchRooms, fetchProducts])
+
+  useEffect(() => {
+    if (activeTab === 'room-order' && user) {
+      fetchRoomServiceOrders()
+      if (dbProducts.length === 0) fetchProducts()
+    }
+  }, [activeTab, user])
+
+  const handlePlaceRoomOrder = async () => {
+    if (!selectedRoomNumber) {
+      toast.error('Please select a room first.')
+      return
+    }
+    const cartItems = Object.values(roomOrderCart)
+    if (cartItems.length === 0) {
+      toast.error('Your cart is empty.')
+      return
+    }
+    setPlacingRoomOrder(true)
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      const token = wtTokenRef.current || wtToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const subtotal = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+      const taxAmount = Math.round(subtotal * 0.05)
+      const totalAmount = subtotal + taxAmount
+
+      // Find folio for selected room
+      const room = dbRooms.find((r: any) => r.id === selectedRoomId)
+      const folioId = room?.currentBooking?.folioId || room?.activeFolioId || null
+
+      const payload = {
+        roomNumber: selectedRoomNumber,
+        orderType: 'ROOM_SERVICE',
+        items: cartItems.map(item => ({
+          productId: item.id,
+          name: item.name,
+          qty: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.unitPrice * item.quantity,
+        })),
+        subtotal,
+        taxAmount,
+        totalAmount,
+        postToFolio,
+        specialNote: roomSpecialNote,
+        folioId,
+      }
+
+      const res = await fetch('/api/hotel/room-service', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        toast.success(data.data?.message || 'Room service order placed! 🛎️')
+        setRoomOrderCart({})
+        setSelectedRoomId('')
+        setSelectedRoomNumber('')
+        setRoomSpecialNote('')
+        setShowRoomOrderModal(false)
+        fetchRoomServiceOrders()
+      } else {
+        const err = await res.json()
+        toast.error(err.message || 'Failed to place room order.')
+      }
+    } catch (err) {
+      console.error('Room order placement error:', err)
+      toast.error('Network error. Failed to place room order.')
+    } finally {
+      setPlacingRoomOrder(false)
+    }
+  }
+
   const handlePlaceOrder = async () => {
     if (!orderTableId) {
       toast.error('Please select a table first.')
@@ -1590,6 +1944,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       const payload = {
         restaurantTableId: orderTableId,
         orderType: 'DINE_IN',
+        roomNumber: orderRoomNumber || null,
+        postToFolio: !!orderRoomNumber,
         items: cartItems.map(item => ({
           id: item.id,
           name: item.name,
@@ -1612,6 +1968,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         toast.success('Order placed and KOT generated! 🍳')
         setOrderCart({})
         setOrderTableId('')
+        setOrderRoomNumber('')
         setShowOrderModal(false)
         loadOrders() // Refresh orders tab
       } else {
@@ -1830,16 +2187,22 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
       <div style={{ width: '100%', maxWidth: 380, position: 'relative', zIndex: 1 }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ width: 68, height: 68, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', boxShadow: '0 0 36px rgba(99,102,241,0.4)', fontSize: 30 }}>📻</div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.03em' }}>Staff Portal</h1>
-          <p style={{ fontSize: 11, color: '#475569', marginTop: 6, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{propertyCode ? propertyCode.replace(/-/g, ' ') : 'Restaurant'} · Waiter Console</p>
+          <div style={{ width: 68, height: 68, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', boxShadow: '0 0 36px rgba(99,102,241,0.4)', fontSize: 30 }}>🏨</div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.03em' }}>Staff Login</h1>
+          <p style={{ fontSize: 11, color: '#475569', marginTop: 6, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{propertyCode ? propertyCode.replace(/-/g, ' ') : 'Hotel'} · All Staff Roles</p>
+          {/* Role-based auto-routing notice */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+            {[['📻','Waiter'],['🧹','Housekeeper'],['⭐','Captain'],['👑','Manager']].map(([e,r]) => (
+              <span key={r} style={{ fontSize: 9, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#475569' }}>{e} {r}</span>
+            ))}
+          </div>
         </div>
 
         <form onSubmit={handleLogin} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 22, padding: '28px 24px', backdropFilter: 'blur(16px)', boxShadow: '0 20px 60px rgba(0,0,0,0.55)' }}>
-          {/* Username */}
+          {/* Email Address */}
           <div style={{ marginBottom: 18 }}>
-            <label style={{ display: 'block', fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 7 }}>Username</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter username" autoComplete="username" required
+            <label style={{ display: 'block', fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 7 }}>Email Address</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@example.com" autoComplete="email" required
               style={{ width: '100%', padding: '12px 14px', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 13, fontSize: 14, fontWeight: 600, color: '#f1f5f9', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,0.6)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
           </div>
@@ -1855,10 +2218,10 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
           </div>
           {authError && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 11, padding: '10px 13px', marginBottom: 18, fontSize: 12, color: '#f87171', fontWeight: 700 }}>⚠️ {authError}</div>}
           <button type="submit" disabled={authLoading} style={{ width: '100%', padding: '13px', borderRadius: 15, border: 'none', cursor: authLoading ? 'not-allowed' : 'pointer', background: authLoading ? 'rgba(99,102,241,0.45)' : 'linear-gradient(135deg,#6366f1,#818cf8)', color: '#fff', fontSize: 12, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 8px 28px rgba(99,102,241,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
-            {authLoading ? <><span style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Logging in...</> : <>📻 Sign In</>}
+            {authLoading ? <><span style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Logging in...</> : <>🔐 Sign In · Auto Redirect</>}
           </button>
         </form>
-        <p style={{ textAlign: 'center', fontSize: 11, color: '#1e293b', marginTop: 18, fontWeight: 600 }}>Contact your manager for credentials</p>
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#1e293b', marginTop: 14, fontWeight: 700 }}>Login once → Automatically taken to your portal</p>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} input::placeholder{color:rgba(148,163,184,0.35)}`}</style>
     </div>
@@ -1871,7 +2234,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     { key: 'ptt', label: 'PTT', emoji: '📻' },
     { key: 'messages', label: 'Messages', emoji: '💬' },
     { key: 'pos', label: 'Orders', emoji: '📋' },
-    { key: 'attendance', label: 'Attendance', emoji: '📅' },
+    { key: 'room-order', label: 'Room Svc', emoji: '🏨' },
+    { key: 'attendance', label: 'Attend', emoji: '📅' },
     { key: 'settings', label: 'Settings', emoji: '⚙️' },
   ]
 
@@ -1897,7 +2261,9 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, boxShadow: '0 0 12px rgba(99,102,241,0.3)', flexShrink: 0 }}>📻</div>
           <div>
             <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>{propName}</div>
-            <div style={{ fontSize: 9, color: '#64748b', fontWeight: 700, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{user.fullName} · {user.role?.name || 'Staff'}</div>
+            <div style={{ fontSize: 9, color: '#64748b', fontWeight: 700, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              {user.fullName} · {user.designation || user.staffMember?.designation || (user.role?.name && !user.role.name.includes('Housekeeper') ? user.role.name : 'Waiter')}
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2204,7 +2570,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                 {/* Knob */}
                 <div style={{ position: 'absolute', top: -16, right: 30, width: 24, height: 16, background: '#1f2937', borderRadius: '5px 5px 0 0', border: '1px solid #374151' }} />
                 {/* Brand */}
-                <span style={{ fontSize: 8, letterSpacing: '0.3em', fontWeight: 900, color: '#2d3350', textTransform: 'uppercase', marginBottom: 10 }}>ORDERMINT WT-PRO</span>
+                <span style={{ fontSize: 8, letterSpacing: '0.3em', fontWeight: 900, color: '#2d3350', textTransform: 'uppercase', marginBottom: 10 }}>GUESTFLOW WT-PRO</span>
 
                 {/* LCD */}
                 <div style={{ width: '100%', background: '#0b1a10', border: '2.5px solid #080808', borderRadius: 11, padding: '11px 12px', marginBottom: 12, position: 'relative', overflow: 'hidden', boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.8)' }}>
@@ -2320,7 +2686,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
             allChannelHistory={allChannelHistory}
             selectedChannelId={selectedChannelId}
             currentUserId={user?.id || ''}
-            autoPlayEnabled={settings.autoPlayVoice}
+            autoPlayEnabled={true}
             onRefreshAll={loadAllChannelHistories}
             onRefreshChannel={(chId) => loadHistory(chId).then(() => loadAllChannelHistories())}
             playingId={playingInfo?.id || null}
@@ -2349,11 +2715,56 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
               ? <div style={{ textAlign: 'center', padding: '36px 0' }}><div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} /><div style={{ fontSize: 11, color: '#475569' }}>Loading...</div></div>
               : orders.length === 0
               ? <div style={{ textAlign: 'center', padding: '36px 18px', background: 'rgba(255,255,255,0.02)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.05)' }}><div style={{ fontSize: 30, marginBottom: 8 }}>✅</div><div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>All Clear!</div><div style={{ fontSize: 11, color: '#475569' }}>No active orders</div></div>
-              : orders.map(o => <OrderCard key={o.id} order={o} wtToken={wtToken} onDone={id => setOrders(p => p.filter(x => x.id !== id))} onBroadcast={broadcastTTS} upiId={user?.property?.upiId} upiName={user?.property?.upiName} />)}
+              : orders.map(o => <OrderCard key={o.id} order={o} wtToken={wtToken} onDone={id => { setOrders(p => p.filter(x => x.id !== id)); fetchTables(); }} onBroadcast={broadcastTTS} upiId={user?.property?.upiId} upiName={user?.property?.upiName} />)}
           </div>
         )}
 
 
+
+        {/* ══════════ ROOM ORDER TAB ══════════ */}
+        {activeTab === 'room-order' && (
+          <div>
+            {/* Stats Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 14 }}>
+              <div style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 13, padding: '13px 14px' }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#818cf8', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 4 }}>Today's Orders</div>
+                <div style={{ fontSize: 24, fontWeight: 900 }}>{roomServiceOrders.length}</div>
+              </div>
+              <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 13, padding: '13px 14px' }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#fbbf24', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 4 }}>Pending</div>
+                <div style={{ fontSize: 24, fontWeight: 900 }}>{roomServiceOrders.filter((o: any) => !['COMPLETED', 'PAID', 'SERVED'].includes(o.status)).length}</div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <button onClick={() => fetchRoomServiceOrders()} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: '9px', fontSize: 10, fontWeight: 800, color: '#64748b', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>🔄 Refresh</button>
+              <button onClick={() => { setSelectedRoomId(''); setSelectedRoomNumber(''); setRoomOrderCart({}); setRoomSpecialNote(''); setShowRoomOrderModal(true); }} style={{ flex: 1, background: 'linear-gradient(135deg, #6366f1, #818cf8)', border: 'none', borderRadius: 11, padding: '9px', fontSize: 10, fontWeight: 800, color: '#fff', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, boxShadow: '0 4px 12px rgba(99,102,241,0.35)' }}>🛎️ New Room Order</button>
+            </div>
+
+            {/* Room Service Orders List */}
+            {roomServiceOrdersLoading ? (
+              <div style={{ textAlign: 'center', padding: '36px 0' }}><div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} /><div style={{ fontSize: 11, color: '#475569' }}>Loading...</div></div>
+            ) : roomServiceOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '36px 18px', background: 'rgba(255,255,255,0.02)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: 30, marginBottom: 8 }}>🛎️</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>No Room Orders Today</div>
+                <div style={{ fontSize: 11, color: '#475569' }}>Tap "New Room Order" to place one</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {roomServiceOrders.map((o: any) => (
+                  <RoomOrderCard
+                    key={o.id}
+                    order={o}
+                    wtToken={wtToken}
+                    onRefresh={() => fetchRoomServiceOrders()}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ══════════ ATTENDANCE TAB ══════════ */}
         {activeTab === 'attendance' && user && (
@@ -2364,7 +2775,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         {activeTab === 'settings' && (
           <div>
             <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 13 }}>Preferences</div>
-            {[{ key: 'autoBroadcast' as const, label: 'Auto-broadcast urgent orders', desc: 'Announce orders >15 minutes wait via TTS' }, { key: 'ttsEnabled' as const, label: 'Read new orders aloud', desc: 'Text-to-speech for incoming POS orders' }, { key: 'autoPlayVoice' as const, label: '🔊 Auto-play voice messages', desc: 'Automatically play incoming voice recordings when you open Messages tab' }, { key: 'autoAttendance' as const, label: '📍 GPS Auto-Attendance', desc: 'Automatically clock in/out when entering or leaving the restaurant range' }].map(opt => (
+            {[{ key: 'autoBroadcast' as const, label: 'Auto-broadcast urgent orders', desc: 'Announce orders >15 minutes wait via TTS' }, { key: 'ttsEnabled' as const, label: 'Read new orders aloud', desc: 'Text-to-speech for incoming POS orders' }].map(opt => (
               <div key={opt.key} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 13, padding: '14px', marginBottom: 9, display: 'flex', alignItems: 'center', gap: 13 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9', marginBottom: 3 }}>{opt.label}</div>
@@ -2382,13 +2793,11 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
               status={sharingStatus}
               lastDist={sharingLastDist}
               error={sharingError}
-              startSharing={startSharing}
-              stopSharing={stopSharing}
             />
 
             <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 11, marginTop: 22 }}>Account</div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 13, padding: '14px', marginBottom: 12 }}>
-              {[['Name', user.fullName], ['Role', user.role?.name || 'Staff'], ['Property', propName], ['Email', user.email]].map(([l, v]) => (
+              {[['Name', user.fullName], ['Role', user.designation || user.staffMember?.designation || (user.role?.name && !user.role.name.includes('Housekeeper') ? user.role.name : 'Waiter')], ['Property', propName], ['Email', user.email]].map(([l, v]) => (
                 <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                   <span style={{ fontSize: 11, color: '#475569', fontWeight: 700 }}>{l}</span>
                   <span style={{ fontSize: 11, color: '#94a3b8', maxWidth: '60%', textAlign: 'right', wordBreak: 'break-word' }}>{v}</span>
@@ -2400,6 +2809,256 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         )}
 
       </div>{/* end scrollable content */}
+
+      {/* ══════════ ROOM ORDER OVERLAY MODAL ══════════ */}
+      {showRoomOrderModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#090d16', zIndex: 1000, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'inherit' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {selectedRoomNumber && (
+                <button onClick={() => { setSelectedRoomId(''); setSelectedRoomNumber(''); }} style={{ background: 'transparent', border: 'none', color: '#818cf8', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', padding: 0 }}>➔</button>
+              )}
+              <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.05em' }}>
+                {!selectedRoomNumber ? '🏨 Select Hotel Room' : `🛎️ Room ${selectedRoomNumber} — Order`}
+              </span>
+            </div>
+            <button onClick={() => setShowRoomOrderModal(false)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          </div>
+
+          {/* Modal Content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            {!selectedRoomNumber ? (
+              /* ── Step 1: Room Selector ── */
+              <div>
+                {roomsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ fontSize: 11, color: '#475569' }}>Loading rooms...</div>
+                  </div>
+                ) : dbRooms.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 16px', color: '#94a3b8' }}>
+                    <div style={{ fontSize: 30, marginBottom: 8 }}>🏨</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginBottom: 4 }}>No Rooms Found</div>
+                    <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.5 }}>No hotel rooms configured. Ask your admin.</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>Select Room for Room Service</div>
+                    {(() => {
+                      const roomsByFloor = dbRooms.reduce((acc: { [floor: string]: any[] }, room: any) => {
+                        const floorKey = room.floor ? `Floor ${room.floor}` : 'Ground Floor';
+                        if (!acc[floorKey]) acc[floorKey] = [];
+                        acc[floorKey].push(room);
+                        return acc;
+                      }, {});
+
+                      return Object.entries(roomsByFloor).map(([floorName, floorRooms]) => (
+                        <div key={floorName} style={{ marginBottom: 20 }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: '#818cf8', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 9, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>🏢</span> {floorName}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                            {(floorRooms as any[]).map((room: any) => {
+                              const isOccupied = room.status === 'OCCUPIED' || room.status === 'CHECKED_IN';
+                              const statusColor = isOccupied ? '#fbbf24' : room.status === 'AVAILABLE' ? '#34d399' : '#94a3b8';
+                              const statusBg = isOccupied ? 'rgba(251,191,36,0.08)' : room.status === 'AVAILABLE' ? 'rgba(52,211,153,0.05)' : 'rgba(255,255,255,0.02)';
+                              const statusBorder = isOccupied ? 'rgba(251,191,36,0.3)' : room.status === 'AVAILABLE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.07)';
+                              return (
+                                <div
+                                  key={room.id}
+                                  onClick={() => { setSelectedRoomId(room.id); setSelectedRoomNumber(room.roomNumber); }}
+                                  style={{
+                                    background: statusBg,
+                                    border: `1.5px solid ${statusBorder}`,
+                                    borderRadius: 12,
+                                    padding: '14px 8px',
+                                    textAlign: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s',
+                                  }}
+                                >
+                                  <div style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 3 }}>{room.roomNumber}</div>
+                                  <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', marginBottom: 4 }}>{room.roomType?.name || 'Room'}</div>
+                                  <div style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', color: statusColor }}>
+                                    {isOccupied ? '● Occupied' : room.status === 'AVAILABLE' ? '● Vacant' : room.status?.replace('_', ' ') || 'Unknown'}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Step 2: Menu Catalog ── */
+              <div>
+                {/* Special Note */}
+                <div style={{ marginBottom: 14, background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 12, padding: '12px' }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#818cf8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Special Instructions (Optional)</div>
+                  <input
+                    type="text"
+                    placeholder="e.g. No spice, extra napkins..."
+                    value={roomSpecialNote}
+                    onChange={(e) => setRoomSpecialNote(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 12, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}>
+                    <div
+                      onClick={() => setPostToFolio(!postToFolio)}
+                      style={{ width: 36, height: 20, borderRadius: 10, background: postToFolio ? '#6366f1' : 'rgba(255,255,255,0.1)', position: 'relative', flexShrink: 0, transition: 'background 0.2s', cursor: 'pointer' }}
+                    >
+                      <div style={{ position: 'absolute', top: 2, left: postToFolio ? 17 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: postToFolio ? '#818cf8' : '#64748b' }}>Post to Room Folio</span>
+                  </label>
+                </div>
+
+                {/* Search & Filter */}
+                <div style={{ marginBottom: 14 }}>
+                  <input
+                    type="text"
+                    placeholder="Search menu items..."
+                    value={roomOrderSearch}
+                    onChange={(e) => setRoomOrderSearch(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', color: '#fff', fontSize: 12, fontFamily: 'inherit', outline: 'none', marginBottom: 8, boxSizing: 'border-box' }}
+                  />
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
+                    {['all', ...Array.from(new Set(dbProducts.map((p: any) => p.category?.name).filter(Boolean)))].map((catName: any) => (
+                      <button
+                        key={catName}
+                        onClick={() => setRoomOrderCategory(catName)}
+                        style={{ background: roomOrderCategory === catName ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.02)', border: `1px solid ${roomOrderCategory === catName ? '#6366f1' : 'rgba(255,255,255,0.06)'}`, borderRadius: 8, padding: '6px 12px', color: roomOrderCategory === catName ? '#818cf8' : '#94a3b8', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                      >
+                        {catName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Products */}
+                {productsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ fontSize: 11, color: '#475569' }}>Loading menu...</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {dbProducts
+                      .filter((p: any) => {
+                        const matchesSearch = p.name.toLowerCase().includes(roomOrderSearch.toLowerCase())
+                        const matchesCategory = roomOrderCategory === 'all' || p.category?.name === roomOrderCategory
+                        return matchesSearch && matchesCategory
+                      })
+                      .map((p: any) => {
+                        const cartItemsForProduct = Object.values(roomOrderCart).filter((item: any) => item.id === p.id);
+                        const totalQty = cartItemsForProduct.reduce((sum: number, item: any) => sum + item.quantity, 0);
+                        return (
+                          <div key={p.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <span style={{ fontSize: 9, fontWeight: 900, color: p.isVeg ? '#34d399' : '#f43f5e', background: p.isVeg ? 'rgba(52,211,153,0.1)' : 'rgba(244,63,94,0.1)', padding: '2px 5px', borderRadius: 4, textTransform: 'uppercase' }}>{p.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}</span>
+                                <span style={{ fontSize: 9, color: '#64748b', fontWeight: 700 }}>{p.category?.name}</span>
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{p.name}</div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#818cf8', marginTop: 2 }}>
+                                {p.variants && p.variants.length > 0 ? `From ₹${Math.min(...p.variants.map((v: any) => v.price))}` : `₹${p.sellingPrice}`}
+                              </div>
+                            </div>
+                            <div>
+                              {p.variants && p.variants.length > 0 ? (
+                                <button
+                                  onClick={() => setRoomOrderProductForVariant(p)}
+                                  style={{ background: totalQty > 0 ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: `1.5px solid ${totalQty > 0 ? '#6366f1' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '6px 12px', color: totalQty > 0 ? '#818cf8' : '#94a3b8', fontSize: 10, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+                                >
+                                  {totalQty > 0 ? `Selected: ${totalQty}` : 'Choose Variant'}
+                                </button>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  {totalQty > 0 ? (
+                                    <>
+                                      <button onClick={() => setRoomOrderCart(prev => { const updated = { ...prev }; if (updated[p.id].quantity > 1) { updated[p.id].quantity -= 1; } else { delete updated[p.id]; } return updated; })} style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>-</button>
+                                      <span style={{ fontSize: 13, fontWeight: 800, minWidth: 16, textAlign: 'center' }}>{totalQty}</span>
+                                      <button onClick={() => setRoomOrderCart(prev => ({ ...prev, [p.id]: { id: p.id, name: p.name, unitPrice: p.sellingPrice, quantity: (prev[p.id]?.quantity || 0) + 1 } }))} style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(99,102,241,0.18)', border: 'none', color: '#818cf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>+</button>
+                                    </>
+                                  ) : (
+                                    <button onClick={() => setRoomOrderCart(prev => ({ ...prev, [p.id]: { id: p.id, name: p.name, unitPrice: p.sellingPrice, quantity: 1 } }))} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 14px', fontSize: 11, fontWeight: 800, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sticky Bottom Cart Summary */}
+          {selectedRoomNumber && Object.keys(roomOrderCart).length > 0 && (
+            <div style={{ background: '#0e1524', borderTop: '1px solid rgba(255,255,255,0.07)', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Room {selectedRoomNumber}</div>
+                <div style={{ fontSize: 15, fontWeight: 900 }}>
+                  {Object.values(roomOrderCart).reduce((sum: number, item: any) => sum + item.quantity, 0)} Items • ₹{Object.values(roomOrderCart).reduce((sum: number, item: any) => sum + item.unitPrice * item.quantity, 0)}
+                </div>
+              </div>
+              <button
+                onClick={handlePlaceRoomOrder}
+                disabled={placingRoomOrder}
+                style={{ background: 'linear-gradient(135deg, #6366f1, #818cf8)', border: 'none', borderRadius: 10, padding: '10px 18px', color: '#fff', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: placingRoomOrder ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                {placingRoomOrder ? (
+                  <><div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Sending...</>
+                ) : '🛎️ Place Order'}
+              </button>
+            </div>
+          )}
+
+          {/* Variant Selector for Room Order */}
+          {roomOrderProductForVariant && (
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: '#0b0f19', borderTop: '1px solid rgba(255,255,255,0.08)', borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 1020, display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 32px rgba(0,0,0,0.6)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>Choose Variant</span>
+                  <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginLeft: 8 }}>{roomOrderProductForVariant.name}</span>
+                </div>
+                <button onClick={() => setRoomOrderProductForVariant(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: 24, height: 24, color: '#94a3b8', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {roomOrderProductForVariant.variants.map((v: any) => {
+                  const key = `${roomOrderProductForVariant.id}-${v.id}`;
+                  const qty = roomOrderCart[key]?.quantity || 0;
+                  return (
+                    <div key={v.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{v.name}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#818cf8', marginTop: 1 }}>₹{v.price}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {qty > 0 ? (
+                          <>
+                            <button onClick={() => setRoomOrderCart(prev => { const updated = { ...prev }; if (updated[key].quantity > 1) { updated[key].quantity -= 1; } else { delete updated[key]; } return updated; })} style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>-</button>
+                            <span style={{ fontSize: 12, fontWeight: 800, minWidth: 16, textAlign: 'center' }}>{qty}</span>
+                            <button onClick={() => setRoomOrderCart(prev => ({ ...prev, [key]: { id: roomOrderProductForVariant.id, name: `${roomOrderProductForVariant.name} (${v.name})`, unitPrice: v.price, quantity: (prev[key]?.quantity || 0) + 1, variantId: v.id, variantName: v.name } }))} style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', border: 'none', color: '#818cf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>+</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setRoomOrderCart(prev => ({ ...prev, [key]: { id: roomOrderProductForVariant.id, name: `${roomOrderProductForVariant.name} (${v.name})`, unitPrice: v.price, quantity: 1, variantId: v.id, variantName: v.name } }))} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 14px', fontSize: 10, fontWeight: 800, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ══════════ TAKE ORDER OVERLAY MODAL ══════════ */}
       {showOrderModal && (
@@ -2451,7 +3110,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                           {floorTables.map(t => {
-                            const isOccupied = t.activeOrder !== null;
+                            const isOccupied = t.activeOrder !== null && !['COMPLETED', 'PAID', 'SETTLED', 'CANCELLED'].includes(t.activeOrder.status);
                             return (
                               <div
                                 key={t.id}
@@ -2779,6 +3438,30 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Hotel Room Linking Section */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px', marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🏨</span> Link In-House Guest Room (Optional)
+              </div>
+              <input
+                type="text"
+                placeholder="Room No. (e.g. 101)"
+                value={orderRoomNumber}
+                onChange={(e) => setOrderRoomNumber(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+              />
             </div>
 
             {/* Calculations & Submit */}

@@ -154,10 +154,44 @@ export function useAutoPlay({ wtToken, autoPlayEnabled, currentUserId }: AutoPla
       advance()
     }
 
-    audio.play().catch((err) => {
-      console.warn('[WT Autoplay] Blocked by browser autoplay policy:', err)
-      advance()
-    })
+    audio.play().then(() => {
+      console.log('[WT Autoplay] Playback started successfully');
+    }).catch((err) => {
+      console.warn('[WT Autoplay] Blocked by browser autoplay policy, waiting for user gesture to play...', err);
+      
+      let interactionOccurred = false;
+      const events = ['click', 'touchstart', 'keydown'];
+      
+      const unlockAndPlay = () => {
+        if (interactionOccurred || !isMountedRef.current) return;
+        interactionOccurred = true;
+        cleanup();
+        
+        console.log('[WT Autoplay] User gesture detected, attempting to play blocked audio...');
+        audio.play().then(() => {
+          console.log('[WT Autoplay] Playback resumed successfully after user gesture');
+        }).catch((err2) => {
+          console.error('[WT Autoplay] Playback failed even after user gesture:', err2);
+          advance();
+        });
+      };
+
+      const cleanup = () => {
+        events.forEach(ev => document.removeEventListener(ev, unlockAndPlay, true));
+      };
+
+      // Register listener for next user interaction
+      events.forEach(ev => document.addEventListener(ev, unlockAndPlay, { capture: true, passive: true }));
+      
+      // Fallback timeout to skip this message if no interaction within 25 seconds
+      setTimeout(() => {
+        if (!interactionOccurred && isMountedRef.current) {
+          cleanup();
+          console.warn('[WT Autoplay] Gesture timeout reached. Skipping blocked audio.');
+          advance();
+        }
+      }, 25000);
+    });
   }, [])
 
   /**

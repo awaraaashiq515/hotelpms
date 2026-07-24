@@ -41,6 +41,38 @@ export async function POST(request: NextRequest) {
 
     const finalAmountPaid = Number(paymentAmount);
 
+    // Auto-reconcile: find any completed POS orders for this guest not yet linked to folio
+    const unlinkedOrders = await prisma.posOrder.findMany({
+      where: {
+        guestId: checkIn.guestId,
+        folioId: null,
+        status: { in: ['PAID', 'COMPLETED', 'CLOSED'] }
+      },
+      include: {
+        outlet: { select: { name: true } }
+      }
+    });
+
+    if (unlinkedOrders.length > 0) {
+      for (const order of unlinkedOrders) {
+        if (order.grandTotal <= 0) continue;
+        await prisma.posOrder.update({ where: { id: order.id }, data: { folioId: folio.id } });
+        await prisma.folioTransaction.create({
+          data: {
+            folioId: folio.id,
+            txnType: 'DEBIT',
+            sourceModule: 'POS',
+            sourceRefId: order.id,
+            description: `${order.outlet?.name || 'Restaurant'} – Order #${order.orderNo}`,
+            debitAmount: order.grandTotal,
+            creditAmount: 0,
+            taxAmount: order.taxAmount,
+            netAmount: order.grandTotal,
+          }
+        });
+      }
+    }
+
     // If a payment was made during checkout, add a CREDIT transaction to folio
     if (finalAmountPaid > 0) {
       await prisma.folioTransaction.create({
@@ -95,12 +127,13 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // 4. Update Reservation Status to CHECKED_OUT
+    // 4. Update Reservation Status to CHECKED_OUT and expire WiFi status
     await prisma.reservation.update({
       where: { id: checkIn.reservationId },
       data: {
         status: 'CHECKED_OUT',
         dueAmount: closingBalance,
+        wifiStatus: 'EXPIRED'
       }
     });
 

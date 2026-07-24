@@ -45,9 +45,9 @@ export default async function PaymentPendingPage() {
   if (!paymentSettings) {
     paymentSettings = {
       id: 'system',
-      upiId: 'pay@ordermint',
-      upiName: 'OrderMint',
-      bankName: 'OrderMint Global Bank',
+      upiId: 'pay@guestflow',
+      upiName: 'GuestFlow',
+      bankName: 'GuestFlow Global Bank',
       bankAccount: '1200384819283',
       bankIfsc: 'ORDM0001092',
       bankSwift: 'ORDMININBB',

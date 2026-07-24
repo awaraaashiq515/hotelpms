@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
           where: { metaVerifyToken: token },
         });
 
-        const globalVerifyToken = process.env.WHATSAPP_INBOUND_TOKEN || 'ordermint-default-token';
+        const globalVerifyToken = process.env.WHATSAPP_INBOUND_TOKEN || 'guestflow-default-token';
 
         if (property || token === globalVerifyToken) {
           console.log('[WhatsApp Webhook] Meta Verification Successful');
@@ -279,7 +279,7 @@ async function parseMessageWithGemini(userText: string, currentCartJson: string,
       .map((p) => `ID: ${p.id} | Name: ${p.name} | Category: ${p.category?.name || 'General'} | Price: ₹${p.sellingPrice}`)
       .join('\n');
 
-    const prompt = `You are a conversational AI Waiter for OrderMint restaurant. The customer is messaging on WhatsApp.
+    const prompt = `You are a conversational AI Waiter for GuestFlow restaurant. The customer is messaging on WhatsApp.
 Current Cart Items: ${currentCartJson}
 User Input: "${userText}"
 
@@ -390,7 +390,7 @@ async function processSessionWorkflow(session: any, aiResult: any, productsList:
 
   // 2. Intent State Machine
   if (aiResult.intent === 'GREETING') {
-    const welcome = property.whatsAppWelcomeMessage || `*Welcome to OrderMint!* 🍽️\n\nYou can place your order directly through WhatsApp.`;
+    const welcome = property.whatsAppWelcomeMessage || `*Welcome to GuestFlow!* 🍽️\n\nYou can place your order directly through WhatsApp.`;
     replyText = `${welcome}\n\n*Our popular items:*\n` +
       productsList.slice(0, 4).map(p => `• ${p.name} - ₹${p.sellingPrice}`).join('\n') +
       `\n\nTo place an order, type something like: *"Add 1 Veg Pizza and 2 Cold Coffees"*`;
@@ -744,7 +744,7 @@ async function executeOrderCreation(session: any, cart: CartItem[], propertyId: 
       `*Order No:* #${orderNo}\n` +
       `*KOT No:* #${kotNo}\n` +
       `*Total Bill:* ₹${total.toFixed(2)}\n\n` +
-      `We will notify you as soon as your order is ready! Thank you for ordering with OrderMint. 🙏`;
+      `We will notify you as soon as your order is ready! Thank you for ordering with GuestFlow. 🙏`;
   } catch (err: any) {
     console.error('[WhatsApp Webhook] Order Creation Failed:', err);
     return `There was an issue processing your order: ${err.message}. Please try again later.`;

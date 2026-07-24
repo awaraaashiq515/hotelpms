@@ -50,7 +50,7 @@ export function TabletHeader({
         <div>
           {!displayLogo && (
             <h1 className="font-black uppercase tracking-tight text-sm text-white">
-              {property?.brandName || property?.name || 'OrderMint'}{' '}
+              {property?.brandName || property?.name || 'GuestFlow'}{' '}
               <span className="text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md text-[10px] border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)] ml-1">
                 POS
               </span>

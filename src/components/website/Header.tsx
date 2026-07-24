@@ -9,7 +9,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoScrolledUrl, setLogoScrolledUrl] = useState<string | null>(null);
-  const [hotelName, setHotelName] = useState<string>('OrderMint');
+  const [hotelName, setHotelName] = useState<string>('GuestFlow');
   const [tagline, setTagline] = useState<string>('POS Solutions');
 
   useEffect(() => {
@@ -39,6 +39,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = false }: { isSimple?: b
     { name: 'Pricing', href: '/pricing' },
     { name: 'About', href: '/about' },
     { name: 'Blog', href: '/blog' },
+    { name: 'Live Music', href: '/live-music' },
     { name: 'Contact', href: '/contact' },
   ];
 

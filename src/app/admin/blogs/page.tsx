@@ -16,7 +16,7 @@ export default function BlogAdminPage() {
     excerpt: '',
     content: '',
     imageUrl: '',
-    author: 'OrderMint Solutions',
+    author: 'GuestFlow Solutions',
     category: 'Industry Insights',
     metaTitle: '',
     metaDescription: '',
@@ -197,7 +197,7 @@ export default function BlogAdminPage() {
           </button>
           <button
             onClick={() => {
-              setCurrentBlog({ title: '', slug: '', excerpt: '', content: '', imageUrl: '', author: 'OrderMint Solutions', category: 'Industry Insights', metaTitle: '', metaDescription: '', keywords: '', isActive: true });
+              setCurrentBlog({ title: '', slug: '', excerpt: '', content: '', imageUrl: '', author: 'GuestFlow Solutions', category: 'Industry Insights', metaTitle: '', metaDescription: '', keywords: '', isActive: true });
               setActiveTab('content');
               setShowModal(true);
             }}

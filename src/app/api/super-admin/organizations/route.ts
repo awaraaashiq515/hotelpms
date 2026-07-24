@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const organizations = await prisma.organization.findMany({
       include: {
         _count: { select: { properties: true } },
+        properties: { select: { id: true, type: true } },
         package: {
           include: {
             features: true

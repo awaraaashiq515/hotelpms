@@ -46,7 +46,7 @@ const allFeatures = [
     desc: "Eliminate paper KOTs. Route orders to specific kitchen stations and monitor preparation times automatically.",
     icon: <Zap className="w-6 h-6" />,
     points: ["Instant order routing", "Cook-time analytics", "Bump-bar support"],
-    img: "/images/ordermint-kds.png"
+    img: "/images/guestflow-kds.png"
   },
   {
     category: "Intelligence",
@@ -54,7 +54,7 @@ const allFeatures = [
     desc: "Go beyond sales reports. Get predictive insights on peak hours, menu engineering, and revenue forecasting.",
     icon: <BarChart3 className="w-6 h-6" />,
     points: ["Profitability heatmaps", "Staff performance tracking", "Automated EOD reports"],
-    img: "/images/ordermint-analytics.png"
+    img: "/images/guestflow-analytics.png"
   },
   {
     category: "Inventory",
@@ -232,13 +232,13 @@ export default function FeaturesPage() {
         {/* ══ FINAL CTA ══════════════════════════════════════════ */}
         <section className="py-40 relative text-center">
           <div className="absolute inset-0 z-0">
-            <Image src="/images/ordermint-hero.png" alt="CTA" fill className="object-cover opacity-10" />
+            <Image src="/images/guestflow-hero.png" alt="CTA" fill className="object-cover opacity-10" />
             <div className="absolute inset-0 bg-gradient-to-b from-[#120a08] via-transparent to-[#120a08]" />
           </div>
           <div className="container mx-auto px-6 max-w-3xl relative z-10">
             <h2 className="text-4xl md:text-6xl font-black mb-8">Ready to Transform?</h2>
             <p className="text-xl text-white/50 mb-12">
-              Join hundreds of high-performing venues using OrderMint to scale their operations.
+              Join hundreds of high-performing venues using GuestFlow to scale their operations.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link href="/contact" style={primaryBtn} className="px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all">

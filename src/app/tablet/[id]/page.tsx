@@ -1083,7 +1083,7 @@ export default function TabletPage({ params }: { params: Promise<{ id: string }>
               <div className="leading-none">
                 {!displayLogo && (
                   <h1 className="text-sm font-black tracking-tight uppercase text-white">
-                    {property?.brandName || property?.name || 'OrderMint'} <span className="text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md text-[10px] border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)] ml-1">POS</span>
+                    {property?.brandName || property?.name || 'GuestFlow'} <span className="text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md text-[10px] border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)] ml-1">POS</span>
                   </h1>
                 )}
                 <p className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">

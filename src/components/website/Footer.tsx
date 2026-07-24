@@ -34,7 +34,7 @@ export const WebsiteFooter = () => {
         <div className="flex flex-col gap-8">
           <Link href="/" className="flex flex-col">
             <span className="text-3xl font-bold tracking-tighter uppercase text-white">
-              OrderMint
+              GuestFlow
             </span>
             <span className="text-[10px] tracking-[0.3em] font-medium uppercase text-pos-primary">
               Next-Gen POS Solutions
@@ -84,7 +84,7 @@ export const WebsiteFooter = () => {
               </div>
               <div className="flex items-center gap-4 text-slate-400">
                 <Mail className="text-pos-primary shrink-0" size={20} />
-                <p className="text-sm font-bold">{settings?.email || 'support@ordermint.com'}</p>
+                <p className="text-sm font-bold">{settings?.email || 'support@guestflow.com'}</p>
               </div>
             </div>
           </div>
@@ -100,7 +100,7 @@ export const WebsiteFooter = () => {
       </div>
 
       <div className="max-w-7xl mx-auto pt-12 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-        <p>© 2024 OrderMint Solutions Inc. All Rights Reserved.</p>
+        <p>© 2024 GuestFlow Solutions Inc. All Rights Reserved.</p>
 
         <div className="flex gap-8">
           <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>

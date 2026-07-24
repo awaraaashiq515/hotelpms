@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -14,19 +15,23 @@ async function main() {
   // Create Floors
   const floor1 = await prisma.floor.create({
     data: {
+      id: randomUUID(),
       name: 'Ground Floor',
       propertyId: property.id,
       outletId: outlet?.id,
       order: 1,
+      updatedAt: new Date(),
     },
   });
 
   const floor2 = await prisma.floor.create({
     data: {
+      id: randomUUID(),
       name: 'First Floor',
       propertyId: property.id,
       outletId: outlet?.id,
       order: 2,
+      updatedAt: new Date(),
     },
   });
 
@@ -42,9 +47,11 @@ async function main() {
   for (const t of tableData1) {
     await prisma.table.create({
       data: {
+        id: randomUUID(),
         ...t,
         floorId: floor1.id,
         propertyId: property.id,
+        updatedAt: new Date(),
       },
     });
   }
@@ -58,9 +65,11 @@ async function main() {
   for (const t of tableData2) {
     await prisma.table.create({
       data: {
+        id: randomUUID(),
         ...t,
         floorId: floor2.id,
         propertyId: property.id,
+        updatedAt: new Date(),
       },
     });
   }

@@ -56,7 +56,7 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
             </div>
           )}
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{data.property?.brandName || data.property?.name || 'OrderMint'}</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{data.property?.brandName || data.property?.name || 'GuestFlow'}</h1>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
               <span className="text-[11px] text-slate-400 font-medium">{displayName}</span>

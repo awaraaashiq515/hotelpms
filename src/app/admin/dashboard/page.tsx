@@ -108,7 +108,7 @@ export default function SuperAdminDashboard() {
           {/* Branding tag */}
           <div className="flex items-center gap-2 mt-4">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-pos-primary/40 dark:border-pos-primary/20 bg-pos-primary/10 dark:bg-pos-primary/5">
-              <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.18em] text-pos-primary">OrderMint POS</span>
+              <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.18em] text-pos-primary">GuestFlow POS</span>
               <span className="w-1 h-1 rounded-full bg-pos-primary" />
               <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">by Ritchie</span>
             </div>

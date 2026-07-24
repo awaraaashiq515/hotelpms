@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import {
   User, Phone, Briefcase, IndianRupee, MapPin, AlertCircle,
   Calendar, Clock, CheckCircle2, XCircle, ChevronUp, ChevronDown, Lock,
+  Building2,
 } from 'lucide-react';
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -19,8 +20,9 @@ const staffMemberSchema = z.object({
   joiningDate: z.string().optional().or(z.literal('')),
   isActive: z.boolean().default(true),
   shiftHours: z.number().min(0.1, 'Shift must be at least 6 minutes').default(8).optional(),
-  username: z.string().min(3, 'Username must be at least 3 characters').optional().or(z.literal('')),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+  propertyId: z.string().min(1, 'Property selection is required').optional().or(z.literal('')),
 });
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -35,6 +37,7 @@ export interface StaffMember {
   joiningDate?: string | null;
   isActive: boolean;
   shiftHours?: number | null;
+  propertyId?: string | null;
   createdAt?: string;
   user?: {
     email: string;
@@ -43,6 +46,7 @@ export interface StaffMember {
 
 interface StaffMemberFormProps {
   initialData?: StaffMember;
+  properties?: any[];
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
@@ -50,15 +54,27 @@ interface StaffMemberFormProps {
 
 // ── Designation Options ────────────────────────────────────────────────────
 const DESIGNATIONS = [
+  // Restaurant Roles
   { value: 'Waiter',      emoji: '🍽', color: '#6366F1' },
   { value: 'Captain',     emoji: '⭐', color: '#F59E0B' },
   { value: 'Head Waiter', emoji: '👑', color: '#EF4444' },
   { value: 'Steward',     emoji: '🧹', color: '#8B5CF6' },
   { value: 'Cashier',     emoji: '💰', color: '#10B981' },
-  { value: 'Supervisor',  emoji: '🎯', color: '#3B82F6' },
-  { value: 'Manager',     emoji: '📋', color: '#EC4899' },
   { value: 'Chef',        emoji: '👨‍🍳', color: '#F97316' },
   { value: 'Helper',      emoji: '🤝', color: '#14B8A6' },
+  
+  // Hotel PMS Roles
+  { value: 'Receptionist', emoji: '🛎️', color: '#3B82F6' },
+  { value: 'Housekeeper',  emoji: '🧹', color: '#A855F7' },
+  { value: 'Room Service', emoji: '🚪', color: '#EC4899' },
+  { value: 'Bellboy',      emoji: '🧳', color: '#10B981' },
+  { value: 'Security',     emoji: '🛡️', color: '#F43F5E' },
+  { value: 'Maintenance',  emoji: '🔧', color: '#F59E0B' },
+  { value: 'Hotel Manager',emoji: '👑', color: '#EAB308' },
+  
+  // General Roles
+  { value: 'Supervisor',  emoji: '🎯', color: '#06B6D4' },
+  { value: 'Manager',     emoji: '📋', color: '#EC4899' },
   { value: 'Other',       emoji: '👤', color: '#64748B' },
 ];
 
@@ -85,7 +101,7 @@ function getAvatarColor(name: string) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
-  initialData, onSubmit, onCancel, loading
+  initialData, properties, onSubmit, onCancel, loading
 }) => {
   const [formData, setFormData] = useState({
     name:             initialData?.name || '',
@@ -98,8 +114,9 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
       ? new Date(initialData.joiningDate).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
     isActive: initialData ? initialData.isActive : true,
-    username: initialData?.user?.email ? initialData.user.email.split('@')[0] : '',
+    email: initialData?.user?.email || '',
     password: '',
+    propertyId: initialData?.propertyId || '',
   });
 
   const initialShift = initialData?.shiftHours || 8;
@@ -127,8 +144,9 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
         joiningDate:      validated.joiningDate || undefined,
         isActive:         validated.isActive,
         shiftHours:       validated.shiftHours || 8,
-        username:         validated.username || undefined,
+        email:            validated.email || undefined,
         password:         validated.password || undefined,
+        propertyId:       validated.propertyId || undefined,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -141,7 +159,8 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
 
   const avatarColor = getAvatarColor(formData.name);
   const initials    = getInitials(formData.name || '?');
-  const selectedDesig = DESIGNATIONS.find(d => d.value === formData.designation) || DESIGNATIONS[0];
+  const selectedDesignations = formData.designation ? formData.designation.split(',').map(s => s.trim()) : [];
+  const selectedList = DESIGNATIONS.filter(d => selectedDesignations.includes(d.value));
   const totalShiftMins = shiftHrsInput * 60 + shiftMinsInput;
   const shiftLabel = shiftHrsInput > 0
     ? (shiftMinsInput > 0 ? `${shiftHrsInput}h ${shiftMinsInput}m` : `${shiftHrsInput}h`)
@@ -218,16 +237,30 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
               {formData.name || <span style={{ color: 'rgba(148,163,184,0.4)', fontWeight: 400, fontSize: '14px' }}>Staff Name Preview</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                fontSize: '11px', fontWeight: 700,
-                color: selectedDesig.color,
-                background: `${selectedDesig.color}18`,
-                border: `1px solid ${selectedDesig.color}40`,
-                padding: '3px 10px', borderRadius: '999px',
-              }}>
-                {selectedDesig.emoji} {formData.designation || 'Waiter'}
-              </span>
+              {selectedList.map(desig => (
+                <span key={desig.value} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  fontSize: '11px', fontWeight: 700,
+                  color: desig.color,
+                  background: `${desig.color}18`,
+                  border: `1px solid ${desig.color}40`,
+                  padding: '3px 10px', borderRadius: '999px',
+                }}>
+                  {desig.emoji} {desig.value}
+                </span>
+              ))}
+              {selectedList.length === 0 && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  fontSize: '11px', fontWeight: 700,
+                  color: '#64748B',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  padding: '3px 10px', borderRadius: '999px',
+                }}>
+                  👤 Staff Member
+                </span>
+              )}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
                 fontSize: '10px', fontWeight: 700,
@@ -252,6 +285,26 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
         <div>
           <div className="sf-section-label">Personal Information</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+            {/* Property Selection */}
+            {properties && properties.length > 0 && (
+              <div className="sf-field" style={{ gridColumn: '1 / -1' }}>
+                <label className="sf-label"><Building2 size={11} /> Assign to Property / Outlet <span style={{ color: '#EF4444' }}>*</span></label>
+                <select
+                  className={`sf-input${errors.propertyId ? ' error' : ''}`}
+                  value={formData.propertyId}
+                  onChange={e => setFormData({ ...formData, propertyId: e.target.value })}
+                >
+                  <option value="" className="bg-[#0f172a] text-slate-500">Select Property</option>
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id} className="bg-[#0f172a] text-white">
+                      {p.type === 'HOTEL' ? '🏨' : '🍽️'} {p.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.propertyId && <p className="sf-error">⚠ {errors.propertyId}</p>}
+              </div>
+            )}
+
             {/* Full Name */}
             <div className="sf-field" style={{ gridColumn: '1 / -1' }}>
               <label className="sf-label"><User size={11} /> Full Name <span style={{ color: '#EF4444' }}>*</span></label>
@@ -295,16 +348,25 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
         {/* ── DESIGNATION CHIPS ─────────────────────────────────── */}
         <div>
           <label className="sf-label" style={{ marginBottom: '10px' }}>
-            <Briefcase size={11} /> Designation / Role
+            <Briefcase size={11} /> Designation / Role (Select one or more)
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {DESIGNATIONS.map(d => {
-              const isSelected = formData.designation === d.value;
+              const isSelected = selectedDesignations.includes(d.value);
+              const handleToggleDesignation = () => {
+                let next;
+                if (selectedDesignations.includes(d.value)) {
+                  next = selectedDesignations.filter(x => x !== d.value);
+                } else {
+                  next = [...selectedDesignations, d.value];
+                }
+                setFormData({ ...formData, designation: next.join(', ') });
+              };
               return (
                 <button
                   key={d.value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, designation: d.value })}
+                  onClick={handleToggleDesignation}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                     padding: '7px 14px', borderRadius: '999px', cursor: 'pointer',
@@ -329,17 +391,17 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
         <div>
           <div className="sf-section-label">Staff Portal Login Credentials</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-            {/* Username */}
+            {/* Email */}
             <div className="sf-field">
-              <label className="sf-label"><User size={11} /> Username</label>
+              <label className="sf-label"><User size={11} /> Email Address</label>
               <input
-                type="text"
-                className={`sf-input${errors.username ? ' error' : ''}`}
-                placeholder="e.g. rahul123"
-                value={formData.username}
-                onChange={e => setFormData({ ...formData, username: e.target.value })}
+                type="email"
+                className={`sf-input${errors.email ? ' error' : ''}`}
+                placeholder="staff@example.com"
+                value={formData.email}
+                onChange={e => setFormData({ ...formData, email: e.target.value })}
               />
-              {errors.username && <p className="sf-error">⚠ {errors.username}</p>}
+              {errors.email && <p className="sf-error">⚠ {errors.email}</p>}
             </div>
 
             {/* Password */}

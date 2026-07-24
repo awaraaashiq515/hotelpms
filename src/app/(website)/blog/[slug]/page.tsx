@@ -23,16 +23,16 @@ export async function generateMetadata({
       if (!blog) return { title: 'Post Not Found' };
 
       return {
-        title: blog.metaTitle || `${blog.title} | OrderMint Blog`,
-        description: blog.metaDescription || blog.excerpt || `Read more about ${blog.title} on the OrderMint blog.`,
-        keywords: blog.keywords || 'POS, Restaurant Management, OrderMint',
+        title: blog.metaTitle || `${blog.title} | GuestFlow Blog`,
+        description: blog.metaDescription || blog.excerpt || `Read more about ${blog.title} on the GuestFlow blog.`,
+        keywords: blog.keywords || 'POS, Restaurant Management, GuestFlow',
         openGraph: {
           title: blog.metaTitle || blog.title,
           description: blog.metaDescription || blog.excerpt || '',
           images: [blog.imageUrl || '/hero-pos.png'],
           type: 'article',
           publishedTime: blog.publishedAt?.toISOString(),
-          authors: [blog.author || 'OrderMint Team'],
+          authors: [blog.author || 'GuestFlow Team'],
         },
         twitter: {
           card: 'summary_large_image',
@@ -46,7 +46,7 @@ export async function generateMetadata({
     console.warn("Could not fetch blog metadata during build:", error);
   }
 
-  return { title: 'Blog | OrderMint' };
+  return { title: 'Blog | GuestFlow' };
 }
 
 export default async function BlogDetailPage({ 
@@ -125,7 +125,7 @@ export default async function BlogDetailPage({
              {/* Tags/Categories */}
              <div className="mt-20 pt-10 border-t border-gray-100 flex flex-wrap gap-3">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Tagged with:</span>
-                {['Restaurant', 'POS', 'OrderMint', blog.category || ''].filter(Boolean).map(tag => (
+                {['Restaurant', 'POS', 'GuestFlow', blog.category || ''].filter(Boolean).map(tag => (
                    <span key={tag} className="px-4 py-1.5 bg-gray-50 text-gray-500 rounded-full text-[9px] font-bold uppercase tracking-widest">#{tag}</span>
                 ))}
              </div>
@@ -152,9 +152,9 @@ export default async function BlogDetailPage({
 
              <div className="sticky top-32 group">
                 <div className="relative aspect-[4/5] rounded-[40px] overflow-hidden">
-                   <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1000" alt="OrderMint POS" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
+                   <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1000" alt="GuestFlow POS" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
                    <div className="absolute inset-0 bg-pos-primary/60 flex flex-col items-center justify-center p-8 text-center text-white">
-                      <h4 className="text-2xl font-bold uppercase tracking-tighter mb-4">OrderMint POS</h4>
+                      <h4 className="text-2xl font-bold uppercase tracking-tighter mb-4">GuestFlow POS</h4>
                       <p className="text-[10px] font-bold uppercase tracking-widest mb-8 opacity-80">Streamline your restaurant operations</p>
                       <Link href="/contact" className="px-6 py-3 bg-white text-gray-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Enquire Now</Link>
                    </div>

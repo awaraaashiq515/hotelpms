@@ -22,7 +22,10 @@ import {
   FileText,
   DollarSign,
   Wallet,
-  CalendarDays
+  CalendarDays,
+  ShoppingBag,
+  Link,
+  UtensilsCrossed
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -40,7 +43,13 @@ function BillingContent() {
   const [showPostModal, setShowPostModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showLinkOrderModal, setShowLinkOrderModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Link Order Modal State
+  const [unlinkedOrders, setUnlinkedOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [linkingOrderId, setLinkingOrderId] = useState<string | null>(null);
 
   // Manual Transaction Form
   const [txnType, setTxnType] = useState<'DEBIT' | 'CREDIT'>('DEBIT');
@@ -111,6 +120,43 @@ function BillingContent() {
   useEffect(() => {
     loadFolios();
   }, [resId]);
+
+  // Load unlinked POS orders for this folio's guest
+  const loadUnlinkedOrders = async () => {
+    if (!selectedFolio?.guestId) return;
+    setLoadingOrders(true);
+    try {
+      const res = await fetch(`/api/hotel/folios/link-order?guestId=${selectedFolio.guestId}`);
+      const data = await res.json();
+      if (data.success) setUnlinkedOrders(data.data || []);
+    } catch {}
+    finally { setLoadingOrders(false); }
+  };
+
+  // Link a POS order to the current folio
+  const handleLinkOrder = async (posOrderId: string) => {
+    if (!selectedFolio) return;
+    setLinkingOrderId(posOrderId);
+    try {
+      const res = await fetch('/api/hotel/folios/link-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folioId: selectedFolio.id, posOrderId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || 'Order linked to folio!');
+        setUnlinkedOrders(prev => prev.filter(o => o.id !== posOrderId));
+        await loadFolios();
+      } else {
+        toast.error(data.message || 'Failed to link order');
+      }
+    } catch {
+      toast.error('Network error linking order');
+    } finally {
+      setLinkingOrderId(null);
+    }
+  };
 
   // Handle posting manual charge/credit
   const handlePostTransaction = async (e: React.FormEvent) => {
@@ -485,12 +531,19 @@ function BillingContent() {
                     <Receipt size={16} className="text-indigo-400" /> Folio Ledger Transactions
                   </h3>
                   
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setShowPostModal(true)}
                       className="px-4 py-2.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-xs transition-all flex items-center gap-1.5"
                     >
-                      <Plus size={14} /> Post Charge/Payment
+                      <Plus size={14} /> Post Charge
+                    </button>
+
+                    <button
+                      onClick={() => { loadUnlinkedOrders(); setShowLinkOrderModal(true); }}
+                      className="px-4 py-2.5 rounded-xl border border-amber-700/40 hover:border-amber-600 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Link size={14} /> Link Restaurant Order
                     </button>
                     
                     <button
@@ -596,6 +649,53 @@ function BillingContent() {
                   </div>
                 </div>
               </div>
+
+              {/* Restaurant & POS Orders Section */}
+              {selectedFolio.posOrders && selectedFolio.posOrders.length > 0 && (
+                <div className="p-6 rounded-3xl bg-[#0f172a] border border-amber-700/20 space-y-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                    <UtensilsCrossed size={16} /> Restaurant & Cafe Orders
+                    <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                      {selectedFolio.posOrders.length} orders
+                    </span>
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedFolio.posOrders.map((order: any) => (
+                      <div key={order.id} className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-amber-400">{order.outlet?.name || 'Restaurant'}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold uppercase">{order.outlet?.type || 'F&B'}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Order #{order.orderNo} · {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-black text-rose-400">₹{order.grandTotal.toFixed(2)}</p>
+                            <p className="text-[9px] text-slate-500">incl. tax ₹{order.taxAmount.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        {order.items && order.items.length > 0 && (
+                          <div className="border-t border-slate-800/60 pt-2 grid grid-cols-1 gap-1">
+                            {order.items.map((item: any, idx: number) => (
+                              <div key={idx} className="flex justify-between text-[10px] text-slate-400">
+                                <span>{item.quantity}× {item.name}</span>
+                                <span className="font-semibold text-slate-300">₹{(item.totalPrice || item.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-amber-700/20">
+                    <span className="text-xs font-bold text-slate-400">Total F&B Charges</span>
+                    <span className="text-sm font-black text-amber-400">
+                      ₹{selectedFolio.posOrders.reduce((sum: number, o: any) => sum + o.grandTotal, 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="h-[40vh] rounded-3xl bg-[#0f172a] border border-slate-800 flex flex-col items-center justify-center text-slate-500 space-y-3">
@@ -735,6 +835,78 @@ function BillingContent() {
         </div>
       )}
 
+      {/* MODAL: Link Restaurant Order */}
+      {showLinkOrderModal && selectedFolio && (
+        <div className="fixed inset-0 z-50 bg-[#090d16]/80 backdrop-blur-sm flex items-start justify-center pt-6 px-4 pb-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-3xl bg-[#0f172a] border border-amber-700/30 p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                <UtensilsCrossed size={16} /> Link Restaurant Order to Folio
+              </h3>
+              <button type="button" onClick={() => setShowLinkOrderModal(false)} className="text-slate-500 hover:text-slate-300">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              These are completed restaurant orders for <span className="font-bold text-white">{selectedFolio.guest.firstName} {selectedFolio.guest.lastName}</span> that have not yet been added to the hotel bill.
+            </p>
+            {loadingOrders ? (
+              <div className="py-8 flex items-center justify-center">
+                <Loader2 className="animate-spin text-amber-400" size={24} />
+              </div>
+            ) : unlinkedOrders.length === 0 ? (
+              <div className="py-8 text-center text-slate-500 text-xs italic space-y-2">
+                <ShoppingBag size={28} className="mx-auto text-slate-600" />
+                <p>No unlinked restaurant orders found for this guest.</p>
+                <p className="text-[10px]">Orders appear here once they are completed/paid in POS.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto no-scrollbar">
+                {unlinkedOrders.map((order: any) => (
+                  <div key={order.id} className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-amber-400">{order.outlet?.name || 'Restaurant'}</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold uppercase">{order.status}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Order #{order.orderNo} · {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                      {order.items?.length > 0 && (
+                        <div className="mt-1.5 space-y-0.5">
+                          {order.items.slice(0, 3).map((item: any, idx: number) => (
+                            <p key={idx} className="text-[10px] text-slate-500">{item.quantity}× {item.name}</p>
+                          ))}
+                          {order.items.length > 3 && <p className="text-[10px] text-slate-600">+{order.items.length - 3} more items</p>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0 space-y-2">
+                      <p className="text-sm font-black text-rose-400">₹{order.grandTotal.toFixed(2)}</p>
+                      <button
+                        onClick={() => handleLinkOrder(order.id)}
+                        disabled={linkingOrderId === order.id}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 text-[10px] font-black transition-all disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {linkingOrderId === order.id ? <Loader2 size={10} className="animate-spin" /> : <Link size={10} />}
+                        {linkingOrderId === order.id ? 'Linking...' : 'Add to Bill'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLinkOrderModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 2: Checkout Settlement Dialog */}
       {showCheckoutModal && selectedFolio && (
         <div className="fixed inset-0 z-50 bg-[#090d16]/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -760,6 +932,7 @@ function BillingContent() {
                 <div>
                   <p className="text-[10px] font-bold text-slate-500 uppercase">Guest Name</p>
                   <p className="font-bold text-white">{selectedFolio.guest.firstName} {selectedFolio.guest.lastName}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{selectedFolio.folioNo}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-slate-500 uppercase">Room Number</p>
@@ -769,21 +942,44 @@ function BillingContent() {
                 </div>
               </div>
 
-              {/* Balance due details */}
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
+              {/* Itemized Bill Breakdown */}
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2 max-h-64 overflow-y-auto no-scrollbar">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Bill Breakdown</p>
+                {/* Room charges */}
+                {selectedFolio.transactions?.filter((t: any) => t.sourceModule === 'HMS' && t.debitAmount > 0).map((t: any) => (
+                  <div key={t.id} className="flex justify-between text-xs">
+                    <span className="text-slate-400 flex items-center gap-1"><Bed size={10} /> {t.description}</span>
+                    <span className="font-bold text-slate-200">₹{t.debitAmount.toFixed(2)}</span>
+                  </div>
+                ))}
+                {/* POS / Restaurant charges */}
+                {selectedFolio.transactions?.filter((t: any) => t.sourceModule === 'POS').map((t: any) => (
+                  <div key={t.id} className="flex justify-between text-xs">
+                    <span className="text-amber-400/80 flex items-center gap-1"><UtensilsCrossed size={10} /> {t.description}</span>
+                    <span className="font-bold text-amber-300">₹{t.debitAmount.toFixed(2)}</span>
+                  </div>
+                ))}
+                {/* Other charges */}
+                {selectedFolio.transactions?.filter((t: any) => t.sourceModule !== 'HMS' && t.sourceModule !== 'POS' && t.debitAmount > 0).map((t: any) => (
+                  <div key={t.id} className="flex justify-between text-xs">
+                    <span className="text-slate-400">{t.description}</span>
+                    <span className="font-bold text-slate-200">₹{t.debitAmount.toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="h-px bg-slate-800 my-1" />
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Total Folio Charges:</span>
-                  <span className="font-bold text-slate-200">₹{selectedFolio.totalCharges}</span>
+                  <span className="text-slate-400">Total Charges</span>
+                  <span className="font-bold text-slate-200">₹{selectedFolio.totalCharges.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Payments Made:</span>
-                  <span className="font-bold text-emerald-400">₹{selectedFolio.totalPayments}</span>
+                  <span className="text-emerald-400/80">Payments / Deposits</span>
+                  <span className="font-bold text-emerald-400">- ₹{selectedFolio.totalPayments.toFixed(2)}</span>
                 </div>
-                <div className="h-px bg-slate-800/80 my-1"></div>
+                <div className="h-px bg-slate-700 my-1" />
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-300">Remaining Balance Due:</span>
+                  <span className="text-xs font-black text-white">Balance Due</span>
                   <span className={`text-base font-black ${selectedFolio.closingBalance > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    ₹{selectedFolio.closingBalance}
+                    ₹{selectedFolio.closingBalance.toFixed(2)}
                   </span>
                 </div>
               </div>

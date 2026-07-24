@@ -57,7 +57,7 @@ export const AppDownloadSection = () => {
               transition={{ delay: 0.1 }}
               className="text-5xl lg:text-6xl font-extrabold text-gray-900 mb-6 tracking-tight leading-tight"
             >
-              Install <span className="text-pos-primary">OrderMint POS</span> <br /> 
+              Install <span className="text-pos-primary">GuestFlow POS</span> <br /> 
               on your <span className="relative">
                 Windows & Android
                 <svg className="absolute -bottom-2 left-0 w-full h-2 text-pos-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">
@@ -99,7 +99,7 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/ordermint-pos-mac.dmg"
+                    href="/downloads/guestflow-pos-mac.dmg"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Apple className="w-4 h-4" />
@@ -109,7 +109,7 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/ordermint-pos-mac.dmg"
+                    href="/downloads/guestflow-pos-mac.dmg"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Apple className="w-4 h-4" />
@@ -127,7 +127,7 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/ordermint-pos.apk"
+                    href="/downloads/guestflow-pos.apk"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Monitor className="w-4 h-4" />
@@ -145,7 +145,7 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/ordermint-pos-windows.exe"
+                    href="/downloads/guestflow-pos-windows.exe"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Download className="w-4 h-4" />
@@ -155,7 +155,7 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/ordermint-pos-windows.exe"
+                    href="/downloads/guestflow-pos-windows.exe"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Download className="w-4 h-4" />
@@ -201,13 +201,13 @@ export const AppDownloadSection = () => {
                       <div className="w-3 h-3 rounded-full bg-amber-400" />
                       <div className="w-3 h-3 rounded-full bg-green-400" />
                     </div>
-                    <div className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">OrderMint POS v2.0</div>
+                    <div className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">GuestFlow POS v2.0</div>
                     <div className="w-12" />
                   </div>
                   
                   <img 
                     src="/images/website/dashboard.png" 
-                    alt="OrderMint POS Dashboard" 
+                    alt="GuestFlow POS Dashboard" 
                     className="w-full aspect-video object-cover"
                   />
                 </div>
@@ -253,7 +253,7 @@ export const AppDownloadSection = () => {
                 Install our proper native app for Android tablets & phones. Optimized for touch billing.
               </p>
               <a 
-                href="/downloads/ordermint-pos.apk"
+                href="/downloads/guestflow-pos.apk"
                 className="w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-pos-primary transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />

@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       });
 
       const mailOptions = {
-        from: `"${settings.hotelName || 'OrderMint Website'}" <${settings.smtpEmail}>`, 
+        from: `"${settings.hotelName || 'GuestFlow Website'}" <${settings.smtpEmail}>`, 
         to: settings.contactReceiverEmail || settings.smtpEmail,    
         replyTo: email,                              
         subject: `New Website Enquiry: ${subject || 'General Inquiry'}`,
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
             </div>
             
             <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center;">
-              This email was sent automatically from the OrderMint Website Contact Form.
+              This email was sent automatically from the GuestFlow Website Contact Form.
             </p>
           </div>
         `,

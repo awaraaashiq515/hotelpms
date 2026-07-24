@@ -37,15 +37,22 @@ export async function POST(request: NextRequest) {
     }
 
     const property = await prisma.$transaction(async (tx: any) => {
+      const isHotel = parsedData.type === 'HOTEL';
+
       const p = await tx.property.create({
-        data: parsedData,
+        data: {
+          ...parsedData,
+          // Auto-enable HMS for HOTEL type; disable restaurant POS
+          hmsEnabled: isHotel ? true : false,
+          restaurantPosEnabled: !isHotel,
+        },
       })
 
       // Create a default POS outlet for the new property
       await (tx as any).outlet.create({
         data: {
           name: 'Main Outlet',
-          type: 'POS',
+          type: isHotel ? 'HOTEL' : 'POS',
           propertyId: p.id,
         },
       })

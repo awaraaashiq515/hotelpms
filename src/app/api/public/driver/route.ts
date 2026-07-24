@@ -310,10 +310,10 @@ export async function POST(request: NextRequest) {
       }
 
       const { sendMail } = require('@/lib/mail');
-      const subject = `OrderMint Rider Registration - Verification Code`;
+      const subject = `GuestFlow Rider Registration - Verification Code`;
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #0f172a; color: #f8fafc;">
-          <h2 style="color: #f43f5e; text-align: center; margin-bottom: 5px;">OrderMint Rider Portal</h2>
+          <h2 style="color: #f43f5e; text-align: center; margin-bottom: 5px;">GuestFlow Rider Portal</h2>
           <p style="text-align: center; font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 0;">Dual Active Dispatch</p>
           <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;" />
           <p>Hello <strong>${fullName || 'Delivery Rider'}</strong>,</p>
@@ -323,7 +323,7 @@ export async function POST(request: NextRequest) {
           </div>
           <p style="font-size: 11px; color: #94a3b8;">If you did not initiate this request, please disregard this email.</p>
           <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;" />
-          <p style="font-size: 10px; color: #64748b; text-align: center;">This is an automated security email from OrderMint. Please do not reply directly.</p>
+          <p style="font-size: 10px; color: #64748b; text-align: center;">This is an automated security email from GuestFlow. Please do not reply directly.</p>
         </div>
       `;
 

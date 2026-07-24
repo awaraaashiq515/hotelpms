@@ -14,6 +14,48 @@ export async function POST(request: Request) {
     // Generate a unique order number
     const orderNo = `B2B-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+    // Prepare valid B2BProduct IDs for each item
+    const preparedItems = [];
+    for (const item of items) {
+      let validProductId = item.productId;
+      let existingProduct = null;
+
+      if (validProductId && !validProductId.startsWith('p_') && !validProductId.startsWith('restock-')) {
+        existingProduct = await prisma.b2BProduct.findUnique({ where: { id: validProductId } });
+      }
+
+      if (!existingProduct) {
+        // Find existing product by name & supplierId or create a new one
+        const productName = item.name || 'Order Item';
+        const found = await prisma.b2BProduct.findFirst({
+          where: { supplierId, name: productName },
+        });
+
+        if (found) {
+          validProductId = found.id;
+        } else {
+          const createdProduct = await prisma.b2BProduct.create({
+            data: {
+              supplierId,
+              name: productName,
+              price: item.unitPrice || 0,
+              unit: item.unit || 'pcs',
+              stockQuantity: 500,
+              category: item.category || 'General',
+            },
+          });
+          validProductId = createdProduct.id;
+        }
+      }
+
+      preparedItems.push({
+        productId: validProductId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.quantity * item.unitPrice,
+      });
+    }
+
     const order = await prisma.b2BOrder.create({
       data: {
         propertyId,
@@ -22,24 +64,21 @@ export async function POST(request: Request) {
         totalAmount,
         status: 'PENDING',
         items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.quantity * item.unitPrice
-          }))
+          create: preparedItems,
         },
         statusLogs: {
           create: {
             status: 'PENDING',
-            note: 'Order placed by restaurant'
-          }
-        }
+            note: 'Order placed via Vendor Management Portal',
+          },
+        },
       },
       include: {
-        items: true,
-        statusLogs: true
-      }
+        items: { include: { product: true } },
+        statusLogs: true,
+        supplier: true,
+        property: true,
+      },
     });
 
     return NextResponse.json(order);

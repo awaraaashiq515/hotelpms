@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         excerpt: body.excerpt,
         content: body.content,
         imageUrl: body.imageUrl,
-        author: body.author || 'OrderMint Solutions',
+        author: body.author || 'GuestFlow Solutions',
         category: body.category || 'Local Attractions',
         metaTitle: body.metaTitle,
         metaDescription: body.metaDescription,

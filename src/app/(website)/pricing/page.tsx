@@ -603,7 +603,7 @@ export default function PricingPage() {
               },
               {
                 q: "What is the early local launch program?",
-                a: "To help local dining outlets and merchants digitalize, OrderMint is waiving standard yearly subscription charges. Any package created or registered under our current rollout phase gets a 100% discount, making operational access completely free."
+                a: "To help local dining outlets and merchants digitalize, GuestFlow is waiving standard yearly subscription charges. Any package created or registered under our current rollout phase gets a 100% discount, making operational access completely free."
               },
               {
                 q: "Can I manage and customize modules dynamically?",

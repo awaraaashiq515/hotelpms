@@ -41,9 +41,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // 🚀 CRITICAL: NEVER intercept API calls, B2B routes, Socket.IO, port 5002, or cross-origin requests
+  // 🚀 CRITICAL: NEVER intercept API calls, B2B routes, localhost/dev server, Socket.IO, port 5002, or cross-origin requests
   // This prevents network errors and "Failed to convert value to Response" errors
   if (
+    self.location.hostname === 'localhost' ||
     url.pathname.startsWith('/api/') ||
     url.pathname.includes('b2b') ||
     url.pathname.includes('socket.io') ||
@@ -73,7 +74,10 @@ self.addEventListener('fetch', (event) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request);
+      return fetch(event.request).catch((err) => {
+        console.warn('[Service Worker] Fetch failed for:', event.request.url, err);
+        return new Response('Network error occurred', { status: 408 });
+      });
     })
   );
 });

@@ -2,24 +2,39 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    let session = await getSession();
+    let staff: any = null;
+    if (!session) {
+      staff = await getWTUserFromRequest(request as any);
+    }
+    if (!session && !staff) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const lowStockOnly = searchParams.get('lowStock') === 'true';
     const itemType = searchParams.get('itemType');
+    // WT staff must pass propertyId explicitly
+    const propertyIdParam = searchParams.get('propertyId');
 
-    const where = getMultiTenantWhere(session);
-    if (search) {
-      (where as any).name = { contains: search };
+    let where: any;
+    if (session) {
+      where = getMultiTenantWhere(session);
+    } else {
+      // WT token path — filter by propertyId passed in query
+      const propertyId = propertyIdParam || staff?.propertyId;
+      if (!propertyId) return apiError(new Error('propertyId is required'), 400);
+      where = { propertyId };
     }
-    (where as any).isActive = true;
+    if (search) {
+      where.name = { contains: search };
+    }
+    where.isActive = true;
     if (itemType) {
-      (where as any).itemType = itemType;
+      where.itemType = itemType;
     }
 
     const warehouseId = searchParams.get('warehouseId');

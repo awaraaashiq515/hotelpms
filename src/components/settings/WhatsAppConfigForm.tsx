@@ -15,14 +15,14 @@ export const WhatsAppConfigForm = () => {
 
   // Form states
   const [whatsAppEnabled, setWhatsAppEnabled] = useState(false);
-  const [whatsAppProvider, setWhatsAppProvider] = useState<'META' | 'TWILIO' | 'ULTRAMSG'>('META');
+  const [whatsAppProvider, setWhatsAppProvider] = useState<'META' | 'TWILIO' | 'ULTRAMSG' | 'AUTHKEY'>('AUTHKEY');
   const [whatsAppTemplate, setWhatsAppTemplate] = useState('');
   const [whatsAppWelcomeMessage, setWhatsAppWelcomeMessage] = useState('');
 
   // Meta States (Visible to Super Admin only)
   const [metaAccessToken, setMetaAccessToken] = useState('');
   const [metaPhoneId, setMetaPhoneId] = useState('');
-  const [metaVerifyToken, setMetaVerifyToken] = useState('ordermint-default-token');
+  const [metaVerifyToken, setMetaVerifyToken] = useState('guestflow-default-token');
 
   // Twilio States (Visible to Super Admin only)
   const [twilioAccountSid, setTwilioAccountSid] = useState('');
@@ -62,11 +62,11 @@ export const WhatsAppConfigForm = () => {
           setWhatsAppProvider(prop.whatsAppProvider || 'META');
           setWhatsAppTemplate(prop.whatsAppTemplate || '');
           // Using state field or a default fallback welcome message
-          setWhatsAppWelcomeMessage(prop.whatsAppWelcomeMessage || '*Welcome to OrderMint!* 🍽️\nYou can place your order directly through WhatsApp.');
+          setWhatsAppWelcomeMessage(prop.whatsAppWelcomeMessage || '*Welcome to GuestFlow!* 🍽️\nYou can place your order directly through WhatsApp.');
           
           setMetaAccessToken(prop.metaAccessToken || '');
           setMetaPhoneId(prop.metaPhoneId || '');
-          setMetaVerifyToken(prop.metaVerifyToken || 'ordermint-default-token');
+          setMetaVerifyToken(prop.metaVerifyToken || 'guestflow-default-token');
           
           setTwilioAccountSid(prop.twilioAccountSid || '');
           setTwilioAuthToken(prop.twilioAuthToken || '');
@@ -243,13 +243,15 @@ export const WhatsAppConfigForm = () => {
               >
                 {isSuperAdmin ? (
                   <>
+                    <option value="AUTHKEY">AuthKey WhatsApp Gateway (Template Engine)</option>
                     <option value="META">Meta Cloud API (Global Platform Gateway)</option>
                     <option value="TWILIO">Twilio API (Global Platform Gateway)</option>
                     <option value="ULTRAMSG">UltraMsg Instance (Direct Sandbox Link)</option>
                   </>
                 ) : (
                   <>
-                    <option value="META">OrderMint Shared WhatsApp Number (Zero Setup)</option>
+                    <option value="AUTHKEY">AuthKey WhatsApp API (Template Messaging)</option>
+                    <option value="META">GuestFlow Shared WhatsApp Number (Zero Setup)</option>
                     <option value="ULTRAMSG">Connect My Own WhatsApp Number (via UltraMsg)</option>
                   </>
                 )}

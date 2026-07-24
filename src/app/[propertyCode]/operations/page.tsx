@@ -54,7 +54,8 @@ import {
   Search,
   X,
   MapPin,
-  Download
+  Download,
+  BedDouble
 } from 'lucide-react';
 
 import { useRouter, useParams } from 'next/navigation';
@@ -348,21 +349,14 @@ export default function OperationsPage() {
     { label: 'Live Dashboard',    icon: Activity,          path: `${p}/restaurantadmin`,   feature: 'POS', roles: ['RESTAURANTS_ADMIN'] },
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: `${p}/orders`,            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: `${p}/kots`,              feature: 'POS' },
+    { label: 'Room Orders',       perm: 'POS Terminal',    icon: BedDouble,      path: `${p}/operations/room-service`, feature: 'POS' },
     { label: 'Live Notifications', icon: Bell,             path: `${p}/operations/notifications`, feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: `${p}/table-reservations`, feature: 'TABLES', roles: ['POSSYSTEM'] },
     { label: 'Live Occupancy',    perm: 'Table Layout',    icon: Eye,            path: `${p}/operations/occupancy`, feature: 'HMS' },
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: `${p}/operations/waste-management`, feature: 'POS' },
   ];
 
-  const deliveryActions: DashboardAction[] = [
-    { label: 'Drivers',             perm: 'Drivers',      icon: CarFront,   path: `${p}/drivers`,                                     feature: 'DRIVERS' },
-    { label: 'Rider Portal',        perm: 'Drivers',      icon: Bike,       path: `/driver-portal`,                                   feature: 'DRIVERS' },
-    { label: 'Manage Riders',       perm: 'Table Layout', icon: Users,      path: `${p}/operations/delivery/riders`,                  feature: 'TABLES' },
-    { label: 'Delivery Operations', perm: 'Table Layout', icon: Truck,      path: `${p}/operations/delivery`,                         feature: 'TABLES' },
-    { label: 'Delivery Zones',      perm: 'Table Layout', icon: MapPin,     path: `${p}/operations/delivery/zones`,                   feature: 'TABLES' },
-    { label: 'Delivery Analytics',  perm: 'Table Layout', icon: Activity,   path: `${p}/operations/delivery/analytics`,               feature: 'TABLES' },
-    { label: 'Home Delivery QR',    perm: 'Table Layout', icon: Home,       path: `${p}/operations/delivery-flyer`,   feature: 'TABLES' },
-  ];
+  const deliveryActions: DashboardAction[] = [];
 
 
   const staffActions: DashboardAction[] = [

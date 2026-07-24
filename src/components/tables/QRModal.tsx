@@ -56,7 +56,7 @@ export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, type = 'TABLE
             <p>Scan to view Menu & Order</p>
             ${printContent.innerHTML}
             <h1>${table.name}</h1>
-            <div class="footer">Powered by OrderMint POS</div>
+            <div class="footer">Powered by GuestFlow POS</div>
           </div>
           <script>
             window.onload = () => {

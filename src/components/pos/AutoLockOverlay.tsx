@@ -10,6 +10,7 @@ interface AutoLockOverlayProps {
   bgUrl?: string;
   forceLock?: boolean;
   onUnlock?: () => void;
+  pinLength?: number; // actual PIN length from DB
 }
 
 export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({ 
@@ -17,7 +18,8 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
   message = 'Station Locked', 
   bgUrl,
   forceLock = false,
-  onUnlock
+  onUnlock,
+  pinLength = 4
 }) => {
   const [isLocked, setIsLocked] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -89,13 +91,13 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
 
   const handleKeyPress = useCallback((num: string) => {
     setPin(prev => {
-      if (prev.length < 6) {
+      if (prev.length < pinLength) {
         setError(false);
         return prev + num;
       }
       return prev;
     });
-  }, []);
+  }, [pinLength]);
 
   const handleDelete = useCallback(() => {
     setPin(prev => prev.slice(0, -1));
@@ -188,7 +190,7 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
           </motion.div>
 
           <div className="flex justify-center gap-4 mb-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+            {Array.from({ length: pinLength }, (_, idx) => idx + 1).map((i) => (
               <div 
                 key={i}
                 className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${
@@ -235,9 +237,9 @@ export const AutoLockOverlay: React.FC<AutoLockOverlayProps> = ({
           <div className="pt-8">
             <button
               onClick={handleVerify}
-              disabled={pin.length < 4 || verifying}
+              disabled={pin.length < pinLength || verifying}
               className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.3em] transition-all duration-300 shadow-2xl flex items-center justify-center gap-3 ${
-                pin.length >= 4 
+                pin.length >= pinLength 
                   ? 'bg-pos-primary text-white scale-105 shadow-pos-primary/40' 
                   : 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
               }`}

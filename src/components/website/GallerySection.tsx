@@ -35,7 +35,7 @@ export const GallerySection = () => {
               Captured <span className="text-pos-primary">Moments</span>
             </h2>
             <p className="text-gray-500 max-w-xl font-medium text-sm leading-relaxed">
-              Explore the cutting-edge features and professional interface of OrderMint through our curated lens.
+              Explore the cutting-edge features and professional interface of GuestFlow through our curated lens.
             </p>
           </div>
           <Link 

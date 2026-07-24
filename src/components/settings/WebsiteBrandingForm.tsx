@@ -85,12 +85,12 @@ export const WebsiteBrandingForm = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-6 md:col-span-2">
             <div>
-              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-3">Platform Name (e.g. OrderMint Solutions)</label>
+              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest mb-3">Platform Name (e.g. GuestFlow Solutions)</label>
               <input 
                 type="text" 
                 value={settings.hotelName}
                 onChange={(e) => setSettings({ ...settings, hotelName: e.target.value })}
-                placeholder="OrderMint Solutions"
+                placeholder="GuestFlow Solutions"
                 className="w-full px-6 py-5 rounded-2xl border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-4 focus:ring-pos-primary/10 focus:border-pos-primary bg-gray-50/50 dark:bg-slate-800/50 font-black text-sm dark:text-white uppercase tracking-tight transition-all shadow-sm"
               />
             </div>

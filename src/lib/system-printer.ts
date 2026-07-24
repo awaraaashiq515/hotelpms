@@ -68,7 +68,7 @@ public class RawPrinter {
         IntPtr hPrinter = IntPtr.Zero;
         DOCINFOA di = new DOCINFOA();
         bool bSuccess = false;
-        di.pDocName = "OrderMint POS Receipt";
+        di.pDocName = "GuestFlow POS Receipt";
         di.pDataType = "RAW";
 
         if (OpenPrinter(szPrinterName, out hPrinter, IntPtr.Zero)) {

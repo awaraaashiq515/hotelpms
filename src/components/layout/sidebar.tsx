@@ -93,12 +93,16 @@ export const Sidebar: React.FC = () => {
   const menu = session ? getSidebarMenu(session.role, session.organizationSlug, propertyCode) : [];
   
   const filteredMenu = menu.filter(item => {
-    // Exclude Memberships, POS Access/Global Access, and Role Management from the POS sidebar
+    // Exclude Staff Management, POS Access, Global Access, and Role Management from the POS sidebar unless user is RESTAURANTS_ADMIN or SUPER_ADMIN
     if (
-      item.name === 'Memberships' ||
-      item.name === 'POS Access' ||
-      item.name === 'Global Access' ||
-      item.name === 'Role Management'
+      (
+        item.name === 'POS Access' ||
+        item.name === 'Global Access' ||
+        item.name === 'Staff Management' ||
+        item.name === 'Role Management'
+      ) &&
+      session?.role !== 'RESTAURANTS_ADMIN' &&
+      session?.role !== 'SUPER_ADMIN'
     ) {
       return false;
     }

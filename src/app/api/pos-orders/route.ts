@@ -20,7 +20,7 @@ const orderItemSchema = z.object({
 const posOrderSchema = z.object({
   propertyId: z.string().optional(),
   outletId: z.string().optional(),
-  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'PARKING']).optional().default('DINE_IN'),
+  orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'PARKING', 'ROOM_SERVICE']).optional().default('DINE_IN'),
   tableNo: z.string().optional(),
   restaurantTableId: z.string().optional(),
   parkingSlotId: z.string().optional(),
@@ -167,6 +167,15 @@ export async function POST(request: NextRequest) {
           },
           include: { items: true }
         });
+      } else if (orderData.roomId && orderData.orderType === 'ROOM_SERVICE') {
+        order = await (tx as any).posOrder.findFirst({
+          where: { 
+            roomId: orderData.roomId,
+            status: { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] },
+            orderType: 'ROOM_SERVICE'
+          },
+          include: { items: true }
+        });
       }
 
       if (!order) {
@@ -274,8 +283,52 @@ export async function POST(request: NextRequest) {
           deliveryLat: orderData.deliveryLat,
           deliveryLng: orderData.deliveryLng,
           staffMemberId: orderData.staffMemberId || undefined,
+          roomId: orderData.roomId || undefined,
+          folioId: orderData.folioId || undefined,
         }
       })
+
+      // Sync folio transaction if this order is already linked to a hotel folio
+      const currentFolioId = (order as any).folioId || orderData.folioId;
+      if (currentFolioId && grandTotal > 0) {
+        // Update existing folio transaction for this order reference
+        const existingFolioTxn = await (tx as any).folioTransaction.findFirst({
+          where: { folioId: currentFolioId, sourceRefId: order.id, sourceModule: 'POS' }
+        });
+        if (existingFolioTxn) {
+          await (tx as any).folioTransaction.update({
+            where: { id: existingFolioTxn.id },
+            data: { debitAmount: grandTotal, taxAmount, netAmount: grandTotal }
+          });
+        } else {
+          const outletInfo = await tx.outlet.findUnique({
+            where: { id: order.outletId },
+            select: { name: true }
+          });
+          const description = `${outletInfo?.name || 'Restaurant'} – Room Service Order #${order.orderNo}`;
+          await (tx as any).folioTransaction.create({
+            data: {
+              folioId: currentFolioId,
+              txnType: 'DEBIT',
+              sourceModule: 'POS',
+              sourceRefId: order.id,
+              description,
+              debitAmount: grandTotal,
+              creditAmount: 0,
+              taxAmount: taxAmount || 0,
+              netAmount: grandTotal,
+            }
+          });
+        }
+        // Recalculate folio balances
+        const allFolioTxns = await (tx as any).folioTransaction.findMany({ where: { folioId: currentFolioId } });
+        const totalCharges = allFolioTxns.reduce((s: number, t: any) => s + t.debitAmount, 0);
+        const totalPayments = allFolioTxns.reduce((s: number, t: any) => s + t.creditAmount, 0);
+        await (tx as any).folio.update({
+          where: { id: currentFolioId },
+          data: { totalCharges, totalPayments, closingBalance: totalCharges - totalPayments }
+        });
+      }
 
       // 4. Update Table/Parking Status
       if (orderData.restaurantTableId) {
@@ -443,12 +496,77 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. Create Notification
+    // 7. AUTO-CHARGE TO ROOM FOLIO if this is a ROOM_SERVICE or room-linked order
+    if (newOrder.roomId && !newOrder.folioId) {
+      try {
+        // Find active check-in for the room → get open folio
+        const activeCheckIn = await prisma.checkIn.findFirst({
+          where: { roomId: newOrder.roomId, status: 'ACTIVE' },
+          orderBy: { checkedInAt: 'desc' },
+          include: {
+            reservation: {
+              include: {
+                folios: { where: { status: 'OPEN' } }
+              }
+            }
+          }
+        });
+
+        const activeFolio = activeCheckIn?.reservation?.folios?.[0];
+        if (activeFolio) {
+          const outletInfo = await prisma.outlet.findUnique({
+            where: { id: newOrder.outletId },
+            select: { name: true }
+          });
+          const orderAmount = newOrder.grandTotal;
+          const description = `${outletInfo?.name || 'Restaurant'} – Room Service Order #${newOrder.orderNo}`;
+
+          // Link order to folio
+          await prisma.posOrder.update({
+            where: { id: newOrder.id },
+            data: { folioId: activeFolio.id }
+          });
+
+          // Post DEBIT transaction to folio
+          await prisma.folioTransaction.create({
+            data: {
+              folioId: activeFolio.id,
+              txnType: 'DEBIT',
+              sourceModule: 'POS',
+              sourceRefId: newOrder.id,
+              description,
+              debitAmount: orderAmount,
+              creditAmount: 0,
+              taxAmount: newOrder.taxAmount || 0,
+              netAmount: orderAmount,
+            }
+          });
+
+          // Recalculate folio balances
+          const allTxns = await prisma.folioTransaction.findMany({
+            where: { folioId: activeFolio.id }
+          });
+          const totalCharges = allTxns.reduce((s: number, t: any) => s + t.debitAmount, 0);
+          const totalPayments = allTxns.reduce((s: number, t: any) => s + t.creditAmount, 0);
+          await prisma.folio.update({
+            where: { id: activeFolio.id },
+            data: { totalCharges, totalPayments, closingBalance: totalCharges - totalPayments }
+          });
+
+          console.log(`[HMS] Auto-charged ₹${orderAmount} from order ${newOrder.orderNo} to folio ${activeFolio.folioNo} (Room ${newOrder.roomId})`);
+        }
+      } catch (folioErr) {
+        // Non-fatal — order still created, just folio charge failed
+        console.error('[HMS] Auto-folio charge failed:', folioErr);
+      }
+    }
+
+    // 8. Create Notification
     try {
       await createNotification({
         propertyId: orderData.propertyId,
-        title: 'New Order Received',
-        message: `Order ${newOrder.orderNo} created for ${newOrder.table?.name || newOrder.parkingSlot?.name || 'Table ' + newOrder.tableNo}`,
+        title: newOrder.roomId ? `Room Service Order – Room ${newOrder.tableNo || ''}` : 'New Order Received',
+        message: `Order ${newOrder.orderNo} created for ${newOrder.table?.name || newOrder.parkingSlot?.name || 'Room ' + (newOrder.tableNo || newOrder.roomId) || 'Table ' + newOrder.tableNo}`,
         type: 'ORDER',
         priority: 'HIGH',
         metadata: {

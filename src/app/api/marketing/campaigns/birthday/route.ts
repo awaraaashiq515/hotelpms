@@ -152,13 +152,13 @@ export async function POST(request: NextRequest) {
                 ${personalMessage}
               </div>
               <div style="text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; text-transform: uppercase; letter-spacing: 0.1em;">
-                Sent via OrderMint CRM Hub. Have a wonderful birthday celebration!
+                Sent via GuestFlow CRM Hub. Have a wonderful birthday celebration!
               </div>
             </div>
           `;
           const mailRes = await sendMail({
             to: guest.email,
-            subject: 'Happy Birthday from OrderMint! 🎂🎉',
+            subject: 'Happy Birthday from GuestFlow! 🎂🎉',
             html: htmlContent,
           });
           if (mailRes) {

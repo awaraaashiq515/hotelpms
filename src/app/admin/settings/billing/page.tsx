@@ -164,7 +164,7 @@ export default function SuperAdminBillingSettings() {
                   type="text"
                   value={form.upiId}
                   onChange={(e) => setForm({ ...form, upiId: e.target.value })}
-                  placeholder="e.g. pay@ordermint"
+                  placeholder="e.g. pay@guestflow"
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all dark:text-white font-medium"
                 />
                 <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
@@ -181,7 +181,7 @@ export default function SuperAdminBillingSettings() {
                   type="text"
                   value={form.upiName}
                   onChange={(e) => setForm({ ...form, upiName: e.target.value })}
-                  placeholder="e.g. OrderMint Ltd"
+                  placeholder="e.g. GuestFlow Ltd"
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all dark:text-white font-medium"
                 />
                 <p className="text-[10px] text-slate-400 mt-1.5 ml-1">

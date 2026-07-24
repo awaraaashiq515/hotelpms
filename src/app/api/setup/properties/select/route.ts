@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, encrypt } from '@/lib/session';
+import { getSession, encrypt, slugify } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { apiError, apiResponse } from '@/lib/api-utils';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,10 +12,25 @@ export async function POST(request: NextRequest) {
     const { propertyId } = await request.json();
     if (!propertyId) return apiError(new Error('Property ID is required'), 400);
 
-    // Update session payload with new propertyId
+    // Fetch property details to update session cookie payload
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { code: true, name: true, type: true }
+    });
+
+    if (!property) {
+      return apiError(new Error('Property not found'), 404);
+    }
+
+    const propSlug = property.name ? slugify(property.name) : null;
+
+    // Update session payload with new propertyId, propertyCode, propertySlug, and propertyType
     const newSession = {
       ...session,
-      propertyId: propertyId
+      propertyId: propertyId,
+      propertyCode: property.code,
+      propertySlug: propSlug,
+      propertyType: property.type
     };
 
     const token = await encrypt(newSession);
@@ -29,7 +45,7 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 8, // 8 hours
     });
 
-    return apiResponse({ propertyId }, 'Property selected successfully');
+    return apiResponse({ propertyId, propertyCode: property.code, propertySlug: propSlug }, 'Property selected successfully');
   } catch (error) {
     return apiError(error);
   }

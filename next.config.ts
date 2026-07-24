@@ -5,3 +5,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+// Force Next.js server reload to refresh cached global state and Prisma models

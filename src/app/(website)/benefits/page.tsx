@@ -48,14 +48,14 @@ export default function BenefitsPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.05),transparent)]" />
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
           <span className="text-pos-primary font-bold tracking-[0.4em] uppercase text-xs mb-6 block">
-            Why OrderMint?
+            Why GuestFlow?
           </span>
           <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 tracking-tight mb-8">
             The Advantage Your <br />
             <span className="text-pos-primary">Business Deserves</span>
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            We don't just provide a POS; we provide a partner for your growth. Explore the measurable benefits of switching to OrderMint.
+            We don't just provide a POS; we provide a partner for your growth. Explore the measurable benefits of switching to GuestFlow.
           </p>
         </div>
       </section>
@@ -75,7 +75,7 @@ export default function BenefitsPage() {
                 <span className="text-pos-primary font-black">People Who Power</span> Your Business.
               </h2>
               <p className="text-slate-200 text-lg font-medium leading-relaxed">
-                OrderMint isn't just software. It's a tool that empowers your staff and delights your guests, every single day.
+                GuestFlow isn't just software. It's a tool that empowers your staff and delights your guests, every single day.
               </p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function BenefitsPage() {
       <section className="py-24 text-center">
         <div className="max-w-3xl mx-auto px-6 space-y-8">
           <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Experience it for yourself.</h2>
-          <p className="text-slate-500 font-medium">Join thousands of successful businesses that have transformed their operations with OrderMint.</p>
+          <p className="text-slate-500 font-medium">Join thousands of successful businesses that have transformed their operations with GuestFlow.</p>
           <div className="flex justify-center gap-4 pt-4">
             <Link 
               href="/contact" 

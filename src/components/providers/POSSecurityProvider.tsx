@@ -28,7 +28,8 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
   const [settings, setSettings] = useState({
     timeout: -1, // -1 means loading
     message: 'Station Locked',
-    bgUrl: ''
+    bgUrl: '',
+    pinLength: 4
   });
   const [triggerLock, setTriggerLock] = useState(false);
 
@@ -48,7 +49,8 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
           setSettings({
             timeout: data.data.posAutoLockTimeout || 0,
             message: data.data.posLockScreenMessage || 'Station Locked',
-            bgUrl: data.data.posLockScreenBgUrl || ''
+            bgUrl: data.data.posLockScreenBgUrl || '',
+            pinLength: data.data.posTerminalPin ? data.data.posTerminalPin.length : 4
           });
         } else {
           // If fetch fails but we need to stop loading
@@ -112,6 +114,7 @@ export const POSSecurityProvider = ({ children }: { children: React.ReactNode })
         bgUrl={settings.bgUrl}
         forceLock={triggerLock}
         onUnlock={() => setTriggerLock(false)}
+        pinLength={settings.pinLength}
       />
     </POSSecurityContext.Provider>
   );

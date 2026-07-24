@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -15,7 +16,13 @@ async function main() {
   ];
 
   for (const img of images) {
-    await prisma.websiteGalleryImage.create({ data: img });
+    await prisma.websiteGalleryImage.create({
+      data: {
+        id: randomUUID(),
+        ...img,
+        updatedAt: new Date(),
+      }
+    });
   }
 
   console.log('Gallery seeding completed!');

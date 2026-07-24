@@ -1,11 +1,14 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
   // 1. Default Settings
   await prisma.websiteSettings.upsert({
     where: { id: 'default-settings' },
-    update: {},
+    update: {
+      updatedAt: new Date(),
+    },
     create: {
       id: 'default-settings',
       hotelName: 'Avasa Hotels',
@@ -14,6 +17,7 @@ async function main() {
       storyTitle: 'Our Story – The Story of Avasa Hotels',
       storyContent: 'Avasa Hotels represents the pinnacle of luxury and comfort in the heart of Manali. Our journey began with a vision to provide travelers with an unforgettable experience that combines modern amenities with traditional Himachali hospitality.',
       mapIframe: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3393.18731362626!2d77.1866!3d32.2396!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzLCDE0nMjIuNiJOIDc3wrAxMScxMS44IkU!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin',
+      updatedAt: new Date(),
     },
   });
 
@@ -38,7 +42,13 @@ async function main() {
   ];
 
   for (const s of sliders) {
-    await prisma.websiteSlider.create({ data: s });
+    await prisma.websiteSlider.create({
+      data: {
+        id: randomUUID(),
+        ...s,
+        updatedAt: new Date(),
+      }
+    });
   }
 
   // 3. Experiences
@@ -64,7 +74,13 @@ async function main() {
   ];
 
   for (const e of experiences) {
-    await prisma.websiteExperience.create({ data: e });
+    await prisma.websiteExperience.create({
+      data: {
+        id: randomUUID(),
+        ...e,
+        updatedAt: new Date(),
+      }
+    });
   }
 
   // 4. Room Demos
@@ -87,14 +103,16 @@ async function main() {
     const { image, ...roomData } = r;
     await prisma.websiteRoom.create({ 
       data: {
+        id: randomUUID(),
         ...roomData,
         slug: r.name.toLowerCase().replace(/\s+/g, '-'),
         description: r.name,
         capacity: 2,
         type: 'Deluxe',
+        updatedAt: new Date(),
         images: {
           create: [
-            { url: image, order: 0 }
+            { id: randomUUID(), url: image, order: 0 }
           ]
         }
       }

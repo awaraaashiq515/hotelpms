@@ -10,7 +10,7 @@ interface MaintenanceViewProps {
   logoUrl?: string;
 }
 
-export function MaintenanceView({ hotelName = "OrderMint", logoUrl }: MaintenanceViewProps) {
+export function MaintenanceView({ hotelName = "GuestFlow", logoUrl }: MaintenanceViewProps) {
   const brandPink = '#e8a0a0';
   const brandBg = '#120a08';
   const pinkLight = '#f5c8c8';
@@ -137,7 +137,7 @@ export function MaintenanceView({ hotelName = "OrderMint", logoUrl }: Maintenanc
         >
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Need Urgent Help?</span>
           <p className="text-xs font-semibold text-slate-350">
-            For urgent POS support, reach us at <span style={{ color: pinkLight }}>support@ordermint.com</span>
+            For urgent POS support, reach us at <span style={{ color: pinkLight }}>support@guestflow.com</span>
           </p>
         </motion.div>
       </div>

@@ -88,7 +88,11 @@ export async function POST(request: NextRequest) {
       restaurantPosEnabled, showRestaurantInQrMenu,
       barPosEnabled, showBarInQrMenu,
       cafePosEnabled, showCafeInQrMenu,
-      deliveryEnabled, showDeliveryInQrMenu 
+      deliveryEnabled, showDeliveryInQrMenu,
+      // HMS Hotel fields
+      hmsEnabled, totalRooms, starRating, hotelCategory, checkInTime, checkOutTime,
+      phone,
+      bookingEmail, bookingEmailParserApiKey, gmailAppPassword,
     } = body;
 
     // Security: Only Super Admin can specify a different organizationId
@@ -138,7 +142,7 @@ export async function POST(request: NextRequest) {
 
       // 3. Enforce specific module feature gating
       const packageFeatures = organization.package.features.map((f: any) => f.feature);
-      if ((restaurantPosEnabled ?? true) && !packageFeatures.includes('POS')) {
+      if ((restaurantPosEnabled ?? true) && !packageFeatures.includes('POS') && type !== 'HOTEL') {
         return apiError(new Error('Restaurant POS is not included in this package plan.'), 400);
       }
       if ((barPosEnabled ?? false) && !packageFeatures.includes('BARPOS')) {
@@ -147,10 +151,20 @@ export async function POST(request: NextRequest) {
       if ((cafePosEnabled ?? false) && !packageFeatures.includes('CAFEPOS')) {
         return apiError(new Error('Cafe POS is not included in this package plan.'), 400);
       }
-      // Home Delivery is allowed for all package plans
-      // if ((deliveryEnabled ?? false) && !packageFeatures.includes('DRIVERS')) {
-      //   return apiError(new Error('Home Delivery is not included in this package plan.'), 400);
-      // }
+      // 4. Enforce HMS feature gate for HOTEL type
+      if (type === 'HOTEL' && (hmsEnabled ?? false) && !packageFeatures.includes('HMS')) {
+        return apiError(new Error('Hotel Management (HMS) is not included in this package plan. Please upgrade to a plan with HMS.'), 400);
+      }
+      // 5. Enforce hotel property count limit
+      if (type === 'HOTEL') {
+        const hotelCount = await prisma.property.count({
+          where: { organizationId: finalOrgId, type: 'HOTEL' }
+        });
+        const hotelLimit = (organization.package as any).allowedHotelCount ?? 0;
+        if (hotelCount >= hotelLimit) {
+          return apiError(new Error(`This package allows ${hotelLimit} hotel propert${hotelLimit === 1 ? 'y' : 'ies'}. Limit reached. Please upgrade your plan.`), 400);
+        }
+      }
     }
 
     // Check code uniqueness
@@ -166,16 +180,17 @@ export async function POST(request: NextRequest) {
         data: {
           name,
           code,
-          type,
+          type: type || 'RESTAURANT',
           city,
           state,
           country,
+          phone,
           organizationId: finalOrgId,
           whatsAppEnabled: whatsAppEnabled ?? false,
           whatsAppApiKey,
           whatsAppInstanceId,
           whatsAppTemplate,
-          restaurantPosEnabled: restaurantPosEnabled ?? true,
+          restaurantPosEnabled: type === 'HOTEL' ? false : (restaurantPosEnabled ?? true),
           showRestaurantInQrMenu: showRestaurantInQrMenu ?? true,
           barPosEnabled: barPosEnabled ?? false,
           showBarInQrMenu: showBarInQrMenu ?? true,
@@ -183,6 +198,16 @@ export async function POST(request: NextRequest) {
           showCafeInQrMenu: showCafeInQrMenu ?? true,
           deliveryEnabled: deliveryEnabled ?? false,
           showDeliveryInQrMenu: showDeliveryInQrMenu ?? true,
+          // HMS Hotel fields
+          hmsEnabled: type === 'HOTEL' ? (hmsEnabled ?? false) : false,
+          totalRooms: type === 'HOTEL' && totalRooms ? Number(totalRooms) : null,
+          starRating: type === 'HOTEL' && starRating ? Number(starRating) : null,
+          hotelCategory: type === 'HOTEL' ? (hotelCategory || 'MIDSCALE') : null,
+          checkInTime: type === 'HOTEL' ? (checkInTime || '14:00') : null,
+          checkOutTime: type === 'HOTEL' ? (checkOutTime || '11:00') : null,
+          bookingEmail: bookingEmail || null,
+          bookingEmailParserApiKey: bookingEmailParserApiKey || null,
+          gmailAppPassword: gmailAppPassword || null,
         },
       });
 
@@ -572,7 +597,8 @@ export async function PUT(request: NextRequest) {
       restaurantPosEnabled, showRestaurantInQrMenu,
       barPosEnabled, showBarInQrMenu,
       cafePosEnabled, showCafeInQrMenu,
-      deliveryEnabled, showDeliveryInQrMenu
+      deliveryEnabled, showDeliveryInQrMenu,
+      bookingEmail, bookingEmailParserApiKey, gmailAppPassword
     } = body;
 
     if (!id || !name || !code) {
@@ -664,6 +690,9 @@ export async function PUT(request: NextRequest) {
         showCafeInQrMenu: showCafeInQrMenu !== undefined ? showCafeInQrMenu : undefined,
         deliveryEnabled: deliveryEnabled !== undefined ? deliveryEnabled : undefined,
         showDeliveryInQrMenu: showDeliveryInQrMenu !== undefined ? showDeliveryInQrMenu : undefined,
+        bookingEmail: bookingEmail !== undefined ? bookingEmail : undefined,
+        bookingEmailParserApiKey: bookingEmailParserApiKey !== undefined ? bookingEmailParserApiKey : undefined,
+        gmailAppPassword: gmailAppPassword !== undefined ? gmailAppPassword : undefined,
       },
     });
 

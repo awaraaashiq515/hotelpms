@@ -7,7 +7,7 @@ import {
   Search, Filter, ChevronRight,
   Map, Monitor, Utensils,
   Edit2, Trash2, X, Eye, ShoppingBag, Receipt, ArrowRightLeft, Power, QrCode, ChevronLeft,
-  CarFront, Home, Settings, User as UserIcon
+  CarFront, Home, Settings, User as UserIcon, BedDouble
 } from 'lucide-react';
 import { QRModal } from '@/components/tables/QRModal';
 import { Button } from '@/components/ui/Button';
@@ -78,6 +78,13 @@ export default function TableManagementPage() {
   const [propertyData, setPropertyData] = useState<any>(null);
   const searchParams = useSearchParams();
   const floorIdFromUrl = searchParams.get('floorId');
+
+  // Room Selection Modal (for restaurant → room billing)
+  const [isRoomSelectModalOpen, setIsRoomSelectModalOpen] = useState(false);
+  const [pendingTableForRoom, setPendingTableForRoom] = useState<Table | null>(null);
+  const [occupiedRoomsForModal, setOccupiedRoomsForModal] = useState<any[]>([]);
+  const [loadingRoomsForModal, setLoadingRoomsForModal] = useState(false);
+  const [roomSearchQuery, setRoomSearchQuery] = useState('');
 
   useEffect(() => {
     if (floorIdFromUrl && floorIdFromUrl !== activeFloorId) {
@@ -663,7 +670,28 @@ export default function TableManagementPage() {
     const isVacant = !table.activeOrder || table.status === 'VACANT';
     
     if (isVacant) {
-      // Empty table: Single click opens POS
+      // Check if Restaurant Room Billing is enabled
+      if (propertyData?.restaurantRoomChargingEnabled === true) {
+        // Show room selection modal first
+        setPendingTableForRoom(table);
+        setRoomSearchQuery('');
+        setIsRoomSelectModalOpen(true);
+        // Fetch checked-in rooms
+        setLoadingRoomsForModal(true);
+        fetch('/api/hotel/bookings')
+          .then(r => r.json())
+          .then(d => {
+            if (d.success && d.data) {
+              const active = d.data.filter((b: any) => b.status === 'CHECKED_IN' && b.rooms?.[0]?.room);
+              setOccupiedRoomsForModal(active);
+            }
+          })
+          .catch(err => console.error(err))
+          .finally(() => setLoadingRoomsForModal(false));
+        return;
+      }
+
+      // Normal flow (no room billing)
       const tableFloor = floors.find(f => f.id === table.floorId);
       const floorMenuType = tableFloor?.menuType || 'RESTAURANT';
 
@@ -691,6 +719,29 @@ export default function TableManagementPage() {
         setSelectedTable(table);
       }
     }
+  };
+
+  // Navigate to billing with an optional room selected
+  const navigateToBillingWithRoom = (table: Table, bookingId?: string, roomNo?: string) => {
+    const tableFloor = floors.find(f => f.id === table.floorId);
+    const floorMenuType = tableFloor?.menuType || 'RESTAURANT';
+    const roomParam = bookingId ? `&bookingId=${bookingId}&roomNo=${encodeURIComponent(roomNo || '')}` : '';
+
+    let targetUrl = `${p}/billing?tableId=${table.id}&tableNo=${table.name}${roomParam}`;
+    if (floorMenuType === 'BAR') {
+      if (propertyData?.barPosEnabled === false) {
+        alert('⚠️ Bar POS is currently disabled. Go to Settings > Bar POS to enable it.');
+        return;
+      }
+      targetUrl = `${p}/bar-pos?tableId=${table.id}&tableNo=${table.name}${roomParam}`;
+    } else if (floorMenuType === 'CAFE') {
+      if (propertyData?.cafePosEnabled === false) {
+        alert('⚠️ Cafe POS is currently disabled. Go to Settings > Cafe POS to enable it.');
+        return;
+      }
+      targetUrl = `${p}/cafe-pos?tableId=${table.id}&tableNo=${table.name}${roomParam}`;
+    }
+    router.push(targetUrl);
   };
 
   const handleTableDoubleClick = (table: Table) => {
@@ -874,6 +925,14 @@ export default function TableManagementPage() {
               >
                 <CarFront size={12} />
                 Parking Area
+              </button>,
+              <button
+                key="room-orders-tab-link"
+                onClick={() => router.push(`${p}/operations/room-service`)}
+                className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all border whitespace-nowrap flex items-center gap-2 bg-white/5 text-white/40 border-white/5 hover:border-indigo-500/50 hover:text-indigo-400"
+              >
+                <BedDouble size={12} />
+                Room Orders
               </button>
             ])
           )}
@@ -1301,6 +1360,136 @@ export default function TableManagementPage() {
 
 
       <KotSlipModal kot={kotSlip} onClose={() => setKotSlip(null)} />
+
+      {/* Room Selection Modal for Restaurant → Room Billing */}
+      {isRoomSelectModalOpen && pendingTableForRoom && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+          <div className="w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            style={{ background: 'linear-gradient(135deg, #0f1117 0%, #1a1b2e 100%)' }}>
+
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-white/10">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-lg">
+                    🏨
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-white tracking-tight">Select Guest Type</h2>
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Table {pendingTableForRoom.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setIsRoomSelectModalOpen(false); setPendingTableForRoom(null); }}
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              {/* Walk-in option */}
+              <button
+                onClick={() => {
+                  setIsRoomSelectModalOpen(false);
+                  setPendingTableForRoom(null);
+                  navigateToBillingWithRoom(pendingTableForRoom);
+                }}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/20 transition-all text-left group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-lg flex-shrink-0 group-hover:scale-110 transition-transform">
+                  🚶
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">Walk-in Guest</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">No room — will pay by cash, card, or UPI at checkout.</p>
+                </div>
+                <ChevronRight size={16} className="ml-auto text-white/20 group-hover:text-white/60 transition-colors flex-shrink-0" />
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">or charge to room</span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+
+              {/* Room search */}
+              <div className="relative">
+                <Search size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search by room no. or guest name…"
+                  value={roomSearchQuery}
+                  onChange={e => setRoomSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-xs font-semibold placeholder-slate-600 focus:outline-none focus:border-violet-500/50 transition-all"
+                />
+              </div>
+
+              {/* Rooms list */}
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1 no-scrollbar">
+                {loadingRoomsForModal ? (
+                  <div className="py-6 text-center">
+                    <div className="w-6 h-6 border-2 border-violet-500/40 border-t-violet-500 rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-[10px] text-slate-600">Loading checked-in rooms...</p>
+                  </div>
+                ) : (() => {
+                  const filtered = occupiedRoomsForModal.filter(b => {
+                    const roomNo = b.rooms?.[0]?.room?.roomNumber || '';
+                    const guestName = `${b.guest?.firstName || ''} ${b.guest?.lastName || ''}`.toLowerCase();
+                    const q = roomSearchQuery.toLowerCase();
+                    return !q || roomNo.toLowerCase().includes(q) || guestName.includes(q);
+                  });
+                  if (filtered.length === 0) return (
+                    <div className="py-6 text-center">
+                      <p className="text-2xl mb-2">🛏️</p>
+                      <p className="text-[10px] text-slate-600">{occupiedRoomsForModal.length === 0 ? 'No guests currently checked in.' : 'No rooms match your search.'}</p>
+                    </div>
+                  );
+                  return filtered.map((b: any) => {
+                    const roomNo = b.rooms?.[0]?.room?.roomNumber || 'N/A';
+                    const guestName = `${b.guest?.firstName || ''} ${b.guest?.lastName || ''}`.trim() || 'Unknown Guest';
+                    const roomType = b.rooms?.[0]?.room?.roomType?.name || '';
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => {
+                          setIsRoomSelectModalOpen(false);
+                          setPendingTableForRoom(null);
+                          navigateToBillingWithRoom(pendingTableForRoom!, b.id, roomNo);
+                        }}
+                        className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl border border-white/8 bg-white/[0.02] hover:bg-violet-500/10 hover:border-violet-500/30 transition-all text-left group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                          <span className="text-base font-black text-violet-300">{roomNo}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black text-white truncate">{guestName}</p>
+                          <p className="text-[9px] text-slate-500 mt-0.5">{roomType && `${roomType} · `}Room {roomNo}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15">Checked In</span>
+                          <ChevronRight size={12} className="text-white/20 group-hover:text-violet-400 transition-colors" />
+                        </div>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 pb-5 pt-1">
+              <p className="text-[9px] text-slate-700 text-center">
+                Selecting a room will charge the entire table bill to the guest's room folio.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BillModal
         bill={billData}
         onClose={() => {

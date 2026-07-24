@@ -7,10 +7,10 @@ import { prisma } from '@/lib/prisma';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'OrderMint Blog | Insights & Strategies for Restaurant Success',
-  description: 'Discover the latest product updates, industry insights, and strategies to scale your restaurant business with OrderMint POS.',
+  title: 'GuestFlow Blog | Insights & Strategies for Restaurant Success',
+  description: 'Discover the latest product updates, industry insights, and strategies to scale your restaurant business with GuestFlow POS.',
   openGraph: {
-    title: 'OrderMint Blog | Restaurant Management Insights',
+    title: 'GuestFlow Blog | Restaurant Management Insights',
     description: 'Expert advice on POS systems, inventory management, and restaurant growth.',
     images: ['/hero-pos.png'],
   },
@@ -57,7 +57,7 @@ export default async function BlogListingPage({
             Insights & Updates
           </span>
           <h1 className="text-5xl lg:text-7xl font-semibold text-slate-900 tracking-tight leading-tight">
-            The OrderMint <span className="text-pos-primary">Blog</span>
+            The GuestFlow <span className="text-pos-primary">Blog</span>
           </h1>
           <p className="text-lg text-slate-600 font-medium max-w-2xl mx-auto mt-4">
             Discover the latest product updates, industry insights, and strategies to scale your restaurant.
@@ -135,7 +135,7 @@ export default async function BlogListingPage({
                   </h3>
                   
                   <p className="text-slate-600 text-sm font-medium leading-relaxed line-clamp-3 mb-8">
-                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with OrderMint.'}
+                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with GuestFlow.'}
                   </p>
                   
                   <div className="mt-auto pt-8 border-t border-gray-100 flex items-center justify-between group-hover:border-pos-primary/20 transition-colors">

@@ -31,6 +31,8 @@ export default function GlobalPropertyManagement() {
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [allowedPropertyLimit, setAllowedPropertyLimit] = useState<number>(1);
   const [activePropertyCount, setActivePropertyCount] = useState<number>(0);
+  const [allowedHotelLimit, setAllowedHotelLimit] = useState<number>(0);
+  const [activeHotelCount, setActiveHotelCount] = useState<number>(0);
   const [packageFeatures, setPackageFeatures] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<any>({
@@ -53,6 +55,9 @@ export default function GlobalPropertyManagement() {
     showCafeInQrMenu: true,
     deliveryEnabled: false,
     showDeliveryInQrMenu: true,
+    bookingEmail: '',
+    bookingEmailParserApiKey: '',
+    gmailAppPassword: '',
   });
 
   useEffect(() => {
@@ -90,7 +95,9 @@ export default function GlobalPropertyManagement() {
       const org = property.organization;
       setAllowedPosCount(org?.package?.allowedPosCount ?? 3);
       setAllowedPropertyLimit(org?.package?.allowedPropertyCount ?? 1);
+      setAllowedHotelLimit(org?.package?.allowedHotelCount ?? 0);
       setActivePropertyCount(org?._count?.properties ?? 0);
+      setActiveHotelCount((org?.properties ?? []).filter((p: any) => p.type === 'HOTEL').length);
       setPackageFeatures(org?.package?.features?.map((f: any) => f.feature) || []);
       setFormData({
         name: property.name,
@@ -112,6 +119,9 @@ export default function GlobalPropertyManagement() {
         showCafeInQrMenu: property.showCafeInQrMenu !== false,
         deliveryEnabled: !!property.deliveryEnabled,
         showDeliveryInQrMenu: property.showDeliveryInQrMenu !== false,
+        bookingEmail: property.bookingEmail || '',
+        bookingEmailParserApiKey: property.bookingEmailParserApiKey || '',
+        gmailAppPassword: property.gmailAppPassword || '',
       });
     } else {
       setEditingId(null);
@@ -139,6 +149,9 @@ export default function GlobalPropertyManagement() {
         showCafeInQrMenu: false,
         deliveryEnabled: false,
         showDeliveryInQrMenu: false,
+        bookingEmail: '',
+        bookingEmailParserApiKey: '',
+        gmailAppPassword: '',
       });
     }
     setIsModalOpen(true);
@@ -149,7 +162,9 @@ export default function GlobalPropertyManagement() {
     if (org) {
       setAllowedPosCount(org.package?.allowedPosCount ?? 3);
       setAllowedPropertyLimit(org.package?.allowedPropertyCount ?? 1);
+      setAllowedHotelLimit(org.package?.allowedHotelCount ?? 0);
       setActivePropertyCount(org._count?.properties ?? 0);
+      setActiveHotelCount((org.properties ?? []).filter((p: any) => p.type === 'HOTEL').length);
       setPackageFeatures(org.package?.features?.map((f: any) => f.feature) || []);
       
       const features = org.package?.features?.map((f: any) => f.feature) || [];
@@ -314,7 +329,13 @@ export default function GlobalPropertyManagement() {
         title={editingId ? "Modify Global Instance" : "Provision New Business Entity"}
       >
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-          {!editingId && activePropertyCount >= allowedPropertyLimit && (
+          {!editingId && formData.type === 'HOTEL' && activeHotelCount >= allowedHotelLimit && (
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2 mb-4 animate-bounce">
+              <AlertTriangle size={16} />
+              <span>Hotel limit reached ({activeHotelCount}/{allowedHotelLimit} hotels allowed). Please upgrade the owner's package — increase Hotel (HMS) Properties Limit.</span>
+            </div>
+          )}
+          {!editingId && formData.type !== 'HOTEL' && activePropertyCount >= allowedPropertyLimit && (
             <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2 mb-4 animate-bounce">
               <AlertTriangle size={16} />
               <span>Property limit reached ({activePropertyCount}/{allowedPropertyLimit} allowed). Please upgrade the owner's package plan.</span>
@@ -524,6 +545,30 @@ export default function GlobalPropertyManagement() {
             )}
           </div>
 
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-4">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 mb-4">Email Booking Integration</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Hotel Booking Email (Gmail)"
+                placeholder="e.g. royalhotel@gmail.com"
+                value={formData.bookingEmail || ''}
+                onChange={(e) => setFormData({ ...formData, bookingEmail: e.target.value })}
+                className="rounded-xl border-slate-200"
+              />
+              <Input
+                label="Gmail App Password (16-digit)"
+                type="password"
+                placeholder="xxxx xxxx xxxx xxxx"
+                value={formData.gmailAppPassword || ''}
+                onChange={(e) => setFormData({ ...formData, gmailAppPassword: e.target.value })}
+                className="rounded-xl border-slate-200"
+              />
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide mt-2 ml-1">
+              ⚙️ Go to hotel Gmail → Settings → Security → App Passwords → Generate 16-digit key
+            </p>
+          </div>
+
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-6">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)} type="button" className="rounded-xl font-black text-xs uppercase tracking-widest px-6">
               Cancel
@@ -531,7 +576,11 @@ export default function GlobalPropertyManagement() {
             <Button 
               type="submit" 
               isLoading={submitting} 
-              disabled={(!editingId && activePropertyCount >= allowedPropertyLimit) || submitting}
+              disabled={
+                submitting ||
+                (!editingId && formData.type === 'HOTEL' && activeHotelCount >= allowedHotelLimit) ||
+                (!editingId && formData.type !== 'HOTEL' && activePropertyCount >= allowedPropertyLimit)
+              }
               className="text-white rounded-xl font-black text-xs uppercase tracking-widest px-8 shadow-lg disabled:opacity-50" 
               style={{backgroundColor:'#e8a0a0', boxShadow:'0 4px 14px #e8a0a030'}}
             >

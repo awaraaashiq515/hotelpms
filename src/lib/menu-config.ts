@@ -212,7 +212,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
       ],
     },
     {
-      name: isSuper ? 'Global Access' : 'POS Access',
+      name: 'Staff Management',
       path: isSuper ? '/manage-users?global=true' : '/manage-users',
       icon: Users,
       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'],

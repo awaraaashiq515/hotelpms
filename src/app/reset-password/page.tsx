@@ -183,7 +183,7 @@ export default function ResetPasswordPage() {
           <div className="w-10 h-10 bg-red-700 rounded-xl flex items-center justify-center shadow-lg shadow-red-700/20">
             <span className="text-white font-black text-lg">O</span>
           </div>
-          <span className="text-red-700 font-black text-2xl tracking-tight">OrderMint</span>
+          <span className="text-red-700 font-black text-2xl tracking-tight">GuestFlow</span>
         </div>
 
         <Suspense fallback={<div className="animate-pulse text-gray-400 font-black uppercase text-[10px] tracking-widest">Validating Session...</div>}>

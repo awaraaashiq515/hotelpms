@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         floor: true,
         property: true,
         posOrders: {
-          where: { status: { notIn: ['SETTLED', 'CANCELLED'] } },
+          where: { status: { notIn: ['COMPLETED', 'PAID', 'SETTLED', 'CANCELLED'] } },
           include: {
             items: {
               include: {
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate dynamic data for each table
     const enhancedTables = tables.map((table: any) => {
-      const activeOrder = table.posOrders[0];
+      const activeOrder = (table.posOrders || []).find((o: any) => !['COMPLETED', 'PAID', 'SETTLED', 'CANCELLED'].includes(o.status)) || null;
       
       if (!activeOrder) {
         return { ...table, activeOrder: null };

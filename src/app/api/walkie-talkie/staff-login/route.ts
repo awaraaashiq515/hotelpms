@@ -11,10 +11,14 @@ export async function POST(request: Request) {
     const { username, password, propertyCode } = body
 
     if (!username || !password) {
-      return NextResponse.json({ message: 'Username and password are required.' }, { status: 400 })
+      return NextResponse.json({ message: 'Username/Email and password are required.' }, { status: 400 })
     }
 
-    const email = `${username.toLowerCase()}@pos-staff.local`
+    // ── Support both Username AND real Email ──
+    // If input contains '@', treat as a real email address
+    // Otherwise append @pos-staff.local (legacy username format)
+    const inputTrimmed = username.toLowerCase().trim()
+    const email = inputTrimmed.includes('@') ? inputTrimmed : `${inputTrimmed}@pos-staff.local`
 
     // Find the corresponding User in POS User table
     let posUser = await prisma.user.findFirst({
@@ -28,7 +32,7 @@ export async function POST(request: Request) {
 
     if (!posUser) {
       return NextResponse.json(
-        { message: `Staff member "${username}" is not registered or does not have login access.` },
+        { message: `Staff member not found. Check your username/email or contact your manager.` },
         { status: 404 }
       )
     }
@@ -55,7 +59,12 @@ export async function POST(request: Request) {
     posUser = await prisma.user.update({
       where: { id: posUser.id },
       data: { wtStatus: 'online' },
-      include: { role: true, property: true, organization: true }
+      include: {
+        role: true,
+        property: true,
+        organization: true,
+        staffMember: { select: { designation: true, salary: true, shiftHours: true } }
+      }
     })
 
     // Sign Walkie-Talkie JWT token (for Socket.IO)
@@ -107,9 +116,24 @@ export async function POST(request: Request) {
     // Return token and user details (omitting sensitive password hashes)
     const { passwordHash, twoFactorSecret, twoFactorBackupCodes, ...safeUser } = posUser as any
 
+    // ─── Determine which portal this staff member belongs to ───────────────
+    const staffDesignation = (posUser as any).staffMember?.designation || (posUser as any).designation || ''
+    const designation = (staffDesignation || posUser.role?.name || '').toLowerCase()
+    const userPropCode = (posUser.property?.code || '').toLowerCase()
+    let portalRedirect: string | null = null
+
+    // Only redirect if designation is specifically housekeeper/housekeeping (and role is not waiter/staff)
+    if (staffDesignation.toLowerCase().includes('housekeeper') || staffDesignation.toLowerCase().includes('housekeeping')) {
+      portalRedirect = `/housekeeper-portal/${userPropCode}`
+    }
+
     return NextResponse.json({
       wtToken,      // for Socket.IO
-      user: safeUser,
+      portalRedirect,   // null = stay on staff-portal, string = go to that URL
+      user: {
+        ...safeUser,
+        designation: staffDesignation || posUser.role?.name || 'Staff',
+      },
     })
   } catch (error: any) {
     console.error('[WT Staff Login Route] Error:', error)

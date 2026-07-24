@@ -4,9 +4,9 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
-  const winPath = path.join(process.cwd(), 'public/downloads/ordermint-pos-windows.exe');
-  const macPath = path.join(process.cwd(), 'public/downloads/ordermint-pos-mac.dmg');
-  const androidPath = path.join(process.cwd(), 'public/downloads/ordermint-pos.apk');
+  const winPath = path.join(process.cwd(), 'public/downloads/guestflow-pos-windows.exe');
+  const macPath = path.join(process.cwd(), 'public/downloads/guestflow-pos-mac.dmg');
+  const androidPath = path.join(process.cwd(), 'public/downloads/guestflow-pos.apk');
 
   const settings = await prisma.websiteSettings.findFirst();
 

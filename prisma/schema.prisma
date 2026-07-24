@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -37,181 +37,224 @@ model Organization {
 }
 
 model Property {
-  id                   String              @id @default(cuid())
-  organizationId       String
-  name                 String
-  code                 String              @unique
-  type                 String?
-  city                 String?
-  state                String?
-  country              String?
-  checkInTime          String?
-  checkOutTime         String?
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
-  brandName            String?
-  logoUrl              String?
-  address              String?
-  phone                String?
-  latitude             Float?
-  longitude            Float?
-  pinCode              String?
-  taxDetails           String?
-  stateCode            String?
-  posAutoLockTimeout   Int                 @default(0)
-  posLockScreenMessage String?
-  posLockScreenBgUrl   String?
-  posTerminalPin       String?
-  thermalPrinterName   String?             @default("MPT-II")
-  enableDirectPrinting Boolean             @default(true)
-  whatsAppEnabled      Boolean             @default(false)
-  whatsAppApiKey       String?
-  whatsAppInstanceId   String?
-  whatsAppTemplate     String?
-  whatsAppWelcomeMessage String?
-  whatsAppProvider     String              @default("META") // "META" | "TWILIO" | "ULTRAMSG"
-  metaAccessToken      String?
-  metaPhoneId          String?
-  metaVerifyToken      String?
-  twilioAccountSid     String?
-  twilioAuthToken      String?
-  twilioFromNumber     String?
-  restaurantPosEnabled Boolean             @default(true)
-  showRestaurantInQrMenu Boolean           @default(true)
-  barPosEnabled        Boolean             @default(false)
-  showBarInQrMenu      Boolean             @default(true)
-  cafePosEnabled       Boolean             @default(false)
-  showCafeInQrMenu     Boolean             @default(true)
-  deliveryEnabled      Boolean             @default(false)
-  showDeliveryInQrMenu Boolean             @default(true)
-  upiId                String?
-  upiName              String?
-  upiLimit             Float               @default(100000)
-  upiReceivedToday     Float               @default(0)
-  upiId2               String?
-  upiName2             String?
-  upiLimit2            Float               @default(100000)
-  upiReceivedToday2    Float               @default(0)
-  lastUpiResetDate     DateTime?           @default(now())
-  targetShiftHours     Float               @default(8.0)
-  accounts             Account[]
-  auditLogs            AuditLog[]
-  cashTopUps           CashTopUp[]
-  cashWithdrawals      CashWithdrawal[]
-  categories           Category[]
-  dayClosings          DayClosing[]
-  drivers              Driver[]
-  driverGiftRules      DriverGiftRule[]
-  expenses             Expense[]
-  expenseCategories    ExpenseCategory[]
-  floors               Floor[]
-  gstFilings           GstFiling[]
-  gstReturnDues        GstReturnDue[]
-  housekeepingTasks    HousekeepingTask[]
-  invoices             Invoice[]
-  kotTickets           KotTicket[]
-  maintenanceTickets   MaintenanceTicket[]
-  membershipPlans      MembershipPlan[]
-  offers               Offer[]
-  outlets              Outlet[]
-  payments             Payment[]
-  paymentModes         PaymentMode[]
-  posOrders            PosOrder[]
-  products             Product[]
-  organization         Organization        @relation(fields: [organizationId], references: [id])
-  purchaseInvoices     PurchaseInvoice[]
-  purchaseOrders       PurchaseOrder[]
-  receipts             Receipt[]
-  reservations         Reservation[]
-  rooms                Room[]
-  roomTypes            RoomType[]
-  settlements          Settlement[]
-  shifts               Shift[]
-  staffMembers         StaffMember[]
-  stockAdjustments     StockAdjustment[]
-  stockItems           StockItem[]
-  stockMovements       StockMovement[]
-  tables               Table[]
-  tableReservations    TableReservation[]
-  tablets              Tablet[]
-  parkingSlots         ParkingSlot[]
-  users                User[]
-  vouchers             Voucher[]
-  warehouses           Warehouse[]
-  tableFeedbacks       TableFeedback[]
-  attendance           Attendance[]
-  inventoryItems       InventoryItem[]
-  suppliers            Supplier[]
-  notifications        Notification[]
-  notificationPrefs    NotificationPreference[]
-  combos               Combo[]
-  printers             Printer[]
-  wastes               Waste[]
-  b2bOrders            B2BOrder[]
-  coupons              Coupon[]
-  campaigns            Campaign[]
-  deliveryZones        DeliveryZone[]
-  musicSongs           MusicSong[]
-  musicPlaylists       MusicPlaylist[]
-  youtubeApiKey        String?
-  deliveryTrips        DeliveryTrip[]
-  riderHandovers       RiderCashHandover[]
-
+  id                            String                   @id @default(cuid())
+  organizationId                String
+  name                          String
+  code                          String                   @unique
+  type                          String?
+  city                          String?
+  state                         String?
+  country                       String?
+  checkInTime                   String?
+  checkOutTime                  String?
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  brandName                     String?
+  logoUrl                       String?
+  address                       String?
+  phone                         String?
+  latitude                      Float?
+  longitude                     Float?
+  pinCode                       String?
+  taxDetails                    String?
+  stateCode                     String?
+  posAutoLockTimeout            Int                      @default(0)
+  posLockScreenMessage          String?
+  posLockScreenBgUrl            String?
+  posTerminalPin                String?
+  thermalPrinterName            String?                  @default("MPT-II")
+  enableDirectPrinting          Boolean                  @default(true)
+  whatsAppEnabled               Boolean                  @default(false)
+  whatsAppApiKey                String?
+  whatsAppInstanceId            String?
+  whatsAppTemplate              String?
+  whatsAppWelcomeMessage        String?
+  whatsAppProvider              String                   @default("META") // "META" | "TWILIO" | "ULTRAMSG"
+  metaAccessToken               String?
+  metaPhoneId                   String?
+  metaVerifyToken               String?
+  twilioAccountSid              String?
+  twilioAuthToken               String?
+  twilioFromNumber              String?
+  restaurantPosEnabled          Boolean                  @default(true)
+  showRestaurantInQrMenu        Boolean                  @default(true)
+  barPosEnabled                 Boolean                  @default(false)
+  showBarInQrMenu               Boolean                  @default(true)
+  cafePosEnabled                Boolean                  @default(false)
+  showCafeInQrMenu              Boolean                  @default(true)
+  deliveryEnabled               Boolean                  @default(false)
+  showDeliveryInQrMenu          Boolean                  @default(true)
+  upiId                         String?
+  upiName                       String?
+  upiLimit                      Float                    @default(100000)
+  upiReceivedToday              Float                    @default(0)
+  upiId2                        String?
+  upiName2                      String?
+  upiLimit2                     Float                    @default(100000)
+  upiReceivedToday2             Float                    @default(0)
+  lastUpiResetDate              DateTime?                @default(now())
+  targetShiftHours              Float                    @default(8.0)
+  accounts                      Account[]
+  auditLogs                     AuditLog[]
+  cashTopUps                    CashTopUp[]
+  cashWithdrawals               CashWithdrawal[]
+  categories                    Category[]
+  dayClosings                   DayClosing[]
+  drivers                       Driver[]
+  driverGiftRules               DriverGiftRule[]
+  expenses                      Expense[]
+  expenseCategories             ExpenseCategory[]
+  floors                        Floor[]
+  gstFilings                    GstFiling[]
+  gstReturnDues                 GstReturnDue[]
+  housekeepingTasks             HousekeepingTask[]
+  invoices                      Invoice[]
+  kotTickets                    KotTicket[]
+  maintenanceTickets            MaintenanceTicket[]
+  membershipPlans               MembershipPlan[]
+  offers                        Offer[]
+  outlets                       Outlet[]
+  payments                      Payment[]
+  paymentModes                  PaymentMode[]
+  posOrders                     PosOrder[]
+  products                      Product[]
+  organization                  Organization             @relation(fields: [organizationId], references: [id])
+  purchaseInvoices              PurchaseInvoice[]
+  purchaseOrders                PurchaseOrder[]
+  receipts                      Receipt[]
+  reservations                  Reservation[]
+  rooms                         Room[]
+  roomTypes                     RoomType[]
+  settlements                   Settlement[]
+  shifts                        Shift[]
+  staffMembers                  StaffMember[]
+  stockAdjustments              StockAdjustment[]
+  stockItems                    StockItem[]
+  stockMovements                StockMovement[]
+  tables                        Table[]
+  tableReservations             TableReservation[]
+  tablets                       Tablet[]
+  parkingSlots                  ParkingSlot[]
+  users                         User[]
+  vouchers                      Voucher[]
+  warehouses                    Warehouse[]
+  tableFeedbacks                TableFeedback[]
+  attendance                    Attendance[]
+  inventoryItems                InventoryItem[]
+  suppliers                     Supplier[]
+  notifications                 Notification[]
+  notificationPrefs             NotificationPreference[]
+  combos                        Combo[]
+  printers                      Printer[]
+  wastes                        Waste[]
+  b2bOrders                     B2BOrder[]
+  coupons                       Coupon[]
+  campaigns                     Campaign[]
+  deliveryZones                 DeliveryZone[]
+  musicSongs                    MusicSong[]
+  musicPlaylists                MusicPlaylist[]
+  youtubeApiKey                 String?
+  bookingEmail                  String?
+  bookingEmailParserApiKey      String?
+  gmailAppPassword              String?
+  hmsEnabled                    Boolean                  @default(false)
+  totalRooms                    Int?
+  starRating                    Int?
+  hotelCategory                 String?
+  emailBookings                 EmailBooking[]
+  deliveryTrips                 DeliveryTrip[]
+  riderHandovers                RiderCashHandover[]
+  guestPortalEnabled            Boolean                  @default(true)
+  guestPortalPasswordMode       String                   @default("PHONE") // PHONE | CUSTOM
+  guestPortalDefaultPassword    String?                  @default("welcome@123")
+  hotelWifiName                 String?                  @default("Hotel-Free-WiFi")
+  hotelWifiPassword             String?                  @default("welcome123")
+  breakfastTimings              String?                  @default("08:00 AM - 10:30 AM")
+  poolTimings                   String?                  @default("07:00 AM - 08:00 PM")
+  gymTimings                    String?                  @default("06:00 AM - 10:00 PM")
+  checkoutPolicy                String?                  @default("Standard checkout time is 11:00 AM.")
+  restaurantRoomChargingEnabled Boolean                  @default(false)
+  performances                  Performance[]
+  bookingRequests               BookingRequest[]
+  lostItems                     LostItem[]
+  laundryRequests               LaundryRequest[]
 
   @@index([organizationId])
 }
 
+model EmailBooking {
+  id         String    @id @default(cuid())
+  propertyId String
+  sender     String
+  subject    String
+  body       String
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+  checkIn    DateTime?
+  checkOut   DateTime?
+  amount     Float?
+  source     String    @default("Direct")
+  status     String    @default("PENDING")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
 model User {
-  id                  String       @id @default(cuid())
-  organizationId      String
-  propertyId          String?
-  roleId              String
-  fullName            String
-  email               String       @unique
-  phone               String?
-  passwordHash        String
-  isActive            Boolean      @default(true)
-  onboardingCompleted Boolean      @default(false)
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  lastLoginAt         DateTime?
-  designation         String?
-  posPin              String?
+  id                   String       @id @default(cuid())
+  organizationId       String
+  propertyId           String?
+  roleId               String
+  fullName             String
+  email                String       @unique
+  phone                String?
+  passwordHash         String
+  isActive             Boolean      @default(true)
+  onboardingCompleted  Boolean      @default(false)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  lastLoginAt          DateTime?
+  designation          String?
+  posPin               String?
   // ── Two-Factor Authentication ──────────────────────────────
-  twoFactorEnabled    Boolean      @default(false)
-  twoFactorSecret     String?      // Base32-encoded TOTP secret
-  twoFactorBackupCodes String?     // JSON array of one-time backup codes
+  twoFactorEnabled     Boolean      @default(false)
+  twoFactorSecret      String? // Base32-encoded TOTP secret
+  twoFactorBackupCodes String? // JSON array of one-time backup codes
   // ──────────────────────────────────────────────────────────
-  auditLogs           AuditLog[]
-  servedOrders        PosOrder[]   @relation("ServedOrders")
-  organization        Organization @relation(fields: [organizationId], references: [id])
-  property            Property?    @relation(fields: [propertyId], references: [id])
-  role                Role         @relation(fields: [roleId], references: [id])
-  attendance          Attendance[]
-  supplierId          String?
-  supplier            B2BSupplier? @relation(fields: [supplierId], references: [id])
-  vehicleNumber       String?
-  vehicleType         String?      @default("BIKE")
-  deliveryOrders      PosOrder[]   @relation("DeliveryRiderOrders")
-  deliveryLocation    String?
-  deliveryLat         Float?
-  deliveryLng         Float?
-  deliveryRadius      Float?       @default(5.0)
+  auditLogs            AuditLog[]
+  servedOrders         PosOrder[]   @relation("ServedOrders")
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  property             Property?    @relation(fields: [propertyId], references: [id])
+  role                 Role         @relation(fields: [roleId], references: [id])
+  attendance           Attendance[]
+  supplierId           String?
+  supplier             B2BSupplier? @relation(fields: [supplierId], references: [id])
+  vehicleNumber        String?
+  vehicleType          String?      @default("BIKE")
+  deliveryOrders       PosOrder[]   @relation("DeliveryRiderOrders")
+  deliveryLocation     String?
+  deliveryLat          Float?
+  deliveryLng          Float?
+  deliveryRadius       Float?       @default(5.0)
 
   // ── Walkie-Talkie Fields ──────────────────────────────────
-  firebaseUid         String?
-  fcmToken            String?
-  wtStatus            String            @default("offline")
-  wtChannelMembers    WTChannelMember[]
-  wtSpeakerLocks      WTSpeakerLock[]
-  wtTalkHistory       WTTalkHistory[]
-  wtContactsSent      WTContact[]       @relation("UserContacts")
-  wtContactsRecv      WTContact[]       @relation("UserContactOf")
-  staffMember         StaffMember?      @relation("StaffUser")
-  staffLocationPings  StaffLocation[]   @relation("StaffLocationPings")
-  tableAssignments    TableAssignment[] @relation("UserTableAssignments")
-  riderTrips          DeliveryTrip[]    @relation("RiderTrips")
-  riderHandovers      RiderCashHandover[] @relation("RiderHandovers")
+  firebaseUid        String?
+  fcmToken           String?
+  wtStatus           String              @default("offline")
+  wtChannelMembers   WTChannelMember[]
+  wtSpeakerLocks     WTSpeakerLock[]
+  wtTalkHistory      WTTalkHistory[]
+  wtContactsSent     WTContact[]         @relation("UserContacts")
+  wtContactsRecv     WTContact[]         @relation("UserContactOf")
+  staffMember        StaffMember?        @relation("StaffUser")
+  staffLocationPings StaffLocation[]     @relation("StaffLocationPings")
+  tableAssignments   TableAssignment[]   @relation("UserTableAssignments")
+  riderTrips         DeliveryTrip[]      @relation("RiderTrips")
+  riderHandovers     RiderCashHandover[] @relation("RiderHandovers")
 
   @@index([organizationId])
   @@index([propertyId])
@@ -242,39 +285,40 @@ model RolePermission {
 }
 
 model Guest {
-  id              String           @id @default(cuid())
-  organizationId  String
-  firstName       String
-  lastName        String?
-  mobile          String?
-  email           String?
-  gender          String?
-  nationality     String?
-  idType          String?
-  idNumber        String?
-  address         String?
-  loyaltyPoints   Int              @default(0)
-  segment         String           @default("REGULAR")
-  birthDate       DateTime?
-  referralCode    String?          @unique
-  referredById    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  driverId        String?
-  checkIns        CheckIn[]
-  folios          Folio[]
-  driver          Driver?          @relation("GuestDriver", fields: [driverId], references: [id])
-  organization    Organization     @relation(fields: [organizationId], references: [id])
-  documents       GuestDocument[]
-  invoices        Invoice[]
-  membershipCards MembershipCard[]
-  posOrders       PosOrder[]
-  reservations    Reservation[]
-  settlements     Settlement[]
-  referredBy      Guest?           @relation("GuestReferral", fields: [referredById], references: [id])
-  referrals       Guest[]          @relation("GuestReferral")
-  loyaltyLogs     LoyaltyLog[]
-  coupons         Coupon[]
+  id                  String           @id @default(cuid())
+  organizationId      String
+  firstName           String
+  lastName            String?
+  mobile              String?
+  email               String?
+  gender              String?
+  nationality         String?
+  idType              String?
+  idNumber            String?
+  address             String?
+  loyaltyPoints       Int              @default(0)
+  segment             String           @default("REGULAR")
+  birthDate           DateTime?
+  referralCode        String?          @unique
+  referredById        String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  driverId            String?
+  guestPortalPassword String? // hashed password for guest self-service portal
+  checkIns            CheckIn[]
+  folios              Folio[]
+  driver              Driver?          @relation("GuestDriver", fields: [driverId], references: [id])
+  organization        Organization     @relation(fields: [organizationId], references: [id])
+  documents           GuestDocument[]
+  invoices            Invoice[]
+  membershipCards     MembershipCard[]
+  posOrders           PosOrder[]
+  reservations        Reservation[]
+  settlements         Settlement[]
+  referredBy          Guest?           @relation("GuestReferral", fields: [referredById], references: [id])
+  referrals           Guest[]          @relation("GuestReferral")
+  loyaltyLogs         LoyaltyLog[]
+  coupons             Coupon[]
 }
 
 model GuestDocument {
@@ -308,6 +352,12 @@ model Room {
   status             String
   housekeepingStatus String
   maintenanceStatus  String?
+  amenities          String?
+  customRate         Float?
+  discount           Float?
+  gstRate            Float?              @default(0)
+  isVIP              Boolean             @default(false)
+  description        String?
   checkIns           CheckIn[]
   housekeepingTasks  HousekeepingTask[]
   maintenanceTickets MaintenanceTicket[]
@@ -317,28 +367,36 @@ model Room {
 }
 
 model Reservation {
-  id             String            @id @default(cuid())
-  propertyId     String
-  guestId        String
-  bookingNo      String            @unique
-  arrivalDate    DateTime
-  departureDate  DateTime
-  adults         Int
-  children       Int
-  roomTypeId     String
-  assignedRoomId String?
-  status         String
-  totalAmount    Float
-  advanceAmount  Float             @default(0)
-  dueAmount      Float             @default(0)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  checkIns       CheckIn[]
-  folios         Folio[]
-  roomType       RoomType          @relation(fields: [roomTypeId], references: [id])
-  guest          Guest             @relation(fields: [guestId], references: [id])
-  property       Property          @relation(fields: [propertyId], references: [id])
-  rooms          ReservationRoom[]
+  id                  String            @id @default(cuid())
+  propertyId          String
+  guestId             String
+  bookingNo           String            @unique
+  arrivalDate         DateTime
+  departureDate       DateTime
+  adults              Int
+  children            Int
+  roomTypeId          String
+  assignedRoomId      String?
+  status              String
+  totalAmount         Float
+  advanceAmount       Float             @default(0)
+  dueAmount           Float             @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  checkoutRequested   Boolean           @default(false)
+  feedbackCleanliness Int?
+  feedbackFood        Int?
+  feedbackService     Int?
+  checkoutFeedback    String?
+  wifiStatus          String            @default("ACTIVE")
+  wifiPassword        String?
+  mealPlan            String            @default("RO")
+  checkIns            CheckIn[]
+  folios              Folio[]
+  roomType            RoomType          @relation(fields: [roomTypeId], references: [id])
+  guest               Guest             @relation(fields: [guestId], references: [id])
+  property            Property          @relation(fields: [propertyId], references: [id])
+  rooms               ReservationRoom[]
 }
 
 model ReservationRoom {
@@ -483,7 +541,6 @@ model Product {
   isVeg              Boolean             @default(true)
   mealTimes          String?             @default("BREAKFAST,LUNCH,DINNER")
 
-
   @@index([propertyId])
   @@index([categoryId])
 }
@@ -516,7 +573,6 @@ model ComboItem {
   @@index([productId])
 }
 
-
 model ProductVariant {
   id        String   @id @default(cuid())
   productId String
@@ -529,74 +585,73 @@ model ProductVariant {
   @@index([productId])
 }
 
-
 model PosOrder {
-  id                 String          @id @default(cuid())
-  propertyId         String
-  outletId           String
-  orderNo            String          @unique
-  orderType          String
-  tableNo            String?
-  roomId             String?
-  folioId            String?
-  status             String
-  subtotal           Float           @default(0)
-  discountAmount     Float           @default(0)
-  taxAmount          Float           @default(0)
-  grandTotal         Float           @default(0)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @default(now()) @updatedAt
-  restaurantTableId  String?
-  driverId           String?
-  guestId            String?
-  guestCount         Int             @default(1)
-  servedById         String?
-  staffMemberId      String?
-  membershipCardId   String?
-  membershipDiscount Float           @default(0)
-  kotTickets         KotTicket[]
-  rating             OrderRating?
-  membershipCard     MembershipCard? @relation(fields: [membershipCardId], references: [id])
-  staffMember        StaffMember?    @relation(fields: [staffMemberId], references: [id])
-  servedBy           User?           @relation("ServedOrders", fields: [servedById], references: [id])
-  driver             Driver?         @relation(fields: [driverId], references: [id])
-  deliveryRiderId    String?
-  deliveryRider      User?           @relation("DeliveryRiderOrders", fields: [deliveryRiderId], references: [id])
-  table              Table?          @relation(fields: [restaurantTableId], references: [id])
-  guest              Guest?          @relation(fields: [guestId], references: [id])
-  folio              Folio?          @relation(fields: [folioId], references: [id])
-  outlet             Outlet          @relation(fields: [outletId], references: [id])
-  property           Property        @relation(fields: [propertyId], references: [id])
-  items              PosOrderItem[]
-  paymentRequested   Boolean         @default(false)
+  id                     String             @id @default(cuid())
+  propertyId             String
+  outletId               String
+  orderNo                String             @unique
+  orderType              String
+  tableNo                String?
+  roomId                 String?
+  folioId                String?
+  status                 String
+  subtotal               Float              @default(0)
+  discountAmount         Float              @default(0)
+  taxAmount              Float              @default(0)
+  grandTotal             Float              @default(0)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @default(now()) @updatedAt
+  restaurantTableId      String?
+  driverId               String?
+  guestId                String?
+  guestCount             Int                @default(1)
+  servedById             String?
+  staffMemberId          String?
+  membershipCardId       String?
+  membershipDiscount     Float              @default(0)
+  kotTickets             KotTicket[]
+  rating                 OrderRating?
+  membershipCard         MembershipCard?    @relation(fields: [membershipCardId], references: [id])
+  staffMember            StaffMember?       @relation(fields: [staffMemberId], references: [id])
+  servedBy               User?              @relation("ServedOrders", fields: [servedById], references: [id])
+  driver                 Driver?            @relation(fields: [driverId], references: [id])
+  deliveryRiderId        String?
+  deliveryRider          User?              @relation("DeliveryRiderOrders", fields: [deliveryRiderId], references: [id])
+  table                  Table?             @relation(fields: [restaurantTableId], references: [id])
+  guest                  Guest?             @relation(fields: [guestId], references: [id])
+  folio                  Folio?             @relation(fields: [folioId], references: [id])
+  outlet                 Outlet             @relation(fields: [outletId], references: [id])
+  property               Property           @relation(fields: [propertyId], references: [id])
+  items                  PosOrderItem[]
+  paymentRequested       Boolean            @default(false)
   onlinePaymentReference String?
   onlinePaymentMethod    String?
-  parkingSlotId      String?
-  vehicleNumber      String?
-  parkingSlot        ParkingSlot?    @relation("ParkingOrders", fields: [parkingSlotId], references: [id])
-  deliveryCustomerName String?
-  deliveryPhone        String?
-  deliveryAddress      String?
-  deliveryInstructions String?
-  deliveryLat          Float?
-  deliveryLng          Float?
-  couponId             String?
-  coupon               Coupon?         @relation(fields: [couponId], references: [id])
-  loyaltyPointsEarned  Int             @default(0)
-  loyaltyPointsRedeemed Int            @default(0)
-  loyaltyDiscount      Float           @default(0)
-  preparationTime      Int             @default(15)
-  deliveryZoneId       String?
-  scheduledFor         DateTime?
-  isContactless        Boolean         @default(false)
-  deliveryZone         DeliveryZone?   @relation(fields: [deliveryZoneId], references: [id])
-  isPrepaid            Boolean         @default(false)
-  codCollected         Boolean         @default(false)
-  codAmountCollected   Float           @default(0)
-  deliveryPaymentMethod String?        @default("CASH")
-  tipAmount            Float           @default(0)
-  riderHandoverId      String?
-  riderHandover        RiderCashHandover? @relation("HandoverOrders", fields: [riderHandoverId], references: [id])
+  parkingSlotId          String?
+  vehicleNumber          String?
+  parkingSlot            ParkingSlot?       @relation("ParkingOrders", fields: [parkingSlotId], references: [id])
+  deliveryCustomerName   String?
+  deliveryPhone          String?
+  deliveryAddress        String?
+  deliveryInstructions   String?
+  deliveryLat            Float?
+  deliveryLng            Float?
+  couponId               String?
+  coupon                 Coupon?            @relation(fields: [couponId], references: [id])
+  loyaltyPointsEarned    Int                @default(0)
+  loyaltyPointsRedeemed  Int                @default(0)
+  loyaltyDiscount        Float              @default(0)
+  preparationTime        Int                @default(15)
+  deliveryZoneId         String?
+  scheduledFor           DateTime?
+  isContactless          Boolean            @default(false)
+  deliveryZone           DeliveryZone?      @relation(fields: [deliveryZoneId], references: [id])
+  isPrepaid              Boolean            @default(false)
+  codCollected           Boolean            @default(false)
+  codAmountCollected     Float              @default(0)
+  deliveryPaymentMethod  String?            @default("CASH")
+  tipAmount              Float              @default(0)
+  riderHandoverId        String?
+  riderHandover          RiderCashHandover? @relation("HandoverOrders", fields: [riderHandoverId], references: [id])
 
   @@index([propertyId])
   @@index([status])
@@ -767,7 +822,7 @@ model StockMovement {
 }
 
 model ProductIngredient {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   productId   String
   stockItemId String?
   quantity    Float
@@ -778,50 +833,50 @@ model ProductIngredient {
 }
 
 model InventoryItem {
-  id               String            @id @default(cuid())
-  propertyId       String
-  name             String
-  sku              String?
-  unit             String?           // kg, gm, ltr, ml, pcs
-  currentQuantity  Float             @default(0)
-  minThreshold     Float             @default(0)
-  costPrice        Float             @default(0)
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  
-  stockLogs        InventoryLog[]
-  property         Property          @relation(fields: [propertyId], references: [id])
+  id              String   @id @default(cuid())
+  propertyId      String
+  name            String
+  sku             String?
+  unit            String? // kg, gm, ltr, ml, pcs
+  currentQuantity Float    @default(0)
+  minThreshold    Float    @default(0)
+  costPrice       Float    @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stockLogs InventoryLog[]
+  property  Property       @relation(fields: [propertyId], references: [id])
 
   @@index([propertyId])
 }
 
 model InventoryLog {
-  id              String    @id @default(cuid())
+  id              String        @id @default(cuid())
   inventoryItemId String
-  type            String    // IN, OUT, ADJUSTMENT
+  type            String // IN, OUT, ADJUSTMENT
   quantity        Float
   previousQty     Float
   newQty          Float
-  reference       String?   // Order ID or Purchase ID
+  reference       String? // Order ID or Purchase ID
   note            String?
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime      @default(now())
   item            InventoryItem @relation(fields: [inventoryItemId], references: [id])
 }
 
 model Supplier {
-  id              String    @id @default(cuid())
-  propertyId      String
-  name            String
-  contactPerson   String?
-  phone           String?
-  email           String?
-  address         String?
-  gstNumber       String?
-  balance         Float     @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  property        Property  @relation(fields: [propertyId], references: [id])
+  id            String   @id @default(cuid())
+  propertyId    String
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  gstNumber     String?
+  balance       Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  property      Property @relation(fields: [propertyId], references: [id])
 
   @@index([propertyId])
 }
@@ -1009,39 +1064,39 @@ model DayClosing {
 }
 
 model Shift {
-  id          String           @id @default(cuid())
-  propertyId  String
-  cashierId   String?
-  cashierName String?
-  shiftNo     String           @unique
-  openedAt    DateTime         @default(now())
-  closedAt    DateTime?
-  openingCash Float            @default(0)
-  status      String           @default("OPEN")
-  notes       String?
-  topUps      CashTopUp[]
-  withdrawals CashWithdrawal[]
-  dayClosings DayClosing[]
-  actualCash  Float?           @default(0)
-  expectedCash Float?          @default(0)
-  discrepancy Float?           @default(0)
-  property    Property         @relation(fields: [propertyId], references: [id])
+  id           String           @id @default(cuid())
+  propertyId   String
+  cashierId    String?
+  cashierName  String?
+  shiftNo      String           @unique
+  openedAt     DateTime         @default(now())
+  closedAt     DateTime?
+  openingCash  Float            @default(0)
+  status       String           @default("OPEN")
+  notes        String?
+  topUps       CashTopUp[]
+  withdrawals  CashWithdrawal[]
+  dayClosings  DayClosing[]
+  actualCash   Float?           @default(0)
+  expectedCash Float?           @default(0)
+  discrepancy  Float?           @default(0)
+  property     Property         @relation(fields: [propertyId], references: [id])
 }
 
 model Attendance {
-  id             String       @id @default(cuid())
-  userId         String?
-  staffMemberId  String?
-  propertyId     String
-  clockIn        DateTime     @default(now())
-  clockOut       DateTime?
-  status         String       @default("PRESENT") // PRESENT, LATE, ABSENT
-  note           String?
-  locationIn     String?      // GPS coordinates or IP
-  locationOut    String?
-  user           User?        @relation(fields: [userId], references: [id])
-  staffMember    StaffMember? @relation(fields: [staffMemberId], references: [id])
-  property       Property     @relation(fields: [propertyId], references: [id])
+  id            String       @id @default(cuid())
+  userId        String?
+  staffMemberId String?
+  propertyId    String
+  clockIn       DateTime     @default(now())
+  clockOut      DateTime?
+  status        String       @default("PRESENT") // PRESENT, LATE, ABSENT
+  note          String?
+  locationIn    String? // GPS coordinates or IP
+  locationOut   String?
+  user          User?        @relation(fields: [userId], references: [id])
+  staffMember   StaffMember? @relation(fields: [staffMemberId], references: [id])
+  property      Property     @relation(fields: [propertyId], references: [id])
 
   @@index([userId])
   @@index([staffMemberId])
@@ -1169,6 +1224,44 @@ model MaintenanceTicket {
   property    Property  @relation(fields: [propertyId], references: [id])
 }
 
+model LostItem {
+  id           String    @id @default(cuid())
+  propertyId   String
+  item         String
+  description  String?
+  room         String?
+  foundBy      String?
+  foundAt      DateTime  @default(now())
+  status       String    @default("FOUND") // FOUND, CLAIMED, DISPOSED
+  claimedBy    String?
+  claimedAt    DateTime?
+  guestContact String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model LaundryRequest {
+  id           String    @id @default(cuid())
+  propertyId   String
+  roomNumber   String
+  guestName    String?
+  itemsCount   Int       @default(1)
+  itemsDetail  String?
+  amount       Float     @default(0)
+  status       String    @default("COLLECTED") // COLLECTED, IN_LAUNDRY, READY, DELIVERED
+  collectedBy  String?
+  collectedAt  DateTime  @default(now())
+  deliveredAt  DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   propertyId String
@@ -1271,6 +1364,7 @@ model WebsiteSettings {
   macComingSoon            Boolean  @default(false)
   androidComingSoon        Boolean  @default(false)
   geminiApiKey             String?
+  openAiApiKey             String?
   maintenanceMode          Boolean  @default(false)
   hotelEnabled             Boolean  @default(false)
 }
@@ -1366,7 +1460,7 @@ model Driver {
   phone             String?
   vehicleNumber     String?
   vehicleType       String                @default("CAR")
-  vehicleCapacity   Int?                  // Kitni seat wali gaadi hai
+  vehicleCapacity   Int? // Kitni seat wali gaadi hai
   isActive          Boolean               @default(true)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
@@ -1426,26 +1520,26 @@ model DriverGift {
 }
 
 model StaffMember {
-  id               String     @id @default(cuid())
+  id               String       @id @default(cuid())
   propertyId       String
   name             String
   phone            String?
-  designation      String?    @default("Waiter")
-  salary           Float?     @default(0)
+  designation      String?      @default("Waiter")
+  salary           Float?       @default(0)
   address          String?
   emergencyContact String?
-  joiningDate      DateTime?  @default(now())
-  isActive         Boolean    @default(true)
-  shiftHours       Float?     @default(8.0)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  joiningDate      DateTime?    @default(now())
+  isActive         Boolean      @default(true)
+  shiftHours       Float?       @default(8.0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
   posOrders        PosOrder[]
-  property         Property   @relation(fields: [propertyId], references: [id])
+  property         Property     @relation(fields: [propertyId], references: [id])
   attendance       Attendance[]
 
   // Link to POS User credentials for staff login portal
-  userId           String?    @unique
-  user             User?      @relation("StaffUser", fields: [userId], references: [id], onDelete: SetNull)
+  userId String? @unique
+  user   User?   @relation("StaffUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
 }
@@ -1462,7 +1556,7 @@ model Tablet {
   name             String
   mode             String   @default("WAITER")
   tableId          String?
-  assignedTableIds String?  
+  assignedTableIds String?
   waiterId         String?
   isActive         Boolean  @default(true)
   floorId          String?
@@ -1504,17 +1598,17 @@ model GstFiling {
 }
 
 model GstReturnDue {
-  id          String    @id @default(cuid())
-  propertyId  String
-  returnType  String    // GSTR-1, GSTR-3B, GSTR-9, GSTR-9C, etc.
-  period      String    // e.g. "042025" = April 2025
-  dueDate     DateTime
-  filedDate   DateTime?
-  status      String    @default("PENDING") // PENDING, FILED, OVERDUE
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  property    Property  @relation(fields: [propertyId], references: [id])
+  id         String    @id @default(cuid())
+  propertyId String
+  returnType String // GSTR-1, GSTR-3B, GSTR-9, GSTR-9C, etc.
+  period     String // e.g. "042025" = April 2025
+  dueDate    DateTime
+  filedDate  DateTime?
+  status     String    @default("PENDING") // PENDING, FILED, OVERDUE
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  property   Property  @relation(fields: [propertyId], references: [id])
 }
 
 model Offer {
@@ -1604,21 +1698,22 @@ model OfferAuditLog {
 }
 
 model Package {
-  id              String              @id @default(cuid())
-  name            String              @unique
-  description     String?
-  discountPercent Float               @default(0)
-  priceUSD        Float               @default(0)
-  priceINR        Float               @default(0)
-  isActive        Boolean             @default(true)
-  color           String?             @default("#6366f1")
+  id                   String              @id @default(cuid())
+  name                 String              @unique
+  description          String?
+  discountPercent      Float               @default(0)
+  priceUSD             Float               @default(0)
+  priceINR             Float               @default(0)
+  isActive             Boolean             @default(true)
+  color                String?             @default("#6366f1")
   allowedPosCount      Int                 @default(1)
   allowedPropertyCount Int                 @default(1)
+  allowedHotelCount    Int                 @default(0)
   createdAt            DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  organizations   Organization[]
-  features        PackageFeature[]
-  permissions     PackagePermission[]
+  updatedAt            DateTime            @updatedAt
+  organizations        Organization[]
+  features             PackageFeature[]
+  permissions          PackagePermission[]
 }
 
 model PackageFeature {
@@ -1704,98 +1799,99 @@ model TableFeedback {
   rating     Int
   comments   String?
   createdAt  DateTime @default(now())
-  
-  property   Property @relation(fields: [propertyId], references: [id])
-  table      Table    @relation(fields: [tableId], references: [id])
+
+  property Property @relation(fields: [propertyId], references: [id])
+  table    Table    @relation(fields: [tableId], references: [id])
 
   @@index([propertyId])
   @@index([tableId])
 }
 
 model ParkingSlot {
-  id         String     @id @default(cuid())
+  id         String      @id @default(cuid())
   propertyId String
   name       String
-  status     String     @default("VACANT")
-  qrToken    String?    @unique @default(cuid())
-  width      Int?       @default(256)
-  height     Int?       @default(350)
-  x          Float?     @default(0)
-  y          Float?     @default(0)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  property   Property   @relation(fields: [propertyId], references: [id])
-  posOrders  PosOrder[] @relation("ParkingOrders")
+  status     String      @default("VACANT")
+  qrToken    String?     @unique @default(cuid())
+  width      Int?        @default(256)
+  height     Int?        @default(350)
+  x          Float?      @default(0)
+  y          Float?      @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  property   Property    @relation(fields: [propertyId], references: [id])
+  posOrders  PosOrder[]  @relation("ParkingOrders")
   kotTickets KotTicket[]
 
   @@index([propertyId])
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  propertyId  String
-  title       String
-  message     String
-  type        String   // PAYMENT, ORDER, INVENTORY, etc.
-  status      String   @default("UNREAD") // UNREAD, READ, DISMISSED
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  metadata    String?  // JSON string for additional data (tableNo, floorName, amount, etc.)
-  tableId     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  property    Property @relation(fields: [propertyId], references: [id])
+  id         String   @id @default(cuid())
+  propertyId String
+  title      String
+  message    String
+  type       String // PAYMENT, ORDER, INVENTORY, etc.
+  status     String   @default("UNREAD") // UNREAD, READ, DISMISSED
+  priority   String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  metadata   String? // JSON string for additional data (tableNo, floorName, amount, etc.)
+  tableId    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id])
 
   @@index([propertyId])
   @@index([status])
   @@index([tableId])
 }
-model Printer {
-  id              String   @id @default(cuid())
-  propertyId      String
-  name            String
-  connectionType  String   // NETWORK, USB, BLUETOOTH
-  ipAddress       String?
-  port            Int?     @default(9100)
-  printerType     String   @default("THERMAL") // THERMAL, DOT_MATRIX
-  paperSize       String   @default("80mm") // 58mm, 80mm, CUSTOM
-  customWidth     Int?     // In mm if CUSTOM
-  isBilling       Boolean  @default(false)
-  isKitchen       Boolean  @default(false)
-  isEnabled       Boolean  @default(true)
-  autoCut         Boolean  @default(true)
-  fontSize        Int      @default(12)
-  margin          Int      @default(0)
-  padding         Int      @default(0)
-  billFormat      String?  // JSON string for format settings
-  kotFormat       String?  // JSON string for format settings
-  status          String   @default("OFFLINE") // ONLINE, OFFLINE
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  property        Property @relation(fields: [propertyId], references: [id])
+model Printer {
+  id             String   @id @default(cuid())
+  propertyId     String
+  name           String
+  connectionType String // NETWORK, USB, BLUETOOTH
+  ipAddress      String?
+  port           Int?     @default(9100)
+  printerType    String   @default("THERMAL") // THERMAL, DOT_MATRIX
+  paperSize      String   @default("80mm") // 58mm, 80mm, CUSTOM
+  customWidth    Int? // In mm if CUSTOM
+  isBilling      Boolean  @default(false)
+  isKitchen      Boolean  @default(false)
+  isEnabled      Boolean  @default(true)
+  autoCut        Boolean  @default(true)
+  fontSize       Int      @default(12)
+  margin         Int      @default(0)
+  padding        Int      @default(0)
+  billFormat     String? // JSON string for format settings
+  kotFormat      String? // JSON string for format settings
+  status         String   @default("OFFLINE") // ONLINE, OFFLINE
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id])
 
   @@index([propertyId])
 }
 
 model Waste {
-  id              String   @id @default(cuid())
-  propertyId      String
-  productId       String?
-  productName     String
-  quantity        Float
-  reason          String   // Refunded, Burnt, Expired, Damaged, Wrong Order, Customer Return, Kitchen Mistake
-  orderNo         String?
-  tableNo         String?
-  staffName       String?
-  costPrice       Float    @default(0)
-  totalCost       Float    @default(0)
-  notes           String?
-  status          String   @default("RECORDED") // RECORDED, REVIEWED, DISPOSED
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  property        Property @relation(fields: [propertyId], references: [id])
-  product         Product? @relation(fields: [productId], references: [id])
+  id          String   @id @default(cuid())
+  propertyId  String
+  productId   String?
+  productName String
+  quantity    Float
+  reason      String // Refunded, Burnt, Expired, Damaged, Wrong Order, Customer Return, Kitchen Mistake
+  orderNo     String?
+  tableNo     String?
+  staffName   String?
+  costPrice   Float    @default(0)
+  totalCost   Float    @default(0)
+  notes       String?
+  status      String   @default("RECORDED") // RECORDED, REVIEWED, DISPOSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id])
+  product  Product? @relation(fields: [productId], references: [id])
 
   @@index([propertyId])
   @@index([productId])
@@ -1806,7 +1902,7 @@ model Waste {
 model NotificationPreference {
   id           String   @id @default(cuid())
   propertyId   String
-  type         String   // e.g., 'ORDER', 'PAYMENT', 'INVENTORY', etc.
+  type         String // e.g., 'ORDER', 'PAYMENT', 'INVENTORY', etc.
   isEnabled    Boolean  @default(true)
   soundEnabled Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -1818,45 +1914,45 @@ model NotificationPreference {
 }
 
 model B2BSupplier {
-  id          String      @id @default(cuid())
-  name        String
-  email       String      @unique
-  phone       String?
-  address     String?
-  image       String?     // Profile photo / Logo
-  gstNumber   String?
-  category    String?     // e.g., Vegetables, Dairy, Meat
-  isActive    Boolean     @default(true)
-  qrToken     String?     @unique  // Unique token for QR-based ordering
-  qrEnabled   Boolean     @default(true)
-  products    B2BProduct[]
-  orders      B2BOrder[]
-  users       User[]
-  createdAt   DateTime    @default(now())
+  id        String       @id @default(cuid())
+  name      String
+  email     String       @unique
+  phone     String?
+  address   String?
+  image     String? // Profile photo / Logo
+  gstNumber String?
+  category  String? // e.g., Vegetables, Dairy, Meat
+  isActive  Boolean      @default(true)
+  qrToken   String?      @unique // Unique token for QR-based ordering
+  qrEnabled Boolean      @default(true)
+  products  B2BProduct[]
+  orders    B2BOrder[]
+  users     User[]
+  createdAt DateTime     @default(now())
 }
 
 model B2BProduct {
-  id            String      @id @default(cuid())
+  id            String         @id @default(cuid())
   supplierId    String
   name          String
   description   String?
   price         Float
-  unit          String      // e.g., kg, packet, crate
-  stockQuantity Float       @default(0)
-  discount      Float       @default(0)
-  gstRate       Float       @default(18)   // GST percentage: 0, 5, 12, 18, 28
-  hsnCode       String?                     // HSN/SAC Code
-  taxType       String      @default("Exclusive") // Exclusive, Inclusive, Exempt
+  unit          String // e.g., kg, packet, crate
+  stockQuantity Float          @default(0)
+  discount      Float          @default(0)
+  gstRate       Float          @default(18) // GST percentage: 0, 5, 12, 18, 28
+  hsnCode       String? // HSN/SAC Code
+  taxType       String         @default("Exclusive") // Exclusive, Inclusive, Exempt
   image         String?
   category      String?
-  supplier      B2BSupplier @relation(fields: [supplierId], references: [id])
+  supplier      B2BSupplier    @relation(fields: [supplierId], references: [id])
   orderItems    B2BOrderItem[]
 }
 
 model B2BOrder {
   id              String         @id @default(cuid())
-  propertyId      String?        // Buying Restaurant (null for QR walk-in orders)
-  supplierId      String         // Selling Supplier
+  propertyId      String? // Buying Restaurant (null for QR walk-in orders)
+  supplierId      String // Selling Supplier
   orderNo         String         @unique
   status          String         @default("PENDING") // PENDING, ACCEPTED, PROCESSING, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
   totalAmount     Float
@@ -1864,9 +1960,9 @@ model B2BOrder {
   deliveryDate    DateTime?
   // QR Order fields (for walk-in / scan-to-order flow)
   orderSource     String         @default("PLATFORM") // PLATFORM | QR_SCAN
-  buyerName       String?        // Name of buyer from QR order form
-  buyerPhone      String?        // Phone from QR order form
-  buyerRestaurant String?        // Restaurant name from QR form
+  buyerName       String? // Name of buyer from QR order form
+  buyerPhone      String? // Phone from QR order form
+  buyerRestaurant String? // Restaurant name from QR form
   items           B2BOrderItem[]
   statusLogs      B2BOrderLog[]
   property        Property?      @relation(fields: [propertyId], references: [id])
@@ -1878,23 +1974,23 @@ model B2BOrder {
 }
 
 model B2BOrderItem {
-  id          String     @id @default(cuid())
-  orderId     String
-  productId   String
-  quantity    Float
-  unitPrice   Float
-  totalPrice  Float
-  order       B2BOrder   @relation(fields: [orderId], references: [id])
-  product     B2BProduct @relation(fields: [productId], references: [id])
+  id         String     @id @default(cuid())
+  orderId    String
+  productId  String
+  quantity   Float
+  unitPrice  Float
+  totalPrice Float
+  order      B2BOrder   @relation(fields: [orderId], references: [id])
+  product    B2BProduct @relation(fields: [productId], references: [id])
 }
 
 model B2BOrderLog {
-  id        String         @id @default(cuid())
+  id        String   @id @default(cuid())
   orderId   String
   status    String
   note      String?
-  createdAt DateTime       @default(now())
-  order     B2BOrder       @relation(fields: [orderId], references: [id])
+  createdAt DateTime @default(now())
+  order     B2BOrder @relation(fields: [orderId], references: [id])
 }
 
 model PaymentSetting {
@@ -1909,42 +2005,42 @@ model PaymentSetting {
 }
 
 model WhatsAppSession {
-  id        String   @id @default(cuid())
-  phone     String   @unique                  // Customer's WhatsApp Number
-  state     String   @default("GREETING")     // GREETING, ORDERING, CONFIRMING, AWAITING_PAYMENT
-  cart      String   @default("[]")           // Temporary cart items stored as JSON String
-  metadata  String?                           // Modifiers, Address, Name, Table ID
-  propertyId String?                           // Binds session to a specific property (restaurant)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  phone      String   @unique // Customer's WhatsApp Number
+  state      String   @default("GREETING") // GREETING, ORDERING, CONFIRMING, AWAITING_PAYMENT
+  cart       String   @default("[]") // Temporary cart items stored as JSON String
+  metadata   String? // Modifiers, Address, Name, Table ID
+  propertyId String? // Binds session to a specific property (restaurant)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model LoyaltyLog {
-  id         String   @id @default(cuid())
-  guestId    String
-  points     Int
-  reason     String
-  createdAt  DateTime @default(now())
-  guest      Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  guestId   String
+  points    Int
+  reason    String
+  createdAt DateTime @default(now())
+  guest     Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
 
   @@index([guestId])
 }
 
 model Coupon {
-  id              String         @id @default(cuid())
-  code            String         @unique
-  discountType    String         // PERCENTAGE or FIXED
+  id              String     @id @default(cuid())
+  code            String     @unique
+  discountType    String // PERCENTAGE or FIXED
   discountValue   Float
-  minOrderValue   Float          @default(0)
+  minOrderValue   Float      @default(0)
   maxDiscount     Float?
   expiryDate      DateTime
-  isActive        Boolean        @default(true)
+  isActive        Boolean    @default(true)
   assignedGuestId String?
   propertyId      String
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  assignedGuest   Guest?         @relation(fields: [assignedGuestId], references: [id], onDelete: Cascade)
-  property        Property       @relation(fields: [propertyId], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  assignedGuest   Guest?     @relation(fields: [assignedGuestId], references: [id], onDelete: Cascade)
+  property        Property   @relation(fields: [propertyId], references: [id])
   posOrders       PosOrder[]
   campaigns       Campaign[]
 
@@ -1953,20 +2049,20 @@ model Coupon {
 }
 
 model Campaign {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   propertyId  String
   name        String
-  type        String   // PROMOTIONAL, BIRTHDAY
-  targetGroup String   // ALL, VIP, REGULAR, BIRTHDAY_TODAY, INACTIVE, etc.
+  type        String // PROMOTIONAL, BIRTHDAY
+  targetGroup String // ALL, VIP, REGULAR, BIRTHDAY_TODAY, INACTIVE, etc.
   message     String
-  status      String   @default("DRAFT") // DRAFT, SENT, FAILED
+  status      String    @default("DRAFT") // DRAFT, SENT, FAILED
   scheduledAt DateTime?
   sentAt      DateTime?
   couponId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  property    Property @relation(fields: [propertyId], references: [id])
-  coupon      Coupon?  @relation(fields: [couponId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  property    Property  @relation(fields: [propertyId], references: [id])
+  coupon      Coupon?   @relation(fields: [couponId], references: [id])
 
   @@index([propertyId])
   @@index([couponId])
@@ -1975,68 +2071,67 @@ model Campaign {
 // ── WALKIE-TALKIE MODELS ──────────────────────────────────
 
 model WTChannel {
-  id           String            @id @default(cuid())
-  name         String
-  type         String            @default("group") // group, private
-  propertyId   String?           // links channel to a restaurant property
-  createdBy    String
-  isEmergency  Boolean           @default(false)
-  createdAt    DateTime          @default(now())
-  
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("group") // group, private
+  propertyId  String? // links channel to a restaurant property
+  createdBy   String
+  isEmergency Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
   // Relations
-  members      WTChannelMember[]
-  speakerLock  WTSpeakerLock?
-  talkHistory  WTTalkHistory[]
+  members     WTChannelMember[]
+  speakerLock WTSpeakerLock?
+  talkHistory WTTalkHistory[]
 }
 
 model WTChannelMember {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   channelId String
-  userId    String    
-  role      String    @default("member") // admin, member
-  muted     Boolean   @default(false)
-  joinedAt  DateTime  @default(now())
-  
+  userId    String
+  role      String   @default("member") // admin, member
+  muted     Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
   // Relations
-  channel   WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model WTSpeakerLock {
-  channelId String    @id
-  speakerId String    
-  lockedAt  DateTime  @default(now())
-  
+  channelId String   @id
+  speakerId String
+  lockedAt  DateTime @default(now())
+
   // Relations
-  channel   WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  speaker   User      @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  channel WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  speaker User      @relation(fields: [speakerId], references: [id], onDelete: Cascade)
 }
 
 model WTTalkHistory {
   id           String    @id @default(cuid())
   channelId    String
-  speakerId    String    
+  speakerId    String
   startedAt    DateTime  @default(now())
   endedAt      DateTime?
   recordingUrl String?
-  
+
   // Relations
-  channel      WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  speaker      User      @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  channel WTChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  speaker User      @relation(fields: [speakerId], references: [id], onDelete: Cascade)
 }
 
 model WTContact {
   id            String   @id @default(cuid())
-  userId        String   
-  contactUserId String   
+  userId        String
+  contactUserId String
   status        String   @default("pending") // pending, accepted
   createdAt     DateTime @default(now())
-  
-  // Relations
-  user          User     @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
-  contactUser   User     @relation("UserContactOf", fields: [contactUserId], references: [id], onDelete: Cascade)
-}
 
+  // Relations
+  user        User @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contactUser User @relation("UserContactOf", fields: [contactUserId], references: [id], onDelete: Cascade)
+}
 
 // ── STAFF LOCATION TRACKING ───────────────────────────────────
 
@@ -2044,16 +2139,16 @@ model WTContact {
 /// Stores the GPS co-ordinates and the computed distance from
 /// the property's base location at the moment of the ping.
 model StaffLocation {
-  id                 String   @id @default(cuid())
-  userId             String
-  propertyId         String
-  lat                Float
-  lng                Float
-  distanceFromBase   Float    @default(0)   // metres
-  isOutOfRange       Boolean  @default(false)
-  createdAt          DateTime @default(now())
+  id               String   @id @default(cuid())
+  userId           String
+  propertyId       String
+  lat              Float
+  lng              Float
+  distanceFromBase Float    @default(0) // metres
+  isOutOfRange     Boolean  @default(false)
+  createdAt        DateTime @default(now())
 
-  user               User     @relation("StaffLocationPings", fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("StaffLocationPings", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([propertyId])
@@ -2063,13 +2158,13 @@ model StaffLocation {
 /// One row per property — stores the "base" GPS co-ordinates
 /// and the alert distance threshold set by the manager.
 model StaffLocationSettings {
-  id                   String   @id @default(cuid())
-  propertyId           String   @unique
-  baseLat              Float    @default(0)
-  baseLng              Float    @default(0)
-  alertDistanceMeters  Float    @default(500)  // 500 m default
-  trackingEnabled      Boolean  @default(true)
-  updatedAt            DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  propertyId          String   @unique
+  baseLat             Float    @default(0)
+  baseLng             Float    @default(0)
+  alertDistanceMeters Float    @default(500) // 500 m default
+  trackingEnabled     Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
 }
 
 model TableAssignment {
@@ -2079,8 +2174,8 @@ model TableAssignment {
   propertyId String
   createdAt  DateTime @default(now())
 
-  user       User     @relation("UserTableAssignments", fields: [userId], references: [id], onDelete: Cascade)
-  table      Table    @relation("TableAssignments", fields: [tableId], references: [id], onDelete: Cascade)
+  user  User  @relation("UserTableAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  table Table @relation("TableAssignments", fields: [tableId], references: [id], onDelete: Cascade)
 
   @@unique([userId, tableId])
   @@index([userId])
@@ -2095,19 +2190,19 @@ model DeliveryZone {
   name                  String
   type                  String     @default("RADIUS") // "RADIUS" | "PINCODE" | "CORPORATE"
   radiusKm              Float?
-  pincodes              String?    // JSON array of pincodes e.g. ["110001","110002"]
+  pincodes              String? // JSON array of pincodes e.g. ["110001","110002"]
   deliveryFee           Float      @default(0)
   minOrderValue         Float      @default(0)
   etaMinutes            Int        @default(30)
   freeDeliveryThreshold Float?
   peakSurchargePercent  Float      @default(0)
-  peakHoursStart        String?    // "11:00"
-  peakHoursEnd          String?    // "14:00"
+  peakHoursStart        String? // "11:00"
+  peakHoursEnd          String? // "14:00"
   isRainOverride        Boolean    @default(false)
   rainSurchargePercent  Float      @default(0)
-  deliveryHoursStart    String?    // "09:00"
-  deliveryHoursEnd      String?    // "23:00"
-  blackoutDates         String?    // JSON array of "YYYY-MM-DD" strings
+  deliveryHoursStart    String? // "09:00"
+  deliveryHoursEnd      String? // "23:00"
+  blackoutDates         String? // JSON array of "YYYY-MM-DD" strings
   corporateDiscount     Float      @default(0)
   isActive              Boolean    @default(true)
   createdAt             DateTime   @default(now())
@@ -2120,21 +2215,21 @@ model DeliveryZone {
 
 // ─── Delivery Trip ─────────────────────────────────────────────────────────────
 model DeliveryTrip {
-  id             String    @id @default(cuid())
-  riderId        String
-  orderId        String    @unique
-  propertyId     String
-  startTime      DateTime  @default(now())
-  pickedUpAt     DateTime?
-  deliveredAt    DateTime?
-  distanceKm     Float?
-  codAmount      Float     @default(0)
-  codCollected   Boolean   @default(false)
-  sosTriggered   Boolean   @default(false)
-  riderRating    Int?
-  status         String    @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "FAILED"
-  rider          User      @relation("RiderTrips", fields: [riderId], references: [id])
-  property       Property  @relation(fields: [propertyId], references: [id])
+  id           String    @id @default(cuid())
+  riderId      String
+  orderId      String    @unique
+  propertyId   String
+  startTime    DateTime  @default(now())
+  pickedUpAt   DateTime?
+  deliveredAt  DateTime?
+  distanceKm   Float?
+  codAmount    Float     @default(0)
+  codCollected Boolean   @default(false)
+  sosTriggered Boolean   @default(false)
+  riderRating  Int?
+  status       String    @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "FAILED"
+  rider        User      @relation("RiderTrips", fields: [riderId], references: [id])
+  property     Property  @relation(fields: [propertyId], references: [id])
 
   @@index([riderId])
   @@index([propertyId])
@@ -2163,15 +2258,15 @@ model RiderCashHandover {
 
 // ─── Music / Playlist ──────────────────────────────────────────────────────────
 model MusicSong {
-  id          String   @id @default(cuid())
-  propertyId  String
-  title       String
-  artist      String?
-  youtubeId   String   // YouTube video ID
-  thumbnail   String?  // YouTube thumbnail URL
-  duration    String?  // e.g. "3:45"
-  addedAt     DateTime @default(now())
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  propertyId String
+  title      String
+  artist     String?
+  youtubeId  String // YouTube video ID
+  thumbnail  String? // YouTube thumbnail URL
+  duration   String? // e.g. "3:45"
+  addedAt    DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
 }
@@ -2180,7 +2275,7 @@ model MusicPlaylist {
   id         String              @id @default(cuid())
   propertyId String
   name       String
-  emoji      String?             // e.g. "😢" "💃" "🎉"
+  emoji      String? // e.g. "😢" "💃" "🎉"
   createdAt  DateTime            @default(now())
   property   Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   items      MusicPlaylistItem[]
@@ -2200,4 +2295,313 @@ model MusicPlaylistItem {
   playlist   MusicPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
 
   @@index([playlistId])
+}
+
+// ==========================================
+// Singer & Live Music System Models
+// ==========================================
+
+model Singer {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  phone         String?
+  passwordHash  String
+  bio           String?
+  genre         String? // e.g., Pop, Rock, Sufi, Bollywood
+  photoUrl      String? // Profile picture url
+  coverPhotoUrl String? // Cover/banner photo url
+  rating        Float    @default(5.0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  performances    Performance[]
+  videos          SingerVideo[]
+  posts           SingerPost[]
+  bookingRequests BookingRequest[]
+}
+
+model SingerVideo {
+  id          String   @id @default(cuid())
+  singerId    String
+  title       String
+  videoUrl    String
+  description String?
+  createdAt   DateTime @default(now())
+
+  singer Singer @relation(fields: [singerId], references: [id], onDelete: Cascade)
+
+  @@index([singerId])
+}
+
+model SingerPost {
+  id        String   @id @default(cuid())
+  singerId  String
+  title     String
+  content   String
+  imageUrl  String?
+  tags      String? // Hashtags/labels e.g. "acoustic,bollywood,sufi"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  singer   Singer              @relation(fields: [singerId], references: [id], onDelete: Cascade)
+  likes    SingerPostLike[]
+  comments SingerPostComment[]
+
+  @@index([singerId])
+}
+
+model SingerPostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  guestId   String?
+  singerId  String?
+  createdAt DateTime @default(now())
+
+  post SingerPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model SingerPostComment {
+  id         String   @id @default(cuid())
+  postId     String
+  content    String
+  guestId    String?
+  singerId   String?
+  authorName String // e.g. Manish, Ritchie
+  createdAt  DateTime @default(now())
+
+  post SingerPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model Performance {
+  id         String   @id @default(cuid())
+  singerId   String
+  propertyId String
+  venueName  String // e.g., Rooftop Bar, Main Lobby
+  date       DateTime
+  startTime  DateTime
+  endTime    DateTime
+  status     String   @default("SCHEDULED") // SCHEDULED | LIVE | COMPLETED | CANCELLED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  singer       Singer           @relation(fields: [singerId], references: [id], onDelete: Cascade)
+  property     Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  songRequests SongRequest[]
+  feedback     SingerFeedback[]
+
+  @@index([singerId])
+  @@index([propertyId])
+}
+
+model SongRequest {
+  id            String   @id @default(cuid())
+  performanceId String
+  guestName     String
+  roomNo        String?
+  songTitle     String
+  artist        String?
+  status        String   @default("PENDING") // PENDING | ACCEPTED | PLAYED | DECLINED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  performance Performance @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+
+  @@index([performanceId])
+}
+
+model SingerFeedback {
+  id            String   @id @default(cuid())
+  performanceId String
+  rating        Int // 1 to 5
+  comment       String?
+  guestName     String?
+  createdAt     DateTime @default(now())
+
+  performance Performance @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+
+  @@index([performanceId])
+}
+
+model BookingRequest {
+  id          String   @id @default(cuid())
+  singerId    String
+  propertyId  String
+  sender      String // "HOTEL" | "SINGER"
+  venueName   String
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  proposedFee Float?
+  status      String   @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  singer   Singer   @relation(fields: [singerId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([singerId])
+  @@index([propertyId])
+}
+
+// ─── Transport Driver Portal ────────────────────────────────────────────────
+
+model TransportDriver {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String   @unique
+  passwordHash  String
+  email         String?
+  licenseNumber String?
+  idProofNumber String?
+  address       String?
+  city          String?
+  state         String?
+  photoUrl      String?
+  licenseUrl    String?
+  rcUrl         String?
+  idProofUrl    String?
+  isActive      Boolean  @default(true)
+  isOnline      Boolean  @default(false)
+  rating        Float    @default(5.0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  vehicles  TransportVehicle[]
+  bookings  TransportBooking[]
+}
+
+model TransportVehicle {
+  id          String   @id @default(cuid())
+  driverId    String
+  type        String   @default("CAR") // CAR | BUS | MINIBUS | VAN
+  plateNumber String
+  model       String?
+  color       String?
+  capacity    Int      @default(4)
+  perKmRate   Float    @default(15.0)
+  baseFare    Float    @default(50.0)
+  photoUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  driver    TransportDriver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  schedules TransportSchedule[]
+
+  @@index([driverId])
+}
+
+model TransportSchedule {
+  id               String   @id @default(cuid())
+  vehicleId        String
+  routeName        String
+  fromLocation     String
+  toLocation       String
+  departureTime    String
+  arrivalTime      String?
+  days             String
+  pricePerSeat     Float    @default(0)
+  fullVehiclePrice Float?
+  isActive         Boolean  @default(true)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  vehicle  TransportVehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  bookings TransportBooking[]
+
+  @@index([vehicleId])
+}
+
+model TransportBooking {
+  id           String   @id @default(cuid())
+  scheduleId   String?
+  driverId     String
+  guestName    String
+  guestPhone   String
+  guestRoom    String?
+  fromLocation String
+  toLocation   String
+  pickupLat    Float?
+  pickupLng    Float?
+  dropLat      Float?
+  dropLng      Float?
+  distanceKm   Float?
+  travelDate   String
+  travelTime   String
+  seats        Int      @default(1)
+  totalAmount  Float    @default(0)
+  status       String   @default("PENDING")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  driver   TransportDriver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  schedule TransportSchedule? @relation(fields: [scheduleId], references: [id])
+
+  @@index([driverId])
+  @@index([scheduleId])
+}
+
+model SpaService {
+  id          String           @id @default(cuid())
+  propertyId  String?
+  name        String
+  category    String           @default("Massage")
+  duration    Int              @default(60)
+  price       Float            @default(0)
+  description String?
+  image       String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  appointments SpaAppointment[]
+}
+
+model SpaTherapist {
+  id           String           @id @default(cuid())
+  propertyId   String?
+  name         String
+  gender       String           @default("Female")
+  specialty    String?
+  phone        String?
+  rating       Float            @default(4.9)
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  appointments SpaAppointment[]
+}
+
+model SpaAppointment {
+  id            String        @id @default(cuid())
+  propertyId    String?
+  serviceId     String?
+  therapistId   String?
+  guestName     String
+  guestRoom     String
+  guestPhone    String?
+  serviceName   String
+  therapistName String?
+  bookingDate   String
+  bookingTime   String
+  duration      Int           @default(60)
+  amount        Float         @default(0)
+  paymentType   String        @default("ROOM_CHARGE")
+  status        String        @default("CONFIRMED")
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  service   SpaService?   @relation(fields: [serviceId], references: [id])
+  therapist SpaTherapist? @relation(fields: [therapistId], references: [id])
+
+  @@index([serviceId])
+  @@index([therapistId])
 }

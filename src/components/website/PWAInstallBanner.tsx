@@ -58,7 +58,7 @@ export const PWAInstallBanner = () => {
                 <Monitor className="text-white w-6 h-6" />
               </div>
               <div>
-                <h4 className="text-white font-bold text-sm">Install OrderMint POS</h4>
+                <h4 className="text-white font-bold text-sm">Install GuestFlow POS</h4>
                 <p className="text-gray-400 text-xs">Get the proper desktop experience</p>
               </div>
             </div>

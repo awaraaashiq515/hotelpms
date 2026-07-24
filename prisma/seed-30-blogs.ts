@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -394,8 +395,15 @@ async function main() {
   for (const b of blogs) {
     await prisma.websiteBlog.upsert({
       where: { slug: b.slug },
-      update: b,
-      create: b,
+      update: {
+        ...b,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: randomUUID(),
+        ...b,
+        updatedAt: new Date(),
+      },
     });
   }
 

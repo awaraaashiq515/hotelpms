@@ -29,6 +29,8 @@ async function sendDeliveryNotification(
   }
 }
 
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -61,7 +63,8 @@ export async function PUT(
   try {
     const { id } = await params;
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    const wtUser = await getWTUserFromRequest(request);
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
     const { status, driverId, preparationTime, onlinePaymentReference } = body;
@@ -99,6 +102,14 @@ export async function PUT(
       data: dataToUpdate,
       include: { driver: true, deliveryRider: true, property: true }
     });
+
+    // --- Reset Table Status to VACANT on Order Completion ---
+    if ((status === 'COMPLETED' || status === 'PAID' || status === 'SETTLED') && order.restaurantTableId) {
+      await prisma.table.update({
+        where: { id: order.restaurantTableId },
+        data: { status: 'VACANT' }
+      }).catch(() => {});
+    }
 
     // --- Sync KOT Ticket Status ---
     if (status === 'SERVED' || status === 'COMPLETED' || status === 'PAID') {

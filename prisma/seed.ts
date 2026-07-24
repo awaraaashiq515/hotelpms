@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -9,21 +10,29 @@ async function main() {
   // 1. Upsert Organization
   const org = await prisma.organization.upsert({
     where: { email: 'root@system.com' },
-    update: {},
+    update: {
+      updatedAt: new Date(),
+    },
     create: {
+      id: 'system-root-org',
       name: 'System Root Org',
       email: 'root@system.com',
+      updatedAt: new Date(),
     },
   });
 
   // 2. Upsert Property
   const property = await prisma.property.upsert({
     where: { code: 'MB01' },
-    update: {},
+    update: {
+      updatedAt: new Date(),
+    },
     create: {
+      id: 'main-branch',
       name: 'Main Branch',
       code: 'MB01',
       organizationId: org.id,
+      updatedAt: new Date(),
     },
   });
 
@@ -32,6 +41,7 @@ async function main() {
     where: { name: 'SUPER_ADMIN' },
     update: {},
     create: {
+      id: 'role-super-admin',
       name: 'SUPER_ADMIN',
       description: 'Full system access',
     },
@@ -41,6 +51,7 @@ async function main() {
     where: { name: 'RESTAURANTS_ADMIN' },
     update: {},
     create: {
+      id: 'role-restaurants-admin',
       name: 'RESTAURANTS_ADMIN',
       description: 'POS Operational Access',
     },
@@ -50,6 +61,7 @@ async function main() {
     where: { name: 'POSSYSTEM' },
     update: {},
     create: {
+      id: 'role-possystem',
       name: 'POSSYSTEM',
       description: 'POS Terminal Operator Access',
     },
@@ -59,6 +71,7 @@ async function main() {
     where: { name: 'HOTEL_ADMIN' },
     update: {},
     create: {
+      id: 'role-hotel-admin',
       name: 'HOTEL_ADMIN',
       description: 'Hotel Property Owner & Manager Access',
     },
@@ -71,8 +84,10 @@ async function main() {
     update: {
       passwordHash: passwordHash,
       isActive: true,
+      updatedAt: new Date(),
     },
     create: {
+      id: 'super-admin',
       fullName: 'Super Admin',
       email: 'admin@example.com',
       passwordHash: passwordHash,
@@ -80,6 +95,7 @@ async function main() {
       propertyId: property.id,
       roleId: superAdminRole.id,
       isActive: true,
+      updatedAt: new Date(),
     },
   });
 
@@ -100,6 +116,7 @@ async function main() {
       },
       update: {},
       create: {
+        id: randomUUID(),
         name: mode.name,
         type: mode.type,
         propertyId: property.id,
@@ -174,14 +191,17 @@ async function main() {
   for (const exp of experiences) {
     await prisma.websiteExperience.upsert({
       where: { id: exp.title.toLowerCase().replace(/\s+/g, '-') }, 
-      update: {},
+      update: {
+        updatedAt: new Date(),
+      },
       create: {
         id: exp.title.toLowerCase().replace(/\s+/g, '-'),
         title: exp.title,
         description: exp.description,
         imageUrl: exp.imageUrl,
         order: exp.order,
-        isActive: exp.isActive
+        isActive: exp.isActive,
+        updatedAt: new Date(),
       }
     });
   }

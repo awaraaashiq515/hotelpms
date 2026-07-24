@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Edit, Trash2, Users, Phone, IndianRupee, Briefcase, Plus, UserCheck, UserX } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchToolbar } from '@/components/shared/search-toolbar';
@@ -11,6 +12,9 @@ import { ConfirmDeleteModal } from '@/components/modals/confirm-delete-modal';
 import { StaffMember, StaffMemberForm } from '@/components/forms/staff-member-form';
 
 export default function PosStaffPage() {
+  const params = useParams();
+  const propertyCode = params?.propertyCode as string;
+
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -19,17 +23,23 @@ export default function PosStaffPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
   const [mutationLoading, setMutationLoading] = useState(false);
+  const [properties, setProperties] = useState<any[]>([]);
 
   const fetchStaffMembers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/staff-members');
-      const result = await response.json();
-      if (result.success) {
-        setStaffMembers(result.data || []);
+      const [staffRes, propRes] = await Promise.all([
+        fetch('/api/staff-members').then(r => r.json()),
+        fetch('/api/admin/properties').then(r => r.json())
+      ]);
+      if (staffRes.success) {
+        setStaffMembers(staffRes.data || []);
+      }
+      if (propRes.success) {
+        setProperties(propRes.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch staff members:', error);
+      console.error('Failed to fetch staff members details:', error);
     } finally {
       setLoading(false);
     }
@@ -86,15 +96,20 @@ export default function PosStaffPage() {
     }
   };
 
+  const currentProperty = properties.find(p => p.code === propertyCode);
+
   const filteredStaff = (staffMembers || []).filter((s: StaffMember) => {
+    if (currentProperty && s.propertyId !== currentProperty.id) {
+      return false;
+    }
     const q = search.toLowerCase();
     return s.name.toLowerCase().includes(q) || 
            (s.phone || '').includes(q) ||
            (s.designation || '').toLowerCase().includes(q);
   });
 
-  const activeCount = staffMembers.filter(s => s.isActive).length;
-  const totalSalary = staffMembers.reduce((sum, s) => sum + (s.salary || 0), 0);
+  const activeCount = filteredStaff.filter(s => s.isActive).length;
+  const totalSalary = filteredStaff.reduce((sum, s) => sum + (s.salary || 0), 0);
 
   const columns = [
     { 
@@ -279,7 +294,8 @@ export default function PosStaffPage() {
         maxWidth="lg"
       >
         <StaffMemberForm 
-          initialData={selectedStaff || undefined}
+          initialData={selectedStaff || (currentProperty ? { propertyId: currentProperty.id, isActive: true } as any : undefined)}
+          properties={properties}
           onSubmit={handleCreateOrUpdate}
           onCancel={() => setIsFormOpen(false)}
           loading={mutationLoading}

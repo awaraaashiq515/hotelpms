@@ -21,13 +21,26 @@ export async function GET(request: NextRequest) {
           reservation: {
             include: {
               roomType: true,
+              rooms: { include: { room: true } },
               checkIns: {
                 where: { status: 'ACTIVE' }
-              }
+              },
+              property: true
             }
           },
           transactions: {
             orderBy: { txnDate: 'desc' }
+          },
+          posOrders: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              outlet: { select: { name: true, type: true } },
+              items: {
+                include: {
+                  product: { select: { name: true } }
+                }
+              }
+            }
           }
         }
       });

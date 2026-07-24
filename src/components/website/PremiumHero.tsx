@@ -37,7 +37,7 @@ export function PremiumHero() {
             <div className="rounded-xl md:rounded-[1.5rem] overflow-hidden bg-slate-100">
                <img 
                  src="/images/website/hero.png" 
-                 alt="OrderMint POS" 
+                 alt="GuestFlow POS" 
                  className="w-full h-auto object-cover"
                  onError={(e) => {
                    (e.target as HTMLImageElement).src = '/images/website/dashboard.png';
