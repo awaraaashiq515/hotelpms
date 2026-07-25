@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     if (!query || query.length < 2) return apiResponse([]);
 
     const orgId = session.organizationId;
-    const propertyId = session.propertyId;
+    const propertyId = session.propertyId ?? undefined;
 
     const [
       products, staff, guests, orders, invoices, tables, kotTickets,

@@ -38,12 +38,12 @@ export async function POST(req: NextRequest) {
     // 4. Send Email
     const emailSent = await sendMail({
       to: user.email,
-      subject: `Data Backup: ${backupData.organization.name} - ${new Date().toLocaleDateString()}`,
+      subject: `Data Backup: ${backupData.name} - ${new Date().toLocaleDateString()}`,
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #333;">
           <h2 style="color: #6366f1;">Data Backup Successful</h2>
           <p>Hello <b>${user.fullName}</b>,</p>
-          <p>Your requested data backup for <b>${backupData.organization.name}</b> has been generated successfully.</p>
+          <p>Your requested data backup for <b>${backupData.name}</b> has been generated successfully.</p>
           <p>Please find the attached JSON file containing all your restaurant's data including products, orders, guests, and accounting records.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
           <p style="font-size: 12px; color: #666;">

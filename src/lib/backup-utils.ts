@@ -16,12 +16,12 @@ export async function generateBackupData(organizationId: string, propertyId?: st
       where: { id: organizationId },
       include: {
         users: { select: { id: true, fullName: true, email: true, roleId: true } },
+        guests: true,
         properties: {
           where: propertyId ? { id: propertyId } : undefined,
           include: {
             categories: { include: { products: true } },
             posOrders: { include: { items: true } },
-            guests: true,
             invoices: { include: { items: true } },
             accounts: true,
             shifts: true,

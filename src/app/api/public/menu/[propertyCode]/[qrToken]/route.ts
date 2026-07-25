@@ -106,7 +106,7 @@ export async function GET(
     const isHomeDeliveryTable = tableData.name.toLowerCase() === 'home delivery';
 
     // 2. Fetch Active Orders
-    let activeOrders = [];
+    let activeOrders: any[] = [];
     if (isHomeDeliveryTable) {
       if (guestPhone) {
         activeOrders = await prisma.posOrder.findMany({

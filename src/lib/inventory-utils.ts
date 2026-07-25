@@ -24,12 +24,13 @@ export async function deductStockFromOrder(orderId: string) {
 
     for (const item of order.items) {
       for (const ingredient of item.product.ingredients) {
+        if (!ingredient.stockItemId) continue;
         const quantityToDeduct = ingredient.quantity * item.quantity;
 
         // Start transaction for atomic update
         await prisma.$transaction(async (tx: any) => {
           const inventoryItem = await tx.inventoryItem.findUnique({
-            where: { id: ingredient.inventoryItemId }
+            where: { id: ingredient.stockItemId }
           });
 
           if (inventoryItem) {

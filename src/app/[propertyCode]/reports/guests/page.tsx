@@ -92,7 +92,7 @@ export default function GuestHistoryReportPage() {
                <div key={guest.id} className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-700 hover:border-indigo-500/30 transition-all shadow-sm group">
                   <div className="flex items-start justify-between mb-6">
                      <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 font-black text-xl">
-                        {guest.name.charAt(0)}
+                        {(guest.name || 'G').charAt(0)}
                      </div>
                      <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-800">
                         <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest text-center">Lifetime Spend</p>
@@ -101,7 +101,7 @@ export default function GuestHistoryReportPage() {
                   </div>
 
                   <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight mb-4 group-hover:text-indigo-600 transition-colors">
-                     {guest.name}
+                      {guest.name}
                   </h3>
 
                   <div className="space-y-3 mb-6">

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Determine which printer to use
-    let targetPrinters = [];
+    let targetPrinters: any[] = [];
     
     if (printerId) {
       const p = await prisma.printer.findUnique({ where: { id: printerId } });
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
           if (printer.autoCut) data += ESC_POS.CUT;
           
           if (printer.connectionType === 'WEB_SERIAL') {
-            webSerialJobs.push({ printerId: printer.id, ipAddress: printer.ipAddress, data });
+            webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
           } else {
             await sendToPrinter(data, printer);
           }
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
             if (printer.autoCut) data += ESC_POS.CUT;
             
             if (printer.connectionType === 'WEB_SERIAL') {
-              webSerialJobs.push({ printerId: printer.id, ipAddress: printer.ipAddress, data });
+              webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
             } else {
               await sendToPrinter(data, printer);
             }
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
             if (printer.autoCut) data += ESC_POS.CUT;
 
             if (printer.connectionType === 'WEB_SERIAL') {
-              webSerialJobs.push({ printerId: printer.id, ipAddress: printer.ipAddress, data });
+              webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
             } else {
               await sendToPrinter(data, printer);
             }
