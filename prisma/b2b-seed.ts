@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding B2B data...');
+ con
   // 1. Create B2B Suppliers
   const suppliers = [
     {

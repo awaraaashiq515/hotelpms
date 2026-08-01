@@ -198,11 +198,11 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      // Calculate points earned
+      // Calculate points earned (Standard Hotel Rule: 1 Point per ₹100 spent = 1% rate)
       let pointsEarned = 0;
       if (guestId) {
         const earnRateSetting = await tx.systemSetting.findUnique({ where: { key: 'loyalty_earn_rate' } });
-        const earnRate = earnRateSetting ? Number(earnRateSetting.value) : 0.1;
+        const earnRate = earnRateSetting ? Number(earnRateSetting.value) : 0.01;
         pointsEarned = Math.floor(grandTotal * earnRate);
       }
 

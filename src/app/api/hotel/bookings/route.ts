@@ -124,6 +124,12 @@ export async function POST(request: NextRequest) {
       wifiPassword,
       wifiStatus = 'ACTIVE',
       mealPlan = 'RO',
+      poolAccess = false,
+      poolPackage = 'NONE',
+      poolPassCost = 0,
+      spaPackage = 'NONE',
+      spaPackageCost = 0,
+      addOnNotes = '',
     } = body;
 
     // Load property settings for guest portal
@@ -238,6 +244,12 @@ export async function POST(request: NextRequest) {
         wifiPassword: wifiPassword || null,
         wifiStatus: wifiStatus || 'ACTIVE',
         mealPlan: mealPlan || 'RO',
+        poolAccess: Boolean(poolAccess),
+        poolPackage: poolPackage || 'NONE',
+        poolPassCost: Number(poolPassCost || 0),
+        spaPackage: spaPackage || 'NONE',
+        spaPackageCost: Number(spaPackageCost || 0),
+        addOnNotes: addOnNotes || null,
         // Create matching ReservationRoom detail
         rooms: {
           create: {
@@ -387,7 +399,21 @@ export async function PATCH(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { id, wifiPassword, wifiStatus, mealPlan, departureDate, extraCharge, expectedCheckoutAt } = body;
+    const { 
+      id, 
+      wifiPassword, 
+      wifiStatus, 
+      mealPlan, 
+      departureDate, 
+      extraCharge, 
+      expectedCheckoutAt,
+      poolAccess,
+      poolPackage,
+      poolPassCost,
+      spaPackage,
+      spaPackageCost,
+      addOnNotes,
+    } = body;
 
     if (!id) {
       return apiError(new Error('Reservation ID is required'), 400);
@@ -398,6 +424,12 @@ export async function PATCH(request: NextRequest) {
     if (wifiPassword !== undefined) updateData.wifiPassword = wifiPassword;
     if (wifiStatus !== undefined) updateData.wifiStatus = wifiStatus;
     if (mealPlan !== undefined) updateData.mealPlan = mealPlan;
+    if (poolAccess !== undefined) updateData.poolAccess = Boolean(poolAccess);
+    if (poolPackage !== undefined) updateData.poolPackage = poolPackage;
+    if (poolPassCost !== undefined) updateData.poolPassCost = Number(poolPassCost);
+    if (spaPackage !== undefined) updateData.spaPackage = spaPackage;
+    if (spaPackageCost !== undefined) updateData.spaPackageCost = Number(spaPackageCost);
+    if (addOnNotes !== undefined) updateData.addOnNotes = addOnNotes;
 
     // Handle stay extension: update departure date + recalc amounts
     if (departureDate) {

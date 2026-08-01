@@ -55,3 +55,8 @@ dev_server.log
 venv/
 menu-scanner/backend/venv/
 menu-scanner/backend/temp_uploads/
+
+*.empty_backup
+*.old
+wt-settings.json
+

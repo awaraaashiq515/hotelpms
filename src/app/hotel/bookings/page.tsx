@@ -29,7 +29,11 @@ import {
   RefreshCw,
   CalendarPlus,
   X,
-  ArrowRight
+  ArrowRight,
+  Waves,
+  Flower2,
+  Droplets,
+  CheckCircle2
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -68,6 +72,24 @@ function BookingsContent() {
   const [wifiStatus, setWifiStatus] = useState('ACTIVE');
   const [mealPlan, setMealPlan] = useState('RO');
 
+const DEFAULT_POOL_PASS_OPTIONS = [
+  { id: 'p1', name: 'Early Bird Morning Lap Pass', category: 'STANDARD', price: 350, duration: 'Morning (6 AM - 10 AM)' },
+  { id: 'p2', name: 'Standard Swimming Pool Pass', category: 'STANDARD', price: 500, duration: 'Full Day' },
+  { id: 'p3', name: 'All-Day VIP Cabana Pass', category: 'VIP_CABANA', price: 1200, duration: 'Full Day' },
+  { id: 'p4', name: 'Sunset Cocktail & Jacuzzi Pass', category: 'SUNSET_PASS', price: 1500, duration: 'Evening (4 PM - 9 PM)' },
+  { id: 'p5', name: 'Family Splash & Fun Pass', category: 'FAMILY_PASS', price: 1800, duration: 'Full Day' },
+  { id: 'p6', name: 'Weekend Royal Luxury Pool Suite Pass', category: 'VIP_CABANA', price: 2500, duration: 'Full Day' },
+];
+
+  // Booking Form Pool & Spa Package States
+  const [poolAccess, setPoolAccess] = useState(false);
+  const [poolPackage, setPoolPackage] = useState('Standard Swimming Pool Pass');
+  const [poolPassCost, setPoolPassCost] = useState('500');
+  const [spaPackage, setSpaPackage] = useState('NONE');
+  const [spaPackageCost, setSpaPackageCost] = useState('0');
+  const [addOnNotes, setAddOnNotes] = useState('');
+  const [dynamicPoolPasses, setDynamicPoolPasses] = useState<any[]>(DEFAULT_POOL_PASS_OPTIONS);
+
   // Booking Form KYC States
   const [createIdType, setCreateIdType] = useState('Aadhaar Card');
   const [createIdNumber, setCreateIdNumber] = useState('');
@@ -89,6 +111,12 @@ function BookingsContent() {
   const [editWifiPassword, setEditWifiPassword] = useState('');
   const [editWifiStatus, setEditWifiStatus] = useState('ACTIVE');
   const [editMealPlan, setEditMealPlan] = useState('RO');
+  const [editPoolAccess, setEditPoolAccess] = useState(false);
+  const [editPoolPackage, setEditPoolPackage] = useState('NONE');
+  const [editPoolPassCost, setEditPoolPassCost] = useState('0');
+  const [editSpaPackage, setEditSpaPackage] = useState('NONE');
+  const [editSpaPackageCost, setEditSpaPackageCost] = useState('0');
+  const [editAddOnNotes, setEditAddOnNotes] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
 
   // Extend Stay modal states
@@ -234,11 +262,13 @@ function BookingsContent() {
       fetch('/api/hotel/bookings').then((res) => res.json()),
       fetch('/api/hotel/rooms').then((res) => res.json()),
       fetch('/api/hotel/room-types').then((res) => res.json()),
+      fetch('/api/hotel/pool-passes').then((res) => res.json()),
     ])
-      .then(([bookingsRes, roomsRes, typesRes]) => {
+      .then(([bookingsRes, roomsRes, typesRes, poolPassesRes]) => {
         if (bookingsRes.success) setBookings(bookingsRes.data);
         if (roomsRes.success) setRooms(roomsRes.data);
         if (typesRes.success) setRoomTypes(typesRes.data);
+        if (poolPassesRes.success) setDynamicPoolPasses(poolPassesRes.data || []);
         
         // If pre-filled parameters were passed, auto-configure room type
         if (paramRoomId && roomsRes.success) {
@@ -270,6 +300,12 @@ function BookingsContent() {
     setEditWifiPassword(b.wifiPassword || '');
     setEditWifiStatus(b.wifiStatus || 'ACTIVE');
     setEditMealPlan(b.mealPlan || 'RO');
+    setEditPoolAccess(b.poolAccess || false);
+    setEditPoolPackage(b.poolPackage || 'NONE');
+    setEditPoolPassCost((b.poolPassCost || 0).toString());
+    setEditSpaPackage(b.spaPackage || 'NONE');
+    setEditSpaPackageCost((b.spaPackageCost || 0).toString());
+    setEditAddOnNotes(b.addOnNotes || '');
   };
 
   const startExtendStay = (b: any) => {
@@ -354,7 +390,13 @@ function BookingsContent() {
           id: editingBooking.id,
           wifiPassword: editWifiPassword,
           wifiStatus: editWifiStatus,
-          mealPlan: editMealPlan
+          mealPlan: editMealPlan,
+          poolAccess: editPoolAccess,
+          poolPackage: editPoolPackage,
+          poolPassCost: Number(editPoolPassCost || 0),
+          spaPackage: editSpaPackage,
+          spaPackageCost: Number(editSpaPackageCost || 0),
+          addOnNotes: editAddOnNotes,
         })
       });
       const data = await res.json();
@@ -372,18 +414,45 @@ function BookingsContent() {
     }
   };
 
-  // Recalculate rent when dates or roomType changes
+  const handlePoolPackageChange = (pkg: string) => {
+    setPoolPackage(pkg);
+    const passList = dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS;
+    const matchedPass = passList.find((p: any) => p.name === pkg || p.id === pkg || p.category === pkg);
+    if (matchedPass) {
+      setPoolPassCost(matchedPass.price.toString());
+    } else if (pkg === 'STANDARD') setPoolPassCost('500');
+    else if (pkg === 'VIP_CABANA') setPoolPassCost('1200');
+    else if (pkg === 'INCLUDED') setPoolPassCost('0');
+  };
+
+  const handleSpaPackageChange = (pkg: string) => {
+    setSpaPackage(pkg);
+    if (pkg === 'NONE') setSpaPackageCost('0');
+    else if (pkg === 'RELAXATION_60MIN') setSpaPackageCost('1800');
+    else if (pkg === 'DETOX_SAUNA') setSpaPackageCost('2800');
+    else if (pkg === 'COUPLE_SPA') setSpaPackageCost('4500');
+    else if (pkg === 'AYURVEDIC') setSpaPackageCost('3200');
+  };
+
+  // Recalculate rent when dates, roomType, pool access, or spa package changes
   useEffect(() => {
+    let roomRent = 0;
     if (arrivalDate && departureDate && roomTypeId) {
       const type = roomTypes.find((t) => t.id === roomTypeId);
       if (type) {
         const nights = Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)));
         if (!isNaN(nights) && nights > 0) {
-          setTotalAmount((type.baseRate * nights).toString());
+          roomRent = type.baseRate * nights;
         }
       }
     }
-  }, [arrivalDate, departureDate, roomTypeId, roomTypes]);
+    const poolCost = poolAccess ? Number(poolPassCost || 0) : 0;
+    const spaCost = Number(spaPackageCost || 0);
+    const grandTotal = roomRent + poolCost + spaCost;
+    if (grandTotal > 0 || (roomRent === 0 && (poolCost > 0 || spaCost > 0))) {
+      setTotalAmount(grandTotal.toString());
+    }
+  }, [arrivalDate, departureDate, roomTypeId, roomTypes, poolAccess, poolPassCost, spaPackageCost]);
 
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -417,6 +486,12 @@ function BookingsContent() {
           wifiPassword: wifiPassword || null,
           wifiStatus: wifiStatus || 'ACTIVE',
           mealPlan: mealPlan || 'RO',
+          poolAccess,
+          poolPackage: poolAccess ? poolPackage : 'NONE',
+          poolPassCost: poolAccess ? Number(poolPassCost || 0) : 0,
+          spaPackage,
+          spaPackageCost: Number(spaPackageCost || 0),
+          addOnNotes,
         }),
       });
 
@@ -436,6 +511,12 @@ function BookingsContent() {
         setWifiPassword('');
         setWifiStatus('ACTIVE');
         setMealPlan('RO');
+        setPoolAccess(false);
+        setPoolPackage('STANDARD');
+        setPoolPassCost('500');
+        setSpaPackage('NONE');
+        setSpaPackageCost('0');
+        setAddOnNotes('');
         setCreateIdNumber('');
         setCreateDocumentUrl('');
         setActiveTab('list');
@@ -630,6 +711,16 @@ function BookingsContent() {
                                 <span className="text-[9px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded">
                                   🍽️ {b.mealPlan || 'RO'}
                                 </span>
+                                {b.poolAccess && (
+                                  <span className="text-[9px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <Waves size={9} /> Pool ({b.poolPackage || 'Pass'})
+                                  </span>
+                                )}
+                                {b.spaPackage && b.spaPackage !== 'NONE' && (
+                                  <span className="text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <Flower2 size={9} /> Spa
+                                  </span>
+                                )}
                                 {b.wifiStatus === 'EXPIRED' ? (
                                   <span className="text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded">
                                     📶 OFF
@@ -867,6 +958,129 @@ function BookingsContent() {
                   </div>
                 </div>
               </div>
+
+              {/* Card 3: Swimming Pool & Spa Package Add-ons */}
+              <div className="p-6 rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                      <Waves size={16} />
+                    </span>
+                    <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">3. Swimming Pool & Spa Add-ons</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
+                    Luxury Extras
+                  </span>
+                </div>
+
+                {/* Swimming Pool Section */}
+                <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
+                        <Droplets size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-200">Swimming Pool Access Pass</h4>
+                        <p className="text-[10px] text-slate-400">Include swimming pool access pass & privileges for guests</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPoolAccess(!poolAccess)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                        poolAccess 
+                          ? 'bg-cyan-500 text-cyan-950 shadow-lg shadow-cyan-500/20 font-black' 
+                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      }`}
+                    >
+                      {poolAccess ? <CheckCircle2 size={12} /> : null}
+                      {poolAccess ? 'Pool Included' : 'No Pool'}
+                    </button>
+                  </div>
+
+                  {poolAccess && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-cyan-500/15 animate-in fade-in duration-150">
+                      <div>
+                        <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Category</label>
+                        <select
+                          value={poolPackage}
+                          onChange={(e) => handlePoolPackageChange(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
+                        >
+                          {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
+                            <option key={p.id || p.name} value={p.name}>
+                              {p.name} (₹{p.price} / {p.duration || 'Stay'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Charge (₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={poolPassCost}
+                          onChange={(e) => setPoolPassCost(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-cyan-200 text-xs font-mono font-bold focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Spa & Wellness Package Section */}
+                <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
+                      <Flower2 size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200">Spa & Wellness Packages</h4>
+                      <p className="text-[10px] text-slate-400">Select luxury spa massage & relaxation packages</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Choice</label>
+                      <select
+                        value={spaPackage}
+                        onChange={(e) => handleSpaPackageChange(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-purple-400 font-semibold"
+                      >
+                        <option value="NONE">No Spa Package (₹0)</option>
+                        <option value="RELAXATION_60MIN">Swedish Relaxation Massage - 60m (₹1,800)</option>
+                        <option value="DETOX_SAUNA">Full Body Detox & Hot Stone Therapy (₹2,800)</option>
+                        <option value="COUPLE_SPA">Royal Couple Wellness Spa Day (₹4,500)</option>
+                        <option value="AYURVEDIC">Traditional Ayurvedic Rejuvenation (₹3,200)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Charge (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={spaPackageCost}
+                        onChange={(e) => setSpaPackageCost(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-purple-200 text-xs font-mono font-bold focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Add-on Slot / Preferred Time Notes</label>
+                    <input
+                      type="text"
+                      value={addOnNotes}
+                      onChange={(e) => setAddOnNotes(e.target.value)}
+                      placeholder="e.g. Preferred time 5 PM, Essential aroma oil preference"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* KYC & Pricing Cards (Right Column) */}
@@ -878,7 +1092,7 @@ function BookingsContent() {
                   <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
                     <FileText size={16} />
                   </span>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">3. Identity Proof (KYC)</h3>
+                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">4. Identity Proof (KYC)</h3>
                 </div>
 
                 <div className="space-y-3">
@@ -949,7 +1163,7 @@ function BookingsContent() {
                   <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
                     <CreditCard size={16} />
                   </span>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">4. Reservation Billing</h3>
+                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">5. Reservation Billing</h3>
                 </div>
 
                 <div className="space-y-3">
@@ -971,8 +1185,26 @@ function BookingsContent() {
                   {/* Calculation summary */}
                   <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 text-xs space-y-2">
                     <div className="flex justify-between text-slate-400">
-                      <span>Total Stay Rent</span>
-                      <span className="font-bold text-slate-300">₹{totalAmount || 0}</span>
+                      <span>Room Rent</span>
+                      <span className="font-bold text-slate-300">
+                        ₹{Math.max(0, Number(totalAmount || 0) - (poolAccess ? Number(poolPassCost || 0) : 0) - Number(spaPackageCost || 0))}
+                      </span>
+                    </div>
+                    {poolAccess && (
+                      <div className="flex justify-between text-cyan-400">
+                        <span>🏊 Swimming Pool Pass</span>
+                        <span className="font-bold">+ ₹{poolPassCost || 0}</span>
+                      </div>
+                    )}
+                    {spaPackage !== 'NONE' && (
+                      <div className="flex justify-between text-purple-400">
+                        <span>💆‍♀️ Spa Package</span>
+                        <span className="font-bold">+ ₹{spaPackageCost || 0}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-indigo-300 font-bold border-t border-slate-800/60 pt-1">
+                      <span>Grand Total</span>
+                      <span>₹{totalAmount || 0}</span>
                     </div>
                     <div className="flex justify-between text-emerald-400">
                       <span>Advance Deposit</span>
@@ -980,7 +1212,7 @@ function BookingsContent() {
                     </div>
                     <div className="h-px bg-slate-800/80 my-1"></div>
                     <div className="flex justify-between font-black text-sm">
-                      <span className="text-slate-300">Net Due Dues</span>
+                      <span className="text-slate-300">Net Payable Dues</span>
                       <span className="text-rose-400">₹{Math.max(0, Number(totalAmount || 0) - Number(advanceAmount || 0))}</span>
                     </div>
                   </div>
@@ -1226,6 +1458,101 @@ function BookingsContent() {
                   <option value="FB">Full Board (FB)</option>
                   <option value="AI">All Inclusive (AI)</option>
                 </select>
+              </div>
+
+              {/* Swimming Pool Access */}
+              <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 flex items-center gap-1.5">
+                    <Waves size={13} /> Swimming Pool Access
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditPoolAccess(!editPoolAccess)}
+                    className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all ${
+                      editPoolAccess ? 'bg-cyan-500 text-cyan-950 font-black' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {editPoolAccess ? 'Pool Enabled' : 'No Pool'}
+                  </button>
+                </div>
+
+                {editPoolAccess && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Pass Category</label>
+                      <select
+                        value={editPoolPackage}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditPoolPackage(val);
+                          const passList = dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS;
+                          const matched = passList.find((p: any) => p.name === val || p.id === val || p.category === val);
+                          if (matched) setEditPoolPassCost(matched.price.toString());
+                          else if (val === 'STANDARD') setEditPoolPassCost('500');
+                          else if (val === 'VIP_CABANA') setEditPoolPassCost('1200');
+                          else if (val === 'INCLUDED') setEditPoolPassCost('0');
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-[11px] text-white focus:outline-none"
+                      >
+                        {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
+                          <option key={p.id || p.name} value={p.name}>
+                            {p.name} (₹{p.price})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Pool Fee (₹)</label>
+                      <input
+                        type="number"
+                        value={editPoolPassCost}
+                        onChange={(e) => setEditPoolPassCost(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-[11px] text-cyan-300 font-mono font-bold focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Spa & Wellness Package */}
+              <div className="p-3.5 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-300 flex items-center gap-1.5">
+                  <Flower2 size={13} /> Spa & Wellness Package
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Package Choice</label>
+                    <select
+                      value={editSpaPackage}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditSpaPackage(val);
+                        if (val === 'NONE') setEditSpaPackageCost('0');
+                        else if (val === 'RELAXATION_60MIN') setEditSpaPackageCost('1800');
+                        else if (val === 'DETOX_SAUNA') setEditSpaPackageCost('2800');
+                        else if (val === 'COUPLE_SPA') setEditSpaPackageCost('4500');
+                        else if (val === 'AYURVEDIC') setEditSpaPackageCost('3200');
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-[11px] text-white focus:outline-none"
+                    >
+                      <option value="NONE">No Spa (₹0)</option>
+                      <option value="RELAXATION_60MIN">Swedish Massage 60m (₹1,800)</option>
+                      <option value="DETOX_SAUNA">Detox & Sauna (₹2,800)</option>
+                      <option value="COUPLE_SPA">Couple Spa Day (₹4,500)</option>
+                      <option value="AYURVEDIC">Ayurvedic Rejuvenation (₹3,200)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Spa Fee (₹)</label>
+                    <input
+                      type="number"
+                      value={editSpaPackageCost}
+                      onChange={(e) => setEditSpaPackageCost(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-[11px] text-purple-300 font-mono font-bold focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Wi-Fi Password */}

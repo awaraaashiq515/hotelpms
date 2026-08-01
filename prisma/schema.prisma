@@ -178,6 +178,9 @@ model Property {
   bookingRequests               BookingRequest[]
   lostItems                     LostItem[]
   laundryRequests               LaundryRequest[]
+  travelAgents                  TravelAgent[]
+  agentBookings                 AgentBooking[]
+  agentHotelRelations           AgentHotelRelation[]
 
   @@index([organizationId])
 }
@@ -391,6 +394,12 @@ model Reservation {
   wifiStatus          String            @default("ACTIVE")
   wifiPassword        String?
   mealPlan            String            @default("RO")
+  poolAccess          Boolean           @default(false)
+  poolPackage         String?           @default("NONE")
+  poolPassCost        Float             @default(0)
+  spaPackage          String?           @default("NONE")
+  spaPackageCost      Float             @default(0)
+  addOnNotes          String?
   checkIns            CheckIn[]
   folios              Folio[]
   roomType            RoomType          @relation(fields: [roomTypeId], references: [id])
@@ -2604,4 +2613,157 @@ model SpaAppointment {
 
   @@index([serviceId])
   @@index([therapistId])
+}
+
+model PoolPassCategory {
+  id          String   @id @default(cuid())
+  propertyId  String?
+  name        String
+  category    String   @default("STANDARD")
+  price       Float    @default(500)
+  duration    String   @default("Full Day")
+  capacity    Int      @default(1)
+  description String?
+  includes    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Banquet & Events Management ─────────────────────────────────────────────
+
+model BanquetHall {
+  id          String   @id @default(cuid())
+  propertyId  String?
+  name        String   // e.g., Grand Ballroom, Conference A, Pool Terrace
+  code        String?  // e.g., HALL-01
+  capacity    Int      @default(100) // Max Pax
+  minCapacity Int?     @default(20)
+  baseRate    Float    @default(25000) // Base Daily / Per Event Rent
+  hourlyRate  Float?   @default(5000)
+  description String?
+  amenities   String?  // AC, Stage, Projector, Sound System, Lighting
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings BanquetBooking[]
+
+  @@index([propertyId])
+}
+
+model BanquetBooking {
+  id                  String   @id @default(cuid())
+  propertyId          String?
+  hallId              String
+  eventName           String   // e.g., Sharma Wedding Reception, TechCorp Annual Meet
+  eventType           String   @default("Wedding") // Wedding | Corporate | Birthday | Anniversary | Seminar | Party
+  clientName          String
+  clientPhone         String
+  clientEmail         String?
+  clientGst           String?
+  eventDate           DateTime
+  startTime           DateTime
+  endTime             DateTime
+  paxCount            Int      @default(100)
+  slotType            String   @default("FULL_DAY") // MORNING | EVENING | FULL_DAY
+  seatingLayout       String?  @default("THEATER") // THEATER | U_SHAPE | CLUSTER | CLASSROOM | ROUND_TABLE
+  cateringPackage     String?  @default("Silver") // Silver | Gold | Diamond Wedding Feast | High Tea
+  ratePerPlate        Float    @default(0)
+  hallRent            Float    @default(0)
+  extraCharges        Float    @default(0)
+  totalAmount         Float    @default(0)
+  advancePaid         Float    @default(0)
+  dueAmount           Float    @default(0)
+  status              String   @default("CONFIRMED") // TENTATIVE | CONFIRMED | COMPLETED | CANCELLED
+  paymentStatus       String   @default("PARTIAL") // PENDING | PARTIAL | PAID
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  hall BanquetHall @relation(fields: [hallId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([hallId])
+  @@index([eventDate])
+}
+
+// ─── Travel Agent Management ──────────────────────────────────────────────────
+
+model TravelAgent {
+  id             String               @id @default(cuid())
+  propertyId     String?
+  name           String
+  agentCode      String               @unique
+  phone          String
+  email          String?              @unique
+  companyName    String?
+  address        String?
+  city           String?
+  commissionRate Float                @default(10.0)   // Default % of totalAmount per booking
+  pinCode        String               @default("1234") // Legacy portal login PIN
+  passwordHash   String?              // Email+Password login
+  agentStatus    String               @default("ACTIVE") // PENDING | ACTIVE | REJECTED
+  isActive       Boolean              @default(true)
+  totalEarnings  Float                @default(0)
+  notes          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  property       Property?            @relation(fields: [propertyId], references: [id])
+  bookings       AgentBooking[]
+  hotelRelations AgentHotelRelation[]
+
+  @@index([propertyId])
+  @@index([email])
+}
+
+model AgentHotelRelation {
+  id             String      @id @default(cuid())
+  agentId        String
+  propertyId     String
+  commissionRate Float       @default(10.0)   // Hotel-specific commission rate
+  isBlocked      Boolean     @default(false)  // Whether this hotel blocked the agent
+  blockedReason  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  agent          TravelAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property       Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, propertyId])
+  @@index([agentId])
+  @@index([propertyId])
+}
+
+model AgentBooking {
+  id               String      @id @default(cuid())
+  propertyId       String
+  agentId          String
+  guestName        String
+  guestPhone       String?
+  guestEmail       String?
+  guestNationality String?     @default("Indian")
+  adults           Int         @default(1)
+  children         Int         @default(0)
+  checkIn          DateTime
+  checkOut         DateTime
+  roomType         String      @default("Standard")
+  totalAmount      Float       @default(0)
+  commission       Float       @default(0)
+  commissionPaid   Boolean     @default(false)
+  status           String      @default("PENDING") // PENDING | CONFIRMED | CHECKED_IN | COMPLETED | CANCELLED
+  notes            String?
+  specialRequests  String?
+  includePoolAccess Boolean     @default(false)
+  includeSpaPackage Boolean     @default(false)
+  poolPassCount    Int         @default(0)
+  spaServiceType   String?
+  reservationId    String?     // Linked to actual Reservation once hotel confirms
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  property         Property    @relation(fields: [propertyId], references: [id])
+  agent            TravelAgent @relation(fields: [agentId], references: [id])
+
+  @@index([propertyId])
+  @@index([agentId])
+  @@index([status])
 }

@@ -47,6 +47,9 @@ import {
   Key,
   Music,
   MessageCircle,
+  Waves,
+  Tag,
+  Handshake,
 } from 'lucide-react';
 
 interface NavItem {
@@ -122,6 +125,7 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '🛒',
     color: 'text-orange-400',
     items: [
+      { name: 'Products Catalog',   path: '/hotel/products',         icon: Tag, badge: 'PROD', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { name: 'Inventory',          path: '/hotel/inventory',        icon: Package },
       { name: 'Purchase Orders',    path: '/hotel/purchasing',       icon: ShoppingCart },
       { name: 'Vendor Management',  path: '/hotel/vendor',           icon: Building2 },
@@ -133,6 +137,7 @@ const NAV_GROUPS: NavGroup[] = [
     color: 'text-pink-400',
     items: [
       { name: 'Spa & Wellness',     path: '/hotel/spa',             icon: Sparkles },
+      { name: 'Swimming Pool',      path: '/hotel/pool',            icon: Waves, badge: 'POOL', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
       { name: 'Banquet & Events',   path: '/hotel/banquet',         icon: Calendar },
       { name: 'Live Music',         path: '/hotel/singers',         icon: Music },
       { name: 'Room Service',       path: '/hotel/room-service',    icon: ChefHat },
@@ -158,6 +163,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: '360° Guest Profiles', path: '/hotel/crm',             icon: Users, badge: 'CRM', badgeColor: 'bg-purple-500/20 text-purple-300' },
       { name: 'Guest Directory',    path: '/hotel/guests',           icon: Users },
       { name: 'Loyalty & Rewards',  path: '/hotel/loyalty',          icon: Crown },
+      { name: 'Travel Agents',      path: '/hotel/agents',           icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
     ],
   },
   {

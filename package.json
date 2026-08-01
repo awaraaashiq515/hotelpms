@@ -1,15 +1,15 @@
 {
-  "name": "ordermint",
+  "name": "gustflow",
   "version": "0.1.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently \"next dev\" \"npx tsx src/scripts/walkie-talkie-socket.ts\"",
+    "dev": "concurrently \"next dev --webpack\" \"npx tsx src/scripts/walkie-talkie-socket.ts\"",
     "build": "npx prisma generate && cross-env NODE_OPTIONS='--max-old-space-size=2048' next build",
     "export": "next build && next export",
     "start": "concurrently \"next start\" \"npx tsx src/scripts/walkie-talkie-socket.ts\"",
     "lint": "eslint",
-    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && electron .\"",
     "electron-build": "npm run build && electron-builder",
     "build-win": "npm run build && electron-builder --win --x64"
   },

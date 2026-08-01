@@ -30,8 +30,13 @@ export function useGuests(initial?: Partial<GuestFilter>): UseGuestsReturn {
       const res = await fetch(`/api/hotel/guests?${params}`);
       const json = await res.json();
       if (json.success) {
-        setGuests(json.data ?? []);
-        setTotal(json.total ?? json.data?.length ?? 0);
+        const list = Array.isArray(json.data) 
+          ? json.data 
+          : Array.isArray(json.data?.data) 
+            ? json.data.data 
+            : [];
+        setGuests(list);
+        setTotal(json.total ?? json.data?.total ?? list.length);
       } else {
         setError(json.message || 'Failed');
       }
