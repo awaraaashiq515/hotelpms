@@ -17,7 +17,7 @@ async function main() {
   console.log('Users found with abhinash:', users.map(u => ({
     id: u.id,
     email: u.email,
-    name: u.name,
+    name: (u as any).name,
     organizationId: u.organizationId,
     orgName: u.organization?.name,
     propertyId: u.propertyId,

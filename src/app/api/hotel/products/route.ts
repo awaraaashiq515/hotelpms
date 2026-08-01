@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
       where: propertyId ? {
         OR: [
           { propertyId },
-          { propertyId: null },
           { propertyId: '' }
         ]
       } : {},
