@@ -6,11 +6,11 @@ const secretKey = process.env.JWT_SECRET || 'super-secret-default-key-change-it-
 const key = new TextEncoder().encode(secretKey)
 
 /**
- * Next.js 16 middleware.
+ * Next.js 16 Proxy (formerly middleware).
  * Handles auth, paywalls, subscription expiry, dynamic slug routing,
  * and role/permission-based access control.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const origin = request.headers.get('origin') || '*'
 
@@ -136,6 +136,10 @@ export async function middleware(request: NextRequest) {
 
   
   const getOperationsUrl = () => {
+    // Multi-property owner (BOTH hotel + restaurant) → Unified F&B Manager Hub
+    if (payload?.isMultiProperty) {
+      return '/restaurantadmin'
+    }
     if (payload?.propertyType === 'HOTEL') {
       return '/hotel'
     }
@@ -162,10 +166,42 @@ export async function middleware(request: NextRequest) {
     return '/dashboard'
   }
 
+  // ── Helper: Return correct portal URL based on role ──
+  // Must be defined AFTER getBrandedDashboardUrl so it can call it
+  const getPortalUrlForRole = (role: string): string => {
+    if (role === 'SUPER_ADMIN') return '/admin/dashboard'
+    if (role === 'RESTAURANTS_ADMIN') return getBrandedDashboardUrl()
+    if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || role.startsWith('HOTEL_')) return '/hotel'
+    if (role === 'DELIVERY_RIDER') return '/transport-portal/dashboard'
+    if (role === 'SINGER') return '/singer-portal/dashboard'
+    if (role.toUpperCase().includes('HOUSEKEEPER') || role.toUpperCase().includes('HOUSEKEEPING')) {
+      const propCode = (payload?.propertyCode as string | null)?.toLowerCase()
+      return propCode ? `/housekeeper-portal/${propCode}` : '/housekeeper-portal'
+    }
+    if (role === 'B2B_SUPPLIER') {
+      const urlKey = payload?.propertySlug || payload?.propertyCode
+      return urlKey ? `/${urlKey}/b2b/supplier` : '/b2b/supplier'
+    }
+    if (role === 'POSSYSTEM') {
+      const urlKey = payload?.propertySlug || payload?.propertyCode
+      return urlKey ? `/${urlKey}/operations` : '/operations'
+    }
+    // All other roles (Waiter, Cook, Staff, etc.) → staff-portal
+    const propCode = (payload?.propertyCode as string | null)?.toLowerCase()
+    return propCode ? `/staff-portal/${propCode}` : '/staff-portal'
+  }
+
   // Paywall Lock for PENDING_PAYMENT / PENDING_APPROVAL
   if (payload) {
     // ── Internal rewrite for branded restaurantadmin routes ──
-    if (pathname.startsWith('/restaurantadmin/') || pathname === '/restaurantadmin') {
+    // Only rewrite /restaurantadmin/{slug} (branded property dashboard URLs).
+    // Do NOT rewrite bare /restaurantadmin — that's the F&B Manager Hub (root page).
+    // Also skip rewrite for HOTEL_ADMIN / RESTAURANTS_ADMIN / SUPER_ADMIN — they need the Hub.
+    const _role = payload?.role as string | undefined
+    const isAdminHubUser = _role === 'HOTEL_ADMIN' || _role === 'RESTAURANTS_ADMIN' || _role === 'SUPER_ADMIN'
+
+    if (!isAdminHubUser && pathname.startsWith('/restaurantadmin/')) {
+      // e.g. /restaurantadmin/kunals-kitchen → /{propertyCode}/restaurantadmin/kunals-kitchen
       const urlKey = payload.propertySlug || payload.propertyCode
       if (urlKey) {
         return NextResponse.rewrite(new URL(`/${urlKey}${pathname}`, request.url))
@@ -216,24 +252,17 @@ export async function middleware(request: NextRequest) {
 
     // Onboarding is now disabled/skipped by default in the new provisioning model
     if (pathname === '/onboarding') {
-      if (role === 'SUPER_ADMIN') {
-        return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-      }
-      if (role === 'RESTAURANTS_ADMIN') {
-        return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
-      }
-      return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
+      return NextResponse.redirect(new URL(getPortalUrlForRole(role), request.url))
     }
 
     // Redirection for Auth Routes (if logged in, bypass login page)
+    // Uses role-aware redirect so staff/waiter go to /staff-portal, not /operations
     if (isAuthRoute) {
-      if (role === 'SUPER_ADMIN') {
-        return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+      // HOTEL_ADMIN with multi-property → Unified hub
+      if (role === 'HOTEL_ADMIN' && payload?.isMultiProperty) {
+        return NextResponse.redirect(new URL('/restaurantadmin', request.url))
       }
-      if (role === 'RESTAURANTS_ADMIN') {
-        return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
-      }
-      return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
+      return NextResponse.redirect(new URL(getPortalUrlForRole(role), request.url))
     }
 
     // ── B2B Supplier: always redirect to their propertyCode-prefixed route ──
@@ -255,15 +284,15 @@ export async function middleware(request: NextRequest) {
 
     // Admin Route Access (SUPER_ADMIN or RESTAURANTS_ADMIN)
     if (isAdminRoute) {
-      if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN') {
+      if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN' && role !== 'HOTEL_ADMIN') {
         return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
       }
     }
 
     // Dashboard/Operations Route Access
     if (isDashboardRoute) {
-      // Redirect hotel properties directly to hotel dashboard unless already on a hotel sub-route
-      if (payload?.propertyType === 'HOTEL' && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel')) {
+      // Redirect pure hotel properties without propertyCode directly to hotel dashboard
+      if (payload?.propertyType === 'HOTEL' && !payload?.isMultiProperty && !hasPropertyCode && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel')) {
         return NextResponse.redirect(new URL('/hotel', request.url))
       }
 

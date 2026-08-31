@@ -145,6 +145,22 @@ export default function AgentPortal() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Auto Restore Session on Mount ──────────────────────────────────────────
+  useEffect(() => {
+    try {
+      const savedAgent = localStorage.getItem('agent_info');
+      const savedStats = localStorage.getItem('agent_stats');
+      if (savedAgent) {
+        const parsedAgent = JSON.parse(savedAgent);
+        setAgent(parsedAgent);
+        if (savedStats) setAgentStats(JSON.parse(savedStats));
+        loadHotels(parsedAgent.id);
+        refreshAgent(parsedAgent.id);
+        setView('home');
+      }
+    } catch (_) {}
+  }, []);
+
   // ── Load Hotels (only after login) ─────────────────────────────────────────
   const loadHotels = async (targetAgentId?: string) => {
     setLoadingHotels(true);
@@ -173,6 +189,10 @@ export default function AgentPortal() {
       if (j.success) {
         setAgent(j.data);
         setAgentStats(j.stats);
+        try {
+          localStorage.setItem('agent_info', JSON.stringify(j.data));
+          if (j.stats) localStorage.setItem('agent_stats', JSON.stringify(j.stats));
+        } catch (_) {}
         toast.success(`Welcome back, ${j.data.name}! 👋`);
         loadHotels(j.data.id);
         setView('home');
@@ -229,21 +249,29 @@ export default function AgentPortal() {
     setAgent(null); setAgentStats(null);
     setHotels([]); setSelectedHotel(null);
     setLoginForm({ email: '', password: '' });
+    try {
+      localStorage.removeItem('agent_info');
+      localStorage.removeItem('agent_stats');
+    } catch (_) {}
     setView('auth');
     setAuthMode('login');
   };
 
   // ── Refresh Agent Data ─────────────────────────────────────────────────────
-  const refreshAgent = async () => {
-    if (!agent || !loginForm.password) return;
+  const refreshAgent = async (targetAgentId?: string | any) => {
+    const currentAgentId = (typeof targetAgentId === 'string' ? targetAgentId : null) || agent?.id;
+    if (!currentAgentId) return;
     try {
-      const res = await fetch('/api/agent-portal/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: agent.email, password: loginForm.password }),
-      });
+      const res = await fetch(`/api/agent-portal/auth?agentId=${currentAgentId}`);
       const j = await res.json();
-      if (j.success) { setAgent(j.data); setAgentStats(j.stats); }
+      if (j.success && j.data) {
+        setAgent(j.data);
+        setAgentStats(j.stats);
+        try {
+          localStorage.setItem('agent_info', JSON.stringify(j.data));
+          if (j.stats) localStorage.setItem('agent_stats', JSON.stringify(j.stats));
+        } catch (_) {}
+      }
     } catch {}
   };
 
@@ -317,13 +345,15 @@ export default function AgentPortal() {
           includePoolAccess: false, poolPassCount: '1',
           includeSpaPackage: false, spaServiceType: 'Full Body Ayurvedic Massage (60 min)',
         });
-        await refreshAgent();
+        await refreshAgent(agent.id);
         setView('dashboard'); setDashTab('bookings');
       } else {
         toast.error(j.message || 'Failed to submit booking.');
       }
     } catch { toast.error('Network error.'); }
-    setSubmitting(false);
+    finally {
+      setSubmitting(false);
+    }
   };
 
   const filteredHotels = hotels.filter(h => {
@@ -1039,7 +1069,7 @@ export default function AgentPortal() {
               <button onClick={() => setView('home')} className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-black text-slate-300 hover:text-white flex items-center gap-1.5">
                 <Home size={13} /> Find Hotels
               </button>
-              <button onClick={refreshAgent} className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+              <button onClick={() => refreshAgent()} className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white" title="Refresh Bookings">
                 <RefreshCw size={14} />
               </button>
             </div>
@@ -1205,7 +1235,17 @@ export default function AgentPortal() {
 
           {dashTab === 'bookings' && (
             <div className="space-y-3">
-              {bookingsList.map(b => {
+              {bookingsList.length === 0 ? (
+                <div className="bg-[#090f1e] border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+                  <Handshake size={36} className="mx-auto text-slate-700" />
+                  <p className="text-sm font-black text-slate-300">No bookings submitted yet</p>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">Bookings you submit for guests will appear here with live status & commission tracking.</p>
+                  <button onClick={() => setView('home')} className="mt-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs">
+                    Browse Hotels & Book
+                  </button>
+                </div>
+              ) : (
+                bookingsList.map(b => {
                 const cfg = STATUS_STYLE[b.status] || STATUS_STYLE.PENDING;
                 const nights = Math.max(1, Math.ceil((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000));
                 return (
@@ -1252,7 +1292,7 @@ export default function AgentPortal() {
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
           )}
 
@@ -1316,7 +1356,7 @@ export default function AgentPortal() {
 
               return (
                 <button
-                  onClick={() => { setView('dashboard'); setDashTab('today'); }}
+                  onClick={() => { setView('dashboard'); setDashTab('today'); refreshAgent(); }}
                   className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl relative transition-all ${
                     isSelected ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
                   }`}
@@ -1334,7 +1374,7 @@ export default function AgentPortal() {
 
             {/* 3. My Bookings */}
             <button
-              onClick={() => { setView('dashboard'); setDashTab('bookings'); }}
+              onClick={() => { setView('dashboard'); setDashTab('bookings'); refreshAgent(); }}
               className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
                 view === 'dashboard' && dashTab === 'bookings' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
               }`}
@@ -1345,7 +1385,7 @@ export default function AgentPortal() {
 
             {/* 4. Commission */}
             <button
-              onClick={() => { setView('dashboard'); setDashTab('commission'); }}
+              onClick={() => { setView('dashboard'); setDashTab('commission'); refreshAgent(); }}
               className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
                 view === 'dashboard' && dashTab === 'commission' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
               }`}
@@ -1356,7 +1396,7 @@ export default function AgentPortal() {
 
             {/* 5. Profile */}
             <button
-              onClick={() => { setView('dashboard'); setDashTab('overview'); }}
+              onClick={() => { setView('dashboard'); setDashTab('overview'); refreshAgent(); }}
               className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
                 view === 'dashboard' && dashTab === 'overview' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
               }`}

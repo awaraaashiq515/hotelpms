@@ -1,537 +1,273 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Music, Star, Play, Sparkles, Flame, Rss, Video, Search, MapPin, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  Music, Calendar, Mic2, Guitar, Drum, Star,
+  ArrowRight, Clock, MapPin, Ticket,
+} from 'lucide-react';
 
-const PINK = '#e8a0a0';
-const BG = '#120a08';
+const BG      = '#080d18';
+const CARD_BG = '#0f172a';
+const ROSE    = '#e8a0a0';
+const INDIGO  = '#6366f1';
 
-interface Singer {
-  id: string;
-  name: string;
-  bio: string | null;
-  genre: string | null;
-  photoUrl: string | null;
-  rating: number;
-  videos: Array<{ id: string; title: string; videoUrl: string; description: string | null }>;
-  posts: Array<{ id: string; title: string; content: string; imageUrl: string | null; tags?: string | null; createdAt: string }>;
-}
+const GENRES = [
+  { icon: Guitar,  label: 'Classical',    color: 'text-amber-400',  bg: 'bg-amber-500/10' },
+  { icon: Mic2,    label: 'Jazz & Blues', color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  { icon: Music,   label: 'Bollywood',    color: 'text-rose-400',   bg: 'bg-rose-500/10' },
+  { icon: Drum,    label: 'Sufi & Folk',  color: 'text-emerald-400',bg: 'bg-emerald-500/10' },
+];
 
-interface LivePerformance {
-  id: string;
-  venueName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  singer: {
-    name: string;
-    genre: string | null;
-    photoUrl: string | null;
-  };
-}
+const UPCOMING_EVENTS = [
+  {
+    day: 'Fri',
+    date: '30 Aug',
+    title: 'Monsoon Jazz Night',
+    artist: 'The Ragas Quartet',
+    time: '8:00 PM – 11:00 PM',
+    venue: 'Rooftop Lounge',
+    genre: 'Jazz & Blues',
+    status: 'Seats Available',
+    statusColor: 'text-emerald-400 bg-emerald-500/10',
+  },
+  {
+    day: 'Sat',
+    date: '31 Aug',
+    title: 'Bollywood Unplugged',
+    artist: 'Priya & The Strings',
+    time: '7:30 PM – 10:30 PM',
+    venue: 'Grand Ballroom',
+    genre: 'Bollywood',
+    status: 'Almost Full',
+    statusColor: 'text-amber-400 bg-amber-500/10',
+  },
+  {
+    day: 'Sun',
+    date: '1 Sep',
+    title: 'Sufi Evening',
+    artist: 'Ustad Rahman Khan',
+    time: '6:00 PM – 9:00 PM',
+    venue: 'Garden Terrace',
+    genre: 'Sufi & Folk',
+    status: 'Seats Available',
+    statusColor: 'text-emerald-400 bg-emerald-500/10',
+  },
+  {
+    day: 'Fri',
+    date: '6 Sep',
+    title: 'Classical Night',
+    artist: 'The Carnatic Ensemble',
+    time: '8:30 PM – 11:30 PM',
+    venue: 'Rooftop Lounge',
+    genre: 'Classical',
+    status: 'Sold Out',
+    statusColor: 'text-red-400 bg-red-500/10',
+  },
+];
 
-const ReelCard = ({ vid, singer }: { vid: any; singer: any }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = true;
-      videoRef.current.defaultMuted = true;
-    }
-  }, []);
-
-  const handleMouseEnter = () => {
-    if (window.matchMedia('(pointer: coarse)').matches) return;
-    setIsPlaying(true);
-    if (videoRef.current) {
-      videoRef.current.muted = true;
-      videoRef.current.play().catch(() => {});
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (window.matchMedia('(pointer: coarse)').matches) return;
-    setIsPlaying(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-    }
-  };
-
-  const handleToggle = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = true;
-      if (videoRef.current.paused) {
-        setIsPlaying(true);
-        videoRef.current.play().catch(() => {});
-      } else {
-        setIsPlaying(false);
-        videoRef.current.pause();
-      }
-    }
-  };
-
-  const isLocalVideo = vid.videoUrl.startsWith('/api/images/') || vid.videoUrl.match(/\.(mp4|webm|ogg|mov)$/i);
-  const PINK = '#e8a0a0';
-
-  return (
-    <div 
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleToggle}
-      className="relative aspect-[9/16] rounded-3xl bg-slate-950 overflow-hidden border border-white/10 group shadow-lg flex flex-col justify-end cursor-pointer"
-    >
-      {isLocalVideo ? (
-        <>
-          <video 
-            ref={videoRef}
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
-            src={vid.videoUrl}
-          />
-          {!isPlaying && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10 transition-opacity duration-300 pointer-events-none">
-              <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-                <Play className="text-white fill-white ml-0.5" size={18} />
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-black/90 p-4 text-center z-0">
-          <Video className="text-white/20 mb-2 animate-pulse" size={28} />
-          <span className="text-[9px] font-black uppercase text-indigo-400">YouTube Cover Clip</span>
-          <a href={vid.videoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/50 hover:text-white underline mt-2 block z-10" onClick={e => e.stopPropagation()}>Play Link ↗</a>
-        </div>
-      )}
-
-      <div className="relative z-10 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent pt-12 text-left pointer-events-none">
-        <h4 className="text-xs font-black text-white drop-shadow-md flex items-center gap-1.5"><Play size={11} fill="currentColor" style={{ color: PINK }} /> {vid.title}</h4>
-        {vid.description && <p className="text-[10px] text-white/70 mt-1 drop-shadow">{vid.description}</p>}
-      </div>
-    </div>
-  );
-};
+const FEATURED_ARTISTS = [
+  { name: 'Priya Nair',       genre: 'Bollywood Fusion', initial: 'P', color: 'bg-rose-500/20 text-rose-400',    rating: '4.9' },
+  { name: 'Arjun Mehta',      genre: 'Jazz & Classical',  initial: 'A', color: 'bg-violet-500/20 text-violet-400', rating: '4.8' },
+  { name: 'Ustad R. Khan',    genre: 'Sufi & Ghazal',     initial: 'U', color: 'bg-amber-500/20 text-amber-400',   rating: '5.0' },
+  { name: 'The Raga Band',    genre: 'Fusion & Folk',      initial: 'T', color: 'bg-emerald-500/20 text-emerald-400',rating: '4.7' },
+];
 
 export default function LiveMusicPage() {
-  const [singers, setSingers] = useState<Singer[]>([]);
-  const [livePerformer, setLivePerformer] = useState<LivePerformance | null>(null);
-  const [upcomingPerformances, setUpcomingPerformances] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Accordion active singer state
-  const [expandedSingerId, setExpandedSingerId] = useState<string | null>(null);
-  const [portfolioTab, setPortfolioTab] = useState<'posts' | 'videos'>('posts');
+  const [singers, setSingers] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchSingers();
-    fetchLivePerformer();
-    fetchUpcomingPerformances();
+    // Try to fetch singers from API
+    fetch('/api/website/slider') // reusing slider as no dedicated singer API on website side
+      .catch(() => {});
   }, []);
 
-  const fetchUpcomingPerformances = async () => {
-    try {
-      const res = await fetch('/api/guest-portal/performances');
-      const data = await res.json();
-      if (data.success) {
-        setUpcomingPerformances(data.data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchSingers = async () => {
-    try {
-      const res = await fetch('/api/guest-portal/singers');
-      const data = await res.json();
-      if (data.success) {
-        setSingers(data.data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchLivePerformer = async () => {
-    try {
-      const res = await fetch('/api/guest-portal/live-singer?propertyId=default-or-any');
-      const data = await res.json();
-      if (data.success && data.data) {
-        setLivePerformer(data.data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const filteredSingers = singers.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.genre && s.genre.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
   return (
-    <main
-      className="text-white overflow-x-hidden relative min-h-screen pt-24 pb-20"
-      style={{ background: BG, fontFamily: "'DM Sans', sans-serif" }}
-    >
-      {/* Background radial elements */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[800px] h-[800px] rounded-full blur-[250px]"
-          style={{ background: 'rgba(232,160,160,0.03)' }} />
-        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full blur-[200px]"
-          style={{ background: 'rgba(61,24,24,0.15)' }} />
-      </div>
+    <main style={{ background: BG, color: '#fff', minHeight: '100vh' }}>
 
-      <div className="container mx-auto px-6 relative z-10 max-w-5xl space-y-12">
-        
-        {/* ══ HERO HEADER ═══════════════════════════════════════ */}
-        <section className="text-center py-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="space-y-4"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full"
-              style={{ background: 'rgba(232,160,160,0.09)', border: '1px solid rgba(232,160,160,0.18)' }}>
-              <Sparkles className="w-3 h-3" style={{ color: PINK }} />
-              <span className="font-semibold text-[10px] uppercase tracking-[0.25em]" style={{ color: PINK }}>
-                Live Entertainment
-              </span>
+      {/* ══ HERO ══════════════════════════════════════════════════ */}
+      <section className="relative pt-32 pb-24 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Deep indigo/violet glow for music vibe */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full blur-[150px]"
+            style={{ background: 'rgba(99,102,241,0.15)' }} />
+          <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] rounded-full blur-[100px]"
+            style={{ background: 'rgba(232,160,160,0.08)' }} />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px)',
+            backgroundSize: '80px 80px',
+          }} />
+          {/* Animated music notes */}
+          {['♩','♪','♫','♬'].map((note, i) => (
+            <div key={i} className="absolute text-4xl opacity-[0.04] animate-pulse select-none pointer-events-none"
+              style={{
+                top: `${20 + i * 18}%`,
+                left: `${5 + i * 22}%`,
+                animationDelay: `${i * 0.5}s`,
+                animationDuration: `${3 + i}s`,
+              }}>
+              {note}
             </div>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-none">
-              Meet Our <span style={{
-                background: `linear-gradient(135deg, ${PINK}, #f5c8c8)`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>Performers</span>
-            </h1>
-            <p className="text-sm md:text-base text-white/50 max-w-xl mx-auto leading-relaxed">
-              Experience the perfect blend of hospitality and fine live music. Browse our directory of top-tier singers, listen to their covers, and check out what's coming up next!
-            </p>
-          </motion.div>
-        </section>
+          ))}
+        </div>
 
-        {/* ══ LIVE SHOW BANNER ══════════════════════════════════ */}
-        {livePerformer && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="p-6 rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-md relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none" 
-              style={{ background: 'rgba(232,160,160,0.1)' }} />
-            
-            <div className="flex items-center gap-1.5 mb-4 text-xs font-bold uppercase tracking-wider" style={{ color: PINK }}>
-              <Flame size={14} className="animate-pulse" />
-              <span>{livePerformer.status === 'LIVE' ? 'LIVE NOW AT THE HOTEL' : 'PERFORMING TONIGHT'}</span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-6 items-center justify-between">
-              <div className="flex gap-4 items-center flex-wrap justify-center sm:justify-start">
-                <img 
-                  src={livePerformer.singer.photoUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=150&auto=format&fit=crop&q=60'} 
-                  alt={livePerformer.singer.name}
-                  className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-lg"
-                />
-                <div className="text-center sm:text-left">
-                  <h3 className="text-lg font-black text-white">{livePerformer.singer.name}</h3>
-                  <p className="text-xs uppercase font-bold tracking-wider text-white/40 mt-0.5">{livePerformer.singer.genre || 'Live Show'}</p>
-                  
-                  <div className="flex items-center gap-4 text-xs text-white/50 mt-2 flex-wrap justify-center">
-                    <span className="flex items-center gap-1"><MapPin size={12} style={{ color: PINK }} /> {livePerformer.venueName}</span>
-                    <span className="flex items-center gap-1"><Clock size={12} style={{ color: PINK }} /> {new Date(livePerformer.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} onwards</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider"
-                style={{ borderColor: 'rgba(232,160,160,0.2)', color: PINK, background: 'rgba(232,160,160,0.05)' }}>
-                {livePerformer.status}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ══ UPCOMING LINEUP SECTION ═══════════════════════════ */}
-        {upcomingPerformances.length > 0 && (
-          <section className="space-y-6">
-            <div className="flex items-center justify-between border-b border-white/5 pb-4">
-              <div className="flex items-center gap-2">
-                <Flame size={18} style={{ color: PINK }} className="animate-pulse" />
-                <h2 className="text-2xl font-black">Upcoming Live Lineup</h2>
-              </div>
-              <span className="text-xs font-bold px-3 py-1 rounded-full border border-white/10 text-white/50">
-                {upcomingPerformances.length} Scheduled Shows
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingPerformances.map((perf) => (
-                <div 
-                  key={perf.id}
-                  className="p-5 rounded-3xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all space-y-4 flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <img 
-                        src={perf.singer.photoUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=150&auto=format&fit=crop&q=60'} 
-                        alt={perf.singer.name}
-                        className="w-12 h-12 rounded-2xl object-cover border border-white/10"
-                      />
-                      <div>
-                        <h3 className="text-sm font-black text-white">{perf.singer.name}</h3>
-                        <p className="text-[10px] uppercase font-bold tracking-wider mt-0.5" style={{ color: PINK }}>
-                          {perf.singer.genre || 'Vocalist'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 border-t border-b border-white/5 py-3 text-xs text-white/70">
-                      <div className="flex items-center gap-2">
-                        <MapPin size={12} style={{ color: PINK }} />
-                        <span>{perf.venueName}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock size={12} style={{ color: PINK }} />
-                        <span>{new Date(perf.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                      </div>
-                      <div className="text-[11px] text-white/50 pl-5">
-                        {new Date(perf.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(perf.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-white/10 text-white/60">
-                      {perf.status}
-                    </span>
-                    <button 
-                      onClick={() => {
-                        setExpandedSingerId(expandedSingerId === perf.singer.id ? null : perf.singer.id);
-                        setPortfolioTab('posts');
-                      }}
-                      className="text-xs font-bold hover:underline" style={{ color: PINK }}
-                    >
-                      View Artist →
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ══ DIRECTORY SECTION ═════════════════════════════════ */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between flex-wrap gap-4 border-b border-white/5 pb-4">
-            <h2 className="text-2xl font-black">Artists Directory</h2>
-            
-            {/* Search Input */}
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" size={14} />
-              <input 
-                type="text"
-                placeholder="Search by name, genre..."
-                className="w-full bg-white/[0.03] border border-white/15 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-white/30 placeholder-white/30 transition-all"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
+        <div className="container mx-auto px-6 max-w-4xl text-center relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-[0.2em] mb-6 border"
+            style={{ background: 'rgba(99,102,241,0.12)', borderColor: `${INDIGO}40`, color: '#818cf8' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            Live Every Weekend
           </div>
 
-          {loading ? (
-            <div className="h-64 flex items-center justify-center gap-2 text-white/50 text-xs font-bold">
-              <div className="w-5 h-5 rounded-full border border-t-transparent border-white/40 animate-spin" />
-              Loading catalog...
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-tight mb-6">
+            Live Music &{' '}
+            <span style={{ background: `linear-gradient(135deg,${INDIGO},#a78bfa,${ROSE})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Entertainment
+            </span>
+          </h1>
+          <p className="text-lg max-w-xl mx-auto mb-10" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Every evening comes alive with world-class performances — from soulful jazz to electrifying Bollywood nights. Book your table and let the music move you.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/contact"
+              className="group px-8 py-4 rounded-2xl text-white font-bold text-sm flex items-center gap-2 transition-all hover:scale-105"
+              style={{ background: `linear-gradient(135deg,${INDIGO},#818cf8)`, boxShadow: '0 0 32px rgba(99,102,241,0.4)' }}>
+              <Ticket className="w-4 h-4" />
+              Reserve a Table
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <a href="#events"
+              className="px-8 py-4 rounded-2xl font-bold text-sm transition-all hover:bg-white/5"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+              View Schedule
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ GENRES ════════════════════════════════════════════════ */}
+      <section className="pb-16 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="container mx-auto px-6 max-w-4xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {GENRES.map((g, i) => (
+              <div key={i} className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-slate-800 text-center transition-all hover:border-slate-700 hover:scale-[1.03]"
+                style={{ background: CARD_BG }}>
+                <div className={`w-12 h-12 rounded-2xl ${g.bg} ${g.color} flex items-center justify-center`}>
+                  <g.icon className="w-5 h-5" strokeWidth={1.8} />
+                </div>
+                <span className="text-sm font-bold text-white">{g.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ UPCOMING EVENTS ═══════════════════════════════════════ */}
+      <section id="events" className="py-24">
+        <div className="container mx-auto px-6 max-w-5xl">
+          <div className="flex items-center justify-between mb-12 flex-wrap gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-[0.3em] block mb-2" style={{ color: '#818cf8' }}>Schedule</span>
+              <h2 className="text-3xl md:text-4xl font-black text-white">Upcoming Performances</h2>
             </div>
-          ) : filteredSingers.length === 0 ? (
-            <div className="text-center py-20 text-white/30 border border-white/5 rounded-3xl">
-              No performers matched your search.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6">
-              {filteredSingers.map((singer, idx) => {
-                const isExpanded = expandedSingerId === singer.id;
-                return (
-                  <motion.div
-                    key={singer.id}
-                    layout="position"
-                    className="p-6 rounded-3xl border border-white/5 bg-white/[0.015] hover:bg-white/[0.025] transition-all space-y-4"
-                  >
-                    <div className="flex flex-wrap gap-4 items-center justify-between">
-                      <div className="flex gap-4 items-center">
-                        <div className="relative">
-                          <img 
-                            src={singer.photoUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=150&auto=format&fit=crop&q=60'} 
-                            alt={singer.name}
-                            className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow"
-                          />
-                          {idx === 0 && singer.rating >= 4.5 && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-black text-[8px] font-black uppercase px-1 rounded-full flex items-center gap-0.5 shadow">
-                              <Star size={7} fill="currentColor" /> Top
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="text-base font-black text-white">{singer.name}</h3>
-                          <p className="text-[10px] font-black uppercase tracking-wider mt-0.5" style={{ color: PINK }}>{singer.genre || 'Vocalist'}</p>
-                          <div className="flex items-center gap-1.5 text-xs text-amber-400 font-bold mt-1.5">
-                            <Star size={12} fill="currentColor" />
-                            <span>{singer.rating.toFixed(1)}</span>
-                            <span className="text-white/30 text-[10px] font-normal">({singer.videos.length} clips · {singer.posts.length} posts)</span>
-                          </div>
-                        </div>
-                      </div>
+            <Link href="/contact" className="text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all" style={{ color: '#818cf8' }}>
+              Book Table <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
 
-                      <button
-                        onClick={() => {
-                          if (isExpanded) {
-                            setExpandedSingerId(null);
-                          } else {
-                            setExpandedSingerId(singer.id);
-                            setPortfolioTab('posts');
-                          }
-                        }}
-                        className="px-5 py-2.5 rounded-2xl border text-xs font-bold tracking-tight transition-all"
-                        style={{
-                          borderColor: isExpanded ? 'rgba(255,255,255,0.2)' : 'rgba(232,160,160,0.3)',
-                          color: isExpanded ? '#ffffff' : PINK,
-                          background: isExpanded ? 'transparent' : 'rgba(232,160,160,0.04)'
-                        }}
-                      >
-                        {isExpanded ? 'Hide Portfolio' : 'View Portfolio'}
-                      </button>
-                    </div>
+          <div className="space-y-4">
+            {UPCOMING_EVENTS.map((event, i) => (
+              <div key={i}
+                className="flex flex-col md:flex-row items-start md:items-center gap-4 p-5 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all hover:bg-white/[0.015]"
+                style={{ background: CARD_BG }}>
+                {/* Date */}
+                <div className="flex-shrink-0 w-16 text-center p-2 rounded-xl" style={{ background: 'rgba(99,102,241,0.1)' }}>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">{event.day}</div>
+                  <div className="text-lg font-black text-white">{event.date.split(' ')[0]}</div>
+                  <div className="text-[9px] text-slate-500 uppercase">{event.date.split(' ')[1]}</div>
+                </div>
 
-                    {singer.bio && (
-                      <p className="text-xs text-white/50 leading-relaxed max-w-3xl">
-                        {singer.bio}
-                      </p>
-                    )}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-white mb-1">{event.title}</h3>
+                  <div className="flex items-center gap-4 flex-wrap text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    <span className="flex items-center gap-1"><Mic2 className="w-3 h-3" /> {event.artist}</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {event.time}</span>
+                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {event.venue}</span>
+                  </div>
+                </div>
 
-                    {/* Accordion portfolio expand block */}
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="border-t border-white/5 pt-5 mt-4 space-y-4 overflow-hidden"
-                        >
-                          <div className="flex gap-4 border-b border-white/5 pb-2">
-                            <button
-                              onClick={() => setPortfolioTab('posts')}
-                              className={`text-xs font-black pb-1.5 transition-colors flex items-center gap-1.5 ${portfolioTab === 'posts' ? 'border-b-2 text-white' : 'text-white/40 hover:text-white/60'}`}
-                              style={{ borderColor: portfolioTab === 'posts' ? PINK : 'transparent' }}
-                            >
-                              <Rss size={12} /> News & Updates ({singer.posts.length})
-                            </button>
-                            <button
-                              onClick={() => setPortfolioTab('videos')}
-                              className={`text-xs font-black pb-1.5 transition-colors flex items-center gap-1.5 ${portfolioTab === 'videos' ? 'border-b-2 text-white' : 'text-white/40 hover:text-white/60'}`}
-                              style={{ borderColor: portfolioTab === 'videos' ? PINK : 'transparent' }}
-                            >
-                              <Video size={12} /> Videos & Reels ({singer.videos.length})
-                            </button>
-                          </div>
+                {/* Genre + Status */}
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400">
+                    {event.genre}
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${event.statusColor}`}>
+                    {event.status}
+                  </span>
+                </div>
 
-                           {portfolioTab === 'posts' ? (
-                            <div className="space-y-6 pt-2">
-                              {singer.posts.length === 0 ? (
-                                <p className="text-xs text-white/30 italic">No updates posted yet.</p>
-                              ) : (
-                                singer.posts.map(post => (
-                                  <div key={post.id} className="max-w-md mx-auto rounded-3xl border border-white/5 bg-black/40 overflow-hidden shadow-xl space-y-3 pb-4">
-                                    <div className="flex items-center gap-3 p-4">
-                                      <img 
-                                        src={singer.photoUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=150&auto=format&fit=crop&q=60'} 
-                                        alt={singer.name}
-                                        className="w-8 h-8 rounded-full object-cover border border-white/10"
-                                      />
-                                      <div>
-                                        <h4 className="text-xs font-black text-white">{singer.name}</h4>
-                                        <span className="text-[9px] text-white/30 block mt-0.5">{new Date(post.createdAt).toLocaleDateString()}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    {post.imageUrl ? (
-                                      <div className="aspect-square bg-slate-950 flex items-center justify-center overflow-hidden border-t border-b border-white/5">
-                                        <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
-                                      </div>
-                                    ) : (
-                                      <div className="aspect-square bg-gradient-to-tr from-[#1a0e0a] to-[#2a1711] flex flex-col items-center justify-center p-6 text-center border-t border-b border-white/5">
-                                        <Music className="text-white/20 mb-3" size={32} />
-                                        <h3 className="text-sm font-black text-white/90 max-w-xs leading-normal">"{post.title}"</h3>
-                                      </div>
-                                    )}
+                <Link href="/contact"
+                  className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
+                  style={{ background: event.status === 'Sold Out' ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${INDIGO},#818cf8)`, color: event.status === 'Sold Out' ? 'rgba(255,255,255,0.3)' : '#fff' }}>
+                  {event.status === 'Sold Out' ? 'Waitlist' : 'Book Table'}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                                    <div className="flex gap-4 px-4 pt-1">
-                                      <button className="text-white/70 hover:text-rose-500 transition-colors">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-                                      </button>
-                                      <button className="text-white/70">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                                      </button>
-                                    </div>
+      {/* ══ FEATURED ARTISTS ══════════════════════════════════════ */}
+      <section className="py-20 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.6)' }}>
+        <div className="container mx-auto px-6 max-w-5xl">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.3em] block mb-3" style={{ color: '#818cf8' }}>Resident Artists</span>
+            <h2 className="text-3xl md:text-4xl font-black text-white">Featured Performers</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {FEATURED_ARTISTS.map((artist, i) => (
+              <div key={i} className="text-center p-6 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all hover:scale-[1.03]"
+                style={{ background: CARD_BG }}>
+                <div className={`w-16 h-16 rounded-2xl ${artist.color} flex items-center justify-center mx-auto mb-4 text-2xl font-black`}>
+                  {artist.initial}
+                </div>
+                <div className="text-sm font-bold text-white mb-1">{artist.name}</div>
+                <div className="text-xs text-slate-500 mb-3">{artist.genre}</div>
+                <div className="flex items-center justify-center gap-1">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  <span className="text-xs font-bold text-amber-400">{artist.rating}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                                    <div className="px-4 space-y-1">
-                                      <p className="text-xs text-white/90 leading-relaxed">
-                                        <span className="font-black mr-2 text-white">{singer.name}</span>
-                                        {post.content}
-                                      </p>
-                                      {post.tags && (
-                                        <div className="flex gap-1.5 flex-wrap pt-1">
-                                          {post.tags.split(',').map((t: string) => t.trim()).filter(Boolean).map((t: string, i: number) => (
-                                            <span key={i} className="text-xs font-bold text-indigo-400 hover:underline cursor-pointer">
-                                              #{t}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                              {singer.videos.length === 0 ? (
-                                <p className="text-xs text-white/30 italic col-span-full">No performance video clips uploaded.</p>
-                              ) : (
-                                singer.videos.map(vid => (
-                                  <ReelCard 
-                                    key={vid.id} 
-                                    vid={vid} 
-                                    singer={singer} 
-                                  />
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+      {/* ══ CTA ═══════════════════════════════════════════════════ */}
+      <section className="py-24 text-center relative overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[500px] h-[300px] rounded-full blur-[120px]" style={{ background: 'rgba(99,102,241,0.15)' }} />
+        </div>
+        <div className="container mx-auto px-6 max-w-xl relative z-10">
+          <h2 className="text-4xl font-black text-white mb-4">
+            Don&apos;t Miss the{' '}
+            <span style={{ background: `linear-gradient(135deg,${INDIGO},#a78bfa)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Show
+            </span>
+          </h2>
+          <p className="text-base mb-8" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Reserve your table in advance and enjoy an unforgettable evening of live music, fine dining and great company.
+          </p>
+          <Link href="/contact"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-white text-sm font-bold transition-all hover:scale-105"
+            style={{ background: `linear-gradient(135deg,${INDIGO},#818cf8)`, boxShadow: '0 0 28px rgba(99,102,241,0.35)' }}>
+            <Ticket className="w-4 h-4" />
+            Reserve Your Table
+          </Link>
+        </div>
+      </section>
 
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-      </div>
     </main>
   );
 }

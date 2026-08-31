@@ -84,7 +84,9 @@ export default function RestaurantAdminPortal() {
       .then(d => {
         if (!d.authenticated) { router.push('/login'); return; }
         const role = d.user?.role;
-        if (role !== 'RESTAURANTS_ADMIN' && role !== 'SUPER_ADMIN') {
+        // Allow both RESTAURANTS_ADMIN and HOTEL_ADMIN (BOTH type) to use this hub
+        const isAllowed = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN' || role === 'HOTEL_ADMIN';
+        if (!isAllowed) {
           if (d.user?.propertyCode) {
             router.push(`/${d.user.propertyCode}/operations`);
           } else {
@@ -125,12 +127,12 @@ export default function RestaurantAdminPortal() {
           // Hotel property → hotel PMS portal
           router.push('/hotel');
         } else {
-          // Restaurant/Cafe → restaurant admin dashboard
-          router.push(`/${property.code}/restaurantadmin`);
+          // Restaurant/Cafe → POS Billing Terminal
+          router.push(`/${property.code}/billing`);
         }
         router.refresh();
       } else {
-        alert(data.error || 'Property select karne mein masla aaya.');
+        alert(data.error || 'Failed to select property.');
       }
     } catch {
       alert('Network error. Please try again.');
@@ -142,11 +144,11 @@ export default function RestaurantAdminPortal() {
   const handleAddProperty = async () => {
     setAddError('');
     if (!addForm.name.trim() || !addForm.code.trim()) {
-      setAddError('Property name aur code zaroori hai.');
+      setAddError('Property name and code are required.');
       return;
     }
     if (!/^[a-z0-9-]+$/.test(addForm.code)) {
-      setAddError('Code sirf lowercase letters, numbers aur - use kar sakta hai.');
+      setAddError('Code must only contain lowercase letters, numbers and hyphens (-).');
       return;
     }
     setAddLoading(true);
@@ -178,7 +180,7 @@ export default function RestaurantAdminPortal() {
         setAddForm(emptyAddForm());
         loadProperties();
       } else {
-        setAddError(res.error || 'Property create karne mein masla aaya.');
+        setAddError(res.error || 'Failed to create property.');
       }
     } catch {
       setAddError('Network error. Please try again.');
@@ -203,14 +205,14 @@ export default function RestaurantAdminPortal() {
       <div className="min-h-screen bg-[#07070d] flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full border-4 border-violet-500/20 border-t-violet-500 animate-spin" />
+            <div className="w-20 h-20 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Utensils size={24} className="text-violet-400" />
+              <Utensils size={24} className="text-emerald-400" />
             </div>
           </div>
           <div className="text-center space-y-1">
             <p className="text-sm font-black text-white">Loading your properties…</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Restaurant & Hotel Admin Portal</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Property Hub</p>
           </div>
         </div>
       </div>
@@ -254,11 +256,11 @@ export default function RestaurantAdminPortal() {
         <div className="border-b border-white/5 bg-black/20 backdrop-blur-xl">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
-                <UtensilsCrossed size={16} className="text-violet-400" />
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                <Building2 size={16} className="text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm font-black text-white leading-tight">Admin Portal</p>
+                <p className="text-sm font-black text-white leading-tight">Property Hub</p>
                 <p className="text-[10px] text-slate-500 font-bold">Welcome back, {userName}</p>
               </div>
             </div>
@@ -269,7 +271,7 @@ export default function RestaurantAdminPortal() {
                 onClick={() => setViewMode('properties')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === 'properties'
-                    ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
+                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -279,7 +281,7 @@ export default function RestaurantAdminPortal() {
                 onClick={() => setViewMode('staff')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === 'staff'
-                    ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
+                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -290,7 +292,7 @@ export default function RestaurantAdminPortal() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => { setAddForm(emptyAddForm()); setAddError(''); setShowAddModal(true); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500/15 border border-violet-500/25 text-[11px] font-bold text-violet-400 hover:bg-violet-500/25 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/25 transition-all"
               >
                 <Plus size={13} /> Add Property
               </button>
@@ -315,20 +317,20 @@ export default function RestaurantAdminPortal() {
               <>
                 {/* Heading */}
                 <div className="text-center mb-8">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Select Property to View Live Data
+                    Property & Outlet Directory
                   </div>
                   <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-3">
-                    Kaun si property<br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-amber-400">
-                      ka dashboard dekhna hai?
+                    Select a Property<br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-amber-400">
+                      to Open Dashboard or POS
                     </span>
                   </h1>
                   <p className="text-sm text-slate-500 font-bold">
                     {properties.length} {properties.length === 1 ? 'property' : 'properties'} available
                     {hotelCount > 0 && <span className="ml-2 text-amber-500/70">• {hotelCount} Hotel{hotelCount !== 1 ? 's' : ''}</span>}
-                    {restaurantCount > 0 && <span className="ml-2 text-violet-500/70">• {restaurantCount} Restaurant{restaurantCount !== 1 ? 's' : ''}</span>}
+                    {restaurantCount > 0 && <span className="ml-2 text-emerald-500/70">• {restaurantCount} Restaurant / POS{restaurantCount !== 1 ? 's' : ''}</span>}
                   </p>
                 </div>
 
@@ -336,8 +338,8 @@ export default function RestaurantAdminPortal() {
                 {properties.length > 0 && hotelCount > 0 && restaurantCount > 0 && (
                   <div className="flex items-center justify-center gap-2 mb-7">
                     {[
-                      { key: 'all', label: 'Sab', count: properties.length },
-                      { key: 'restaurant', label: '🍽️ Restaurants', count: restaurantCount },
+                      { key: 'all', label: 'All', count: properties.length },
+                      { key: 'restaurant', label: '🍽️ Restaurants & POS', count: restaurantCount },
                       { key: 'hotel', label: '🏨 Hotels', count: hotelCount },
                     ].map(tab => (
                       <button
@@ -345,7 +347,7 @@ export default function RestaurantAdminPortal() {
                         onClick={() => setActiveTab(tab.key as typeof activeTab)}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                           activeTab === tab.key
-                            ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                            ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
                             : 'bg-white/[0.03] border border-white/8 text-slate-500 hover:text-slate-300'
                         }`}
                       >
@@ -361,12 +363,12 @@ export default function RestaurantAdminPortal() {
                     <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/8 flex items-center justify-center mx-auto mb-4">
                       <Building2 size={28} className="text-slate-600" />
                     </div>
-                    <p className="text-slate-500 font-bold mb-2">Koi property nahi mili</p>
+                    <p className="text-slate-500 font-bold mb-2">No properties found</p>
                     <button
                       onClick={() => { setAddForm(emptyAddForm()); setAddError(''); setShowAddModal(true); }}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500/15 border border-violet-500/25 text-sm font-bold text-violet-400 hover:bg-violet-500/25 transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-sm font-bold text-emerald-400 hover:bg-emerald-500/25 transition-all"
                     >
-                      <Plus size={14} /> Pehli property add karo
+                      <Plus size={14} /> Add your first property
                     </button>
                   </div>
                 ) : (
@@ -389,24 +391,24 @@ export default function RestaurantAdminPortal() {
 
                 {/* Footer note */}
                 <p className="text-center text-[10px] text-slate-700 font-bold mt-10">
-                  Property select karein → Live dashboard khulega • Restaurant Admin aur Hotel Dashboard dono supported
+                  Select an F&B outlet for Live POS dashboard or a Hotel for PMS portal.
                 </p>
               </>
             ) : (
               <>
                 {/* Staff Management Heading */}
                 <div className="text-center mb-8">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
                     <Users size={12} className="inline mr-1" /> Staff Directory & Access Control
                   </div>
                   <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-3">
                     Staff Accounts<br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">
-                      Manage PMS & POS Access
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-amber-400">
+                      Manage POS & F&B Access
                     </span>
                   </h1>
                   <p className="text-sm text-slate-500 font-bold">
-                    Add riders, waiters, receptionists, and managers across all properties.
+                    Manage waiters, cashiers, riders, receptionists, and managers across all properties.
                   </p>
                 </div>
 
@@ -426,8 +428,8 @@ export default function RestaurantAdminPortal() {
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
               <div>
-                <p className="text-base font-black text-white">Nai Property Add Karo</p>
-                <p className="text-[10px] text-slate-500 font-bold mt-0.5">Restaurant ya Hotel — dono types supported</p>
+                <p className="text-base font-black text-white">Add New Property</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5">Supports Restaurants, Hotels, and Cafes</p>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -542,7 +544,7 @@ export default function RestaurantAdminPortal() {
                   {/* HMS Enable Toggle */}
                   <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/8">
                     <div>
-                      <p className="text-xs font-bold text-white">HMS Module Enable Karo</p>
+                      <p className="text-xs font-bold text-white">Enable HMS Module</p>
                       <p className="text-[9px] text-slate-600">Rooms, bookings, check-in/out management</p>
                     </div>
                     <button
@@ -640,12 +642,12 @@ export default function RestaurantAdminPortal() {
               <button
                 onClick={handleAddProperty}
                 disabled={addLoading}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white text-sm font-black transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-violet-900/40"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-emerald-900/40"
               >
                 {addLoading ? (
                   <><RefreshCw size={14} className="animate-spin" /> Creating…</>
                 ) : (
-                  <><Check size={14} /> Property Add Karo</>
+                  <><Check size={14} /> Add Property</>
                 )}
               </button>
             </div>
@@ -783,11 +785,11 @@ function PropertyCard({
         {selecting ? (
           <>
             <RefreshCw size={14} className="animate-spin" />
-            Opening dashboard…
+            Opening...
           </>
         ) : (
           <>
-            {isHotel ? 'Hotel Dashboard Kholein' : 'Dashboard Kholein'}
+            {isHotel ? 'Open Hotel PMS' : 'Open POS System'}
             <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform duration-200" />
           </>
         )}

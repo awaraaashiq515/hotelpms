@@ -62,27 +62,55 @@ type PkgAssignment = {
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const ALL_FEATURES = [
-  { key: 'POS',          label: 'Point of Sale',           icon: '🛒' },
-  { key: 'INVENTORY',    label: 'Inventory Control',        icon: '📦' },
-  { key: 'ACCOUNTING',   label: 'Financial Accounting',     icon: '💰' },
-  { key: 'HMS',          label: 'Hotel Management',         icon: '🏨' },
-  { key: 'TABLES',       label: 'Table Management',         icon: '🪑' },
-  { key: 'TABLETS',      label: 'Tablet / Waiter App',      icon: '📱' },
-  { key: 'BARPOS',       label: 'Bar POS',                  icon: '🍺' },
-  { key: 'CAFEPOS',      label: 'Cafe POS',                 icon: '☕' },
-  { key: 'REPORTS',      label: 'Reports & Analytics',      icon: '📊' },
-  { key: 'GST',          label: 'GST Filing Assist',        icon: '📋' },
-  { key: 'STAFF',        label: 'Staff Directory',          icon: '👥' },
-  { key: 'DRIVERS',      label: 'Driver Tracking',          icon: '🚗' },
-  { key: 'CRM',          label: 'CRM & Memberships',        icon: '👤' },
-  { key: 'OFFERS',       label: 'Offers & Rewards',         icon: '🎁' },
-  { key: 'B2B',          label: 'B2B Marketplace',          icon: '🚛' },
-  { key: 'PARKING',      label: 'Parking Management',       icon: '🅿️' },
-  { key: 'WASTE',        label: 'Waste Management',         icon: '🗑️' },
-  { key: 'WHATSAPP',     label: 'WhatsApp Bot & Alerts',    icon: '💬' },
-  { key: 'WALKIETALKIE', label: 'Staff Walkie-Talkie',      icon: '📡' },
-  { key: 'GEOFENCING',   label: 'Geofenced Attendance',     icon: '📍' },
-  { key: 'TIPS',         label: 'Counter Tips & Gratuity',  icon: '💵' },
+  // Core
+  { key: 'POS',            label: 'Point of Sale',           icon: '🛒' },
+  { key: 'INVENTORY',      label: 'Inventory Control',        icon: '📦' },
+  { key: 'ACCOUNTING',     label: 'Financial Accounting',     icon: '💰' },
+  // Restaurant & F&B
+  { key: 'TABLES',         label: 'Table Management',         icon: '🪑' },
+  { key: 'TABLETS',        label: 'Tablet / Waiter App',      icon: '📱' },
+  { key: 'BARPOS',         label: 'Bar POS',                  icon: '🍺' },
+  { key: 'CAFEPOS',        label: 'Cafe POS',                 icon: '☕' },
+  // Hotel PMS
+  { key: 'HMS',            label: 'Hotel Front Desk & PMS',   icon: '🏨' },
+  { key: 'HOTEL_ROOMS',    label: 'Room Status Board',        icon: '🛏️' },
+  { key: 'CHANNEL_MANAGER',label: 'Channel Manager',          icon: '🌐' },
+  { key: 'REVENUE_AI',     label: 'Revenue AI & Simulator',   icon: '📈' },
+  { key: 'HOTEL_REPORTS',  label: 'Hotel Analytics & BI',     icon: '📊' },
+  { key: 'HOUSEKEEPING',   label: 'Housekeeping',             icon: '🧹' },
+  { key: 'MAINTENANCE',    label: 'Maintenance & Engineering', icon: '🔧' },
+  { key: 'NIGHT_AUDIT',    label: 'Night Audit Console',      icon: '🌙' },
+  { key: 'HOTEL_CRM',      label: 'Guest CRM & Loyalty',      icon: '⭐' },
+  // Hotel Amenities
+  { key: 'SPA_WELLNESS',   label: 'Spa & Wellness Center',    icon: '✨' },
+  { key: 'SWIMMING_POOL',  label: 'Swimming Pool',            icon: '🏊' },
+  { key: 'BANQUET_EVENTS', label: 'Banquet & Events',         icon: '🎉' },
+  { key: 'ROOM_SERVICE',   label: 'Room Service',             icon: '🍽️' },
+  { key: 'LIVE_MUSIC',     label: 'Live Music & Entertainment',icon: '🎵' },
+  { key: 'HOTEL_LAUNDRY',  label: 'Laundry Services',         icon: '👔' },
+  { key: 'LOST_FOUND',     label: 'Lost & Found',             icon: '🔍' },
+  // AI & Smart Hotel
+  { key: 'AI_CONCIERGE',   label: 'AI Concierge & IoT',       icon: '🤖' },
+  { key: 'TRAVEL_AGENTS',  label: 'Travel Agents & B2B',      icon: '🤝' },
+  // Analytics
+  { key: 'REPORTS',        label: 'Reports & Analytics',      icon: '📋' },
+  { key: 'GST',            label: 'GST Filing Assist',        icon: '🧾' },
+  // People
+  { key: 'STAFF',          label: 'Staff Directory',          icon: '👥' },
+  { key: 'DRIVERS',        label: 'Driver Tracking',          icon: '🚗' },
+  { key: 'CRM',            label: 'CRM & Memberships',        icon: '👤' },
+  // Marketing
+  { key: 'OFFERS',         label: 'Offers & Rewards',         icon: '🎁' },
+  { key: 'WEBSITE',        label: 'Website CMS',              icon: '🌐' },
+  // Advanced
+  { key: 'B2B',            label: 'B2B Marketplace',          icon: '🚛' },
+  { key: 'PARKING',        label: 'Parking Management',       icon: '🅿️' },
+  { key: 'WASTE',          label: 'Waste Management',         icon: '🗑️' },
+  // Integrations
+  { key: 'WHATSAPP',       label: 'WhatsApp Bot & Alerts',    icon: '💬' },
+  { key: 'WALKIETALKIE',   label: 'Staff Walkie-Talkie',      icon: '📡' },
+  { key: 'GEOFENCING',     label: 'Geofenced Attendance',     icon: '📍' },
+  { key: 'TIPS',           label: 'Counter Tips & Gratuity',  icon: '💵' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

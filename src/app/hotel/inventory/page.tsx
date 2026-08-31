@@ -155,18 +155,12 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Link
-            href="/hotel/products"
-            className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-black uppercase tracking-wider transition-all"
-          >
-            <Tag size={14} /> Master Product Catalog
-          </Link>
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-orange-600 hover:bg-orange-500
-                       text-white text-xs font-black uppercase tracking-wider transition-colors"
+                       text-white text-xs font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-600/20"
           >
-            <Plus size={12} /> Add Stock
+            <Plus size={14} /> Add Stock / Restock
           </button>
         </div>
       </div>

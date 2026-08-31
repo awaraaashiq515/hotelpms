@@ -7,6 +7,7 @@ import {
   CheckCircle2, AlertTriangle, TrendingDown, TrendingUp, Wallet,
   Printer, X, Banknote, Smartphone, Building2, Globe, DoorOpen,
   Clock, Phone, Hash, UtensilsCrossed, ShoppingBag, Sparkles,
+  Percent, BadgePercent, PlusCircle,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -35,6 +36,8 @@ const paymentModes = [
   { value: 'ONLINE', label: 'Online', icon: <Globe size={14} /> },
 ];
 
+const GST_RATES = [0, 5, 12, 18, 28];
+
 // ─── Main Checkout Detail Page ────────────────────────────────────────────────
 
 function CheckoutDetailContent() {
@@ -53,6 +56,18 @@ function CheckoutDetailContent() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState('CASH');
 
+  // GST state
+  const [gstRate, setGstRate] = useState(0);
+  const [addingGst, setAddingGst] = useState(false);
+  const [gstPosted, setGstPosted] = useState(false);
+
+  // Corporate / Guest GSTIN details
+  const [companyName, setCompanyName] = useState('');
+  const [gstNumber, setGstNumber] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+  const [savingGstInfo, setSavingGstInfo] = useState(false);
+  const [gstInfoSaved, setGstInfoSaved] = useState(false);
+
   // Load folio directly by folioId (passed as query param from list page)
   const loadFolio = useCallback(async () => {
     if (!folioId) {
@@ -68,6 +83,21 @@ function CheckoutDetailContent() {
         setFolio(res.data);
         const due = Math.max(0, res.data.closingBalance);
         setPaymentAmount(due > 0 ? due.toString() : '');
+
+        // Populate GST Details if present
+        const currentGst = res.data.reservation?.gstNumber || res.data.guest?.gstNumber || '';
+        const currentComp = res.data.reservation?.companyName || res.data.guest?.companyName || '';
+        const currentAddr = res.data.reservation?.billingAddress || res.data.guest?.billingAddress || '';
+        if (currentGst) setGstNumber(currentGst);
+        if (currentComp) setCompanyName(currentComp);
+        if (currentAddr) setBillingAddress(currentAddr);
+        if (currentGst || currentComp) setGstInfoSaved(true);
+
+        // Check if GST already posted in this folio
+        const hasGst = res.data.transactions?.some(
+          (t: { sourceModule: string }) => t.sourceModule === 'GST'
+        );
+        if (hasGst) setGstPosted(true);
       } else {
         toast.error(res.message || 'Folio not found');
       }
@@ -81,6 +111,92 @@ function CheckoutDetailContent() {
   useEffect(() => {
     loadFolio();
   }, [loadFolio]);
+
+  // Save / Update Guest GST Details
+  const handleSaveGstInfo = async () => {
+    if (!folio) return;
+    setSavingGstInfo(true);
+    try {
+      const res = await fetch('/api/hotel/folios', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folioId: folio.id,
+          gstNumber: gstNumber.trim().toUpperCase(),
+          companyName: companyName.trim(),
+          billingAddress: billingAddress.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Guest GST details updated for B2B Invoice');
+        setGstInfoSaved(true);
+        // update local folio object
+        setFolio((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            reservation: {
+              ...prev.reservation,
+              gstNumber: gstNumber.trim().toUpperCase(),
+              companyName: companyName.trim(),
+              billingAddress: billingAddress.trim(),
+            },
+            guest: {
+              ...prev.guest,
+              gstNumber: gstNumber.trim().toUpperCase(),
+              companyName: companyName.trim(),
+              billingAddress: billingAddress.trim(),
+            }
+          };
+        });
+      } else {
+        toast.error(data.message || 'Failed to update GST info');
+      }
+    } catch {
+      toast.error('Connection error updating GST details');
+    } finally {
+      setSavingGstInfo(false);
+    }
+  };
+
+  // ── GST Calculations ────────────────────────────────────────────────────────
+  const baseCharges = folio?.totalCharges ?? 0;
+  const gstAmount = gstRate > 0 ? Math.round(baseCharges * gstRate) / 100 : 0;
+  const cgst = gstAmount / 2;
+  const sgst = gstAmount / 2;
+
+  // Handle: Post GST to folio
+  const handleAddGst = async () => {
+    if (!folio || gstRate === 0 || gstPosted) return;
+    setAddingGst(true);
+    try {
+      const res = await fetch('/api/hotel/folios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folioId: folio.id,
+          txnType: 'DEBIT',
+          description: `GST @ ${gstRate}% on Room Charges (CGST ${gstRate / 2}% + SGST ${gstRate / 2}%)`,
+          amount: gstAmount,
+          taxAmount: gstAmount,
+          sourceModule: 'GST',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`GST @${gstRate}% (₹${gstAmount}) added to bill`);
+        setGstPosted(true);
+        await loadFolio(); // re-fetch to get updated totals
+      } else {
+        toast.error(data.message || 'Failed to add GST');
+      }
+    } catch {
+      toast.error('Connection error adding GST');
+    } finally {
+      setAddingGst(false);
+    }
+  };
 
   // Handle final checkout
   const handleCheckout = async () => {
@@ -248,6 +364,90 @@ function CheckoutDetailContent() {
             </div>
           </div>
 
+          {/* Corporate / Guest GST (B2B Invoice) Card */}
+          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Building2 size={16} className="text-amber-400" />
+                <h3 className="font-black text-white text-sm">Guest / Corporate GST Billing (B2B Tax Invoice)</h3>
+              </div>
+              {(gstNumber || companyName) && (
+                <span className="text-[10px] font-black text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                  B2B Tax Invoice
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Add the guest&apos;s Company Name and GST Number (GSTIN) here to issue a B2B Tax Invoice under their GSTIN.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                  Company / Business Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Enterprises Pvt Ltd"
+                  value={companyName}
+                  onChange={(e) => {
+                    setCompanyName(e.target.value);
+                    setGstInfoSaved(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-white font-medium text-xs focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                  Guest GSTIN (GST Number)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 07AAAAA0000A1Z5"
+                  maxLength={15}
+                  value={gstNumber}
+                  onChange={(e) => {
+                    setGstNumber(e.target.value.toUpperCase());
+                    setGstInfoSaved(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-amber-300 font-mono font-bold text-xs uppercase focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                Billing Address (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 123 Business Park, New Delhi - 110001"
+                value={billingAddress}
+                onChange={(e) => {
+                  setBillingAddress(e.target.value);
+                  setGstInfoSaved(false);
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-white font-medium text-xs focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[10px] text-slate-500 font-medium">
+                {gstNumber ? `✓ Recipient GSTIN: ${gstNumber} will be printed on the invoice` : 'Adding a GST number will generate a B2B Tax Invoice'}
+              </span>
+              <button
+                type="button"
+                onClick={handleSaveGstInfo}
+                disabled={savingGstInfo || (!gstNumber && !companyName)}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {savingGstInfo ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                {savingGstInfo ? 'Saving…' : gstInfoSaved ? 'GST Details Saved' : 'Save GST Details'}
+              </button>
+            </div>
+          </div>
+
           {/* Folio Transactions Table */}
           <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
             <div className="flex items-center gap-2 mb-4">
@@ -273,14 +473,20 @@ function CheckoutDetailContent() {
                 {folio.transactions.map((txn) => (
                   <div
                     key={txn.id}
-                    className="grid grid-cols-[1fr_2fr_auto_auto] gap-2 px-3 py-2 rounded-xl hover:bg-slate-800/30 transition-colors"
+                    className={`grid grid-cols-[1fr_2fr_auto_auto] gap-2 px-3 py-2 rounded-xl transition-colors ${
+                      txn.sourceModule === 'GST'
+                        ? 'bg-amber-500/5 border border-amber-500/10'
+                        : 'hover:bg-slate-800/30'
+                    }`}
                   >
                     <span className="text-[10px] text-slate-600 font-semibold">
                       {fmtDate(txn.txnDate)}
                     </span>
                     <div>
                       <p className="text-xs text-slate-300 font-semibold">{txn.description}</p>
-                      <p className="text-[9px] text-slate-600">{txn.sourceModule}</p>
+                      <p className={`text-[9px] font-bold ${txn.sourceModule === 'GST' ? 'text-amber-500' : 'text-slate-600'}`}>
+                        {txn.sourceModule}
+                      </p>
                     </div>
                     <span className="text-xs font-bold text-right text-red-400">
                       {txn.debitAmount > 0 ? fmt(txn.debitAmount) : '—'}
@@ -326,8 +532,92 @@ function CheckoutDetailContent() {
           </div>
         </div>
 
-        {/* RIGHT: Summary + Payment (1 col) */}
+        {/* RIGHT: Summary + GST + Payment (1 col) */}
         <div className="space-y-5">
+
+          {/* ── GST Card ─────────────────────────────────────────────────────── */}
+          {!checkedOut && (
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
+              <div className="flex items-center gap-2 mb-4">
+                <BadgePercent size={14} className="text-amber-400" />
+                <h3 className="font-black text-white text-sm">GST / Tax</h3>
+                {gstPosted && (
+                  <span className="ml-auto flex items-center gap-1 text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <CheckCircle2 size={8} /> Added
+                  </span>
+                )}
+              </div>
+
+              {/* GST Rate Selector */}
+              <div className="mb-4">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
+                  GST Rate
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {GST_RATES.map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      disabled={gstPosted}
+                      onClick={() => setGstRate(rate)}
+                      className={`py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        gstRate === rate
+                          ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
+                          : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* GST Breakdown Preview */}
+              {gstRate > 0 && (
+                <div className="mb-4 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 space-y-2">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">Taxable Amount</span>
+                    <span className="font-bold text-slate-300">{fmt(baseCharges)}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">CGST @ {gstRate / 2}%</span>
+                    <span className="font-bold text-amber-400">{fmt(cgst)}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">SGST @ {gstRate / 2}%</span>
+                    <span className="font-bold text-amber-400">{fmt(sgst)}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px] font-black border-t border-amber-500/15 pt-2">
+                    <span className="text-amber-300">Total GST</span>
+                    <span className="text-amber-300">{fmt(gstAmount)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Add GST Button */}
+              <button
+                onClick={handleAddGst}
+                disabled={gstRate === 0 || gstPosted || addingGst}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-lg shadow-amber-900/20"
+              >
+                {addingGst ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : gstPosted ? (
+                  <CheckCircle2 size={13} />
+                ) : (
+                  <PlusCircle size={13} />
+                )}
+                {addingGst ? 'Adding GST…' : gstPosted ? 'GST Added to Bill' : `Add GST @${gstRate}% to Bill`}
+              </button>
+
+              {gstRate === 0 && !gstPosted && (
+                <p className="text-center text-[10px] text-slate-600 mt-2 font-bold">
+                  Select a GST rate above to add tax
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Balance Summary Card */}
           <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
             <div className="flex items-center gap-2 mb-4">
@@ -342,6 +632,20 @@ function CheckoutDetailContent() {
                 </div>
                 <span className="text-sm font-black text-red-400">{fmt(folio.totalCharges)}</span>
               </div>
+
+              {/* GST breakdown in summary (if posted) */}
+              {gstPosted && folio.transactions
+                .filter((t) => t.sourceModule === 'GST')
+                .map((t) => (
+                  <div key={t.id} className="flex items-center justify-between py-1 px-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                    <div className="flex items-center gap-1.5 text-xs text-amber-400">
+                      <Percent size={10} /> GST (incl.)
+                    </div>
+                    <span className="text-xs font-bold text-amber-400">{fmt(t.debitAmount)}</span>
+                  </div>
+                ))
+              }
+
               <div className="flex items-center justify-between py-2 border-b border-slate-800/50">
                 <div className="flex items-center gap-1.5 text-xs text-slate-400">
                   <TrendingDown size={11} className="text-emerald-400" /> Total Paid

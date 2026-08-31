@@ -27,6 +27,7 @@ import {
   CreditCard,
   Bike,
   MessageCircle,
+  Tag,
 } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -50,6 +51,7 @@ export const AdminSidebar = () => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Packages', path: '/admin/packages', icon: Boxes },
+    { name: 'Feature Pricing', path: '/admin/feature-pricing', icon: Tag },
     { name: 'Subscription Approvals', path: '/admin/subscription-approvals', icon: CreditCard },
     { name: 'Rider Approvals', path: '/admin/rider-approvals', icon: Bike },
     { name: 'Payment/UPI Settings', path: '/admin/settings/billing', icon: Settings },

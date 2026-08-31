@@ -14,16 +14,27 @@ const signupSchema = z.object({
   captchaText: z.string().min(1, 'Security code is required'),
   captchaToken: z.string().optional().nullable(),
   roleName: z.string().optional().default('RESTAURANTS_ADMIN'),
+  // Business type (HOTEL | RESTAURANT | BOTH)
+  businessType: z.enum(['HOTEL', 'RESTAURANT', 'BOTH']).optional().nullable(),
   packageId: z.string().optional().nullable(),
-  paymentReference: z.string().optional().nullable(), // UPI/bank transaction ref submitted during signup
-  paymentAmount: z.number().optional().nullable(),     // Amount the user claims to have paid
-  // Branch configuration
+  paymentReference: z.string().optional().nullable(),
+  paymentAmount: z.number().optional().nullable(),
+  // Hotel / main property
   branchName: z.string().optional().nullable(),
   branchCode: z.string().optional().nullable(),
   branchCity: z.string().optional().nullable(),
   branchAddress: z.string().optional().nullable(),
   branchPhone: z.string().optional().nullable(),
-  // POS user configuration
+  // BOTH: second restaurant property
+  restaurantPropertyName: z.string().optional().nullable(),
+  restaurantBranchCode: z.string().optional().nullable(),
+  restaurantBranchCity: z.string().optional().nullable(),
+  restaurantBranchAddress: z.string().optional().nullable(),
+  // Hotel Receptionist (for HOTEL / BOTH)
+  hotelRecepFullName: z.string().optional().nullable(),
+  hotelRecepEmail: z.string().optional().nullable(),
+  hotelRecepPassword: z.string().optional().nullable(),
+  // Restaurant POS user (for RESTAURANT / BOTH)
   posFullName: z.string().optional().nullable(),
   posEmail: z.string().optional().nullable(),
   posPassword: z.string().optional().nullable(),
@@ -42,17 +53,26 @@ const signupSchema = z.object({
   barPosEnabled: z.boolean().optional().default(false),
   cafePosEnabled: z.boolean().optional().default(false),
   deliveryEnabled: z.boolean().optional().default(false),
+  // Custom plan builder
+  customFeatures: z.array(z.string()).optional().nullable(),
+  customPlanTotal: z.number().optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { 
-      fullName, email, password, businessName, captchaText, captchaToken, roleName, packageId, paymentReference, paymentAmount,
+      fullName, email, password, businessName, captchaText, captchaToken, roleName,
+      businessType,
+      packageId, paymentReference, paymentAmount,
       branchName, branchCode, branchCity, branchAddress, branchPhone,
+      restaurantPropertyName, restaurantBranchCode, restaurantBranchCity, restaurantBranchAddress,
+      hotelRecepFullName, hotelRecepEmail, hotelRecepPassword,
       posFullName, posEmail, posPassword,
-      phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius, gstNumber, category, address,
-      restaurantPosEnabled, barPosEnabled, cafePosEnabled, deliveryEnabled
+      phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius,
+      gstNumber, category, address,
+      restaurantPosEnabled, barPosEnabled, cafePosEnabled, deliveryEnabled,
+      customFeatures, customPlanTotal,
     } = signupSchema.parse(body)
 
     // 1. Verify Security Captcha
@@ -95,22 +115,34 @@ export async function POST(request: NextRequest) {
     // If Restaurant Owner or Hotel Owner, validate branch code and cashier email uniqueness beforehand
     if (roleToAssign === 'RESTAURANTS_ADMIN' || roleToAssign === 'HOTEL_ADMIN') {
       if (branchCode && branchCode.trim().length > 0) {
-        const existingBranch = await prisma.property.findUnique({
-          where: { code: branchCode.trim() }
-        })
+        const existingBranch = await prisma.property.findUnique({ where: { code: branchCode.trim() } })
         if (existingBranch) {
           return apiError(new Error(`The Branch Code "${branchCode.trim()}" is already in use. Please select a unique code.`), 400)
         }
       }
-
+      // Check second restaurant property code for BOTH
+      if (businessType === 'BOTH' && restaurantBranchCode && restaurantBranchCode.trim().length > 0) {
+        const existingRstBranch = await prisma.property.findUnique({ where: { code: restaurantBranchCode.trim() } })
+        if (existingRstBranch) {
+          return apiError(new Error(`The Restaurant Branch Code "${restaurantBranchCode.trim()}" is already in use. Please choose a different code.`), 400)
+        }
+      }
+      // Check hotel receptionist email uniqueness
+      if (hotelRecepEmail && hotelRecepEmail.trim().length > 0) {
+        if (hotelRecepEmail.toLowerCase().trim() === email.toLowerCase().trim()) {
+          return apiError(new Error('Hotel receptionist email cannot be the same as the owner email.'), 400)
+        }
+        const existingRecep = await prisma.user.findUnique({ where: { email: hotelRecepEmail.toLowerCase().trim() } })
+        if (existingRecep) {
+          return apiError(new Error('The Hotel Receptionist email is already in use.'), 400)
+        }
+      }
+      // Check restaurant POS user email uniqueness
       if (posEmail && posEmail.trim().length > 0) {
-        // Receptionist email must not match the main user email
         if (posEmail.toLowerCase().trim() === email.toLowerCase().trim()) {
           return apiError(new Error('Receptionist email cannot be the same as the owner email. Please use a different email.'), 400)
         }
-        const existingCashier = await prisma.user.findUnique({
-          where: { email: posEmail.toLowerCase().trim() }
-        })
+        const existingCashier = await prisma.user.findUnique({ where: { email: posEmail.toLowerCase().trim() } })
         if (existingCashier) {
           return apiError(new Error('The Receptionist email address is already in use. Please use a different email.'), 400)
         }
@@ -137,10 +169,35 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Determine selected Package to request
-    let selectedPackage = null
+    let selectedPackage: any = null
     let isPaidPackage = false
 
-    if (packageId) {
+    // ── Custom Plan: create a new package from selected features ──────────────
+    const isCustomPlanRequest = customFeatures && Array.isArray(customFeatures) && customFeatures.length > 0
+    if (isCustomPlanRequest) {
+      const orgName = businessName ? businessName.trim() : `${fullName.trim()}'s Business`
+      const customPriceINR = customPlanTotal ?? 0
+      const isPaid = customPriceINR > 0
+      // Create a unique custom package for this business
+      selectedPackage = await prisma.package.create({
+        data: {
+          name: `Custom — ${orgName}`,
+          description: `Custom plan built by ${fullName} during registration`,
+          priceINR: customPriceINR,
+          priceUSD: 0,
+          discountPercent: 0,
+          color: '#8b5cf6',
+          allowedPosCount: 3,
+          allowedPropertyCount: 1,
+          allowedHotelCount: 1,
+          isActive: true,
+          features: {
+            create: (customFeatures as string[]).map((f: string) => ({ feature: f }))
+          },
+        },
+      })
+      if (isPaid) isPaidPackage = true
+    } else if (packageId) {
       selectedPackage = await prisma.package.findUnique({
         where: { id: packageId }
       })
@@ -206,6 +263,7 @@ export async function POST(request: NextRequest) {
             organizationId: organization.id,
             name: branchName && branchName.trim().length > 0 ? branchName.trim() : (isHotel ? 'Main Hotel' : 'Main Branch'),
             code: branchCodeToUse,
+            type: isHotel ? 'HOTEL' : 'RESTAURANT',
             city: branchCity && branchCity.trim().length > 0 ? branchCity.trim() : null,
             address: branchAddress && branchAddress.trim().length > 0 ? branchAddress.trim() : null,
             phone: branchPhone && branchPhone.trim().length > 0 ? branchPhone.trim() : null,
@@ -234,19 +292,40 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        // Create Receptionist / Cashier sub-user if provided
-        if (posFullName && posFullName.trim().length > 0 && posEmail && posEmail.trim().length > 0 && posPassword) {
+        // ── Hotel Receptionist: if provided, create it linked to hotel property
+        if (hotelRecepFullName && hotelRecepFullName.trim().length > 0 && hotelRecepEmail && hotelRecepEmail.trim().length > 0 && hotelRecepPassword) {
+          let recepRole = await tx.role.findUnique({ where: { name: 'HOTEL_RECEPTIONIST' } })
+          if (!recepRole) {
+            recepRole = await tx.role.create({
+              data: { name: 'HOTEL_RECEPTIONIST', description: 'Hotel Front Desk Receptionist' }
+            })
+          }
+          const recepPassHash = await hashPassword(hotelRecepPassword)
+          await tx.user.create({
+            data: {
+              fullName: hotelRecepFullName.trim(),
+              email: hotelRecepEmail.toLowerCase().trim(),
+              passwordHash: recepPassHash,
+              organizationId: organization.id,
+              propertyId: branch.id,
+              roleId: recepRole.id,
+              isActive: true,
+              onboardingCompleted: true,
+            }
+          })
+        }
+
+        // ── Restaurant POS User: if provided and businessType is NOT BOTH
+        // For BOTH: posUser is created AFTER restaurant property is created (see BOTH block below)
+        // For RESTAURANT/HOTEL only: create now linked to this (main) branch
+        if (businessType !== 'BOTH' && posFullName && posFullName.trim().length > 0 && posEmail && posEmail.trim().length > 0 && posPassword) {
           const subRoleName = isHotel ? 'HOTEL_RECEPTIONIST' : 'POSSYSTEM'
           let subRole = await tx.role.findUnique({ where: { name: subRoleName } })
           if (!subRole) {
             subRole = await tx.role.create({
-              data: {
-                name: subRoleName,
-                description: isHotel ? 'Hotel Front Desk Receptionist' : 'POS Terminal Operator Access'
-              }
+              data: { name: subRoleName, description: isHotel ? 'Hotel Front Desk Receptionist' : 'POS Terminal Operator Access' }
             })
           }
-
           const subPasswordHash = await hashPassword(posPassword)
           await tx.user.create({
             data: {
@@ -254,7 +333,7 @@ export async function POST(request: NextRequest) {
               email: posEmail.toLowerCase().trim(),
               passwordHash: subPasswordHash,
               organizationId: organization.id,
-              propertyId: branch.id,
+              propertyId: branch.id,   // Hotel or standalone Restaurant — always same branch
               roleId: subRole.id,
               isActive: true,
               onboardingCompleted: true,
@@ -553,7 +632,83 @@ export async function POST(request: NextRequest) {
           })
         }
 
+        // ─── BOTH: Create second Restaurant Property ─────────────────────────────
+        if (businessType === 'BOTH' && restaurantPropertyName && restaurantPropertyName.trim().length > 0) {
+          const rstCode = restaurantBranchCode && restaurantBranchCode.trim().length > 0
+            ? restaurantBranchCode.trim()
+            : `RST-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
+
+          const restaurantProperty = await tx.property.create({
+            data: {
+              organizationId: organization.id,
+              name: restaurantPropertyName.trim(),
+              code: rstCode,
+              type: 'RESTAURANT',
+              city: restaurantBranchCity && restaurantBranchCity.trim().length > 0 ? restaurantBranchCity.trim() : null,
+              address: restaurantBranchAddress && restaurantBranchAddress.trim().length > 0 ? restaurantBranchAddress.trim() : null,
+              restaurantPosEnabled: restaurantPosEnabled,
+              showRestaurantInQrMenu: restaurantPosEnabled,
+              barPosEnabled: barPosEnabled,
+              showBarInQrMenu: barPosEnabled,
+              cafePosEnabled: cafePosEnabled,
+              showCafeInQrMenu: cafePosEnabled,
+              deliveryEnabled: deliveryEnabled,
+              showDeliveryInQrMenu: deliveryEnabled,
+            }
+          })
+
+          // Restaurant POS User (for BOTH) — link to restaurant property
+          if (posFullName && posFullName.trim().length > 0 && posEmail && posEmail.trim().length > 0 && posPassword) {
+            let posRole = await tx.role.findUnique({ where: { name: 'POSSYSTEM' } })
+            if (!posRole) {
+              posRole = await tx.role.create({ data: { name: 'POSSYSTEM', description: 'POS Terminal Operator Access' } })
+            }
+            const posPassHash = await hashPassword(posPassword)
+            await tx.user.create({
+              data: {
+                fullName: posFullName.trim(),
+                email: posEmail.toLowerCase().trim(),
+                passwordHash: posPassHash,
+                organizationId: organization.id,
+                propertyId: restaurantProperty.id,
+                roleId: posRole.id,
+                isActive: true,
+                onboardingCompleted: true,
+              }
+            })
+          }
+
+          // Restaurant outlet
+          await tx.outlet.create({
+            data: { name: 'Main Restaurant Outlet', type: 'RESTAURANT', propertyId: restaurantProperty.id }
+          })
+
+          // Payment modes for restaurant
+          for (const mode of [{ name: 'Cash', type: 'CASH' }, { name: 'Credit Card', type: 'CARD' }, { name: 'UPI / QR', type: 'UPI' }]) {
+            await tx.paymentMode.create({
+              data: { name: mode.name, type: mode.type, propertyId: restaurantProperty.id, isActive: true }
+            })
+          }
+
+          // Cash account for restaurant
+          const rstAssetGroup = await tx.accountGroup.findFirst({ where: { name: 'Cash & Bank', organizationId: organization.id } })
+          if (rstAssetGroup) {
+            await tx.account.create({
+              data: {
+                id: `cash-${restaurantProperty.id}`,
+                name: 'Cash Account',
+                accountType: 'CASH',
+                openingBalanceType: 'DEBIT',
+                accountGroupId: rstAssetGroup.id,
+                propertyId: restaurantProperty.id,
+                organizationId: organization.id,
+              }
+            })
+          }
+        }
+
         return { user, organization }
+
       } else {
         // Non-restaurant signup, create simple user and organization
         let supplierId: string | null = null

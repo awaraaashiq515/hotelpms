@@ -266,7 +266,7 @@ export default function RestaurantLiveDashboard() {
           router.replace(`/${propertyCode}/live-overview`);
           return;
         }
-        if (role !== 'RESTAURANTS_ADMIN' && role !== 'SUPER_ADMIN') {
+        if (role !== 'RESTAURANTS_ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HOTEL_ADMIN') {
           router.replace(`/${propertyCode}/operations`);
           return;
         }

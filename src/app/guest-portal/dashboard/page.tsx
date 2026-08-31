@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Hotel, LogOut, CalendarDays, BedDouble, Loader2,
-  Sparkles, Phone, Mail, ReceiptText, UtensilsCrossed, Bell, Music, Car
+  Sparkles, Phone, Mail, ReceiptText, UtensilsCrossed, Bell, Music, Car,
+  MoreHorizontal, X
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 
@@ -17,50 +18,92 @@ import SingersTab from '@/components/guest-portal/SingersTab';
 import TransportTab from '@/components/guest-portal/TransportTab';
 import SpaTab from '@/components/guest-portal/SpaTab';
 
+type TabType = 'bookings' | 'menu' | 'requests' | 'billing' | 'singers' | 'transport' | 'spa';
+
+const ALL_MENU_ITEMS = [
+  { id: 'bookings' as TabType,  label: 'Stats',  icon: CalendarDays,    glow: 'rgba(99,102,241,0.7)',  bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)' },
+  { id: 'billing' as TabType,   label: 'Bill',   icon: ReceiptText,     glow: 'rgba(99,102,241,0.7)',  bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)' },
+  { id: 'menu' as TabType,      label: 'Food',   icon: UtensilsCrossed, glow: 'rgba(251,146,60,0.7)',  bg: 'rgba(251,146,60,0.15)', border: 'rgba(251,146,60,0.4)' },
+  { id: 'transport' as TabType, label: 'Cabs',   icon: Car,             glow: 'rgba(34,211,238,0.7)',  bg: 'rgba(34,211,238,0.15)', border: 'rgba(34,211,238,0.4)' },
+  { id: 'requests' as TabType,  label: 'Desk',   icon: Bell,            glow: 'rgba(251,191,36,0.7)',  bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.4)' },
+  { id: 'singers' as TabType,   label: 'Music',  icon: Music,           glow: 'rgba(167,139,250,0.7)', bg: 'rgba(167,139,250,0.15)',border: 'rgba(167,139,250,0.4)' },
+  { id: 'spa' as TabType,       label: 'Spa',    icon: Sparkles,        glow: 'rgba(236,72,153,0.7)',  bg: 'rgba(236,72,153,0.15)', border: 'rgba(236,72,153,0.4)' },
+];
+
+const MAIN_NAV = ALL_MENU_ITEMS.slice(0, 4);
+const MORE_ITEMS = ALL_MENU_ITEMS.slice(4);
+
+function NavButton({ item, activeTab, onClick }: { item: typeof ALL_MENU_ITEMS[0]; activeTab: TabType; onClick: () => void }) {
+  const isActive = activeTab === item.id;
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl transition-all duration-300 min-w-[48px]"
+      style={isActive ? {
+        background: `linear-gradient(135deg, ${item.bg} 0%, rgba(0,0,0,0) 100%)`,
+        boxShadow: `0 0 18px ${item.glow.replace('0.7', '0.25')}`,
+        border: `1px solid ${item.border}`,
+      } : {}}
+    >
+      <item.icon
+        size={20}
+        className="relative z-10 transition-all duration-300"
+        style={{
+          color: isActive ? 'white' : 'rgb(100,116,139)',
+          filter: isActive ? `drop-shadow(0 0 7px ${item.glow})` : 'none',
+        }}
+      />
+      <span
+        className="relative z-10 text-[7px] font-black uppercase tracking-widest transition-all duration-300"
+        style={{ color: isActive ? 'white' : 'rgb(71,85,105)' }}
+      >
+        {item.label}
+      </span>
+      {isActive && (
+        <div
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full"
+          style={{ background: 'white', boxShadow: `0 0 8px ${item.glow}` }}
+        />
+      )}
+    </button>
+  );
+}
+
 export default function GuestPortalDashboard() {
   const router = useRouter();
   const [guest, setGuest] = useState<GuestData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'bookings' | 'menu' | 'requests' | 'billing' | 'singers' | 'transport' | 'spa'>('bookings');
+  const [activeTab, setActiveTab] = useState<TabType>('bookings');
+  const [showMore, setShowMore] = useState(false);
 
   const fetchGuestData = () => {
     const t = localStorage.getItem('guest_token') || '';
-    if (!t) {
-      router.replace('/guest-portal');
-      return;
-    }
+    if (!t) { router.replace('/guest-portal'); return; }
     setToken(t);
-
     fetch('/api/guest-portal/me', { headers: { Authorization: `Bearer ${t}` } })
       .then(r => r.json())
       .then(d => {
-        if (d.success) {
-          setGuest(d.data);
-        } else {
-          console.error('[Dashboard]', d.message);
-          setError(d.message || 'Could not load data.');
-        }
+        if (d.success) setGuest(d.data);
+        else { console.error('[Dashboard]', d.message); setError(d.message || 'Could not load data.'); }
       })
-      .catch(err => {
-        console.error('[Dashboard Fetch]', err);
-        setError('Connection error.');
-      })
+      .catch(err => { console.error('[Dashboard Fetch]', err); setError('Connection error.'); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchGuestData();
-  }, [router]);
+  useEffect(() => { fetchGuestData(); }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('guest_token');
-    router.replace('/guest-portal');
+  const handleLogout = () => { localStorage.removeItem('guest_token'); router.replace('/guest-portal'); };
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    setShowMore(false);
   };
 
   const upcoming = guest?.reservations.filter(r => r.status === 'CONFIRMED' || r.status === 'CHECKED_IN') || [];
   const past = guest?.reservations.filter(r => r.status === 'CHECKED_OUT' || r.status === 'CANCELLED') || [];
+  const moreIsActive = MORE_ITEMS.some(i => i.id === activeTab);
 
   return (
     <>
@@ -89,130 +132,245 @@ export default function GuestPortalDashboard() {
           </div>
         </header>
 
-        {/* Desktop-only Tab Bar */}
+        {/* Desktop Tab Bar */}
         <div className="hidden sm:block relative z-10 border-b border-slate-800/60 bg-[#050a14]/60 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto px-4">
             <div className="flex gap-0">
-              <button onClick={() => setActiveTab('bookings')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'bookings' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <CalendarDays size={15} /> My Bookings
+              {ALL_MENU_ITEMS.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleTabChange(item.id)}
+                  className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${
+                    activeTab === item.id ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <item.icon size={15} /> {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* More Drawer Backdrop */}
+        {showMore && (
+          <div
+            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm"
+            onClick={() => setShowMore(false)}
+          />
+        )}
+
+        {/* More Drawer — slides up from above bottom nav */}
+        <div
+          className="fixed left-0 right-0 z-50"
+          style={{
+            bottom: showMore ? '80px' : '-120%',
+            opacity: showMore ? 1 : 0,
+            transition: 'bottom 0.35s cubic-bezier(0.32,0.72,0,1), opacity 0.25s ease',
+            pointerEvents: showMore ? 'auto' : 'none',
+          }}
+        >
+          <div
+            className="mx-3 rounded-2xl overflow-hidden"
+            style={{
+              background: 'rgba(9, 14, 28, 0.97)',
+              backdropFilter: 'blur(32px)',
+              WebkitBackdropFilter: 'blur(32px)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              boxShadow: '0 -8px 60px rgba(99,102,241,0.18), 0 0 0 0.5px rgba(255,255,255,0.06) inset',
+            }}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Quick Access</p>
+                <p className="text-xs font-black text-white mt-0.5">All Services</p>
+              </div>
+              <button
+                onClick={() => setShowMore(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
+                style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <X size={13} className="text-slate-400" />
               </button>
-              <button onClick={() => setActiveTab('billing')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'billing' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <ReceiptText size={15} /> My Bill
-              </button>
-              <button onClick={() => setActiveTab('menu')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'menu' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <UtensilsCrossed size={15} /> Menu
-              </button>
-              <button onClick={() => setActiveTab('requests')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'requests' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <Bell size={15} /> Service Desk
-              </button>
-              <button onClick={() => setActiveTab('transport')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'transport' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <Car size={15} /> Cab & Bus
-              </button>
-              <button onClick={() => setActiveTab('singers')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'singers' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <Music size={15} /> Live Music
-              </button>
-              <button onClick={() => setActiveTab('spa')} className={`flex items-center gap-2 px-4 py-4 text-xs font-black border-b-2 transition-all ${activeTab === 'spa' ? 'border-pink-500 text-pink-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                <Sparkles size={15} /> Spa
+            </div>
+            <div className="mx-5 h-px bg-slate-800/80 mb-3" />
+
+            {/* 4-column grid — all 7 items */}
+            <div className="grid grid-cols-4 gap-2 px-4 pb-5">
+              {ALL_MENU_ITEMS.map(item => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabChange(item.id)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 active:scale-95"
+                    style={{
+                      background: isActive ? `linear-gradient(135deg, ${item.bg}, rgba(0,0,0,0))` : 'rgba(255,255,255,0.03)',
+                      border: isActive ? `1px solid ${item.border}` : '1px solid rgba(255,255,255,0.06)',
+                      boxShadow: isActive ? `0 0 20px ${item.glow.replace('0.7', '0.2')}` : 'none',
+                    }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{
+                        background: isActive ? item.bg : 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${isActive ? item.border : 'rgba(255,255,255,0.08)'}`,
+                      }}
+                    >
+                      <item.icon
+                        size={20}
+                        style={{
+                          color: isActive ? 'white' : 'rgb(100,116,139)',
+                          filter: isActive ? `drop-shadow(0 0 8px ${item.glow})` : 'none',
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-[8px] font-black uppercase tracking-widest"
+                      style={{ color: isActive ? 'white' : 'rgb(71,85,105)' }}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Premium Bottom Navigation Bar — 5 items */}
+        <div className="fixed bottom-0 left-0 right-0 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#050a14]/95 to-transparent" />
+          <div
+            className="relative mx-3 mb-3 rounded-2xl"
+            style={{
+              background: 'rgba(12, 18, 35, 0.88)',
+              backdropFilter: 'blur(28px)',
+              WebkitBackdropFilter: 'blur(28px)',
+              border: '1px solid rgba(99, 102, 241, 0.16)',
+              boxShadow: '0 -4px 40px rgba(99,102,241,0.1), 0 0 0 0.5px rgba(255,255,255,0.05) inset',
+            }}
+          >
+            <div className="flex items-center justify-around px-2 py-2">
+              {MAIN_NAV.map(item => (
+                <NavButton key={item.id} item={item} activeTab={activeTab} onClick={() => handleTabChange(item.id)} />
+              ))}
+
+              {/* MORE button */}
+              <button
+                onClick={() => setShowMore(prev => !prev)}
+                className="relative flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl transition-all duration-300 min-w-[48px]"
+                style={(showMore || moreIsActive) ? {
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(0,0,0,0) 100%)',
+                  boxShadow: '0 0 18px rgba(139,92,246,0.25)',
+                  border: '1px solid rgba(139,92,246,0.4)',
+                } : {}}
+              >
+                <MoreHorizontal
+                  size={20}
+                  style={{
+                    color: (showMore || moreIsActive) ? 'white' : 'rgb(100,116,139)',
+                    filter: (showMore || moreIsActive) ? 'drop-shadow(0 0 7px rgba(139,92,246,0.8))' : 'none',
+                    transition: 'all 0.3s',
+                    transform: showMore ? 'rotate(90deg)' : 'rotate(0deg)',
+                  }}
+                />
+                <span
+                  className="text-[7px] font-black uppercase tracking-widest transition-all duration-300"
+                  style={{ color: (showMore || moreIsActive) ? 'white' : 'rgb(71,85,105)' }}
+                >
+                  More
+                </span>
+                {moreIsActive && !showMore && (
+                  <div
+                    className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-violet-400"
+                    style={{ boxShadow: '0 0 8px rgba(139,92,246,0.8)' }}
+                  />
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Mobile App-style Bottom Navigation Bar */}
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090f1e]/95 backdrop-blur-lg border-t border-slate-800/80 px-2 py-2 flex justify-around items-center shadow-2xl">
-          <button onClick={() => setActiveTab('bookings')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'bookings' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
-            <CalendarDays size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Stays</span>
-          </button>
-          <button onClick={() => setActiveTab('billing')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'billing' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
-            <ReceiptText size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Bill</span>
-          </button>
-          <button onClick={() => setActiveTab('menu')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'menu' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
-            <UtensilsCrossed size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Food</span>
-          </button>
-          <button onClick={() => setActiveTab('transport')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'transport' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
-            <Car size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Cabs</span>
-          </button>
-          <button onClick={() => setActiveTab('requests')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'requests' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
-            <Bell size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Desk</span>
-          </button>
-          <button onClick={() => setActiveTab('singers')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'singers' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
-            <Music size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Music</span>
-          </button>
-          <button onClick={() => setActiveTab('spa')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'spa' ? 'text-pink-400 scale-105' : 'text-slate-500'}`}>
-            <Sparkles size={18} />
-            <span className="text-[8px] font-black uppercase tracking-wider">Spa</span>
-          </button>
-        </div>
-
+        {/* Main content */}
         <main className="relative z-10 max-w-3xl mx-auto px-4 py-6 space-y-6 pb-32">
           {loading ? (
             <div className="h-64 flex items-center justify-center">
-              <div className="text-center space-y-3"><Loader2 className="animate-spin text-indigo-500 mx-auto" size={32} /><p className="text-xs text-slate-500">Loading...</p></div>
+              <div className="text-center space-y-3">
+                <Loader2 className="animate-spin text-indigo-500 mx-auto" size={32} />
+                <p className="text-xs text-slate-500">Loading...</p>
+              </div>
             </div>
           ) : error ? (
             <div className="h-64 flex items-center justify-center">
               <div className="text-center space-y-4 p-8 rounded-3xl bg-rose-500/5 border border-rose-500/20 max-w-md">
                 <p className="text-rose-400 font-bold text-sm">{error}</p>
-                <button onClick={() => { localStorage.removeItem('guest_token'); router.replace('/guest-portal'); }}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors">
+                <button
+                  onClick={() => { localStorage.removeItem('guest_token'); router.replace('/guest-portal'); }}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors"
+                >
                   Back to Login
                 </button>
               </div>
             </div>
           ) : activeTab === 'bookings' && guest ? (
             <>
-              {/* Welcome */}
               <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-600/20 to-violet-600/10 border border-indigo-500/20">
-                <div className="flex items-center gap-1.5 mb-1"><Sparkles size={12} className="text-indigo-400" /><span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Welcome Back</span></div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Sparkles size={12} className="text-indigo-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Welcome Back</span>
+                </div>
                 <h2 className="text-2xl font-black text-white mb-3">Hello, {guest.firstName}! 👋</h2>
                 <div className="flex flex-wrap gap-4 text-xs text-slate-400">
                   {guest.mobile && <span className="flex items-center gap-1.5"><Phone size={11} /> {guest.mobile}</span>}
                   {guest.email && <span className="flex items-center gap-1.5"><Mail size={11} /> {guest.email}</span>}
                 </div>
                 <div className="grid grid-cols-3 gap-3 mt-4">
-                  <div className="p-3 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 text-center"><p className="text-xl font-black text-indigo-400">{guest.reservations.length}</p><p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Bookings</p></div>
-                  <div className="p-3 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 text-center"><p className="text-xl font-black text-emerald-400">{upcoming.length}</p><p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Active</p></div>
-                  <div className="p-3 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 text-center"><p className="text-xl font-black text-slate-400">{past.length}</p><p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Past</p></div>
+                  <div className="p-3 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 text-center">
+                    <p className="text-xl font-black text-indigo-400">{guest.reservations.length}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Bookings</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 text-center">
+                    <p className="text-xl font-black text-emerald-400">{upcoming.length}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Active</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 text-center">
+                    <p className="text-xl font-black text-slate-400">{past.length}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Past</p>
+                  </div>
                 </div>
               </div>
               {upcoming.length > 0 && (
                 <section>
-                  <div className="flex items-center gap-2 mb-4"><CalendarDays size={16} className="text-indigo-400" /><h3 className="font-black text-sm uppercase tracking-wider text-slate-300">Active Reservations</h3></div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <CalendarDays size={16} className="text-indigo-400" />
+                    <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">Active Reservations</h3>
+                  </div>
                   <div className="space-y-4">
                     {upcoming.map(r => (
-                      <BookingCard
-                        key={r.id}
-                        reservation={r}
-                        token={token}
-                        onUpdate={fetchGuestData}
-                      />
+                      <BookingCard key={r.id} reservation={r} token={token} onUpdate={fetchGuestData} />
                     ))}
                   </div>
                 </section>
               )}
               {past.length > 0 && (
                 <section>
-                  <div className="flex items-center gap-2 mb-4"><BedDouble size={16} className="text-slate-500" /><h3 className="font-black text-sm uppercase tracking-wider text-slate-400">Past Stays</h3></div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <BedDouble size={16} className="text-slate-500" />
+                    <h3 className="font-black text-sm uppercase tracking-wider text-slate-400">Past Stays</h3>
+                  </div>
                   <div className="space-y-4 opacity-70">
                     {past.map(r => (
-                      <BookingCard
-                        key={r.id}
-                        reservation={r}
-                        token={token}
-                        onUpdate={fetchGuestData}
-                      />
+                      <BookingCard key={r.id} reservation={r} token={token} onUpdate={fetchGuestData} />
                     ))}
                   </div>
                 </section>
               )}
               {guest.reservations.length === 0 && (
-                <div className="text-center py-20 text-slate-500"><BedDouble size={40} className="mx-auto mb-3 opacity-30" /><p className="font-bold">No bookings found.</p></div>
+                <div className="text-center py-20 text-slate-500">
+                  <BedDouble size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="font-bold">No bookings found.</p>
+                </div>
               )}
             </>
           ) : activeTab === 'billing' && guest ? (

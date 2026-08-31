@@ -1147,23 +1147,68 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     socketRef.current?.disconnect()
   }, [])
 
-  /* ── Restore session & enforce correct property URL ── */
+  /* ── Restore session OR auto-login from main /login session ── */
   useEffect(() => {
-    try {
-      const s = localStorage.getItem('staff_portal_session')
-      if (s) { 
-        const p = JSON.parse(s)
-        if (p.user && p.wtToken) { 
-          setUser(p.user)
-          setWtToken(p.wtToken) 
-          
-          // Redirect if property code mismatch
-          const userPropCode = p.user.property?.code?.toLowerCase()
-          if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
-            window.location.href = `/staff-portal/${userPropCode}`
+    if (!propertyCode) return
+    const run = async () => {
+      try {
+        // 1. Try existing staff portal session first
+        const s = localStorage.getItem('staff_portal_session')
+        if (s) {
+          const p = JSON.parse(s)
+          if (p.user && p.wtToken) {
+            setUser(p.user)
+            setWtToken(p.wtToken)
+            const userPropCode = p.user.property?.code?.toLowerCase()
+            if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+              window.location.href = `/staff-portal/${userPropCode}`
+            }
+            return
           }
-        } 
-      }
+        }
+
+        // 2. No local session — try to auto-login using main session cookie
+        const sessionRes = await fetch('/api/auth/session')
+        if (!sessionRes.ok) return
+        const sessionData = await sessionRes.json()
+        if (!sessionData.authenticated) return
+
+        // 3. Call staff-login API with the main session's user ID to get WT token
+        const wtRes = await fetch('/api/walkie-talkie/staff-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: sessionData.user.id,
+            propertyCode,
+            fromMainSession: true,
+          }),
+        })
+        if (!wtRes.ok) return
+        const wtData = await wtRes.json()
+        if (!wtData.user || !wtData.wtToken) return
+
+        // 4a. Check if this user belongs to a different portal (e.g. Housekeeper)
+        if (wtData.portalRedirect) {
+          localStorage.setItem('hk_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
+          window.location.href = wtData.portalRedirect
+          return
+        }
+
+        // 4b. Normal staff — save and set session
+        setUser(wtData.user)
+        setWtToken(wtData.wtToken)
+        localStorage.setItem('staff_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
+
+        // Redirect if property mismatch
+        const userPropCode = wtData.user.property?.code?.toLowerCase()
+        if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+          window.location.href = `/staff-portal/${userPropCode}`
+        }
+      } catch {}
+    }
+    run()
+
+    try {
       const st = localStorage.getItem('staff_portal_settings')
       if (st) setSettings(JSON.parse(st))
     } catch {}
@@ -1320,7 +1365,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     finally { setAuthLoading(false) }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     stopSharing()
     stopAll()
     localAudioTrackRef.current?.close(); localAudioTrackRef.current = null
@@ -1336,8 +1381,16 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     }
     setRtcStatus('Standby'); setIsRtcMockMode(true); setLogs([])
     localStorage.removeItem('staff_portal_session')
-    fetch('/api/auth/staff-logout', { method: 'POST' }).catch(() => {})
+    // Clear BOTH cookies: staff_session + main session cookie
+    // Without clearing the main session, auto-login fires again → infinite spinner
+    await Promise.allSettled([
+      fetch('/api/auth/staff-logout', { method: 'POST' }),
+      fetch('/api/auth/logout', { method: 'POST' }),
+    ])
+    // Redirect to main login page
+    window.location.href = '/login'
   }
+
 
   /* ══════════ SOCKET.IO ══════════ */
   const connectSocket = useCallback(() => {
@@ -2177,53 +2230,14 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
   const propName = user?.property?.name || propertyCode?.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Restaurant'
 
   /* ══════════════════════════════════════════════════════
-     LOGIN PAGE
+     AUTO-AUTH LOADING — no separate login form needed
+     Staff come here already authenticated from /login
   ══════════════════════════════════════════════════════ */
   if (!user) return (
-    <div style={{ minHeight: '100dvh', background: 'linear-gradient(160deg,#06080f,#0d1117,#060a0f)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Inter",-apple-system,sans-serif', padding: '20px', position: 'relative', overflow: 'hidden' }}>
-      {/* Grid bg */}
-      <div style={{ position: 'fixed', inset: 0, backgroundImage: 'radial-gradient(rgba(99,102,241,0.055) 1px,transparent 1px)', backgroundSize: '26px 26px', pointerEvents: 'none' }} />
-      <div style={{ position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 380, height: 380, background: 'radial-gradient(circle,rgba(99,102,241,0.07),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-      <div style={{ width: '100%', maxWidth: 380, position: 'relative', zIndex: 1 }}>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ width: 68, height: 68, borderRadius: 18, background: 'linear-gradient(135deg,#6366f1,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', boxShadow: '0 0 36px rgba(99,102,241,0.4)', fontSize: 30 }}>🏨</div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.03em' }}>Staff Login</h1>
-          <p style={{ fontSize: 11, color: '#475569', marginTop: 6, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{propertyCode ? propertyCode.replace(/-/g, ' ') : 'Hotel'} · All Staff Roles</p>
-          {/* Role-based auto-routing notice */}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-            {[['📻','Waiter'],['🧹','Housekeeper'],['⭐','Captain'],['👑','Manager']].map(([e,r]) => (
-              <span key={r} style={{ fontSize: 9, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#475569' }}>{e} {r}</span>
-            ))}
-          </div>
-        </div>
-
-        <form onSubmit={handleLogin} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 22, padding: '28px 24px', backdropFilter: 'blur(16px)', boxShadow: '0 20px 60px rgba(0,0,0,0.55)' }}>
-          {/* Email Address */}
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ display: 'block', fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 7 }}>Email Address</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@example.com" autoComplete="email" required
-              style={{ width: '100%', padding: '12px 14px', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 13, fontSize: 14, fontWeight: 600, color: '#f1f5f9', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
-              onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,0.6)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
-          </div>
-          {/* Password */}
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 7 }}>Password</label>
-            <div style={{ position: 'relative' }}>
-              <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" required
-                style={{ width: '100%', padding: '12px 42px 12px 14px', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 13, fontSize: 14, fontWeight: 600, color: '#f1f5f9', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.2s' }}
-                onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,0.6)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
-              <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 15, lineHeight: 1 }}>{showPass ? '🙈' : '👁️'}</button>
-            </div>
-          </div>
-          {authError && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 11, padding: '10px 13px', marginBottom: 18, fontSize: 12, color: '#f87171', fontWeight: 700 }}>⚠️ {authError}</div>}
-          <button type="submit" disabled={authLoading} style={{ width: '100%', padding: '13px', borderRadius: 15, border: 'none', cursor: authLoading ? 'not-allowed' : 'pointer', background: authLoading ? 'rgba(99,102,241,0.45)' : 'linear-gradient(135deg,#6366f1,#818cf8)', color: '#fff', fontSize: 12, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 8px 28px rgba(99,102,241,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
-            {authLoading ? <><span style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Logging in...</> : <>🔐 Sign In · Auto Redirect</>}
-          </button>
-        </form>
-        <p style={{ textAlign: 'center', fontSize: 11, color: '#1e293b', marginTop: 14, fontWeight: 700 }}>Login once → Automatically taken to your portal</p>
-      </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} input::placeholder{color:rgba(148,163,184,0.35)}`}</style>
+    <div style={{ minHeight: '100dvh', background: '#06080f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"Inter",-apple-system,sans-serif', gap: 16 }}>
+      <div style={{ width: 48, height: 48, border: '3px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ fontSize: 12, fontWeight: 700, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Loading Staff Portal...</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 

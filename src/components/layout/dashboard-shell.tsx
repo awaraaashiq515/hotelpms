@@ -22,7 +22,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   const relativePath = segments.length > 1 ? '/' + segments.slice(1).join('/') : '/';
   
   // Normal logic: Admins get Admin Hub, others get POS
-  const isAdminRole = session.role === 'RESTAURANTS_ADMIN' || session.role === 'SUPER_ADMIN';
+  const isAdminRole = session.role === 'RESTAURANTS_ADMIN' || session.role === 'SUPER_ADMIN' || session.role === 'HOTEL_ADMIN';
   
   // SPECIAL OVERRIDE: Kitchen Display / Bar Display always uses POS Layout
   const isKitchenDisplay = relativePath.startsWith('/kitchen-display') || pathname.includes('/kitchen-display') ||

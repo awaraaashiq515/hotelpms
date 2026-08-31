@@ -74,21 +74,22 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Invalid credentials or account inactive'), 401)
     }
 
-    // 2.5 Block login if Hotel features are disabled
+    // 2.5 Block login if Hotel features are globally disabled AND user has no registered hotel property
     const isHotelRole = user.role.name.toUpperCase().includes('HOTEL');
     if (isHotelRole) {
       const settings = await prisma.websiteSettings.findFirst();
       const hotelEnabled = settings?.hotelEnabled ?? false;
-      
-      const organizationHasHotel = user.organizationId ? await prisma.property.findFirst({
-        where: {
-          organizationId: user.organizationId,
-          type: 'HOTEL'
-        }
-      }) : null;
 
-      if (!hotelEnabled && !organizationHasHotel) {
-        return apiError(new Error('Hotel features are currently disabled by the system administrator.'), 403)
+      if (!hotelEnabled) {
+        // Check if this user's organization has any property — if yes, they registered properly, allow login
+        const orgHasAnyProperty = user.organizationId ? await prisma.property.findFirst({
+          where: { organizationId: user.organizationId }
+        }) : null;
+
+        // Only block if hotelEnabled is false AND the org has no properties at all
+        if (!orgHasAnyProperty) {
+          return apiError(new Error('Hotel features are currently disabled by the system administrator.'), 403);
+        }
       }
     }
 
@@ -117,6 +118,8 @@ export async function POST(request: NextRequest) {
     let propertyCode = null;
     let propertySlug = null;
     let propertyType = null;
+    let isMultiProperty = false;
+
     if (user.propertyId) {
       const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true, name: true, type: true } });
       propertyCode = prop?.code || null;
@@ -127,6 +130,12 @@ export async function POST(request: NextRequest) {
       propertyCode = prop?.code || null;
       propertySlug = prop?.name ? slugify(prop.name) : null;
       propertyType = prop?.type || null;
+    }
+
+    // Check if this org has multiple properties (BOTH hotel + restaurant)
+    if (user.organizationId) {
+      const propCount = await prisma.property.count({ where: { organizationId: user.organizationId } });
+      isMultiProperty = propCount > 1;
     }
 
     const sessionData: SessionPayload = {
@@ -148,6 +157,7 @@ export async function POST(request: NextRequest) {
       propertyCode,
       propertySlug,
       propertyType,
+      isMultiProperty,   // true = BOTH hotel + restaurant
     }
 
     const token = await encrypt(sessionData)

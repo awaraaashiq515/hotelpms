@@ -33,7 +33,14 @@ import {
   Waves,
   Flower2,
   Droplets,
-  CheckCircle2
+  CheckCircle2,
+  Building2,
+  BadgePercent,
+  Handshake,
+  IndianRupee,
+  Clock,
+  BadgeCheck,
+  Star,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -44,8 +51,15 @@ function BookingsContent() {
   const paramArrival = searchParams.get('arr') || '';
   const paramDeparture = searchParams.get('dep') || '';
 
-  // Tab State: 'list' or 'create'
-  const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
+  // Tab State: 'list', 'create', or 'agent-bookings'
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'agent-bookings'>('list');
+
+  // Agent Bookings State
+  const [agentBookings, setAgentBookings] = useState<any[]>([]);
+  const [agentBookingsLoading, setAgentBookingsLoading] = useState(false);
+  const [agentBookingSearch, setAgentBookingSearch] = useState('');
+  const [agentBookingStatusFilter, setAgentBookingStatusFilter] = useState('ALL');
+  const [updatingAgentBooking, setUpdatingAgentBooking] = useState<string | null>(null);
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -66,6 +80,13 @@ function BookingsContent() {
   const [assignedRoomId, setAssignedRoomId] = useState(paramRoomId || '');
   const [totalAmount, setTotalAmount] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('0');
+  const [gstRate, setGstRate] = useState(0);
+
+  // Corporate / GST Billing Details
+  const [isCorporateBooking, setIsCorporateBooking] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [gstNumber, setGstNumber] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
 
   // Booking Form WiFi & Meal Plan States
   const [wifiPassword, setWifiPassword] = useState('');
@@ -291,8 +312,44 @@ const DEFAULT_POOL_PASS_OPTIONS = [
       });
   };
 
+  const loadAgentBookings = async () => {
+    setAgentBookingsLoading(true);
+    try {
+      const res = await fetch('/api/hotel/agent-bookings');
+      const data = await res.json();
+      if (data.success) setAgentBookings(data.data);
+    } catch (err) {
+      console.error('Error fetching agent bookings:', err);
+    } finally {
+      setAgentBookingsLoading(false);
+    }
+  };
+
+  const handleAgentBookingStatusUpdate = async (id: string, status: string) => {
+    setUpdatingAgentBooking(id);
+    try {
+      const res = await fetch('/api/hotel/agent-bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Booking ${status === 'CONFIRMED' ? 'confirmed ✓' : status === 'CANCELLED' ? 'rejected ✗' : 'updated'} successfully!`);
+        loadAgentBookings();
+      } else {
+        toast.error(data.message || 'Update failed.');
+      }
+    } catch {
+      toast.error('Connection error.');
+    } finally {
+      setUpdatingAgentBooking(null);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadAgentBookings();
   }, [paramRoomId, paramArrival, paramDeparture]);
 
   const startEditingStay = (b: any) => {
@@ -448,11 +505,13 @@ const DEFAULT_POOL_PASS_OPTIONS = [
     }
     const poolCost = poolAccess ? Number(poolPassCost || 0) : 0;
     const spaCost = Number(spaPackageCost || 0);
-    const grandTotal = roomRent + poolCost + spaCost;
+    const subTotal = roomRent + poolCost + spaCost;
+    const gstAmt = gstRate > 0 ? Math.round(subTotal * gstRate) / 100 : 0;
+    const grandTotal = subTotal + gstAmt;
     if (grandTotal > 0 || (roomRent === 0 && (poolCost > 0 || spaCost > 0))) {
       setTotalAmount(grandTotal.toString());
     }
-  }, [arrivalDate, departureDate, roomTypeId, roomTypes, poolAccess, poolPassCost, spaPackageCost]);
+  }, [arrivalDate, departureDate, roomTypeId, roomTypes, poolAccess, poolPassCost, spaPackageCost, gstRate]);
 
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -492,6 +551,9 @@ const DEFAULT_POOL_PASS_OPTIONS = [
           spaPackage,
           spaPackageCost: Number(spaPackageCost || 0),
           addOnNotes,
+          gstNumber: isCorporateBooking ? gstNumber.trim().toUpperCase() : null,
+          companyName: isCorporateBooking ? companyName.trim() : null,
+          billingAddress: isCorporateBooking ? billingAddress.trim() : null,
         }),
       });
 
@@ -508,6 +570,11 @@ const DEFAULT_POOL_PASS_OPTIONS = [
         setAssignedRoomId('');
         setTotalAmount('');
         setAdvanceAmount('0');
+        setGstRate(0);
+        setIsCorporateBooking(false);
+        setCompanyName('');
+        setGstNumber('');
+        setBillingAddress('');
         setWifiPassword('');
         setWifiStatus('ACTIVE');
         setMealPlan('RO');
@@ -550,7 +617,7 @@ const DEFAULT_POOL_PASS_OPTIONS = [
         </div>
 
         {/* Tab Controls */}
-        <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80 self-start">
+        <div className="flex flex-wrap gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80 self-start">
           <button
             onClick={() => setActiveTab('list')}
             className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
@@ -560,6 +627,21 @@ const DEFAULT_POOL_PASS_OPTIONS = [
             }`}
           >
             <CalendarDays size={14} /> Active Bookings
+          </button>
+          <button
+            onClick={() => { setActiveTab('agent-bookings'); loadAgentBookings(); }}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 relative ${
+              activeTab === 'agent-bookings' 
+                ? 'bg-violet-600 text-white shadow-md' 
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Handshake size={14} /> Agent Bookings
+            {agentBookings.filter(b => b.status === 'PENDING').length > 0 && (
+              <span className="ml-1 bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none">
+                {agentBookings.filter(b => b.status === 'PENDING').length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('create')}
@@ -581,6 +663,255 @@ const DEFAULT_POOL_PASS_OPTIONS = [
             <Loader2 className="animate-spin text-indigo-500 mx-auto" size={32} />
             <p className="text-xs text-slate-500 font-medium">Fetching reservations database...</p>
           </div>
+        </div>
+      ) : activeTab === 'agent-bookings' ? (
+        /* ─── Agent Bookings Tab ─── */
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Header Row */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3.5 top-3.5 text-slate-500" size={15} />
+                <input
+                  type="text"
+                  value={agentBookingSearch}
+                  onChange={(e) => setAgentBookingSearch(e.target.value)}
+                  placeholder="Search guest or agent..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-800 bg-slate-900/60 text-slate-100 text-xs focus:outline-none focus:border-violet-500 transition-colors"
+                />
+              </div>
+              <select
+                value={agentBookingStatusFilter}
+                onChange={(e) => setAgentBookingStatusFilter(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/60 text-slate-100 text-xs focus:outline-none focus:border-violet-500"
+              >
+                <option value="ALL">All Status</option>
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="CHECKED_IN">Checked In</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+            <button
+              onClick={loadAgentBookings}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition-all"
+            >
+              <RefreshCw size={13} className={agentBookingsLoading ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
+
+          {/* Stats Bar */}
+          {(() => {
+            const pending   = agentBookings.filter(b => b.status === 'PENDING').length;
+            const confirmed = agentBookings.filter(b => b.status === 'CONFIRMED').length;
+            const checkedIn = agentBookings.filter(b => b.status === 'CHECKED_IN').length;
+            const totalComm = agentBookings.reduce((s, b) => s + (b.commission || 0), 0);
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Pending Review', val: pending,   color: 'text-amber-400',   bg: 'bg-amber-500/5 border-amber-500/20',   icon: Clock },
+                  { label: 'Confirmed',      val: confirmed, color: 'text-emerald-400', bg: 'bg-emerald-500/5 border-emerald-500/20', icon: BadgeCheck },
+                  { label: 'Checked In',     val: checkedIn, color: 'text-sky-400',     bg: 'bg-sky-500/5 border-sky-500/20',       icon: UserCheck },
+                  { label: 'Total Commission', val: `₹${totalComm.toLocaleString()}`, color: 'text-violet-400', bg: 'bg-violet-500/5 border-violet-500/20', icon: IndianRupee },
+                ].map(({ label, val, color, bg, icon: Icon }) => (
+                  <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${bg}`}>
+                    <Icon size={18} className={color} />
+                    <div>
+                      <div className={`text-lg font-black ${color}`}>{val}</div>
+                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Agent Bookings Table */}
+          {agentBookingsLoading ? (
+            <div className="h-40 flex items-center justify-center">
+              <Loader2 className="animate-spin text-violet-500" size={28} />
+            </div>
+          ) : (() => {
+            const filtered = agentBookings.filter(b => {
+              const q = agentBookingSearch.toLowerCase();
+              const matchSearch = !q ||
+                b.guestName?.toLowerCase().includes(q) ||
+                b.agent?.name?.toLowerCase().includes(q) ||
+                b.agent?.agentCode?.toLowerCase().includes(q);
+              const matchStatus = agentBookingStatusFilter === 'ALL' || b.status === agentBookingStatusFilter;
+              return matchSearch && matchStatus;
+            });
+
+            const STATUS_STYLE: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+              PENDING:    { label: 'Pending Review', color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/30',   dot: 'bg-amber-400' },
+              CONFIRMED:  { label: 'Confirmed',      color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30', dot: 'bg-emerald-400' },
+              CHECKED_IN: { label: 'Checked In',     color: 'text-sky-400',     bg: 'bg-sky-500/10 border-sky-500/30',       dot: 'bg-sky-400' },
+              COMPLETED:  { label: 'Completed',      color: 'text-indigo-400',  bg: 'bg-indigo-500/10 border-indigo-500/30',  dot: 'bg-indigo-400' },
+              CANCELLED:  { label: 'Cancelled',      color: 'text-rose-400',    bg: 'bg-rose-500/10 border-rose-500/30',      dot: 'bg-rose-400' },
+            };
+
+            return filtered.length === 0 ? (
+              <div className="rounded-3xl border border-slate-800/80 bg-slate-900/20 py-16 text-center">
+                <Handshake size={36} className="mx-auto text-slate-700 mb-3" />
+                <p className="text-slate-500 text-sm font-semibold">No agent bookings found</p>
+                <p className="text-slate-600 text-xs mt-1">Agent submitted bookings will appear here</p>
+              </div>
+            ) : (
+              <div className="rounded-3xl bg-[#0f172a]/40 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">
+                        <th className="px-5 py-4">Guest Details</th>
+                        <th className="px-5 py-4">Stay Dates</th>
+                        <th className="px-5 py-4">Room Type</th>
+                        <th className="px-5 py-4">Agent</th>
+                        <th className="px-5 py-4">Amount & Commission</th>
+                        <th className="px-5 py-4">Status</th>
+                        <th className="px-5 py-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs text-slate-200">
+                      {filtered.map((b) => {
+                        const st = STATUS_STYLE[b.status] || STATUS_STYLE['PENDING'];
+                        const checkIn  = new Date(b.checkIn).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                        const checkOut = new Date(b.checkOut).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                        const nights   = Math.max(1, Math.round((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000));
+                        const isUpdating = updatingAgentBooking === b.id;
+
+                        return (
+                          <tr key={b.id} className="hover:bg-slate-900/20 transition-colors">
+                            {/* Guest */}
+                            <td className="px-5 py-3 align-top">
+                              <div className="font-bold text-white text-sm">{b.guestName}</div>
+                              {b.guestPhone && (
+                                <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
+                                  <Phone size={9} /> {b.guestPhone}
+                                </div>
+                              )}
+                              <div className="text-[9px] text-slate-600 mt-0.5">
+                                {b.adults}A{b.children > 0 ? ` + ${b.children}C` : ''}
+                              </div>
+                            </td>
+
+                            {/* Stay Dates */}
+                            <td className="px-5 py-3 align-top">
+                              <div className="font-bold text-slate-200">{checkIn}</div>
+                              <div className="text-[10px] text-slate-500">→ {checkOut}</div>
+                              <div className="text-[9px] text-slate-600 font-semibold mt-0.5">{nights} Night{nights !== 1 ? 's' : ''}</div>
+                            </td>
+
+                            {/* Room Type */}
+                            <td className="px-5 py-3 align-top">
+                              <span className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-300">
+                                {b.roomType}
+                              </span>
+                              {b.specialRequests && (
+                                <div className="text-[9px] text-amber-500/80 mt-1 max-w-[140px] truncate" title={b.specialRequests}>
+                                  💬 {b.specialRequests}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Agent */}
+                            <td className="px-5 py-3 align-top">
+                              <div className="flex items-center gap-1.5">
+                                <Handshake size={12} className="text-violet-400" />
+                                <span className="font-bold text-violet-300 text-[11px]">{b.agent?.name || '—'}</span>
+                              </div>
+                              <div className="text-[9px] text-slate-500 font-mono mt-0.5">{b.agent?.agentCode}</div>
+                              <div className="text-[9px] text-slate-600 mt-0.5">
+                                {b.agent?.commissionRate}% comm.
+                              </div>
+                            </td>
+
+                            {/* Amount & Commission */}
+                            <td className="px-5 py-3 align-top">
+                              <div className="flex items-center gap-1 font-black text-emerald-400 text-sm">
+                                <IndianRupee size={11} />{b.totalAmount?.toLocaleString()}
+                              </div>
+                              <div className="flex items-center gap-1 text-[9px] text-violet-400 font-bold mt-0.5">
+                                <Star size={9} /> Comm: ₹{(b.commission || 0).toLocaleString()}
+                              </div>
+                              {b.commissionPaid && (
+                                <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded mt-1 inline-block border border-emerald-500/20">
+                                  PAID
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-5 py-3 align-top">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold ${st.bg} ${st.color}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                                {st.label}
+                              </span>
+                              <div className="text-[9px] text-slate-600 mt-1">
+                                {new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-5 py-3 align-top text-right">
+                              <div className="flex flex-col gap-1.5 items-end">
+                                {b.status === 'PENDING' && (
+                                  <>
+                                    <button
+                                      id={`agent-confirm-${b.id}`}
+                                      onClick={() => handleAgentBookingStatusUpdate(b.id, 'CONFIRMED')}
+                                      disabled={isUpdating}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[10px] font-black transition-all"
+                                    >
+                                      {isUpdating ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                                      Confirm
+                                    </button>
+                                    <button
+                                      id={`agent-reject-${b.id}`}
+                                      onClick={() => handleAgentBookingStatusUpdate(b.id, 'CANCELLED')}
+                                      disabled={isUpdating}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-900/40 hover:bg-rose-800 border border-rose-700/40 disabled:opacity-50 text-rose-400 text-[10px] font-bold transition-all"
+                                    >
+                                      <X size={10} /> Reject
+                                    </button>
+                                  </>
+                                )}
+                                {b.status === 'CONFIRMED' && (
+                                  <button
+                                    id={`agent-checkin-${b.id}`}
+                                    onClick={() => handleAgentBookingStatusUpdate(b.id, 'CHECKED_IN')}
+                                    disabled={isUpdating}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-[10px] font-black transition-all"
+                                  >
+                                    {isUpdating ? <Loader2 size={10} className="animate-spin" /> : <UserCheck size={10} />}
+                                    Check In
+                                  </button>
+                                )}
+                                {b.status === 'CHECKED_IN' && (
+                                  <button
+                                    id={`agent-complete-${b.id}`}
+                                    onClick={() => handleAgentBookingStatusUpdate(b.id, 'COMPLETED')}
+                                    disabled={isUpdating}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] font-black transition-all"
+                                  >
+                                    {isUpdating ? <Loader2 size={10} className="animate-spin" /> : <BadgeCheck size={10} />}
+                                    Complete
+                                  </button>
+                                )}
+                                {(b.status === 'COMPLETED' || b.status === 'CANCELLED') && (
+                                  <span className="text-[9px] text-slate-600 italic">No action needed</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       ) : activeTab === 'list' ? (
         /* List Tab View */
@@ -685,6 +1016,11 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                           <td className="px-6 py-3 align-top">
                             <div className="flex flex-col gap-0.5">
                               <span className="font-bold text-white text-sm">{b.guest.firstName} {b.guest.lastName}</span>
+                              {(b.gstNumber || b.guest.gstNumber || b.companyName || b.guest.companyName) && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 max-w-fit my-0.5 font-mono">
+                                  🏢 {b.companyName || b.guest.companyName || 'B2B'}{b.gstNumber || b.guest.gstNumber ? ` (${b.gstNumber || b.guest.gstNumber})` : ''}
+                                </span>
+                              )}
                               <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
                                 <span className="flex items-center gap-1"><Phone size={10} /> {b.guest.mobile || 'No Mobile'}</span>
                                 {b.guest.email && <span className="flex items-center gap-1"><Mail size={10} /> {b.guest.email}</span>}
@@ -838,6 +1174,76 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                       className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
                     />
                   </div>
+                </div>
+
+                {/* Corporate / GST Billing Toggle & Fields */}
+                <div className="pt-3 border-t border-slate-800/80 space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-slate-800/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                        <Building2 size={15} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-200">Corporate / Business Booking (GST Invoice)</p>
+                        <p className="text-[10px] text-slate-500">Enable if the guest wants the bill on their Company GSTIN</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isCorporateBooking}
+                        onChange={(e) => setIsCorporateBooking(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  {isCorporateBooking && (
+                    <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3 animate-in fade-in duration-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                            Company / Business Name *
+                          </label>
+                          <input
+                            type="text"
+                            required={isCorporateBooking}
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="e.g. Acme Tech Solutions Pvt Ltd"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                            Guest GST Number (GSTIN) *
+                          </label>
+                          <input
+                            type="text"
+                            required={isCorporateBooking}
+                            maxLength={15}
+                            value={gstNumber}
+                            onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                            placeholder="e.g. 07AAAAA0000A1Z5"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-amber-300 font-mono font-bold text-xs uppercase focus:outline-none focus:border-amber-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                          Company Billing Address (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={billingAddress}
+                          onChange={(e) => setBillingAddress(e.target.value)}
+                          placeholder="e.g. 123 Tech Park, Phase 2, New Delhi - 110001"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1181,41 +1587,88 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-emerald-400 font-black text-sm focus:outline-none focus:border-indigo-500 transition-colors"
                     />
                   </div>
-                  
-                  {/* Calculation summary */}
-                  <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 text-xs space-y-2">
-                    <div className="flex justify-between text-slate-400">
-                      <span>Room Rent</span>
-                      <span className="font-bold text-slate-300">
-                        ₹{Math.max(0, Number(totalAmount || 0) - (poolAccess ? Number(poolPassCost || 0) : 0) - Number(spaPackageCost || 0))}
-                      </span>
-                    </div>
-                    {poolAccess && (
-                      <div className="flex justify-between text-cyan-400">
-                        <span>🏊 Swimming Pool Pass</span>
-                        <span className="font-bold">+ ₹{poolPassCost || 0}</span>
-                      </div>
-                    )}
-                    {spaPackage !== 'NONE' && (
-                      <div className="flex justify-between text-purple-400">
-                        <span>💆‍♀️ Spa Package</span>
-                        <span className="font-bold">+ ₹{spaPackageCost || 0}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-indigo-300 font-bold border-t border-slate-800/60 pt-1">
-                      <span>Grand Total</span>
-                      <span>₹{totalAmount || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-emerald-400">
-                      <span>Advance Deposit</span>
-                      <span className="font-bold">- ₹{advanceAmount || 0}</span>
-                    </div>
-                    <div className="h-px bg-slate-800/80 my-1"></div>
-                    <div className="flex justify-between font-black text-sm">
-                      <span className="text-slate-300">Net Payable Dues</span>
-                      <span className="text-rose-400">₹{Math.max(0, Number(totalAmount || 0) - Number(advanceAmount || 0))}</span>
+
+                  {/* GST Rate Selector */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">GST Rate</label>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[0, 5, 12, 18, 28].map((rate) => (
+                        <button
+                          key={rate}
+                          type="button"
+                          onClick={() => setGstRate(rate)}
+                          className={`py-2 rounded-xl text-xs font-black transition-all ${
+                            gstRate === rate
+                              ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
+                              : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
+                          }`}
+                        >
+                          {rate}%
+                        </button>
+                      ))}
                     </div>
                   </div>
+                  
+                  {/* Calculation summary */}
+                  {(() => {
+                    const poolCostNum = poolAccess ? Number(poolPassCost || 0) : 0;
+                    const spaCostNum = Number(spaPackageCost || 0);
+                    const roomRentNum = Math.max(0, Number(totalAmount || 0) - poolCostNum - spaCostNum - (gstRate > 0 ? Math.round((Number(totalAmount || 0) - poolCostNum - spaCostNum) * gstRate / (100 + gstRate) * 100) / 100 : 0));
+                    const subTotal = roomRentNum + poolCostNum + spaCostNum;
+                    const gstAmt = gstRate > 0 ? Math.round(subTotal * gstRate) / 100 : 0;
+                    const cgst = gstAmt / 2;
+                    const sgst = gstAmt / 2;
+                    return (
+                      <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 text-xs space-y-2">
+                        <div className="flex justify-between text-slate-400">
+                          <span>Room Rent</span>
+                          <span className="font-bold text-slate-300">₹{Math.max(0, Number(totalAmount || 0) - poolCostNum - spaCostNum - gstAmt).toFixed(0)}</span>
+                        </div>
+                        {poolAccess && (
+                          <div className="flex justify-between text-cyan-400">
+                            <span>🏊 Swimming Pool Pass</span>
+                            <span className="font-bold">+ ₹{poolPassCost || 0}</span>
+                          </div>
+                        )}
+                        {spaPackage !== 'NONE' && (
+                          <div className="flex justify-between text-purple-400">
+                            <span>💆‍♀️ Spa Package</span>
+                            <span className="font-bold">+ ₹{spaPackageCost || 0}</span>
+                          </div>
+                        )}
+                        {gstRate > 0 && (
+                          <>
+                            <div className="h-px bg-slate-800/60 my-1"></div>
+                            <div className="flex justify-between text-slate-500">
+                              <span>Sub Total (Taxable)</span>
+                              <span className="font-bold text-slate-400">₹{subTotal.toFixed(0)}</span>
+                            </div>
+                            <div className="flex justify-between text-amber-500/80">
+                              <span>CGST @ {gstRate / 2}%</span>
+                              <span className="font-bold">+ ₹{cgst.toFixed(0)}</span>
+                            </div>
+                            <div className="flex justify-between text-amber-500/80">
+                              <span>SGST @ {gstRate / 2}%</span>
+                              <span className="font-bold">+ ₹{sgst.toFixed(0)}</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex justify-between text-indigo-300 font-bold border-t border-slate-800/60 pt-1">
+                          <span>Grand Total {gstRate > 0 ? `(Incl. GST @${gstRate}%)` : ''}</span>
+                          <span>₹{totalAmount || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-400">
+                          <span>Advance Deposit</span>
+                          <span className="font-bold">- ₹{advanceAmount || 0}</span>
+                        </div>
+                        <div className="h-px bg-slate-800/80 my-1"></div>
+                        <div className="flex justify-between font-black text-sm">
+                          <span className="text-slate-300">Net Payable Dues</span>
+                          <span className="text-rose-400">₹{Math.max(0, Number(totalAmount || 0) - Number(advanceAmount || 0))}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <button

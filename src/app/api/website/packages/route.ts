@@ -12,7 +12,7 @@ export async function GET() {
         permissions: true,
       },
       orderBy: {
-        discountPercent: 'asc',
+        priceINR: 'asc',
       },
     });
 

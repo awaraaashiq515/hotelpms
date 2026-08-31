@@ -30,6 +30,7 @@ export type SessionPayload = {
   propertyCode?: string | null
   propertySlug?: string | null      // URL-safe slug derived from property name
   propertyType?: string | null      // Business type (HOTEL, RESTAURANT, CAFE)
+  isMultiProperty?: boolean         // true when org has BOTH hotel + restaurant
   supplierId?: string | null
   onboardingCompleted: boolean
   permissions?: string[]

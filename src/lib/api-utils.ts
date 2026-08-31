@@ -34,11 +34,13 @@ export function apiError(error: any, status: number = 500, message: string = 'In
 
   // Handle Zod Validation Errors
   if (error instanceof ZodError) {
+    // Extract first human-readable message from issues
+    const firstMsg = error.issues?.[0]?.message || 'Validation failed';
     return NextResponse.json(
       {
         success: false,
-        message: 'Validation failed',
-        error: error.issues,
+        message: firstMsg,
+        error: firstMsg,
       },
       { status: 400 }
     )

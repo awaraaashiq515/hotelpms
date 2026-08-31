@@ -26,15 +26,15 @@ export default async function WebsiteLayout({
 
   if (settings?.maintenanceMode) {
     return (
-      <MaintenanceView 
-        hotelName={settings.hotelName || undefined} 
-        logoUrl={settings.logoUrl || undefined} 
+      <MaintenanceView
+        hotelName={settings.hotelName || undefined}
+        logoUrl={settings.logoUrl || undefined}
       />
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen" style={{ background: '#080d18' }}>
       <WebsiteHeader dark />
       <div className="flex-grow">
         {children}

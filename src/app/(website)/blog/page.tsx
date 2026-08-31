@@ -1,157 +1,233 @@
-import React from 'react';
-import Link from 'next/link';
-import { Calendar, User, ArrowRight, Search } from 'lucide-react';
-import { WebsiteHeader } from '@/components/website/Header';
-import { PremiumFooter } from '@/components/website/PremiumFooter';
-import { prisma } from '@/lib/prisma';
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'GuestFlow Blog | Insights & Strategies for Restaurant Success',
-  description: 'Discover the latest product updates, industry insights, and strategies to scale your restaurant business with GuestFlow POS.',
-  openGraph: {
-    title: 'GuestFlow Blog | Restaurant Management Insights',
-    description: 'Expert advice on POS systems, inventory management, and restaurant growth.',
-    images: ['/hero-pos.png'],
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Calendar, Tag, Search } from 'lucide-react';
+
+const BG      = '#080d18';
+const CARD_BG = '#0f172a';
+const ROSE    = '#e8a0a0';
+const INDIGO  = '#6366f1';
+
+const FALLBACK_POSTS = [
+  {
+    id: '1',
+    title: 'Top 10 Things to Do Near Our Hotel',
+    excerpt: 'Discover the best local attractions, restaurants, and hidden gems within walking distance of our property.',
+    category: 'Travel Tips',
+    date: '2024-08-15',
+    imageUrl: null,
+    slug: null,
   },
+  {
+    id: '2',
+    title: 'A Guide to Our Rooftop Dining Experience',
+    excerpt: 'Our rooftop restaurant offers panoramic city views with a menu crafted by our award-winning executive chef.',
+    category: 'Dining',
+    date: '2024-07-28',
+    imageUrl: null,
+    slug: null,
+  },
+  {
+    id: '3',
+    title: 'Why Guests Keep Coming Back — The GuestFlow Difference',
+    excerpt: 'We surveyed 500 returning guests to understand what makes them choose us again and again. The answers may surprise you.',
+    category: 'Hospitality',
+    date: '2024-07-10',
+    imageUrl: null,
+    slug: null,
+  },
+  {
+    id: '4',
+    title: 'Planning the Perfect Destination Wedding at Our Hotel',
+    excerpt: 'From intimate ceremonies to grand banquets — our events team shares insider tips for your dream wedding.',
+    category: 'Events',
+    date: '2024-06-22',
+    imageUrl: null,
+    slug: null,
+  },
+  {
+    id: '5',
+    title: 'Seasonal Spa Treatments You Must Try This Monsoon',
+    excerpt: 'Our wellness team has curated exclusive monsoon therapies to rejuvenate your mind, body and spirit.',
+    category: 'Wellness',
+    date: '2024-06-05',
+    imageUrl: null,
+    slug: null,
+  },
+  {
+    id: '6',
+    title: 'Business Traveller\'s Guide to Staying Productive',
+    excerpt: 'Work-life balance at its finest — our hotel is designed to keep you productive and recharged simultaneously.',
+    category: 'Business Travel',
+    date: '2024-05-18',
+    imageUrl: null,
+    slug: null,
+  },
+];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  'Travel Tips':     'bg-sky-500/15 text-sky-400',
+  'Dining':          'bg-rose-500/15 text-rose-400',
+  'Hospitality':     'bg-violet-500/15 text-violet-400',
+  'Events':          'bg-amber-500/15 text-amber-400',
+  'Wellness':        'bg-emerald-500/15 text-emerald-400',
+  'Business Travel': 'bg-indigo-500/15 text-indigo-400',
 };
 
-export default async function BlogListingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const params = await searchParams;
-  const searchTerm = typeof params.search === 'string' ? params.search : '';
-  const category = typeof params.category === 'string' ? params.category : '';
+function getCategoryClass(cat: string) {
+  return CATEGORY_COLORS[cat] || 'bg-slate-700/40 text-slate-400';
+}
 
-  // Fetch blogs from database
-  let blogs: any[] = [];
-  try {
-    blogs = await prisma.websiteBlog.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { title: { contains: searchTerm } },
-          { category: { contains: category === 'All' ? '' : category } },
-        ],
-      },
-      orderBy: { publishedAt: 'desc' },
-    });
-  } catch (error) {
-    console.error('Failed to fetch blogs from database, using empty array for build.', error);
-  }
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
-  const categories = ['All', 'Product Updates', 'Industry Insights', 'Customer Stories', 'Guides'];
+export default function BlogPage() {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    fetch('/api/website/blog')
+      .then(r => r.json())
+      .then(j => {
+        if (j.success && Array.isArray(j.data) && j.data.length > 0) {
+          setPosts(j.data);
+        } else {
+          setPosts(FALLBACK_POSTS);
+        }
+      })
+      .catch(() => setPosts(FALLBACK_POSTS))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = posts.filter(p =>
+    p.title.toLowerCase().includes(query.toLowerCase()) ||
+    (p.category || '').toLowerCase().includes(query.toLowerCase())
+  );
 
   return (
-    <main className="bg-slate-50 min-h-screen flex flex-col">
-      <WebsiteHeader />
-      
-      {/* Hero Header */}
-      <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-24 flex items-center justify-center overflow-hidden bg-white border-b border-slate-100">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#fae5e8]/30 rounded-full blur-[100px] pointer-events-none z-0" />
-        
-        <div className="relative z-10 max-w-7xl mx-auto px-6 text-center space-y-4">
-          <span className="text-pos-primary font-bold tracking-widest uppercase text-xs block">
-            Insights & Updates
+    <main style={{ background: BG, color: '#fff', minHeight: '100vh' }}>
+
+      {/* ══ HERO ══════════════════════════════════════════════════ */}
+      <section className="relative pt-32 pb-20 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] rounded-full blur-[120px]"
+            style={{ background: 'rgba(99,102,241,0.12)' }} />
+        </div>
+        <div className="container mx-auto px-6 max-w-3xl text-center relative z-10">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-[0.2em] mb-6 border"
+            style={{ background: 'rgba(232,160,160,0.1)', borderColor: `${ROSE}30`, color: ROSE }}>
+            Stories & Insights
           </span>
-          <h1 className="text-5xl lg:text-7xl font-semibold text-slate-900 tracking-tight leading-tight">
-            The GuestFlow <span className="text-pos-primary">Blog</span>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight leading-tight mb-5">
+            The{' '}
+            <span style={{ background: `linear-gradient(135deg,${ROSE},#f0c8c8)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              GuestFlow
+            </span>{' '}
+            Blog
           </h1>
-          <p className="text-lg text-slate-600 font-medium max-w-2xl mx-auto mt-4">
-            Discover the latest product updates, industry insights, and strategies to scale your restaurant.
+          <p className="text-lg mb-8" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Travel tips, dining guides, wellness stories and the latest news from our hotel.
           </p>
+          {/* Search */}
+          <div className="relative max-w-md mx-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
+            <input
+              type="text"
+              placeholder="Search posts..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="w-full pl-11 pr-5 py-3.5 rounded-2xl text-sm text-white placeholder-slate-600 focus:outline-none transition-all"
+              style={{ background: CARD_BG, border: '1px solid rgba(255,255,255,0.08)' }}
+            />
+          </div>
         </div>
       </section>
 
-      {/* Main Content */}
-      <section className="py-20 max-w-7xl mx-auto px-6 lg:px-12">
-        {/* Search & Filter */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 pb-12 border-b border-gray-100">
-          <div className="flex flex-wrap gap-3">
-            {categories.map(cat => (
-              <Link 
-                key={cat}
-                href={`/blog?category=${cat === 'All' ? '' : cat}`}
-                className={`px-6 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-all ${
-                  (category === cat || (cat === 'All' && !category)) 
-                    ? 'bg-slate-900 text-white shadow-md' 
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {cat}
-              </Link>
-            ))}
-          </div>
-          <div className="relative w-full md:w-80">
-            <form action="/blog" method="GET">
-              <input 
-                type="text" 
-                name="search"
-                placeholder="Search stories..."
-                defaultValue={searchTerm}
-                className="w-full pl-12 pr-6 py-3 bg-gray-50 rounded-full border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all text-sm font-medium"
-              />
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            </form>
-          </div>
-        </div>
-
-        {blogs.length === 0 ? (
-          <div className="py-32 text-center bg-[#fafafa] rounded-[40px] border border-dashed border-gray-200">
-            <h3 className="text-xl font-bold text-gray-400 uppercase tracking-widest">No Stories Found</h3>
-            <p className="text-gray-400 text-sm mt-2">Try searching for something else or check back later!</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-16">
-            {blogs.map((blog: any) => (
-              <Link 
-                key={blog.id} 
-                href={`/blog/${blog.slug}`}
-                className="group flex flex-col h-full bg-white rounded-[40px] overflow-hidden hover:shadow-2xl transition-all duration-500 border border-transparent hover:border-gray-100"
-              >
-                <div className="aspect-[4/3] overflow-hidden relative">
-                  <img 
-                    src={blog.imageUrl || 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&q=80&w=1000'} 
-                    alt={blog.title} 
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000"
-                  />
-                  <div className="absolute top-6 left-6">
-                     <span className="px-4 py-2 bg-white/95 backdrop-blur-md rounded-full text-[9px] font-bold uppercase tracking-widest text-gray-900 border border-gray-100 shadow-sm">
-                      {blog.category}
-                    </span>
+      {/* ══ POSTS GRID ════════════════════════════════════════════ */}
+      <section className="pb-28">
+        <div className="container mx-auto px-6 max-w-6xl">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1,2,3].map(i => (
+                <div key={i} className="rounded-2xl overflow-hidden border border-slate-800 animate-pulse" style={{ background: CARD_BG }}>
+                  <div className="aspect-[16/9] bg-slate-800/60" />
+                  <div className="p-6 space-y-3">
+                    <div className="h-3 bg-slate-800 rounded w-20" />
+                    <div className="h-5 bg-slate-800 rounded" />
+                    <div className="h-3 bg-slate-800 rounded w-4/5" />
                   </div>
                 </div>
-                
-                <div className="p-10 flex flex-col flex-1">
-                  <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-6">
-                    <span className="flex items-center gap-1.5"><Calendar size={14} className="text-pos-primary" /> {new Date(blog.publishedAt).toLocaleDateString()}</span>
-                    <span className="flex items-center gap-1.5"><User size={14} className="text-pos-primary" /> {blog.author}</span>
-                  </div>
-                  
-                  <h3 className="text-2xl font-semibold text-slate-900 mb-4 tracking-tight leading-tight group-hover:text-pos-primary transition-colors">
-                    {blog.title}
-                  </h3>
-                  
-                  <p className="text-slate-600 text-sm font-medium leading-relaxed line-clamp-3 mb-8">
-                    {blog.excerpt || 'Discover the latest updates, tips, and strategies to scale your restaurant business with GuestFlow.'}
-                  </p>
-                  
-                  <div className="mt-auto pt-8 border-t border-gray-100 flex items-center justify-between group-hover:border-pos-primary/20 transition-colors">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-900 group-hover:text-pos-primary transition-colors">Explore Article</span>
-                    <div className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center group-hover:bg-pos-primary group-hover:text-white group-hover:border-pos-primary transition-all duration-500 shadow-sm">
-                      <ArrowRight size={16} />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-20 text-slate-500">
+              <Search className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p className="text-lg font-semibold">No posts found for &quot;{query}&quot;</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((post, i) => (
+                <div key={post.id || i}
+                  className="group rounded-2xl overflow-hidden border border-slate-800 hover:border-slate-600 transition-all duration-300 flex flex-col"
+                  style={{ background: CARD_BG }}>
+                  {/* Image */}
+                  {post.imageUrl ? (
+                    <div className="aspect-[16/9] overflow-hidden">
+                      <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     </div>
+                  ) : (
+                    <div className="aspect-[16/9] flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                      <span className="text-4xl opacity-30">📰</span>
+                    </div>
+                  )}
+
+                  <div className="p-6 flex flex-col flex-1">
+                    {/* Meta */}
+                    <div className="flex items-center gap-3 mb-3">
+                      {post.category && (
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${getCategoryClass(post.category)}`}>
+                          {post.category}
+                        </span>
+                      )}
+                      {post.date && (
+                        <span className="flex items-center gap-1 text-[10px] text-slate-600">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(post.date)}
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-base font-bold text-white mb-2 leading-snug group-hover:text-slate-100 transition-colors flex-1">
+                      {post.title}
+                    </h3>
+                    {post.excerpt && (
+                      <p className="text-xs leading-relaxed mb-5 line-clamp-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        {post.excerpt}
+                      </p>
+                    )}
+
+                    {post.slug ? (
+                      <Link href={`/blog/${post.slug}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold group-hover:gap-2.5 transition-all mt-auto"
+                        style={{ color: ROSE }}>
+                        Read More <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold mt-auto" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                        Coming Soon
+                      </span>
+                    )}
                   </div>
                 </div>
-              </Link>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </section>
-      <PremiumFooter />
+
     </main>
   );
 }
-

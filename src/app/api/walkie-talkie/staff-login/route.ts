@@ -8,8 +8,54 @@ import bcrypt from 'bcryptjs'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { username, password, propertyCode } = body
+    const { username, password, propertyCode, userId, fromMainSession } = body
 
+    // ── Auto-login from main session (no password needed) ──────────────────
+    // When staff logs in from /login page, staff-portal auto-calls this with userId
+    if (fromMainSession && userId) {
+      let posUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          role: true,
+          property: true,
+          organization: true,
+          staffMember: { select: { designation: true, salary: true, shiftHours: true } }
+        }
+      })
+
+      if (!posUser || !posUser.isActive) {
+        return NextResponse.json({ message: 'Staff account not found or inactive.' }, { status: 404 })
+      }
+
+      // Update WT status to online
+      posUser = await prisma.user.update({
+        where: { id: posUser.id },
+        data: { wtStatus: 'online' },
+        include: {
+          role: true,
+          property: true,
+          organization: true,
+          staffMember: { select: { designation: true, salary: true, shiftHours: true } }
+        }
+      })
+
+      const wtToken = await signWTToken(posUser.id, posUser.phone || '')
+      const staffDesignation = (posUser as any).staffMember?.designation || (posUser as any).designation || ''
+      const userPropCode = (posUser.property?.code || '').toLowerCase()
+      let portalRedirect: string | null = null
+      if (staffDesignation.toLowerCase().includes('housekeeper') || staffDesignation.toLowerCase().includes('housekeeping')) {
+        portalRedirect = `/housekeeper-portal/${userPropCode}`
+      }
+
+      const { passwordHash, twoFactorSecret, twoFactorBackupCodes, ...safeUser } = posUser as any
+      return NextResponse.json({
+        wtToken,
+        portalRedirect,
+        user: { ...safeUser, designation: staffDesignation || posUser.role?.name || 'Staff' },
+      })
+    }
+
+    // ── Standard login with username/password ──────────────────────────────
     if (!username || !password) {
       return NextResponse.json({ message: 'Username/Email and password are required.' }, { status: 400 })
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { CheckCircle2, Printer, X } from 'lucide-react';
+import { CheckCircle2, Printer, X, Download } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,9 @@ export interface FolioDetail {
     idType?: string | null;
     idNumber?: string | null;
     address?: string | null;
+    gstNumber?: string | null;
+    companyName?: string | null;
+    billingAddress?: string | null;
   };
   reservation: {
     id: string;
@@ -46,6 +49,9 @@ export interface FolioDetail {
     dueAmount: number;
     adults: number;
     children: number;
+    gstNumber?: string | null;
+    companyName?: string | null;
+    billingAddress?: string | null;
     roomType?: { name: string } | null;
     rooms?: { room: { roomNumber: string; floor?: string | null } }[] | null;
     checkIns: { id: string; status: string; checkedInAt: string; expectedCheckoutAt: string }[];
@@ -83,6 +89,7 @@ export interface FolioDetail {
 interface ReceiptModalProps {
   folio: FolioDetail;
   nights: number;
+  invoiceNo?: string;
   onClose: () => void;
 }
 
@@ -400,10 +407,11 @@ const INVOICE_CSS = `
   }
 `;
 
-export default function ReceiptModal({ folio, nights, onClose }: ReceiptModalProps) {
+export default function ReceiptModal({ folio, nights, invoiceNo, onClose }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const room = folio.reservation?.rooms?.[0]?.room;
   const property = folio.reservation?.property;
+  const displayInvoiceNo = invoiceNo || `INV-431298-1`;
 
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
@@ -414,7 +422,7 @@ export default function ReceiptModal({ folio, nights, onClose }: ReceiptModalPro
     w.document.write(`
       <html>
       <head>
-        <title>Invoice - ${folio.folioNo}</title>
+        <title>Invoice - ${displayInvoiceNo}</title>
         <style>
           @media print {
             body { margin: 0; padding: 15mm; font-size: 11px; }
@@ -462,9 +470,17 @@ export default function ReceiptModal({ folio, nights, onClose }: ReceiptModalPro
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-900/30 active:scale-[0.98] transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/30 active:scale-[0.98] transition-all"
+              title="Download Bill as PDF file"
             >
-              <Printer size={13} /> Print Bill
+              <Download size={13} /> Download PDF
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-900/30 active:scale-[0.98] transition-all"
+              title="Print Bill"
+            >
+              <Printer size={13} /> Print
             </button>
             <button
               onClick={onClose}
@@ -508,8 +524,13 @@ export default function ReceiptModal({ folio, nights, onClose }: ReceiptModalPro
                         </div>
                       </td>
                       <td className="invoice-title-sec">
-                        <div className="invoice-title">TAX INVOICE</div>
+                        <div className="invoice-title">
+                          {(folio.reservation?.gstNumber || folio.guest?.gstNumber || folio.reservation?.companyName || folio.guest?.companyName) ? 'TAX INVOICE (B2B)' : 'TAX INVOICE'}
+                        </div>
                         <div className="invoice-meta">
+                          <p style={{ fontWeight: 800, color: '#0f172a' }}>
+                            Invoice No: {displayInvoiceNo}
+                          </p>
                           <p>Folio No: {folio.folioNo}</p>
                           <p>Booking No: #{folio.reservation.bookingNo}</p>
                           <p>Date: {fmtDate(new Date().toISOString())}</p>
@@ -526,16 +547,34 @@ export default function ReceiptModal({ folio, nights, onClose }: ReceiptModalPro
                 <table className="info-table">
                   <tbody>
                     <tr>
-                      {/* Left: Guest Details */}
+                      {/* Left: Guest / Corporate Details */}
                       <td>
-                        <div className="section-title">Bill To (Guest Details)</div>
-                        <div className="guest-name">
-                          {folio.guest.firstName} {folio.guest.lastName || ''}
+                        <div className="section-title">
+                          {(folio.reservation?.gstNumber || folio.guest?.gstNumber || folio.reservation?.companyName || folio.guest?.companyName) ? 'Bill To (Corporate / B2B Details)' : 'Bill To (Guest Details)'}
                         </div>
+                        {(folio.reservation?.companyName || folio.guest?.companyName) && (
+                          <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a', marginBottom: '2px' }}>
+                            🏢 {folio.reservation?.companyName || folio.guest?.companyName}
+                          </div>
+                        )}
+                        <div className="guest-name" style={{ fontSize: (folio.reservation?.companyName || folio.guest?.companyName) ? '12px' : '14px', color: (folio.reservation?.companyName || folio.guest?.companyName) ? '#475569' : '#0f172a' }}>
+                          {(folio.reservation?.companyName || folio.guest?.companyName) ? 'Guest / Rep: ' : ''}{folio.guest.firstName} {folio.guest.lastName || ''}
+                        </div>
+
+                        {(folio.reservation?.gstNumber || folio.guest?.gstNumber) && (
+                          <div style={{ margin: '4px 0 6px 0', padding: '3px 8px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '4px', display: 'inline-block' }}>
+                            <strong style={{ color: '#92400e', fontSize: '11px' }}>
+                              Guest GSTIN: {folio.reservation?.gstNumber || folio.guest?.gstNumber}
+                            </strong>
+                          </div>
+                        )}
+
                         <div className="guest-details">
                           {folio.guest.mobile && <p><strong>Mobile:</strong> {folio.guest.mobile}</p>}
                           {folio.guest.email && <p><strong>Email:</strong> {folio.guest.email}</p>}
-                          {folio.guest.address && <p><strong>Address:</strong> {folio.guest.address}</p>}
+                          {(folio.reservation?.billingAddress || folio.guest?.billingAddress || folio.guest.address) && (
+                            <p><strong>Billing Address:</strong> {folio.reservation?.billingAddress || folio.guest?.billingAddress || folio.guest.address}</p>
+                          )}
                           {folio.guest.nationality && <p><strong>Nationality:</strong> {folio.guest.nationality}</p>}
                           {folio.guest.idType && (
                             <p style={{ marginTop: '3px' }}>
@@ -654,34 +693,68 @@ export default function ReceiptModal({ folio, nights, onClose }: ReceiptModalPro
 
                 {/* Invoice Summary */}
                 <div className="divider"></div>
-                <div className="summary-table-container">
-                  <table className="summary-table">
-                    <tbody>
-                      <tr>
-                        <td>Total Charges</td>
-                        <td className="amount">{fmt(folio.totalCharges)}</td>
-                      </tr>
-                      <tr>
-                        <td>Total Payments & Advances</td>
-                        <td className="amount" style={{ color: '#15803d' }}>
-                          {fmt(folio.totalPayments)}
-                        </td>
-                      </tr>
-                      <tr className="grand-total">
-                        <td>Net Total</td>
-                        <td className="amount">{fmt(folio.totalCharges)}</td>
-                      </tr>
-                      <tr className={folio.closingBalance <= 0 ? 'settled-row' : 'due-row'}>
-                        <td>
-                          {folio.closingBalance <= 0 ? 'STATUS: PAID' : 'BALANCE DUE'}
-                        </td>
-                        <td className="amount">
-                          {folio.closingBalance <= 0 ? '₹0.00 (Fully Settled)' : fmt(folio.closingBalance)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                {(() => {
+                  // Compute GST breakdown from folio transactions
+                  const gstTxns = folio.transactions.filter((t) => t.sourceModule === 'GST');
+                  const totalGst = gstTxns.reduce((sum, t) => sum + t.debitAmount, 0);
+                  const taxableAmount = folio.totalCharges - totalGst;
+                  // Derive rate from description if possible, else compute
+                  const cgst = totalGst / 2;
+                  const sgst = totalGst / 2;
+                  const gstRateApprox = taxableAmount > 0 ? Math.round((totalGst / taxableAmount) * 100) : 0;
+
+                  return (
+                    <div className="summary-table-container">
+                      <table className="summary-table">
+                        <tbody>
+                          {totalGst > 0 ? (
+                            <>
+                              <tr>
+                                <td>Taxable Amount (Room & Services)</td>
+                                <td className="amount">{fmt(taxableAmount)}</td>
+                              </tr>
+                              <tr>
+                                <td style={{ color: '#92400e' }}>CGST @ {gstRateApprox / 2}%</td>
+                                <td className="amount" style={{ color: '#92400e' }}>{fmt(cgst)}</td>
+                              </tr>
+                              <tr>
+                                <td style={{ color: '#92400e' }}>SGST @ {gstRateApprox / 2}%</td>
+                                <td className="amount" style={{ color: '#92400e' }}>{fmt(sgst)}</td>
+                              </tr>
+                              <tr style={{ background: '#fffbeb', borderTop: '1px dashed #fcd34d' }}>
+                                <td style={{ color: '#b45309', fontWeight: 800 }}>Total GST @ {gstRateApprox}%</td>
+                                <td className="amount" style={{ color: '#b45309', fontWeight: 800 }}>{fmt(totalGst)}</td>
+                              </tr>
+                            </>
+                          ) : (
+                            <tr>
+                              <td>Total Charges</td>
+                              <td className="amount">{fmt(folio.totalCharges)}</td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td>Total Payments & Advances</td>
+                            <td className="amount" style={{ color: '#15803d' }}>
+                              {fmt(folio.totalPayments)}
+                            </td>
+                          </tr>
+                          <tr className="grand-total">
+                            <td>Grand Total (Incl. GST)</td>
+                            <td className="amount">{fmt(folio.totalCharges)}</td>
+                          </tr>
+                          <tr className={folio.closingBalance <= 0 ? 'settled-row' : 'due-row'}>
+                            <td>
+                              {folio.closingBalance <= 0 ? 'STATUS: PAID' : 'BALANCE DUE'}
+                            </td>
+                            <td className="amount">
+                              {folio.closingBalance <= 0 ? '₹0.00 (Fully Settled)' : fmt(folio.closingBalance)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
 
                 {/* Signatures */}
                 <div className="invoice-signatures-container">

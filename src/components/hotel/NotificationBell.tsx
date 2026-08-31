@@ -194,23 +194,35 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/notifications?status=UNREAD');
+      const res = await fetch('/api/notifications?status=UNREAD', { signal });
+
+      // If the session has no propertyId (e.g. hotel page not linked to a property),
+      // the API returns 401 — silently ignore, don't log error spam.
+      if (!res.ok) return;
+
       const data = await res.json();
       if (data.success) {
         setNotifications(data.data || []);
         setUnreadCount(data.data ? data.data.length : 0);
       }
-    } catch (error) {
-      console.error('Failed to fetch notifications in PMS header:', error);
+    } catch (error: any) {
+      // Ignore AbortError — this is expected when the component unmounts
+      if (error?.name === 'AbortError') return;
+      // Only log unexpected network errors
+      console.error('NotificationBell: fetch failed:', error);
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchNotifications(controller.signal);
+    const interval = setInterval(() => fetchNotifications(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, []);
 
   // Handle outside clicks to close dropdown

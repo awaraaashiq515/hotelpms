@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -181,6 +181,9 @@ model Property {
   travelAgents                  TravelAgent[]
   agentBookings                 AgentBooking[]
   agentHotelRelations           AgentHotelRelation[]
+  dynamicPricingRules           DynamicPricingRule[]
+  channelConnections           ChannelConnection[]
+  channelSyncLogs               ChannelSyncLog[]
 
   @@index([organizationId])
 }
@@ -299,6 +302,9 @@ model Guest {
   idType              String?
   idNumber            String?
   address             String?
+  gstNumber           String?
+  companyName         String?
+  billingAddress      String?
   loyaltyPoints       Int              @default(0)
   segment             String           @default("REGULAR")
   birthDate           DateTime?
@@ -343,6 +349,7 @@ model RoomType {
   maxOccupancy Int
   reservations Reservation[]
   rooms        Room[]
+  channelRoomMappings ChannelRoomMapping[]
   property     Property      @relation(fields: [propertyId], references: [id])
 }
 
@@ -400,6 +407,9 @@ model Reservation {
   spaPackage          String?           @default("NONE")
   spaPackageCost      Float             @default(0)
   addOnNotes          String?
+  gstNumber           String?
+  companyName         String?
+  billingAddress      String?
   checkIns            CheckIn[]
   folios              Folio[]
   roomType            RoomType          @relation(fields: [roomTypeId], references: [id])
@@ -1744,6 +1754,17 @@ model PackagePermission {
   @@unique([packageId, module, action])
 }
 
+model FeaturePricing {
+  id        String   @id @default(cuid())
+  feature   String   @unique
+  label     String
+  priceINR  Float    @default(0)
+  priceUSD  Float    @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model PasswordResetToken {
   id        String   @id @default(cuid())
   email     String
@@ -2767,3 +2788,103 @@ model AgentBooking {
   @@index([agentId])
   @@index([status])
 }
+
+model DynamicPricingRule {
+  id             String    @id @default(cuid())
+  propertyId     String
+  name           String
+  ruleType       String    @default("OCCUPANCY") // OCCUPANCY | DAY_OF_WEEK | DATE_RANGE | EVENT | LEAD_TIME
+  condition      String    // e.g. "Occ > 80%", "Fri-Sun", "< 24 hrs", "Festivals/Holidays"
+  adjustment     Float     // e.g. 20 (means +20%) or -10 (-10%)
+  adjustmentType String    @default("PERCENTAGE") // PERCENTAGE | FIXED
+  roomTypeId     String?
+  roomTypeName   String?   @default("All")
+  isActive       Boolean   @default(true)
+  priority       Int       @default(1)
+  minRate        Float?
+  maxRate        Float?
+  startDate      DateTime?
+  endDate        DateTime?
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  property       Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([isActive])
+}
+
+model ChannelConnection {
+  id                      String                 @id @default(cuid())
+  propertyId              String
+  channelCode             String                 // e.g. "BOOKING_COM", "EXPEDIA", "AGODA", "AIRBNB", "MAKEMYTRIP", "GOIBIBO", "GOOGLE_HOTEL_ADS", "TRIP_COM", "HOSTELWORLD"
+  name                    String
+  logo                    String?                @default("🏨")
+  status                  String                 @default("DISCONNECTED") // "CONNECTED" | "SYNCING" | "PAUSED" | "DISCONNECTED" | "ERROR"
+  hotelIdOnChannel        String?
+  apiKey                  String?
+  apiSecret               String?
+  channelManagerProvider  String?                @default("DIRECT_API") // "DIRECT_API" | "SITEMINDER" | "STAAH" | "RATEGAIN" | "CLOUDBEDS"
+  autoSyncRates           Boolean                @default(true)
+  autoSyncInventory       Boolean                @default(true)
+  autoImportBookings      Boolean                @default(true)
+  rateMultiplier          Float                  @default(1.0)
+  rateOffset              Float                  @default(0)
+  commissionPct           Float                  @default(15.0)
+  inventoryAllocation     Int?
+  allocatedRoomCount      Int                    @default(0)
+  lastSyncAt              DateTime?
+  lastSyncStatus          String?                @default("SUCCESS")
+  lastSyncMessage         String?
+  totalBookingsReceived   Int                    @default(0)
+  totalRevenueGenerated   Float                  @default(0)
+  isLive                  Boolean                @default(true)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  property                Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomMappings            ChannelRoomMapping[]
+  syncLogs                ChannelSyncLog[]
+
+  @@unique([propertyId, channelCode])
+  @@index([propertyId])
+  @@index([status])
+}
+
+model ChannelRoomMapping {
+  id                 String             @id @default(cuid())
+  channelId          String
+  roomTypeId         String
+  otaRoomId          String?
+  otaRoomName        String?
+  ratePlanCode       String?            @default("STANDARD")
+  allocatedRooms     Int                @default(10)
+  priceMarkupPct     Float              @default(0)
+  isAvailable        Boolean            @default(true)
+  stopSell           Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  channel            ChannelConnection  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  roomType           RoomType           @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, roomTypeId])
+  @@index([channelId])
+  @@index([roomTypeId])
+}
+
+model ChannelSyncLog {
+  id          String             @id @default(cuid())
+  propertyId  String
+  channelId   String?
+  actionType  String             // "INVENTORY_PUSH" | "RATE_PUSH" | "BOOKING_IMPORT" | "FULL_SYNC" | "STOP_SELL"
+  status      String             // "SUCCESS" | "FAILED" | "PENDING" | "WARNING"
+  message     String
+  payload     String?
+  syncedAt    DateTime           @default(now())
+  property    Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  channel     ChannelConnection? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([channelId])
+  @@index([syncedAt])
+}
+

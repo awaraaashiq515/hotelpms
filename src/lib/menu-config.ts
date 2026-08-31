@@ -58,7 +58,7 @@ export interface MenuItem {
 
 export const getSidebarMenu = (role: string, organizationSlug?: string | null, propertyCode?: string | null): MenuItem[] => {
   const isSuper = role === 'SUPER_ADMIN';
-  const isAdmin = role === 'RESTAURANTS_ADMIN';
+  const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER';
 
   // Build the branded dashboard path for restaurant admins
   const adminDashPath = organizationSlug

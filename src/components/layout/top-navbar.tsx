@@ -215,7 +215,7 @@ export const TopNavbar: React.FC = () => {
           </button>
           <div 
             className="flex items-center gap-2.5 group cursor-pointer" 
-            onClick={() => router.push('/operations')}
+            onClick={() => router.push(p ? `${p}/operations` : '/operations')}
           >
             {(() => {
               const displayLogo = theme === 'dark' 

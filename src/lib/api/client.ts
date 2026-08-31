@@ -18,11 +18,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
     if (response.status === 401 && typeof window !== 'undefined') {
       window.location.href = '/login';
     }
-    throw new APIError(
-      data?.error || data?.message || 'An unexpected error occurred',
-      response.status,
-      data
-    );
+    // Safely extract string message — error field may be array/object (e.g. ZodError)
+    const extractMsg = (val: any): string => {
+      if (!val) return '';
+      if (typeof val === 'string') return val;
+      if (Array.isArray(val) && val[0]?.message) return val[0].message;
+      if (typeof val === 'object' && val.message) return String(val.message);
+      return JSON.stringify(val);
+    };
+    const msg = extractMsg(data?.message) || extractMsg(data?.error) || 'An unexpected error occurred';
+    throw new APIError(msg, response.status, data);
   }
   
   return data?.data ?? data;

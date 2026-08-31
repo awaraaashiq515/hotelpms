@@ -16,9 +16,9 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
 
-  // Auto-collapse sidebar on calendar page for full-width view
+  // Auto-collapse sidebar on dashboard & calendar page for full-width view
   useEffect(() => {
-    if (pathname === '/hotel/calendar') {
+    if (pathname === '/hotel/calendar' || pathname === '/hotel') {
       setIsOpen(false);
     } else {
       setIsOpen(true);
@@ -49,7 +49,9 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
           const allowedRoles = ['HOTEL_ADMIN', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'SUPER_ADMIN', 'RESTAURANTS_ADMIN'];
           
           if (!allowedRoles.includes(role)) {
-            router.push('/operations');
+            // Non-admin staff (Waiter, Cook, etc.) → staff-portal, not /operations
+            const propCode = (data.user.propertyCode as string | null)?.toLowerCase();
+            router.push(propCode ? `/staff-portal/${propCode}` : '/staff-portal');
           } else {
             setSession(data.user);
             // 2. Fetch Properties

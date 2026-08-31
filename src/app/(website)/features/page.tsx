@@ -1,256 +1,207 @@
 'use client';
 
 import React from 'react';
-import { VectorBackground } from '@/components/website/VectorBackground';
-import { motion } from 'framer-motion';
-import {
-  Utensils, Beer, Hotel, TrendingUp, Smartphone,
-  ArrowRight, Sparkles, CheckCircle2, Shield,
-  Zap, BarChart3, Database, Globe, Layers,
-  Users, ShoppingCart, Clock, PieChart, QrCode,
-} from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
+import {
+  Bed, Calendar, DoorOpen, MapPin, BrushIcon, Wrench, Shirt,
+  ChefHat, Sparkles, Users, Crown, TrendingUp, Globe, BarChart3,
+  Receipt, Moon, Banknote, Package, ShoppingCart, Building2,
+  Brain, Wifi, Shield, Settings, CheckCircle2, ArrowRight,
+} from 'lucide-react';
 
-// ─── Brand palette ─────────────────────────────────────────────
-const PINK = '#e8a0a0';
-const PINK_LIGHT = '#f5c8c8';
-const BG = '#120a08';
-const BROWN_MID = '#3d1818';
-const BROWN_SOFT = '#6b2f2f';
+const BG      = '#080d18';
+const CARD_BG = '#0f172a';
+const ROSE    = '#e8a0a0';
+const INDIGO  = '#6366f1';
 
-const cardStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.025)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  backdropFilter: 'blur(12px)',
-};
-
-const primaryBtn: React.CSSProperties = {
-  background: `linear-gradient(135deg, ${BROWN_SOFT}, ${BROWN_MID})`,
-  boxShadow: `0 0 28px rgba(107,47,47,0.45), inset 0 1px 0 rgba(232,160,160,0.15)`,
-  border: `1px solid rgba(232,160,160,0.18)`,
-};
-
-const allFeatures = [
+const FEATURE_SECTIONS = [
   {
-    category: "Operations",
-    title: "Table & Floor Management",
-    desc: "A visual bird's-eye view of your entire venue. Track table status, guest count, and duration in real-time.",
-    icon: <Utensils className="w-6 h-6" />,
-    points: ["Drag-and-drop floor plans", "Table reservation sync", "VIP guest tagging"],
-    img: "/images/pos-mobile-2.png"
+    title: 'Front Office & Reservations',
+    emoji: '🏨',
+    color: 'text-sky-400',
+    bg: 'bg-sky-500/10',
+    border: 'border-sky-500/20',
+    dot: 'bg-sky-400',
+    features: [
+      { icon: Bed,      name: 'Smart Booking Manager',   desc: 'Effortlessly manage all reservations with real-time availability and automated confirmations.' },
+      { icon: Calendar, name: 'Live Room Calendar',      desc: 'Visual drag-and-drop calendar to view, update and shift bookings instantly.' },
+      { icon: DoorOpen, name: 'Express Check-Out',       desc: 'Streamlined checkout terminal with folio review, payment capture and digital receipts.' },
+      { icon: MapPin,   name: 'Room Status Board',       desc: 'Real-time room status dashboard — clean, occupied, maintenance, and more.' },
+    ],
   },
   {
-    category: "Efficiency",
-    title: "Kitchen Display System (KDS)",
-    desc: "Eliminate paper KOTs. Route orders to specific kitchen stations and monitor preparation times automatically.",
-    icon: <Zap className="w-6 h-6" />,
-    points: ["Instant order routing", "Cook-time analytics", "Bump-bar support"],
-    img: "/images/guestflow-kds.png"
+    title: 'Housekeeping & Maintenance',
+    emoji: '🛏️',
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+    border: 'border-violet-500/20',
+    dot: 'bg-violet-400',
+    features: [
+      { icon: BrushIcon, name: 'Housekeeping Console',   desc: 'Assign, track and verify room cleaning tasks in real time across all floors.' },
+      { icon: Wrench,    name: 'Maintenance Control',    desc: 'Log, prioritise and resolve maintenance requests with staff assignment workflows.' },
+      { icon: Shirt,     name: 'Laundry Management',     desc: 'Track guest laundry requests, timelines and delivery status.' },
+      { icon: Package,   name: 'Lost & Found Registry',  desc: 'Digital log for lost items with guest notification and claim tracking.' },
+    ],
   },
   {
-    category: "Intelligence",
-    title: "AI-Powered Analytics",
-    desc: "Go beyond sales reports. Get predictive insights on peak hours, menu engineering, and revenue forecasting.",
-    icon: <BarChart3 className="w-6 h-6" />,
-    points: ["Profitability heatmaps", "Staff performance tracking", "Automated EOD reports"],
-    img: "/images/guestflow-analytics.png"
+    title: 'Dining & Guest Services',
+    emoji: '🍽️',
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/10',
+    border: 'border-rose-500/20',
+    dot: 'bg-rose-400',
+    features: [
+      { icon: ChefHat,  name: 'Room Service Dining',     desc: 'Digital in-room dining with order tracking, KOT routing and real-time updates.' },
+      { icon: Sparkles, name: 'Spa & Wellness',          desc: 'Appointment booking, treatment tracking and therapist management.' },
+      { icon: Users,    name: 'Guest CRM Profiles',      desc: 'Comprehensive guest profiles with stay history, preferences, and loyalty points.' },
+      { icon: Crown,    name: 'Loyalty & Rewards',       desc: 'Points-based loyalty system with tiers, perks and redemption management.' },
+    ],
   },
   {
-    category: "Inventory",
-    title: "Peg-Wise Bar Tracking",
-    desc: "The world's most precise inventory system for bars. Track every drop with peg-level accuracy (30/60ml).",
-    icon: <Beer className="w-6 h-6" />,
-    points: ["Real-time stock alerts", "Recipe-based consumption", "Bottle weight integration"],
-    img: "/images/feature-bar.png"
+    title: 'Revenue & Analytics',
+    emoji: '📈',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
+    dot: 'bg-emerald-400',
+    features: [
+      { icon: TrendingUp, name: 'AI Revenue Advisor',    desc: 'AI-powered pricing recommendations based on demand forecasting and market trends.' },
+      { icon: Globe,      name: 'Channel Manager',       desc: 'Sync rates and availability across OTAs — Booking.com, Expedia, Airbnb and more.' },
+      { icon: BarChart3,  name: 'Analytics & BI',        desc: 'Deep business intelligence dashboards with occupancy, RevPAR and revenue metrics.' },
+      { icon: Receipt,    name: 'Night Audit Console',   desc: 'Automated night audit with financial reconciliation and end-of-day reporting.' },
+    ],
   },
   {
-    category: "Core",
-    title: "Hybrid Cloud Architecture",
-    desc: "Experience the power of a cloud-first system. Your data is always synced, secure, and accessible from any device, anywhere in the world.",
-    icon: <Database className="w-6 h-6" />,
-    points: ["Real-time Cloud Sync", "Secure Data Encryption", "Global Remote Access"],
-    img: "/images/pos-mobile-3.png"
-  }
+    title: 'Finance & Procurement',
+    emoji: '💰',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/20',
+    dot: 'bg-amber-400',
+    features: [
+      { icon: Receipt,      name: 'Folios & Billing',     desc: 'Master folios with room charges, dining, spa and all ancillary revenue consolidated.' },
+      { icon: Banknote,     name: 'Expenses Controller',  desc: 'Track operational expenses by department with budget vs actual comparisons.' },
+      { icon: ShoppingCart, name: 'Purchase Orders',      desc: 'Digital PO management with supplier tracking and delivery confirmations.' },
+      { icon: Building2,    name: 'Vendor Directory',     desc: 'Centralised vendor database with contacts, contracts and payment terms.' },
+    ],
+  },
+  {
+    title: 'AI & Smart Technology',
+    emoji: '🤖',
+    color: 'text-indigo-400',
+    bg: 'bg-indigo-500/10',
+    border: 'border-indigo-500/20',
+    dot: 'bg-indigo-400',
+    features: [
+      { icon: Brain,   name: 'AI Concierge Desk',        desc: 'Intelligent virtual concierge that handles guest queries, bookings and recommendations 24/7.' },
+      { icon: Wifi,    name: 'Smart Hotel IoT',          desc: 'Integrate and control in-room IoT devices — lights, AC, curtains and more.' },
+      { icon: Shield,  name: 'Security Center',          desc: 'Centralised security management with access control, CCTV integration and incident logs.' },
+      { icon: Settings,name: 'Hotel Settings',           desc: 'Full property configuration — room types, rates, policies and system preferences.' },
+    ],
+  },
 ];
 
-const bentoFeatures = [
-  { icon: <Shield />, title: "Role-Based Access", desc: "Granular permissions for staff, managers, and owners to ensure maximum security." },
-  { icon: <Globe />, title: "Multi-Outlet Sync", desc: "Manage 100+ locations from a single master dashboard with real-time consolidated reports." },
-  { icon: <Layers />, title: "Menu Engineering", desc: "Categorize, sub-categorize, and add complex modifiers or add-ons with absolute ease." },
-  { icon: <Users />, title: "CRM & Loyalty", desc: "Build deep guest profiles, track visit frequency, and run automated loyalty campaigns." },
-  { icon: <ShoppingCart />, title: "Purchase Orders", desc: "Automate raw material requests and vendor payments based on low-stock AI alerts." },
-  { icon: <Clock />, title: "Attendance Tracking", desc: "PIN-based or Biometric staff clock-in/out with automated payroll generation." },
-  { icon: <Database />, title: "Tax & GST Ready", desc: "Fully compliant with local tax laws, including HSN codes and automated GST reports." },
-  { icon: <QrCode />, title: "QR Scan & Order", desc: "Empower guests to order from their own devices, reducing staff load and increasing speed." },
-  { icon: <Smartphone />, title: "Digital Receipts", desc: "Send professional bills via WhatsApp or Email, reducing paper waste and costs." },
+const BENEFITS = [
+  'Real-time sync across all departments',
+  'Cloud-hosted with 99.9% uptime guarantee',
+  'Mobile-first staff and guest apps',
+  'Automated GST billing and compliance',
+  'OTA channel management built-in',
+  'AI-driven pricing and revenue optimization',
+  '24/7 dedicated support team',
+  'Seamless payment gateway integration',
 ];
 
 export default function FeaturesPage() {
   return (
-    <main
-      className="text-white overflow-x-hidden relative min-h-screen pt-20"
-      style={{ background: BG, fontFamily: "'DM Sans', sans-serif" }}
-    >
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[800px] h-[800px] rounded-full blur-[250px]"
-          style={{ background: 'rgba(232,160,160,0.04)' }} />
-        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full blur-[200px]"
-          style={{ background: 'rgba(61,24,24,0.2)' }} />
-      </div>
+    <main style={{ background: BG, color: '#fff', minHeight: '100vh' }}>
 
-      <div className="relative z-10">
-        {/* ══ HERO SECTION ═══════════════════════════════════════ */}
-        <section className="pt-20 pb-20 relative">
-          <VectorBackground />
-          <div className="container mx-auto px-6 text-center max-w-4xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-            >
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6"
-                style={{ background: 'rgba(232,160,160,0.09)', border: '1px solid rgba(232,160,160,0.18)' }}>
-                <Sparkles className="w-3 h-3" style={{ color: PINK }} />
-                <span className="font-semibold text-[10px] uppercase tracking-[0.25em]" style={{ color: PINK }}>
-                  Powering Elite Venues
-                </span>
+      {/* ══ HERO ══════════════════════════════════════════════════ */}
+      <section className="relative pt-32 pb-20 overflow-hidden">
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-[120px]"
+            style={{ background: 'rgba(99,102,241,0.12)' }} />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px)',
+            backgroundSize: '80px 80px',
+          }} />
+        </div>
+        <div className="container mx-auto px-6 max-w-4xl text-center relative z-10">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-[0.2em] mb-6 border"
+            style={{ background: 'rgba(232,160,160,0.1)', borderColor: `${ROSE}30`, color: ROSE }}>
+            Full Feature Suite
+          </span>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight leading-tight mb-5">
+            Everything Your Hotel{' '}
+            <span style={{ background: `linear-gradient(135deg,${ROSE},#f0c8c8)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Needs to Thrive
+            </span>
+          </h1>
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            From front desk to back office — a complete Hotel Management System built for modern hospitality operations.
+          </p>
+        </div>
+      </section>
+
+      {/* ══ FEATURE SECTIONS ══════════════════════════════════════ */}
+      <section className="pb-24">
+        <div className="container mx-auto px-6 max-w-6xl space-y-20">
+          {FEATURE_SECTIONS.map((section) => (
+            <div key={section.title}>
+              {/* Section header */}
+              <div className="flex items-center gap-3 mb-8">
+                <span className={`w-2.5 h-2.5 rounded-full ${section.dot}`} />
+                <span className="text-2xl">{section.emoji}</span>
+                <h2 className={`text-sm font-bold uppercase tracking-widest ${section.color}`}>{section.title}</h2>
+                <div className="flex-1 h-px bg-slate-800" />
               </div>
-              <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
-                The Most Advanced <br />
-                <span style={{
-                  background: `linear-gradient(135deg, ${PINK}, ${PINK_LIGHT})`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}>POS Ecosystem.</span>
-              </h1>
-              <p className="text-lg text-white/50 max-w-2xl mx-auto leading-relaxed mb-10">
-                Explore every tool we've built to help you automate operations, 
-                increase transparency, and drive exponential growth.
+              {/* Feature cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {section.features.map((feat) => (
+                  <div key={feat.name}
+                    className={`group p-5 rounded-2xl border ${section.border} transition-all duration-300 hover:scale-[1.02]`}
+                    style={{ background: CARD_BG }}>
+                    <div className={`w-10 h-10 rounded-xl ${section.bg} ${section.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                      <feat.icon className="w-4.5 h-4.5" strokeWidth={1.8} />
+                    </div>
+                    <h3 className="text-sm font-bold text-white mb-2 leading-tight">{feat.name}</h3>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>{feat.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══ BENEFITS ══════════════════════════════════════════════ */}
+      <section className="py-20 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.6)' }}>
+        <div className="container mx-auto px-6 max-w-5xl">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-[0.3em] block mb-3" style={{ color: ROSE }}>Why GuestFlow</span>
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-4">Built for Serious Hoteliers</h2>
+              <p className="text-base mb-8" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                Every feature is designed around real hotel workflows, not just checkboxes. We understand hospitality.
               </p>
-              <div className="flex justify-center gap-4">
-                <Link href="/contact" style={primaryBtn} className="px-10 py-4 rounded-2xl font-bold text-sm hover:scale-105 transition-all">
-                  Get Started Free
-                </Link>
-                <button className="px-10 py-4 rounded-2xl font-bold text-sm bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                  Watch Demo
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ══ MAIN FEATURES GRID ═════════════════════════════════ */}
-        <section className="py-20">
-          <div className="container mx-auto px-6 max-w-7xl">
-            <div className="space-y-32">
-              {allFeatures.map((feat, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 40 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8 }}
-                  className={`flex flex-col lg:flex-row items-center gap-16 ${i % 2 !== 0 ? 'lg:flex-row-reverse' : ''}`}
-                >
-                  <div className="flex-1">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-8"
-                      style={{ background: 'rgba(232,160,160,0.1)', color: PINK }}>
-                      {feat.icon}
-                    </div>
-                    <span className="font-bold text-xs uppercase tracking-[0.3em] mb-3 block" style={{ color: PINK }}>
-                      {feat.category}
-                    </span>
-                    <h2 className="text-3xl md:text-4xl font-black mb-6 tracking-tight">{feat.title}</h2>
-                    <p className="text-lg text-white/40 leading-relaxed mb-8">
-                      {feat.desc}
-                    </p>
-                    <ul className="space-y-4">
-                      {feat.points.map((p, idx) => (
-                        <li key={idx} className="flex items-center gap-3">
-                          <CheckCircle2 className="w-5 h-5" style={{ color: '#6ee7b7' }} />
-                          <span className="text-white/70 font-medium">{p}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="flex-1 relative group">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/10 to-transparent rounded-[3rem] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                    <div className="relative rounded-[3rem] overflow-hidden p-1.5"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <div className="relative aspect-[4/3] rounded-[2.5rem] overflow-hidden">
-                        <Image src={feat.img} alt={feat.title} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
+              <Link href="/contact"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all hover:scale-105"
+                style={{ background: `linear-gradient(135deg,${INDIGO},#818cf8)`, boxShadow: '0 0 24px rgba(99,102,241,0.3)' }}>
+                Get a Free Demo <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {BENEFITS.map((b, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-800" style={{ background: CARD_BG }}>
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#34d399' }} />
+                  <span className="text-sm text-slate-300">{b}</span>
+                </div>
               ))}
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ══ BENTO SECONDARY FEATURES ═══════════════════════════ */}
-        <section className="py-32 relative overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(232,160,160,0.015)' }} />
-          <div className="container mx-auto px-6 max-w-7xl relative z-10">
-            <div className="text-center mb-20">
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4">But That's Not All.</h2>
-              <p className="text-white/40 max-w-xl mx-auto">
-                A complete ecosystem designed to handle every single micro-operation of your business.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {bentoFeatures.map((b, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ y: -5, borderColor: 'rgba(232,160,160,0.2)' } as any}
-                  className="p-8 rounded-[2rem] transition-all duration-300"
-                  style={cardStyle}
-                >
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: PINK }}>
-                    <div className="[&>svg]:w-5 [&>svg]:h-5">
-                      {b.icon}
-                    </div>
-                  </div>
-                  <h3 className="text-xl font-bold mb-3">{b.title}</h3>
-                  <p className="text-sm text-white/40 leading-relaxed">
-                    {b.desc}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ══ FINAL CTA ══════════════════════════════════════════ */}
-        <section className="py-40 relative text-center">
-          <div className="absolute inset-0 z-0">
-            <Image src="/images/guestflow-hero.png" alt="CTA" fill className="object-cover opacity-10" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#120a08] via-transparent to-[#120a08]" />
-          </div>
-          <div className="container mx-auto px-6 max-w-3xl relative z-10">
-            <h2 className="text-4xl md:text-6xl font-black mb-8">Ready to Transform?</h2>
-            <p className="text-xl text-white/50 mb-12">
-              Join hundreds of high-performing venues using GuestFlow to scale their operations.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link href="/contact" style={primaryBtn} className="px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all">
-                Start Your Free Trial
-              </Link>
-              <Link href="/contact" className="px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest border border-white/10 hover:bg-white/5 transition-all">
-                Talk to Sales
-              </Link>
-            </div>
-          </div>
-        </section>
-      </div>
     </main>
   );
 }

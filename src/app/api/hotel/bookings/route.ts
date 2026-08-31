@@ -130,7 +130,15 @@ export async function POST(request: NextRequest) {
       spaPackage = 'NONE',
       spaPackageCost = 0,
       addOnNotes = '',
+      gstNumber,
+      companyName,
+      billingAddress,
     } = body;
+
+    // Extract GST fields from guestData if provided there
+    const resolvedGstNumber = gstNumber || guestData?.gstNumber || null;
+    const resolvedCompanyName = companyName || guestData?.companyName || null;
+    const resolvedBillingAddress = billingAddress || guestData?.billingAddress || null;
 
     // Load property settings for guest portal
     const property = await prisma.property.findUnique({
@@ -169,14 +177,18 @@ export async function POST(request: NextRequest) {
         guestMobile = existingGuest.mobile || '';
         guestEmail = existingGuest.email || '';
         guestFirstName = existingGuest.firstName || '';
-        // Update guest details if KYC info is provided
-        if (guestData.idType || guestData.idNumber) {
+        // Update guest details if KYC / GST info is provided
+        const updateData: any = {};
+        if (guestData.idType) updateData.idType = guestData.idType;
+        if (guestData.idNumber) updateData.idNumber = guestData.idNumber;
+        if (resolvedGstNumber) updateData.gstNumber = resolvedGstNumber;
+        if (resolvedCompanyName) updateData.companyName = resolvedCompanyName;
+        if (resolvedBillingAddress) updateData.billingAddress = resolvedBillingAddress;
+
+        if (Object.keys(updateData).length > 0) {
           await prisma.guest.update({
             where: { id: existingGuest.id },
-            data: {
-              idType: guestData.idType || undefined,
-              idNumber: guestData.idNumber || undefined,
-            }
+            data: updateData,
           });
         }
         if (guestData.documentUrl) {
@@ -199,6 +211,9 @@ export async function POST(request: NextRequest) {
             email: guestData.email || '',
             idType: guestData.idType || '',
             idNumber: guestData.idNumber || '',
+            gstNumber: resolvedGstNumber,
+            companyName: resolvedCompanyName,
+            billingAddress: resolvedBillingAddress,
             documents: guestData.documentUrl ? {
               create: {
                 documentType: guestData.idType || 'ID_PROOF',
@@ -250,6 +265,9 @@ export async function POST(request: NextRequest) {
         spaPackage: spaPackage || 'NONE',
         spaPackageCost: Number(spaPackageCost || 0),
         addOnNotes: addOnNotes || null,
+        gstNumber: resolvedGstNumber,
+        companyName: resolvedCompanyName,
+        billingAddress: resolvedBillingAddress,
         // Create matching ReservationRoom detail
         rooms: {
           create: {

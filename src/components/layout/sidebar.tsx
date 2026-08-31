@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useParams } from 'next/navigation';
-import { ChevronDown, ChevronRight, LogOut } from 'lucide-react';
+import { ChevronDown, ChevronRight, LogOut, Building2 } from 'lucide-react';
 import { getSidebarMenu } from '@/lib/menu-config';
 import { useSidebar } from '@/context/sidebar-context';
 
@@ -90,10 +90,25 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   // Filter menu based on role
-  const menu = session ? getSidebarMenu(session.role, session.organizationSlug, propertyCode) : [];
+  const isHotelAdmin = session?.role === 'HOTEL_ADMIN' || session?.role === 'HOTEL_MANAGER';
+  const menu = session ? getSidebarMenu(isHotelAdmin ? 'RESTAURANTS_ADMIN' : session.role, session.organizationSlug, propertyCode) : [];
   
+  // Names of pages that belong strictly to Restaurant Admin Hub and NOT POS terminal sidebar
+  const adminHubNames = [
+    'Dashboard',
+    'Live Dashboard',
+    'Businesses',
+    'Rider Approvals',
+  ];
+
   const filteredMenu = menu.filter(item => {
-    // Exclude Staff Management, POS Access, Global Access, and Role Management from the POS sidebar unless user is RESTAURANTS_ADMIN or SUPER_ADMIN
+    // 0. Filter out Admin Hub items from the POS Sidebar
+    if (adminHubNames.includes(item.name)) return false;
+    if (item.path.includes('/restaurantadmin') || item.path.includes('/manage-properties') || item.path.startsWith('/admin')) {
+      return false;
+    }
+
+    // Exclude Staff Management, POS Access, Global Access, and Role Management from the POS sidebar unless user is admin
     if (
       (
         item.name === 'POS Access' ||
@@ -102,7 +117,8 @@ export const Sidebar: React.FC = () => {
         item.name === 'Role Management'
       ) &&
       session?.role !== 'RESTAURANTS_ADMIN' &&
-      session?.role !== 'SUPER_ADMIN'
+      session?.role !== 'SUPER_ADMIN' &&
+      !isHotelAdmin
     ) {
       return false;
     }
@@ -133,7 +149,11 @@ export const Sidebar: React.FC = () => {
 
     // 3. Role-based filtering
     if (item.roles && !item.roles.includes(session.role)) {
-      return false;
+      if (isHotelAdmin && (item.roles.includes('RESTAURANTS_ADMIN') || item.roles.includes('POSSYSTEM'))) {
+        // Allow hotel admin to see POS and restaurant items
+      } else {
+        return false;
+      }
     }
 
     // 4. Permission-based filtering
@@ -148,6 +168,12 @@ export const Sidebar: React.FC = () => {
   }).map((item: any) => {
     if (item.subItems) {
       const filteredSubs = item.subItems.filter((sub: any) => {
+        // Filter out Admin Hub sub-items from POS
+        if (adminHubNames.includes(sub.name)) return false;
+        if (sub.path && (sub.path.includes('/restaurantadmin') || sub.path.includes('/manage-properties') || sub.path.startsWith('/admin'))) {
+          return false;
+        }
+
         if (session.role === 'SUPER_ADMIN') return true;
 
         // Sub-item feature gating
@@ -377,7 +403,21 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className={`p-4 bg-black/20 ${!isOpen && 'flex items-center justify-center'}`}>
+        <div className={`p-4 bg-black/20 ${!isOpen && 'flex flex-col items-center justify-center p-2'}`}>
+          {/* Quick return to Hotel HMS if user is hotel admin or multi-property */}
+          {(session?.isMultiProperty || session?.role === 'HOTEL_ADMIN' || session?.role === 'HOTEL_MANAGER' || isHotelAdmin || session?.propertyType === 'HOTEL') && (
+            <Link
+              href="/hotel"
+              title={!isOpen ? 'Hotel Management' : undefined}
+              className={`w-full flex items-center gap-2.5 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 hover:text-indigo-300 transition-all text-xs font-bold group mb-3 ${
+                isOpen ? 'px-3' : 'px-0 justify-center'
+              }`}
+            >
+              <Building2 size={16} className="group-hover:scale-110 transition-transform shrink-0" />
+              {isOpen && <span className="truncate">Hotel Management</span>}
+            </Link>
+          )}
+
           {isOpen && (
             <div className="space-y-2 opacity-50 border-b border-white/5 pb-4 mb-4">
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
@@ -386,7 +426,7 @@ export const Sidebar: React.FC = () => {
               </div>
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-pos-primary">
                 <span className="text-gray-500">Biller</span>
-                <span>Ritchie POS</span>
+                <span>{session?.name || 'Ritchie POS'}</span>
               </div>
             </div>
           )}

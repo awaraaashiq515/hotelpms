@@ -49,6 +49,7 @@ import {
   MessageCircle,
   Waves,
   Tag,
+  UtensilsCrossed,
   Handshake,
 } from 'lucide-react';
 
@@ -82,7 +83,8 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '🏨',
     color: 'text-sky-400',
     items: [
-      { name: 'Bookings',           path: '/hotel/bookings',       icon: PlusCircle },
+      { name: 'Bookings',           path: '/hotel/bookings',        icon: PlusCircle },
+      { name: 'Agent Bookings',     path: '/hotel/agent-bookings', icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
       { name: 'Availability',       path: '/hotel/calendar',       icon: Calendar },
       { name: 'Check-out',          path: '/hotel/checkout',       icon: DoorOpen },
       { name: 'Email Bookings',     path: '/hotel/email-bookings', icon: ScrollText },
@@ -125,9 +127,7 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '🛒',
     color: 'text-orange-400',
     items: [
-      { name: 'Products Catalog',   path: '/hotel/products',         icon: Tag, badge: 'PROD', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
-      { name: 'Inventory',          path: '/hotel/inventory',        icon: Package },
-      { name: 'Purchase Orders',    path: '/hotel/purchasing',       icon: ShoppingCart },
+      { name: 'Inventory & Stock',  path: '/hotel/inventory',        icon: Package },
       { name: 'Vendor Management',  path: '/hotel/vendor',           icon: Building2 },
     ],
   },
@@ -160,8 +160,7 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '👥',
     color: 'text-rose-400',
     items: [
-      { name: '360° Guest Profiles', path: '/hotel/crm',             icon: Users, badge: 'CRM', badgeColor: 'bg-purple-500/20 text-purple-300' },
-      { name: 'Guest Directory',    path: '/hotel/guests',           icon: Users },
+      { name: 'Guest CRM',          path: '/hotel/crm',             icon: Users, badge: 'CRM', badgeColor: 'bg-purple-500/20 text-purple-300' },
       { name: 'Loyalty & Rewards',  path: '/hotel/loyalty',          icon: Crown },
       { name: 'Travel Agents',      path: '/hotel/agents',           icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
     ],
@@ -181,9 +180,7 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '👤',
     color: 'text-blue-400',
     items: [
-      { name: 'Staff Management',   path: '/hotel/staff',            icon: Users },
-      { name: 'HR Management',      path: '/hotel/hr',               icon: Users },
-      { name: 'Payroll',            path: '/hotel/payroll',          icon: IndianRupee },
+      { name: 'Staff & Team',       path: '/hotel/staff',            icon: Users },
     ],
   },
   {
@@ -201,7 +198,8 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '⚙️',
     color: 'text-slate-400',
     items: [
-      { name: 'Hotel Settings',     path: '/hotel/settings',         icon: Settings },
+      { name: 'My Plan / Subscription', path: '/hotel/subscription', icon: Sparkles, badge: 'PLAN', badgeColor: 'bg-violet-500/20 text-violet-300' },
+      { name: 'Hotel Settings',         path: '/hotel/settings',     icon: Settings },
     ],
   },
 ];
@@ -211,6 +209,24 @@ export const HotelSidebar: React.FC = () => {
   const router = useRouter();
   const { isOpen, toggle } = useSidebar();
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
+  const [hasRestaurant, setHasRestaurant] = React.useState(false);
+  const [restaurantCode, setRestaurantCode] = React.useState<string | null>(null);
+
+  // Detect if this org also has a restaurant property (BOTH business type)
+  React.useEffect(() => {
+    fetch('/api/admin/properties')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data)) {
+          const rst = d.data.find((p: any) => p.type !== 'HOTEL');
+          if (rst) {
+            setHasRestaurant(true);
+            setRestaurantCode(rst.code || null);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const toggleGroup = (label: string) => {
     setCollapsedGroups(prev => {
@@ -351,14 +367,33 @@ export const HotelSidebar: React.FC = () => {
 
       {/* ── Footer ── */}
       <div className="p-3 border-t border-slate-800/60 space-y-1 shrink-0 bg-slate-900/30">
+
+        {/* Restaurant POS Switch — only shown for BOTH type (hotel + restaurant) */}
+        {hasRestaurant && (
+          <Link
+            href={restaurantCode ? `/${restaurantCode}/billing` : '/billing'}
+            title={!isOpen ? 'Restaurant POS' : undefined}
+            className={`w-full flex items-center py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition-all text-xs font-bold group ${
+              isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'
+            }`}
+          >
+            <UtensilsCrossed size={14} className="group-hover:scale-110 transition-transform shrink-0" />
+            {isOpen && (
+              <span className="flex-1 truncate">Restaurant POS</span>
+            )}
+          </Link>
+        )}
+
+        {/* All Properties / Switch Property link (always visible) */}
         <Link
           href="/restaurantadmin"
-          title={!isOpen ? 'Back to Admin Portal' : undefined}
+          title={!isOpen ? 'All Properties' : undefined}
           className={`w-full flex items-center py-2 rounded-xl hover:bg-slate-800/60 text-slate-600 hover:text-slate-300 transition-all text-xs font-bold group ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
         >
           <Building2 size={14} className="group-hover:scale-110 transition-transform shrink-0" />
-          {isOpen && <span>Admin Portal</span>}
+          {isOpen && <span>All Properties</span>}
         </Link>
+
         <button
           onClick={handleLogout}
           title={!isOpen ? 'Logout' : undefined}

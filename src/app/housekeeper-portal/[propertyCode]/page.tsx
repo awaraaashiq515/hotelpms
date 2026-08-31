@@ -247,16 +247,60 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
     recognition.start()
   }
 
-  /* Session restore & local lost-found */
+  /* Session restore & auto-login from main session */
   useEffect(() => {
-    const savedSession = localStorage.getItem('hk_portal_session')
-    if (savedSession) {
+    const initSession = async () => {
+      // 1. Try local hk_portal_session first
+      const savedSession = localStorage.getItem('hk_portal_session')
+      if (savedSession) {
+        try {
+          const { user: u, wtToken: t } = JSON.parse(savedSession)
+          if (u && t) {
+            setUser(u)
+            setWtToken(t)
+            setSessionChecking(false)
+            return
+          }
+        } catch {
+          localStorage.removeItem('hk_portal_session')
+        }
+      }
+
+      // 2. Auto-login using main auth session cookie if user just came from /login
       try {
-        const { user: u, wtToken: t } = JSON.parse(savedSession)
-        setUser(u); setWtToken(t)
-      } catch { localStorage.removeItem('hk_portal_session') }
+        const sessionRes = await fetch('/api/auth/session')
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json()
+          if (sessionData.authenticated && sessionData.user?.id) {
+            const wtRes = await fetch('/api/walkie-talkie/staff-login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: sessionData.user.id,
+                propertyCode,
+                fromMainSession: true,
+              }),
+            })
+            if (wtRes.ok) {
+              const wtData = await wtRes.json()
+              if (wtData.user && wtData.wtToken) {
+                setUser(wtData.user)
+                setWtToken(wtData.wtToken)
+                localStorage.setItem('hk_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
+                setSessionChecking(false)
+                return
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[HK Portal Session Init Error]', err)
+      }
+
+      setSessionChecking(false)
     }
-    setSessionChecking(false)
+
+    initSession()
 
     // Restore lost items
     const savedLost = localStorage.getItem('hk_lost_items')
@@ -282,15 +326,17 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
         window.removeEventListener('offline', handleOffline)
       }
     }
-  }, [])
+  }, [propertyCode])
 
   /* Handle Logout */
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setUser(null); setWtToken(''); setRooms([])
     localStorage.removeItem('hk_portal_session')
-    if (propertyCode) {
-      window.location.href = `/staff-portal/${propertyCode}`
-    }
+    await Promise.allSettled([
+      fetch('/api/auth/staff-logout', { method: 'POST' }),
+      fetch('/api/auth/logout', { method: 'POST' }),
+    ])
+    window.location.href = '/login'
   }
 
   /* Fetch rooms */
@@ -915,12 +961,12 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
 
   /* ══════════ REDIRECT IF NOT LOGGED IN ══════════ */
   if (!user) {
-    if (typeof window !== 'undefined' && propertyCode) {
-      window.location.href = `/staff-portal/${propertyCode}`
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
     }
     return (
       <div style={{ minHeight: '100dvh', background: '#060810', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Inter",-apple-system,sans-serif', color: '#64748b', fontSize: 13 }}>
-        Redirecting to unified login screen…
+        Redirecting to login screen…
       </div>
     )
   }

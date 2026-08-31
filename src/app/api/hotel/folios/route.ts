@@ -172,3 +172,54 @@ export async function POST(request: NextRequest) {
     return apiError(error);
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) return apiError(new Error('Unauthorized'), 401);
+
+    const body = await request.json();
+    const { folioId, guestId, reservationId, gstNumber, companyName, billingAddress } = body;
+
+    if (!folioId && !guestId && !reservationId) {
+      return apiError(new Error('folioId or guestId or reservationId is required'), 400);
+    }
+
+    let targetGuestId = guestId;
+    let targetReservationId = reservationId;
+
+    if (folioId) {
+      const folio = await prisma.folio.findUnique({ where: { id: folioId } });
+      if (folio) {
+        targetGuestId = targetGuestId || folio.guestId;
+        targetReservationId = targetReservationId || folio.reservationId;
+      }
+    }
+
+    if (targetGuestId) {
+      await prisma.guest.update({
+        where: { id: targetGuestId },
+        data: {
+          gstNumber: gstNumber ?? undefined,
+          companyName: companyName ?? undefined,
+          billingAddress: billingAddress ?? undefined,
+        }
+      });
+    }
+
+    if (targetReservationId) {
+      await prisma.reservation.update({
+        where: { id: targetReservationId },
+        data: {
+          gstNumber: gstNumber ?? undefined,
+          companyName: companyName ?? undefined,
+          billingAddress: billingAddress ?? undefined,
+        }
+      });
+    }
+
+    return apiResponse({ success: true }, 'GST details updated successfully');
+  } catch (error) {
+    return apiError(error);
+  }
+}

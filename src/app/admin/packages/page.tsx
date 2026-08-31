@@ -31,80 +31,188 @@ import {
   Monitor,
 } from 'lucide-react';
 
-// ─── ALL FEATURES — sourced from menu-config.ts (every feature key used) ──────
+// ─── ALL FEATURES — complete feature registry (POS + Hotel PMS + Hotel Amenities + AI) ─
 const ALL_FEATURES = [
-  // Core POS
-  { key: 'POS',        label: 'Point of Sale',       description: 'Billing, orders, KOT, bar POS, invoices', icon: '🛒', group: 'Core' },
-  { key: 'INVENTORY',  label: 'Inventory',            description: 'Stock, warehouses, purchases, products', icon: '📦', group: 'Core' },
-  { key: 'ACCOUNTING', label: 'Accounting',           description: 'Vouchers, cash book, day book, ledger', icon: '💰', group: 'Core' },
-  // Hospitality
-  { key: 'HMS',        label: 'Hotel Management',     description: 'Rooms, check-ins, folios, occupancy', icon: '🏨', group: 'Hospitality' },
-  { key: 'TABLES',     label: 'Table Management',     description: 'Floor maps, table reservations, layout', icon: '🪑', group: 'Hospitality' },
-  { key: 'TABLETS',    label: 'Tablet / Waiter App',  description: 'Tablet POS & waiter mode setup', icon: '📱', group: 'Hospitality' },
-  { key: 'BARPOS',     label: 'Bar POS',              description: 'Bar-specific billing terminal, liquor items & bar display', icon: '🍺', group: 'Hospitality' },
-  { key: 'CAFEPOS',    label: 'Cafe POS',             description: 'Cafe order flow, quick billing & cafe display settings', icon: '☕', group: 'Hospitality' },
-  // Analytics
-  { key: 'REPORTS',    label: 'Reports & Analytics',  description: 'Sales, revenue, settlements, audit logs', icon: '📊', group: 'Analytics' },
-  { key: 'GST',        label: 'GST Filing',           description: 'GSTR-1, GSTR-3B filings & settings', icon: '📋', group: 'Analytics' },
-  // People
-  { key: 'STAFF',      label: 'Staff Members',        description: 'Staff profiles, attendance, salaries', icon: '👥', group: 'People' },
-  { key: 'DRIVERS',    label: 'Driver Management',    description: 'Drivers, gifts, offer programs', icon: '🚗', group: 'People' },
-  { key: 'CRM',        label: 'CRM & Memberships',    description: 'Customers, membership plans & cards', icon: '👤', group: 'People' },
-  // Marketing
-  { key: 'OFFERS',     label: 'Offers & Rewards',     description: 'Driver reward campaigns & payouts', icon: '🎁', group: 'Marketing' },
-  { key: 'WEBSITE',    label: 'Website CMS',          description: 'Blogs, gallery, sliders, settings', icon: '🌐', group: 'Marketing' },
-  // Advanced
-  { key: 'B2B',        label: 'B2B Marketplace',      description: 'Supplier ordering & B2B market', icon: '🚛', group: 'Advanced' },
-  { key: 'PARKING',    label: 'Parking Management',   description: 'Parking slots, QR check-in/out', icon: '🅿️', group: 'Advanced' },
-  { key: 'WASTE',      label: 'Waste Management',     description: 'Waste tracking, disposal logs', icon: '🗑️', group: 'Advanced' },
-  // Integrations & Communication
-  { key: 'WHATSAPP',   label: 'WhatsApp Bot & Alerts',description: 'Outbound bill notifications & chatbot order entries', icon: '💬', group: 'Integrations' },
-  { key: 'WALKIETALKIE', label: 'Staff Walkie-Talkie',description: 'PTT voice communication, channel creation & voice audio', icon: '📡', group: 'Integrations' },
-  { key: 'GEOFENCING', label: 'Geofenced Attendance', description: 'GPS attendance auditing & live location tracking', icon: '📍', group: 'Integrations' },
-  { key: 'TIPS',       label: 'Counter Tips & Gratuity',description: 'Staff tip logs, checkout gratuity input & tip reporting', icon: '💵', group: 'Integrations' },
+  // ── Core POS ──
+  { key: 'POS',            label: 'Point of Sale',           description: 'Billing, orders, KOT, bar POS, invoices', icon: '🛒', group: 'Core' },
+  { key: 'INVENTORY',      label: 'Inventory',               description: 'Stock, warehouses, purchases, products', icon: '📦', group: 'Core' },
+  { key: 'ACCOUNTING',     label: 'Accounting',              description: 'Vouchers, cash book, day book, ledger', icon: '💰', group: 'Core' },
+  // ── Restaurant / F&B ──
+  { key: 'TABLES',         label: 'Table Management',        description: 'Floor maps, table reservations, layout', icon: '🪑', group: 'Restaurant & F&B' },
+  { key: 'TABLETS',        label: 'Tablet / Waiter App',     description: 'Tablet POS & waiter mode setup', icon: '📱', group: 'Restaurant & F&B' },
+  { key: 'BARPOS',         label: 'Bar POS',                 description: 'Bar-specific billing terminal, liquor items & bar display', icon: '🍺', group: 'Restaurant & F&B' },
+  { key: 'CAFEPOS',        label: 'Cafe POS',                description: 'Cafe order flow, quick billing & cafe display settings', icon: '☕', group: 'Restaurant & F&B' },
+  // ── Hotel PMS — Core ──
+  { key: 'HMS',            label: 'Hotel Front Desk & PMS',  description: 'Bookings, check-in/out, room folios, occupancy & calendar', icon: '🏨', group: 'Hotel PMS' },
+  { key: 'HOTEL_ROOMS',    label: 'Room Status Board',       description: 'Live room matrix, key tracking, VIP/dirty/clean status', icon: '🛏️', group: 'Hotel PMS' },
+  { key: 'CHANNEL_MANAGER',label: 'Channel Manager',         description: '2-Way OTA sync — Booking.com, Agoda, MakeMyTrip, Expedia', icon: '🌐', group: 'Hotel PMS' },
+  { key: 'REVENUE_AI',     label: 'Revenue AI & Simulator',  description: 'AI dynamic pricing, demand rules, rate simulator & RevPAR', icon: '📈', group: 'Hotel PMS' },
+  { key: 'HOTEL_REPORTS',  label: 'Hotel Analytics & BI',    description: '16 hotel operational, occupancy & financial PDF/CSV reports', icon: '📊', group: 'Hotel PMS' },
+  { key: 'HOUSEKEEPING',   label: 'Housekeeping',            description: 'Room cleaning tasks, turnaround tracking & staff assignment', icon: '🧹', group: 'Hotel PMS' },
+  { key: 'MAINTENANCE',    label: 'Maintenance & Engineering',description: 'Room maintenance tickets, repair work orders & scheduling', icon: '🔧', group: 'Hotel PMS' },
+  { key: 'NIGHT_AUDIT',    label: 'Night Audit Console',     description: 'Day-end audit, balancing, shift closing & revenue settlement', icon: '🌙', group: 'Hotel PMS' },
+  { key: 'HOTEL_CRM',      label: 'Guest CRM & Loyalty',     description: '360° guest profiles, preferences, loyalty points & history', icon: '⭐', group: 'Hotel PMS' },
+  // ── Hotel Amenities & Hospitality ──
+  { key: 'SPA_WELLNESS',   label: 'Spa & Wellness Center',   description: 'Spa appointments, therapist roster & treatment packages', icon: '✨', group: 'Hotel Amenities' },
+  { key: 'SWIMMING_POOL',  label: 'Swimming Pool',           description: 'Pool passes, day-use visitor entry & capacity management', icon: '🏊', group: 'Hotel Amenities' },
+  { key: 'BANQUET_EVENTS', label: 'Banquet & Events',        description: 'Banquet hall bookings, event packages & catering menus', icon: '🎉', group: 'Hotel Amenities' },
+  { key: 'ROOM_SERVICE',   label: 'Room Service',            description: 'In-room dining orders, tray dispatch & delivery tracking', icon: '🍽️', group: 'Hotel Amenities' },
+  { key: 'LIVE_MUSIC',     label: 'Live Music & Entertainment', description: 'Singer roster, performance schedule & event booking', icon: '🎵', group: 'Hotel Amenities' },
+  { key: 'HOTEL_LAUNDRY',  label: 'Laundry Services',        description: 'Guest & linen laundry tracking, pickup/delivery & billing', icon: '👔', group: 'Hotel Amenities' },
+  { key: 'LOST_FOUND',     label: 'Lost & Found',            description: 'Item registry, guest claim tracking & handover logs', icon: '🔍', group: 'Hotel Amenities' },
+  // ── AI & Smart Hotel ──
+  { key: 'AI_CONCIERGE',   label: 'AI Concierge & IoT',      description: '24/7 AI guest assistant, smart room controls & IoT integration', icon: '🤖', group: 'AI & Smart Hotel' },
+  { key: 'TRAVEL_AGENTS',  label: 'Travel Agents & B2B',     description: 'Agent contracts, commission management & corporate rate plans', icon: '🤝', group: 'AI & Smart Hotel' },
+  // ── Analytics ──
+  { key: 'REPORTS',        label: 'Reports & Analytics',     description: 'Sales, revenue, settlements, audit logs', icon: '📋', group: 'Analytics' },
+  { key: 'GST',            label: 'GST Filing',              description: 'GSTR-1, GSTR-3B filings & settings', icon: '🧾', group: 'Analytics' },
+  // ── People ──
+  { key: 'STAFF',          label: 'Staff Management',        description: 'Staff profiles, attendance, salaries', icon: '👥', group: 'People' },
+  { key: 'DRIVERS',        label: 'Driver Management',       description: 'Drivers, gifts, offer programs', icon: '🚗', group: 'People' },
+  { key: 'CRM',            label: 'CRM & Memberships',       description: 'Customers, membership plans & cards', icon: '👤', group: 'People' },
+  // ── Marketing ──
+  { key: 'OFFERS',         label: 'Offers & Rewards',        description: 'Driver reward campaigns & payouts', icon: '🎁', group: 'Marketing' },
+  { key: 'WEBSITE',        label: 'Website CMS',             description: 'Blogs, gallery, sliders, settings', icon: '🌐', group: 'Marketing' },
+  // ── Advanced ──
+  { key: 'B2B',            label: 'B2B Marketplace',         description: 'Supplier ordering & B2B market', icon: '🚛', group: 'Advanced' },
+  { key: 'PARKING',        label: 'Parking Management',      description: 'Parking slots, QR check-in/out', icon: '🅿️', group: 'Advanced' },
+  { key: 'WASTE',          label: 'Waste Management',        description: 'Waste tracking, disposal logs', icon: '🗑️', group: 'Advanced' },
+  // ── Integrations & Communication ──
+  { key: 'WHATSAPP',       label: 'WhatsApp Bot & Alerts',   description: 'Outbound bill notifications & chatbot order entries', icon: '💬', group: 'Integrations' },
+  { key: 'WALKIETALKIE',   label: 'Staff Walkie-Talkie',     description: 'PTT voice communication, channel creation & voice audio', icon: '📡', group: 'Integrations' },
+  { key: 'GEOFENCING',     label: 'Geofenced Attendance',    description: 'GPS attendance auditing & live location tracking', icon: '📍', group: 'Integrations' },
+  { key: 'TIPS',           label: 'Counter Tips & Gratuity', description: 'Staff tip logs, checkout gratuity input & tip reporting', icon: '💵', group: 'Integrations' },
 ];
 
-const FEATURE_GROUPS = ['Core', 'Hospitality', 'Analytics', 'People', 'Marketing', 'Advanced', 'Integrations'];
+const FEATURE_GROUPS = [
+  'Core',
+  'Restaurant & F&B',
+  'Hotel PMS',
+  'Hotel Amenities',
+  'AI & Smart Hotel',
+  'Analytics',
+  'People',
+  'Marketing',
+  'Advanced',
+  'Integrations',
+];
+
+// ─── PACKAGE PRESETS — 1-click package templates ─────────────────────────────
+const PACKAGE_PRESETS = [
+  {
+    label: '🏨 Hotel Starter',
+    color: '#0ea5e9',
+    description: 'Essential hotel operations — front desk, rooms, housekeeping & reports',
+    features: ['HMS', 'HOTEL_ROOMS', 'HOUSEKEEPING', 'NIGHT_AUDIT', 'HOTEL_REPORTS', 'HOTEL_CRM', 'MAINTENANCE'],
+    allowedHotelCount: 1,
+    allowedPosCount: 1,
+    allowedPropertyCount: 1,
+    priceUSD: 49,
+    priceINR: 3999,
+  },
+  {
+    label: '🌟 Hotel & Resort Pro',
+    color: '#8b5cf6',
+    description: 'Full hotel PMS + OTA sync + AI revenue + spa, pool, banquet & room service',
+    features: ['HMS', 'HOTEL_ROOMS', 'CHANNEL_MANAGER', 'REVENUE_AI', 'HOTEL_REPORTS', 'HOUSEKEEPING', 'MAINTENANCE', 'NIGHT_AUDIT', 'HOTEL_CRM', 'SPA_WELLNESS', 'SWIMMING_POOL', 'BANQUET_EVENTS', 'ROOM_SERVICE', 'HOTEL_LAUNDRY', 'LOST_FOUND', 'TRAVEL_AGENTS'],
+    allowedHotelCount: 3,
+    allowedPosCount: 2,
+    allowedPropertyCount: 3,
+    priceUSD: 149,
+    priceINR: 11999,
+  },
+  {
+    label: '👑 All-Inclusive Enterprise',
+    color: '#f59e0b',
+    description: 'Every feature unlocked — hotel + restaurant POS + AI concierge + integrations',
+    features: ALL_FEATURES.map(f => f.key),
+    allowedHotelCount: 10,
+    allowedPosCount: 3,
+    allowedPropertyCount: 10,
+    priceUSD: 299,
+    priceINR: 24999,
+  },
+  {
+    label: '🍽️ Restaurant & Bar POS',
+    color: '#f43f5e',
+    description: 'Core POS, inventory, table management, bar & cafe terminals',
+    features: ['POS', 'INVENTORY', 'ACCOUNTING', 'TABLES', 'TABLETS', 'BARPOS', 'CAFEPOS', 'REPORTS', 'STAFF', 'CRM'],
+    allowedHotelCount: 0,
+    allowedPosCount: 3,
+    allowedPropertyCount: 2,
+    priceUSD: 29,
+    priceINR: 2499,
+  },
+];
 
 // ─── ALL MODULES — every module in the API routes ────────────────────────────
 const ALL_MODULES = [
-  { module: 'orders',          actions: ['read', 'create', 'update', 'delete'], group: 'Operations', feature: 'POS' },
-  { module: 'products',        actions: ['read', 'create', 'update', 'delete'], group: 'Operations', feature: 'POS' },
-  { module: 'categories',      actions: ['read', 'create', 'update', 'delete'], group: 'Operations', feature: 'POS' },
-  { module: 'kots',            actions: ['read', 'create', 'update'],           group: 'Operations', feature: 'POS' },
-  { module: 'tables',          actions: ['read', 'create', 'update', 'delete'], group: 'Operations', feature: 'TABLES' },
-  { module: 'billing',         actions: ['read', 'create'],                     group: 'Operations', feature: 'POS' },
-  { module: 'kitchen display', actions: ['read'],                               group: 'Operations', feature: 'POS' },
-  { module: 'inventory',       actions: ['read', 'create', 'update', 'delete'], group: 'Inventory',  feature: 'INVENTORY' },
-  { module: 'purchases',       actions: ['read', 'create', 'update', 'delete'], group: 'Inventory',  feature: 'INVENTORY' },
-  { module: 'waste',           actions: ['read', 'create', 'update', 'delete'], group: 'Inventory',  feature: 'WASTE' },
-  { module: 'reports',         actions: ['read'],                               group: 'Analytics',  feature: 'REPORTS' },
-  { module: 'gst',             actions: ['read', 'create'],                     group: 'Analytics',  feature: 'GST' },
-  { module: 'payments',        actions: ['read', 'create'],                     group: 'Finance',    feature: 'POS' },
-  { module: 'expenses',        actions: ['read', 'create', 'update', 'delete'], group: 'Finance',    feature: 'ACCOUNTING' },
-  { module: 'accounts',        actions: ['read', 'create', 'update'],           group: 'Finance',    feature: 'ACCOUNTING' },
-  { module: 'vouchers',        actions: ['read', 'create', 'update', 'delete'], group: 'Finance',    feature: 'ACCOUNTING' },
-  { module: 'users',           actions: ['read', 'create', 'update', 'delete'], group: 'People',     feature: 'POS' },
-  { module: 'staff',           actions: ['read', 'create', 'update', 'delete'], group: 'People',     feature: 'STAFF' },
-  { module: 'drivers',         actions: ['read', 'create', 'update', 'delete'], group: 'People',     feature: 'DRIVERS' },
-  { module: 'guests',          actions: ['read', 'create', 'update'],           group: 'People',     feature: 'CRM' },
-  { module: 'customers',       actions: ['read', 'create', 'update', 'delete'], group: 'People',     feature: 'CRM' },
-  { module: 'memberships',     actions: ['read', 'create', 'update', 'delete'], group: 'People',     feature: 'CRM' },
-  { module: 'reservations',    actions: ['read', 'create', 'update', 'delete'], group: 'Hospitality',  feature: 'TABLES' },
-  { module: 'rooms',           actions: ['read', 'create', 'update', 'delete'], group: 'Hospitality',  feature: 'HMS' },
-  { module: 'parking',         actions: ['read', 'create', 'update', 'delete'], group: 'Hospitality',  feature: 'PARKING' },
-  { module: 'bar-pos',         actions: ['read', 'create'],                     group: 'Hospitality',  feature: 'BARPOS' },
-  { module: 'cafe-pos',        actions: ['read', 'create'],                     group: 'Hospitality',  feature: 'CAFEPOS' },
-  { module: 'settings',        actions: ['read', 'update'],                     group: 'System',     feature: 'POS' },
-  { module: 'website',         actions: ['read', 'create', 'update', 'delete'], group: 'System',     feature: 'WEBSITE' },
-  { module: 'b2b',             actions: ['read', 'create', 'update', 'delete'], group: 'System',     feature: 'B2B' },
-  { module: 'walkie-talkie',   actions: ['read', 'create', 'update', 'delete'], group: 'System',     feature: 'WALKIETALKIE' },
-  { module: 'whatsapp',        actions: ['read', 'update'],                     group: 'System',     feature: 'WHATSAPP' },
-  { module: 'geofencing',      actions: ['read', 'update'],                     group: 'People',     feature: 'GEOFENCING' },
-  { module: 'tips',            actions: ['read'],                               group: 'Operations', feature: 'TIPS' },
+  // Operations (POS)
+  { module: 'orders',              actions: ['read', 'create', 'update', 'delete'], group: 'Operations',       feature: 'POS' },
+  { module: 'products',            actions: ['read', 'create', 'update', 'delete'], group: 'Operations',       feature: 'POS' },
+  { module: 'categories',          actions: ['read', 'create', 'update', 'delete'], group: 'Operations',       feature: 'POS' },
+  { module: 'kots',                actions: ['read', 'create', 'update'],           group: 'Operations',       feature: 'POS' },
+  { module: 'tables',              actions: ['read', 'create', 'update', 'delete'], group: 'Operations',       feature: 'TABLES' },
+  { module: 'billing',             actions: ['read', 'create'],                     group: 'Operations',       feature: 'POS' },
+  { module: 'kitchen display',     actions: ['read'],                               group: 'Operations',       feature: 'POS' },
+  { module: 'tips',                actions: ['read'],                               group: 'Operations',       feature: 'TIPS' },
+  // Inventory
+  { module: 'inventory',           actions: ['read', 'create', 'update', 'delete'], group: 'Inventory',        feature: 'INVENTORY' },
+  { module: 'purchases',           actions: ['read', 'create', 'update', 'delete'], group: 'Inventory',        feature: 'INVENTORY' },
+  { module: 'waste',               actions: ['read', 'create', 'update', 'delete'], group: 'Inventory',        feature: 'WASTE' },
+  // Finance
+  { module: 'payments',            actions: ['read', 'create'],                     group: 'Finance',          feature: 'POS' },
+  { module: 'expenses',            actions: ['read', 'create', 'update', 'delete'], group: 'Finance',          feature: 'ACCOUNTING' },
+  { module: 'accounts',            actions: ['read', 'create', 'update'],           group: 'Finance',          feature: 'ACCOUNTING' },
+  { module: 'vouchers',            actions: ['read', 'create', 'update', 'delete'], group: 'Finance',          feature: 'ACCOUNTING' },
+  // Analytics
+  { module: 'reports',             actions: ['read'],                               group: 'Analytics',        feature: 'REPORTS' },
+  { module: 'gst',                 actions: ['read', 'create'],                     group: 'Analytics',        feature: 'GST' },
+  // People
+  { module: 'users',               actions: ['read', 'create', 'update', 'delete'], group: 'People',           feature: 'POS' },
+  { module: 'staff',               actions: ['read', 'create', 'update', 'delete'], group: 'People',           feature: 'STAFF' },
+  { module: 'drivers',             actions: ['read', 'create', 'update', 'delete'], group: 'People',           feature: 'DRIVERS' },
+  { module: 'guests',              actions: ['read', 'create', 'update'],           group: 'People',           feature: 'CRM' },
+  { module: 'customers',           actions: ['read', 'create', 'update', 'delete'], group: 'People',           feature: 'CRM' },
+  { module: 'memberships',         actions: ['read', 'create', 'update', 'delete'], group: 'People',           feature: 'CRM' },
+  { module: 'geofencing',          actions: ['read', 'update'],                     group: 'People',           feature: 'GEOFENCING' },
+  // Restaurant & Bar
+  { module: 'reservations',        actions: ['read', 'create', 'update', 'delete'], group: 'Restaurant',       feature: 'TABLES' },
+  { module: 'bar-pos',             actions: ['read', 'create'],                     group: 'Restaurant',       feature: 'BARPOS' },
+  { module: 'cafe-pos',            actions: ['read', 'create'],                     group: 'Restaurant',       feature: 'CAFEPOS' },
+  // Hotel PMS Core
+  { module: 'hotel-bookings',      actions: ['read', 'create', 'update', 'delete'], group: 'Hotel PMS',        feature: 'HMS' },
+  { module: 'hotel-checkin',       actions: ['read', 'create', 'update'],           group: 'Hotel PMS',        feature: 'HMS' },
+  { module: 'hotel-folio',         actions: ['read', 'create', 'update'],           group: 'Hotel PMS',        feature: 'HMS' },
+  { module: 'room-board',          actions: ['read', 'update'],                     group: 'Hotel PMS',        feature: 'HOTEL_ROOMS' },
+  { module: 'channel-manager',     actions: ['read', 'create', 'update', 'delete'], group: 'Hotel PMS',        feature: 'CHANNEL_MANAGER' },
+  { module: 'revenue-management',  actions: ['read', 'create', 'update', 'delete'], group: 'Hotel PMS',        feature: 'REVENUE_AI' },
+  { module: 'hotel-analytics',     actions: ['read'],                               group: 'Hotel PMS',        feature: 'HOTEL_REPORTS' },
+  { module: 'housekeeping',        actions: ['read', 'create', 'update', 'delete'], group: 'Hotel PMS',        feature: 'HOUSEKEEPING' },
+  { module: 'maintenance',         actions: ['read', 'create', 'update', 'delete'], group: 'Hotel PMS',        feature: 'MAINTENANCE' },
+  { module: 'night-audit',         actions: ['read', 'create', 'update'],           group: 'Hotel PMS',        feature: 'NIGHT_AUDIT' },
+  { module: 'hotel-crm',           actions: ['read', 'create', 'update', 'delete'], group: 'Hotel PMS',        feature: 'HOTEL_CRM' },
+  // Hotel Amenities
+  { module: 'spa',                 actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'SPA_WELLNESS' },
+  { module: 'pool',                actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'SWIMMING_POOL' },
+  { module: 'banquet',             actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'BANQUET_EVENTS' },
+  { module: 'room-service',        actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'ROOM_SERVICE' },
+  { module: 'live-music',          actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'LIVE_MUSIC' },
+  { module: 'laundry',             actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'HOTEL_LAUNDRY' },
+  { module: 'lost-found',          actions: ['read', 'create', 'update', 'delete'], group: 'Hotel Amenities',  feature: 'LOST_FOUND' },
+  // AI & Smart Hotel
+  { module: 'ai-concierge',        actions: ['read', 'create', 'update'],           group: 'AI & Smart Hotel', feature: 'AI_CONCIERGE' },
+  { module: 'travel-agents',       actions: ['read', 'create', 'update', 'delete'], group: 'AI & Smart Hotel', feature: 'TRAVEL_AGENTS' },
+  // Advanced & System
+  { module: 'parking',             actions: ['read', 'create', 'update', 'delete'], group: 'Advanced',         feature: 'PARKING' },
+  { module: 'b2b',                 actions: ['read', 'create', 'update', 'delete'], group: 'Advanced',         feature: 'B2B' },
+  { module: 'settings',            actions: ['read', 'update'],                     group: 'System',           feature: 'POS' },
+  { module: 'website',             actions: ['read', 'create', 'update', 'delete'], group: 'System',           feature: 'WEBSITE' },
+  { module: 'walkie-talkie',       actions: ['read', 'create', 'update', 'delete'], group: 'System',           feature: 'WALKIETALKIE' },
+  { module: 'whatsapp',            actions: ['read', 'update'],                     group: 'System',           feature: 'WHATSAPP' },
 ];
 
-const MODULE_GROUPS = ['Operations', 'Inventory', 'Analytics', 'Finance', 'People', 'Hospitality', 'System'];
+const MODULE_GROUPS = ['Operations', 'Inventory', 'Finance', 'Analytics', 'People', 'Restaurant', 'Hotel PMS', 'Hotel Amenities', 'AI & Smart Hotel', 'Advanced', 'System'];
 
 const ACCENT_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b',
@@ -486,6 +594,53 @@ function PackageFormModal({
           {/* ── STEP 0: Basic Info ─────────────────────────────── */}
           {step === 0 && (
             <div className="space-y-5">
+
+              {/* 1-Click Presets */}
+              {!editing && (
+                <div className="rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 p-4">
+                  <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <Sparkles size={11} /> 1-Click Package Presets
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PACKAGE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setForm({
+                          name: preset.label.replace(/^[^\s]+\s/, ''), // strip emoji
+                          description: preset.description,
+                          color: preset.color,
+                          features: preset.features,
+                          allowedHotelCount: preset.allowedHotelCount,
+                          allowedPosCount: preset.allowedPosCount,
+                          allowedPropertyCount: preset.allowedPropertyCount,
+                          priceUSD: preset.priceUSD,
+                          priceINR: preset.priceINR,
+                          discountPercent: 0,
+                          isActive: true,
+                          permissions: [],
+                        })}
+                        className="flex items-start gap-2 p-3 rounded-xl border-2 text-left transition-all hover:scale-[1.02] active:scale-100"
+                        style={{ borderColor: `${preset.color}50`, background: `${preset.color}10` }}
+                      >
+                        <span className="text-lg leading-none mt-0.5">{preset.label.split(' ')[0]}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black truncate" style={{ color: preset.color }}>
+                            {preset.label.replace(/^[^\s]+\s/, '')}
+                          </p>
+                          <p className="text-[9px] text-slate-400 mt-0.5 line-clamp-1">{preset.description}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[9px] font-black" style={{ color: preset.color }}>${preset.priceUSD}/mo</span>
+                            <span className="text-[9px] text-slate-400">{preset.features.length} features</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-slate-400 mt-2 italic">Preset apply karne ke baad aap koi bhi field edit kar sakte hain</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Package Name *</label>
                 <input
@@ -1179,6 +1334,7 @@ function AssignPackageModal({
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPkg, setEditingPkg] = useState<Pkg | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
@@ -1193,14 +1349,40 @@ export default function PackagesPage() {
 
   const fetchPackages = useCallback(async () => {
     setLoading(true);
+    setUnauthorized(false);
     const res = await fetch('/api/admin/packages').then((r) => r.json());
-    if (res.success) setPackages(res.data);
+    if (res.success) {
+      setPackages(res.data);
+    } else if (res.error === 'Unauthorized') {
+      setUnauthorized(true);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchPackages();
   }, [fetchPackages]);
+
+  // ── Unauthorized Screen ───────────────────────────────────────────────────────
+  if (!loading && unauthorized) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+        <div className="w-24 h-24 rounded-3xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center mb-6 shadow-xl">
+          <ShieldCheck size={40} className="text-rose-400" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Access Denied</h2>
+        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mb-6">
+          Aapke paas yeh page dekhne ki permission nahi hai.<br />
+          <strong className="text-slate-700 dark:text-slate-300">Super Admin</strong> account se login karein.
+        </p>
+        <a href="/login"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-white text-sm font-bold shadow-lg"
+          style={{ backgroundColor: '#e8a0a0', boxShadow: '0 4px 14px #e8a0a040' }}>
+          Login as Super Admin
+        </a>
+      </div>
+    );
+  }
 
   const handleSave = async (form: ReturnType<typeof emptyForm>) => {
     const isEdit = !!editingPkg;

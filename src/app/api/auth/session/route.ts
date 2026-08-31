@@ -10,16 +10,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch latest permissions directly from DB so changes take effect without relogging
-    const roleWithPerms = await prisma.role.findUnique({
-      where: { id: session.roleId },
-      include: {
-        rolePermissions: {
-          include: { permission: true }
+    const [roleWithPerms, dbUser] = await Promise.all([
+      prisma.role.findUnique({
+        where: { id: session.roleId },
+        include: {
+          rolePermissions: {
+            include: { permission: true }
+          }
         }
-      }
-    });
+      }),
+      prisma.user.findUnique({
+        where: { id: session.id },
+        select: {
+          staffMember: { select: { designation: true } }
+        }
+      })
+    ]);
 
     const latestPermissions = roleWithPerms?.rolePermissions.map((rp: any) => rp.permission.module) || [];
+    const designation = dbUser?.staffMember?.designation || null;
 
     // Fetch latest package features live from DB
     let packageFeatures: string[] = [];
@@ -74,6 +83,7 @@ export async function GET(request: NextRequest) {
         propertyCode,
         propertySlug,
         propertyType,
+        designation,
       },
       // Also expose at top level for usePackage hook
       packageFeatures,

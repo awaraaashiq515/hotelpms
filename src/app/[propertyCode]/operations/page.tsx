@@ -315,7 +315,7 @@ export default function OperationsPage() {
   if (loading) return null;
 
   const role = session?.role;
-  const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN' || role === 'POSSYSTEM';
+  const isAdmin = role === 'RESTAURANTS_ADMIN' || role === 'SUPER_ADMIN' || role === 'POSSYSTEM' || role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER';
 
   const hasPermission = (perm?: string) => {
     if (!perm || isAdmin) return true;
@@ -325,7 +325,7 @@ export default function OperationsPage() {
   const hasFeature = (feature?: string) => {
     if (role === 'SUPER_ADMIN') return true;
     if (!feature) return true;
-    const isCrmBypass = feature === 'CRM' && (role === 'RESTAURANTS_ADMIN' || role === 'POSSYSTEM');
+    const isCrmBypass = feature === 'CRM' && (role === 'RESTAURANTS_ADMIN' || role === 'POSSYSTEM' || role === 'HOTEL_ADMIN');
     return isCrmBypass || session?.packageFeatures?.includes(feature);
   };
 
@@ -433,7 +433,8 @@ export default function OperationsPage() {
   ];
 
   const isVisible = (a: DashboardAction) => {
-    const hasCorrectRole = !a.roles || a.roles.includes(session?.role);
+    const isHotelAdmin = session?.role === 'HOTEL_ADMIN' || session?.role === 'HOTEL_MANAGER';
+    const hasCorrectRole = !a.roles || a.roles.includes(session?.role) || (isHotelAdmin && (a.roles.includes('RESTAURANTS_ADMIN') || a.roles.includes('POSSYSTEM')));
     if (!hasCorrectRole) return false;
     const hasCorrectFeature = hasFeature(a.feature);
     if (!hasCorrectFeature) return false;

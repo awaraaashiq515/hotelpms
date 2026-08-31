@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Lock, Mail, Eye, EyeOff, ArrowRight, Shield, RefreshCcw, Bluetooth, Sparkles
+  Lock, Mail, Eye, EyeOff, ArrowRight, Shield, RefreshCcw, Bluetooth, Sparkles, Handshake
 } from 'lucide-react';
 import { authApi } from '@/lib/api/auth';
 import { APIError } from '@/lib/api/client';
@@ -145,7 +145,9 @@ export default function LoginPage() {
           const slug = data.user.organizationSlug;
           router.push(slug ? `/restaurantadmin/${slug}` : '/hotel');
         }
-      } else if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || isHotelRole || isHotelProperty) {
+      } else if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || isHotelRole) {
+        // ↑ IMPORTANT: Only route to /hotel for actual HOTEL admin/manager roles
+        // Do NOT include isHotelProperty here — Waiter/Staff also have HOTEL property type
         router.push('/hotel');
       } else if (role === 'B2B_SUPPLIER') {
         const propCode = data.user.propertyCode;
@@ -154,9 +156,23 @@ export default function LoginPage() {
         router.push('/transport-portal/dashboard');
       } else if (role === 'SINGER') {
         router.push('/singer-portal/dashboard');
-      } else {
+      } else if (
+        role.toLowerCase().includes('housekeeper') || 
+        role.toLowerCase().includes('housekeeping') || 
+        (data.user.designation && (
+          data.user.designation.toLowerCase().includes('housekeeper') || 
+          data.user.designation.toLowerCase().includes('housekeeping')
+        ))
+      ) {
+        const propCode = data.user.propertyCode?.toLowerCase();
+        router.push(propCode ? `/housekeeper-portal/${propCode}` : '/housekeeper-portal');
+      } else if (role === 'POSSYSTEM') {
         const propCode = data.user.propertyCode;
-        router.push(propCode ? `/${propCode}/operations` : '/staff-portal');
+        router.push(propCode ? `/${propCode}/operations` : '/operations');
+      } else {
+        // All other roles (Waiter, Cook, Staff, etc.) → staff-portal
+        const propCode = data.user.propertyCode?.toLowerCase();
+        router.push(propCode ? `/staff-portal/${propCode}` : '/staff-portal');
       }
     } else {
       const singerToken = localStorage.getItem('singer_token');
@@ -194,7 +210,29 @@ export default function LoginPage() {
           return;
         }
       } catch (_) {
-        // Singer auth failed — continue to standard login
+        // Singer auth failed — continue to next
+      }
+
+      // ── STEP 1.5: Try Travel Agent login (TravelAgent is in a separate table) ──
+      try {
+        const agentRes = await fetch('/api/agent-portal/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const agentData = await agentRes.json();
+
+        if (agentData.success && agentData.data) {
+          localStorage.setItem('agent_info', JSON.stringify(agentData.data));
+          if (agentData.stats) {
+            localStorage.setItem('agent_stats', JSON.stringify(agentData.stats));
+          }
+          router.push('/agent-portal');
+          router.refresh();
+          return;
+        }
+      } catch (_) {
+        // Agent auth failed — continue to standard login
       }
 
       // ── STEP 2: Standard Login (Hotel Owner, Driver, Supplier, Staff etc.) ──
@@ -328,7 +366,9 @@ export default function LoginPage() {
         {error && (
           <div className="mb-6 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-start gap-3 text-rose-300 text-sm font-medium">
             <Shield size={18} className="text-rose-400 shrink-0 mt-0.5" />
-            <div className="flex-1">{error}</div>
+            <div className="flex-1">
+              {typeof error === 'string' ? error : JSON.stringify(error)}
+            </div>
           </div>
         )}
 
@@ -506,7 +546,7 @@ export default function LoginPage() {
         )}
 
         {/* Standard "Create Account" Link below Sign In */}
-        <div className="mt-8 pt-6 border-t border-white/10 text-center text-sm text-slate-400">
+        <div className="mt-6 pt-5 border-t border-white/10 text-center text-sm text-slate-400">
           Don't have an account?{' '}
           <button
             type="button"
@@ -514,6 +554,20 @@ export default function LoginPage() {
             className="font-bold text-rose-400 hover:text-rose-300 transition-colors"
           >
             Create one now
+          </button>
+        </div>
+
+        {/* Agent Portal Link */}
+        <div className="mt-3">
+          <button
+            type="button"
+            id="agent-portal-login-btn"
+            onClick={() => router.push('/agent-portal')}
+            className="w-full flex items-center justify-center gap-2.5 py-3 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 hover:border-violet-500/50 text-violet-300 text-sm font-bold transition-all duration-200 group"
+          >
+            <Handshake size={16} className="text-violet-400 group-hover:scale-110 transition-transform" />
+            Travel Agent? Login here
+            <ArrowRight size={14} className="text-violet-500 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
       </div>

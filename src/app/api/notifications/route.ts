@@ -6,8 +6,14 @@ import { getSession } from '@/lib/session';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !session.propertyId) {
+    if (!session) {
       return apiError(new Error('Unauthorized'), 401);
+    }
+
+    // If user has no propertyId yet (hotel admin without a linked property),
+    // return empty list gracefully instead of 401 to avoid console errors.
+    if (!session.propertyId) {
+      return apiResponse([], 'No property linked');
     }
 
     const { searchParams } = new URL(request.url);
