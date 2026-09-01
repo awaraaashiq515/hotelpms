@@ -7,7 +7,7 @@
     "dev": "concurrently \"next dev --webpack\" \"npx tsx src/scripts/walkie-talkie-socket.ts\"",
     "build": "npx prisma generate && cross-env NODE_OPTIONS='--max-old-space-size=2048' next build",
     "export": "next build && next export",
-    "start": "concurrently \"next start\" \"npx tsx src/scripts/walkie-talkie-socket.ts\"",
+    "start": "concurrently \"next start\" \"WALKIE_PORT=5005 npx tsx src/scripts/walkie-talkie-socket.ts\"",
     "lint": "eslint",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && electron .\"",
     "electron-build": "npm run build && electron-builder",

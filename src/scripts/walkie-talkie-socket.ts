@@ -9,7 +9,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') })
 import { prisma } from '../lib/prisma'
 import { verifyWTToken } from '../lib/walkie-talkie-auth'
 
-const PORT = parseInt(process.env.PORT || '5005', 10)
+const PORT = parseInt(process.env.WALKIE_PORT || '5005', 10)
 
 const httpServer = createServer((req, res) => {
   // Support local Next.js REST API route broadcasts
