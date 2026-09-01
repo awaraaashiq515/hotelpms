@@ -1,0 +1,8 @@
+[phases.build]
+cmds = [
+  "npx prisma generate",
+  "cross-env NODE_OPTIONS='--max-old-space-size=2048' next build"
+]
+
+[start]
+cmd = "concurrently \"next start\" \"WALKIE_PORT=5005 npx tsx src/scripts/walkie-talkie-socket.ts\""
