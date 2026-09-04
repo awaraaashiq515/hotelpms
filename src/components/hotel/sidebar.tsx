@@ -51,6 +51,8 @@ import {
   Tag,
   UtensilsCrossed,
   Handshake,
+  Heart,
+  BookOpen,
 } from 'lucide-react';
 
 interface NavItem {
@@ -107,7 +109,7 @@ const NAV_GROUPS: NavGroup[] = [
     color: 'text-violet-400',
     items: [
       { name: 'Rooms & Types',      path: '/hotel/rooms',           icon: Bed },
-      { name: 'Room Status Board',  path: '/hotel/rooms/board',     icon: MapPin },
+      { name: 'Room Status Board',  path: '/hotel/rooms?tab=board', icon: MapPin },
     ],
   },
   {
@@ -151,7 +153,14 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Folios & Billing',   path: '/hotel/billing',          icon: Receipt },
       { name: 'Invoices',           path: '/hotel/billing/invoices', icon: ScrollText },
       { name: 'Night Audit',        path: '/hotel/night-audit',      icon: Moon },
-      { name: 'Expenses',           path: '/hotel/billing/expenses', icon: Banknote },
+      { name: 'Expenses',           path: '/hotel/expenses',         icon: Banknote },
+      { name: 'Accounting Hub',     path: '/hotel/accounts',         icon: BookOpen },
+      { name: 'Cash Book',          path: '/hotel/accounts/cash-book', icon: Banknote },
+      { name: 'Day Book',           path: '/hotel/accounts/day-book', icon: BookOpen },
+      { name: 'Ledger',             path: '/hotel/accounts/ledger',   icon: BookOpen },
+      { name: 'Vouchers',           path: '/hotel/vouchers',          icon: Receipt },
+      { name: 'New Voucher',        path: '/hotel/vouchers/new',      icon: PlusCircle },
+      { name: 'Add New Expense',    path: '/hotel/expenses/new',     icon: PlusCircle },
       { name: 'Payroll',            path: '/hotel/payroll',          icon: IndianRupee },
     ],
   },

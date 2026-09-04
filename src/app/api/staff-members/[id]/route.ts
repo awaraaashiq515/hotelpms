@@ -18,6 +18,8 @@ const staffSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   password: z.string().min(6).optional().or(z.literal('')),
   propertyId: z.string().optional().or(z.literal('')),
+  upiId: z.string().optional().or(z.literal('')),
+  upiName: z.string().optional().or(z.literal('')),
 });
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -142,7 +144,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
           shiftHours: parsedData.shiftHours !== undefined ? Number(parsedData.shiftHours) : undefined,
           propertyId: targetPropertyId,
-          userId: targetUserId
+          userId: targetUserId,
+          upiId: parsedData.upiId !== undefined ? (parsedData.upiId || null) : undefined,
+          upiName: parsedData.upiName !== undefined ? (parsedData.upiName || null) : undefined,
         },
         include: {
           user: {

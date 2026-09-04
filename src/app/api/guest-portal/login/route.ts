@@ -28,17 +28,24 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Match all guests by full name (case-insensitive)
+    // Match all guests by Name, Email, or Phone (case-insensitive)
     const matchingGuests = allGuests.filter((g: any) => {
       const fullName = `${g.firstName}${g.lastName ? ' ' + g.lastName : ''}`.trim().toLowerCase();
       const firstOnly = g.firstName.trim().toLowerCase();
-      return fullName === trimmedName || firstOnly === trimmedName;
+      const emailMatch = g.email ? g.email.trim().toLowerCase() === trimmedName : false;
+      const cleanInput = trimmedName.replace(/\D/g, '');
+      const cleanMobile = g.mobile ? g.mobile.replace(/\D/g, '') : '';
+      const phoneMatch = cleanInput.length >= 10 && cleanMobile.length >= 10
+        ? cleanMobile.slice(-10) === cleanInput.slice(-10)
+        : (g.mobile ? g.mobile.trim() === trimmedName : false);
+
+      return fullName === trimmedName || firstOnly === trimmedName || emailMatch || phoneMatch;
     });
 
     if (matchingGuests.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'No guest found with that name. Please enter the exact name used when booking.'
+        message: 'No guest found with that name, email, or phone. Please enter the details used during booking.'
       }, { status: 401 });
     }
 

@@ -34,6 +34,7 @@ const paymentModes = [
   { value: 'UPI', label: 'UPI', icon: <Smartphone size={14} /> },
   { value: 'BANK_TRANSFER', label: 'Bank Transfer', icon: <Building2 size={14} /> },
   { value: 'ONLINE', label: 'Online', icon: <Globe size={14} /> },
+  { value: 'SPLIT', label: 'Split (Cash + Online)', icon: <Wallet size={14} /> },
 ];
 
 const GST_RATES = [0, 5, 12, 18, 28];
@@ -55,6 +56,11 @@ function CheckoutDetailContent() {
   // Payment form state
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState('CASH');
+
+  // Split payment breakdown state
+  const [splitCash, setSplitCash] = useState('');
+  const [splitOnline, setSplitOnline] = useState('');
+  const [splitOnlineMethod, setSplitOnlineMethod] = useState<'UPI' | 'CARD' | 'BANK_TRANSFER' | 'ONLINE'>('UPI');
 
   // GST state
   const [gstRate, setGstRate] = useState(0);
@@ -202,6 +208,11 @@ function CheckoutDetailContent() {
   const handleCheckout = async () => {
     if (!folio || !checkInId) return;
 
+    const isSplit = paymentMode === 'SPLIT';
+    const splitCashNum = Number(splitCash || 0);
+    const splitOnlineNum = Number(splitOnline || 0);
+    const finalAmount = isSplit ? splitCashNum + splitOnlineNum : Number(paymentAmount || 0);
+
     setSubmitting(true);
     try {
       const res = await fetch('/api/hotel/checkout', {
@@ -209,8 +220,13 @@ function CheckoutDetailContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           checkInId, // use URL param directly — most reliable
-          paymentAmount: Number(paymentAmount || 0),
+          paymentAmount: finalAmount,
           paymentMode,
+          splitPayment: isSplit ? {
+            cashAmount: splitCashNum,
+            onlineAmount: splitOnlineNum,
+            onlineMethod: splitOnlineMethod,
+          } : undefined,
         }),
       });
       const data = await res.json();
@@ -688,15 +704,23 @@ function CheckoutDetailContent() {
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
                   Payment Mode
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {paymentModes.map((mode) => (
                     <button
                       key={mode.value}
                       type="button"
-                      onClick={() => setPaymentMode(mode.value)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      onClick={() => {
+                        setPaymentMode(mode.value);
+                        if (mode.value === 'SPLIT' && (!splitCash && !splitOnline)) {
+                          const due = dueBalance;
+                          const half = Math.floor(due / 2);
+                          setSplitCash(half.toString());
+                          setSplitOnline((due - half).toString());
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                         paymentMode === mode.value
-                          ? 'bg-orange-500/20 border border-orange-500/40 text-orange-300'
+                          ? 'bg-orange-500/20 border border-orange-500/40 text-orange-300 shadow-md shadow-orange-950/40'
                           : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
                       }`}
                     >
@@ -706,8 +730,8 @@ function CheckoutDetailContent() {
                 </div>
               </div>
 
-              {/* Amount */}
-              {dueBalance > 0 && (
+              {/* Standard Single Mode Amount */}
+              {paymentMode !== 'SPLIT' && dueBalance > 0 && (
                 <div className="mb-5">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
                     Amount to Collect (₹)
@@ -729,6 +753,186 @@ function CheckoutDetailContent() {
                   >
                     Set full balance: {fmt(dueBalance)}
                   </button>
+                </div>
+              )}
+
+              {/* Split (Cash + Online) Section */}
+              {paymentMode === 'SPLIT' && (
+                <div className="mb-5 p-4 rounded-2xl bg-gradient-to-b from-orange-950/20 via-slate-900/60 to-slate-900/90 border border-orange-500/30 space-y-4">
+                  <div className="flex items-center justify-between border-b border-orange-500/20 pb-2.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-orange-300 flex items-center gap-1.5">
+                      <Wallet size={14} /> Split Payment (Cash + Online)
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      Balance Due: <strong className="text-white">{fmt(dueBalance)}</strong>
+                    </span>
+                  </div>
+
+                  {/* Cash input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                        <Banknote size={12} /> Cash Received (₹)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentOnline = Number(splitOnline || 0);
+                          setSplitCash(Math.max(0, dueBalance - currentOnline).toString());
+                        }}
+                        className="text-[9px] text-amber-400 hover:text-amber-300 font-bold underline"
+                      >
+                        Auto-fill remaining
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 font-black text-xs">₹</span>
+                      <input
+                        type="number"
+                        value={splitCash}
+                        onChange={(e) => setSplitCash(e.target.value)}
+                        min={0}
+                        placeholder="0"
+                        className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-amber-200 font-mono font-black text-base focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Online / Digital input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1">
+                        <Smartphone size={12} /> Online / Digital Received (₹)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentCash = Number(splitCash || 0);
+                          setSplitOnline(Math.max(0, dueBalance - currentCash).toString());
+                        }}
+                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold underline"
+                      >
+                        Auto-fill remaining
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-black text-xs">₹</span>
+                      <input
+                        type="number"
+                        value={splitOnline}
+                        onChange={(e) => setSplitOnline(e.target.value)}
+                        min={0}
+                        placeholder="0"
+                        className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/30 text-cyan-200 font-mono font-black text-base focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Online Method Sub-Type */}
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Online Payment Sub-Method
+                    </label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { id: 'UPI', label: 'UPI' },
+                        { id: 'CARD', label: 'Card' },
+                        { id: 'BANK_TRANSFER', label: 'Bank' },
+                        { id: 'ONLINE', label: 'Gateway' },
+                      ].map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setSplitOnlineMethod(m.id as any)}
+                          className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                            splitOnlineMethod === m.id
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                              : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-slate-700/30'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Calculation & Validation Live Summary */}
+                  {(() => {
+                    const cashN = Number(splitCash || 0);
+                    const onlineN = Number(splitOnline || 0);
+                    const totalSplit = cashN + onlineN;
+                    const diff = dueBalance - totalSplit;
+
+                    return (
+                      <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5 text-xs">
+                        <div className="flex justify-between text-slate-400 text-[11px]">
+                          <span>💵 Cash Collected:</span>
+                          <span className="font-bold text-amber-300">₹{cashN.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-400 text-[11px]">
+                          <span>📱 {splitOnlineMethod} Collected:</span>
+                          <span className="font-bold text-cyan-300">₹{onlineN.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="h-px bg-slate-800 my-1" />
+                        <div className="flex justify-between text-xs font-black">
+                          <span className="text-white">Total Split Collected:</span>
+                          <span className="text-orange-400 font-mono">₹{totalSplit.toLocaleString('en-IN')}</span>
+                        </div>
+
+                        {/* Match Status Badge */}
+                        <div className="pt-1 text-[10px]">
+                          {diff === 0 && dueBalance > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-400 font-black">
+                              <CheckCircle2 size={11} /> Exact Match with Due Balance ({fmt(dueBalance)})
+                            </span>
+                          ) : diff > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-amber-400 font-bold">
+                              <AlertTriangle size={11} /> ₹{diff.toLocaleString('en-IN')} remaining balance
+                            </span>
+                          ) : diff < 0 ? (
+                            <span className="inline-flex items-center gap-1 text-sky-400 font-bold">
+                              ₹{(-diff).toLocaleString('en-IN')} excess / change to return
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex gap-1.5 pt-1.5 border-t border-slate-800/80">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const half = Math.floor(dueBalance / 2);
+                              setSplitCash(half.toString());
+                              setSplitOnline((dueBalance - half).toString());
+                            }}
+                            className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[9px] font-bold text-slate-300 transition-colors"
+                          >
+                            50% Cash / 50% Online
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSplitCash('0');
+                              setSplitOnline(dueBalance.toString());
+                            }}
+                            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[9px] font-bold text-cyan-300 transition-colors"
+                          >
+                            100% Online
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSplitCash(dueBalance.toString());
+                              setSplitOnline('0');
+                            }}
+                            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[9px] font-bold text-amber-300 transition-colors"
+                          >
+                            100% Cash
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

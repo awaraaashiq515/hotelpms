@@ -55,38 +55,47 @@ export async function GET(request: NextRequest) {
           include: { product: { select: { name: true, isVeg: true } } }
         },
         guest: { select: { firstName: true, lastName: true } },
+        staffMember: true,
+        servedBy: { include: { staffMember: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     // Shape response into RoomServiceOrder format
-    const shaped = orders.map((o: any) => ({
-      id: o.id,
-      orderNo: o.orderNo || o.id.slice(-6).toUpperCase(),
-      roomNumber: extractRoomFromInstructions(o.deliveryInstructions, o.tableNo),
-      guestName: o.guest ? `${o.guest.firstName} ${o.guest.lastName || ''}`.trim() : null,
-      orderType: o.orderType || 'ROOM_SERVICE',
-      tableNo: o.tableNo || null,
-      deliveryInstructions: o.deliveryInstructions || null,
-      status: o.status || 'PENDING',
-      items: (o.items || []).map((item: any) => ({
-        id: item.id,
-        productId: item.productId,
-        name: item.product?.name || item.name || 'Item',
-        qty: item.quantity,
-        unitPrice: item.unitPrice,
-        lineTotal: item.totalAmount || item.unitPrice * item.quantity,
-        note: item.note,
-      })),
-      subtotal: o.subtotal || 0,
-      taxAmount: o.taxAmount || 0,
-      totalAmount: o.grandTotal || 0,
-      specialNote: extractSpecialNoteFromInstructions(o.deliveryInstructions),
-      postedToFolio: o.folioId != null,
-      folioTxnId: o.folioId,
-      createdAt: o.createdAt,
-      updatedAt: o.updatedAt,
-    }));
+    const shaped = orders.map((o: any) => {
+      const sm = o.staffMember || o.servedBy?.staffMember;
+      return {
+        id: o.id,
+        orderNo: o.orderNo || o.id.slice(-6).toUpperCase(),
+        roomNumber: extractRoomFromInstructions(o.deliveryInstructions, o.tableNo),
+        guestName: o.guest ? `${o.guest.firstName} ${o.guest.lastName || ''}`.trim() : null,
+        orderType: o.orderType || 'ROOM_SERVICE',
+        tableNo: o.tableNo || null,
+        deliveryInstructions: o.deliveryInstructions || null,
+        status: o.status || 'PENDING',
+        items: (o.items || []).map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.product?.name || item.name || 'Item',
+          qty: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.totalAmount || item.unitPrice * item.quantity,
+          note: item.note,
+        })),
+        subtotal: o.subtotal || 0,
+        taxAmount: o.taxAmount || 0,
+        totalAmount: o.grandTotal || 0,
+        specialNote: extractSpecialNoteFromInstructions(o.deliveryInstructions),
+        postedToFolio: o.folioId != null,
+        folioTxnId: o.folioId,
+        staffMember: sm ? { id: sm.id, name: sm.name, designation: sm.designation } : null,
+        servedBy: o.servedBy ? { id: o.servedBy.id, name: o.servedBy.fullName } : null,
+        servedById: o.servedById,
+        staffMemberId: o.staffMemberId || sm?.id || null,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+      };
+    });
 
     return apiResponse(shaped, 'Room service orders fetched');
   } catch (error) {
@@ -112,6 +121,8 @@ export async function POST(request: NextRequest) {
       specialNote = '',
       guestId,
       folioId,         // if postToFolio — pass folioId from room lookup
+      servedById: bodyServedById,
+      staffMemberId: bodyStaffMemberId,
     } = body;
 
     const propertyId = body.propertyId || await resolveAdminProperty(session, prisma);
@@ -120,6 +131,10 @@ export async function POST(request: NextRequest) {
     if (!items || items.length === 0) {
       return apiError(new Error('Items are required'), 400);
     }
+
+    // Resolve server POS User and StaffMember
+    const currentUserId = bodyServedById || session?.id || null;
+    let resolvedStaffMemberId = bodyStaffMemberId || null;
 
     // Build deliveryInstructions string to encode room metadata safely without unmapped fields
     const instructions = [
@@ -141,6 +156,14 @@ export async function POST(request: NextRequest) {
             type: 'RESTAURANT',
           }
         });
+      }
+
+      if (currentUserId && !resolvedStaffMemberId) {
+        const sm = await tx.staffMember.findFirst({
+          where: { userId: currentUserId },
+          select: { id: true }
+        });
+        if (sm) resolvedStaffMemberId = sm.id;
       }
 
       // Auto-resolve Folio if postToFolio is true and no folioId provided
@@ -192,6 +215,8 @@ export async function POST(request: NextRequest) {
           orderType: 'ROOM_SERVICE',
           tableNo: roomNumber ? `Room ${roomNumber}` : undefined,
           status: 'CONFIRMED',
+          servedById: currentUserId,
+          staffMemberId: resolvedStaffMemberId,
           subtotal: Number(subtotal) || 0,
           taxAmount: Number(taxAmount) || 0,
           discountAmount: 0,

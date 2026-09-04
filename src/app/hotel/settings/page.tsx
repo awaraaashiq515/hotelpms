@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, Building2, Clock, Star, Percent, Utensils,
   XCircle, MessageSquare, Phone, Globe, Users, Shield,
-  Save, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Hotel, ExternalLink, Key, Lock,
+  Save, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Hotel, ExternalLink, Key, Lock, Heart, IndianRupee,
 } from 'lucide-react';
 
 interface SettingSection {
@@ -29,6 +29,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'guestportal',   emoji: '🛎️', title: 'Guest Portal Settings', desc: 'Self-service portal for guests to view bookings', color: 'text-emerald-400' },
   { id: 'wifirules',     emoji: '📶', title: 'WiFi & House Rules',    desc: 'WiFi network name, password, and stay timings shown to guests', color: 'text-indigo-400' },
   { id: 'roomcharging',  emoji: '🏨', title: 'Restaurant Room Billing', desc: 'Allow restaurant guests to charge food bill to their hotel room', color: 'text-violet-400' },
+  { id: 'tipping',       emoji: '💝', title: 'Staff Tipping',           desc: 'Allow guests to tip waiters & housekeeping via UPI',           color: 'text-amber-400' },
 ];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -141,6 +142,13 @@ export default function HotelSettingsPage() {
   // Restaurant Room Billing
   const [restaurantRoomChargingEnabled, setRestaurantRoomChargingEnabled] = useState(false);
 
+  // Tipping
+  const [tippingEnabled, setTippingEnabled] = useState(false);
+  const [tippingStaffRoles, setTippingStaffRoles] = useState('Waiter,Housekeeping');
+  const [tippingPresets, setTippingPresets] = useState('10,20,50,100');
+  const [tippingSaving, setTippingSaving] = useState(false);
+  const [tippingSaved, setTippingSaved] = useState(false);
+
   // Fetch settings on mount
   useEffect(() => {
     fetch('/api/setup/properties/current')
@@ -174,6 +182,11 @@ export default function HotelSettingsPage() {
 
           // Load Restaurant Room Billing
           setRestaurantRoomChargingEnabled(p.restaurantRoomChargingEnabled === true);
+
+          // Load Tipping
+          setTippingEnabled(p.tippingEnabled === true);
+          setTippingStaffRoles(p.tippingStaffRoles || 'Waiter,Housekeeping');
+          setTippingPresets(p.tippingPresets || '10,20,50,100');
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -553,6 +566,86 @@ export default function HotelSettingsPage() {
                 <Field label="Checkout Policy"><textarea value={checkoutPolicy} onChange={e => setCheckoutPolicy(e.target.value)} rows={2} placeholder="e.g. Standard checkout time is 11:00 AM. Late checkouts may incur additional charges." className={`${inputClass} resize-none`} /></Field>
               </div>
             </div>
+          </div>
+        </SectionCard>
+
+        {/* Tipping Settings */}
+        <SectionCard section={SECTIONS[12]}>
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-white flex items-center gap-2">
+                  <Heart size={14} className="text-amber-400 fill-amber-400" /> Enable Staff Tipping
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Guests can tip staff via UPI from Guest Portal or QR code</p>
+              </div>
+              <Toggle value={tippingEnabled} onChange={setTippingEnabled} />
+            </div>
+
+            {tippingEnabled && (
+              <>
+                <div className="pt-3 border-t border-slate-800/60 space-y-4">
+                  <Field label="Staff Roles Eligible for Tips" hint="Comma-separated designations e.g. Waiter,Housekeeping,Bartender">
+                    <input
+                      value={tippingStaffRoles}
+                      onChange={e => setTippingStaffRoles(e.target.value)}
+                      placeholder="Waiter,Housekeeping"
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Tip Preset Amounts (₹)" hint="Comma-separated amounts shown as quick-select buttons e.g. 10,20,50,100">
+                    <div className="relative">
+                      <IndianRupee size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        value={tippingPresets}
+                        onChange={e => setTippingPresets(e.target.value)}
+                        placeholder="10,20,50,100"
+                        className={`${inputClass} pl-8`}
+                      />
+                    </div>
+                  </Field>
+
+                  <div className="flex flex-wrap gap-2">
+                    {tippingPresets.split(',').map(p => p.trim()).filter(p => !isNaN(Number(p)) && p).map(p => (
+                      <span key={p} className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-400 text-xs font-black">
+                        ₹{p}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="bg-amber-500/5 border border-amber-500/15 rounded-2xl p-4">
+                    <p className="text-amber-400 text-xs font-bold mb-1">📱 Public QR Tip Link</p>
+                    <p className="text-slate-400 text-[10px] leading-relaxed">
+                      Share this link or print QR for guests to tip without login:<br />
+                      <code className="text-amber-300 font-mono text-[10px]">/tip/[your-property-code]</code>
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      if (!propertyId) return;
+                      setTippingSaving(true);
+                      try {
+                        const res = await fetch('/api/hotel/settings/tipping', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ propertyId, tippingEnabled, tippingStaffRoles, tippingPresets }),
+                        });
+                        const data = await res.json();
+                        if (data.success) { setTippingSaved(true); setTimeout(() => setTippingSaved(false), 2500); }
+                      } finally { setTippingSaving(false); }
+                    }}
+                    disabled={tippingSaving}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all ${
+                      tippingSaved ? 'bg-emerald-600' : 'bg-amber-500 hover:bg-amber-400'
+                    } disabled:opacity-60`}
+                  >
+                    {tippingSaved ? <><CheckCircle2 size={13} /> Saved!</> : <><Save size={13} /> Save Tipping Settings</>}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </SectionCard>
 

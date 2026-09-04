@@ -72,7 +72,7 @@ export default function GuestPortalLogin() {
               {/* Phone */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                  Your Full Name (Username)
+                  Your Name, Email or Mobile Number
                 </label>
                 <div className="relative">
                   <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -81,7 +81,7 @@ export default function GuestPortalLogin() {
                     id="guest-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Rahul Sharma"
+                    placeholder="e.g. sabu@gmail.com or 8580881625"
                     required
                     className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-700 bg-slate-900/70 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600"
                   />

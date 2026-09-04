@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { checkInId, paymentAmount = 0, paymentMode = 'CASH' } = body;
+    const { checkInId, paymentAmount = 0, paymentMode = 'CASH', splitPayment } = body;
 
     if (!checkInId) {
       return apiError(new Error('Check-In ID is required.'), 400);
@@ -73,8 +73,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If a payment was made during checkout, add a CREDIT transaction to folio
-    if (finalAmountPaid > 0) {
+    // If a payment was made during checkout, add CREDIT transaction(s) to folio
+    if (paymentMode === 'SPLIT' && splitPayment) {
+      const cashAmt = Number(splitPayment.cashAmount || 0);
+      const onlineAmt = Number(splitPayment.onlineAmount || 0);
+      const onlineMethod = splitPayment.onlineMethod || 'Online';
+
+      if (cashAmt > 0) {
+        await prisma.folioTransaction.create({
+          data: {
+            folioId: folio.id,
+            txnType: 'CREDIT',
+            sourceModule: 'HMS',
+            description: `Checkout Settlement (Cash): ₹${cashAmt.toLocaleString('en-IN')}`,
+            debitAmount: 0,
+            creditAmount: cashAmt,
+            netAmount: -cashAmt,
+          }
+        });
+      }
+
+      if (onlineAmt > 0) {
+        await prisma.folioTransaction.create({
+          data: {
+            folioId: folio.id,
+            txnType: 'CREDIT',
+            sourceModule: 'HMS',
+            description: `Checkout Settlement (${onlineMethod}): ₹${onlineAmt.toLocaleString('en-IN')}`,
+            debitAmount: 0,
+            creditAmount: onlineAmt,
+            netAmount: -onlineAmt,
+          }
+        });
+      }
+    } else if (finalAmountPaid > 0) {
       await prisma.folioTransaction.create({
         data: {
           folioId: folio.id,

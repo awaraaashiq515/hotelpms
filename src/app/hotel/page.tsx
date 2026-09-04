@@ -7,7 +7,7 @@ import {
   TrendingUp, Globe, BarChart3, MapPin, BrushIcon, Wrench, Cpu, Shirt,
   Package, Building2, ChefHat, Receipt, Moon, Banknote,
   IndianRupee, Users, Crown, Brain, Wifi, Shield, Settings,
-  ChevronDown, Hotel, LayoutGrid, Star, Handshake,
+  ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 
@@ -68,7 +68,6 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-violet-500/40',
     modules: [
       { name: 'Rooms & Types',         href: '/hotel/rooms',        icon: Bed       },
-      { name: 'Room Status Board',     href: '/hotel/rooms/board',  icon: MapPin    },
       { name: 'Housekeeping Console',  href: '/hotel/housekeeping', icon: BrushIcon },
       { name: 'Maintenance Control',   href: '/hotel/maintenance',  icon: Wrench    },
       { name: 'Lost & Found Registry', href: '/hotel/lost-found',   icon: MapPin    },
@@ -136,10 +135,17 @@ const DEPARTMENTS = [
       { name: 'Folios & Billing',    href: '/hotel/billing',           icon: Receipt     },
       { name: 'Invoices Registry',   href: '/hotel/billing/invoices',  icon: ScrollText  },
       { name: 'Night Audit Console', href: '/hotel/night-audit',       icon: Moon        },
-      { name: 'Expenses Controller', href: '/hotel/billing/expenses',  icon: Banknote    },
+      { name: 'Expenses Controller', href: '/hotel/expenses',          icon: Banknote    },
+      { name: 'Add New Expense',     href: '/hotel/expenses/new',      icon: PlusCircle  },
       { name: 'Payroll Structures',  href: '/hotel/payroll',           icon: IndianRupee },
       { name: 'Inventory & Stock',   href: '/hotel/inventory',         icon: Package     },
       { name: 'Vendor Directory',    href: '/hotel/vendor',            icon: Building2   },
+      { name: 'Accounting Hub',      href: '/hotel/accounts',          icon: BookOpen    },
+      { name: 'Cash Book',           href: '/hotel/accounts/cash-book', icon: Banknote   },
+      { name: 'Day Book',            href: '/hotel/accounts/day-book',  icon: BookOpen   },
+      { name: 'Ledger',              href: '/hotel/accounts/ledger',    icon: BookOpen   },
+      { name: 'Vouchers',            href: '/hotel/vouchers',           icon: Receipt    },
+      { name: 'New Voucher',         href: '/hotel/vouchers/new',       icon: PlusCircle },
     ],
   },
   {

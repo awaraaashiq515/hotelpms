@@ -27,9 +27,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const updatedOrder = await prisma.$transaction(async (tx: any) => {
+      const dataToUpdate: any = { status };
+      if (status === 'SERVED' && session?.id) {
+        dataToUpdate.servedById = session.id;
+        const sm = await tx.staffMember.findFirst({
+          where: { userId: session.id },
+          select: { id: true }
+        });
+        if (sm) {
+          dataToUpdate.staffMemberId = sm.id;
+        }
+      }
+
       const order = await tx.posOrder.update({
         where: { id: id },
-        data: { status }
+        data: dataToUpdate,
       })
 
       if (kotStatusMap[status]) {

@@ -67,20 +67,42 @@ export async function PUT(
     if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { status, driverId, preparationTime, onlinePaymentReference } = body;
+    const { status, driverId, preparationTime, onlinePaymentReference, servedById: bodyServedById, staffMemberId: bodyStaffMemberId } = body;
 
     const existingOrder = await prisma.posOrder.findUnique({
       where: { id }
     });
     const isDelivery = existingOrder?.orderType === 'DELIVERY';
 
+    // Resolve server POS User and StaffMember
+    const currentUserId = bodyServedById || wtUser?.id || session?.id || null;
+    let resolvedStaffMemberId = bodyStaffMemberId || null;
+
+    if (currentUserId && !resolvedStaffMemberId) {
+      const sm = await prisma.staffMember.findFirst({
+        where: { userId: currentUserId },
+        select: { id: true }
+      });
+      if (sm) {
+        resolvedStaffMemberId = sm.id;
+      }
+    }
+
     const dataToUpdate: any = {};
     if (status !== undefined) {
       dataToUpdate.status = status;
-      if (status === 'PAYMENT_AWAITING_APPROVAL' && session?.id) {
-        dataToUpdate.servedById = session.id;
+      if (status === 'SERVED' || status === 'PAYMENT_AWAITING_APPROVAL' || bodyServedById || bodyStaffMemberId) {
+        if (currentUserId) dataToUpdate.servedById = currentUserId;
+        if (resolvedStaffMemberId) dataToUpdate.staffMemberId = resolvedStaffMemberId;
+      } else if (status === 'COMPLETED' && !existingOrder?.servedById && currentUserId) {
+        dataToUpdate.servedById = currentUserId;
+        if (resolvedStaffMemberId) dataToUpdate.staffMemberId = resolvedStaffMemberId;
       }
+    } else {
+      if (bodyServedById) dataToUpdate.servedById = bodyServedById;
+      if (bodyStaffMemberId) dataToUpdate.staffMemberId = bodyStaffMemberId;
     }
+
     if (onlinePaymentReference !== undefined) {
       dataToUpdate.onlinePaymentReference = onlinePaymentReference;
     }
@@ -100,7 +122,7 @@ export async function PUT(
     const order = await prisma.posOrder.update({
       where: { id },
       data: dataToUpdate,
-      include: { driver: true, deliveryRider: true, property: true }
+      include: { driver: true, deliveryRider: true, property: true, staffMember: true, servedBy: true }
     });
 
     // --- Reset Table Status to VACANT on Order Completion ---

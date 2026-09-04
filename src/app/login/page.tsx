@@ -232,8 +232,31 @@ export default function LoginPage() {
           return;
         }
       } catch (_) {
-        // Agent auth failed — continue to standard login
+        // Agent auth failed — continue to next
       }
+
+      // ── STEP 1.8: Try Hotel Guest / Customer login (Guest table) ──
+      try {
+        const guestRes = await fetch('/api/guest-portal/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: email, password }),
+        });
+        const guestData = await guestRes.json();
+
+        if (guestData.success && guestData.token) {
+          localStorage.setItem('guest_token', guestData.token);
+          if (guestData.guest) {
+            localStorage.setItem('guest_info', JSON.stringify(guestData.guest));
+          }
+          router.push('/guest-portal/dashboard');
+          router.refresh();
+          return;
+        }
+      } catch (_) {
+        // Guest auth failed — continue to standard login
+      }
+
 
       // ── STEP 2: Standard Login (Hotel Owner, Driver, Supplier, Staff etc.) ──
       const response = await authApi.login({ email, password, captchaText, captchaToken });

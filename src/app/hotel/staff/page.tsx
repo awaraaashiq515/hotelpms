@@ -90,6 +90,14 @@ export default function StaffPage() {
           >
             🧹 Housekeeper Portal ↗
           </a>
+          {/* Security Portal quick link */}
+          <a
+            href="/security-portal"
+            target="_blank"
+            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold transition-all"
+          >
+            🛡️ Security Portal ↗
+          </a>
           <button 
             onClick={fetchStaffData}
             className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-all"

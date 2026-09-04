@@ -17,6 +17,8 @@ import {
   FileText,
   Bookmark
 } from 'lucide-react'
+import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
+import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
 
 /* ─── Types ─── */
 interface HKUser {
@@ -25,6 +27,7 @@ interface HKUser {
   email: string
   phone?: string | null
   designation?: string | null
+  avatarUrl?: string | null
   property?: { id: string; name: string; code: string } | null
   role?: { name: string } | null
 }
@@ -987,7 +990,15 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
       {/* ─── HEADER (Glassmorphic) ─── */}
       <header style={{ flexShrink: 0, padding: '12px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(20px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 0 16px rgba(124,58,237,0.3)', flexShrink: 0 }}>🧹</div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.fullName}
+              style={{ width: 34, height: 34, borderRadius: 10, objectFit: 'cover', border: '1.5px solid rgba(124,58,237,0.4)', flexShrink: 0 }}
+            />
+          ) : (
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 0 16px rgba(124,58,237,0.3)', flexShrink: 0 }}>🧹</div>
+          )}
           <div>
             <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>{propName}</div>
             <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 800, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -1531,6 +1542,30 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
               </div>
             </div>
 
+            <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>My Profile Photo</div>
+
+            {/* Profile Photo Uploader Card */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(219,39,119,0.06))', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 16, padding: '16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <ProfilePhotoUploader
+                currentPhotoUrl={user.avatarUrl}
+                name={user.fullName}
+                userType="housekeeper"
+                userId={user.id}
+                token={wtToken}
+                size="md"
+                onPhotoUploaded={newUrl => {
+                  const updated = { ...user, avatarUrl: newUrl };
+                  setUser(updated);
+                  localStorage.setItem('hk_portal_session', JSON.stringify({ user: updated, wtToken }));
+                }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#fff', letterSpacing: '-0.01em' }}>{user.fullName}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#c084fc', marginTop: 2 }}>{user.designation || 'Executive Housekeeper'}</div>
+                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 3 }}>Tap photo to upload from camera or phone</div>
+              </div>
+            </div>
+
             <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Account Credentials</div>
             
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 14, overflow: 'hidden' }}>
@@ -1546,6 +1581,9 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                 </div>
               ))}
             </div>
+
+            {/* ── UPI for Tips Section ── */}
+            <StaffUpiSettingCard user={user} wtToken={wtToken} />
 
             <button onClick={handleLogout}
               style={{ width: '100%', marginTop: 20, padding: '13px', borderRadius: 13, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: 12, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase' }}>

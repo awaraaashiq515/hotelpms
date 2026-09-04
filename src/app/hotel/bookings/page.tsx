@@ -94,6 +94,8 @@ function BookingsContent() {
   const [mealPlan, setMealPlan] = useState('RO');
 
 const DEFAULT_POOL_PASS_OPTIONS = [
+  { id: 'p0', name: 'Complimentary / Free Pool Access', category: 'COMPLIMENTARY', price: 0, duration: 'Free / Stay' },
+  { id: 'p0b', name: 'Complimentary In-House Guest Pool Pass', category: 'COMPLIMENTARY', price: 0, duration: 'Complimentary' },
   { id: 'p1', name: 'Early Bird Morning Lap Pass', category: 'STANDARD', price: 350, duration: 'Morning (6 AM - 10 AM)' },
   { id: 'p2', name: 'Standard Swimming Pool Pass', category: 'STANDARD', price: 500, duration: 'Full Day' },
   { id: 'p3', name: 'All-Day VIP Cabana Pass', category: 'VIP_CABANA', price: 1200, duration: 'Full Day' },
@@ -102,10 +104,20 @@ const DEFAULT_POOL_PASS_OPTIONS = [
   { id: 'p6', name: 'Weekend Royal Luxury Pool Suite Pass', category: 'VIP_CABANA', price: 2500, duration: 'Full Day' },
 ];
 
+const DEFAULT_SPA_PACKAGES = [
+  { id: 'NONE', name: 'No Spa Package (₹0)', price: 0 },
+  { id: 'COMPLIMENTARY_WELCOME', name: 'Complimentary Welcome Spa & Foot Massage (₹0 / Free)', price: 0 },
+  { id: 'COMPLIMENTARY_HEAD', name: 'Complimentary 15-Min Head & Shoulder Relaxation (₹0 / Free)', price: 0 },
+  { id: 'RELAXATION_60MIN', name: 'Swedish Relaxation Massage - 60m (₹1,800)', price: 1800 },
+  { id: 'DETOX_SAUNA', name: 'Full Body Detox & Hot Stone Therapy (₹2,800)', price: 2800 },
+  { id: 'COUPLE_SPA', name: 'Royal Couple Wellness Spa Day (₹4,500)', price: 4500 },
+  { id: 'AYURVEDIC', name: 'Traditional Ayurvedic Rejuvenation (₹3,200)', price: 3200 },
+];
+
   // Booking Form Pool & Spa Package States
   const [poolAccess, setPoolAccess] = useState(false);
-  const [poolPackage, setPoolPackage] = useState('Standard Swimming Pool Pass');
-  const [poolPassCost, setPoolPassCost] = useState('500');
+  const [poolPackage, setPoolPackage] = useState('Complimentary / Free Pool Access');
+  const [poolPassCost, setPoolPassCost] = useState('0');
   const [spaPackage, setSpaPackage] = useState('NONE');
   const [spaPackageCost, setSpaPackageCost] = useState('0');
   const [addOnNotes, setAddOnNotes] = useState('');
@@ -289,7 +301,19 @@ const DEFAULT_POOL_PASS_OPTIONS = [
         if (bookingsRes.success) setBookings(bookingsRes.data);
         if (roomsRes.success) setRooms(roomsRes.data);
         if (typesRes.success) setRoomTypes(typesRes.data);
-        if (poolPassesRes.success) setDynamicPoolPasses(poolPassesRes.data || []);
+        if (poolPassesRes.success) {
+          const apiPasses = poolPassesRes.data || [];
+          const hasComplimentary = apiPasses.some((p: any) => p.price === 0 || p.name.toLowerCase().includes('complimentary') || p.name.toLowerCase().includes('free'));
+          if (!hasComplimentary && apiPasses.length > 0) {
+            setDynamicPoolPasses([
+              { id: 'p0', name: 'Complimentary / Free Pool Access', category: 'COMPLIMENTARY', price: 0, duration: 'Free / Stay' },
+              { id: 'p0b', name: 'Complimentary In-House Guest Pool Pass', category: 'COMPLIMENTARY', price: 0, duration: 'Complimentary' },
+              ...apiPasses,
+            ]);
+          } else if (apiPasses.length > 0) {
+            setDynamicPoolPasses(apiPasses);
+          }
+        }
         
         // If pre-filled parameters were passed, auto-configure room type
         if (paramRoomId && roomsRes.success) {
@@ -471,21 +495,58 @@ const DEFAULT_POOL_PASS_OPTIONS = [
     }
   };
 
+  const handleMealPlanChange = (plan: string) => {
+    setMealPlan(plan);
+    if (plan === 'AI') {
+      setPoolAccess(true);
+      setPoolPackage('Complimentary / Free Pool Access');
+      setPoolPassCost('0');
+      setSpaPackage('COMPLIMENTARY_WELCOME');
+      setSpaPackageCost('0');
+      toast.info('All Inclusive Plan: Complimentary Pool & Spa added automatically!');
+    } else if (plan === 'FB' || plan === 'MAP') {
+      setPoolAccess(true);
+      setPoolPackage('Complimentary / Free Pool Access');
+      setPoolPassCost('0');
+      toast.info(`${plan} Plan: Complimentary Pool Access enabled automatically!`);
+    }
+  };
+
+  const handleEditMealPlanChange = (plan: string) => {
+    setEditMealPlan(plan);
+    if (plan === 'AI') {
+      setEditPoolAccess(true);
+      setEditPoolPackage('Complimentary / Free Pool Access');
+      setEditPoolPassCost('0');
+      setEditSpaPackage('COMPLIMENTARY_WELCOME');
+      setEditSpaPackageCost('0');
+    } else if (plan === 'FB' || plan === 'MAP') {
+      setEditPoolAccess(true);
+      setEditPoolPackage('Complimentary / Free Pool Access');
+      setEditPoolPassCost('0');
+    }
+  };
+
   const handlePoolPackageChange = (pkg: string) => {
     setPoolPackage(pkg);
     const passList = dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS;
     const matchedPass = passList.find((p: any) => p.name === pkg || p.id === pkg || p.category === pkg);
     if (matchedPass) {
       setPoolPassCost(matchedPass.price.toString());
+    } else if (pkg.toLowerCase().includes('complimentary') || pkg.toLowerCase().includes('free') || pkg === 'INCLUDED') {
+      setPoolPassCost('0');
     } else if (pkg === 'STANDARD') setPoolPassCost('500');
     else if (pkg === 'VIP_CABANA') setPoolPassCost('1200');
-    else if (pkg === 'INCLUDED') setPoolPassCost('0');
   };
 
   const handleSpaPackageChange = (pkg: string) => {
     setSpaPackage(pkg);
-    if (pkg === 'NONE') setSpaPackageCost('0');
-    else if (pkg === 'RELAXATION_60MIN') setSpaPackageCost('1800');
+    const matched = DEFAULT_SPA_PACKAGES.find((s) => s.id === pkg || s.name === pkg);
+    if (matched) {
+      setSpaPackageCost(matched.price.toString());
+    } else if (pkg === 'NONE' || pkg.includes('COMPLIMENTARY') || pkg.toLowerCase().includes('free')) {
+      setSpaPackageCost('0');
+    } else if (pkg === 'RELAXATION_60MIN') setSpaPackageCost('1800');
     else if (pkg === 'DETOX_SAUNA') setSpaPackageCost('2800');
     else if (pkg === 'COUPLE_SPA') setSpaPackageCost('4500');
     else if (pkg === 'AYURVEDIC') setSpaPackageCost('3200');
@@ -516,7 +577,7 @@ const DEFAULT_POOL_PASS_OPTIONS = [
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName || !arrivalDate || !departureDate || !roomTypeId) {
-      toast.error('First Name, Arrival/Departure dates, and Room Type are required.');
+      toast.error('First Name, Check-in / Check-out dates, and Room Type are required.');
       return;
     }
 
@@ -1258,14 +1319,14 @@ const DEFAULT_POOL_PASS_OPTIONS = [
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Arrival Date *</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Check-in Date *</label>
                     <input
                       type="date" required value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Departure Date *</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Check-out Date *</label>
                     <input
                       type="date" required value={departureDate} onChange={(e) => setDepartureDate(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
@@ -1329,7 +1390,7 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Meal Plan</label>
                     <select
-                      value={mealPlan} onChange={(e) => setMealPlan(e.target.value)}
+                      value={mealPlan} onChange={(e) => handleMealPlanChange(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors font-semibold"
                     >
                       <option value="RO">Room Only (RO)</option>
@@ -1387,7 +1448,14 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                         <Droplets size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-slate-200">Swimming Pool Access Pass</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-slate-200">Swimming Pool Access Pass</h4>
+                          {poolAccess && Number(poolPassCost || 0) === 0 && (
+                            <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                              ✨ Complimentary / Free
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400">Include swimming pool access pass & privileges for guests</p>
                       </div>
                     </div>
@@ -1417,7 +1485,7 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                         >
                           {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
                             <option key={p.id || p.name} value={p.name}>
-                              {p.name} (₹{p.price} / {p.duration || 'Stay'})
+                              {p.name} (₹{p.price}{p.price === 0 ? ' - Free' : ` / ${p.duration || 'Stay'}`})
                             </option>
                           ))}
                         </select>
@@ -1443,7 +1511,14 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                       <Flower2 size={18} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-200">Spa & Wellness Packages</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-slate-200">Spa & Wellness Packages</h4>
+                        {spaPackage !== 'NONE' && Number(spaPackageCost || 0) === 0 && (
+                          <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                            ✨ Complimentary / Free with Plan
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400">Select luxury spa massage & relaxation packages</p>
                     </div>
                   </div>
@@ -1456,11 +1531,11 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                         onChange={(e) => handleSpaPackageChange(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-purple-400 font-semibold"
                       >
-                        <option value="NONE">No Spa Package (₹0)</option>
-                        <option value="RELAXATION_60MIN">Swedish Relaxation Massage - 60m (₹1,800)</option>
-                        <option value="DETOX_SAUNA">Full Body Detox & Hot Stone Therapy (₹2,800)</option>
-                        <option value="COUPLE_SPA">Royal Couple Wellness Spa Day (₹4,500)</option>
-                        <option value="AYURVEDIC">Traditional Ayurvedic Rejuvenation (₹3,200)</option>
+                        {DEFAULT_SPA_PACKAGES.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -1627,13 +1702,17 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                         {poolAccess && (
                           <div className="flex justify-between text-cyan-400">
                             <span>🏊 Swimming Pool Pass</span>
-                            <span className="font-bold">+ ₹{poolPassCost || 0}</span>
+                            <span className="font-bold">
+                              {poolCostNum === 0 ? '₹0 (Complimentary)' : `+ ₹${poolPassCost || 0}`}
+                            </span>
                           </div>
                         )}
                         {spaPackage !== 'NONE' && (
                           <div className="flex justify-between text-purple-400">
                             <span>💆‍♀️ Spa Package</span>
-                            <span className="font-bold">+ ₹{spaPackageCost || 0}</span>
+                            <span className="font-bold">
+                              {spaCostNum === 0 ? '₹0 (Complimentary)' : `+ ₹${spaPackageCost || 0}`}
+                            </span>
                           </div>
                         )}
                         {gstRate > 0 && (
@@ -1901,7 +1980,7 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                 </label>
                 <select
                   value={editMealPlan}
-                  onChange={(e) => setEditMealPlan(e.target.value)}
+                  onChange={(e) => handleEditMealPlanChange(e.target.value)}
                   className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-semibold"
                 >
                   <option value="RO">Room Only (RO)</option>
@@ -1916,9 +1995,16 @@ const DEFAULT_POOL_PASS_OPTIONS = [
               {/* Swimming Pool Access */}
               <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 flex items-center gap-1.5">
-                    <Waves size={13} /> Swimming Pool Access
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 flex items-center gap-1.5">
+                      <Waves size={13} /> Swimming Pool Access
+                    </span>
+                    {editPoolAccess && Number(editPoolPassCost || 0) === 0 && (
+                      <span className="text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                        Free / Plan
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setEditPoolAccess(!editPoolAccess)}
@@ -1942,15 +2028,15 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                           const passList = dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS;
                           const matched = passList.find((p: any) => p.name === val || p.id === val || p.category === val);
                           if (matched) setEditPoolPassCost(matched.price.toString());
+                          else if (val.toLowerCase().includes('complimentary') || val.toLowerCase().includes('free') || val === 'INCLUDED') setEditPoolPassCost('0');
                           else if (val === 'STANDARD') setEditPoolPassCost('500');
                           else if (val === 'VIP_CABANA') setEditPoolPassCost('1200');
-                          else if (val === 'INCLUDED') setEditPoolPassCost('0');
                         }}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-[11px] text-white focus:outline-none"
                       >
                         {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
                           <option key={p.id || p.name} value={p.name}>
-                            {p.name} (₹{p.price})
+                            {p.name} (₹{p.price}{p.price === 0 ? ' - Free' : ''})
                           </option>
                         ))}
                       </select>
@@ -1970,9 +2056,16 @@ const DEFAULT_POOL_PASS_OPTIONS = [
 
               {/* Spa & Wellness Package */}
               <div className="p-3.5 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-purple-300 flex items-center gap-1.5">
-                  <Flower2 size={13} /> Spa & Wellness Package
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-purple-300 flex items-center gap-1.5">
+                    <Flower2 size={13} /> Spa & Wellness Package
+                  </span>
+                  {editSpaPackage !== 'NONE' && Number(editSpaPackageCost || 0) === 0 && (
+                    <span className="text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                      Free / Plan
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Package Choice</label>
@@ -1981,7 +2074,9 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                       onChange={(e) => {
                         const val = e.target.value;
                         setEditSpaPackage(val);
-                        if (val === 'NONE') setEditSpaPackageCost('0');
+                        const matched = DEFAULT_SPA_PACKAGES.find((s) => s.id === val || s.name === val);
+                        if (matched) setEditSpaPackageCost(matched.price.toString());
+                        else if (val === 'NONE' || val.includes('COMPLIMENTARY') || val.toLowerCase().includes('free')) setEditSpaPackageCost('0');
                         else if (val === 'RELAXATION_60MIN') setEditSpaPackageCost('1800');
                         else if (val === 'DETOX_SAUNA') setEditSpaPackageCost('2800');
                         else if (val === 'COUPLE_SPA') setEditSpaPackageCost('4500');
@@ -1989,11 +2084,11 @@ const DEFAULT_POOL_PASS_OPTIONS = [
                       }}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-[11px] text-white focus:outline-none"
                     >
-                      <option value="NONE">No Spa (₹0)</option>
-                      <option value="RELAXATION_60MIN">Swedish Massage 60m (₹1,800)</option>
-                      <option value="DETOX_SAUNA">Detox & Sauna (₹2,800)</option>
-                      <option value="COUPLE_SPA">Couple Spa Day (₹4,500)</option>
-                      <option value="AYURVEDIC">Ayurvedic Rejuvenation (₹3,200)</option>
+                      {DEFAULT_SPA_PACKAGES.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>

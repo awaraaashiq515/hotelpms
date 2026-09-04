@@ -45,6 +45,8 @@ export async function POST(request: Request) {
       let portalRedirect: string | null = null
       if (staffDesignation.toLowerCase().includes('housekeeper') || staffDesignation.toLowerCase().includes('housekeeping')) {
         portalRedirect = `/housekeeper-portal/${userPropCode}`
+      } else if (staffDesignation.toLowerCase().includes('security')) {
+        portalRedirect = `/security-portal/${userPropCode}`
       }
 
       const { passwordHash, twoFactorSecret, twoFactorBackupCodes, ...safeUser } = posUser as any
@@ -73,6 +75,7 @@ export async function POST(request: Request) {
         role: true,
         property: true,
         organization: true,
+        staffMember: { select: { id: true, name: true, designation: true, salary: true, shiftHours: true, avatarUrl: true, upiId: true, upiName: true } }
       }
     })
 
@@ -109,7 +112,7 @@ export async function POST(request: Request) {
         role: true,
         property: true,
         organization: true,
-        staffMember: { select: { designation: true, salary: true, shiftHours: true } }
+        staffMember: { select: { id: true, name: true, designation: true, salary: true, shiftHours: true, avatarUrl: true, upiId: true, upiName: true } }
       }
     })
 
@@ -161,6 +164,7 @@ export async function POST(request: Request) {
 
     // Return token and user details (omitting sensitive password hashes)
     const { passwordHash, twoFactorSecret, twoFactorBackupCodes, ...safeUser } = posUser as any
+    safeUser.avatarUrl = (posUser as any).avatarUrl || (posUser as any).staffMember?.avatarUrl || null
 
     // ─── Determine which portal this staff member belongs to ───────────────
     const staffDesignation = (posUser as any).staffMember?.designation || (posUser as any).designation || ''
@@ -171,6 +175,8 @@ export async function POST(request: Request) {
     // Only redirect if designation is specifically housekeeper/housekeeping (and role is not waiter/staff)
     if (staffDesignation.toLowerCase().includes('housekeeper') || staffDesignation.toLowerCase().includes('housekeeping')) {
       portalRedirect = `/housekeeper-portal/${userPropCode}`
+    } else if (staffDesignation.toLowerCase().includes('security')) {
+      portalRedirect = `/security-portal/${userPropCode}`
     }
 
     return NextResponse.json({
@@ -179,6 +185,14 @@ export async function POST(request: Request) {
       user: {
         ...safeUser,
         designation: staffDesignation || posUser.role?.name || 'Staff',
+        staffMember: posUser.staffMember ? {
+          id: posUser.staffMember.id,
+          name: posUser.staffMember.name,
+          designation: posUser.staffMember.designation,
+          avatarUrl: posUser.staffMember.avatarUrl,
+          upiId: posUser.staffMember.upiId,
+          upiName: posUser.staffMember.upiName,
+        } : null,
       },
     })
   } catch (error: any) {

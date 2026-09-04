@@ -18,6 +18,8 @@ const staffSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   password: z.string().min(6).optional().or(z.literal('')),
   propertyId: z.string().optional().or(z.literal('')),
+  upiId: z.string().optional().or(z.literal('')),
+  upiName: z.string().optional().or(z.literal('')),
 });
 
 export async function GET(request: NextRequest) {
@@ -120,7 +122,9 @@ export async function POST(request: NextRequest) {
           isActive: parsedData.isActive !== undefined ? parsedData.isActive : true,
           shiftHours: parsedData.shiftHours !== undefined ? Number(parsedData.shiftHours) : 8,
           propertyId: targetPropertyId,
-          userId: createdUserId
+          userId: createdUserId,
+          upiId: parsedData.upiId || null,
+          upiName: parsedData.upiName || null,
         },
         include: {
           user: {

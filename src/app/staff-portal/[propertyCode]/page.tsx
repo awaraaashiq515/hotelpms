@@ -9,15 +9,18 @@ import AudioPlayer from '@/components/staff/walkie-talkie/AudioPlayer'
 import { useAutoPlay, globalAudioUnlocker } from '@/components/staff/walkie-talkie/useAutoPlay'
 import AutoPlayNotification from '@/components/staff/walkie-talkie/AutoPlayNotification'
 import StaffAttendancePanel from '@/components/staff/StaffAttendancePanel'
+import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
+import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
 
 /* ─── Types ─── */
 interface StaffUser {
   id: string; fullName: string; email: string; phone: string | null; wtStatus: string
   propertyId: string | null
+  avatarUrl?: string | null
   property?: { id: string; name: string; code: string; upiId?: string; upiName?: string } | null
   role?: { name: string } | null
   designation?: string | null
-  staffMember?: { designation?: string | null } | null
+  staffMember?: { id?: string; name?: string; designation?: string | null; avatarUrl?: string | null; upiId?: string | null; upiName?: string | null } | null
 }
 interface PosOrder {
   id: string; orderNo: string; status: string; tableNo: string | null; orderType?: string;
@@ -212,7 +215,7 @@ function useElapsed(dateStr: string) {
 }
 
 /* ─── Order Card ─── */
-function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { order: PosOrder; wtToken: string; onDone: (id: string) => void; onBroadcast: (msg: string) => void; upiId?: string; upiName?: string }) {
+function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName, user }: { order: PosOrder; wtToken: string; onDone: (id: string) => void; onBroadcast: (msg: string) => void; upiId?: string; upiName?: string; user?: StaffUser | null }) {
   const elapsed = useElapsed(order.createdAt)
   const waitMins = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000)
   const isUrgent = waitMins > 15
@@ -338,9 +341,17 @@ function OrderCard({ order, wtToken, onDone, onBroadcast, upiId, upiName }: { or
         <button onClick={async () => { 
           setMarking(true); 
           try { 
-            const headers: HeadersInit = { 'Content-Type': 'application/json' }; 
-            if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; } 
-            await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'SERVED' }) }); 
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
+            await fetch(`/api/pos-orders/${order.id}`, {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify({
+                status: 'SERVED',
+                servedById: user?.id,
+                staffMemberId: user?.staffMember?.id,
+              })
+            }); 
           } catch {}; 
           setMarking(false); 
         }} disabled={marking} style={{ flex: 1, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', borderRadius: 10, padding: '10px 0', fontSize: 12, fontWeight: 800, color: '#6ee7b7', cursor: marking ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.2s', fontFamily: 'inherit' }}>
@@ -615,10 +626,12 @@ function RoomOrderCard({
   order,
   wtToken,
   onRefresh,
+  user,
 }: {
   order: any;
   wtToken: string;
   onRefresh: () => void;
+  user?: StaffUser | null;
 }) {
   const [marking, setMarking] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -627,6 +640,9 @@ function RoomOrderCard({
   const statusBg = order.status === 'CONFIRMED' ? 'rgba(251,191,36,0.1)' : order.status === 'SERVED' ? 'rgba(52,211,153,0.1)' : order.status === 'COMPLETED' ? 'rgba(129,140,248,0.1)' : 'rgba(255,255,255,0.04)';
 
   const grandTotal = order.totalAmount || order.grandTotal || 0;
+
+  const serverName = order.staffMember?.name || order.servedBy?.name || null;
+  const serverDesignation = order.staffMember?.designation || null;
 
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px', position: 'relative' }}>
@@ -659,6 +675,17 @@ function RoomOrderCard({
         </div>
       </div>
 
+      {serverName && (
+        <div style={{ marginBottom: 10, fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>✓ Served by:</span>
+            <strong style={{ color: '#fff' }}>{serverName}</strong>
+            {serverDesignation && <span style={{ color: '#a5b4fc', fontSize: 10 }}>({serverDesignation})</span>}
+          </div>
+          <span style={{ fontSize: 9, color: '#6ee7b7', background: 'rgba(52,211,153,0.2)', padding: '2px 6px', borderRadius: 4, fontWeight: 800 }}>ID SAVED</span>
+        </div>
+      )}
+
       {order.specialNote && (
         <div style={{ marginBottom: 10, fontSize: 10, color: '#94a3b8', background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '5px 8px', fontStyle: 'italic' }}>
           📝 {order.specialNote}
@@ -674,7 +701,15 @@ function RoomOrderCard({
             try {
               const headers: HeadersInit = { 'Content-Type': 'application/json' };
               if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
-              await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'SERVED' }) });
+              await fetch(`/api/pos-orders/${order.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                  status: 'SERVED',
+                  servedById: user?.id,
+                  staffMemberId: user?.staffMember?.id,
+                })
+              });
               onRefresh();
             } catch {};
             setMarking(false);
@@ -705,7 +740,15 @@ function RoomOrderCard({
             try {
               const headers: HeadersInit = { 'Content-Type': 'application/json' };
               if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
-              await fetch(`/api/pos-orders/${order.id}`, { method: 'PUT', headers, body: JSON.stringify({ status: 'COMPLETED' }) });
+              await fetch(`/api/pos-orders/${order.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                  status: 'COMPLETED',
+                  servedById: user?.id,
+                  staffMemberId: user?.staffMember?.id,
+                })
+              });
               onRefresh();
             } catch {};
             setClearing(false);
@@ -1948,6 +1991,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         postToFolio,
         specialNote: roomSpecialNote,
         folioId,
+        servedById: user?.id,
+        staffMemberId: user?.staffMember?.id,
       }
 
       const res = await fetch('/api/hotel/room-service', {
@@ -2272,7 +2317,15 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       {/* ━━━ HEADER ━━━ */}
       <header style={{ flexShrink: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.025)', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(16px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, boxShadow: '0 0 12px rgba(99,102,241,0.3)', flexShrink: 0 }}>📻</div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.fullName}
+              style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover', border: '1.5px solid rgba(99,102,241,0.4)', flexShrink: 0 }}
+            />
+          ) : (
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, boxShadow: '0 0 12px rgba(99,102,241,0.3)', flexShrink: 0 }}>📻</div>
+          )}
           <div>
             <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>{propName}</div>
             <div style={{ fontSize: 9, color: '#64748b', fontWeight: 700, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -2729,7 +2782,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
               ? <div style={{ textAlign: 'center', padding: '36px 0' }}><div style={{ width: 24, height: 24, border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} /><div style={{ fontSize: 11, color: '#475569' }}>Loading...</div></div>
               : orders.length === 0
               ? <div style={{ textAlign: 'center', padding: '36px 18px', background: 'rgba(255,255,255,0.02)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.05)' }}><div style={{ fontSize: 30, marginBottom: 8 }}>✅</div><div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>All Clear!</div><div style={{ fontSize: 11, color: '#475569' }}>No active orders</div></div>
-              : orders.map(o => <OrderCard key={o.id} order={o} wtToken={wtToken} onDone={id => { setOrders(p => p.filter(x => x.id !== id)); fetchTables(); }} onBroadcast={broadcastTTS} upiId={user?.property?.upiId} upiName={user?.property?.upiName} />)}
+              : orders.map(o => <OrderCard key={o.id} order={o} wtToken={wtToken} onDone={id => { setOrders(p => p.filter(x => x.id !== id)); fetchTables(); }} onBroadcast={broadcastTTS} upiId={user?.property?.upiId} upiName={user?.property?.upiName} user={user} />)}
           </div>
         )}
 
@@ -2773,6 +2826,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                     order={o}
                     wtToken={wtToken}
                     onRefresh={() => fetchRoomServiceOrders()}
+                    user={user}
                   />
                 ))}
               </div>
@@ -2809,7 +2863,31 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
               error={sharingError}
             />
 
-            <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 11, marginTop: 22 }}>Account</div>
+            <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 11, marginTop: 22 }}>Profile Photo</div>
+
+            {/* Profile Photo Uploader Card */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(129,140,248,0.06))', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 16, padding: '16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <ProfilePhotoUploader
+                currentPhotoUrl={user.avatarUrl}
+                name={user.fullName}
+                userType="staff"
+                userId={user.id}
+                token={wtToken}
+                size="md"
+                onPhotoUploaded={newUrl => {
+                  const updated = { ...user, avatarUrl: newUrl };
+                  setUser(updated);
+                  localStorage.setItem('wt_staff_session', JSON.stringify({ user: updated, wtToken }));
+                }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>{user.fullName}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#818cf8', marginTop: 2 }}>{user.designation || user.staffMember?.designation || 'Staff Member'}</div>
+                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 3 }}>Tap photo to upload from camera or phone</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 11, marginTop: 12 }}>Account</div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 13, padding: '14px', marginBottom: 12 }}>
               {[['Name', user.fullName], ['Role', user.designation || user.staffMember?.designation || (user.role?.name && !user.role.name.includes('Housekeeper') ? user.role.name : 'Waiter')], ['Property', propName], ['Email', user.email]].map(([l, v]) => (
                 <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -2818,6 +2896,9 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                 </div>
               ))}
             </div>
+
+            {/* ── UPI for Tips Section ── */}
+            <StaffUpiSettingCard user={user} wtToken={wtToken} />
             <button onClick={handleLogout} style={{ width: '100%', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 13, padding: '12px', fontSize: 11, fontWeight: 800, color: '#f87171', cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>⏻ Sign Out</button>
           </div>
         )}

@@ -129,5 +129,17 @@ export interface GuestData {
   lastName?: string;
   mobile?: string;
   email?: string;
+  avatarUrl?: string | null;
+  gender?: string;
+  nationality?: string;
+  birthDate?: string;
+  idType?: string;
+  idNumber?: string;
+  address?: string;
+  companyName?: string;
+  gstNumber?: string;
+  billingAddress?: string;
+  loyaltyPoints?: number;
+  segment?: string;
   reservations: Reservation[];
 }

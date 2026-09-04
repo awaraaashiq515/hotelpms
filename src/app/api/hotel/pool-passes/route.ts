@@ -32,6 +32,17 @@ export async function GET(request: NextRequest) {
       const defaults = [
         {
           propertyId,
+          name: 'Complimentary / Free Pool Access',
+          category: 'COMPLIMENTARY',
+          price: 0,
+          duration: 'Free / Stay',
+          capacity: 1,
+          description: 'Complimentary pool access included with stay or meal plan.',
+          includes: 'Pool Access, Towels, Loungers, Lockers',
+          isActive: true,
+        },
+        {
+          propertyId,
           name: 'Standard Swimming Pool Pass',
           category: 'STANDARD',
           price: 500,

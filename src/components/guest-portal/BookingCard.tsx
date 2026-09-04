@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import {
   BedDouble, CheckCircle2, ShieldCheck, Clock,
-  AlertCircle, Wifi, X, Loader2, Waves, Sparkles
+  AlertCircle, Wifi, X, Loader2, Waves, Sparkles, QrCode, Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Reservation } from './types';
+import SecurityPassModal from './SecurityPassModal';
 
 interface BookingCardProps {
   reservation: Reservation;
   token: string;
+  guestName?: string;
+  guestPhone?: string;
   onUpdate?: () => void;
 }
 
-export default function BookingCard({ reservation, token, onUpdate }: BookingCardProps) {
+export default function BookingCard({ reservation, token, guestName = '', guestPhone = '', onUpdate }: BookingCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [securityModalOpen, setSecurityModalOpen] = useState(false);
   const [cleanliness, setCleanliness] = useState(5);
   const [food, setFood] = useState(5);
   const [service, setService] = useState(5);
@@ -100,6 +104,29 @@ export default function BookingCard({ reservation, token, onUpdate }: BookingCar
         <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800/50"><p className="text-[9px] font-black uppercase text-slate-500 mb-0.5">Room</p><p className="font-bold text-emerald-400">{room ? `Room ${room.roomNumber}` : 'TBA'}</p></div>
         <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800/50"><p className="text-[9px] font-black uppercase text-slate-500 mb-0.5">Guests</p><p className="font-bold text-slate-200">{reservation.adults}A{reservation.children > 0 ? ` + ${reservation.children}C` : ''}</p></div>
         <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800/50"><p className="text-[9px] font-black uppercase text-slate-500 mb-0.5">Balance Due</p><p className={`font-extrabold ${reservation.dueAmount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>₹{reservation.dueAmount.toLocaleString()}</p></div>
+      </div>
+
+      {/* 🛡️ Digital Security Gate Pass (QR Code for Security Guards) */}
+      <div className="mx-5 p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-violet-950/30 to-slate-900/40 border border-indigo-500/30 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-lg shadow-indigo-600/10 shrink-0">
+            <QrCode size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Security Checkpoint</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+            <p className="text-xs font-black text-white mt-0.5">Digital Gate Pass & QR</p>
+            <p className="text-[10px] text-slate-400">Show to hotel security guards at entry / gate</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setSecurityModalOpen(true)}
+          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-[11px] font-black uppercase tracking-wider transition-all shadow-md shadow-indigo-600/20 shrink-0 flex items-center gap-1.5"
+        >
+          <QrCode size={13} /> View QR
+        </button>
       </div>
 
       {/* 🏊 Swimming Pool Access Pass Card */}
@@ -246,7 +273,7 @@ export default function BookingCard({ reservation, token, onUpdate }: BookingCar
 
       {/* Express Checkout & Feedback Modal */}
       {checkoutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-[#0a0f1e] border border-slate-800 rounded-3xl p-6 shadow-2xl relative space-y-4">
             <button
               onClick={() => setCheckoutModalOpen(false)}
@@ -310,6 +337,16 @@ export default function BookingCard({ reservation, token, onUpdate }: BookingCar
             </form>
           </div>
         </div>
+      )}
+
+      {/* Security Gate Pass Modal */}
+      {securityModalOpen && (
+        <SecurityPassModal
+          reservation={reservation}
+          guestName={guestName}
+          guestPhone={guestPhone}
+          onClose={() => setSecurityModalOpen(false)}
+        />
       )}
     </div>
   );

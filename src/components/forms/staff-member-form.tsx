@@ -23,6 +23,8 @@ const staffMemberSchema = z.object({
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   propertyId: z.string().min(1, 'Property selection is required').optional().or(z.literal('')),
+  upiId: z.string().optional().or(z.literal('')),
+  upiName: z.string().optional().or(z.literal('')),
 });
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -38,6 +40,8 @@ export interface StaffMember {
   isActive: boolean;
   shiftHours?: number | null;
   propertyId?: string | null;
+  upiId?: string | null;
+  upiName?: string | null;
   createdAt?: string;
   user?: {
     email: string;
@@ -117,6 +121,8 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
     email: initialData?.user?.email || '',
     password: '',
     propertyId: initialData?.propertyId || '',
+    upiId: initialData?.upiId || '',
+    upiName: initialData?.upiName || '',
   });
 
   const initialShift = initialData?.shiftHours || 8;
@@ -147,6 +153,8 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
         email:            validated.email || undefined,
         password:         validated.password || undefined,
         propertyId:       validated.propertyId || undefined,
+        upiId:            validated.upiId || undefined,
+        upiName:          validated.upiName || undefined,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -420,6 +428,44 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
           <p style={{ fontSize: '9px', color: '#64748B', marginTop: '6px', fontWeight: 600 }}>
             * Set credentials to allow this staff member to log in to the Walkie-Talkie portal.
           </p>
+        </div>
+
+        {/* ── SECTION: UPI & GUEST TIPS ────────────────────────── */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.02) 100%)',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+          borderRadius: '16px',
+          padding: '16px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <span style={{ fontSize: '18px' }}>💰</span>
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: '#F8FAFC' }}>Staff UPI ID for Direct Guest Tips</p>
+              <p style={{ margin: 0, fontSize: '10px', color: '#94A3B8' }}>Guests can tip this staff member directly using UPI QR or portal</p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="sf-field">
+              <label className="sf-label">UPI ID (VPA)</label>
+              <input
+                type="text"
+                className="sf-input"
+                placeholder="e.g. 9876543210@paytm or name@oksbi"
+                value={formData.upiId}
+                onChange={e => setFormData({ ...formData, upiId: e.target.value.toLowerCase().replace(/\s/g, '') })}
+              />
+            </div>
+            <div className="sf-field">
+              <label className="sf-label">Account Holder Name</label>
+              <input
+                type="text"
+                className="sf-input"
+                placeholder="e.g. Ramesh Kumar"
+                value={formData.upiName}
+                onChange={e => setFormData({ ...formData, upiName: e.target.value })}
+              />
+            </div>
+          </div>
         </div>
 
         {/* ── SECTION: SHIFT TARGET ────────────────────────────── */}

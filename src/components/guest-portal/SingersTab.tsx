@@ -655,7 +655,7 @@ export default function SingersTab({ token, propertyId }: { token: string; prope
         const item = modalSinger as any;
         const singerData = item.singer || item;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
             <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative space-y-5 my-8">
               <button 
                 onClick={() => setModalSinger(null)}

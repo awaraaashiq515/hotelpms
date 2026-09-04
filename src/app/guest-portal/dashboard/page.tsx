@@ -5,29 +5,32 @@ import { useRouter } from 'next/navigation';
 import {
   Hotel, LogOut, CalendarDays, BedDouble, Loader2,
   Sparkles, Phone, Mail, ReceiptText, UtensilsCrossed, Bell, Music, Car,
-  MoreHorizontal, X
+  MoreHorizontal, X, QrCode, ShieldCheck, Heart, User
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 
-import { GuestData } from '@/components/guest-portal/types';
+import { GuestData, Reservation } from '@/components/guest-portal/types';
 import BookingCard from '@/components/guest-portal/BookingCard';
+import SecurityPassModal from '@/components/guest-portal/SecurityPassModal';
 import BillingTab from '@/components/guest-portal/BillingTab';
 import MenuTab from '@/components/guest-portal/MenuTab';
 import RequestsTab from '@/components/guest-portal/RequestsTab';
 import SingersTab from '@/components/guest-portal/SingersTab';
 import TransportTab from '@/components/guest-portal/TransportTab';
 import SpaTab from '@/components/guest-portal/SpaTab';
+import ProfileTab from '@/components/guest-portal/ProfileTab';
 
-type TabType = 'bookings' | 'menu' | 'requests' | 'billing' | 'singers' | 'transport' | 'spa';
+type TabType = 'bookings' | 'menu' | 'requests' | 'billing' | 'singers' | 'transport' | 'spa' | 'profile';
 
 const ALL_MENU_ITEMS = [
-  { id: 'bookings' as TabType,  label: 'Stats',  icon: CalendarDays,    glow: 'rgba(99,102,241,0.7)',  bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)' },
-  { id: 'billing' as TabType,   label: 'Bill',   icon: ReceiptText,     glow: 'rgba(99,102,241,0.7)',  bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)' },
-  { id: 'menu' as TabType,      label: 'Food',   icon: UtensilsCrossed, glow: 'rgba(251,146,60,0.7)',  bg: 'rgba(251,146,60,0.15)', border: 'rgba(251,146,60,0.4)' },
-  { id: 'transport' as TabType, label: 'Cabs',   icon: Car,             glow: 'rgba(34,211,238,0.7)',  bg: 'rgba(34,211,238,0.15)', border: 'rgba(34,211,238,0.4)' },
-  { id: 'requests' as TabType,  label: 'Desk',   icon: Bell,            glow: 'rgba(251,191,36,0.7)',  bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.4)' },
-  { id: 'singers' as TabType,   label: 'Music',  icon: Music,           glow: 'rgba(167,139,250,0.7)', bg: 'rgba(167,139,250,0.15)',border: 'rgba(167,139,250,0.4)' },
-  { id: 'spa' as TabType,       label: 'Spa',    icon: Sparkles,        glow: 'rgba(236,72,153,0.7)',  bg: 'rgba(236,72,153,0.15)', border: 'rgba(236,72,153,0.4)' },
+  { id: 'bookings' as TabType,  label: 'Stats',   icon: CalendarDays,    glow: 'rgba(99,102,241,0.7)',  bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)' },
+  { id: 'billing' as TabType,   label: 'Bill',    icon: ReceiptText,     glow: 'rgba(99,102,241,0.7)',  bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)' },
+  { id: 'menu' as TabType,      label: 'Food',    icon: UtensilsCrossed, glow: 'rgba(251,146,60,0.7)',  bg: 'rgba(251,146,60,0.15)', border: 'rgba(251,146,60,0.4)' },
+  { id: 'transport' as TabType, label: 'Cabs',    icon: Car,             glow: 'rgba(34,211,238,0.7)',  bg: 'rgba(34,211,238,0.15)', border: 'rgba(34,211,238,0.4)' },
+  { id: 'requests' as TabType,  label: 'Desk',    icon: Bell,            glow: 'rgba(251,191,36,0.7)',  bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.4)' },
+  { id: 'singers' as TabType,   label: 'Music',   icon: Music,           glow: 'rgba(167,139,250,0.7)', bg: 'rgba(167,139,250,0.15)',border: 'rgba(167,139,250,0.4)' },
+  { id: 'spa' as TabType,       label: 'Spa',     icon: Sparkles,        glow: 'rgba(236,72,153,0.7)',  bg: 'rgba(236,72,153,0.15)', border: 'rgba(236,72,153,0.4)' },
+  { id: 'profile' as TabType,   label: 'Profile', icon: User,            glow: 'rgba(16,185,129,0.7)',  bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)' },
 ];
 
 const MAIN_NAV = ALL_MENU_ITEMS.slice(0, 4);
@@ -77,6 +80,8 @@ export default function GuestPortalDashboard() {
   const [token, setToken] = useState<string>('');
   const [activeTab, setActiveTab] = useState<TabType>('bookings');
   const [showMore, setShowMore] = useState(false);
+  const [selectedSecurityReservation, setSelectedSecurityReservation] = useState<Reservation | null>(null);
+  const [tippingEnabled, setTippingEnabled] = useState(false);
 
   const fetchGuestData = () => {
     const t = localStorage.getItem('guest_token') || '';
@@ -85,8 +90,17 @@ export default function GuestPortalDashboard() {
     fetch('/api/guest-portal/me', { headers: { Authorization: `Bearer ${t}` } })
       .then(r => r.json())
       .then(d => {
-        if (d.success) setGuest(d.data);
-        else { console.error('[Dashboard]', d.message); setError(d.message || 'Could not load data.'); }
+        if (d.success) {
+          setGuest(d.data);
+          // Check tipping enabled for this property
+          const propId = d.data?.reservations?.[0]?.property?.id;
+          if (propId) {
+            fetch(`/api/tips/staff?propertyId=${propId}`)
+              .then(r => r.json())
+              .then(td => { if (td.success) setTippingEnabled(true); })
+              .catch(() => {});
+          }
+        } else { console.error('[Dashboard]', d.message); setError(d.message || 'Could not load data.'); }
       })
       .catch(err => { console.error('[Dashboard Fetch]', err); setError('Connection error.'); })
       .finally(() => setLoading(false));
@@ -118,17 +132,38 @@ export default function GuestPortalDashboard() {
         <header className="relative z-10 border-b border-slate-800/80 bg-[#050a14]/80 backdrop-blur-md">
           <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center shadow-lg shadow-indigo-600/20">
-                <Hotel size={18} className="text-white" />
-              </div>
+              {guest?.avatarUrl ? (
+                <img
+                  src={guest.avatarUrl}
+                  alt={guest.firstName}
+                  className="w-9 h-9 rounded-xl object-cover shadow-lg border border-white/20"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center shadow-lg shadow-indigo-600/20">
+                  <Hotel size={18} className="text-white" />
+                </div>
+              )}
               <div>
                 <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Guest Portal</p>
                 <p className="text-xs font-black text-white">{guest?.firstName ? `${guest.firstName} ${guest.lastName || ''}`.trim() : 'Guest Dashboard'}</p>
               </div>
             </div>
-            <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 text-xs font-bold transition-all">
-              <LogOut size={14} /> Sign Out
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleTabChange('profile')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                  activeTab === 'profile'
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                    : 'border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 bg-slate-900/40'
+                }`}
+              >
+                <User size={14} className="text-emerald-400" />
+                <span className="hidden sm:inline">Profile</span>
+              </button>
+              <button onClick={handleLogout} className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 text-xs font-bold transition-all">
+                <LogOut size={14} /> <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -154,14 +189,14 @@ export default function GuestPortalDashboard() {
         {/* More Drawer Backdrop */}
         {showMore && (
           <div
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm sm:hidden"
             onClick={() => setShowMore(false)}
           />
         )}
 
         {/* More Drawer — slides up from above bottom nav */}
         <div
-          className="fixed left-0 right-0 z-50"
+          className="fixed left-0 right-0 z-50 sm:hidden"
           style={{
             bottom: showMore ? '80px' : '-120%',
             opacity: showMore ? 1 : 0,
@@ -238,8 +273,8 @@ export default function GuestPortalDashboard() {
           </div>
         </div>
 
-        {/* Premium Bottom Navigation Bar — 5 items */}
-        <div className="fixed bottom-0 left-0 right-0 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {/* Premium Bottom Navigation Bar — 5 items (Mobile Only) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#050a14]/95 to-transparent" />
           <div
             className="relative mx-3 mb-3 rounded-2xl"
@@ -293,7 +328,7 @@ export default function GuestPortalDashboard() {
         </div>
 
         {/* Main content */}
-        <main className="relative z-10 max-w-3xl mx-auto px-4 py-6 space-y-6 pb-32">
+        <main className="relative max-w-3xl mx-auto px-4 py-6 space-y-6 pb-28 sm:pb-12">
           {loading ? (
             <div className="h-64 flex items-center justify-center">
               <div className="text-center space-y-3">
@@ -316,9 +351,29 @@ export default function GuestPortalDashboard() {
           ) : activeTab === 'bookings' && guest ? (
             <>
               <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-600/20 to-violet-600/10 border border-indigo-500/20">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Sparkles size={12} className="text-indigo-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Welcome Back</span>
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-indigo-400" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Welcome Back</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTabChange('profile')}
+                      className="px-3 py-1.5 rounded-full bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                    >
+                      <User size={12} className="text-emerald-400" />
+                      Profile
+                    </button>
+                    {upcoming.length > 0 && (
+                      <button
+                        onClick={() => setSelectedSecurityReservation(upcoming[0])}
+                        className="px-3.5 py-1.5 rounded-full bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-300 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                      >
+                        <QrCode size={13} className="text-indigo-400" />
+                        🛡️ Gate Pass QR
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <h2 className="text-2xl font-black text-white mb-3">Hello, {guest.firstName}! 👋</h2>
                 <div className="flex flex-wrap gap-4 text-xs text-slate-400">
@@ -340,6 +395,24 @@ export default function GuestPortalDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Tip Staff Quick Action */}
+              {tippingEnabled && (
+                <button
+                  onClick={() => router.push('/guest-portal/dashboard/tip')}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 to-orange-600/5 hover:from-amber-500/20 hover:to-orange-600/10 hover:border-amber-500/40 transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 flex-shrink-0">
+                    <Heart className="w-5 h-5 text-white fill-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-white font-bold text-sm">Tip Our Staff 💝</p>
+                    <p className="text-amber-400/70 text-xs">Show appreciation via UPI</p>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full">UPI</span>
+                </button>
+              )}
+
               {upcoming.length > 0 && (
                 <section>
                   <div className="flex items-center gap-2 mb-4">
@@ -348,7 +421,14 @@ export default function GuestPortalDashboard() {
                   </div>
                   <div className="space-y-4">
                     {upcoming.map(r => (
-                      <BookingCard key={r.id} reservation={r} token={token} onUpdate={fetchGuestData} />
+                      <BookingCard
+                        key={r.id}
+                        reservation={r}
+                        token={token}
+                        guestName={`${guest.firstName} ${guest.lastName || ''}`.trim()}
+                        guestPhone={guest.mobile || ''}
+                        onUpdate={fetchGuestData}
+                      />
                     ))}
                   </div>
                 </section>
@@ -361,7 +441,14 @@ export default function GuestPortalDashboard() {
                   </div>
                   <div className="space-y-4 opacity-70">
                     {past.map(r => (
-                      <BookingCard key={r.id} reservation={r} token={token} onUpdate={fetchGuestData} />
+                      <BookingCard
+                        key={r.id}
+                        reservation={r}
+                        token={token}
+                        guestName={`${guest.firstName} ${guest.lastName || ''}`.trim()}
+                        guestPhone={guest.mobile || ''}
+                        onUpdate={fetchGuestData}
+                      />
                     ))}
                   </div>
                 </section>
@@ -396,8 +483,20 @@ export default function GuestPortalDashboard() {
               guestRoom={upcoming[0]?.rooms?.[0]?.room?.roomNumber || ''}
               guestPhone={guest?.mobile || ''}
             />
+          ) : activeTab === 'profile' && guest && token ? (
+            <ProfileTab guest={guest} token={token} onUpdate={fetchGuestData} />
           ) : null}
         </main>
+
+        {/* Quick Gate Pass Security Modal */}
+        {selectedSecurityReservation && (
+          <SecurityPassModal
+            reservation={selectedSecurityReservation}
+            guestName={guest?.firstName ? `${guest.firstName} ${guest.lastName || ''}`.trim() : ''}
+            guestPhone={guest?.mobile || ''}
+            onClose={() => setSelectedSecurityReservation(null)}
+          />
+        )}
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search, ShoppingCart, UtensilsCrossed, Minus,
   Plus, Trash2, X, Loader2, ChefHat
@@ -88,6 +89,16 @@ function CartSidebar({
   const [selectedTableId, setSelectedTableId] = useState('');
   const [selectedTableName, setSelectedTableName] = useState('');
   const [notes, setNotes] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   const total = cart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
   const tax = cart.reduce((s, i) => s + (i.taxRate ? i.unitPrice * i.qty * i.taxRate / 100 : 0), 0);
@@ -104,10 +115,12 @@ function CartSidebar({
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="w-full max-w-md bg-[#0a0f1e] border-l border-slate-800 flex flex-col h-full shadow-2xl overflow-hidden">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-200">
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-[#0a0f1e] border-l border-slate-800 flex flex-col h-full shadow-2xl overflow-hidden z-10 animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-800 shrink-0 bg-[#070b16]">
           <div className="flex items-center gap-2">
@@ -268,7 +281,7 @@ function CartSidebar({
         </div>
 
         {/* Footer Summary & Submit */}
-        <div className="p-4 border-t border-slate-800 space-y-3 shrink-0 bg-[#070b16]">
+        <div className="p-4 border-t border-slate-800 space-y-3 shrink-0 bg-[#070b16] pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="space-y-1 text-xs">
             <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>₹{total.toFixed(0)}</span></div>
             {tax > 0 && <div className="flex justify-between text-indigo-400"><span>GST</span><span>+₹{tax.toFixed(0)}</span></div>}
@@ -277,7 +290,7 @@ function CartSidebar({
           <button
             onClick={handleConfirm}
             disabled={placing || cart.length === 0}
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-sm transition-all shadow-xl shadow-indigo-600/25 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-sm transition-all shadow-xl shadow-indigo-600/25 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
           >
             {placing ? <><Loader2 size={16} className="animate-spin" /> Placing Pre-Order...</> : <><ChefHat size={16} /> Confirm {diningOption === 'DINE_IN' ? 'Table Pre-Order' : 'Room Service Order'}</>}
           </button>
@@ -286,7 +299,8 @@ function CartSidebar({
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,687 +1,1033 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 import { WebsiteHeader } from '@/components/website/Header';
 import { PremiumFooter } from '@/components/website/PremiumFooter';
 import { MaintenanceView } from '@/components/website/MaintenanceView';
-import Link from 'next/link';
 import {
-  ArrowRight, Star, CheckCircle2, ChevronRight,
-  BarChart3, BedDouble, Receipt, Users, Bell,
-  Calendar, Smartphone, ShieldCheck, Zap, Globe,
-  TrendingUp, Clock, CreditCard, MessageSquare,
-  Settings, FileText, LayoutDashboard, Utensils,
+  Sparkles,
+  ArrowRight,
+  ChevronRight,
+  CheckCircle2,
+  ShieldCheck,
+  Zap,
+  TrendingUp,
+  BarChart3,
+  Smartphone,
+  Monitor,
+  Apple,
+  Download,
+  Building2,
+  Utensils,
+  Wine,
+  ChefHat,
+  Bell,
+  Star,
+  Clock,
+  Layers,
+  Users,
+  CreditCard,
+  Bed,
+  Calendar,
+  Radio,
+  Receipt,
+  FileSpreadsheet,
+  Headphones,
+  Check,
+  Plus,
+  Minus,
+  Laptop,
+  Play
 } from 'lucide-react';
 
-/* ─── COLORS ─────────────────────────────────────────── */
-const BG    = '#060a12';
-const CARD  = '#0a1020';
-const CARD2 = '#0d1525';
-const CYAN  = '#00c8ff';
+const CYAN = '#00c8ff';
 const CYAN2 = '#0099e6';
-const CYAN_DIM = 'rgba(0,200,255,0.10)';
-const CYAN_BD  = 'rgba(0,200,255,0.2)';
-const GOLD  = '#f0c040';
+const CYAN_GLOW = 'rgba(0, 200, 255, 0.15)';
+const BG_DARK = '#060a12';
+const CARD_BG = '#0a1020';
+const CARD_BORDER = 'rgba(255, 255, 255, 0.08)';
 
-/* ─── Counter ─────────────────────────────────────────── */
-function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const started = useRef(false);
-  useEffect(() => {
-    const el = ref.current; if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && !started.current) {
-        started.current = true;
-        let v = 0; const step = target / 60;
-        const t = setInterval(() => {
-          v += step;
-          if (v >= target) { setCount(target); clearInterval(t); }
-          else setCount(Math.floor(v));
-        }, 16);
-      }
-    }, { threshold: 0.5 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [target]);
-  return <div ref={ref}>{count}{suffix}</div>;
-}
-
-/* ─── DATA ────────────────────────────────────────────── */
-const FEATURES = [
-  { icon: LayoutDashboard, label: 'Unified Dashboard',      desc: 'Manage all your properties from one powerful dashboard — bookings, staff, billing at a glance.',   col: '#00c8ff', bg: 'rgba(0,200,255,0.08)',   bd: 'rgba(0,200,255,0.2)' },
-  { icon: BedDouble,        label: 'Room Management',        desc: 'Real-time room availability, housekeeping status, maintenance requests and occupancy tracking.',      col: '#a78bfa', bg: 'rgba(167,139,250,0.08)', bd: 'rgba(167,139,250,0.2)' },
-  { icon: Calendar,         label: 'Smart Booking Engine',   desc: 'Manage reservations with drag-and-drop calendar, auto-confirmation and online booking integration.',  col: '#34d399', bg: 'rgba(52,211,153,0.08)',  bd: 'rgba(52,211,153,0.2)' },
-  { icon: Receipt,          label: 'GST Billing & Invoices', desc: 'Auto-generate GST-compliant invoices, folios and receipts. Multiple payment modes supported.',      col: '#f472b6', bg: 'rgba(244,114,182,0.08)', bd: 'rgba(244,114,182,0.2)' },
-  { icon: Users,            label: 'Staff & Role Management',desc: 'Assign roles to front desk, housekeeping, manager & more. Track attendance and performance.',        col: '#fb923c', bg: 'rgba(251,146,60,0.08)',  bd: 'rgba(251,146,60,0.2)' },
-  { icon: BarChart3,        label: 'Revenue Analytics',      desc: 'Real-time revenue reports, occupancy rates, ADR & RevPAR metrics with beautiful charts.',           col: '#fbbf24', bg: 'rgba(251,191,36,0.08)',  bd: 'rgba(251,191,36,0.2)' },
-  { icon: Utensils,         label: 'Restaurant POS',         desc: 'Integrated restaurant billing, table management, KOT printing and menu management.',                col: '#f43f5e', bg: 'rgba(244,63,94,0.08)',   bd: 'rgba(244,63,94,0.2)' },
-  { icon: Smartphone,       label: 'Mobile App Access',      desc: 'Full access on mobile for managers. Housekeepers get their own app for room status updates.',       col: '#38bdf8', bg: 'rgba(56,189,248,0.08)',  bd: 'rgba(56,189,248,0.2)' },
-  { icon: ShieldCheck,      label: 'Secure & Reliable',      desc: '99.9% uptime SLA, data encryption, daily backups and role-based access control.',                   col: '#818cf8', bg: 'rgba(129,140,248,0.08)', bd: 'rgba(129,140,248,0.2)' },
-];
-
-const HOW_IT_WORKS = [
-  { step: '01', icon: Settings, title: 'Set Up Your Property', desc: 'Add your hotel details, room types, rates and configure your team in minutes. No technical skills needed.' },
-  { step: '02', icon: Users,    title: 'Invite Your Team',     desc: 'Add staff with specific roles — front desk, housekeeping, manager. Each gets a tailored dashboard.' },
-  { step: '03', icon: Zap,      title: 'Go Live Instantly',    desc: 'Start accepting bookings, manage check-ins and generate bills from day one. It\'s that simple.' },
-];
-
-const FEATURE_MAP: Record<string, string> = {
-  HMS: 'Hotel Management System (HMS)',
-  POS: 'Restaurant & Outlet POS',
-  TABLES: 'Table & KOT Management',
-  INVENTORY: 'Inventory & Stock Control',
-  REPORTS: 'Revenue & Occupancy Reports',
-  STAFF: 'Staff & Role Management',
-  CRM: 'Guest CRM & Profile History',
-  GST: 'GST Compliant Invoicing',
-  ACCOUNTING: 'Accounting & Expense Tracking',
-  WHATSAPP: 'WhatsApp Guest Notifications',
-  BARPOS: 'Bar & Lounge POS',
-  CAFEPOS: 'Cafe & Quick Service POS',
-  B2B: 'B2B & Corporate Travel Portal',
-  DRIVERS: 'Driver & Cab Dispatch',
-  GEOFENCING: 'Geofencing Staff Attendance',
-  PARKING: 'Valet & Parking Management',
-  TABLETS: 'In-Room Guest Tablets',
-  WALKIETALKIE: 'Digital Staff Walkie-Talkie',
-  WASTE: 'Food Waste & Cost Control',
-  WEBSITE: 'Custom Direct Booking Website',
-};
-
-const DEFAULT_PLANS = [
-  {
-    id: 'starter',
-    name: 'Starter', price: 'Free', priceINR: 0, tag: '', color: '#34d399',
-    description: 'Perfect for small hotels & homestays.',
-    features: ['1 Property', '2 POS Terminals', 'Hotel Management (HMS)', 'Restaurant POS', 'GST Invoicing', 'Inventory Management', 'Basic Reports'],
-    cta: 'Get Started Free', link: '/signup',
-  },
-  {
-    id: 'pro',
-    name: 'Professional', price: '₹29,999', priceINR: 29999, tag: 'Most Popular', color: CYAN,
-    description: 'Full-featured suite for growing hotels.',
-    features: ['2 Properties', '5 POS Terminals', 'All Starter Features', 'GST & Accounting', 'WhatsApp Alerts', 'Guest CRM', 'Staff Management'],
-    cta: 'Start Free Trial', link: '/signup',
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise', price: '₹59,999', priceINR: 59999, tag: 'Multi-Property', color: '#a78bfa',
-    description: 'For hotel chains & resort groups.',
-    features: ['10 Properties', '20 POS Terminals', 'All Pro Features', 'B2B Portal', 'Walkie-Talkie', 'Tablets & Valet', 'Dedicated Manager'],
-    cta: 'Contact Sales', link: '/contact',
-  },
-];
-
-const TESTIMONIALS = [
-  { name: 'Vikram Malhotra',  role: 'Owner, Malhotra Palace Hotel · 45 rooms · Delhi',     text: 'GuestFlow transformed our operations. Check-in time went from 10 mins to under 2 mins. Our staff loves it!',           stars: 5 },
-  { name: 'Sunita Agarwal',   role: 'GM, Agarwal Grand Resort · 120 rooms · Jaipur',        text: 'The GST billing feature alone saved us 3 hours a day. Revenue analytics helped us increase RevPAR by 22% in 3 months.', stars: 5 },
-  { name: 'Ravi Krishnaswamy',role: 'Director, KR Hospitality Group · 4 properties · Goa', text: 'Managing 4 hotels from one dashboard is a game changer. The multi-property support is exactly what we needed.',          stars: 5 },
-];
-
-const INTEGRATIONS = ['WhatsApp', 'OYO', 'MakeMyTrip', 'Goibibo', 'Booking.com', 'Paytm', 'Razorpay', 'Google Hotel'];
-
-export default function HomePage() {
+export default function WebsiteHomePage() {
+  const [activeTab, setActiveTab] = useState<'hotel' | 'restaurant' | 'bar' | 'cloud'>('hotel');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [settings, setSettings] = useState<any>(null);
-  const [packages, setPackages] = useState<any[]>([]);
-  const [maintenance, setMaint] = useState(false);
-  const [ready, setReady]       = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetch('/api/website/settings').then(r => r.json()).then(j => {
-      if (j.success) { setSettings(j.data); if (j.data?.maintenanceMode) setMaint(true); }
-      setReady(true);
-    }).catch(() => setReady(true));
-
-    fetch('/api/website/packages').then(r => r.json()).then(j => {
-      if (j.success && Array.isArray(j.data) && j.data.length > 0) {
-        // filter out internal custom plans
-        const std = j.data.filter((p: any) => !p.name?.toLowerCase().startsWith('custom —'));
-        setPackages(std.length > 0 ? std : j.data);
-      }
-    }).catch(() => {});
+    setMounted(true);
+    fetch('/api/website/settings')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setSettings(json.data);
+      })
+      .catch(() => {});
   }, []);
 
-  /* Star canvas */
-  useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    let raf: number;
-    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
-    resize(); window.addEventListener('resize', resize);
-    const stars = Array.from({ length: 160 }, () => ({
-      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-      r: Math.random() * 1.1 + 0.2, spd: Math.random() * 0.4 + 0.05,
-      op: Math.random(), dir: Math.random() > 0.5 ? 1 : -1,
-    }));
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      stars.forEach(s => {
-        s.op += s.spd * 0.02 * s.dir;
-        if (s.op > 1 || s.op < 0) s.dir *= -1;
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0,200,255,${s.op * 0.45})`; ctx.fill();
-      });
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
-  }, []);
+  if (mounted && settings?.maintenanceMode) {
+    return (
+      <MaintenanceView
+        hotelName={settings.hotelName}
+        logoUrl={settings.logoUrl}
+      />
+    );
+  }
 
-  if (!ready) return null;
-  if (maintenance) return <MaintenanceView hotelName={settings?.hotelName} logoUrl={settings?.logoUrl} />;
+  const hotelName = settings?.hotelName || 'GuestFlow';
+  const tagline = settings?.tagline || 'Next-Generation Hotel & Restaurant Management OS';
 
-  const brandName = settings?.hotelName || 'GuestFlow';
+  const industryTabs = [
+    {
+      id: 'hotel',
+      label: 'Hotel & Resort PMS',
+      icon: <Bed className="w-4 h-4" />,
+      tag: 'Complete Front-Desk & Room Operations',
+      title: 'Smart Hotel PMS with Visual Room Grid & Instant Folio Billing',
+      desc: 'Seamlessly coordinate bookings across OTAs, front desk check-ins, guest folios, housekeeping assignments, and automated night audits from one intuitive master console.',
+      image: '/images/website/hotel-pms-suite.jpg',
+      badge: 'Boutique & Luxury Resorts',
+      highlights: [
+        'Drag-and-drop live room calendar & quick room shifts',
+        'Instant guest check-in with digital ID verification',
+        'Housekeeping live status (Dirty, Clean, In-Progress, Inspected)',
+        'Multi-folio billing & automated daily night audit reconciliation',
+      ],
+      statVal: '99.8%',
+      statLabel: 'Occupancy Accuracy',
+    },
+    {
+      id: 'restaurant',
+      label: 'Fine Dining & POS',
+      icon: <Utensils className="w-4 h-4" />,
+      tag: 'High-Speed Restaurant Billing & Steward App',
+      title: 'Lightning-Fast Table POS with Smart KOT & Split Billing',
+      desc: 'Supercharge your dining room operations. Captains take orders table-side on tablets, orders instantly beam to kitchen stations, and bills split effortlessly with multi-mode payments.',
+      image: '/images/website/restaurant-pos-live.jpg',
+      badge: 'Dine-In & Casual Restaurants',
+      highlights: [
+        'Visual floor plan with real-time occupied/vacant table timers',
+        'Direct steward ordering app with instant kitchen printer & KDS sync',
+        'Split bills by item, percentage, or covers with 1-click discount presets',
+        'Full GST compliance, QR code UPI invoices, and WhatsApp receipts',
+      ],
+      statVal: '0.2s',
+      statLabel: 'KOT Transmission Speed',
+    },
+    {
+      id: 'bar',
+      label: 'Bar & Lounge',
+      icon: <Wine className="w-4 h-4" />,
+      tag: 'Liquor Precision & Peg-Wise Inventory',
+      title: 'Industry-Leading Peg-Wise Liquor Control & Bottle Tracking',
+      desc: 'Eliminate bar inventory shrinkage. Track 30ml, 60ml, 90ml pours automatically against master bottle weights with scheduled happy hours and bartender quick-punching.',
+      image: '/images/website/bar-liquor-pos.jpg',
+      badge: 'Pubs, Nightclubs & Lounges',
+      highlights: [
+        'Automated peg-to-bottle stock depletion & recipe cocktail costing',
+        'Real-time happy hour pricing scheduler and VIP discount manager',
+        'Fast bartender touch layout optimized for low-light environments',
+        'Loss prevention alerts for bottle transfers and wastage tracking',
+      ],
+      statVal: '100%',
+      statLabel: 'Liquor Stock Reconciliation',
+    },
+    {
+      id: 'cloud',
+      label: 'Room Service & Cloud Dining',
+      icon: <ChefHat className="w-4 h-4" />,
+      tag: 'Contactless Dining & Fast In-Room Service',
+      title: 'QR Code Digital Menus & Rapid Room Delivery Dispatch',
+      desc: 'Guests scan an in-room QR code to browse high-definition food menus, place orders directly to the hotel kitchen, and charge bills automatically to their room folio.',
+      image: '/images/website/kds-kitchen-screen.jpg',
+      badge: 'In-Room Dining & Cloud Kitchens',
+      highlights: [
+        'Branded digital guest portal requiring zero app installation',
+        'Direct charge to guest room folio or instant online UPI payment',
+        'Delivery rider dispatch with live GPS and status notifications',
+        'Combo upselling engine to increase average room guest spend',
+      ],
+      statVal: '+34%',
+      statLabel: 'Higher Guest In-Room Spend',
+    },
+  ];
 
-  const glowBtn: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 8,
-    padding: '11px 26px', borderRadius: 12,
-    background: `linear-gradient(135deg, ${CYAN2}, ${CYAN})`,
-    color: '#000', fontWeight: 700, fontSize: 13, textDecoration: 'none',
-    boxShadow: `0 0 28px rgba(0,200,255,0.35)`, transition: 'transform 0.2s',
-  };
-  const outlineBtn: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 8,
-    padding: '11px 22px', borderRadius: 12,
-    border: '1px solid rgba(0,200,255,0.28)', color: CYAN,
-    fontWeight: 700, fontSize: 13, textDecoration: 'none',
-    background: 'rgba(0,200,255,0.06)', transition: 'all 0.2s',
-  };
+  const currentTab = industryTabs.find((t) => t.id === activeTab) || industryTabs[0];
+
+  const appPlatforms = [
+    {
+      id: 'android',
+      name: 'Android POS & Tablet',
+      icon: <Smartphone className="w-6 h-6 text-sky-400" />,
+      desc: 'Optimized for Handheld POS, Sunmi terminals, and Waiter Tablets.',
+      badge: 'Recommended for Staff',
+      btnLabel: 'Download APK',
+      link: '/downloads/ordermint.apk',
+      version: 'v4.2.0 • Android 8+',
+    },
+    {
+      id: 'windows',
+      name: 'Windows Desktop Admin',
+      icon: <Monitor className="w-6 h-6 text-emerald-400" />,
+      desc: 'High-speed desktop administration, thermal printer spooling & local KOT.',
+      badge: 'Front Desk & Cashier',
+      btnLabel: 'Download EXE',
+      link: '/downloads/ordermint.exe',
+      version: 'v4.2.0 • Win 10/11 x64',
+    },
+    {
+      id: 'mac',
+      name: 'macOS Desktop',
+      icon: <Apple className="w-6 h-6 text-slate-300" />,
+      desc: 'Native desktop application for Apple Silicon M1/M2/M3 and Intel Macs.',
+      badge: 'Management & HQ',
+      btnLabel: 'Download DMG',
+      link: '/downloads/ordermint.dmg',
+      version: 'v4.2.0 • macOS 12+',
+    },
+    {
+      id: 'web',
+      name: 'Cloud Web Terminal',
+      icon: <Laptop className="w-6 h-6 text-indigo-400" />,
+      desc: 'Instant browser access from any device with zero installation.',
+      badge: 'Instant Access',
+      btnLabel: 'Launch Web App',
+      link: '/login',
+      version: 'Cloud Version • Always Updated',
+    },
+  ];
+
+  const testimonials = [
+    {
+      name: 'Rajesh Malhotra',
+      role: 'General Manager',
+      property: 'Grand Vista Palace & Resort',
+      location: 'Udaipur, Rajasthan',
+      avatar: '🏨',
+      rating: 5,
+      quote:
+        'Switching to GuestFlow streamlined our entire 80-room resort and 2 multi-cuisine restaurants. Check-in time dropped from 8 minutes to under 60 seconds, and night audits are completely automated.',
+    },
+    {
+      name: 'Vikramaditya Sen',
+      role: 'Director of F&B',
+      property: 'Skyline Gastro Pub & Brewery',
+      location: 'Bengaluru, Karnataka',
+      avatar: '🍸',
+      rating: 5,
+      quote:
+        'The peg-wise liquor inventory system is nothing short of revolutionary. We eliminated over 14% of monthly beverage leakage within our first 30 days of deploying GuestFlow.',
+    },
+    {
+      name: 'Ananya Deshmukh',
+      role: 'Managing Partner',
+      property: 'The Olive Branch Cafe & Patisserie',
+      location: 'Pune, Maharashtra',
+      avatar: '☕',
+      rating: 5,
+      quote:
+        'Our waitstaff love the tablet ordering app. Kitchen orders print in real-time, customers get instant WhatsApp bills, and our peak hour table turnover increased by 28%.',
+    },
+  ];
+
+  const faqs = [
+    {
+      q: 'Can GuestFlow run on our existing thermal printers, POS touchscreens, and tablets?',
+      a: 'Yes! GuestFlow is 100% hardware-agnostic. It works seamlessly with all standard USB, Ethernet, Bluetooth, and Wi-Fi thermal printers (Epson, TVS, Citizen, Posiflex), barcode scanners, cash drawers, Sunmi devices, Android tablets, and Windows/Mac computers.',
+    },
+    {
+      q: 'What happens if our internet connection drops during peak business hours?',
+      a: 'GuestFlow features advanced Offline Resilience. Your staff can continue punching KOTs, adding items, printing customer bills, and taking cash/card payments uninterrupted. Everything automatically syncs to the cloud the instant internet reconnects.',
+    },
+    {
+      q: 'Does GuestFlow handle both Hotel Room Bookings and Restaurant / Bar POS together?',
+      a: 'Absolutely! GuestFlow is built specifically as a unified platform. A guest dining at your restaurant or ordering room service can choose to pay immediately or transfer their food bill directly to their Room Folio with 1-click.',
+    },
+    {
+      q: 'How fast can we set up our hotel rooms and restaurant menu?',
+      a: 'Most properties are up and running within 24 to 48 hours. Our dedicated onboarding team provides free menu digitisation, table layout configuration, and live staff training sessions.',
+    },
+    {
+      q: 'Is there a free trial available?',
+      a: 'Yes! You can explore GuestFlow with a full-featured 14-day free trial. No credit card is required to get started.',
+    },
+  ];
 
   return (
-    <main style={{ background: BG, color: '#fff', fontFamily: "'Inter', sans-serif", overflowX: 'hidden' }}>
-      <WebsiteHeader dark />
+    <div className="relative overflow-hidden text-slate-100 selection:bg-cyan-500 selection:text-black">
+      {/* ── AMBIENT BACKGROUND GLOWS ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div
+          className="absolute -top-40 left-1/4 w-[700px] h-[700px] rounded-full blur-[180px] opacity-25"
+          style={{ background: 'radial-gradient(circle, #00c8ff, transparent 70%)' }}
+        />
+        <div
+          className="absolute top-1/2 -right-40 w-[600px] h-[600px] rounded-full blur-[200px] opacity-15"
+          style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)' }}
+        />
+        <div
+          className="absolute bottom-10 left-10 w-[500px] h-[500px] rounded-full blur-[180px] opacity-15"
+          style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }}
+        />
+      </div>
 
-      {/* ══════════════════════════════════════════
-          HERO
-      ══════════════════════════════════════════ */}
-      <section className="relative overflow-hidden pt-24 pb-8">
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }} />
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-          <div style={{ position: 'absolute', top: '15%', left: '5%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,200,255,0.14) 0%, transparent 70%)', filter: 'blur(50px)' }} />
-          <div style={{ position: 'absolute', bottom: '20%', right: '5%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.1) 0%, transparent 70%)', filter: 'blur(40px)' }} />
-        </div>
-        <div className="absolute inset-0" style={{ zIndex: 1, backgroundImage: 'linear-gradient(rgba(0,200,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,0.025) 1px,transparent 1px)', backgroundSize: '64px 64px', maskImage: 'radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%)' }} />
-
-        <div className="relative z-10 container mx-auto px-6 max-w-5xl text-center pt-8 pb-4">
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 14px', borderRadius: 999, background: 'rgba(0,200,255,0.08)', border: '1px solid rgba(0,200,255,0.2)', marginBottom: 18 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: CYAN, boxShadow: `0 0 8px ${CYAN}`, display: 'inline-block' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: CYAN }}>Trusted by 500+ Hotels Across India</span>
+      <div className="relative z-10">
+        <WebsiteHeader dark />
+        {/* ════════════════════════════════════════════════════════════════════
+            1. HERO SECTION (WITH IMMERSIVE LUXURY BACKGROUND)
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="relative pt-36 pb-24 md:pt-44 md:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
+          {/* ── LUXURY HOTEL & RESTAURANT HERO BACKGROUND (HIGH VISIBILITY) ── */}
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <Image
+              src="/images/website/hero-luxury-bg.jpg"
+              alt="Luxury Hotel & Restaurant Atmosphere"
+              fill
+              priority
+              className="object-cover object-center"
+              style={{ opacity: 0.68, filter: 'contrast(1.08) brightness(1.02)' }}
+            />
+            {/* Top-to-Bottom Smooth Gradient Overlay */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(to bottom, rgba(6, 10, 18, 0.45) 0%, rgba(6, 10, 18, 0.5) 45%, rgba(6, 10, 18, 0.85) 80%, #060a12 100%)',
+              }}
+            />
+            {/* Soft Edge Vignette */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(to right, rgba(6, 10, 18, 0.55) 0%, transparent 20%, transparent 80%, rgba(6, 10, 18, 0.55) 100%)',
+              }}
+            />
+            {/* Central Radial Cyan Spotlight */}
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[550px] rounded-full blur-[150px] pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(0, 200, 255, 0.16), transparent 70%)' }}
+            />
           </div>
 
-          <h1 style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.7rem)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 14 }}>
-            <span style={{ display: 'block', color: '#fff' }}>The All-in-One Hotel</span>
-            <span style={{ display: 'block', marginTop: 4, background: `linear-gradient(135deg, ${CYAN} 0%, #60e0ff 40%, #a78bfa 80%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-              Management Platform
-            </span>
-          </h1>
-
-          <p style={{ fontSize: 13, maxWidth: 500, margin: '0 auto 22px', lineHeight: 1.7, color: 'rgba(255,255,255,0.45)' }}>
-            From front desk to back office — manage bookings, billing, housekeeping, restaurant POS and staff from one powerful dashboard. Built for Indian hotels of all sizes.
-          </p>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
-            <Link href="/signup" style={glowBtn}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-              Start Free — No Credit Card <ArrowRight size={15} />
-            </Link>
-            <Link href="/features" style={outlineBtn}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,200,255,0.12)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,200,255,0.06)'; }}>
-              See All Features
-            </Link>
-          </div>
-
-          {/* Trust badges */}
-          <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {['✓ Free Forever Plan', '✓ GST Compliant', '✓ Easy Setup in 10 min', '✓ No Lock-in Contract'].map((t, i) => (
-              <span key={i} style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', padding: '3px 10px', borderRadius: 999 }}>{t}</span>
-            ))}
-          </div>
-
-          {/* Star rating */}
-          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-            {[...Array(5)].map((_, i) => <Star key={i} size={13} style={{ fill: GOLD, color: GOLD }} />)}
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.36)', marginLeft: 6 }}>4.8/5 rating · 500+ hotels · 10,000+ daily bookings managed</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          STATS BAR
-      ══════════════════════════════════════════ */}
-      <section style={{ background: CARD, borderTop: '1px solid rgba(0,200,255,0.07)', borderBottom: '1px solid rgba(0,200,255,0.07)', padding: '24px 0' }}>
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {[
-              { target: 500,  suffix: '+',  label: 'Hotels Using GuestFlow' },
-              { target: 10,   suffix: 'K+', label: 'Bookings Managed Daily' },
-              { target: 98,   suffix: '%',  label: 'Customer Satisfaction' },
-              { target: 99,   suffix: '.9%', label: 'Uptime Guarantee' },
-            ].map((s, i) => (
-              <div key={i} style={{ textAlign: 'center', padding: '12px 8px' }}>
-                <div style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900, color: CYAN, lineHeight: 1 }}>
-                  <Counter target={s.target} suffix={s.suffix} />
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          FEATURES
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '48px 0' }}>
-        <div className="container mx-auto px-6 max-w-6xl">
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: CYAN, display: 'block', marginBottom: 8 }}>Everything You Need</span>
-            <h2 style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 10 }}>
-              Powerful Features for{' '}
-              <span style={{ background: `linear-gradient(135deg,${CYAN},#a78bfa)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Modern Hotels</span>
-            </h2>
-            <p style={{ maxWidth: 440, margin: '0 auto', color: 'rgba(255,255,255,0.38)', fontSize: 13, lineHeight: 1.6 }}>
-              One platform to manage your entire hotel operation — from booking to billing, housekeeping to analytics.
-            </p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            {FEATURES.map((feat, i) => (
-              <div key={i}
-                style={{ background: CARD2, border: `1px solid ${feat.bd}`, borderRadius: 16, padding: 18, transition: 'all 0.3s', position: 'relative', overflow: 'hidden' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = `0 12px 32px ${feat.bg}`; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}>
-                <div style={{ position: 'absolute', top: 0, right: 0, width: 50, height: 50, borderRadius: '50%', background: feat.bg, filter: 'blur(16px)', pointerEvents: 'none' }} />
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: feat.bg, border: `1px solid ${feat.bd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                  <feat.icon size={16} style={{ color: feat.col }} strokeWidth={1.8} />
-                </div>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{feat.label}</h3>
-                <p style={{ fontSize: 11.5, lineHeight: 1.6, color: 'rgba(255,255,255,0.38)' }}>{feat.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <Link href="/features" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: CYAN, textDecoration: 'none' }}>
-              View all features <ChevronRight size={14} />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          HOW IT WORKS
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '48px 0', background: `linear-gradient(180deg, ${BG} 0%, ${CARD} 100%)` }}>
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: CYAN, display: 'block', marginBottom: 8 }}>Simple Setup</span>
-            <h2 style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900, letterSpacing: '-0.03em' }}>Get Up and Running in 3 Steps</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, position: 'relative' }}>
-            {/* Connector line */}
-            <div style={{ position: 'absolute', top: 36, left: '17%', right: '17%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(0,200,255,0.25), transparent)', pointerEvents: 'none' }} />
-            {HOW_IT_WORKS.map((step, i) => (
-              <div key={i} style={{ textAlign: 'center', padding: '22px 18px', background: CARD2, border: `1px solid ${CYAN_BD}`, borderRadius: 16, position: 'relative', transition: 'all 0.3s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = CYAN_DIM; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = CARD2; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; }}>
-                <div style={{ width: 42, height: 42, borderRadius: '50%', background: `linear-gradient(135deg,${CYAN2},${CYAN})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', boxShadow: `0 0 16px rgba(0,200,255,0.3)` }}>
-                  <step.icon size={18} style={{ color: '#000' }} strokeWidth={2.2} />
-                </div>
-                <div style={{ fontSize: 9.5, fontWeight: 800, color: CYAN, letterSpacing: '0.15em', marginBottom: 6 }}>STEP {step.step}</div>
-                <h3 style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', marginBottom: 6 }}>{step.title}</h3>
-                <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          PRICING PLANS
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '48px 0' }}>
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: CYAN, display: 'block', marginBottom: 8 }}>Pricing</span>
-            <h2 style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 8 }}>Simple, Transparent Pricing</h2>
-            <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13 }}>Start free — upgrade as you grow. No hidden fees.</p>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(packages.length > 0 ? packages.length : DEFAULT_PLANS.length, 3)}, 1fr)`, gap: 14 }}>
-            {(packages.length > 0 ? packages.map((pkg, i) => {
-              const isPopular = pkg.discountPercent > 0 || i === 1;
-              const priceText = pkg.priceINR === 0 ? 'Free' : `₹${Number(pkg.priceINR).toLocaleString('en-IN')}`;
-              const tagText = pkg.discountPercent > 0
-                ? `${pkg.discountPercent}% OFF`
-                : (i === 1 ? 'Most Popular' : (pkg.allowedPropertyCount > 1 ? 'Multi-Property' : ''));
-              const planColor = pkg.color || (i === 0 ? '#34d399' : (i === 1 ? CYAN : '#a78bfa'));
-
-              const featureList = [
-                pkg.allowedPropertyCount ? `${pkg.allowedPropertyCount} ${pkg.allowedPropertyCount > 1 ? 'Properties' : 'Property'}` : null,
-                pkg.allowedPosCount ? `${pkg.allowedPosCount} POS ${pkg.allowedPosCount > 1 ? 'Terminals' : 'Terminal'}` : null,
-                ...(pkg.features?.map((f: any) => FEATURE_MAP[f.feature] || f.feature) || []),
-              ].filter(Boolean);
-
-              return (
-                <div key={pkg.id || i} style={{ background: isPopular ? `linear-gradient(160deg, rgba(0,200,255,0.1) 0%, ${CARD2} 100%)` : CARD2, border: isPopular ? `1px solid ${CYAN}` : '1px solid rgba(255,255,255,0.07)', borderRadius: 18, padding: '24px 20px', position: 'relative', transition: 'all 0.3s', boxShadow: isPopular ? `0 0 35px rgba(0,200,255,0.12)` : 'none' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; }}>
-                  {tagText && (
-                    <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: `linear-gradient(135deg,${CYAN2},${CYAN})`, color: '#000', fontSize: 8.5, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 12px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-                      {tagText}
-                    </div>
-                  )}
-                  <div style={{ marginBottom: 3 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: planColor }}>{pkg.name}</span>
-                  </div>
-                  <div style={{ fontSize: 'clamp(1.3rem, 1.8vw, 1.6rem)', fontWeight: 900, color: '#fff', marginBottom: 2 }}>{priceText}</div>
-                  {pkg.priceINR > 0 && <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', marginBottom: 8 }}>per month</div>}
-                  {pkg.description && (
-                    <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4, marginBottom: 8 }}>{pkg.description}</p>
-                  )}
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '10px 0' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 18 }}>
-                    {featureList.slice(0, 7).map((f: any, j: number) => (
-                      <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <CheckCircle2 size={12} style={{ color: planColor, flexShrink: 0 }} />
-                        <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
-                      </div>
-                    ))}
-                    {featureList.length > 7 && (
-                      <div style={{ fontSize: 10.5, color: CYAN, marginTop: 1, fontWeight: 600 }}>
-                        + {featureList.length - 7} more features
-                      </div>
-                    )}
-                  </div>
-                  <Link href={`/signup?packageId=${pkg.id || ''}`} style={{ display: 'block', textAlign: 'center', padding: '9px 0', borderRadius: 10, background: isPopular ? `linear-gradient(135deg,${CYAN2},${CYAN})` : 'rgba(255,255,255,0.06)', border: isPopular ? 'none' : '1px solid rgba(255,255,255,0.1)', color: isPopular ? '#000' : 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 11.5, textDecoration: 'none', transition: 'all 0.2s', letterSpacing: '0.04em' }}
-                    onMouseEnter={e => { if (!isPopular) (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.1)'; }}
-                    onMouseLeave={e => { if (!isPopular) (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.06)'; }}>
-                    {pkg.priceINR === 0 ? 'Get Started Free' : 'Start Free Trial'}
-                  </Link>
-                </div>
-              );
-            }) : DEFAULT_PLANS.map((plan, i) => {
-              const isPopular = i === 1;
-              return (
-                <div key={i} style={{ background: isPopular ? `linear-gradient(160deg, rgba(0,200,255,0.1) 0%, ${CARD2} 100%)` : CARD2, border: isPopular ? `1px solid ${CYAN}` : '1px solid rgba(255,255,255,0.07)', borderRadius: 18, padding: '24px 20px', position: 'relative', transition: 'all 0.3s', boxShadow: isPopular ? `0 0 35px rgba(0,200,255,0.12)` : 'none' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; }}>
-                  {plan.tag && (
-                    <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: `linear-gradient(135deg,${CYAN2},${CYAN})`, color: '#000', fontSize: 8.5, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 12px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-                      {plan.tag}
-                    </div>
-                  )}
-                  <div style={{ marginBottom: 3 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: plan.color }}>{plan.name}</span>
-                  </div>
-                  <div style={{ fontSize: 'clamp(1.3rem, 1.8vw, 1.6rem)', fontWeight: 900, color: '#fff', marginBottom: 2 }}>{plan.price}</div>
-                  {plan.price !== 'Free' && plan.price !== 'Custom' && <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>per month</div>}
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '10px 0' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 18 }}>
-                    {plan.features.map((f, j) => (
-                      <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <CheckCircle2 size={12} style={{ color: plan.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.58)' }}>{f}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <Link href={plan.link} style={{ display: 'block', textAlign: 'center', padding: '9px 0', borderRadius: 10, background: isPopular ? `linear-gradient(135deg,${CYAN2},${CYAN})` : 'rgba(255,255,255,0.06)', border: isPopular ? 'none' : '1px solid rgba(255,255,255,0.1)', color: isPopular ? '#000' : 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 11.5, textDecoration: 'none', transition: 'all 0.2s', letterSpacing: '0.04em' }}
-                    onMouseEnter={e => { if (!isPopular) (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.1)'; }}
-                    onMouseLeave={e => { if (!isPopular) (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.06)'; }}>
-                    {plan.cta}
-                  </Link>
-                </div>
-              );
-            }))}
-          </div>
-          <p style={{ textAlign: 'center', marginTop: 14, fontSize: 11.5, color: 'rgba(255,255,255,0.28)' }}>All plans include free setup support · Cancel anytime</p>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          TESTIMONIALS
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '48px 0', background: `linear-gradient(180deg, ${BG} 0%, ${CARD} 100%)` }}>
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: CYAN, display: 'block', marginBottom: 8 }}>Customer Stories</span>
-            <h2 style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 8 }}>Loved by Hotel Owners Across India</h2>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              {[...Array(5)].map((_, i) => <Star key={i} size={13} style={{ fill: GOLD, color: GOLD }} />)}
-              <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.36)', marginLeft: 6 }}>4.8 average from 500+ hotels</span>
+          <div className="relative z-10 max-w-7xl mx-auto">
+            {/* Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: -15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex justify-center mb-6"
+            >
+            <div
+              className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full backdrop-blur-md transition-all hover:scale-105"
+              style={{
+                background: 'rgba(6, 10, 18, 0.65)',
+                border: '1px solid rgba(0, 200, 255, 0.4)',
+                boxShadow: '0 0 25px rgba(0, 200, 255, 0.25)',
+              }}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300 drop-shadow">
+                Next-Gen Hospitality & POS Cloud Platform
+              </span>
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
             </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} style={{ background: CARD2, border: '1px solid rgba(255,255,255,0.05)', borderRadius: 18, padding: '18px 16px', transition: 'all 0.3s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = CYAN_BD; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = `0 12px 30px rgba(0,200,255,0.06)`; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}>
-                <div style={{ display: 'flex', gap: 2, marginBottom: 8 }}>
-                  {[...Array(t.stars)].map((_, j) => <Star key={j} size={11} style={{ fill: GOLD, color: GOLD }} />)}
-                </div>
-                <p style={{ fontSize: 11.5, lineHeight: 1.7, color: 'rgba(255,255,255,0.52)', marginBottom: 12, fontStyle: 'italic' }}>&ldquo;{t.text}&rdquo;</p>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#fff' }}>{t.name}</div>
-                <div style={{ fontSize: 9.5, color: 'rgba(0,200,255,0.6)', marginTop: 2 }}>{t.role}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+          </motion.div>
 
-      {/* ══════════════════════════════════════════
-          WHY CHOOSE US
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '48px 0' }}>
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: CYAN, display: 'block', marginBottom: 8 }}>Why GuestFlow</span>
-              <h2 style={{ fontSize: 'clamp(1.3rem, 2.2vw, 1.8rem)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 12, lineHeight: 1.2 }}>
-                Built for{' '}
-                <span style={{ background: `linear-gradient(135deg,${CYAN},#a78bfa)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Indian Hotels</span>
-              </h2>
-              <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.42)', lineHeight: 1.7, marginBottom: 18 }}>
-                Most hotel software is expensive, complex or built for international markets. GuestFlow is designed from the ground up for Indian hospitality — affordable, GST-ready and easy to use.
-              </p>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Link href="/signup" style={glowBtn}>Start Free Trial <ArrowRight size={14} /></Link>
-                <Link href="/contact" style={outlineBtn}>Talk to Sales</Link>
-              </div>
+          {/* Main Headline */}
+          <div className="text-center max-w-4xl mx-auto mb-5">
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.4rem] font-black tracking-tight leading-[1.12] text-white drop-shadow-2xl"
+              style={{
+                textShadow: '0 4px 20px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 200, 255, 0.25)',
+              }}
+            >
+              One Cloud OS to Run Your{' '}
+              <span
+                className="bg-clip-text text-transparent bg-gradient-to-r from-[#00c8ff] via-[#38bdf8] to-[#34d399]"
+                style={{ textShadow: '0 0 40px rgba(0, 200, 255, 0.4)' }}
+              >
+                Hotel, Restaurant & Bar.
+              </span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="mt-4 text-sm sm:text-base md:text-lg text-slate-100 max-w-2xl mx-auto leading-relaxed font-medium drop-shadow-lg"
+              style={{
+                textShadow: '0 2px 10px rgba(0, 0, 0, 0.9)',
+              }}
+            >
+              Unify front-desk room reservations, lightning-fast POS billing, table management, peg-wise liquor control, housekeeping, and smart guest folios into one intelligent operating system.
+            </motion.p>
+          </div>
+
+          {/* Action CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-6"
+          >
+            <Link
+              href="/pricing"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-950 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl group"
+              style={{
+                background: 'linear-gradient(135deg, #00c8ff, #00e5ff)',
+                boxShadow: '0 0 35px rgba(0, 200, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+              }}
+            >
+              <span>Start Free 14-Day Trial</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+
+            <Link
+              href="/contact"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl font-bold text-xs sm:text-sm text-white flex items-center justify-center gap-2 backdrop-blur-md transition-all duration-200 hover:bg-white/10 hover:border-cyan-500/40 active:scale-95"
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+              }}
+            >
+              <Play className="w-4 h-4 text-cyan-400 fill-cyan-400/20" />
+              <span>Book Live 1-on-1 Demo</span>
+            </Link>
+          </motion.div>
+
+          {/* Trust points */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-medium mb-8"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+              <span>No Credit Card Required</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+              <span>Setup in 24 Hours</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+              <span>Works Offline & Online</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+              <span>24/7 Priority Support</span>
+            </div>
+          </motion.div>
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            2. STATS & LIVE TRUST COUNTERS
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-12 border-y border-white/[0.06] bg-black/40 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
               {[
-                'GST-compliant billing — auto-fill GSTIN, HSN codes',
-                'Multi-property management from one account',
-                'Works on any device — desktop, tablet, mobile',
-                'OTA channel manager integration (MakeMyTrip, OYO)',
-                'Housekeeping & maintenance workflow automation',
-                'WhatsApp notifications for guests & staff',
-                'Offline mode — works even without internet',
-                'Free onboarding and 24/7 customer support',
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: CARD2, border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,200,255,0.18)'; (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,200,255,0.04)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLDivElement).style.background = CARD2; }}>
-                  <CheckCircle2 size={13} style={{ color: CYAN, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.58)', fontWeight: 500 }}>{item}</span>
+                { val: '500+', label: 'Active Hotels & Restaurants', icon: <Building2 className="w-5 h-5 text-cyan-400" /> },
+                { val: '< 0.2s', label: 'Real-time KOT & Folio Sync', icon: <Zap className="w-5 h-5 text-amber-400" /> },
+                { val: '99.99%', label: 'Guaranteed Cloud Uptime', icon: <ShieldCheck className="w-5 h-5 text-emerald-400" /> },
+                { val: '₹45M+', label: 'Monthly Bills & Folios Processed', icon: <TrendingUp className="w-5 h-5 text-indigo-400" /> },
+              ].map((stat, idx) => (
+                <div
+                  key={idx}
+                  className="p-5 rounded-2xl transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                  }}
+                >
+                  <div className="flex items-center justify-center mb-2">{stat.icon}</div>
+                  <div
+                    className="text-2xl sm:text-4xl font-black text-white tracking-tight mb-1"
+                    style={{
+                      background: 'linear-gradient(135deg, #ffffff 40%, #00c8ff 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
+                    {stat.val}
+                  </div>
+                  <div className="text-xs text-slate-400 font-medium">{stat.label}</div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ══════════════════════════════════════════
-          INTEGRATIONS
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '32px 0', background: CARD, borderTop: '1px solid rgba(0,200,255,0.06)', borderBottom: '1px solid rgba(0,200,255,0.06)' }}>
-        <div className="container mx-auto px-6 max-w-5xl">
-          <p style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.28)', marginBottom: 16 }}>Integrates With Your Favourite Platforms</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-            {INTEGRATIONS.map((name, i) => (
-              <div key={i} style={{ padding: '6px 14px', background: CARD2, border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', transition: 'all 0.2s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = CYAN_BD; (e.currentTarget as HTMLDivElement).style.color = CYAN; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLDivElement).style.color = 'rgba(255,255,255,0.45)'; }}>
-                {name}
-              </div>
-            ))}
+        {/* ════════════════════════════════════════════════════════════════════
+            3. INTERACTIVE INDUSTRY SOLUTIONS SHOWCASE (TABS + IMAGES)
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
+              Specialized Modules
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+              Tailored Power for <span className="text-cyan-400">Every Hospitality Format.</span>
+            </h2>
+            <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
+              Whether you run a 150-room luxury resort, a high-octane craft brewery, or a boutique dining room — GuestFlow adapts to your precise operational flow.
+            </p>
           </div>
-        </div>
-      </section>
 
-      {/* ══════════════════════════════════════════
-          MOBILE APP — COMING SOON
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '48px 0', position: 'relative', overflow: 'hidden' }}>
-        {/* BG glow */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <div style={{ position: 'absolute', top: '50%', left: '30%', transform: 'translate(-50%,-50%)', width: 400, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,200,255,0.07) 0%, transparent 70%)', filter: 'blur(50px)' }} />
-          <div style={{ position: 'absolute', top: '40%', right: '15%', width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.07) 0%, transparent 70%)', filter: 'blur(35px)' }} />
-        </div>
+          {/* Solution Tabs Selector */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
+            {industryTabs.map((tab) => {
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-cyan-500 text-slate-950 shadow-lg scale-105'
+                      : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white border border-white/[0.08]'
+                  }`}
+                  style={
+                    isSelected
+                      ? {
+                          boxShadow: '0 0 25px rgba(0, 200, 255, 0.4)',
+                        }
+                      : {}
+                  }
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="container mx-auto px-6 max-w-5xl" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center' }}>
+          {/* Active Solution Content Card */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center p-6 sm:p-10 rounded-3xl backdrop-blur-xl"
+              style={{
+                background: 'rgba(10, 16, 32, 0.75)',
+                border: '1px solid rgba(0, 200, 255, 0.2)',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              {/* Left Column: Description & Highlights */}
+              <div className="lg:col-span-6 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  {currentTab.badge}
+                </div>
 
-            {/* Left — Text */}
-            <div>
-              {/* Coming Soon badge */}
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)', marginBottom: 14 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa', display: 'inline-block' }} />
-                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#a78bfa' }}>Coming Soon</span>
-              </div>
+                <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-snug">
+                  {currentTab.title}
+                </h3>
 
-              <h2 style={{ fontSize: 'clamp(1.3rem, 2.2vw, 1.8rem)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 10 }}>
-                GuestFlow{' '}
-                <span style={{ background: 'linear-gradient(135deg,#a78bfa,#00c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Mobile App</span>
-              </h2>
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                  {currentTab.desc}
+                </p>
 
-              <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.42)', lineHeight: 1.7, marginBottom: 18, maxWidth: 360 }}>
-                Manage your hotel from anywhere — check-in guests, assign housekeeping tasks, view live revenue and handle requests right from your phone.
-              </p>
-
-              {/* Feature list */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }}>
-                {[
-                  '📊 Live dashboard & revenue at a glance',
-                  '🛎 Instant guest check-in & check-out',
-                  '🧹 Assign & track housekeeping tasks',
-                  '📦 Inventory & room status in real time',
-                  '🔔 Push notifications for new bookings',
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)' }}>{item}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Store buttons */}
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {[
-                  { store: 'App Store', icon: '🍎', sub: 'iOS App — Coming Soon' },
-                  { store: 'Play Store', icon: '▶', sub: 'Android App — Coming Soon' },
-                ].map((btn, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: CARD2, border: '1px solid rgba(255,255,255,0.08)', opacity: 0.7, cursor: 'default' }}>
-                    <span style={{ fontSize: 18 }}>{btn.icon}</span>
-                    <div>
-                      <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Download on</div>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#fff' }}>{btn.store}</div>
-                      <div style={{ fontSize: 8.5, color: '#a78bfa', fontWeight: 600 }}>{btn.sub}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.28)', marginTop: 12 }}>
-                🔔 Sign up now to get notified when the app launches
-              </p>
-            </div>
-
-            {/* Right — Phone mockup */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,200,255,0.15) 0%, transparent 70%)', filter: 'blur(25px)', pointerEvents: 'none' }} />
-
-                {/* Phone frame */}
-                <div style={{ width: 195, height: 380, borderRadius: 30, background: '#0a1020', border: '2px solid rgba(0,200,255,0.25)', position: 'relative', overflow: 'hidden', boxShadow: '0 0 40px rgba(0,200,255,0.12), 0 30px 60px rgba(0,0,0,0.5)' }}>
-                  <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', width: 65, height: 16, background: '#060a12', borderRadius: 8, zIndex: 2 }} />
-
-                  <div style={{ padding: '36px 14px 14px', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <div>
-                        <div style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.35)' }}>Good morning 👋</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>Dashboard</div>
+                {/* Key feature checklist */}
+                <div className="space-y-3 pt-2">
+                  {currentTab.highlights.map((h, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 flex-shrink-0 mt-0.5 border border-cyan-500/20">
+                        <Check className="w-3 h-3" />
                       </div>
-                      <div style={{ width: 24, height: 24, borderRadius: '50%', background: CYAN_DIM, border: `1px solid ${CYAN_BD}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>🔔</div>
+                      <span className="text-xs sm:text-sm text-slate-200 font-medium">{h}</span>
                     </div>
+                  ))}
+                </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                      {[
-                        { label: 'Occupied', val: '24/30', col: CYAN },
-                        { label: 'Revenue', val: '₹48K', col: '#a78bfa' },
-                        { label: 'Check-ins', val: '6', col: '#34d399' },
-                        { label: 'Pending', val: '3', col: '#fbbf24' },
-                      ].map((s, i) => (
-                        <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '8px 8px' }}>
-                          <div style={{ fontSize: 6.5, color: 'rgba(255,255,255,0.35)', marginBottom: 2, textTransform: 'uppercase' }}>{s.label}</div>
-                          <div style={{ fontSize: 11.5, fontWeight: 800, color: s.col }}>{s.val}</div>
-                        </div>
-                      ))}
-                    </div>
+                {/* Stat block & CTA */}
+                <div className="pt-4 flex flex-wrap items-center gap-6">
+                  <div className="p-3.5 rounded-2xl bg-black/40 border border-white/[0.08]">
+                    <div className="text-2xl font-black text-cyan-400">{currentTab.statVal}</div>
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">{currentTab.statLabel}</div>
+                  </div>
 
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 8px' }}>
-                      <div style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Today&apos;s Check-ins</div>
-                      {['Room 101 — Sharma', 'Room 203 — Patel', 'Room 310 — Kumar'].map((r, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 0', borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: CYAN, flexShrink: 0 }} />
-                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)' }}>{r}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <Link
+                    href="/features"
+                    className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-400 hover:text-cyan-300 transition-colors group"
+                  >
+                    <span>Explore Full Specs</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </div>
+              </div>
 
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: `linear-gradient(to top, #0a1020 60%, transparent)`, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 10 }}>
-                      <div style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 999, padding: '4px 12px', fontSize: 8.5, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.12em' }}>
-                        COMING SOON
-                      </div>
-                    </div>
+              {/* Right Column: High-Res Image Preview */}
+              <div className="lg:col-span-6 relative">
+                <div className="relative aspect-[16/11] rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl group">
+                  <Image
+                    src={currentTab.image}
+                    alt={currentTab.title}
+                    fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#060a12]/80 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between p-3 rounded-xl backdrop-blur-md bg-black/60 border border-white/[0.1]">
+                    <span className="text-xs font-bold text-white">{currentTab.tag}</span>
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Live System View</span>
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </AnimatePresence>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            4. BENTO FEATURE MATRIX (KDS, ANALYTICS, INVENTORY, MOBILE APPS)
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
+              Deep Architectural Power
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+              Engineered for Speed, Precision & Zero Wastage.
+            </h2>
+            <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
+              Explore the core modules built to eliminate kitchen errors, maximize table turnover, and automate compliance.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
+            {/* Bento Card 1: KDS (Span 7) */}
+            <div
+              className="lg:col-span-7 rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden relative group transition-all duration-300 hover:border-cyan-500/40"
+              style={{
+                background: 'rgba(10, 16, 32, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div className="mb-6 z-10">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-4">
+                  <ChefHat className="w-3.5 h-3.5" /> Kitchen Intelligence
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Paperless Kitchen Display System (KDS)</h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
+                  Route orders instantaneously to specific stations (Curry, Tandoor, Chinese, Bar). Prep timers color-code delayed items automatically to ensure 100% table harmony.
+                </p>
+              </div>
+
+              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl z-10">
+                <Image
+                  src="/images/website/kds-kitchen-screen.jpg"
+                  alt="Kitchen Display System KDS Interface"
+                  fill
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+            </div>
+
+            {/* Bento Card 2: AI Analytics (Span 5) */}
+            <div
+              className="lg:col-span-5 rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden relative group transition-all duration-300 hover:border-cyan-500/40"
+              style={{
+                background: 'rgba(10, 16, 32, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div className="mb-6 z-10">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4">
+                  <BarChart3 className="w-3.5 h-3.5" /> Executive BI
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Real-Time Revenue Analytics</h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Monitor live sales, RevPAR, item profitability margins, peak hour surges, and staff sales performance from your phone anywhere in the world.
+                </p>
+              </div>
+
+              <div className="relative aspect-[16/10] rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl z-10">
+                <Image
+                  src="/images/website/guestflow-hero-dash.jpg"
+                  alt="Real-time Revenue Analytics Dashboard"
+                  fill
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+            </div>
+
+            {/* Bento Card 3: Mobile Waiter Station (Span 4) */}
+            <div
+              className="lg:col-span-4 rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/40"
+              style={{
+                background: 'rgba(10, 16, 32, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-4 border border-cyan-500/20">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <h4 className="text-lg font-bold text-white mb-2">Tablet & Handheld POS</h4>
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Turn any Android tablet or smartphone into a mobile waiter station. Punch KOTs, modify spice levels, and print invoices right at the customer's table.
+                </p>
+              </div>
+              <div className="relative aspect-[16/10] rounded-xl overflow-hidden border border-white/[0.08]">
+                <Image src="/images/website/restaurant-pos-live.jpg" alt="Handheld POS Mobile" fill className="object-cover" />
+              </div>
+            </div>
+
+            {/* Bento Card 4: Housekeeping & Walkie-Talkie (Span 4) */}
+            <div
+              className="lg:col-span-4 rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/40"
+              style={{
+                background: 'rgba(10, 16, 32, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400 mb-4 border border-violet-500/20">
+                  <Radio className="w-5 h-5" />
+                </div>
+                <h4 className="text-lg font-bold text-white mb-2">Staff Walkie-Talkie & Tasks</h4>
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  Coordinate housekeeping teams across multiple floors with built-in push-to-talk digital walkie-talkie audio channels and real-time cleaning checklists.
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-black/40 border border-white/[0.05] space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300">Channel: Housekeeping Floor 2</span>
+                  <span className="text-emerald-400 font-bold">● Active (4 Staff)</span>
+                </div>
+                <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-violet-400 h-full w-3/4 rounded-full" />
+                </div>
+              </div>
+            </div>
+
+            {/* Bento Card 5: GST Billing & Multi-Payment (Span 4) */}
+            <div
+              className="lg:col-span-4 rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/40"
+              style={{
+                background: 'rgba(10, 16, 32, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-4 border border-emerald-500/20">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <h4 className="text-lg font-bold text-white mb-2">GST Invoicing & Payments</h4>
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  100% GST compliant invoicing with HSN code mapping, dynamic UPI QR on bill slips, multi-tender splits (Cash + Card + UPI), and WhatsApp auto-receipts.
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-black/40 border border-white/[0.05] flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-slate-400">Supported Gateways</div>
+                  <div className="text-sm font-bold text-white">Razorpay • PineLabs • Paytm</div>
+                </div>
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ══════════════════════════════════════════
-          FINAL CTA
-      ══════════════════════════════════════════ */}
-      <section style={{ padding: '52px 0', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,200,255,0.1) 0%, transparent 70%)', filter: 'blur(45px)' }} />
-        </div>
-        <div className="container mx-auto px-6 max-w-lg" style={{ position: 'relative', zIndex: 1 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: CYAN, display: 'block', marginBottom: 8 }}>Ready to Get Started?</span>
-          <h2 style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 10 }}>
-            Start Managing Your Hotel{' '}
-            <span style={{ background: `linear-gradient(135deg,${CYAN},#a78bfa)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Smarter Today</span>
-          </h2>
-          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.38)', maxWidth: 360, margin: '0 auto 20px', lineHeight: 1.6 }}>
-            Join 500+ hotels already using GuestFlow. Setup in 10 minutes. No credit card required.
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/signup" style={glowBtn}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-              Create Free Account <ArrowRight size={15} />
-            </Link>
-            <Link href="/contact" style={outlineBtn}>Book a Demo</Link>
+        {/* ════════════════════════════════════════════════════════════════════
+            5. MULTI-PLATFORM DOWNLOAD SHOWCASE
+        ════════════════════════════════════════════════════════════════════ */}
+        <section id="download" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
+              Deploy Instantly Everywhere
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+              One Login. <span className="text-cyan-400">Every Device.</span>
+            </h2>
+            <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
+              Download native high-performance applications designed specifically for your hardware setup.
+            </p>
           </div>
-        </div>
-      </section>
 
-      <PremiumFooter />
-    </main>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {appPlatforms.map((app) => (
+              <div
+                key={app.id}
+                className="p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:border-cyan-500/40"
+                style={{
+                  background: 'rgba(10, 16, 32, 0.85)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
+                      {app.icon}
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      {app.badge}
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-white mb-1.5">{app.name}</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed mb-4">{app.desc}</p>
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-mono text-slate-400 mb-3">{app.version}</div>
+                  <a
+                    href={app.link}
+                    download={app.id !== 'web'}
+                    className="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 text-slate-950 hover:opacity-90"
+                    style={{
+                      background: 'linear-gradient(135deg, #00c8ff, #38bdf8)',
+                      boxShadow: '0 0 20px rgba(0, 200, 255, 0.25)',
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{app.btnLabel}</span>
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            6. SOCIAL PROOF & CUSTOMER REVIEWS
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-white/[0.06]">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
+              Trusted by Leaders
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+              Loved by 500+ Hoteliers & Restaurateurs.
+            </h2>
+            <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
+              Discover why premier boutique resorts and high-volume outlets choose GuestFlow to power their day-to-day operations.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.map((t, idx) => (
+              <div
+                key={idx}
+                className="p-6 sm:p-8 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/30"
+                style={{
+                  background: 'rgba(10, 16, 32, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <div>
+                  {/* Rating Stars */}
+                  <div className="flex items-center gap-1 text-amber-400 mb-4">
+                    {[...Array(t.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-amber-400" />
+                    ))}
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed italic mb-6">
+                    "{t.quote}"
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.06]">
+                  <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center text-lg border border-cyan-500/20">
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">{t.name}</div>
+                    <div className="text-[11px] text-cyan-300 font-medium">{t.role} • {t.property}</div>
+                    <div className="text-[10px] text-slate-400">{t.location}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            7. 24/7 DEDICATED SUPPORT & ONBOARDING PROMISE
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center p-8 sm:p-12 rounded-3xl overflow-hidden relative"
+            style={{
+              background: 'radial-gradient(ellipse at top left, rgba(0, 200, 255, 0.1), rgba(10, 16, 32, 0.95))',
+              border: '1px solid rgba(0, 200, 255, 0.25)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            <div className="lg:col-span-7 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Headphones className="w-3.5 h-3.5" /> White-Glove Onboarding
+              </div>
+
+              <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                We Setup Everything For You. <br />
+                <span className="text-cyan-400">Zero Technical Stress.</span>
+              </h3>
+
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                Our hospitality engineers digitize your full room inventory, configure printer dispatch routes, upload your food & beverage menus with item photos, and train your staff live.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {[
+                  'Free Menu & Room Digitization',
+                  '1-on-1 Staff Training Sessions',
+                  'Dedicated WhatsApp Support Group',
+                  'Hardware & Thermal Printer Setup',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2.5 text-xs sm:text-sm text-slate-200 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4">
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors shadow-lg"
+                >
+                  <span>Talk to an Onboarding Specialist</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 relative">
+              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl">
+                <Image
+                  src="/images/website/contact-team.png"
+                  alt="GuestFlow Dedicated Support Team"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            8. INTERACTIVE FAQ ACCORDION
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
+              Got Questions?
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              Frequently Asked Questions.
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-2xl overflow-hidden transition-all duration-200"
+                  style={{
+                    background: 'rgba(10, 16, 32, 0.75)',
+                    border: isOpen ? '1px solid rgba(0, 200, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full px-6 py-4 flex items-center justify-between text-left text-sm sm:text-base font-bold text-white hover:text-cyan-300 transition-colors"
+                  >
+                    <span>{faq.q}</span>
+                    <span className="ml-4 flex-shrink-0 text-cyan-400">
+                      {isOpen ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="px-6 pb-5 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-white/[0.04] pt-3"
+                      >
+                        {faq.a}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            9. GRAND FINALE HIGH-CONVERTING CTA
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center relative overflow-hidden">
+          <div
+            className="p-10 sm:p-16 rounded-3xl relative overflow-hidden backdrop-blur-2xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(0, 200, 255, 0.12), rgba(10, 16, 32, 0.95), rgba(99, 102, 241, 0.12))',
+              border: '1px solid rgba(0, 200, 255, 0.3)',
+              boxShadow: '0 30px 80px rgba(0, 0, 0, 0.7), 0 0 60px rgba(0, 200, 255, 0.15)',
+            }}
+          >
+            <div className="relative z-10 max-w-2xl mx-auto">
+              <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-cyan-400 block mb-4">
+                Join 500+ Top Hospitality Brands
+              </span>
+
+              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight mb-6">
+                Ready to Upgrade to the{' '}
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-emerald-400">
+                  Ultimate Hospitality OS?
+                </span>
+              </h2>
+
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-8">
+                Start your free 14-day trial today. No credit card required. Experience faster check-ins, automated KOTs, and zero inventory leakage.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  href="/pricing"
+                  className="w-full sm:w-auto px-10 py-4 rounded-xl font-bold text-sm text-slate-950 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl"
+                  style={{
+                    background: 'linear-gradient(135deg, #00c8ff, #00e5ff)',
+                    boxShadow: '0 0 35px rgba(0, 200, 255, 0.4)',
+                  }}
+                >
+                  <span>Start Free Trial Now</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <Link
+                  href="/contact"
+                  className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 backdrop-blur-md transition-all duration-200 hover:bg-white/10"
+                  style={{
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                  }}
+                >
+                  <span>Schedule Personal Demo</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <PremiumFooter />
+      </div>
+    </div>
   );
 }

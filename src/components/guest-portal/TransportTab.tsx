@@ -521,7 +521,7 @@ export default function TransportTab({ token, guestName = '', guestPhone = '', g
 
       {/* Booking Modal */}
       {bookingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
           <div className="bg-[#0c1525] border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
             <button
               onClick={() => setBookingModal(null)}

@@ -131,7 +131,7 @@ io.on('connection', async (socket: Socket) => {
       socket.join(channelId)
       socket.data.activeChannels.add(channelId)
       console.log(`[Socket Room] ${userName} joined channel room: ${channelId}`)
-      
+
       socket.emit('joined_channel_success', { channelId })
     } catch (err: any) {
       console.error('[Socket Join Channel] Error:', err)

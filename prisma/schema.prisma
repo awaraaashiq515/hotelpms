@@ -185,6 +185,12 @@ model Property {
   channelConnections           ChannelConnection[]
   channelSyncLogs               ChannelSyncLog[]
 
+  // ── Tipping Feature ───────────────────────────────────────
+  tippingEnabled               Boolean                  @default(false)
+  tippingStaffRoles            String?                  @default("Waiter,Housekeeping")
+  tippingPresets               String?                  @default("10,20,50,100")
+  tipTransactions              TipTransaction[]
+
   @@index([organizationId])
 }
 
@@ -226,6 +232,7 @@ model User {
   lastLoginAt          DateTime?
   designation          String?
   posPin               String?
+  avatarUrl            String? // Profile photo URL or base64
   // ── Two-Factor Authentication ──────────────────────────────
   twoFactorEnabled     Boolean      @default(false)
   twoFactorSecret      String? // Base32-encoded TOTP secret
@@ -313,6 +320,7 @@ model Guest {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   driverId            String?
+  avatarUrl           String? // Profile photo URL or base64
   guestPortalPassword String? // hashed password for guest self-service portal
   checkIns            CheckIn[]
   folios              Folio[]
@@ -328,6 +336,7 @@ model Guest {
   referrals           Guest[]          @relation("GuestReferral")
   loyaltyLogs         LoyaltyLog[]
   coupons             Coupon[]
+  tipTransactions     TipTransaction[]
 }
 
 model GuestDocument {
@@ -1550,11 +1559,17 @@ model StaffMember {
   joiningDate      DateTime?    @default(now())
   isActive         Boolean      @default(true)
   shiftHours       Float?       @default(8.0)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  avatarUrl        String? // Staff profile photo URL or base64
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   posOrders        PosOrder[]
-  property         Property     @relation(fields: [propertyId], references: [id])
+  property         Property         @relation(fields: [propertyId], references: [id])
   attendance       Attendance[]
+  tipTransactions  TipTransaction[]
+
+  // UPI for direct tipping
+  upiId            String?
+  upiName          String?
 
   // Link to POS User credentials for staff login portal
   userId String? @unique
@@ -2888,3 +2903,29 @@ model ChannelSyncLog {
   @@index([syncedAt])
 }
 
+// ─── Tipping System ────────────────────────────────────────────────────────────
+
+model TipTransaction {
+  id            String      @id @default(cuid())
+  propertyId    String
+  staffMemberId String
+  guestId       String?     // null = anonymous tip
+  guestName     String?     // anonymous guest ka naam
+  guestPhone    String?     // anonymous guest ka phone
+  amount        Float
+  upiRef        String?     // UPI transaction reference (manual entry by guest)
+  status        String      @default("PENDING") // PENDING | CONFIRMED | FAILED
+  note          String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  property    Property    @relation(fields: [propertyId], references: [id])
+  staffMember StaffMember @relation(fields: [staffMemberId], references: [id])
+  guest       Guest?      @relation(fields: [guestId], references: [id])
+
+  @@index([propertyId])
+  @@index([staffMemberId])
+  @@index([guestId])
+  @@index([status])
+  @@index([createdAt])
+}
