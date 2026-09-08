@@ -82,6 +82,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // room-portal is an in-room tablet kiosk portal — skip dashboard auth logic
+  if (pathname.startsWith('/room-portal')) {
+    return NextResponse.next()
+  }
+
+  // room-portal API routes are handled by room portal JWT
+  if (pathname.startsWith('/api/room-portal')) {
+    return NextResponse.next()
+  }
+
   // singer API routes bypass dashboard session logic
   if (pathname.startsWith('/api/singer')) {
     return NextResponse.next()
@@ -99,7 +109,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal'].includes(parts[0])) {
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname

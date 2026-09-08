@@ -527,7 +527,7 @@ export default function GstFilingPage() {
 
       <PageHeader
         title="GST Filing"
-        description="GST returns track karo, due dates manage karo, aur GSTR-1 JSON generate karo."
+        description="Track GST returns, manage filing due dates, and generate GSTR-1 JSON reports."
         showBack
         backUrl="/operations"
       />

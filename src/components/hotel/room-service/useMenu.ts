@@ -30,7 +30,7 @@ export function useMenu() {
         setProducts(foodItems);
       }
     } catch {
-      setError('Menu load karne mein dikkat. Please refresh karo.');
+      setError('Failed to load menu. Please refresh and try again.');
     } finally {
       setLoading(false);
     }

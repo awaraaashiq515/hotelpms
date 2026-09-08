@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import Tesseract from 'tesseract.js';
 import { Filter, Package, Tag, Edit, Trash2, Plus, ChevronDown, Layers, Download, Sparkles, Upload, ArrowLeft, Check, AlertCircle, X, Flame, Leaf } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
@@ -20,6 +21,9 @@ import { ProductIcon } from '@/components/shared/product-icon';
 
 
 export default function ProductsPage() {
+  const params = useParams();
+  const routePropertyCode = (params?.propertyCode as string) || '';
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -66,7 +70,19 @@ export default function ProductsPage() {
     try {
       const res = await fetch('/api/admin/properties');
       const data = await res.json();
-      if (data.success) setProperties(data.data);
+      if (data.success) {
+        setProperties(data.data || []);
+        if (routePropertyCode) {
+          const matched = (data.data || []).find((p: any) =>
+            p.code?.toLowerCase() === routePropertyCode.toLowerCase() ||
+            p.id?.toLowerCase() === routePropertyCode.toLowerCase()
+          );
+          if (matched) {
+            setSelectedPropertyId(matched.id);
+            setPropertyDetails(matched);
+          }
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch properties:', err);
     }
@@ -85,12 +101,14 @@ export default function ProductsPage() {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          setPropertyDetails(data.data);
-          setSelectedPropertyId(data.data.id);
+          if (!routePropertyCode) {
+            setPropertyDetails(data.data);
+            setSelectedPropertyId(data.data.id);
+          }
         }
       })
       .catch(err => console.error('Failed to fetch current property', err));
-  }, []);
+  }, [routePropertyCode]);
 
   useEffect(() => {
     fetchProducts();
@@ -100,10 +118,20 @@ export default function ProductsPage() {
   const handleCreateOrUpdate = async (data: Partial<Product>) => {
     setMutationLoading(true);
     try {
+      const targetPropertyId = (selectedPropertyId && selectedPropertyId !== 'all')
+        ? selectedPropertyId
+        : (data.propertyId || propertyDetails?.id);
+
       if (selectedProduct) {
-        await productsApi.update(selectedProduct.id, data);
+        await productsApi.update(selectedProduct.id, {
+          ...data,
+          propertyId: targetPropertyId,
+        });
       } else {
-        await productsApi.create(data);
+        await productsApi.create({
+          ...data,
+          propertyId: targetPropertyId,
+        });
       }
       setIsFormOpen(false);
       fetchProducts();
@@ -132,10 +160,20 @@ export default function ProductsPage() {
   const handleCreateOrUpdateCombo = async (data: Partial<Combo>) => {
     setMutationLoading(true);
     try {
+      const targetPropertyId = (selectedPropertyId && selectedPropertyId !== 'all')
+        ? selectedPropertyId
+        : ((data as any).propertyId || propertyDetails?.id);
+
       if (selectedCombo) {
-        await combosApi.update(selectedCombo.id, data);
+        await combosApi.update(selectedCombo.id, {
+          ...data,
+          propertyId: targetPropertyId,
+        });
       } else {
-        await combosApi.create(data);
+        await combosApi.create({
+          ...data,
+          propertyId: targetPropertyId,
+        });
       }
       setIsFormOpen(false);
       fetchCombos();

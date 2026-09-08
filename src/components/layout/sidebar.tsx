@@ -230,7 +230,7 @@ export const Sidebar: React.FC = () => {
     <aside className={`
       bg-pos-sidebar text-pos-sidebar-text flex flex-col sticky top-16 left-0 z-40 shadow-xl
       transition-all duration-500 ease-in-out overflow-hidden shrink-0
-      dark:bg-slate-950 dark:border-slate-800
+      dark:bg-[#080d1a] dark:border-slate-800/60
       ${isHidden 
         ? 'w-0 opacity-0 pointer-events-none border-none' 
         : isOpen 

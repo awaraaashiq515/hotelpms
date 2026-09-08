@@ -207,7 +207,7 @@ export const TopNavbar: React.FC = () => {
       )}
 
       {/* Main Navbar Row */}
-      <div className="h-16 bg-white dark:bg-slate-900 border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6">
+      <div className="h-16 bg-white dark:bg-[#0f172a]/95 dark:backdrop-blur-md border-b border-pos-border dark:border-slate-800 flex items-center justify-between px-3 md:px-6">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">
           <button onClick={toggle} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group" title="Toggle Sidebar">

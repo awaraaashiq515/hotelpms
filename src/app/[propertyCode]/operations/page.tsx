@@ -55,11 +55,13 @@ import {
   X,
   MapPin,
   Download,
-  BedDouble
+  BedDouble,
+  Building2
 } from 'lucide-react';
 
 import { useRouter, useParams } from 'next/navigation';
 import { useSidebar } from '@/context/sidebar-context';
+import { LiveClock } from '@/components/hotel/ui/LiveClock';
 
 interface DashboardAction {
   label: string;
@@ -79,6 +81,7 @@ export default function OperationsPage() {
   const router = useRouter();
   const { setOpen } = useSidebar();
   const [session, setSession] = useState<any>(null);
+  const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [debug, setDebug] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -301,10 +304,16 @@ export default function OperationsPage() {
             slugifyInline(p.name) === propertyCode || 
             p.id === propertyCode
           ) || data.data[0];
+          setProperty(prop);
           setBarPosEnabled(prop.barPosEnabled !== false);
           setCafePosEnabled(prop.cafePosEnabled !== false);
         }
       })
+      .catch(() => {});
+
+    fetch('/api/setup/properties/current')
+      .then(r => r.json())
+      .then(d => { if (d.success && d.data) setProperty((prev: any) => prev || d.data); })
       .catch(() => {});
 
     if (typeof window !== 'undefined' && window.location.search.includes('debug=true')) {
@@ -370,7 +379,6 @@ export default function OperationsPage() {
     { label: 'Day Closing', perm: 'Day Closing', icon: DayClosing, path: `${p}/day-closing`, feature: 'POS' },
     { label: 'Payments', perm: 'Payments', icon: CreditCard, path: `${p}/payments`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { label: 'Invoices', perm: 'Invoices', icon: FileText, path: `${p}/invoices`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { label: 'All Bills', perm: 'Invoices', icon: Receipt, path: `${p}/all-bills`, feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
   ];
 
   const accountingExpensesActions: DashboardAction[] = [
@@ -421,9 +429,6 @@ export default function OperationsPage() {
 
   const crmActions: DashboardAction[] = [
     { label: 'Customers List', icon: Contact, path: `${p}/customers`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Membership Plans', icon: Trophy, path: `${p}/memberships/plans`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Issue Cards', icon: CreditCard, path: `${p}/memberships/cards`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
-    { label: 'Usage History', icon: History, path: `${p}/memberships/history`, feature: 'CRM', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
   ];
 
   const b2bActions: DashboardAction[] = [
@@ -500,7 +505,7 @@ export default function OperationsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => window.open(`/staff-portal${p}`, '_blank')}
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+              className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
             >
               <Tablet className="w-4 h-4" />
               Staff Portal
@@ -508,24 +513,24 @@ export default function OperationsPage() {
             <div className="relative w-full md:w-72 lg:w-80 group">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 transition-colors group-focus-within:text-pos-primary" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search operations..."
-                className="w-full pl-9 pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm hover:border-slate-300 dark:hover:border-slate-700 focus:border-pos-primary dark:focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/10 dark:focus:ring-pos-primary/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs font-semibold transition-all outline-none"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search operations..."
+                  className="w-full pl-9 pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm hover:border-slate-300 dark:hover:border-slate-700 focus:border-pos-primary dark:focus:border-pos-primary focus:ring-4 focus:ring-pos-primary/10 dark:focus:ring-pos-primary/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs font-semibold transition-all outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300 transition-all cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
           </div>
         }
       />
@@ -561,196 +566,112 @@ export default function OperationsPage() {
               <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-2xl text-slate-400 dark:text-slate-500">
                 <Search className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-slate-650 dark:text-slate-400">No operations found matching "{searchQuery}"</p>
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider">Try typing "billing", "inventory", or "report"</p>
+              <p className="text-sm font-semibold text-slate-650 dark:text-slate-400">No operations found matching &quot;{searchQuery}&quot;</p>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider">Try typing &quot;billing&quot;, &quot;inventory&quot;, or &quot;report&quot;</p>
             </div>
           )}
         </section>
       )}
 
-      {/* Main Categories Panel - Hidden when active search query to avoid clutter */}
+      {/* Main Categories Panel */}
       {searchQuery.trim() === '' && (
         <div className="space-y-12 animate-in fade-in duration-300">
           
           {/* 1. POS Billing */}
-          {visiblePosBilling.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">POS Billing</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visiblePosBilling.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="posBilling"
+            actions={visiblePosBilling}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 2. Screen Displays */}
-          {visibleDisplays.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-cyan-500 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Screen Displays</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleDisplays.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="displays"
+            actions={visibleDisplays}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 3. Orders & Table Control */}
-          {visibleOrderControl.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Orders & Table Control</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleOrderControl.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="orderControl"
+            actions={visibleOrderControl}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 4. Billing & Payments */}
-          {visibleBillingPayments.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-emerald-600 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Billing & Payments</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleBillingPayments.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="billingPayments"
+            actions={visibleBillingPayments}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 5. Staff & Attendance */}
-          {visibleStaff.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-violet-600 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Staff & Attendance</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleStaff.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="staff"
+            actions={visibleStaff}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 6. Inventory & Menu Setup */}
-          {visibleMenuInventory.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-amber-600 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Inventory & Menu Setup</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleMenuInventory.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="menuInventory"
+            actions={visibleMenuInventory}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 7. Expenses & Accounting */}
-          {visibleAccountingExpenses.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-teal-600 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Expenses & Accounting</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleAccountingExpenses.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="accountingExpenses"
+            actions={visibleAccountingExpenses}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 8. Delivery & Logistics */}
-          {visibleDelivery.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-orange-500 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Delivery & Logistics</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleDelivery.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="delivery"
+            actions={visibleDelivery}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 9. Reports & Analytics */}
-          {visibleReportsAnalytics.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-indigo-600 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Reports & Analytics</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleReportsAnalytics.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="reportsAnalytics"
+            actions={visibleReportsAnalytics}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
-          {/* 10. CRM & Loyalty Section */}
-          {visibleCRM.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-rose-500 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">CRM & Loyalty</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleCRM.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          {/* 10. CRM & Loyalty */}
+          <OperationsCategorySection
+            configKey="crm"
+            actions={visibleCRM}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
-          {/* 11. B2B Marketplace Quick Access */}
-          {visibleB2B.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-amber-500 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">B2B Supply Chain</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleB2B.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          {/* 11. B2B Supply Chain */}
+          <OperationsCategorySection
+            configKey="b2b"
+            actions={visibleB2B}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* 12. Store Settings & Setup */}
-          {visibleSystemSettings.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-1 bg-slate-500 rounded-full"></div>
-                <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Store Settings & Setup</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {visibleSystemSettings.map((action) => (
-                  <ActionTile key={action.label} icon={action.icon} label={action.label} path={action.path} badge={getBadgeForAction(action.label)} lateStatus={getLateStatusForAction(action.label)} />
-                ))}
-              </div>
-            </section>
-          )}
+          <OperationsCategorySection
+            configKey="systemSettings"
+            actions={visibleSystemSettings}
+            getBadgeForAction={getBadgeForAction}
+            getLateStatusForAction={getLateStatusForAction}
+          />
 
           {/* Staff Attendance Terminal */}
           <section className="space-y-8">
@@ -766,5 +687,297 @@ export default function OperationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+const CATEGORY_CONFIGS: Record<string, {
+  name: string;
+  emoji: string;
+  labelColor: string;
+  dotColor: string;
+  iconColor: string;
+  iconBg: string;
+  cardBorder: string;
+  glowColor: 'sky' | 'cyan' | 'indigo' | 'emerald' | 'violet' | 'amber' | 'teal' | 'orange' | 'rose' | 'slate';
+}> = {
+  posBilling: {
+    name: 'POS Billing',
+    emoji: '💳',
+    labelColor: 'text-sky-400',
+    dotColor: 'bg-sky-400',
+    iconColor: 'text-sky-400',
+    iconBg: 'bg-sky-500/15',
+    cardBorder: 'border-slate-800 hover:border-sky-500/40',
+    glowColor: 'sky',
+  },
+  displays: {
+    name: 'Screen Displays',
+    emoji: '🖥️',
+    labelColor: 'text-cyan-400',
+    dotColor: 'bg-cyan-400',
+    iconColor: 'text-cyan-400',
+    iconBg: 'bg-cyan-500/15',
+    cardBorder: 'border-slate-800 hover:border-cyan-500/40',
+    glowColor: 'cyan',
+  },
+  orderControl: {
+    name: 'Orders & Table Control',
+    emoji: '🍽️',
+    labelColor: 'text-indigo-400',
+    dotColor: 'bg-indigo-400',
+    iconColor: 'text-indigo-400',
+    iconBg: 'bg-indigo-500/15',
+    cardBorder: 'border-slate-800 hover:border-indigo-500/40',
+    glowColor: 'indigo',
+  },
+  billingPayments: {
+    name: 'Billing & Payments',
+    emoji: '🧾',
+    labelColor: 'text-emerald-400',
+    dotColor: 'bg-emerald-400',
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/15',
+    cardBorder: 'border-slate-800 hover:border-emerald-500/40',
+    glowColor: 'emerald',
+  },
+  staff: {
+    name: 'Staff & Attendance',
+    emoji: '👥',
+    labelColor: 'text-violet-400',
+    dotColor: 'bg-violet-400',
+    iconColor: 'text-violet-400',
+    iconBg: 'bg-violet-500/15',
+    cardBorder: 'border-slate-800 hover:border-violet-500/40',
+    glowColor: 'violet',
+  },
+  menuInventory: {
+    name: 'Inventory & Menu Setup',
+    emoji: '📦',
+    labelColor: 'text-amber-400',
+    dotColor: 'bg-amber-400',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/15',
+    cardBorder: 'border-slate-800 hover:border-amber-500/40',
+    glowColor: 'amber',
+  },
+  accountingExpenses: {
+    name: 'Expenses & Accounting',
+    emoji: '💰',
+    labelColor: 'text-teal-400',
+    dotColor: 'bg-teal-400',
+    iconColor: 'text-teal-400',
+    iconBg: 'bg-teal-500/15',
+    cardBorder: 'border-slate-800 hover:border-teal-500/40',
+    glowColor: 'teal',
+  },
+  delivery: {
+    name: 'Delivery & Logistics',
+    emoji: '🛵',
+    labelColor: 'text-orange-400',
+    dotColor: 'bg-orange-400',
+    iconColor: 'text-orange-400',
+    iconBg: 'bg-orange-500/15',
+    cardBorder: 'border-slate-800 hover:border-orange-500/40',
+    glowColor: 'orange',
+  },
+  reportsAnalytics: {
+    name: 'Reports & Analytics',
+    emoji: '📈',
+    labelColor: 'text-indigo-400',
+    dotColor: 'bg-indigo-400',
+    iconColor: 'text-indigo-400',
+    iconBg: 'bg-indigo-500/15',
+    cardBorder: 'border-slate-800 hover:border-indigo-500/40',
+    glowColor: 'indigo',
+  },
+  crm: {
+    name: 'CRM & Loyalty',
+    emoji: '⭐',
+    labelColor: 'text-rose-400',
+    dotColor: 'bg-rose-400',
+    iconColor: 'text-rose-400',
+    iconBg: 'bg-rose-500/15',
+    cardBorder: 'border-slate-800 hover:border-rose-500/40',
+    glowColor: 'rose',
+  },
+  b2b: {
+    name: 'B2B Supply Chain',
+    emoji: '🏭',
+    labelColor: 'text-amber-400',
+    dotColor: 'bg-amber-400',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/15',
+    cardBorder: 'border-slate-800 hover:border-amber-500/40',
+    glowColor: 'amber',
+  },
+  systemSettings: {
+    name: 'Store Settings & Setup',
+    emoji: '⚙️',
+    labelColor: 'text-slate-400',
+    dotColor: 'bg-slate-400',
+    iconColor: 'text-slate-400',
+    iconBg: 'bg-slate-500/15',
+    cardBorder: 'border-slate-800 hover:border-slate-500/40',
+    glowColor: 'slate',
+  },
+  'POS Billing': {
+    name: 'POS Billing',
+    emoji: '💳',
+    labelColor: 'text-sky-400',
+    dotColor: 'bg-sky-400',
+    iconColor: 'text-sky-400',
+    iconBg: 'bg-sky-500/15',
+    cardBorder: 'border-slate-800 hover:border-sky-500/40',
+    glowColor: 'sky',
+  },
+  'Screen Displays': {
+    name: 'Screen Displays',
+    emoji: '🖥️',
+    labelColor: 'text-cyan-400',
+    dotColor: 'bg-cyan-400',
+    iconColor: 'text-cyan-400',
+    iconBg: 'bg-cyan-500/15',
+    cardBorder: 'border-slate-800 hover:border-cyan-500/40',
+    glowColor: 'cyan',
+  },
+  'Orders & Table Control': {
+    name: 'Orders & Table Control',
+    emoji: '🍽️',
+    labelColor: 'text-indigo-400',
+    dotColor: 'bg-indigo-400',
+    iconColor: 'text-indigo-400',
+    iconBg: 'bg-indigo-500/15',
+    cardBorder: 'border-slate-800 hover:border-indigo-500/40',
+    glowColor: 'indigo',
+  },
+  'Billing & Payments': {
+    name: 'Billing & Payments',
+    emoji: '🧾',
+    labelColor: 'text-emerald-400',
+    dotColor: 'bg-emerald-400',
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/15',
+    cardBorder: 'border-slate-800 hover:border-emerald-500/40',
+    glowColor: 'emerald',
+  },
+  'Staff & Attendance': {
+    name: 'Staff & Attendance',
+    emoji: '👥',
+    labelColor: 'text-violet-400',
+    dotColor: 'bg-violet-400',
+    iconColor: 'text-violet-400',
+    iconBg: 'bg-violet-500/15',
+    cardBorder: 'border-slate-800 hover:border-violet-500/40',
+    glowColor: 'violet',
+  },
+  'Inventory & Menu Setup': {
+    name: 'Inventory & Menu Setup',
+    emoji: '📦',
+    labelColor: 'text-amber-400',
+    dotColor: 'bg-amber-400',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/15',
+    cardBorder: 'border-slate-800 hover:border-amber-500/40',
+    glowColor: 'amber',
+  },
+  'Expenses & Accounting': {
+    name: 'Expenses & Accounting',
+    emoji: '💰',
+    labelColor: 'text-teal-400',
+    dotColor: 'bg-teal-400',
+    iconColor: 'text-teal-400',
+    iconBg: 'bg-teal-500/15',
+    cardBorder: 'border-slate-800 hover:border-teal-500/40',
+    glowColor: 'teal',
+  },
+  'Delivery & Logistics': {
+    name: 'Delivery & Logistics',
+    emoji: '🛵',
+    labelColor: 'text-orange-400',
+    dotColor: 'bg-orange-400',
+    iconColor: 'text-orange-400',
+    iconBg: 'bg-orange-500/15',
+    cardBorder: 'border-slate-800 hover:border-orange-500/40',
+    glowColor: 'orange',
+  },
+  'Reports & Analytics': {
+    name: 'Reports & Analytics',
+    emoji: '📈',
+    labelColor: 'text-indigo-400',
+    dotColor: 'bg-indigo-400',
+    iconColor: 'text-indigo-400',
+    iconBg: 'bg-indigo-500/15',
+    cardBorder: 'border-slate-800 hover:border-indigo-500/40',
+    glowColor: 'indigo',
+  },
+  'CRM & Loyalty': {
+    name: 'CRM & Loyalty',
+    emoji: '⭐',
+    labelColor: 'text-rose-400',
+    dotColor: 'bg-rose-400',
+    iconColor: 'text-rose-400',
+    iconBg: 'bg-rose-500/15',
+    cardBorder: 'border-slate-800 hover:border-rose-500/40',
+    glowColor: 'rose',
+  },
+  'B2B Supply Chain': {
+    name: 'B2B Supply Chain',
+    emoji: '🏭',
+    labelColor: 'text-amber-400',
+    dotColor: 'bg-amber-400',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/15',
+    cardBorder: 'border-slate-800 hover:border-amber-500/40',
+    glowColor: 'amber',
+  },
+  'Store Settings & Setup': {
+    name: 'Store Settings & Setup',
+    emoji: '⚙️',
+    labelColor: 'text-slate-400',
+    dotColor: 'bg-slate-400',
+    iconColor: 'text-slate-400',
+    iconBg: 'bg-slate-500/15',
+    cardBorder: 'border-slate-800 hover:border-slate-500/40',
+    glowColor: 'slate',
+  },
+};
+
+function OperationsCategorySection({
+  configKey,
+  actions,
+  getBadgeForAction,
+  getLateStatusForAction
+}: {
+  configKey: string;
+  actions: DashboardAction[];
+  getBadgeForAction: (label: string) => number | undefined;
+  getLateStatusForAction: (label: string) => 'LATE_PREP' | 'LATE_PICKUP' | null;
+}) {
+  const config = CATEGORY_CONFIGS[configKey];
+  if (!config || actions.length === 0) return null;
+
+  return (
+    <section className="space-y-6">
+      <div className="flex items-center gap-4">
+        <div className={`h-6 w-1 ${config.dotColor} rounded-full`}></div>
+        <h2 className={`text-sm font-black section-heading uppercase tracking-[0.2em] ${config.labelColor}`}>{config.name}</h2>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+        {actions.map((action) => (
+          <ActionTile
+            key={action.label}
+            icon={action.icon}
+            label={action.label}
+            path={action.path}
+            badge={getBadgeForAction(action.label)}
+            lateStatus={getLateStatusForAction(action.label)}
+            iconColor={config.iconColor}
+            iconBg={config.iconBg}
+            cardBorder={config.cardBorder}
+            glowColor={config.glowColor}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

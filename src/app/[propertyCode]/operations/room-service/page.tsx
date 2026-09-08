@@ -37,7 +37,10 @@ export default function RoomServiceOperationsPage() {
 
   const fetchRoomServiceOrders = useCallback(async () => {
     try {
-      const res = await fetch('/api/hotel/room-service');
+      const url = propertyCode
+        ? `/api/hotel/room-service?propertyCode=${encodeURIComponent(propertyCode)}`
+        : '/api/hotel/room-service';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setOrders(data.data || []);
@@ -355,11 +358,19 @@ export default function RoomServiceOperationsPage() {
                     <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
                       order.status === 'CONFIRMED'
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        : order.status === 'PREPARING'
+                        ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+                        : order.status === 'READY'
+                        ? 'bg-teal-500/20 text-teal-300 border-teal-500/40 shadow-sm shadow-teal-500/20'
                         : order.status === 'SERVED'
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                         : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                     }`}>
-                      {order.status}
+                      {order.status === 'CONFIRMED' ? 'Confirmed'
+                        : order.status === 'PREPARING' ? '🍳 Cooking'
+                        : order.status === 'READY' ? '🛎️ Ready'
+                        : order.status === 'SERVED' ? '✓ Served'
+                        : order.status}
                     </span>
                   </div>
 
@@ -388,32 +399,58 @@ export default function RoomServiceOperationsPage() {
                     </p>
                   )}
 
-                  {/* Mark Served Button */}
-                  <button
-                    onClick={async () => {
-                      setMarkingOrderId(order.id);
-                      try {
-                        await fetch(`/api/pos-orders/${order.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ status: 'SERVED' }),
-                        });
-                        fetchRoomServiceOrders();
-                      } catch (e) {
-                        console.error(e);
-                      } finally {
-                        setMarkingOrderId(null);
-                      }
-                    }}
-                    disabled={markingOrderId === order.id || order.status === 'SERVED'}
-                    className={`w-full mt-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border ${
-                      order.status === 'SERVED'
-                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 cursor-default'
-                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 cursor-pointer'
-                    }`}
-                  >
-                    {markingOrderId === order.id ? '...' : (order.status === 'SERVED' ? '✓ Served' : 'Mark Served')}
-                  </button>
+                  {/* Action Buttons: Mark Ready & Mark Served */}
+                  <div className="flex gap-2 mt-3">
+                    {order.status !== 'READY' && order.status !== 'SERVED' && (
+                      <button
+                        onClick={async () => {
+                          setMarkingOrderId(order.id + '-ready');
+                          try {
+                            await fetch(`/api/pos-orders/${order.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: 'READY' }),
+                            });
+                            fetchRoomServiceOrders();
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setMarkingOrderId(null);
+                          }
+                        }}
+                        disabled={!!markingOrderId}
+                        className="flex-1 py-2 px-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all border bg-teal-500/20 text-teal-300 border-teal-500/40 hover:bg-teal-500/30 cursor-pointer shadow-sm shadow-teal-900/30 active:scale-95"
+                      >
+                        {markingOrderId === order.id + '-ready' ? '...' : '🛎️ Mark Ready'}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={async () => {
+                        setMarkingOrderId(order.id + '-served');
+                        try {
+                          await fetch(`/api/pos-orders/${order.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'SERVED' }),
+                          });
+                          fetchRoomServiceOrders();
+                        } catch (e) {
+                          console.error(e);
+                        } finally {
+                          setMarkingOrderId(null);
+                        }
+                      }}
+                      disabled={!!markingOrderId || order.status === 'SERVED'}
+                      className={`flex-1 py-2 px-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all border ${
+                        order.status === 'SERVED'
+                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 cursor-default'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 cursor-pointer shadow-sm shadow-emerald-900/30 active:scale-95'
+                      }`}
+                    >
+                      {markingOrderId === order.id + '-served' ? '...' : (order.status === 'SERVED' ? '✓ Served' : 'Mark Served')}
+                    </button>
+                  </div>
                 </div>
               );
             })}

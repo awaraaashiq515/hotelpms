@@ -15,6 +15,9 @@ interface SpaService {
   duration: number;
   price: number;
   description?: string;
+  spaId?: string;
+  providerMode?: 'EXTERNAL' | 'IN_HOUSE';
+  spaName?: string;
 }
 
 interface SpaTherapist {
@@ -178,7 +181,14 @@ export default function SpaTab({ token, propertyId = '', guestName, guestRoom, g
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={14} className="text-pink-400" />
-              <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">Spa & Wellness</span>
+              <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">
+                {services[0]?.spaName || 'Spa & Wellness'}
+              </span>
+              {services[0]?.providerMode === 'EXTERNAL' && (
+                <span className="text-[9px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30 px-2 py-0.5 rounded-full">
+                  Partner Spa
+                </span>
+              )}
             </div>
             <h2 className="text-xl font-black text-white mb-1">Rejuvenate & Relax</h2>
             <p className="text-xs text-slate-400 mb-5">World-class treatments crafted for your wellbeing</p>

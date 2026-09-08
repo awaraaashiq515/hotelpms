@@ -7,7 +7,7 @@ import {
   TrendingUp, Globe, BarChart3, MapPin, BrushIcon, Wrench, Cpu, Shirt,
   Package, Building2, ChefHat, Receipt, Moon, Banknote,
   IndianRupee, Users, Crown, Brain, Wifi, Shield, Settings,
-  ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen,
+  ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 
@@ -163,6 +163,7 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-indigo-500/40',
     modules: [
       { name: 'AI Concierge Desk', href: '/hotel/ai-concierge',   icon: Brain },
+      { name: 'Room Tablet Portal', href: '/hotel/room-portal-admin', icon: Tablet },
       { name: 'Smart Hotel IoT',   href: '/hotel/smart-hotel',    icon: Wifi  },
       { name: 'Booking Engine',    href: '/hotel/booking-engine', icon: Globe },
     ],

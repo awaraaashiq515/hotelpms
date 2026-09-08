@@ -132,9 +132,45 @@ export default function LoginPage() {
     const data = await res.json();
 
     if (data.authenticated) {
+      // ── Handle Tablet / Room Portal Pairing Callback ──
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const callbackUrl = urlParams.get('callbackUrl') || urlParams.get('redirect');
+        if (callbackUrl && (callbackUrl === '/room-portal' || callbackUrl.startsWith('/room-portal'))) {
+          if (data.user?.propertyId) localStorage.setItem('room_portal_property_id', data.user.propertyId);
+          if (data.user?.propertyCode) localStorage.setItem('room_portal_property', data.user.propertyCode);
+          if (data.user?.propertyName) localStorage.setItem('room_portal_property_name', data.user.propertyName);
+          router.push(callbackUrl);
+          router.refresh();
+          return;
+        }
+      }
+
       const role = data.user.role;
       const isHotelProperty = data.user.propertyType === 'HOTEL';
       const isHotelRole = role.startsWith('HOTEL_');
+
+      // ── ROOM TABLET DEVICE: Direct Route to Room Portal ──
+      const designation = (data.user.designation || '').toLowerCase();
+      const roleLower = (role || '').toLowerCase();
+      const isRoomTablet = 
+        role === 'ROOM_TABLET' || 
+        role === 'ROOM_PORTAL' || 
+        roleLower.includes('room tablet') || 
+        roleLower.includes('room portal') || 
+        roleLower.includes('tablet device') ||
+        designation.includes('room tablet') || 
+        designation.includes('room portal') || 
+        designation.includes('tablet device');
+
+      if (isRoomTablet) {
+        if (data.user?.propertyId) localStorage.setItem('room_portal_property_id', data.user.propertyId);
+        if (data.user?.propertyCode) localStorage.setItem('room_portal_property', data.user.propertyCode);
+        if (data.user?.propertyName) localStorage.setItem('room_portal_property_name', data.user.propertyName);
+        router.push('/room-portal');
+        router.refresh();
+        return;
+      }
 
       if (role === 'SUPER_ADMIN') {
         router.push('/admin/dashboard');
@@ -176,7 +212,10 @@ export default function LoginPage() {
       }
     } else {
       const singerToken = localStorage.getItem('singer_token');
-      if (singerToken) {
+      const spaToken = localStorage.getItem('spa_token');
+      if (spaToken) {
+        router.push('/spa-portal');
+      } else if (singerToken) {
         router.push('/singer-portal/dashboard');
       } else {
         router.push('/login');
@@ -257,6 +296,31 @@ export default function LoginPage() {
         // Guest auth failed — continue to standard login
       }
 
+      // ── STEP 1.9: Try Spa Owner login (Spa table) ──
+      try {
+        const spaRes = await fetch('/api/spa/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const spaData = await spaRes.json();
+
+        if (spaData.success && spaData.token) {
+          localStorage.setItem('spa_token', spaData.token);
+          if (spaData.spa) {
+            localStorage.setItem('spa_info', JSON.stringify(spaData.spa));
+            localStorage.setItem('currentSpaId', spaData.spa.id);
+            if (spaData.spa.propertyId) {
+              localStorage.setItem('currentPropertyId', spaData.spa.propertyId);
+            }
+          }
+          router.push('/spa-portal');
+          router.refresh();
+          return;
+        }
+      } catch (_) {
+        // Spa auth failed — continue to standard login
+      }
 
       // ── STEP 2: Standard Login (Hotel Owner, Driver, Supplier, Staff etc.) ──
       const response = await authApi.login({ email, password, captchaText, captchaToken });

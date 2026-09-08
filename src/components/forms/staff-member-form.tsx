@@ -68,13 +68,14 @@ const DESIGNATIONS = [
   { value: 'Helper',      emoji: '🤝', color: '#14B8A6' },
   
   // Hotel PMS Roles
-  { value: 'Receptionist', emoji: '🛎️', color: '#3B82F6' },
-  { value: 'Housekeeper',  emoji: '🧹', color: '#A855F7' },
-  { value: 'Room Service', emoji: '🚪', color: '#EC4899' },
-  { value: 'Bellboy',      emoji: '🧳', color: '#10B981' },
-  { value: 'Security',     emoji: '🛡️', color: '#F43F5E' },
-  { value: 'Maintenance',  emoji: '🔧', color: '#F59E0B' },
-  { value: 'Hotel Manager',emoji: '👑', color: '#EAB308' },
+  { value: 'Receptionist',      emoji: '🛎️', color: '#3B82F6' },
+  { value: 'Room Tablet Device', emoji: '📱', color: '#6366F1' },
+  { value: 'Housekeeper',       emoji: '🧹', color: '#A855F7' },
+  { value: 'Room Service',      emoji: '🚪', color: '#EC4899' },
+  { value: 'Bellboy',           emoji: '🧳', color: '#10B981' },
+  { value: 'Security',          emoji: '🛡️', color: '#F43F5E' },
+  { value: 'Maintenance',       emoji: '🔧', color: '#F59E0B' },
+  { value: 'Hotel Manager',     emoji: '👑', color: '#EAB308' },
   
   // General Roles
   { value: 'Supervisor',  emoji: '🎯', color: '#06B6D4' },
@@ -393,6 +394,29 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
               );
             })}
           </div>
+
+          {selectedDesignations.includes('Room Tablet Device') && (
+            <div style={{
+              marginTop: '12px',
+              padding: '12px 16px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}>
+              <span style={{ fontSize: '22px' }}>📱</span>
+              <div>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#FFFFFF' }}>
+                  Room Tablet Device Account
+                </p>
+                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#C7D2FE', lineHeight: 1.4 }}>
+                  Set the email and password below. Logging in with this account at <strong>/login</strong> will automatically pair the tablet device to <strong>/room-portal</strong> and launch the guest room login screen.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── SECTION: LOGIN CREDENTIALS ─────────────────────── */}

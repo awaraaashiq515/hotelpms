@@ -77,13 +77,13 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background dark:bg-slate-950 selection:bg-pos-primary selection:text-white overflow-hidden relative">
+    <div className="h-screen flex flex-col bg-[#f8fafc] dark:bg-[#090d16] text-slate-900 dark:text-slate-100 selection:bg-indigo-600 selection:text-white overflow-hidden relative">
       {isPos ? <TopNavbar /> : <DashboardAdminTopNavbar />}
       
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-64px)] lg:h-[calc(100vh-80px)]">
         {isPos ? <Sidebar /> : <DashboardAdminSidebar />}
         
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-slate-900/50 no-scrollbar relative">
+        <main className="flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-[#090d16] no-scrollbar relative">
           <div className={`h-full w-full ${relativePath === '/billing' || relativePath === '/bar-pos' || relativePath === '/cafe-pos' || relativePath === '/operations/delivery' ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
             {children}
           </div>

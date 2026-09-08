@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+
 model Organization {
   id                  String         @id @default(cuid())
   name                String
@@ -182,14 +184,19 @@ model Property {
   agentBookings                 AgentBooking[]
   agentHotelRelations           AgentHotelRelation[]
   dynamicPricingRules           DynamicPricingRule[]
-  channelConnections           ChannelConnection[]
+  channelConnections            ChannelConnection[]
   channelSyncLogs               ChannelSyncLog[]
 
   // ── Tipping Feature ───────────────────────────────────────
-  tippingEnabled               Boolean                  @default(false)
-  tippingStaffRoles            String?                  @default("Waiter,Housekeeping")
-  tippingPresets               String?                  @default("10,20,50,100")
-  tipTransactions              TipTransaction[]
+  tippingEnabled    Boolean          @default(false)
+  tippingStaffRoles String?          @default("Waiter,Housekeeping")
+  tippingPresets    String?          @default("10,20,50,100")
+  tipTransactions   TipTransaction[]
+
+  // ── Spa Feature ───────────────────────────────────────────
+  spaEnabled         Boolean          @default(false)
+  externalSpaEnabled Boolean          @default(false) // Toggle: true = External Spa Partner, false = Hotel In-House Spa
+  spas               Spa[]
 
   @@index([organizationId])
 }
@@ -350,16 +357,16 @@ model GuestDocument {
 }
 
 model RoomType {
-  id           String        @id @default(cuid())
-  propertyId   String
-  name         String
-  code         String
-  baseRate     Float
-  maxOccupancy Int
-  reservations Reservation[]
-  rooms        Room[]
+  id                  String               @id @default(cuid())
+  propertyId          String
+  name                String
+  code                String
+  baseRate            Float
+  maxOccupancy        Int
+  reservations        Reservation[]
+  rooms               Room[]
   channelRoomMappings ChannelRoomMapping[]
-  property     Property      @relation(fields: [propertyId], references: [id])
+  property            Property             @relation(fields: [propertyId], references: [id])
 }
 
 model Room {
@@ -1229,8 +1236,11 @@ model HousekeepingTask {
   scheduledAt DateTime?
   startedAt   DateTime?
   completedAt DateTime?
+  requestedAt DateTime?  @default(now())
   status      String
   remarks     String?
+  notes       String?   // Additional guest notes/instructions
+  source      String?   @default("STAFF") // STAFF | ROOM_PORTAL
   room        Room      @relation(fields: [roomId], references: [id])
   property    Property  @relation(fields: [propertyId], references: [id])
 }
@@ -1272,20 +1282,20 @@ model LostItem {
 }
 
 model LaundryRequest {
-  id           String    @id @default(cuid())
-  propertyId   String
-  roomNumber   String
-  guestName    String?
-  itemsCount   Int       @default(1)
-  itemsDetail  String?
-  amount       Float     @default(0)
-  status       String    @default("COLLECTED") // COLLECTED, IN_LAUNDRY, READY, DELIVERED
-  collectedBy  String?
-  collectedAt  DateTime  @default(now())
-  deliveredAt  DateTime?
-  notes        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  propertyId  String
+  roomNumber  String
+  guestName   String?
+  itemsCount  Int       @default(1)
+  itemsDetail String?
+  amount      Float     @default(0)
+  status      String    @default("COLLECTED") // COLLECTED, IN_LAUNDRY, READY, DELIVERED
+  collectedBy String?
+  collectedAt DateTime  @default(now())
+  deliveredAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 }
@@ -1548,17 +1558,17 @@ model DriverGift {
 }
 
 model StaffMember {
-  id               String       @id @default(cuid())
+  id               String           @id @default(cuid())
   propertyId       String
   name             String
   phone            String?
-  designation      String?      @default("Waiter")
-  salary           Float?       @default(0)
+  designation      String?          @default("Waiter")
+  salary           Float?           @default(0)
   address          String?
   emergencyContact String?
-  joiningDate      DateTime?    @default(now())
-  isActive         Boolean      @default(true)
-  shiftHours       Float?       @default(8.0)
+  joiningDate      DateTime?        @default(now())
+  isActive         Boolean          @default(true)
+  shiftHours       Float?           @default(8.0)
   avatarUrl        String? // Staff profile photo URL or base64
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -1568,8 +1578,8 @@ model StaffMember {
   tipTransactions  TipTransaction[]
 
   // UPI for direct tipping
-  upiId            String?
-  upiName          String?
+  upiId   String?
+  upiName String?
 
   // Link to POS User credentials for staff login portal
   userId String? @unique
@@ -1588,7 +1598,7 @@ model Tablet {
   id               String   @id @default(cuid())
   propertyId       String
   name             String
-  mode             String   @default("WAITER")
+  mode             String   @default("WAITER") // WAITER | TABLE | ROOM
   tableId          String?
   assignedTableIds String?
   waiterId         String?
@@ -1596,11 +1606,92 @@ model Tablet {
   floorId          String?
   showBar          Boolean  @default(true)
   showCafe         Boolean  @default(true)
+  // ── Room Kiosk Mode ──────────────────────────────────────
+  roomId           String?  // For ROOM mode: bound to specific room
+  kioskLocked      Boolean  @default(false) // Admin can lock/unlock remotely
+  kioskPin         String?  // Admin PIN to exit kiosk (4-6 digits)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   table            Table?   @relation(fields: [tableId], references: [id])
   property         Property @relation(fields: [propertyId], references: [id])
   floor            Floor?   @relation(fields: [floorId], references: [id])
+  roomPortalSessions RoomPortalSession[]
+}
+
+// ── Room Portal: Active Sessions ─────────────────────────────────────────────
+model RoomPortalSession {
+  id            String    @id @default(cuid())
+  propertyId    String
+  roomId        String
+  guestId       String
+  reservationId String
+  tabletId      String?
+  token         String    @unique
+  isActive      Boolean   @default(true)
+  lastActivity  DateTime  @default(now())
+  loginAt       DateTime  @default(now())
+  logoutAt      DateTime?
+  createdAt     DateTime  @default(now())
+  tablet        Tablet?   @relation(fields: [tabletId], references: [id])
+
+  @@index([propertyId])
+  @@index([roomId])
+  @@index([guestId])
+  @@index([token])
+}
+
+// ── Room Portal: Activity / Audit Log ────────────────────────────────────────
+model RoomPortalActivityLog {
+  id            String   @id @default(cuid())
+  propertyId    String
+  roomId        String?
+  guestId       String?
+  reservationId String?
+  action        String   // LOGIN, LOGOUT, REQUEST, FEEDBACK, CHECKOUT_REQ, etc.
+  details       String?  // JSON string with extra info
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([roomId])
+  @@index([createdAt])
+}
+
+// ── Room Portal: Admin Configurable Content ───────────────────────────────────
+model RoomPortalConfig {
+  id                String   @id @default(cuid())
+  propertyId        String   @unique
+  // WiFi
+  wifiName          String?  @default("Hotel-Free-WiFi")
+  wifiPassword      String?  @default("welcome123")
+  // Amenities
+  gymTimings        String?  @default("06:00 AM - 10:00 PM")
+  poolTimings       String?  @default("07:00 AM - 08:00 PM")
+  spaTimings        String?  @default("09:00 AM - 08:00 PM")
+  breakfastTimings  String?  @default("07:00 AM - 10:30 AM")
+  restaurantTimings String?  @default("12:00 PM - 11:00 PM")
+  // Contact
+  frontDeskPhone    String?  @default("+91-000-000-0000")
+  emergencyPhone    String?  @default("+91-000-000-0001")
+  // Welcome message
+  welcomeTitle      String?  @default("Welcome to Our Hotel")
+  welcomeSubtitle   String?  @default("How can we make your stay perfect?")
+  // Kiosk settings
+  sessionTimeoutMin Int      @default(30) // Auto-logout after inactivity
+  kioskExitPin      String?  @default("1234") // PIN to exit kiosk mode
+  // Feature toggles
+  showRoomService   Boolean  @default(true)
+  showHousekeeping  Boolean  @default(true)
+  showWifi          Boolean  @default(true)
+  showAmenities     Boolean  @default(true)
+  showBill          Boolean  @default(true)
+  showContact       Boolean  @default(true)
+  showFeedback      Boolean  @default(true)
+  showCheckout      Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([propertyId])
 }
 
 model OrderRating {
@@ -2518,8 +2609,8 @@ model TransportDriver {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  vehicles  TransportVehicle[]
-  bookings  TransportBooking[]
+  vehicles TransportVehicle[]
+  bookings TransportBooking[]
 }
 
 model TransportVehicle {
@@ -2537,7 +2628,7 @@ model TransportVehicle {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  driver    TransportDriver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driver    TransportDriver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
   schedules TransportSchedule[]
 
   @@index([driverId])
@@ -2596,23 +2687,30 @@ model TransportBooking {
 }
 
 model SpaService {
-  id          String           @id @default(cuid())
-  propertyId  String?
-  name        String
-  category    String           @default("Massage")
-  duration    Int              @default(60)
-  price       Float            @default(0)
-  description String?
-  image       String?
-  isActive    Boolean          @default(true)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id           String           @id @default(cuid())
+  propertyId   String?
+  spaId        String?
+  name         String
+  category     String           @default("Massage")
+  duration     Int              @default(60)
+  price        Float            @default(0)
+  gstRate      Float            @default(18)
+  description  String?
+  image        String?
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  spa          Spa?             @relation(fields: [spaId], references: [id], onDelete: Cascade)
   appointments SpaAppointment[]
+  bookings     SpaBooking[]
+
+  @@index([spaId])
 }
 
 model SpaTherapist {
   id           String           @id @default(cuid())
   propertyId   String?
+  spaId        String?
   name         String
   gender       String           @default("Female")
   specialty    String?
@@ -2621,11 +2719,15 @@ model SpaTherapist {
   isActive     Boolean          @default(true)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
+  spa          Spa?             @relation(fields: [spaId], references: [id], onDelete: Cascade)
   appointments SpaAppointment[]
+  bookings     SpaBooking[]
+
+  @@index([spaId])
 }
 
 model SpaAppointment {
-  id            String        @id @default(cuid())
+  id            String   @id @default(cuid())
   propertyId    String?
   serviceId     String?
   therapistId   String?
@@ -2636,13 +2738,13 @@ model SpaAppointment {
   therapistName String?
   bookingDate   String
   bookingTime   String
-  duration      Int           @default(60)
-  amount        Float         @default(0)
-  paymentType   String        @default("ROOM_CHARGE")
-  status        String        @default("CONFIRMED")
+  duration      Int      @default(60)
+  amount        Float    @default(0)
+  paymentType   String   @default("ROOM_CHARGE")
+  status        String   @default("CONFIRMED")
   notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   service   SpaService?   @relation(fields: [serviceId], references: [id])
   therapist SpaTherapist? @relation(fields: [therapistId], references: [id])
@@ -2671,14 +2773,14 @@ model PoolPassCategory {
 model BanquetHall {
   id          String   @id @default(cuid())
   propertyId  String?
-  name        String   // e.g., Grand Ballroom, Conference A, Pool Terrace
-  code        String?  // e.g., HALL-01
+  name        String // e.g., Grand Ballroom, Conference A, Pool Terrace
+  code        String? // e.g., HALL-01
   capacity    Int      @default(100) // Max Pax
   minCapacity Int?     @default(20)
   baseRate    Float    @default(25000) // Base Daily / Per Event Rent
   hourlyRate  Float?   @default(5000)
   description String?
-  amenities   String?  // AC, Stage, Projector, Sound System, Lighting
+  amenities   String? // AC, Stage, Projector, Sound System, Lighting
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2692,7 +2794,7 @@ model BanquetBooking {
   id                  String   @id @default(cuid())
   propertyId          String?
   hallId              String
-  eventName           String   // e.g., Sharma Wedding Reception, TechCorp Annual Meet
+  eventName           String // e.g., Sharma Wedding Reception, TechCorp Annual Meet
   eventType           String   @default("Wedding") // Wedding | Corporate | Birthday | Anniversary | Seminar | Party
   clientName          String
   clientPhone         String
@@ -2736,9 +2838,9 @@ model TravelAgent {
   companyName    String?
   address        String?
   city           String?
-  commissionRate Float                @default(10.0)   // Default % of totalAmount per booking
+  commissionRate Float                @default(10.0) // Default % of totalAmount per booking
   pinCode        String               @default("1234") // Legacy portal login PIN
-  passwordHash   String?              // Email+Password login
+  passwordHash   String? // Email+Password login
   agentStatus    String               @default("ACTIVE") // PENDING | ACTIVE | REJECTED
   isActive       Boolean              @default(true)
   totalEarnings  Float                @default(0)
@@ -2757,8 +2859,8 @@ model AgentHotelRelation {
   id             String      @id @default(cuid())
   agentId        String
   propertyId     String
-  commissionRate Float       @default(10.0)   // Hotel-specific commission rate
-  isBlocked      Boolean     @default(false)  // Whether this hotel blocked the agent
+  commissionRate Float       @default(10.0) // Hotel-specific commission rate
+  isBlocked      Boolean     @default(false) // Whether this hotel blocked the agent
   blockedReason  String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -2771,33 +2873,33 @@ model AgentHotelRelation {
 }
 
 model AgentBooking {
-  id               String      @id @default(cuid())
-  propertyId       String
-  agentId          String
-  guestName        String
-  guestPhone       String?
-  guestEmail       String?
-  guestNationality String?     @default("Indian")
-  adults           Int         @default(1)
-  children         Int         @default(0)
-  checkIn          DateTime
-  checkOut         DateTime
-  roomType         String      @default("Standard")
-  totalAmount      Float       @default(0)
-  commission       Float       @default(0)
-  commissionPaid   Boolean     @default(false)
-  status           String      @default("PENDING") // PENDING | CONFIRMED | CHECKED_IN | COMPLETED | CANCELLED
-  notes            String?
-  specialRequests  String?
+  id                String      @id @default(cuid())
+  propertyId        String
+  agentId           String
+  guestName         String
+  guestPhone        String?
+  guestEmail        String?
+  guestNationality  String?     @default("Indian")
+  adults            Int         @default(1)
+  children          Int         @default(0)
+  checkIn           DateTime
+  checkOut          DateTime
+  roomType          String      @default("Standard")
+  totalAmount       Float       @default(0)
+  commission        Float       @default(0)
+  commissionPaid    Boolean     @default(false)
+  status            String      @default("PENDING") // PENDING | CONFIRMED | CHECKED_IN | COMPLETED | CANCELLED
+  notes             String?
+  specialRequests   String?
   includePoolAccess Boolean     @default(false)
   includeSpaPackage Boolean     @default(false)
-  poolPassCount    Int         @default(0)
-  spaServiceType   String?
-  reservationId    String?     // Linked to actual Reservation once hotel confirms
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  property         Property    @relation(fields: [propertyId], references: [id])
-  agent            TravelAgent @relation(fields: [agentId], references: [id])
+  poolPassCount     Int         @default(0)
+  spaServiceType    String?
+  reservationId     String? // Linked to actual Reservation once hotel confirms
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  property          Property    @relation(fields: [propertyId], references: [id])
+  agent             TravelAgent @relation(fields: [agentId], references: [id])
 
   @@index([propertyId])
   @@index([agentId])
@@ -2809,8 +2911,8 @@ model DynamicPricingRule {
   propertyId     String
   name           String
   ruleType       String    @default("OCCUPANCY") // OCCUPANCY | DAY_OF_WEEK | DATE_RANGE | EVENT | LEAD_TIME
-  condition      String    // e.g. "Occ > 80%", "Fri-Sun", "< 24 hrs", "Festivals/Holidays"
-  adjustment     Float     // e.g. 20 (means +20%) or -10 (-10%)
+  condition      String // e.g. "Occ > 80%", "Fri-Sun", "< 24 hrs", "Festivals/Holidays"
+  adjustment     Float // e.g. 20 (means +20%) or -10 (-10%)
   adjustmentType String    @default("PERCENTAGE") // PERCENTAGE | FIXED
   roomTypeId     String?
   roomTypeName   String?   @default("All")
@@ -2830,35 +2932,35 @@ model DynamicPricingRule {
 }
 
 model ChannelConnection {
-  id                      String                 @id @default(cuid())
-  propertyId              String
-  channelCode             String                 // e.g. "BOOKING_COM", "EXPEDIA", "AGODA", "AIRBNB", "MAKEMYTRIP", "GOIBIBO", "GOOGLE_HOTEL_ADS", "TRIP_COM", "HOSTELWORLD"
-  name                    String
-  logo                    String?                @default("🏨")
-  status                  String                 @default("DISCONNECTED") // "CONNECTED" | "SYNCING" | "PAUSED" | "DISCONNECTED" | "ERROR"
-  hotelIdOnChannel        String?
-  apiKey                  String?
-  apiSecret               String?
-  channelManagerProvider  String?                @default("DIRECT_API") // "DIRECT_API" | "SITEMINDER" | "STAAH" | "RATEGAIN" | "CLOUDBEDS"
-  autoSyncRates           Boolean                @default(true)
-  autoSyncInventory       Boolean                @default(true)
-  autoImportBookings      Boolean                @default(true)
-  rateMultiplier          Float                  @default(1.0)
-  rateOffset              Float                  @default(0)
-  commissionPct           Float                  @default(15.0)
-  inventoryAllocation     Int?
-  allocatedRoomCount      Int                    @default(0)
-  lastSyncAt              DateTime?
-  lastSyncStatus          String?                @default("SUCCESS")
-  lastSyncMessage         String?
-  totalBookingsReceived   Int                    @default(0)
-  totalRevenueGenerated   Float                  @default(0)
-  isLive                  Boolean                @default(true)
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
-  property                Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  roomMappings            ChannelRoomMapping[]
-  syncLogs                ChannelSyncLog[]
+  id                     String               @id @default(cuid())
+  propertyId             String
+  channelCode            String // e.g. "BOOKING_COM", "EXPEDIA", "AGODA", "AIRBNB", "MAKEMYTRIP", "GOIBIBO", "GOOGLE_HOTEL_ADS", "TRIP_COM", "HOSTELWORLD"
+  name                   String
+  logo                   String?              @default("🏨")
+  status                 String               @default("DISCONNECTED") // "CONNECTED" | "SYNCING" | "PAUSED" | "DISCONNECTED" | "ERROR"
+  hotelIdOnChannel       String?
+  apiKey                 String?
+  apiSecret              String?
+  channelManagerProvider String?              @default("DIRECT_API") // "DIRECT_API" | "SITEMINDER" | "STAAH" | "RATEGAIN" | "CLOUDBEDS"
+  autoSyncRates          Boolean              @default(true)
+  autoSyncInventory      Boolean              @default(true)
+  autoImportBookings     Boolean              @default(true)
+  rateMultiplier         Float                @default(1.0)
+  rateOffset             Float                @default(0)
+  commissionPct          Float                @default(15.0)
+  inventoryAllocation    Int?
+  allocatedRoomCount     Int                  @default(0)
+  lastSyncAt             DateTime?
+  lastSyncStatus         String?              @default("SUCCESS")
+  lastSyncMessage        String?
+  totalBookingsReceived  Int                  @default(0)
+  totalRevenueGenerated  Float                @default(0)
+  isLive                 Boolean              @default(true)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  property               Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomMappings           ChannelRoomMapping[]
+  syncLogs               ChannelSyncLog[]
 
   @@unique([propertyId, channelCode])
   @@index([propertyId])
@@ -2866,20 +2968,20 @@ model ChannelConnection {
 }
 
 model ChannelRoomMapping {
-  id                 String             @id @default(cuid())
-  channelId          String
-  roomTypeId         String
-  otaRoomId          String?
-  otaRoomName        String?
-  ratePlanCode       String?            @default("STANDARD")
-  allocatedRooms     Int                @default(10)
-  priceMarkupPct     Float              @default(0)
-  isAvailable        Boolean            @default(true)
-  stopSell           Boolean            @default(false)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  channel            ChannelConnection  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  roomType           RoomType           @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  id             String            @id @default(cuid())
+  channelId      String
+  roomTypeId     String
+  otaRoomId      String?
+  otaRoomName    String?
+  ratePlanCode   String?           @default("STANDARD")
+  allocatedRooms Int               @default(10)
+  priceMarkupPct Float             @default(0)
+  isAvailable    Boolean           @default(true)
+  stopSell       Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  channel        ChannelConnection @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  roomType       RoomType          @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
 
   @@unique([channelId, roomTypeId])
   @@index([channelId])
@@ -2887,16 +2989,16 @@ model ChannelRoomMapping {
 }
 
 model ChannelSyncLog {
-  id          String             @id @default(cuid())
-  propertyId  String
-  channelId   String?
-  actionType  String             // "INVENTORY_PUSH" | "RATE_PUSH" | "BOOKING_IMPORT" | "FULL_SYNC" | "STOP_SELL"
-  status      String             // "SUCCESS" | "FAILED" | "PENDING" | "WARNING"
-  message     String
-  payload     String?
-  syncedAt    DateTime           @default(now())
-  property    Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  channel     ChannelConnection? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  id         String             @id @default(cuid())
+  propertyId String
+  channelId  String?
+  actionType String // "INVENTORY_PUSH" | "RATE_PUSH" | "BOOKING_IMPORT" | "FULL_SYNC" | "STOP_SELL"
+  status     String // "SUCCESS" | "FAILED" | "PENDING" | "WARNING"
+  message    String
+  payload    String?
+  syncedAt   DateTime           @default(now())
+  property   Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  channel    ChannelConnection? @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
   @@index([channelId])
@@ -2906,18 +3008,18 @@ model ChannelSyncLog {
 // ─── Tipping System ────────────────────────────────────────────────────────────
 
 model TipTransaction {
-  id            String      @id @default(cuid())
+  id            String   @id @default(cuid())
   propertyId    String
   staffMemberId String
-  guestId       String?     // null = anonymous tip
-  guestName     String?     // anonymous guest ka naam
-  guestPhone    String?     // anonymous guest ka phone
+  guestId       String? // null = anonymous tip
+  guestName     String? // anonymous guest ka naam
+  guestPhone    String? // anonymous guest ka phone
   amount        Float
-  upiRef        String?     // UPI transaction reference (manual entry by guest)
-  status        String      @default("PENDING") // PENDING | CONFIRMED | FAILED
+  upiRef        String? // UPI transaction reference (manual entry by guest)
+  status        String   @default("PENDING") // PENDING | CONFIRMED | FAILED
   note          String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   property    Property    @relation(fields: [propertyId], references: [id])
   staffMember StaffMember @relation(fields: [staffMemberId], references: [id])
@@ -2928,4 +3030,69 @@ model TipTransaction {
   @@index([guestId])
   @@index([status])
   @@index([createdAt])
+}
+
+// ─── Spa Module ──────────────────────────────────────────────────────────────
+
+model Spa {
+  id            String         @id @default(cuid())
+  propertyId    String
+  name          String // "Serene Spa", "Royal Wellness"
+  description   String?
+  logoUrl       String?
+  phone         String?
+  email         String?
+  address       String? // Spa ka location (hotel ki floor/wing)
+  openTime      String?        @default("09:00")
+  closeTime     String?        @default("21:00")
+  commissionPct Float          @default(0) // Hotel ka revenue cut %
+  isActive      Boolean        @default(true)
+  gstNumber     String?
+  ownerName     String?
+  ownerPhone    String?
+  ownerEmail    String?
+  passwordHash  String? // Email + Password login credentials for spa owner
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  property      Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  services      SpaService[]
+  bookings      SpaBooking[]
+  therapists    SpaTherapist[]
+
+  @@index([propertyId])
+  @@index([ownerEmail])
+}
+
+model SpaBooking {
+  id            String        @id @default(cuid())
+  spaId         String
+  serviceId     String
+  therapistId   String?
+  guestId       String? // Registered hotel guest
+  guestName     String? // Walk-in guest
+  guestPhone    String?
+  reservationId String? // Agar in-house guest hai
+  folioId       String? // Room charge ke liye folio link
+  bookingNo     String        @unique
+  scheduledAt   DateTime
+  duration      Int // Minutes
+  amount        Float // Service price before tax
+  taxAmount     Float         @default(0)
+  totalAmount   Float // amount + taxAmount
+  status        String        @default("SCHEDULED")
+  // SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED | NO_SHOW
+  paymentStatus String        @default("PENDING")
+  // PENDING | ROOM_CHARGE | PAID | WAIVED
+  paymentMode   String? // CASH | CARD | UPI | ROOM_CHARGE
+  notes         String?
+  cancelReason  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  spa           Spa           @relation(fields: [spaId], references: [id])
+  service       SpaService    @relation(fields: [serviceId], references: [id])
+  therapist     SpaTherapist? @relation(fields: [therapistId], references: [id])
+
+  @@index([spaId])
+  @@index([scheduledAt])
+  @@index([status])
 }

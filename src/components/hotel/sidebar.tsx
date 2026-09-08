@@ -53,7 +53,10 @@ import {
   Handshake,
   Heart,
   BookOpen,
+  Store,
+  Tablet,
 } from 'lucide-react';
+
 
 interface NavItem {
   name: string;
@@ -139,12 +142,14 @@ const NAV_GROUPS: NavGroup[] = [
     color: 'text-pink-400',
     items: [
       { name: 'Spa & Wellness',     path: '/hotel/spa',             icon: Sparkles },
+      { name: 'Spa Owners',         path: '/hotel/spa-owners',      icon: Store, badge: 'B2B', badgeColor: 'bg-teal-500/20 text-teal-300' },
       { name: 'Swimming Pool',      path: '/hotel/pool',            icon: Waves, badge: 'POOL', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
       { name: 'Banquet & Events',   path: '/hotel/banquet',         icon: Calendar },
       { name: 'Live Music',         path: '/hotel/singers',         icon: Music },
       { name: 'Room Service',       path: '/hotel/room-service',    icon: ChefHat },
     ],
   },
+
   {
     label: 'Finance',
     emoji: '💰',
@@ -180,6 +185,7 @@ const NAV_GROUPS: NavGroup[] = [
     color: 'text-violet-400',
     items: [
       { name: 'AI Concierge',       path: '/hotel/ai-concierge',     icon: Brain, badge: 'AI', badgeColor: 'bg-violet-500/20 text-violet-300' },
+      { name: 'Room Tablet Portal', path: '/hotel/room-portal-admin', icon: Tablet, badge: 'NEW', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { name: 'Smart Hotel IoT',    path: '/hotel/smart-hotel',      icon: Wifi },
       { name: 'Booking Engine',     path: '/hotel/booking-engine',   icon: Globe },
     ],

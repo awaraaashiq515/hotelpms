@@ -103,7 +103,6 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
     { name: 'Counter Payments',   path: '/counter-payments',  icon: Store,      feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: '🍺 Bar POS',         path: '/bar-pos',           icon: Wine,       feature: 'BARPOS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: '☕ Cafe POS',        path: '/cafe-pos',          icon: Coffee,     feature: 'CAFEPOS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'All Bills',    path: '/all-bills', icon: Receipt,   feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Invoices',    path: '/invoices',  icon: FileText,  feature: 'POS',       roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { name: 'Payments',    path: '/payments',  icon: PaymentIcon, feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
     { name: 'Inventory',   path: '/inventory', icon: Package,   feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'], perm: 'Inventory' },
@@ -160,18 +159,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
         { name: 'Waste Management', path: '/operations/waste-management', feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'] },
       ],
     },
-    {
-      name: 'Memberships',
-      path: '/memberships',
-      icon: Trophy,
-      feature: 'CRM',
-      roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'POSSYSTEM'],
-      subItems: [
-        { name: 'Membership Plans', path: '/memberships/plans', feature: 'CRM' },
-        { name: 'Issue Cards',     path: '/memberships/cards', feature: 'CRM' },
-        { name: 'Usage History',    path: '/memberships/history', feature: 'CRM' },
-      ],
-    },
+
     {
       name: 'B2B Marketplace',
       path: '/b2b/market',

@@ -33,7 +33,7 @@ export function PostToRoomConfirm({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
           <div>
-            <p className="text-base font-black text-white">Order Confirm Karo</p>
+            <p className="text-base font-black text-white">Confirm Order</p>
             <p className="text-[10px] text-slate-500 font-bold mt-0.5">
               {postToRoom && roomInfo
                 ? `Charges posted to Room ${roomInfo.roomNumber}`

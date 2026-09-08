@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
-// GET — Property ki current GST settings fetch karo
+// GET — Fetch current GST settings for property
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH — GST settings update karo
+// PATCH — Update GST settings
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession();

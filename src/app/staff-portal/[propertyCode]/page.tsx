@@ -694,7 +694,48 @@ function RoomOrderCard({
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
-        {/* Step 1: Mark Served */}
+        {/* Step 1: Mark Ready (if not yet ready or served) */}
+        {order.status !== 'READY' && order.status !== 'SERVED' && order.status !== 'COMPLETED' && (
+          <button
+            onClick={async () => {
+              setMarking(true);
+              try {
+                const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
+                await fetch(`/api/pos-orders/${order.id}`, {
+                  method: 'PUT',
+                  headers,
+                  body: JSON.stringify({
+                    status: 'READY',
+                    servedById: user?.id,
+                    staffMemberId: user?.staffMember?.id,
+                  })
+                });
+                onRefresh();
+              } catch {};
+              setMarking(false);
+            }}
+            disabled={marking}
+            style={{
+              width: '100%',
+              background: 'rgba(20,184,166,0.18)',
+              border: '1px solid rgba(20,184,166,0.4)',
+              borderRadius: 10,
+              padding: '10px 0',
+              fontSize: 12,
+              fontWeight: 800,
+              color: '#5eead4',
+              cursor: marking ? 'not-allowed' : 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              fontFamily: 'inherit',
+            }}
+          >
+            {marking ? '...' : '🛎️ Mark Ready for Delivery'}
+          </button>
+        )}
+
+        {/* Step 2: Mark Served */}
         <button
           onClick={async () => {
             setMarking(true);
@@ -1925,7 +1966,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       const headers: HeadersInit = {}
       const token = wtTokenRef.current || wtToken
       if (token) headers['Authorization'] = `Bearer ${token}`
-      const r = await fetch('/api/hotel/room-service', { headers, cache: 'no-store' })
+      const url = propertyCode ? `/api/hotel/room-service?propertyCode=${encodeURIComponent(propertyCode)}` : '/api/hotel/room-service'
+      const r = await fetch(url, { headers, cache: 'no-store' })
       if (r.ok) {
         const d = await r.json()
         setRoomServiceOrders(d.data || [])
@@ -1935,7 +1977,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     } finally {
       setRoomServiceOrdersLoading(false)
     }
-  }, [wtToken])
+  }, [wtToken, propertyCode])
 
   useEffect(() => {
     if (showRoomOrderModal) {
@@ -1993,6 +2035,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         folioId,
         servedById: user?.id,
         staffMemberId: user?.staffMember?.id,
+        propertyId: user?.propertyId || undefined,
+        propertyCode: propertyCode || undefined,
       }
 
       const res = await fetch('/api/hotel/room-service', {

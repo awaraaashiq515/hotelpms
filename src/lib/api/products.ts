@@ -3,6 +3,7 @@ import { apiClient } from './client';
 export interface Product {
   id: string;
   categoryId: string;
+  propertyId?: string;
   outletId?: string;
   name: string;
   sku?: string;

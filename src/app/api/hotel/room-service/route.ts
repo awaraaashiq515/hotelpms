@@ -2,39 +2,72 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
 // ── GET — Fetch today's room service orders ────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    const wtUser = await getWTUserFromRequest(request);
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
-    const propertyId = searchParams.get('propertyId') || await resolveAdminProperty(session, prisma);
+    const paramPropertyId = searchParams.get('propertyId');
+    const paramPropertyCode = searchParams.get('propertyCode');
     const roomNumber = searchParams.get('roomNumber');
     const dateParam = searchParams.get('date');
     const status = searchParams.get('status');
 
-    if (!propertyId) return apiError(new Error('No property context'), 400);
+    let orgId = session?.organizationId || wtUser?.organizationId || (wtUser?.property as any)?.organizationId || null;
+    let basePropertyId = paramPropertyId || session?.propertyId || wtUser?.propertyId || null;
 
-    // Date filter — default today
+    if (paramPropertyCode) {
+      const codeProp = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { code: paramPropertyCode },
+            { code: paramPropertyCode.toUpperCase() },
+            { code: paramPropertyCode.toLowerCase() },
+          ],
+        },
+        select: { id: true, organizationId: true },
+      });
+      if (codeProp) {
+        basePropertyId = basePropertyId || codeProp.id;
+        if (!orgId) orgId = codeProp.organizationId;
+      }
+    }
+
+    if (!orgId && basePropertyId) {
+      const p = await prisma.property.findUnique({
+        where: { id: basePropertyId },
+        select: { organizationId: true },
+      });
+      if (p) orgId = p.organizationId;
+    }
+
+    let propertyIds: string[] = [];
+    if (orgId) {
+      const orgProps = await prisma.property.findMany({
+        where: { organizationId: orgId },
+        select: { id: true },
+      });
+      propertyIds = orgProps.map((p) => p.id);
+    } else if (basePropertyId) {
+      propertyIds = [basePropertyId];
+    } else if (session) {
+      const adminProp = await resolveAdminProperty(session, prisma);
+      if (adminProp) propertyIds = [adminProp];
+    }
+
+    if (propertyIds.length === 0) return apiError(new Error('No property context'), 400);
+
+    // Date filter — default today (or last 24h)
     const targetDate = dateParam ? new Date(dateParam) : new Date();
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
-
-    // Resolve organization propertyIds so orders match across hotel and restaurant POS
-    let propertyIds: string[] = [propertyId];
-    if (session.organizationId) {
-      const orgProps = await prisma.property.findMany({
-        where: { organizationId: session.organizationId },
-        select: { id: true }
-      });
-      if (orgProps.length > 0) {
-        propertyIds = orgProps.map((p: any) => p.id);
-      }
-    }
 
     // Query active room service & guest pre-orders (excluding COMPLETED/PAID/SETTLED by default)
     const orders = await prisma.posOrder.findMany({
@@ -107,7 +140,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    const wtUser = await getWTUserFromRequest(request);
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
     const {
@@ -125,7 +159,7 @@ export async function POST(request: NextRequest) {
       staffMemberId: bodyStaffMemberId,
     } = body;
 
-    const propertyId = body.propertyId || await resolveAdminProperty(session, prisma);
+    const propertyId = body.propertyId || wtUser?.propertyId || (session ? await resolveAdminProperty(session, prisma) : null);
     if (!propertyId) return apiError(new Error('No property context'), 400);
 
     if (!items || items.length === 0) {

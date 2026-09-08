@@ -82,6 +82,14 @@ export default function StaffPage() {
           <p className="text-xs text-slate-500 mt-0.5">Manage daily attendance and PMS/POS login credentials</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Room Tablet Portal quick link */}
+          <a
+            href="/room-portal"
+            target="_blank"
+            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-bold transition-all"
+          >
+            📱 Room Tablet Portal ↗
+          </a>
           {/* Housekeeper Portal quick link */}
           <a
             href="/housekeeper-portal"

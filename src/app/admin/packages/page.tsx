@@ -774,12 +774,12 @@ function PackageFormModal({
                 />
                 {form.allowedHotelCount > 0 && !form.features.includes('HMS') && (
                   <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 font-bold">
-                    ⚠️ HMS feature bhi ON karo — Step 2 mein "Hotel Management" toggle karo
+                    ⚠️ Enable the HMS feature — toggle &quot;Hotel Management&quot; in Step 2
                   </p>
                 )}
                 {form.allowedHotelCount > 0 && form.features.includes('HMS') && (
                   <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2 font-bold">
-                    ✅ HMS feature active hai — {form.allowedHotelCount} hotel{form.allowedHotelCount !== 1 ? 's' : ''} allowed
+                    ✅ HMS feature active — {form.allowedHotelCount} hotel{form.allowedHotelCount !== 1 ? 's' : ''} allowed
                   </p>
                 )}
               </div>
@@ -1372,8 +1372,8 @@ export default function PackagesPage() {
         </div>
         <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Access Denied</h2>
         <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mb-6">
-          Aapke paas yeh page dekhne ki permission nahi hai.<br />
-          <strong className="text-slate-700 dark:text-slate-300">Super Admin</strong> account se login karein.
+          You do not have permission to access this page.<br />
+          Please sign in with a <strong className="text-slate-700 dark:text-slate-300">Super Admin</strong> account.
         </p>
         <a href="/login"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-white text-sm font-bold shadow-lg"

@@ -7,40 +7,40 @@ html {
 }
 
 :root {
-  --background: #fdf8f8;
-  --foreground: #2d1515;
+  --background: #f8fafc;
+  --foreground: #0f172a;
   
-  /* OrderMint Logo Color Palette */
-  --pos-primary: #e8a0a0;           /* Logo Rose Pink - main brand color */
-  --pos-primary-light: #f0c8c8;     /* Lighter pink for hover/tints */
-  --pos-primary-dark: #c47878;      /* Slightly deeper pink for active states */
-  --pos-primary-glow: hsla(0, 55%, 77%, 0.4);
-  --pos-accent: #7a2e2e;            /* Logo Maroon - used for dark accents */
-  --pos-accent-soft: #f5dada;       /* Very soft pink - background tints */
-  --pos-sidebar: #2d1515;           /* Deep maroon sidebar */
-  --pos-sidebar-hover: #7a2e2e;
-  --pos-sidebar-text: #fdf8f8;
+  /* Hotel PMS Indigo Theme Palette */
+  --pos-primary: #6366f1;           /* Indigo 500 */
+  --pos-primary-light: #818cf8;     /* Indigo 400 */
+  --pos-primary-dark: #4f46e5;      /* Indigo 600 */
+  --pos-primary-glow: rgba(99, 102, 241, 0.35);
+  --pos-accent: #4338ca;            /* Indigo 700 */
+  --pos-accent-soft: #e0e7ff;       /* Indigo 100 */
+  --pos-sidebar: #080d1a;           /* Deep Midnight Navy */
+  --pos-sidebar-hover: #1e293b;
+  --pos-sidebar-text: #f8fafc;
   --pos-header: #ffffff;
-  --pos-border: #f0c8c8;
+  --pos-border: #e2e8f0;
 
   /* Glassmorphism Tokens */
-  --glass-bg: rgba(255, 248, 248, 0.75);
-  --glass-border: rgba(232, 160, 160, 0.35);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(99, 102, 241, 0.2);
 
-  /* New: Hospitality Pattern Data */
-  --pattern-color: rgba(232, 160, 160, 0.08); /* Subtle Rose Pink */
+  /* Hospitality Pattern Data */
+  --pattern-color: rgba(99, 102, 241, 0.06);
 }
 
 .dark {
-  --background: #1a0a0a;
-  --foreground: #fdf8f8;
-  --pos-sidebar: #1a0a0a;
-  --pos-sidebar-hover: #2d1515;
-  --pos-header: #2d1515;
-  --pos-border: #4a2020;
+  --background: #090d16;
+  --foreground: #f8fafc;
+  --pos-sidebar: #080d1a;
+  --pos-sidebar-hover: #0f172a;
+  --pos-header: #0f172a;
+  --pos-border: #1e293b;
   
-  --glass-bg: rgba(45, 21, 21, 0.6);
-  --glass-border: rgba(232, 160, 160, 0.1);
+  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(99, 102, 241, 0.2);
 }
 
 @theme inline {

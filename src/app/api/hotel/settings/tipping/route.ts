@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ success: true, settings: property });
 }
 
-// PATCH /api/hotel/settings/tipping — Tipping settings update karo
+// PATCH /api/hotel/settings/tipping — Update tipping settings
 export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const { propertyId, tippingEnabled, tippingStaffRoles, tippingPresets } = body;

@@ -43,16 +43,61 @@ export async function GET(req: NextRequest) {
     if (!propertyId) return apiError(new Error('No property context'), 400);
 
     if (type === 'services') {
+      const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: {
+          externalSpaEnabled: true,
+          spas: { where: { isActive: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      });
+
+      if (property?.externalSpaEnabled && property.spas.length > 0) {
+        const activeSpa = property.spas[0];
+        const services = await prisma.spaService.findMany({
+          where: { spaId: activeSpa.id, isActive: true },
+          orderBy: { category: 'asc' },
+        });
+        return apiResponse(services.map(s => ({
+          ...s,
+          spaId: activeSpa.id,
+          providerMode: 'EXTERNAL',
+          spaName: activeSpa.name,
+        })));
+      }
+
+      // Default: In-house hotel spa
       const services = await prisma.spaService.findMany({
-        where: { propertyId, isActive: true },
+        where: { propertyId, spaId: null, isActive: true },
         orderBy: { category: 'asc' },
       });
-      return apiResponse(services);
+      return apiResponse(services.map(s => ({
+        ...s,
+        providerMode: 'IN_HOUSE',
+        spaName: 'In-House Spa',
+      })));
     }
 
     if (type === 'therapists') {
+      const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: {
+          externalSpaEnabled: true,
+          spas: { where: { isActive: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      });
+
+      if (property?.externalSpaEnabled && property.spas.length > 0) {
+        const activeSpa = property.spas[0];
+        const therapists = await prisma.spaTherapist.findMany({
+          where: { spaId: activeSpa.id, isActive: true },
+          orderBy: { name: 'asc' },
+        });
+        return apiResponse(therapists);
+      }
+
+      // Default: In-house therapists
       const therapists = await prisma.spaTherapist.findMany({
-        where: { propertyId, isActive: true },
+        where: { propertyId, spaId: null, isActive: true },
         orderBy: { name: 'asc' },
       });
       return apiResponse(therapists);
@@ -136,6 +181,59 @@ export async function POST(req: NextRequest) {
       },
       include: { service: true, therapist: true },
     });
+
+    // Check if external spa is enabled or service is linked to an external spa
+    let linkedSpaId: string | null = null;
+    if (data.serviceId) {
+      const svc = await prisma.spaService.findUnique({
+        where: { id: data.serviceId },
+        select: { spaId: true },
+      });
+      if (svc?.spaId) linkedSpaId = svc.spaId;
+    }
+
+    if (!linkedSpaId) {
+      const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: {
+          externalSpaEnabled: true,
+          spas: { where: { isActive: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      });
+      if (property?.externalSpaEnabled && property.spas.length > 0) {
+        linkedSpaId = property.spas[0].id;
+      }
+    }
+
+    // Mirror booking into external SpaBooking so the Spa Owner sees it in their portal
+    if (linkedSpaId && data.serviceId) {
+      try {
+        const scheduledDateTime = new Date(`${data.bookingDate}T${data.bookingTime || '10:00'}:00`);
+        const bookingNo = `SP-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+        const svcPrice = Number(data.amount) || 0;
+        await prisma.spaBooking.create({
+          data: {
+            spaId: linkedSpaId,
+            serviceId: data.serviceId,
+            therapistId: data.therapistId || null,
+            guestName: data.guestRoom ? `${data.guestName} (${data.guestRoom})` : data.guestName,
+            guestPhone: data.guestPhone || '',
+            bookingNo,
+            scheduledAt: isNaN(scheduledDateTime.getTime()) ? new Date() : scheduledDateTime,
+            duration: Number(data.duration) || 60,
+            amount: svcPrice,
+            taxAmount: Math.round(svcPrice * 0.18),
+            totalAmount: Math.round(svcPrice * 1.18),
+            status: 'SCHEDULED',
+            paymentStatus: data.paymentType === 'ROOM_CHARGE' ? 'ROOM_CHARGE' : 'PENDING',
+            paymentMode: data.paymentType || 'ROOM_CHARGE',
+            notes: data.notes || '',
+          },
+        });
+      } catch (sbErr) {
+        console.error('Failed to create external SpaBooking:', sbErr);
+      }
+    }
 
     // Auto post to room folio if ROOM_CHARGE
     if (data.paymentType === 'ROOM_CHARGE' && data.guestRoom) {

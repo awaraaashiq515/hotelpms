@@ -120,17 +120,17 @@ export default function MySubscriptionPage() {
           <div className="w-24 h-24 rounded-3xl bg-slate-800 border border-white/10 flex items-center justify-center mb-6 shadow-xl">
             <Package size={40} className="text-slate-500" />
           </div>
-          <h2 className="text-xl font-extrabold text-white mb-2">Aapke Paas Koi Plan Nahi Hai</h2>
+          <h2 className="text-xl font-extrabold text-white mb-2">No Active Subscription Plan</h2>
           <p className="text-slate-400 text-sm max-w-xs mb-8">
-            Abhi tak aapke account ko koi subscription plan assign nahi hua hai.<br />
-            Super Admin se contact karein ya neeche plan ke liye request karein.
+            No subscription plan is currently assigned to your account.<br />
+            Please contact your Super Admin or select a plan below.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <a href="/signup" className="inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-bold text-sm transition-all">
-              <Sparkles size={15} /> Plan Choose Karein
+              <Sparkles size={15} /> Choose a Plan
             </a>
             <a href="mailto:support@gustflow.com" className="inline-flex items-center gap-2 px-6 py-3 border border-white/15 hover:bg-white/5 text-slate-300 rounded-2xl font-bold text-sm transition-all">
-              Support Se Contact Karein
+              Contact Support
             </a>
           </div>
         </div>
@@ -257,8 +257,8 @@ export default function MySubscriptionPage() {
           {/* Upgrade CTA */}
           <div className="bg-gradient-to-r from-violet-600/20 to-rose-600/20 border border-violet-500/30 rounded-3xl p-5 flex items-center justify-between gap-4">
             <div>
-              <p className="font-extrabold text-white text-sm mb-0.5">Plan Upgrade Karna Chahte Hain?</p>
-              <p className="text-[11px] text-slate-400">Super Admin se contact karein ya naye features ke liye request karein.</p>
+              <p className="font-extrabold text-white text-sm mb-0.5">Looking to Upgrade Your Plan?</p>
+              <p className="text-[11px] text-slate-400">Contact your Super Admin or reach out to request new features.</p>
             </div>
             <a href="mailto:support@gustflow.com"
               className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-bold text-xs transition-all">

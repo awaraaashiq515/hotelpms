@@ -66,7 +66,7 @@ export function OrderCart({
               <ShoppingCart size={22} className="text-slate-700" />
             </div>
             <p className="text-xs text-slate-700 font-bold text-center">
-              Menu se items add karo
+              Add items from the menu
             </p>
           </div>
         ) : (

@@ -61,13 +61,31 @@ export async function POST(request: NextRequest) {
     const roomNumber = reservation.rooms?.[0]?.room?.roomNumber;
     const folioId = reservation.folios?.[0]?.id || null;
 
-    // Find first active outlet for this property
-    const outlet = await prisma.outlet.findFirst({
+    // Find or create active outlet for this property or organization
+    let outlet = await prisma.outlet.findFirst({
       where: { propertyId }
     });
 
     if (!outlet) {
-      return NextResponse.json({ success: false, message: 'No outlet found for this property.' }, { status: 400 });
+      const prop = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { organizationId: true }
+      });
+      if (prop?.organizationId) {
+        outlet = await prisma.outlet.findFirst({
+          where: { property: { organizationId: prop.organizationId } }
+        });
+      }
+    }
+
+    if (!outlet) {
+      outlet = await prisma.outlet.create({
+        data: {
+          propertyId,
+          name: 'Room Service & Dining',
+          type: 'RESTAURANT',
+        }
+      });
     }
 
     // Calculate totals

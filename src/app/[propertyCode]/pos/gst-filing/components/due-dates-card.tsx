@@ -116,7 +116,7 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
   };
 
   const handleDeleteDue = async (id: string) => {
-    if (!confirm('Yeh entry delete karein?')) return;
+    if (!confirm('Are you sure you want to delete this entry?')) return;
     const r = await fetch(`/api/gst/return-dues?id=${id}`, { method: 'DELETE' });
     const d = await r.json();
     if (d.success) {
@@ -145,7 +145,7 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
           </div>
           <div>
             <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">GST Return Due Dates</h2>
-            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">Sabhi GST returns ki due dates track karo</p>
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">Track due dates for all upcoming GST returns</p>
           </div>
         </div>
         <button
@@ -153,7 +153,7 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
           className="flex items-center gap-2 px-4 py-2 bg-pos-primary text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
         >
           {showAddDue ? <X size={13} /> : <PlusCircle size={13} />}
-          {showAddDue ? 'Cancel' : 'Due Date Add Karo'}
+          {showAddDue ? 'Cancel' : 'Add Due Date'}
         </button>
       </div>
 
@@ -178,7 +178,7 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
       {/* Add Due Date Form */}
       {showAddDue && (
         <div className="mb-5 p-5 rounded-2xl border border-dashed border-pos-primary/30 bg-pos-primary/5">
-          <h3 className="text-[11px] font-black text-pos-primary uppercase tracking-widest mb-4">🗓 Nayi Due Date Add Karo</h3>
+          <h3 className="text-[11px] font-black text-pos-primary uppercase tracking-widest mb-4">🗓 Add New Due Date</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Return Type</label>
@@ -224,7 +224,7 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Notes (Optional)</label>
               <input
                 type="text"
-                placeholder="Koi notes..."
+                placeholder="Optional notes..."
                 value={dueForm.notes}
                 onChange={e => setDueForm(f => ({ ...f, notes: e.target.value }))}
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-pos-primary/20 focus:border-pos-primary dark:text-slate-100 placeholder:text-gray-300"
@@ -238,7 +238,7 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
               className="bg-pos-primary hover:bg-red-700 text-white font-black tracking-widest px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2 text-sm"
             >
               {dueSubmitting ? <Loader2 size={14} className="animate-spin" /> : <PlusCircle size={14} />}
-              Due Date Save Karo
+              Save Due Date
             </Button>
           </div>
         </div>
@@ -252,8 +252,8 @@ export function DueDatesCard({ showToast, formatPeriod }: DueDatesCardProps) {
       ) : returnDues.length === 0 ? (
         <div className="text-center py-10 bg-gray-50 dark:bg-slate-800/30 rounded-2xl">
           <Bell size={32} className="mx-auto mb-2 text-gray-300" />
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Abhi koi due date add nahi ki</p>
-          <p className="text-[10px] text-gray-300 mt-1">Upar &quot;Due Date Add Karo&quot; button click karo</p>
+          <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">No due dates added yet</p>
+          <p className="text-[10px] text-gray-300 mt-1">Click &quot;Add Due Date&quot; above to set a deadline</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
