@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Package, Plus, Search, Layers, Calculator } from 'lucide-react';
 import { StockStats }  from './components/StockStats';
 import { StockTable }  from './components/StockTable';
@@ -107,16 +107,29 @@ export default function InventoryPage() {
   const [toast,     setToast]     = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('stock');
 
-  // Derive property ID from URL (e.g. /RCH002/... → "RCH002" is the propertyCode)
-  // We use a static fallback for the local inventory page context
   const [propertyId, setPropertyId] = useState('');
-  useEffect(() => {
-    // Try to get propertyId from session/cookie if available, else use a default
-    fetch('/api/property?current=1')
-      .then(r => r.json())
-      .then(d => { if (d?.data?.id) setPropertyId(d.data.id); })
-      .catch(() => {});
+
+  // Fetch propertyId from session — same approach as hotel layout.tsx
+  const fetchPropertyId = useCallback(async () => {
+    try {
+      const sessionRes = await fetch('/api/auth/session');
+      const sessionData = await sessionRes.json();
+      if (!sessionData.authenticated) return;
+
+      const propRes = await fetch('/api/setup/properties');
+      const propData = await propRes.json();
+      if (propData.success && Array.isArray(propData.data) && propData.data.length > 0) {
+        const current =
+          propData.data.find((p: { id: string }) => p.id === sessionData.user?.propertyId)
+          ?? propData.data[0];
+        if (current?.id) setPropertyId(current.id);
+      }
+    } catch {
+      // silent — kits tab will show loading until propertyId resolves
+    }
   }, []);
+
+  useEffect(() => { fetchPropertyId(); }, [fetchPropertyId]);
 
   const items = stock
     .filter(i => cat === 'All' || i.category === cat)

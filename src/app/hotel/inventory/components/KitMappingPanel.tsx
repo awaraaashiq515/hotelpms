@@ -532,9 +532,23 @@ export function KitMappingPanel({
     }
   }, [propertyId]);
 
+  // When propertyId finally arrives, fetch kits
   useEffect(() => { fetchKits(); }, [fetchKits]);
 
+  // If propertyId still empty, don't show infinite spinner — resolve it
+  useEffect(() => {
+    if (!propertyId) {
+      // Give it 3 seconds, then stop loading to avoid infinite spinner
+      const t = setTimeout(() => setLoading(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [propertyId]);
+
   const handleCreate = async (formData: Omit<Kit, 'id' | 'usageLogs'>) => {
+    if (!propertyId) {
+      showToast('⚠ Property not loaded yet — please wait a moment and try again');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/inventory/kits', {
@@ -547,9 +561,11 @@ export function KitMappingPanel({
         setKits(prev => [data.data, ...prev]);
         setShowForm(false);
         showToast(`✓ Kit "${formData.name}" created`);
+      } else {
+        showToast(`Error: ${data.message ?? 'Could not create kit'}`);
       }
-    } catch {
-      showToast('Error creating kit');
+    } catch (e) {
+      showToast(`Error: ${e instanceof Error ? e.message : 'Network error'}`);
     } finally {
       setSaving(false);
     }
