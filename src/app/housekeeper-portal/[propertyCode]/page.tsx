@@ -461,12 +461,7 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
       if (housekeepingStatus === 'CLEAN' && activeTimerRoomId === roomId) {
         stopStopwatch()
       }
-
-      // Automatically prompt housekeeper for replenished items when marked CLEAN!
-      if (housekeepingStatus === 'CLEAN' && targetRoom) {
-        setRoomItemCounters({})
-        setCleanReplenishRoom({ ...targetRoom, housekeepingStatus: 'CLEAN' })
-      }
+      // (Replenishment modal removed — handled via step wizard)
     } catch { toast.error('Update failed') }
     finally { setUpdatingId(null) }
   }
@@ -1627,234 +1622,90 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
       </nav>
 
       {/* ─── ROOM SHEET BOTTOM MODAL (Advanced Actions) ─── */}
+      {/* ══ SIMPLE ROOM INFO BOTTOM SHEET ══ */}
       {selectedRoom && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          <div onClick={() => setSelectedRoom(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} />
-          
-          <div style={{ position: 'relative', background: '#090a0f', borderRadius: '26px 26px 0 0', borderTop: '1px solid rgba(255,255,255,0.08)', padding: '20px 18px calc(30px + env(safe-area-inset-bottom))', maxHeight: '82vh', overflowY: 'auto' }}>
-            <div style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', margin: '0 auto 16px' }} />
+          <div onClick={() => setSelectedRoom(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }} />
 
-            {/* Room sheet header info */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div style={{ position: 'relative', background: '#0d1117', borderRadius: '24px 24px 0 0', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', padding: '20px 20px calc(32px + env(safe-area-inset-bottom))' }}>
+            {/* Drag handle */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', margin: '0 auto 18px' }} />
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9' }}>Room {selectedRoom.roomNumber}</span>
-                  {selectedRoom.isVIP && (
-                    <span style={{ background: '#fbbf24', color: '#000', fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4 }}>VIP MEMBER</span>
-                  )}
-                </div>
-                <div style={{ fontSize: 10, color: '#64748b', marginTop: 3, fontWeight: 700 }}>
-                  {selectedRoom.floor ? `FLOOR ${selectedRoom.floor} · ` : ''}{selectedRoom.roomType.name}
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9' }}>Room {selectedRoom.roomNumber}</div>
+                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginTop: 2 }}>
+                  {selectedRoom.floor ? `Floor ${selectedRoom.floor} · ` : ''}{selectedRoom.roomType.name}
+                  {selectedRoom.checkIns[0]?.guest && ` · ${selectedRoom.checkIns[0].guest.firstName} ${selectedRoom.checkIns[0].guest.lastName}`}
                 </div>
               </div>
-              <button onClick={() => setSelectedRoom(null)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 9, padding: '7px 11px', color: '#94a3b8', cursor: 'pointer', fontSize: 12 }}>✕ Close</button>
-            </div>
-
-            {/* Guest info card */}
-            {selectedRoom.checkIns[0]?.guest && (
-              <div style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.18)', borderRadius: 14, padding: '10px 14px', marginBottom: 16 }}>
-                <div style={{ fontSize: 8, color: '#c084fc', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Guest Occupied</div>
-                <div style={{ fontSize: 13, fontWeight: 900, color: '#f1f5f9' }}>
-                  {selectedRoom.checkIns[0].guest.firstName} {selectedRoom.checkIns[0].guest.lastName}
-                </div>
-              </div>
-            )}
-
-            {/* Quick housekeeping status update options */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.12em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <Bookmark size={11} /> <span>ROOM CLEANING STATUS</span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {HK_STATUS_KEYS.map(s => {
-                  const cfg = HK_STATUS[s]
-                  const isCur = selectedRoom.housekeepingStatus === s
-                  return (
-                    <button key={s}
-                      onClick={() => !isCur && updateHKStatus(selectedRoom.id, s)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 999, fontSize: 10, fontWeight: 900, cursor: isCur ? 'default' : 'pointer', fontFamily: 'inherit', border: isCur ? `2px solid ${cfg.color}` : '1.5px solid rgba(255,255,255,0.06)', background: isCur ? cfg.bg : 'rgba(255,255,255,0.02)', color: isCur ? cfg.color : '#64748b', transition: 'all 0.15s' }}>
-                      {cfg.emoji} {cfg.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Room checklist audit block */}
-            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 16, padding: '14px', marginBottom: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 9, fontWeight: 900, color: '#a78bfa', letterSpacing: '0.12em', textTransform: 'uppercase' }}>🧼 MANDATORY SANITATION AUDIT</span>
-                <span style={{ fontSize: 10, color: '#34d399', fontWeight: 800 }}>
-                  {((roomChecklist[selectedRoom.id] || []).filter(Boolean).length)} / {STANDARD_CHECKLIST.length} Done
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {STANDARD_CHECKLIST.map((chk, i) => {
-                  const isDone = !!(roomChecklist[selectedRoom.id]?.[i])
-                  return (
-                    <div key={chk} onClick={() => toggleChecklistItem(selectedRoom.id, i)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 11, color: isDone ? '#94a3b8' : '#f1f5f9', fontWeight: isDone ? 500 : 700 }}>
-                      {isDone ? (
-                        <CheckSquare size={16} className="text-emerald-400" />
-                      ) : (
-                        <Square size={16} className="text-slate-600" />
-                      )}
-                      <span style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.6 : 1 }}>{chk}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Pending maintenance tickets logs (Raised in this session) */}
-            {activeMaintTickets.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 9, fontWeight: 900, color: '#e11d48', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>🚨 Raised Tickets in Room</div>
-                {activeMaintTickets.map(t => (
-                  <div key={t.id} style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 10, padding: '8px 10px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
-                    <div>
-                      <span style={{ fontWeight: 800, color: '#fda4af' }}>{t.ticketNo}</span> · {t.issueType} ({t.priority})
-                    </div>
-                    <span style={{ fontWeight: 900, color: '#f43f5e' }}>{t.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Quick Laundry Button inside Room Detail Modal */}
-            <div style={{ marginBottom: 14 }}>
-              <button onClick={() => { setLaundryModalRoom(selectedRoom); setLaundryCounters({}); }}
-                style={{ width: '100%', padding: '11px', borderRadius: 12, background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.3)', color: '#22d3ee', fontSize: 11, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                <span>🧺 LOG LAUNDRY PICKUP FOR ROOM {selectedRoom.roomNumber}</span>
+              <button onClick={() => setSelectedRoom(null)}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '7px 12px', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}>
+                ✕ Close
               </button>
             </div>
 
-            {/* ── Log Items Placed in Room (Inventory Deduction) ── */}
-            <div style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 16, padding: '14px', marginBottom: 18 }}>
-              <div style={{ fontSize: 9, fontWeight: 900, color: '#34d399', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>📦 LOG ITEMS PLACED IN ROOM</span>
-                <span style={{ fontSize: 8, color: '#475569', fontWeight: 700 }}>Auto-deducts from inventory</span>
-              </div>
-              <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, marginBottom: 12 }}>
-                Tap + to add items you placed in this room
-              </div>
-
-              {stockItemsLoading ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#475569', fontSize: 10 }}>Loading stock items…</div>
-              ) : stockItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#64748b', fontSize: 10 }}>
-                  <div style={{ marginBottom: 8 }}>No stock items found in inventory.</div>
-                  <button onClick={seedStockItems} disabled={stockItemsLoading}
-                    style={{ padding: '8px 14px', borderRadius: 8, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    ✨ Add Default Housekeeping Stock Items
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 260, overflowY: 'auto' }}>
-                  {stockItems.map(item => {
-                    const qty = roomItemCounters[item.id] || 0
-                    return (
-                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: qty > 0 ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${qty > 0 ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)'}`, borderRadius: 10, padding: '9px 12px', transition: 'all 0.15s' }}>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 800, color: qty > 0 ? '#34d399' : '#94a3b8' }}>{item.name}</div>
-                          <div style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{item.unit || 'pcs'} · Stock: {item.currentStock}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <button onClick={() => setRoomItemCounters(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
-                            style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                          <span style={{ fontSize: 13, fontWeight: 900, color: qty > 0 ? '#f1f5f9' : '#475569', minWidth: 18, textAlign: 'center' }}>{qty}</span>
-                          <button onClick={() => setRoomItemCounters(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
-                            style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.12)', color: '#34d399', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {Object.values(roomItemCounters).some(v => v > 0) && (
-                <button onClick={() => submitRoomItems(selectedRoom)} disabled={submittingRoomItems}
-                  style={{ width: '100%', marginTop: 12, padding: '11px', borderRadius: 11, background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontSize: 11, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase', opacity: submittingRoomItems ? 0.6 : 1 }}>
-                  {submittingRoomItems ? 'Logging…' : `✅ Log ${Object.values(roomItemCounters).reduce((a, b) => a + b, 0)} Item(s) — Update Inventory`}
-                </button>
-              )}
+            {/* Current status badge */}
+            <div style={{ marginBottom: 20 }}>
+              {(() => {
+                const cfg = HK_STATUS[selectedRoom.housekeepingStatus] || HK_STATUS.DIRTY
+                return (
+                  <span style={{ fontSize: 11, fontWeight: 900, padding: '5px 12px', borderRadius: 999, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
+                    {cfg.emoji} {cfg.label}
+                  </span>
+                )
+              })()}
             </div>
 
-            {/* Report issues form (Raise maintenance ticket to DB) */}
-            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 16, padding: '14px', marginBottom: 18 }}>
-              <div style={{ fontSize: 9, fontWeight: 900, color: '#f43f5e', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Wrench size={12} /> <span>REPORT MAINTENANCE PROBLEM</span>
-              </div>
-              
-              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                <select value={maintIssueType} onChange={e => setMaintIssueType(e.target.value)}
-                  style={{ flex: 1, padding: '8px', background: '#090a0f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#f1f5f9', fontSize: 11, outline: 'none' }}>
-                  {['ELECTRICAL', 'PLUMBING', 'CARPENTRY', 'HOUSEKEEPING', 'AC_TV', 'OTHER'].map(t => (
-                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
-                  ))}
-                </select>
-
-                <select value={maintPriority} onChange={e => setMaintPriority(e.target.value)}
-                  style={{ flex: 1, padding: '8px', background: '#090a0f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#f1f5f9', fontSize: 11, outline: 'none' }}>
-                  {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
-                  <input value={maintDesc} onChange={e => setMaintDesc(e.target.value)}
-                    placeholder="Describe the issue (e.g. AC not cooling, faucet leak)"
-                    style={{ width: '100%', padding: '8px 40px 8px 10px', background: '#090a0f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#f1f5f9', fontSize: 11, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                  <button type="button" onClick={() => startVoiceRecognition(setMaintDesc)}
-                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    🎙️
-                  </button>
-                </div>
-                
-                <button type="button" disabled={submittingMaint} onClick={() => submitMaintenanceTicket(selectedRoom.id)}
-                  style={{ padding: '8px 14px', borderRadius: 8, background: '#f43f5e', border: 'none', color: '#fff', fontSize: 9, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase' }}>
-                  {submittingMaint ? 'Submitting…' : 'RAISE'}
-                </button>
-              </div>
+            {/* Quick action buttons */}
+            <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+              Change Status
             </div>
-
-            {/* Pending Tasks assigned */}
-            <div>
-              <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>
-                Pending Tasks {selectedRoom.housekeepingTasks.length > 0 && `(${selectedRoom.housekeepingTasks.length})`}
-              </div>
-              {selectedRoom.housekeepingTasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '14px 0', color: '#34d399', fontSize: 11, fontWeight: 700 }}>✅ No pending tasks</div>
-              ) : selectedRoom.housekeepingTasks.map(task => (
-                <div key={task.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '11px 13px', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>{task.taskType.replace(/_/g, ' ')}</div>
-                      {task.priority && <div style={{ fontSize: 9, color: task.priority === 'HIGH' ? '#f87171' : '#fbbf24', fontWeight: 700, marginTop: 2 }}>⚡ {task.priority}</div>}
-                      {task.remarks && <div style={{ fontSize: 10, color: '#475569', marginTop: 3 }}>{task.remarks}</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { key: 'CLEAN',          label: '✅  Mark Clean',        desc: 'Room fully cleaned & ready',      bg: 'rgba(16,185,129,0.12)',  color: '#34d399', border: 'rgba(16,185,129,0.3)' },
+                { key: 'DIRTY',          label: '🧹  Mark Dirty',         desc: 'Room needs cleaning',              bg: 'rgba(239,68,68,0.08)',   color: '#f87171', border: 'rgba(239,68,68,0.25)' },
+                { key: 'INSPECTING',     label: '🔍  Mark Inspecting',    desc: 'Currently being checked',          bg: 'rgba(99,102,241,0.10)',  color: '#818cf8', border: 'rgba(99,102,241,0.25)' },
+                { key: 'DO_NOT_DISTURB', label: '🚫  Do Not Disturb',     desc: 'Guest requested no entry',         bg: 'rgba(251,191,36,0.10)',  color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
+              ].map(btn => {
+                const isCurrent = selectedRoom.housekeepingStatus === btn.key
+                return (
+                  <button
+                    key={btn.key}
+                    disabled={isCurrent || updatingId === selectedRoom.id}
+                    onClick={() => {
+                      updateHKStatus(selectedRoom.id, btn.key)
+                      setSelectedRoom(null)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                      borderRadius: 14, cursor: isCurrent ? 'default' : 'pointer', fontFamily: 'inherit',
+                      background: isCurrent ? btn.bg : 'rgba(255,255,255,0.03)',
+                      border: `1.5px solid ${isCurrent ? btn.border : 'rgba(255,255,255,0.07)'}`,
+                      opacity: isCurrent ? 1 : 0.85,
+                      transition: 'all 0.15s',
+                      textAlign: 'left',
+                    }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: isCurrent ? btn.color : '#f1f5f9' }}>{btn.label}</div>
+                      <div style={{ fontSize: 10, color: '#64748b', marginTop: 2, fontWeight: 600 }}>{btn.desc}</div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {task.status !== 'IN_PROGRESS' && (
-                        <button onClick={() => updateTask(task.id, selectedRoom.id, 'IN_PROGRESS')}
-                          style={{ padding: '5px 10px', borderRadius: 8, fontSize: 9, fontWeight: 800, cursor: 'pointer', border: '1px solid rgba(124,58,237,0.35)', background: 'rgba(124,58,237,0.12)', color: '#a78bfa', fontFamily: 'inherit' }}>
-                          Start
-                        </button>
-                      )}
-                      <button onClick={() => updateTask(task.id, selectedRoom.id, 'COMPLETED')}
-                        style={{ padding: '5px 10px', borderRadius: 8, fontSize: 9, fontWeight: 800, cursor: 'pointer', border: '1px solid rgba(16,185,129,0.35)', background: 'rgba(16,185,129,0.12)', color: '#34d399', fontFamily: 'inherit' }}>
-                        Done ✓
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    {isCurrent && <span style={{ fontSize: 10, fontWeight: 900, color: btn.color }}>CURRENT</span>}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
       )}
+
+
+
+
+
+
+
 
       {/* ══ ROOM LAUNDRY PICKUP MODAL ══ */}
       {laundryModalRoom && (
@@ -1919,150 +1770,6 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
               style={{ width: '100%', padding: '14px', borderRadius: 14, background: Object.values(laundryCounters).some(v => v > 0) ? 'linear-gradient(135deg,#0891b2,#06b6d4)' : 'rgba(255,255,255,0.05)', border: 'none', color: Object.values(laundryCounters).some(v => v > 0) ? '#fff' : '#475569', fontSize: 12, fontWeight: 900, cursor: Object.values(laundryCounters).some(v => v > 0) ? 'pointer' : 'default', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase', opacity: submittingLaundry ? 0.6 : 1, transition: 'all 0.2s' }}>
               {submittingLaundry ? 'Logging Laundry…' : Object.values(laundryCounters).some(v => v > 0) ? `🧺 Save Laundry (${Object.values(laundryCounters).reduce((a, b) => a + b, 0)} Items) — Room ${laundryModalRoom.roomNumber}` : 'Select Laundry Items Above'}
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* ══ UNIFIED CLEAN ROOM COMPLETION & INVENTORY LOG MODAL ══ */}
-      {cleanReplenishRoom && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 230, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          <div onClick={() => setCleanReplenishRoom(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }} />
-          
-          <div style={{ position: 'relative', background: '#090a0f', borderRadius: '26px 26px 0 0', borderTop: '1.5px solid rgba(16,185,129,0.3)', padding: '20px 18px calc(30px + env(safe-area-inset-bottom))', maxHeight: '88vh', overflowY: 'auto' }}>
-            <div style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(16,185,129,0.4)', margin: '0 auto 14px' }} />
-
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9' }}>✨ Room {cleanReplenishRoom.roomNumber} Cleaned!</span>
-                  <span style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontSize: 9, fontWeight: 900, padding: '2px 8px', borderRadius: 999 }}>ROOM READY</span>
-                </div>
-                <div style={{ fontSize: 10, color: '#64748b', marginTop: 3, fontWeight: 600 }}>
-                  Log laundry collected & room items replenished for Room {cleanReplenishRoom.roomNumber}
-                </div>
-              </div>
-              <button onClick={() => setCleanReplenishRoom(null)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 9, padding: '7px 11px', color: '#94a3b8', cursor: 'pointer', fontSize: 12, fontWeight: 800 }}>✕ Skip</button>
-            </div>
-
-            {/* 1-Tap Quick Presets */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 8, fontWeight: 900, color: '#a78bfa', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>⚡ 1-Tap Turnover Presets</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => {
-                  const itemPreset: Record<string, number> = {}
-                  const laundryPreset: Record<string, number> = {}
-                  stockItems.forEach(item => {
-                    const name = item.name.toLowerCase()
-                    if (name.includes('bath towel')) { itemPreset[item.id] = 2; laundryPreset[item.id] = 2; }
-                    else if (name.includes('hand towel')) { itemPreset[item.id] = 2; laundryPreset[item.id] = 2; }
-                    else if (name.includes('water bottle')) { itemPreset[item.id] = 2; }
-                    else if (name.includes('soap')) { itemPreset[item.id] = 1; }
-                    else if (name.includes('shampoo')) { itemPreset[item.id] = 1; }
-                    else if (name.includes('bed sheet')) { laundryPreset[item.id] = 1; }
-                  })
-                  setRoomItemCounters(itemPreset)
-                  setLaundryCounters(laundryPreset)
-                  toast.success('⚡ Standard Turnover preset set!')
-                }}
-                  style={{ flex: 1, padding: '8px 10px', borderRadius: 10, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', color: '#c084fc', fontSize: 9.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
-                  ✨ Standard Turnover
-                </button>
-
-                <button onClick={() => {
-                  const itemPreset: Record<string, number> = {}
-                  const laundryPreset: Record<string, number> = {}
-                  stockItems.forEach(item => {
-                    const name = item.name.toLowerCase()
-                    if (name.includes('bed sheet')) { itemPreset[item.id] = 2; laundryPreset[item.id] = 2; }
-                    else if (name.includes('pillow cover')) { itemPreset[item.id] = 2; laundryPreset[item.id] = 2; }
-                    else if (name.includes('bath towel')) { itemPreset[item.id] = 2; laundryPreset[item.id] = 2; }
-                    else if (name.includes('hand towel')) { itemPreset[item.id] = 2; laundryPreset[item.id] = 2; }
-                    else if (name.includes('shampoo')) { itemPreset[item.id] = 2; }
-                    else if (name.includes('soap')) { itemPreset[item.id] = 2; }
-                    else if (name.includes('water bottle')) { itemPreset[item.id] = 2; }
-                  })
-                  setRoomItemCounters(itemPreset)
-                  setLaundryCounters(laundryPreset)
-                  toast.success('⚡ Full Room Setup preset set!')
-                }}
-                  style={{ flex: 1, padding: '8px 10px', borderRadius: 10, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#34d399', fontSize: 9.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
-                  🛏️ Full Room Setup
-                </button>
-
-                <button onClick={() => { setRoomItemCounters({}); setLaundryCounters({}); }}
-                  style={{ padding: '8px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontSize: 9.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  🔄 Clear
-                </button>
-              </div>
-            </div>
-
-            {/* Section Toggles */}
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 3, marginBottom: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-              <button onClick={() => setCompletionTab('items')}
-                style={{ flex: 1, padding: '8px 0', borderRadius: 9, fontSize: 10, fontWeight: 900, border: 'none', background: completionTab === 'items' ? 'rgba(16,185,129,0.2)' : 'transparent', color: completionTab === 'items' ? '#34d399' : '#64748b', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                📦 Items Placed In ({Object.values(roomItemCounters).reduce((a, b) => a + b, 0)})
-              </button>
-              <button onClick={() => setCompletionTab('laundry')}
-                style={{ flex: 1, padding: '8px 0', borderRadius: 9, fontSize: 10, fontWeight: 900, border: 'none', background: completionTab === 'laundry' ? 'rgba(6,182,212,0.2)' : 'transparent', color: completionTab === 'laundry' ? '#22d3ee' : '#64748b', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                🧺 Laundry Out ({Object.values(laundryCounters).reduce((a, b) => a + b, 0)})
-              </button>
-            </div>
-
-            {/* Items List */}
-            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: '12px 14px', marginBottom: 14 }}>
-              {stockItemsLoading ? (
-                <div style={{ textAlign: 'center', padding: '20px 0', color: '#475569', fontSize: 11 }}>Loading stock items…</div>
-              ) : stockItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px 0', color: '#64748b', fontSize: 11 }}>
-                  <div style={{ marginBottom: 10 }}>No stock items found in inventory.</div>
-                  <button onClick={seedStockItems} disabled={stockItemsLoading}
-                    style={{ padding: '8px 14px', borderRadius: 8, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    ✨ Add Default Housekeeping Stock Items
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 260, overflowY: 'auto' }}>
-                  {stockItems.map(item => {
-                    const counters = completionTab === 'items' ? roomItemCounters : laundryCounters
-                    const setCounters = completionTab === 'items' ? setRoomItemCounters : setLaundryCounters
-                    const activeColor = completionTab === 'items' ? '#34d399' : '#22d3ee'
-                    const activeBg = completionTab === 'items' ? 'rgba(16,185,129,0.08)' : 'rgba(6,182,212,0.08)'
-                    const activeBorder = completionTab === 'items' ? 'rgba(16,185,129,0.25)' : 'rgba(6,182,212,0.25)'
-
-                    const qty = counters[item.id] || 0
-                    return (
-                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: qty > 0 ? activeBg : 'rgba(255,255,255,0.02)', border: `1px solid ${qty > 0 ? activeBorder : 'rgba(255,255,255,0.05)'}`, borderRadius: 12, padding: '9px 12px', transition: 'all 0.15s' }}>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 800, color: qty > 0 ? activeColor : '#f1f5f9' }}>{item.name}</div>
-                          <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, marginTop: 1 }}>{item.unit || 'pcs'} · Stock: {item.currentStock}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button onClick={() => setCounters(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
-                            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: 15, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                          <span style={{ fontSize: 14, fontWeight: 900, color: qty > 0 ? activeColor : '#475569', minWidth: 20, textAlign: 'center' }}>{qty}</span>
-                          <button onClick={() => setCounters(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
-                            style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${activeBorder}`, background: activeBg, color: activeColor, fontSize: 15, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setCleanReplenishRoom(null)}
-                style={{ flex: 1, padding: '13px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
-                ⏩ Skip (No Items)
-              </button>
-
-              <button onClick={() => submitRoomCompletion(cleanReplenishRoom)} disabled={submittingRoomItems}
-                style={{ flex: 2, padding: '13px', borderRadius: 12, background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontSize: 11, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase', opacity: submittingRoomItems ? 0.6 : 1 }}>
-                {submittingRoomItems ? 'Saving…' : `✅ Save & Complete Room`}
-              </button>
-            </div>
           </div>
         </div>
       )}
