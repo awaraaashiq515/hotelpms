@@ -94,14 +94,24 @@ const ROOM_STATUS: Record<string, { label: string; emoji: string; color: string 
 
 const HK_STATUS_KEYS = ['CLEAN', 'DIRTY', 'INSPECTING', 'DO_NOT_DISTURB', 'OUT_OF_ORDER']
 
-// Standard audit items to enforce compliance
+// Standard audit items (used for card progress bar)
 const STANDARD_CHECKLIST = [
-  'Change bedsheets, pillow covers, and fresh duvet covers 🛏️',
-  'Sanitize bathroom fixtures, toilet, and replace towels 🧼',
-  'Replenish shampoo, soaps, dental kit, and moisturizers 🧴',
-  'Vacuum floors, clean mirrors, and dust furniture Surfaces 🧹',
-  'Empty dustbins, put new liners, and spray air freshener 🗑️',
-  'Inspect mini-bar checklist and water bottles 🍾'
+  'Change bedsheets, pillow covers, and fresh duvet covers',
+  'Sanitize bathroom fixtures, toilet, and replace towels',
+  'Replenish shampoo, soaps, dental kit, and moisturizers',
+  'Vacuum floors, clean mirrors, and dust furniture surfaces',
+  'Empty dustbins, put new liners, and spray air freshener',
+  'Inspect mini-bar checklist and water bottles'
+]
+
+// Simple English cleaning steps shown to staff in checklist modal
+const CLEAN_STEPS: { emoji: string; label: string; sublabel: string }[] = [
+  { emoji: '🧹', label: 'Swept & Dusted Room',             sublabel: 'Floors swept, surfaces wiped clean' },
+  { emoji: '🛏️', label: 'Changed Bed Sheet & Pillows',    sublabel: 'Fresh sheet, pillow covers replaced' },
+  { emoji: '🚿', label: 'Cleaned Bathroom',                sublabel: 'Toilet, sink, floor cleaned; towels placed' },
+  { emoji: '🧴', label: 'Placed Amenities Kit',            sublabel: 'Soap, shampoo, conditioner restocked' },
+  { emoji: '🧺', label: 'Collected Laundry Bag',           sublabel: 'Used linen sent for laundry' },
+  { emoji: '🔍', label: 'Lost Item Check Done',            sublabel: 'Checked under bed, sofa & drawers' },
 ]
 
 export default function HousekeeperPortalPage({ params }: { params: Promise<{ propertyCode: string }> }) {
@@ -130,6 +140,10 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
 
   /* Room checklist audits state */
   const [roomChecklist, setRoomChecklist] = useState<Record<string, boolean[]>>({})
+
+  /* Quick cleaning checklist modal */
+  const [checklistRoom, setChecklistRoom] = useState<HKRoom | null>(null)
+  const [checklistTicks, setChecklistTicks] = useState<boolean[]>(Array(CLEAN_STEPS.length).fill(false))
 
   /* Cleaning stopwatch / clean timer */
   const [activeTimerRoomId, setActiveTimerRoomId] = useState<string | null>(null)
@@ -1114,8 +1128,14 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
 
                   return (
                     <div key={room.id} onClick={() => {
-                      setSelectedRoom(room)
-                      setActiveMaintTickets([]) // reset tickets log
+                      // Open simple checklist if room is DIRTY, else open full detail
+                      if (room.housekeepingStatus === 'DIRTY') {
+                        setChecklistRoom(room)
+                        setChecklistTicks(Array(CLEAN_STEPS.length).fill(false))
+                      } else {
+                        setSelectedRoom(room)
+                        setActiveMaintTickets([])
+                      }
                     }}
                       style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', border: room.isVIP ? '1.5px solid #fbbf24' : `1.5px solid ${hkCfg.border}`, borderRadius: 16, padding: '12px 12px', cursor: 'pointer', position: 'relative', opacity: updatingId === room.id ? 0.5 : 1, transition: 'transform 0.15s, border-color 0.15s', boxShadow: room.isVIP ? '0 0 12px rgba(251,191,36,0.1)' : 'none' }}>
                       
@@ -1158,15 +1178,15 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                         </div>
                       </div>
 
-                      {/* Simple 2-Button Room Actions: DIRTY or CLEAN & LOG */}
+                      {/* Simple 2-Button Room Actions */}
                       <div style={{ display: 'flex', gap: 5, marginTop: 8, paddingTop: 6, borderTop: '1px dashed rgba(255,255,255,0.05)' }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => updateHKStatus(room.id, 'DIRTY')}
                           style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 8.5, fontWeight: 900, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          🧹 MARK DIRTY
+                          🧹 Mark Dirty
                         </button>
-                        <button onClick={() => updateHKStatus(room.id, 'CLEAN')}
+                        <button onClick={() => { setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)) }}
                           style={{ flex: 1.4, padding: '7px 0', borderRadius: 8, fontSize: 8.5, fontWeight: 900, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
-                          ✨ CLEAN & LOG
+                          ✅ Clean & Log
                         </button>
                       </div>
 
@@ -2041,6 +2061,152 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                 style={{ flex: 2, padding: '13px', borderRadius: 12, background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontSize: 11, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase', opacity: submittingRoomItems ? 0.6 : 1 }}>
                 {submittingRoomItems ? 'Saving…' : `✅ Save & Complete Room`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ SIMPLE ROOM CLEANING CHECKLIST MODAL ══ */}
+      {checklistRoom && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 240, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          {/* Backdrop */}
+          <div onClick={() => setChecklistRoom(null)}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(8px)' }} />
+
+          {/* Bottom sheet */}
+          <div style={{ position: 'relative', background: '#0d1117', borderRadius: '24px 24px 0 0', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', padding: '0 0 calc(24px + env(safe-area-inset-bottom))', maxHeight: '92vh', overflowY: 'auto' }}>
+
+            {/* Drag handle */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', margin: '14px auto 0' }} />
+
+            {/* Header */}
+            <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
+                    Room {checklistRoom.roomNumber}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginTop: 2 }}>
+                    {checklistRoom.roomType.name} · {checklistRoom.floor ? `Floor ${checklistRoom.floor}` : ''}
+                  </div>
+                </div>
+                <button onClick={() => setChecklistRoom(null)}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 10, padding: '7px 12px', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 800 }}>
+                  ✕ Close
+                </button>
+              </div>
+
+              {/* Progress bar */}
+              {(() => {
+                const done = checklistTicks.filter(Boolean).length
+                const total = CLEAN_STEPS.length
+                const pct = Math.round((done / total) * 100)
+                return (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 800, color: done === total ? '#34d399' : '#94a3b8', marginBottom: 6 }}>
+                      <span>Cleaning Progress</span>
+                      <span style={{ color: done === total ? '#34d399' : '#f1f5f9' }}>{done} / {total} Done</span>
+                    </div>
+                    <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: done === total ? 'linear-gradient(90deg,#10b981,#34d399)' : 'linear-gradient(90deg,#7c3aed,#ec4899)', transition: 'width 0.35s ease' }} />
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Checklist steps */}
+            <div style={{ padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {CLEAN_STEPS.map((step, i) => {
+                const ticked = checklistTicks[i]
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setChecklistTicks(prev => { const next = [...prev]; next[i] = !next[i]; return next })}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      padding: '14px 16px', borderRadius: 16, width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                      background: ticked ? 'rgba(16,185,129,0.10)' : 'rgba(255,255,255,0.03)',
+                      border: ticked ? '1.5px solid rgba(16,185,129,0.35)' : '1.5px solid rgba(255,255,255,0.07)',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {/* Tick circle */}
+                    <div style={{
+                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: ticked ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,0.06)',
+                      border: ticked ? 'none' : '1.5px solid rgba(255,255,255,0.12)',
+                      transition: 'all 0.2s',
+                      fontSize: ticked ? 14 : 0,
+                      color: '#fff',
+                    }}>
+                      {ticked ? '✓' : ''}
+                    </div>
+
+                    {/* Emoji */}
+                    <div style={{ fontSize: 22, flexShrink: 0 }}>{step.emoji}</div>
+
+                    {/* Text */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: ticked ? '#34d399' : '#f1f5f9', textDecoration: ticked ? 'line-through' : 'none', transition: 'color 0.2s' }}>
+                        {step.label}
+                      </div>
+                      <div style={{ fontSize: 10, color: ticked ? '#059669' : '#64748b', marginTop: 2, fontWeight: 600 }}>
+                        {step.sublabel}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ padding: '4px 18px 0', display: 'flex', gap: 10 }}>
+              <button onClick={() => setChecklistRoom(null)}
+                style={{ flex: 1, padding: '13px', borderRadius: 14, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Skip Checklist
+              </button>
+
+              {(() => {
+                const allDone = checklistTicks.every(Boolean)
+                return (
+                  <button
+                    onClick={() => {
+                      if (!allDone) {
+                        // Tick all remaining as shortcut
+                        setChecklistTicks(Array(CLEAN_STEPS.length).fill(true))
+                        return
+                      }
+                      // Mark room as clean
+                      updateHKStatus(checklistRoom.id, 'CLEAN')
+                      // Update local checklist state for the progress bar on the card
+                      setRoomChecklist(prev => ({ ...prev, [checklistRoom.id]: Array(CLEAN_STEPS.length).fill(true) }))
+                      setChecklistRoom(null)
+                    }}
+                    disabled={updatingId === checklistRoom.id}
+                    style={{
+                      flex: 2, padding: '13px', borderRadius: 14, fontSize: 12, fontWeight: 900,
+                      cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase',
+                      background: allDone
+                        ? 'linear-gradient(135deg,#10b981,#059669)'
+                        : 'rgba(16,185,129,0.08)',
+                      color: allDone ? '#fff' : '#34d399',
+                      border: allDone ? 'none' : '1.5px solid rgba(16,185,129,0.3)',
+                      boxShadow: allDone ? '0 0 20px rgba(16,185,129,0.35)' : 'none',
+                      transition: 'all 0.3s',
+                      opacity: updatingId === checklistRoom.id ? 0.6 : 1,
+                    } as React.CSSProperties}
+                  >
+                    {updatingId === checklistRoom.id
+                      ? 'Updating…'
+                      : allDone
+                        ? '✅ Mark Room Clean'
+                        : `Tick All (${checklistTicks.filter(Boolean).length}/${CLEAN_STEPS.length})`
+                    }
+                  </button>
+                )
+              })()}
             </div>
           </div>
         </div>
