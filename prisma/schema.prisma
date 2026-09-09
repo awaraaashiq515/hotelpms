@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -197,6 +197,9 @@ model Property {
   spaEnabled         Boolean          @default(false)
   externalSpaEnabled Boolean          @default(false) // Toggle: true = External Spa Partner, false = Hotel In-House Spa
   spas               Spa[]
+
+  // ── Inventory Kit / Recipe Mapping ────────────────────────
+  inventoryKits                 HotelInventoryKit[]
 
   @@index([organizationId])
 }
@@ -3095,4 +3098,49 @@ model SpaBooking {
   @@index([spaId])
   @@index([scheduledAt])
   @@index([status])
+}
+
+// ─── Inventory Kit / Recipe Mapping ───────────────────────────────────────────
+
+model HotelInventoryKit {
+  id          String                  @id @default(cuid())
+  propertyId  String
+  name        String                  // e.g. "Standard Room Turnover"
+  description String?
+  kitType     String                  @default("ROOM") // ROOM | SUITE | GUEST | SERVICE | CUSTOM
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  property    Property                @relation(fields: [propertyId], references: [id])
+  items       HotelInventoryKitItem[]
+  usageLogs   HotelInventoryKitUsage[]
+
+  @@index([propertyId])
+}
+
+model HotelInventoryKitItem {
+  id          String             @id @default(cuid())
+  kitId       String
+  itemName    String             // stored name (from local stock list)
+  itemId      String             // references local stock item id (can be cuid)
+  category    String?
+  unit        String?
+  qtyPerUse   Float              @default(1)
+  kit         HotelInventoryKit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@index([kitId])
+}
+
+model HotelInventoryKitUsage {
+  id          String            @id @default(cuid())
+  kitId       String
+  propertyId  String
+  usedCount   Int               @default(1)  // how many times kit was used
+  usedBy      String?           // staff name or ID
+  note        String?
+  usedAt      DateTime          @default(now())
+  kit         HotelInventoryKit @relation(fields: [kitId], references: [id])
+
+  @@index([kitId])
+  @@index([propertyId])
 }

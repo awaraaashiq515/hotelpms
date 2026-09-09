@@ -1,11 +1,12 @@
 'use client';
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Package, Plus, Search, Tag } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Plus, Search, Layers, Calculator } from 'lucide-react';
 import { StockStats }  from './components/StockStats';
 import { StockTable }  from './components/StockTable';
 import { LowStockAlert, type StockItem } from './components/LowStockAlert';
 import { AddStockModal } from './components/AddStockModal';
+import { KitMappingPanel } from './components/KitMappingPanel';
+import { UsageCalculatorPanel } from './components/UsageCalculatorPanel';
 
 /* ─────────────────────────────────────────────
    All Hotel Products — comprehensive list
@@ -90,12 +91,32 @@ const INITIAL_STOCK: StockItem[] = [
 
 const CATEGORIES = ['All', ...Array.from(new Set(INITIAL_STOCK.map(s => s.category)))];
 
+type Tab = 'stock' | 'kits' | 'calculator';
+
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'stock',      label: 'Stock',             icon: <Package size={13} /> },
+  { id: 'kits',       label: 'Kit Mapping',        icon: <Layers size={13} /> },
+  { id: 'calculator', label: 'Usage Calculator',   icon: <Calculator size={13} /> },
+];
+
 export default function InventoryPage() {
   const [stock,     setStock]     = useState<StockItem[]>(INITIAL_STOCK);
   const [search,    setSearch]    = useState('');
   const [cat,       setCat]       = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [toast,     setToast]     = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('stock');
+
+  // Derive property ID from URL (e.g. /RCH002/... → "RCH002" is the propertyCode)
+  // We use a static fallback for the local inventory page context
+  const [propertyId, setPropertyId] = useState('');
+  useEffect(() => {
+    // Try to get propertyId from session/cookie if available, else use a default
+    fetch('/api/property?current=1')
+      .then(r => r.json())
+      .then(d => { if (d?.data?.id) setPropertyId(d.data.id); })
+      .catch(() => {});
+  }, []);
 
   const items = stock
     .filter(i => cat === 'All' || i.category === cat)
@@ -106,15 +127,12 @@ export default function InventoryPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  /* ── Confirm restock ── */
   const handleAddStock = (entries: { item: StockItem; qty: number }[], newItems: StockItem[]) => {
     setStock(prev => {
-      // merge new items
       let next = [...prev];
       newItems.forEach(ni => {
         if (!next.find(s => s.id === ni.id)) next = [...next, ni];
       });
-      // update quantities
       return next.map(s => {
         const entry = entries.find(e => e.item.id === s.id);
         if (!entry) return s;
@@ -127,6 +145,15 @@ export default function InventoryPage() {
       ? `✓ ${entries[0].item.name} restocked +${entries[0].qty} ${entries[0].item.unit}`
       : `✓ ${entries.length} items restocked · ${totalQty} units added`;
     showToast(msg);
+  };
+
+  // Kit usage → deduct from stock
+  const handleStockDeduct = (deductions: { itemId: string; qty: number }[]) => {
+    setStock(prev => prev.map(s => {
+      const d = deductions.find(x => x.itemId === s.id);
+      if (!d) return s;
+      return { ...s, currentStock: Math.max(0, s.currentStock - d.qty) };
+    }));
   };
 
   return (
@@ -154,7 +181,7 @@ export default function InventoryPage() {
             {stock.length} items tracked · Real-time stock levels
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        {activeTab === 'stock' && (
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-orange-600 hover:bg-orange-500
@@ -162,36 +189,75 @@ export default function InventoryPage() {
           >
             <Plus size={14} /> Add Stock / Restock
           </button>
-        </div>
+        )}
       </div>
 
-      <StockStats items={stock} />
-      <LowStockAlert items={stock} />
-
-      {/* Search + Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search items…"
-            className="w-full h-9 pl-9 pr-4 bg-slate-800/60 border border-slate-700 rounded-xl
-                       text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-orange-500"
-          />
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {CATEGORIES.map(c => (
-            <button key={c} onClick={() => setCat(c)}
-              className={`px-3 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors
-                ${cat === c ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-              {c}
-            </button>
-          ))}
-        </div>
+      {/* Tab Bar */}
+      <div className="flex gap-1.5 border-b border-white/6 pb-0">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 h-9 px-4 rounded-t-xl text-xs font-black uppercase tracking-wider transition-all
+              ${activeTab === tab.id
+                ? 'bg-orange-600 text-white border-b-2 border-orange-400'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <StockTable items={items} onEdit={(item) => console.log('Edit:', item.id)} />
+      {/* ── Stock Tab ── */}
+      {activeTab === 'stock' && (
+        <>
+          <StockStats items={stock} />
+          <LowStockAlert items={stock} />
+
+          {/* Search + Filter */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search items…"
+                className="w-full h-9 pl-9 pr-4 bg-slate-800/60 border border-slate-700 rounded-xl
+                           text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {CATEGORIES.map(c => (
+                <button key={c} onClick={() => setCat(c)}
+                  className={`px-3 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors
+                    ${cat === c ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <StockTable items={items} onEdit={(item) => console.log('Edit:', item.id)} />
+        </>
+      )}
+
+      {/* ── Kit Mapping Tab ── */}
+      {activeTab === 'kits' && (
+        <KitMappingPanel
+          allStock={stock}
+          propertyId={propertyId}
+          onStockDeduct={handleStockDeduct}
+        />
+      )}
+
+      {/* ── Usage Calculator Tab ── */}
+      {activeTab === 'calculator' && (
+        <UsageCalculatorPanel
+          allStock={stock}
+          propertyId={propertyId}
+        />
+      )}
 
       {/* Modal */}
       {showModal && (
