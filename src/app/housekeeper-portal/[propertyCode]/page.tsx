@@ -144,6 +144,7 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   /* Quick cleaning checklist modal */
   const [checklistRoom, setChecklistRoom] = useState<HKRoom | null>(null)
   const [checklistTicks, setChecklistTicks] = useState<boolean[]>(Array(CLEAN_STEPS.length).fill(false))
+  const [checklistStep, setChecklistStep] = useState(0) // 0..CLEAN_STEPS.length-1 = cleaning steps, then CLEAN_STEPS.length = review
 
   /* Cleaning stopwatch / clean timer */
   const [activeTimerRoomId, setActiveTimerRoomId] = useState<string | null>(null)
@@ -1128,10 +1129,10 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
 
                   return (
                     <div key={room.id} onClick={() => {
-                      // Open simple checklist if room is DIRTY, else open full detail
                       if (room.housekeepingStatus === 'DIRTY') {
                         setChecklistRoom(room)
                         setChecklistTicks(Array(CLEAN_STEPS.length).fill(false))
+                        setChecklistStep(0)
                       } else {
                         setSelectedRoom(room)
                         setActiveMaintTickets([])
@@ -1184,7 +1185,7 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                           style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 8.5, fontWeight: 900, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit' }}>
                           🧹 Mark Dirty
                         </button>
-                        <button onClick={() => { setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)) }}
+                        <button onClick={() => { setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)); setChecklistStep(0) }}
                           style={{ flex: 1.4, padding: '7px 0', borderRadius: 8, fontSize: 8.5, fontWeight: 900, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
                           ✅ Clean & Log
                         </button>
@@ -2066,151 +2067,176 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
         </div>
       )}
 
-      {/* ══ SIMPLE ROOM CLEANING CHECKLIST MODAL ══ */}
-      {checklistRoom && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 240, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          {/* Backdrop */}
-          <div onClick={() => setChecklistRoom(null)}
-            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(8px)' }} />
+      {/* ══ STEP-BY-STEP CLEANING WIZARD ══ */}
+      {checklistRoom && (() => {
+        const TOTAL_STEPS = CLEAN_STEPS.length // 6 cleaning steps
+        const isReview = checklistStep >= TOTAL_STEPS
+        const currentStep = CLEAN_STEPS[checklistStep]
+        const doneTicks = checklistTicks.filter(Boolean).length
 
-          {/* Bottom sheet */}
-          <div style={{ position: 'relative', background: '#0d1117', borderRadius: '24px 24px 0 0', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', padding: '0 0 calc(24px + env(safe-area-inset-bottom))', maxHeight: '92vh', overflowY: 'auto' }}>
+        const openChecklist = () => {
+          setChecklistRoom(null)
+        }
 
-            {/* Drag handle */}
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', margin: '14px auto 0' }} />
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 240, background: '#080b12', fontFamily: '"Inter",-apple-system,sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
 
-            {/* Header */}
-            <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
-                    Room {checklistRoom.roomNumber}
+            {/* ── Top Bar ── */}
+            <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Room Cleaning</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#f1f5f9', marginTop: 2 }}>Room {checklistRoom.roomNumber}</div>
+              </div>
+              <button onClick={openChecklist}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '7px 14px', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}>
+                ✕ Cancel
+              </button>
+            </div>
+
+            {/* ── Step Progress Dots ── */}
+            <div style={{ padding: '14px 18px 0', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+              {CLEAN_STEPS.map((_, i) => (
+                <div key={i} style={{
+                  height: 4, flex: 1, borderRadius: 2,
+                  background: i < checklistStep
+                    ? '#10b981'
+                    : i === checklistStep && !isReview
+                      ? '#f1f5f9'
+                      : 'rgba(255,255,255,0.1)',
+                  transition: 'background 0.3s',
+                }} />
+              ))}
+              {/* Review dot */}
+              <div style={{ height: 4, flex: 1, borderRadius: 2, background: isReview ? '#f1f5f9' : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
+            </div>
+            <div style={{ padding: '6px 18px 0', fontSize: 9, fontWeight: 800, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
+              {isReview ? 'Final Review' : `Step ${checklistStep + 1} of ${TOTAL_STEPS}`}
+            </div>
+
+            {/* ── Step Content ── */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 24px 0' }}>
+
+              {!isReview && currentStep ? (
+                /* ── CLEANING STEP ── */
+                <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
+                  {/* Big emoji */}
+                  <div style={{ fontSize: 80, marginBottom: 20, lineHeight: 1 }}>{currentStep.emoji}</div>
+
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9', marginBottom: 8, letterSpacing: '-0.02em' }}>
+                    {currentStep.label}
                   </div>
-                  <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginTop: 2 }}>
-                    {checklistRoom.roomType.name} · {checklistRoom.floor ? `Floor ${checklistRoom.floor}` : ''}
+                  <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600, marginBottom: 40, lineHeight: 1.5 }}>
+                    {currentStep.sublabel}
+                  </div>
+
+                  {/* YES / SKIP buttons — big, easy to tap */}
+                  <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                    <button
+                      onClick={() => {
+                        // Mark as done & go to next
+                        setChecklistTicks(prev => { const n = [...prev]; n[checklistStep] = true; return n })
+                        setChecklistStep(s => s + 1)
+                      }}
+                      style={{
+                        flex: 2, padding: '20px', borderRadius: 18, fontSize: 16, fontWeight: 900,
+                        background: 'linear-gradient(135deg,#10b981,#059669)',
+                        border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                        boxShadow: '0 0 30px rgba(16,185,129,0.3)',
+                      }}>
+                      ✅  Done
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Skip step (mark not done) & continue
+                        setChecklistTicks(prev => { const n = [...prev]; n[checklistStep] = false; return n })
+                        setChecklistStep(s => s + 1)
+                      }}
+                      style={{
+                        flex: 1, padding: '20px', borderRadius: 18, fontSize: 13, fontWeight: 800,
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1.5px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                      Skip
+                    </button>
+                  </div>
+
+                  {/* Go back */}
+                  {checklistStep > 0 && (
+                    <button onClick={() => setChecklistStep(s => s - 1)}
+                      style={{ marginTop: 16, background: 'none', border: 'none', color: '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      ← Back to previous step
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* ── REVIEW STEP ── */
+                <div style={{ width: '100%', maxWidth: 420 }}>
+                  <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                    <div style={{ fontSize: 60, marginBottom: 12 }}>{doneTicks === TOTAL_STEPS ? '🌟' : '📋'}</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.01em' }}>
+                      {doneTicks === TOTAL_STEPS ? 'All Steps Complete!' : `${doneTicks} of ${TOTAL_STEPS} steps done`}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, fontWeight: 600 }}>Review before marking room clean</div>
+                  </div>
+
+                  {/* Steps review list */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 28 }}>
+                    {CLEAN_STEPS.map((step, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                        borderRadius: 14, background: checklistTicks[i] ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.06)',
+                        border: `1px solid ${checklistTicks[i] ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.15)'}`,
+                      }}>
+                        <div style={{ fontSize: 18, flexShrink: 0 }}>{step.emoji}</div>
+                        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: checklistTicks[i] ? '#34d399' : '#f87171' }}>
+                          {step.label}
+                        </div>
+                        <div style={{ fontSize: 16, flexShrink: 0 }}>{checklistTicks[i] ? '✅' : '❌'}</div>
+                        {/* Let staff re-tap to fix */}
+                        <button
+                          onClick={() => {
+                            setChecklistTicks(prev => { const n = [...prev]; n[i] = !n[i]; return n })
+                          }}
+                          style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 9, fontWeight: 800, color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                          {checklistTicks[i] ? 'Undo' : 'Done'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Final action */}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={() => setChecklistStep(TOTAL_STEPS - 1)}
+                      style={{ flex: 1, padding: '15px', borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      ← Go Back
+                    </button>
+                    <button
+                      onClick={() => {
+                        updateHKStatus(checklistRoom.id, 'CLEAN')
+                        setRoomChecklist(prev => ({ ...prev, [checklistRoom.id]: [...checklistTicks] }))
+                        setChecklistRoom(null)
+                      }}
+                      disabled={updatingId === checklistRoom.id}
+                      style={{
+                        flex: 2, padding: '15px', borderRadius: 16, fontSize: 13, fontWeight: 900,
+                        background: 'linear-gradient(135deg,#10b981,#059669)',
+                        border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                        boxShadow: '0 0 24px rgba(16,185,129,0.35)',
+                        opacity: updatingId === checklistRoom.id ? 0.6 : 1,
+                        letterSpacing: '0.03em',
+                      }}>
+                      {updatingId === checklistRoom.id ? 'Updating…' : '✅ Mark Room Clean'}
+                    </button>
                   </div>
                 </div>
-                <button onClick={() => setChecklistRoom(null)}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 10, padding: '7px 12px', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 800 }}>
-                  ✕ Close
-                </button>
-              </div>
-
-              {/* Progress bar */}
-              {(() => {
-                const done = checklistTicks.filter(Boolean).length
-                const total = CLEAN_STEPS.length
-                const pct = Math.round((done / total) * 100)
-                return (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 800, color: done === total ? '#34d399' : '#94a3b8', marginBottom: 6 }}>
-                      <span>Cleaning Progress</span>
-                      <span style={{ color: done === total ? '#34d399' : '#f1f5f9' }}>{done} / {total} Done</span>
-                    </div>
-                    <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: done === total ? 'linear-gradient(90deg,#10b981,#34d399)' : 'linear-gradient(90deg,#7c3aed,#ec4899)', transition: 'width 0.35s ease' }} />
-                    </div>
-                  </div>
-                )
-              })()}
+              )}
             </div>
 
-            {/* Checklist steps */}
-            <div style={{ padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {CLEAN_STEPS.map((step, i) => {
-                const ticked = checklistTicks[i]
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setChecklistTicks(prev => { const next = [...prev]; next[i] = !next[i]; return next })}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 14,
-                      padding: '14px 16px', borderRadius: 16, width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-                      background: ticked ? 'rgba(16,185,129,0.10)' : 'rgba(255,255,255,0.03)',
-                      border: ticked ? '1.5px solid rgba(16,185,129,0.35)' : '1.5px solid rgba(255,255,255,0.07)',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {/* Tick circle */}
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: ticked ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,0.06)',
-                      border: ticked ? 'none' : '1.5px solid rgba(255,255,255,0.12)',
-                      transition: 'all 0.2s',
-                      fontSize: ticked ? 14 : 0,
-                      color: '#fff',
-                    }}>
-                      {ticked ? '✓' : ''}
-                    </div>
-
-                    {/* Emoji */}
-                    <div style={{ fontSize: 22, flexShrink: 0 }}>{step.emoji}</div>
-
-                    {/* Text */}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: ticked ? '#34d399' : '#f1f5f9', textDecoration: ticked ? 'line-through' : 'none', transition: 'color 0.2s' }}>
-                        {step.label}
-                      </div>
-                      <div style={{ fontSize: 10, color: ticked ? '#059669' : '#64748b', marginTop: 2, fontWeight: 600 }}>
-                        {step.sublabel}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Action buttons */}
-            <div style={{ padding: '4px 18px 0', display: 'flex', gap: 10 }}>
-              <button onClick={() => setChecklistRoom(null)}
-                style={{ flex: 1, padding: '13px', borderRadius: 14, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Skip Checklist
-              </button>
-
-              {(() => {
-                const allDone = checklistTicks.every(Boolean)
-                return (
-                  <button
-                    onClick={() => {
-                      if (!allDone) {
-                        // Tick all remaining as shortcut
-                        setChecklistTicks(Array(CLEAN_STEPS.length).fill(true))
-                        return
-                      }
-                      // Mark room as clean
-                      updateHKStatus(checklistRoom.id, 'CLEAN')
-                      // Update local checklist state for the progress bar on the card
-                      setRoomChecklist(prev => ({ ...prev, [checklistRoom.id]: Array(CLEAN_STEPS.length).fill(true) }))
-                      setChecklistRoom(null)
-                    }}
-                    disabled={updatingId === checklistRoom.id}
-                    style={{
-                      flex: 2, padding: '13px', borderRadius: 14, fontSize: 12, fontWeight: 900,
-                      cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textTransform: 'uppercase',
-                      background: allDone
-                        ? 'linear-gradient(135deg,#10b981,#059669)'
-                        : 'rgba(16,185,129,0.08)',
-                      color: allDone ? '#fff' : '#34d399',
-                      border: allDone ? 'none' : '1.5px solid rgba(16,185,129,0.3)',
-                      boxShadow: allDone ? '0 0 20px rgba(16,185,129,0.35)' : 'none',
-                      transition: 'all 0.3s',
-                      opacity: updatingId === checklistRoom.id ? 0.6 : 1,
-                    } as React.CSSProperties}
-                  >
-                    {updatingId === checklistRoom.id
-                      ? 'Updating…'
-                      : allDone
-                        ? '✅ Mark Room Clean'
-                        : `Tick All (${checklistTicks.filter(Boolean).length}/${CLEAN_STEPS.length})`
-                    }
-                  </button>
-                )
-              })()}
-            </div>
+            {/* Bottom spacer */}
+            <div style={{ height: 'calc(40px + env(safe-area-inset-bottom))', flexShrink: 0 }} />
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
