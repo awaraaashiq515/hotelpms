@@ -60,9 +60,21 @@ export default function LedgerPage() {
 
   useEffect(() => {
     apiClient.get<Account[]>('/api/accounts')
-      .then(d => setAccounts(Array.isArray(d) ? d : []))
+      .then(d => {
+        const list = Array.isArray(d) ? d : [];
+        setAccounts(list);
+        if (list.length > 0 && !accountId) {
+          setAccountId(list[0].id);
+        }
+      })
       .catch(() => setAccounts([]));
   }, []);
+
+  useEffect(() => {
+    if (accountId) {
+      fetchData();
+    }
+  }, [accountId]);
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;

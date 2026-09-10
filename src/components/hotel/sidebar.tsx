@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSidebar } from './SidebarContext';
 import {
   LayoutDashboard,
+  LayoutGrid,
   Calendar,
   Bed,
   Bell,
@@ -79,6 +80,7 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '📊',
     color: 'text-indigo-400',
     items: [
+      { name: 'Operations Dashboard', path: '/hotel/operations-dashboard', icon: LayoutGrid, badge: 'LIVE', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { name: 'Dashboard', path: '/hotel', icon: LayoutDashboard },
       { name: 'Notifications', path: '/hotel/notifications', icon: Bell },
     ],

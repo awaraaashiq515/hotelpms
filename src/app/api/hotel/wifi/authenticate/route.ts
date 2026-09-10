@@ -2,54 +2,93 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 async function authenticateWiFi(roomNumber: string, password: string, propertyCode?: string | null) {
-  // Prepare query filter for active, checked-in stays
-  const whereClause: any = {
-    status: 'CHECKED_IN',
-    wifiStatus: 'ACTIVE',
-    wifiPassword: password,
-    rooms: {
-      some: {
-        room: {
-          roomNumber: roomNumber
-        }
-      }
-    }
+  const cleanRoom = roomNumber.trim();
+  const cleanPass = password.trim();
+
+  // Prepare room query condition matching either assignedRoom or reservation rooms
+  const roomCondition = {
+    OR: [
+      {
+        rooms: {
+          some: {
+            room: {
+              roomNumber: cleanRoom,
+            },
+          },
+        },
+      },
+      {
+        assignedRoom: {
+          roomNumber: cleanRoom,
+        },
+      },
+    ],
   };
 
+  const propertyCondition: any = {};
   if (propertyCode) {
-    whereClause.property = {
-      code: propertyCode
+    propertyCondition.property = {
+      code: propertyCode.trim(),
     };
   }
 
-  const reservation = await prisma.reservation.findFirst({
-    where: whereClause,
+  // 1. Check active stay with matching wifiPassword and ACTIVE wifiStatus
+  const activeReservation = await prisma.reservation.findFirst({
+    where: {
+      status: 'CHECKED_IN',
+      wifiStatus: 'ACTIVE',
+      wifiPassword: cleanPass,
+      ...roomCondition,
+      ...propertyCondition,
+    },
     include: {
       guest: true,
       rooms: {
         include: {
-          room: true
-        }
+          room: true,
+        },
       },
-      property: true
-    }
+      property: true,
+    },
   });
 
-  if (!reservation) {
+  if (activeReservation) {
+    return {
+      authenticated: true,
+      message: 'Access granted.',
+      guestName: `${activeReservation.guest.firstName} ${activeReservation.guest.lastName || ''}`.trim(),
+      bookingNo: activeReservation.bookingNo,
+      roomNumber: cleanRoom,
+      expiryDate: activeReservation.departureDate,
+      hotelName: activeReservation.property?.name,
+    };
+  }
+
+  // 2. If not found, check if this was an expired or checked-out stay for diagnostics
+  const expiredReservation = await prisma.reservation.findFirst({
+    where: {
+      wifiPassword: cleanPass,
+      ...roomCondition,
+      ...propertyCondition,
+      OR: [
+        { status: 'CHECKED_OUT' },
+        { wifiStatus: 'EXPIRED' },
+      ],
+    },
+  });
+
+  if (expiredReservation) {
     return {
       authenticated: false,
-      message: 'Invalid room number or password, or access is suspended/expired.'
+      status: 'EXPIRED',
+      message: 'Wi-Fi access has expired because guest has checked out.',
     };
   }
 
   return {
-    authenticated: true,
-    message: 'Access granted.',
-    guestName: `${reservation.guest.firstName} ${reservation.guest.lastName || ''}`.trim(),
-    bookingNo: reservation.bookingNo,
-    roomNumber: roomNumber,
-    expiryDate: reservation.departureDate,
-    hotelName: reservation.property?.name
+    authenticated: false,
+    status: 'INVALID',
+    message: 'Invalid room number or Wi-Fi password.',
   };
 }
 

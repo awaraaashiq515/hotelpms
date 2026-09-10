@@ -8,6 +8,7 @@ interface KioskWrapperProps {
   sessionTimeoutMin?: number;
   onTimeout?: () => void;
   exitPin?: string;
+  kioskLocked?: boolean;
 }
 
 export default function KioskWrapper({
@@ -15,6 +16,7 @@ export default function KioskWrapper({
   sessionTimeoutMin = 30,
   onTimeout,
   exitPin = '1234',
+  kioskLocked = false,
 }: KioskWrapperProps) {
   const router = useRouter();
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
@@ -24,13 +26,13 @@ export default function KioskWrapper({
   const [logoHoldTimer, setLogoHoldTimer] = useState<NodeJS.Timeout | null>(null);
   const [holdProgress, setHoldProgress] = useState(0);
   const holdInterval = useRef<NodeJS.Timeout | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // --- Fullscreen Management ---
   const requestFullscreen = useCallback(() => {
     if (typeof document === 'undefined') return;
     const el = document.documentElement;
-    const req = el.requestFullscreen || (el as any).webkitRequestFullscreen;
+    const req = el.requestFullscreen || (el as any).webkitRequestFullscreen || (el as any).mozRequestFullScreen || (el as any).msRequestFullscreen;
     if (req) {
       req
         .call(el)
@@ -41,9 +43,41 @@ export default function KioskWrapper({
             (navigator as any).keyboard.lock(['Escape']).catch(() => {});
           }
         })
-        .catch(() => {
-          // May require user interaction on some desktop browsers
-        });
+        .catch(() => {});
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    const isFull = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+    if (!isFull) {
+      setIsFullscreen(false);
+      return;
+    }
+    // Release keyboard lock if held
+    if (typeof navigator !== 'undefined' && 'keyboard' in navigator && (navigator as any).keyboard?.unlock) {
+      try { (navigator as any).keyboard.unlock(); } catch {}
+    }
+    const exit =
+      document.exitFullscreen ||
+      (document as any).webkitExitFullscreen ||
+      (document as any).mozCancelFullScreen ||
+      (document as any).msExitFullscreen;
+    if (exit) {
+      try {
+        exit.call(document)
+          .then(() => setIsFullscreen(false))
+          .catch(() => setIsFullscreen(false));
+      } catch {
+        setIsFullscreen(false);
+      }
+    } else {
+      setIsFullscreen(false);
     }
   }, []);
 
@@ -52,15 +86,7 @@ export default function KioskWrapper({
     if (typeof document === 'undefined') return;
     const isFull = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
     setIsFullscreen(isFull);
-    if (!isFull) {
-      // Attempt immediate restoration
-      requestFullscreen();
-    } else {
-      if (typeof navigator !== 'undefined' && 'keyboard' in navigator && (navigator as any).keyboard?.lock) {
-        (navigator as any).keyboard.lock(['Escape']).catch(() => {});
-      }
-    }
-  }, [requestFullscreen]);
+  }, []);
 
   // --- Inactivity Reset ---
   const resetInactivity = useCallback(() => {
@@ -70,7 +96,6 @@ export default function KioskWrapper({
       if (onTimeout) {
         onTimeout();
       } else {
-        // Default: go back to login
         const token = localStorage.getItem('room_portal_token');
         if (token) {
           fetch('/api/room-portal/logout', {
@@ -84,16 +109,17 @@ export default function KioskWrapper({
     }, timeoutMs);
   }, [sessionTimeoutMin, onTimeout, router]);
 
-  // --- Block back navigation ---
+  // --- Block back navigation (only when locked) ---
   const handlePopState = useCallback((e: PopStateEvent) => {
+    if (!kioskLocked) return;
     e.preventDefault();
     window.history.pushState(null, '', window.location.href);
-  }, []);
+  }, [kioskLocked]);
 
-  // --- Block keyboard shortcuts (including Escape) ---
+  // --- Block keyboard shortcuts (including Escape) (only when locked) ---
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!kioskLocked) return;
     const isEscape = e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27;
-    // Block: Escape, Alt+F4, Ctrl+W, F5, Ctrl+R, F11
     const blocked = [
       isEscape,
       e.altKey && e.key === 'F4',
@@ -106,55 +132,79 @@ export default function KioskWrapper({
       e.preventDefault();
       e.stopPropagation();
       if (isEscape) {
-        // If Escape was pressed, force fullscreen restore immediately
         requestFullscreen();
       }
     }
-  }, [requestFullscreen]);
+  }, [requestFullscreen, kioskLocked]);
 
-  // --- Block right click ---
+  // --- Block right click (only when locked) ---
   const handleContextMenu = useCallback((e: MouseEvent) => {
+    if (!kioskLocked) return;
     e.preventDefault();
-  }, []);
+  }, [kioskLocked]);
 
   useEffect(() => {
-    // Push history state to block back navigation
-    window.history.pushState(null, '', window.location.href);
-    window.addEventListener('popstate', handlePopState);
-    document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    if (typeof document !== 'undefined') {
+      setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    }
 
-    // Any touch or click automatically restores fullscreen if exited
-    const autoRestoreOnTouch = () => {
-      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
-        requestFullscreen();
+    // When kioskLocked is true (Guest Kiosk Mode):
+    // Lock the tablet to ONLY this app! Other apps cannot be opened.
+    if (kioskLocked) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+      document.addEventListener('keydown', handleKeyDown, true);
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+      // Keep tablet screen awake (Screen Wake Lock API)
+      let wakeLock: any = null;
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+        (navigator as any).wakeLock.request('screen').then((wl: any) => {
+          wakeLock = wl;
+        }).catch(() => {});
       }
-    };
-    window.addEventListener('click', autoRestoreOnTouch, { capture: true });
-    window.addEventListener('touchstart', autoRestoreOnTouch, { capture: true });
 
-    // Enter fullscreen on mount
-    requestFullscreen();
+      // Auto-enter fullscreen on user touch or click
+      const autoRestoreOnTouch = () => {
+        if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+          requestFullscreen();
+        }
+      };
+      window.addEventListener('click', autoRestoreOnTouch, { capture: true });
+      window.addEventListener('touchstart', autoRestoreOnTouch, { capture: true });
 
-    // Start inactivity timer
+      // Immediate attempt on mount
+      requestFullscreen();
+
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        document.removeEventListener('keydown', handleKeyDown, true);
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        window.removeEventListener('click', autoRestoreOnTouch, { capture: true });
+        window.removeEventListener('touchstart', autoRestoreOnTouch, { capture: true });
+        if (wakeLock) wakeLock.release().catch(() => {});
+      };
+    } else {
+      // Unlocked by staff: allow staff to exit fullscreen and access tablet OS/apps
+      exitFullscreen();
+    }
+  }, [kioskLocked, requestFullscreen, exitFullscreen, handleFullscreenChange, handlePopState, handleKeyDown, handleContextMenu]);
+
+  useEffect(() => {
+    // Inactivity timer across all modes
     const activityEvents = ['mousedown', 'touchstart', 'keydown', 'mousemove', 'scroll'];
     activityEvents.forEach((ev) => document.addEventListener(ev, resetInactivity));
     resetInactivity();
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      document.removeEventListener('keydown', handleKeyDown, true);
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      window.removeEventListener('click', autoRestoreOnTouch, { capture: true });
-      window.removeEventListener('touchstart', autoRestoreOnTouch, { capture: true });
       activityEvents.forEach((ev) => document.removeEventListener(ev, resetInactivity));
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
     };
-  }, [requestFullscreen, handleFullscreenChange, handlePopState, handleKeyDown, handleContextMenu, resetInactivity]);
+  }, [resetInactivity]);
 
   // Logo hold to show exit modal (hold for 5 seconds)
   const startLogoHold = () => {
@@ -203,6 +253,7 @@ export default function KioskWrapper({
 
   return (
     <div className="relative w-full min-h-screen overflow-hidden">
+
       {/* Main content */}
       <div
         data-kiosk-logo
@@ -329,8 +380,8 @@ export default function KioskWrapper({
         </div>
       )}
 
-      {/* Persistent Fullscreen Lock Overlay if exited */}
-      {!isFullscreen && (
+      {/* Persistent Fullscreen Lock Overlay if exited (ONLY WHEN KIOSK IS LOCKED) */}
+      {!isFullscreen && kioskLocked && (
         <div
           onClick={requestFullscreen}
           style={{

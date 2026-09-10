@@ -17,9 +17,42 @@ const expenseSchema = z.object({
   attachmentUrl: z.string().optional(),
 });
 
-// Helper: find account by name for a property
+// Helper: find or auto-create account by name for a property
 async function findAccount(propertyId: string, name: string) {
-  return prisma.account.findFirst({ where: { propertyId, name } });
+  const existing = await prisma.account.findFirst({ where: { propertyId, name } });
+  if (existing) return existing;
+
+  const prop = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { organizationId: true },
+  });
+  if (!prop?.organizationId) return null;
+
+  const isExpense = name === 'Expense Account';
+  const nature = isExpense ? 'EXPENSE' : 'ASSET';
+  const groupName = isExpense ? 'Indirect Expenses' : 'Cash & Bank';
+  const accountType = isExpense ? 'EXPENSE' : (name === 'Bank Account' ? 'BANK' : 'CASH');
+
+  let group = await prisma.accountGroup.findFirst({
+    where: { organizationId: prop.organizationId, nature },
+  });
+  if (!group) {
+    group = await prisma.accountGroup.create({
+      data: { name: groupName, nature, organizationId: prop.organizationId },
+    });
+  }
+
+  return prisma.account.create({
+    data: {
+      name,
+      accountType,
+      propertyId,
+      organizationId: prop.organizationId,
+      accountGroupId: group.id,
+      openingBalance: 0,
+      openingBalanceType: 'DEBIT',
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {

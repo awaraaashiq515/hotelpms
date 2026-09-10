@@ -5,6 +5,9 @@ import { jwtVerify } from 'jose';
 const secretKey = process.env.JWT_SECRET || 'super-secret-default-key-change-it-in-prod';
 const key = new TextEncoder().encode(secretKey);
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization') || '';
@@ -30,9 +33,29 @@ export async function GET(request: NextRequest) {
     const { guestId, roomId, reservationId, propertyId } = payload;
 
     // Check if session is still active in DB
-    const session = await prisma.roomPortalSession.findFirst({
+    let session = await prisma.roomPortalSession.findFirst({
       where: { token, isActive: true },
     });
+
+    if (!session) {
+      // Check if session exists but was marked inactive by idle timeout
+      const inactiveSession = await prisma.roomPortalSession.findFirst({
+        where: { token },
+      });
+      if (inactiveSession && reservationId) {
+        const resv = await prisma.reservation.findUnique({
+          where: { id: reservationId },
+          select: { status: true },
+        });
+        if (resv && ['CHECKED_IN', 'CONFIRMED'].includes(resv.status)) {
+          // Auto-reactivate session since guest is still checked-in!
+          session = await prisma.roomPortalSession.update({
+            where: { id: inactiveSession.id },
+            data: { isActive: true, lastActivity: new Date(), logoutAt: null },
+          });
+        }
+      }
+    }
 
     if (!session) {
       return NextResponse.json(
@@ -41,20 +64,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check session timeout (30 min inactivity)
+    // Check session timeout (inactivity)
     const config = await prisma.roomPortalConfig.findFirst({ where: { propertyId } });
     const timeoutMin = config?.sessionTimeoutMin ?? 30;
     const lastActivity = new Date(session.lastActivity).getTime();
     const now = Date.now();
     if (now - lastActivity > timeoutMin * 60 * 1000) {
-      await prisma.roomPortalSession.update({
-        where: { id: session.id },
-        data: { isActive: false, logoutAt: new Date() },
+      // Check reservation status before expiring — don't kick out checked-in in-room tablets
+      const resv = await prisma.reservation.findUnique({
+        where: { id: reservationId },
+        select: { status: true },
       });
-      return NextResponse.json(
-        { success: false, message: 'Session timed out due to inactivity.' },
-        { status: 401 }
-      );
+      if (!resv || !['CHECKED_IN', 'CONFIRMED'].includes(resv.status)) {
+        await prisma.roomPortalSession.update({
+          where: { id: session.id },
+          data: { isActive: false, logoutAt: new Date() },
+        });
+        return NextResponse.json(
+          { success: false, message: 'Session timed out due to inactivity.' },
+          { status: 401 }
+        );
+      }
     }
 
     // Update last activity
@@ -99,6 +129,8 @@ export async function GET(request: NextRequest) {
           advanceAmount: true,
           dueAmount: true,
           checkoutRequested: true,
+          wifiPassword: true,
+          wifiStatus: true,
           property: {
             select: {
               id: true,
@@ -135,6 +167,26 @@ export async function GET(request: NextRequest) {
       select: { id: true, kioskLocked: true, name: true },
     });
 
+    let effectiveWifiPassword = reservation.wifiPassword;
+    if (!effectiveWifiPassword && room?.roomNumber) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let randomPart = '';
+      for (let i = 0; i < 4; i++) {
+        randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      effectiveWifiPassword = `${room.roomNumber}-${randomPart}`;
+      await prisma.reservation.update({
+        where: { id: reservation.id },
+        data: { wifiPassword: effectiveWifiPassword, wifiStatus: 'ACTIVE' },
+      }).catch(() => null);
+    }
+
+    if (!effectiveWifiPassword) {
+      effectiveWifiPassword = config?.wifiPassword || 'welcome123';
+    }
+
+    const effectiveWifiName = config?.wifiName || 'Hotel-Free-WiFi';
+
     return NextResponse.json({
       success: true,
       data: {
@@ -143,6 +195,9 @@ export async function GET(request: NextRequest) {
         reservation,
         sessionId: session.id,
         kioskLocked: tablet?.kioskLocked ?? false,
+        wifiName: effectiveWifiName,
+        wifiPassword: effectiveWifiPassword,
+        wifiStatus: reservation.wifiStatus || 'ACTIVE',
         config: config
           ? {
               sessionTimeoutMin: config.sessionTimeoutMin,
@@ -158,10 +213,16 @@ export async function GET(request: NextRequest) {
               welcomeSubtitle: config.welcomeSubtitle,
               frontDeskPhone: config.frontDeskPhone,
               emergencyPhone: config.emergencyPhone,
-              wifiName: config.wifiName,
-              wifiPassword: config.wifiPassword,
+              wifiName: effectiveWifiName,
+              wifiPassword: effectiveWifiPassword,
             }
           : null,
+      },
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     });
   } catch (error: any) {

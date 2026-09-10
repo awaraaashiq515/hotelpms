@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
           roomTypeId: room.roomTypeId,
           assignedRoomId: roomId,
           status: 'CHECKED_IN',
+          wifiStatus: 'ACTIVE',
           wifiPassword: generateWiFiPassword(room.roomNumber),
           totalAmount: roomRentTotal,
           advanceAmount: Number(walkInData?.advanceAmount || 0),
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
         where: { id: reservationId },
         data: {
           status: 'CHECKED_IN',
+          wifiStatus: 'ACTIVE',
           assignedRoomId: roomId,
           wifiPassword: generateWiFiPassword(room.roomNumber),
           rooms: {

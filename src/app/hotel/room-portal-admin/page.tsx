@@ -57,21 +57,56 @@ export default function RoomPortalAdminPage() {
   }, []);
 
   const handleToggleLock = async (tabletId: string, currentLocked: boolean, roomNumber?: string) => {
+    const nextLocked = !currentLocked;
+
+    // 1. Optimistic UI update — flips button and badge immediately
+    setData((prev: any) => {
+      if (!prev?.tablets) return prev;
+      return {
+        ...prev,
+        tablets: prev.tablets.map((t: any) =>
+          t.id === tabletId ? { ...t, kioskLocked: nextLocked } : t
+        ),
+      };
+    });
+
     try {
       const res = await fetch('/api/room-portal/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tabletId, lock: !currentLocked }),
+        body: JSON.stringify({ tabletId, lock: nextLocked }),
       });
       const d = await res.json();
       if (d.success) {
-        toast.success(!currentLocked ? `Room ${roomNumber || ''} display LOCKED 🔒` : `Room ${roomNumber || ''} display UNLOCKED 🔓`);
+        toast.success(nextLocked ? `Room ${roomNumber || ''} locked to Kiosk Mode 🔒 (Only Room Portal can run)` : `Room ${roomNumber || ''} Kiosk Unlocked 🔓 (Staff can access settings & apps)`);
+
+        // Broadcast instant unlock/lock event to any open room-portal tabs
+        try {
+          if (typeof window !== 'undefined') {
+            const syncPayload = {
+              type: 'LOCK_TOGGLED',
+              tabletId,
+              roomNumber,
+              kioskLocked: nextLocked,
+              timestamp: Date.now(),
+            };
+            if ('BroadcastChannel' in window) {
+              const channel = new BroadcastChannel('room_portal_sync');
+              channel.postMessage(syncPayload);
+              channel.close();
+            }
+            localStorage.setItem('room_portal_sync_event', JSON.stringify(syncPayload));
+          }
+        } catch {}
+
         fetchData();
       } else {
         toast.error(d.message || 'Failed to update device.');
+        fetchData();
       }
     } catch {
       toast.error('Connection error.');
+      fetchData();
     }
   };
 
@@ -345,14 +380,14 @@ export default function RoomPortalAdminPage() {
                           <span style={{
                             display: 'inline-block',
                             padding: '5px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 800,
-                            background: tablet.kioskLocked ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.15)',
-                            border: tablet.kioskLocked ? '1px solid rgba(239,68,68,0.35)' : '1px solid rgba(34,197,94,0.3)',
-                            color: tablet.kioskLocked ? 'rgb(252,165,165)' : 'rgb(134,239,172)',
+                            background: tablet.kioskLocked ? 'rgba(34,197,94,0.15)' : 'rgba(234,179,8,0.15)',
+                            border: tablet.kioskLocked ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(234,179,8,0.3)',
+                            color: tablet.kioskLocked ? 'rgb(134,239,172)' : 'rgb(253,224,71)',
                           }}>
-                            {tablet.kioskLocked ? '🔒 DISPLAY LOCKED' : '🔓 DISPLAY UNLOCKED'}
+                            {tablet.kioskLocked ? '🔒 KIOSK LOCKED (GUEST MODE)' : '🔓 KIOSK UNLOCKED (STAFF MODE)'}
                           </span>
-                          <p style={{ color: 'rgb(100,116,139)', fontSize: '10px', margin: '4px 0 0 0' }}>
-                            {tablet.kioskLocked ? 'Guest screen is disabled' : 'Guest screen is active'}
+                          <p style={{ color: 'rgb(148,163,184)', fontSize: '10px', margin: '4px 0 0 0' }}>
+                            {tablet.kioskLocked ? 'Only Room Portal works — other apps blocked' : 'Staff can exit app & open tablet settings'}
                           </p>
                         </div>
 
@@ -362,17 +397,17 @@ export default function RoomPortalAdminPage() {
                             display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '10px 20px', borderRadius: '12px', border: 'none',
                             background: tablet.kioskLocked
-                              ? 'linear-gradient(135deg, #16a34a, #22c55e)'
-                              : 'linear-gradient(135deg, #dc2626, #ef4444)',
+                              ? 'linear-gradient(135deg, #4f46e5, #6366f1)'
+                              : 'linear-gradient(135deg, #16a34a, #22c55e)',
                             color: 'white', fontSize: '13px', fontWeight: 800, cursor: 'pointer',
-                            boxShadow: tablet.kioskLocked ? '0 4px 14px rgba(34,197,94,0.3)' : '0 4px 14px rgba(239,68,68,0.3)',
+                            boxShadow: '0 4px 14px rgba(99,102,241,0.25)',
                             transition: 'all 0.2s',
                           }}
                         >
                           {tablet.kioskLocked ? (
-                            <><Unlock size={16} /> Unlock Display</>
+                            <><Unlock size={16} /> Unlock Kiosk (Staff)</>
                           ) : (
-                            <><Lock size={16} /> Lock Display</>
+                            <><Lock size={16} /> Lock to Kiosk (Guest)</>
                           )}
                         </button>
                       </div>

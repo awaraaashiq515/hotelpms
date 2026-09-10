@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Receipt, Plus, Calendar, Tag, CreditCard, User, FileText, AlertTriangle, CheckCircle, ChevronLeft } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
 
 interface Category {
@@ -19,6 +19,9 @@ const PAYMENT_MODES = ['CASH', 'CARD', 'UPI', 'BANK', 'ONLINE'];
 
 export default function NewExpensePage() {
   const router = useRouter();
+  const params = useParams();
+  const propertyCode = (params?.propertyCode as string) || '';
+  const expensesBaseUrl = propertyCode ? `/${propertyCode}/expenses` : '/expenses';
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -80,7 +83,7 @@ export default function NewExpensePage() {
         title="New Expense"
         subtitle="Record an expense · Auto-posts accounting voucher"
         showBack
-        backUrl="/expenses"
+        backUrl={expensesBaseUrl}
       />
 
       {/* Success */}
@@ -91,7 +94,7 @@ export default function NewExpensePage() {
             <p className="text-sm font-black text-green-800">Expense Saved Successfully!</p>
             <p className="text-xs text-green-600 font-bold mt-0.5">Accounting voucher auto-posted · Ledger updated</p>
           </div>
-          <button onClick={() => router.push('/expenses')} className="ml-auto text-xs font-black text-green-700 underline">View All →</button>
+          <button onClick={() => router.push(expensesBaseUrl)} className="ml-auto text-xs font-black text-green-700 underline">View All →</button>
         </div>
       )}
 
@@ -153,7 +156,7 @@ export default function NewExpensePage() {
               </select>
               {categories.length === 0 && (
                 <p className="text-[10px] text-violet-500 dark:text-violet-400 font-bold mt-1.5">
-                  <a href="/expenses/categories" className="underline">Add categories</a> to classify expenses
+                  <a href={propertyCode ? `/${propertyCode}/expenses/categories` : '/expenses/categories'} className="underline">Add categories</a> to classify expenses
                 </p>
               )}
             </div>

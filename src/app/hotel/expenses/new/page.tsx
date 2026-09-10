@@ -91,7 +91,7 @@ export default function NewExpensePage() {
             <p className="text-sm font-black text-green-800">Expense Saved Successfully!</p>
             <p className="text-xs text-green-600 font-bold mt-0.5">Accounting voucher auto-posted · Ledger updated</p>
           </div>
-          <button onClick={() => router.push('/expenses')} className="ml-auto text-xs font-black text-green-700 underline">View All →</button>
+          <button onClick={() => router.push('/hotel/expenses')} className="ml-auto text-xs font-black text-green-700 underline">View All →</button>
         </div>
       )}
 

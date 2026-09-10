@@ -16,9 +16,14 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
 
-  // Auto-collapse sidebar on dashboard & calendar page for full-width view
+  // Auto-collapse sidebar on dashboard, operations dashboard, calendar & housekeeping for full-width view
   useEffect(() => {
-    if (pathname === '/hotel/calendar' || pathname === '/hotel') {
+    if (
+      pathname === '/hotel/calendar' ||
+      pathname === '/hotel' ||
+      pathname === '/hotel/operations-dashboard' ||
+      pathname === '/hotel/housekeeping'
+    ) {
       setIsOpen(false);
     } else {
       setIsOpen(true);

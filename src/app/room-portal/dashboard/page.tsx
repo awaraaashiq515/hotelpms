@@ -133,11 +133,15 @@ export default function RoomPortalDashboard() {
     const t = localStorage.getItem('room_portal_token') || '';
     if (!t) { router.replace('/room-portal'); return; }
     setToken(t);
-    fetch('/api/room-portal/me', { headers: { Authorization: `Bearer ${t}` } })
+    fetch(`/api/room-portal/me?_t=${Date.now()}`, {
+      headers: { Authorization: `Bearer ${t}`, 'Cache-Control': 'no-cache' },
+      cache: 'no-store',
+    })
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
           setData(d.data);
+          setError('');
         } else {
           setError(d.message || 'Session expired.');
           localStorage.removeItem('room_portal_token');
@@ -150,10 +154,50 @@ export default function RoomPortalDashboard() {
 
   useEffect(() => {
     fetchData();
+
+    // 1. Instant cross-tab sync via BroadcastChannel
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      channel = new BroadcastChannel('room_portal_sync');
+      channel.onmessage = (event) => {
+        const payload = event.data;
+        if (payload?.type === 'LOCK_TOGGLED') {
+          // Instantly update lock state in memory
+          setData((prev: any) => {
+            if (!prev) return prev;
+            return { ...prev, kioskLocked: Boolean(payload.kioskLocked) };
+          });
+          // Also fetch full fresh data immediately
+          fetchData();
+        }
+      };
+    }
+
+    // 2. Storage event listener fallback (same browser cross-tab)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'room_portal_sync_event' && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          if (payload?.type === 'LOCK_TOGGLED') {
+            setData((prev: any) => {
+              if (!prev) return prev;
+              return { ...prev, kioskLocked: Boolean(payload.kioskLocked) };
+            });
+            fetchData();
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    // 3. Fallback background poll (every 1 second for instant sync)
     const interval = setInterval(() => {
       const t = localStorage.getItem('room_portal_token') || '';
       if (!t) return;
-      fetch('/api/room-portal/me', { headers: { Authorization: `Bearer ${t}` } })
+      fetch(`/api/room-portal/me?_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${t}`, 'Cache-Control': 'no-cache' },
+        cache: 'no-store',
+      })
         .then((r) => r.json())
         .then((d) => {
           if (d.success && d.data) {
@@ -165,8 +209,13 @@ export default function RoomPortalDashboard() {
           }
         })
         .catch(() => {});
-    }, 5000);
-    return () => clearInterval(interval);
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorage);
+      if (channel) channel.close();
+    };
   }, [fetchData]);
 
   const handleLogout = async () => {
@@ -242,53 +291,7 @@ export default function RoomPortalDashboard() {
   return (
     <>
       <Toaster richColors position="top-center" />
-      <KioskWrapper sessionTimeoutMin={sessionTimeoutMin} exitPin={kioskExitPin}>
-        {/* Remote Reception Lock Overlay */}
-        {data?.kioskLocked && (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 99999,
-            background: 'rgba(3, 7, 18, 0.97)',
-            backdropFilter: 'blur(24px)',
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            padding: '32px', textAlign: 'center',
-          }}>
-            <div style={{
-              width: '88px', height: '88px', borderRadius: '26px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '2px solid rgba(239, 68, 68, 0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: '24px',
-              boxShadow: '0 0 50px rgba(239, 68, 68, 0.35)',
-            }}>
-              <Lock size={44} color="rgb(239, 68, 68)" />
-            </div>
-            <span style={{
-              padding: '6px 14px', borderRadius: '10px',
-              background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: 'rgb(252, 165, 165)', fontSize: '12px', fontWeight: 800, letterSpacing: '1px',
-              textTransform: 'uppercase', marginBottom: '16px',
-            }}>
-              Room {room.roomNumber} Display Locked
-            </span>
-            <h2 style={{ color: 'white', fontSize: '28px', fontWeight: 900, margin: '0 0 12px 0' }}>
-              Tablet Display Locked by Reception
-            </h2>
-            <p style={{ color: 'rgb(148, 163, 184)', fontSize: '15px', maxWidth: '420px', lineHeight: 1.6, margin: '0 0 28px 0' }}>
-              This in-room display has been temporarily secured by the front desk. Normal access will be restored once unlocked by hotel staff.
-            </p>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '12px 24px', borderRadius: '14px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: 'rgb(226, 232, 240)', fontSize: '14px', fontWeight: 600,
-            }}>
-              <PhoneCall size={18} color="rgb(99, 102, 241)" />
-              Front Desk: {data.config?.frontDeskPhone || reservation.property?.phone || 'Dial 9 from room phone'}
-            </div>
-          </div>
-        )}
+      <KioskWrapper sessionTimeoutMin={sessionTimeoutMin} exitPin={kioskExitPin} kioskLocked={Boolean(data?.kioskLocked)}>
 
         <div style={{ minHeight: '100vh', background: '#030712', display: 'flex', flexDirection: 'column' }}>
 

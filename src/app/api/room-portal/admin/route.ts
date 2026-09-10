@@ -6,6 +6,9 @@ import { getSession } from '@/lib/session';
 const secretKey = process.env.JWT_SECRET || 'super-secret-default-key-change-it-in-prod';
 const key = new TextEncoder().encode(secretKey);
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // POST: Admin remote lock/unlock device
 export async function POST(request: NextRequest) {
   try {
@@ -21,11 +24,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'tabletId or roomId, and lock (boolean) are required.' }, { status: 400 });
     }
 
+    let targetRoomId = roomId;
     if (tabletId) {
-      await prisma.tablet.update({
-        where: { id: tabletId },
-        data: { kioskLocked: lock },
-      });
+      const tablet = await prisma.tablet.findUnique({ where: { id: tabletId } });
+      if (tablet) {
+        targetRoomId = tablet.roomId;
+        await prisma.tablet.update({
+          where: { id: tabletId },
+          data: { kioskLocked: lock },
+        });
+      }
     } else if (roomId) {
       await prisma.tablet.updateMany({
         where: { roomId, mode: 'ROOM' },
@@ -33,10 +41,37 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // When unlocking (lock === false), sync all room tablets and renew active sessions
+    if (targetRoomId) {
+      // Ensure all tablets for this room have matching lock state
+      await prisma.tablet.updateMany({
+        where: { roomId: targetRoomId, mode: 'ROOM' },
+        data: { kioskLocked: lock },
+      });
+
+      if (!lock) {
+        // Reset lastActivity so the guest session doesn't immediately time out
+        await prisma.roomPortalSession.updateMany({
+          where: { roomId: targetRoomId, isActive: true },
+          data: { lastActivity: new Date() },
+        });
+      }
+
+      await prisma.roomPortalActivityLog.create({
+        data: {
+          propertyId: session.propertyId || 'unknown',
+          roomId: targetRoomId,
+          action: lock ? 'ADMIN_LOCK' : 'ADMIN_UNLOCK',
+          details: JSON.stringify({ tabletId, lock }),
+          ipAddress: request.headers.get('x-forwarded-for') || null,
+        },
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       message: lock ? 'Tablet display locked successfully.' : 'Tablet display unlocked successfully.',
-      data: { tabletId, roomId, kioskLocked: lock },
+      data: { tabletId, roomId: targetRoomId, kioskLocked: lock },
     });
   } catch (error: any) {
     console.error('[Room Portal Admin Lock Error]:', error);

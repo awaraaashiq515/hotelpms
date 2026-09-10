@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
+import { getSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
-  const staff = await getWTUserFromRequest(request as any);
+  let staff = await getWTUserFromRequest(request as any);
+  if (!staff) {
+    const session = await getSession();
+    if (session && session.id) {
+      staff = await prisma.user.findUnique({
+        where: { id: session.id },
+        include: { role: true, property: true },
+      });
+    }
+  }
+
   if (!staff) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -36,7 +47,32 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: rooms });
+    // Filter rooms by assignment:
+    // - Show rooms that are assigned to THIS staff member
+    // - Show rooms that are NOT assigned to anyone (unassigned)
+    // - Hide rooms assigned to other staff
+    const staffName = (staff as any).fullName || (staff as any).name || '';
+    const userRole = (staff as any).role?.name?.toUpperCase() || '';
+    const isManagerOrAdmin = userRole.includes('ADMIN') || userRole.includes('MANAGER') || userRole === 'OWNER';
+
+    const filteredRooms = rooms.filter((room: any) => {
+      if (isManagerOrAdmin && searchParams.get('all') === 'true') {
+        return true;
+      }
+      const ms: string | null = room.maintenanceStatus || null;
+      if (!ms || !ms.startsWith('ASSIGNED:')) {
+        // Not assigned to anyone — show to everyone
+        return true;
+      }
+      const assignedName = ms.replace('ASSIGNED:', '').trim();
+      if (!assignedName || assignedName.toLowerCase() === 'unassigned') {
+        return true;
+      }
+      // Show only if assigned to this staff member (case-insensitive)
+      return staffName && assignedName.toLowerCase() === staffName.toLowerCase();
+    });
+
+    return NextResponse.json({ success: true, data: filteredRooms });
   } catch (err) {
     console.error('[housekeeping-rooms]', err);
     return NextResponse.json({ error: 'Failed to fetch rooms' }, { status: 500 });
@@ -44,7 +80,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const staff = await getWTUserFromRequest(request as any);
+  let staff = await getWTUserFromRequest(request as any);
+  if (!staff) {
+    const session = await getSession();
+    if (session && session.id) {
+      staff = await prisma.user.findUnique({
+        where: { id: session.id },
+        include: { role: true, property: true },
+      });
+    }
+  }
+
   if (!staff) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

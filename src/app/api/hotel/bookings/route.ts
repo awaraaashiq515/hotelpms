@@ -64,6 +64,11 @@ export async function GET(request: NextRequest) {
           include: {
             room: true,
           }
+        },
+        checkIns: {
+          include: {
+            room: true,
+          }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -163,12 +168,22 @@ export async function POST(request: NextRequest) {
     let guestEmail = '';
     let guestFirstName = '';
 
-    if (!finalGuestId && guestData) {
+    const effectiveGuestData = guestData || (body.guestFirstName ? {
+      firstName: body.guestFirstName,
+      lastName: body.guestLastName || '',
+      mobile: body.guestMobile || '',
+      email: body.guestEmail || '',
+      idType: body.idType || '',
+      idNumber: body.idNumber || '',
+      documentUrl: body.documentUrl || '',
+    } : null);
+
+    if (!finalGuestId && effectiveGuestData) {
       // Find or create guest
       const existingGuest = await prisma.guest.findFirst({
         where: {
           organizationId: session.organizationId,
-          mobile: guestData.mobile || undefined,
+          mobile: effectiveGuestData.mobile || undefined,
         }
       });
 
@@ -179,8 +194,8 @@ export async function POST(request: NextRequest) {
         guestFirstName = existingGuest.firstName || '';
         // Update guest details if KYC / GST info is provided
         const updateData: any = {};
-        if (guestData.idType) updateData.idType = guestData.idType;
-        if (guestData.idNumber) updateData.idNumber = guestData.idNumber;
+        if (effectiveGuestData.idType) updateData.idType = effectiveGuestData.idType;
+        if (effectiveGuestData.idNumber) updateData.idNumber = effectiveGuestData.idNumber;
         if (resolvedGstNumber) updateData.gstNumber = resolvedGstNumber;
         if (resolvedCompanyName) updateData.companyName = resolvedCompanyName;
         if (resolvedBillingAddress) updateData.billingAddress = resolvedBillingAddress;
@@ -191,12 +206,12 @@ export async function POST(request: NextRequest) {
             data: updateData,
           });
         }
-        if (guestData.documentUrl) {
+        if (effectiveGuestData.documentUrl) {
           await prisma.guestDocument.create({
             data: {
               guestId: existingGuest.id,
-              documentType: guestData.idType || 'ID_PROOF',
-              documentUrl: guestData.documentUrl,
+              documentType: effectiveGuestData.idType || 'ID_PROOF',
+              documentUrl: effectiveGuestData.documentUrl,
               verified: true,
             }
           });
@@ -205,19 +220,19 @@ export async function POST(request: NextRequest) {
         const newGuest = await prisma.guest.create({
           data: {
             organizationId: session.organizationId,
-            firstName: guestData.firstName,
-            lastName: guestData.lastName || '',
-            mobile: guestData.mobile || '',
-            email: guestData.email || '',
-            idType: guestData.idType || '',
-            idNumber: guestData.idNumber || '',
+            firstName: effectiveGuestData.firstName,
+            lastName: effectiveGuestData.lastName || '',
+            mobile: effectiveGuestData.mobile || '',
+            email: effectiveGuestData.email || '',
+            idType: effectiveGuestData.idType || '',
+            idNumber: effectiveGuestData.idNumber || '',
             gstNumber: resolvedGstNumber,
             companyName: resolvedCompanyName,
             billingAddress: resolvedBillingAddress,
-            documents: guestData.documentUrl ? {
+            documents: effectiveGuestData.documentUrl ? {
               create: {
-                documentType: guestData.idType || 'ID_PROOF',
-                documentUrl: guestData.documentUrl,
+                documentType: effectiveGuestData.idType || 'ID_PROOF',
+                documentUrl: effectiveGuestData.documentUrl,
                 verified: true,
               }
             } : undefined
@@ -419,6 +434,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { 
       id, 
+      status,
       wifiPassword, 
       wifiStatus, 
       mealPlan, 
@@ -439,6 +455,14 @@ export async function PATCH(request: NextRequest) {
 
     // Build update data — only update fields that are provided
     const updateData: any = {};
+    if (status !== undefined) {
+      updateData.status = status;
+      if (status === 'CHECKED_OUT' && wifiStatus === undefined) {
+        updateData.wifiStatus = 'EXPIRED';
+      } else if (status === 'CHECKED_IN' && wifiStatus === undefined) {
+        updateData.wifiStatus = 'ACTIVE';
+      }
+    }
     if (wifiPassword !== undefined) updateData.wifiPassword = wifiPassword;
     if (wifiStatus !== undefined) updateData.wifiStatus = wifiStatus;
     if (mealPlan !== undefined) updateData.mealPlan = mealPlan;
@@ -465,8 +489,72 @@ export async function PATCH(request: NextRequest) {
 
     const updated = await prisma.reservation.update({
       where: { id },
-      data: updateData
+      data: updateData,
+      include: {
+        rooms: true,
+      }
     });
+
+    // Handle CHECKED_IN status side effects
+    if (status === 'CHECKED_IN') {
+      const targetRoomId = updated.assignedRoomId || updated.rooms?.[0]?.roomId;
+      if (targetRoomId) {
+        await prisma.room.update({
+          where: { id: targetRoomId },
+          data: { status: 'OCCUPIED' }
+        }).catch(() => null);
+
+        // Check if an active check-in record exists, if not create one
+        const existingCheckIn = await prisma.checkIn.findFirst({
+          where: { reservationId: id, status: 'ACTIVE' }
+        });
+
+        if (!existingCheckIn) {
+          await prisma.checkIn.create({
+            data: {
+              reservationId: id,
+              guestId: updated.guestId,
+              roomId: targetRoomId,
+              checkedInAt: new Date(),
+              expectedCheckoutAt: updated.departureDate || new Date(Date.now() + 86400000),
+              status: 'ACTIVE',
+            }
+          }).catch(() => null);
+
+          // Create open Folio if not exists
+          const existingFolio = await prisma.folio.findFirst({
+            where: { reservationId: id, status: 'OPEN' }
+          });
+          if (!existingFolio) {
+            const folioNo = `FOL-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+            await prisma.folio.create({
+              data: {
+                reservationId: id,
+                guestId: updated.guestId,
+                folioNo,
+                openingBalance: 0,
+                totalCharges: updated.totalAmount || 0,
+                totalPayments: updated.advanceAmount || 0,
+                closingBalance: (updated.totalAmount || 0) - (updated.advanceAmount || 0),
+                status: 'OPEN',
+              }
+            }).catch(() => null);
+          }
+        }
+      }
+    } else if (status === 'CHECKED_OUT') {
+      const targetRoomId = updated.assignedRoomId || updated.rooms?.[0]?.roomId;
+      if (targetRoomId) {
+        await prisma.room.update({
+          where: { id: targetRoomId },
+          data: { status: 'AVAILABLE', housekeepingStatus: 'DIRTY' }
+        }).catch(() => null);
+      }
+      await prisma.checkIn.updateMany({
+        where: { reservationId: id, status: 'ACTIVE' },
+        data: { status: 'COMPLETED' }
+      }).catch(() => null);
+    }
 
     // If guest is checked in, also extend the checkIn expected checkout & post to folio
     if (departureDate) {

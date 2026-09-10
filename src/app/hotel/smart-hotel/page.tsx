@@ -1,10 +1,11 @@
 'use client';
-import React, { useState } from 'react';
-import { Wifi, Zap, Lock, Power, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wifi, Zap, Lock, Power, BarChart3, SlidersHorizontal, Settings2, RefreshCw } from 'lucide-react';
 import { RoomControls } from './components/RoomControls';
 import { SmartLocks, type SmartLock } from './components/SmartLocks';
+import { GatewaySetup } from './components/GatewaySetup';
 
-const MOCK_LOCKS: SmartLock[] = [
+const DEFAULT_MOCK_LOCKS: SmartLock[] = [
   { id:'1', roomNumber:'101', floor:'1', status:'LOCKED',      battery:85,  lastAccess:'10:32 AM', accessMethod:'NFC',   guestName:'Priya Mehta' },
   { id:'2', roomNumber:'102', floor:'1', status:'UNLOCKED',    battery:72,  lastAccess:'11:05 AM', accessMethod:'APP',   guestName:'John Smith' },
   { id:'3', roomNumber:'103', floor:'1', status:'LOCKED',      battery:12,  lastAccess:'09:15 AM', accessMethod:'PIN' },
@@ -24,8 +25,68 @@ const ENERGY_DATA = [
 ];
 
 export default function SmartHotelPage() {
-  const [activeRoom, setActiveRoom] = useState('204');
-  const [tab, setTab] = useState<'controls'|'locks'|'energy'>('controls');
+  const [activeRoom, setActiveRoom] = useState('101');
+  const [tab, setTab] = useState<'controls'|'locks'|'energy'|'hardware'>('controls');
+  const [loading, setLoading] = useState(true);
+  const [hotelRooms, setHotelRooms] = useState<any[]>([]);
+  const [gatewayConfig, setGatewayConfig] = useState<any>(null);
+  const [displayLocks, setDisplayLocks] = useState<SmartLock[]>(DEFAULT_MOCK_LOCKS);
+
+  const fetchGatewayData = async () => {
+    try {
+      const res = await fetch('/api/hotel/smart-hotel');
+      const d = await res.json();
+      if (d.success) {
+        setHotelRooms(d.data.rooms || []);
+        setGatewayConfig(d.data.config);
+
+        if (d.data.rooms?.length > 0 && activeRoom === '101') {
+          setActiveRoom(d.data.rooms[0].roomNumber);
+        }
+
+        // If user has paired actual devices, merge them into smart locks list!
+        if (d.data.config?.devices?.length > 0) {
+          const pairedLocks = d.data.config.devices
+            .filter((dev: any) => dev.deviceType === 'DOOR_LOCK')
+            .map((dev: any) => ({
+              id: dev.id,
+              roomNumber: dev.roomNumber,
+              floor: '1',
+              status: dev.status === 'ONLINE' ? 'LOCKED' : 'OFFLINE',
+              battery: dev.battery || 95,
+              lastAccess: 'Just now',
+              accessMethod: 'NFC',
+              guestName: 'Active Room',
+            }));
+
+          if (pairedLocks.length > 0) {
+            setDisplayLocks(pairedLocks);
+          }
+        }
+      }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGatewayData();
+  }, []);
+
+  const handleSaveConfig = async (newConfig: any) => {
+    const res = await fetch('/api/hotel/smart-hotel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newConfig),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.message);
+    setGatewayConfig(d.data);
+    fetchGatewayData();
+  };
+
+  const roomsList = hotelRooms.length > 0 ? hotelRooms.map(r => r.roomNumber) : displayLocks.map(l => l.roomNumber);
 
   return (
     <div className="space-y-5 pb-10 max-w-[1400px] mx-auto">
@@ -33,37 +94,51 @@ export default function SmartHotelPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Wifi size={14} className="text-cyan-400" />
-            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">IoT · Smart Hotel</span>
+            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">IoT · Smart Hotel Hub</span>
           </div>
-          <h1 className="text-2xl font-black text-white">Smart Hotel Control</h1>
-          <p className="text-xs text-slate-500 mt-0.5">IoT room controls · Smart locks · Energy management</p>
+          <h1 className="text-2xl font-black text-white">Smart Hotel &amp; IoT Control</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Hardware Gateway pairing · IoT room controls · Smart locks</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-cyan-500/20 bg-cyan-900/10">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[10px] font-black text-cyan-300">{MOCK_LOCKS.filter(l=>l.status!=='OFFLINE').length} devices online</span>
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-cyan-500/20 bg-cyan-900/10">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="text-[11px] font-black text-cyan-300">
+            {gatewayConfig?.status === 'CONNECTED' ? 'Gateway Online & Synced' : `${displayLocks.filter(l=>l.status!=='OFFLINE').length} devices online`}
+          </span>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label:'Devices Online',  value:`${MOCK_LOCKS.filter(l=>l.status!=='OFFLINE').length}/${MOCK_LOCKS.length}`, color:'text-cyan-300 border-cyan-500/20 bg-cyan-900/20' },
-          { label:'Locks Secured',   value:MOCK_LOCKS.filter(l=>l.status==='LOCKED').length,                            color:'text-emerald-300 border-emerald-500/20 bg-emerald-900/20' },
-          { label:'Low Battery',     value:MOCK_LOCKS.filter(l=>l.battery<20).length,                                  color:'text-amber-300 border-amber-500/20 bg-amber-900/20' },
-          { label:'Energy Today',    value:'584 kWh',                                                                   color:'text-violet-300 border-violet-500/20 bg-violet-900/20' },
+          { label:'Gateway Protocol', value: gatewayConfig?.gatewayType || 'TTLOCK / TUYA', color:'text-cyan-300 border-cyan-500/20 bg-cyan-900/20' },
+          { label:'Paired Devices',   value: `${gatewayConfig?.devices?.length || displayLocks.length} Units`, color:'text-emerald-300 border-emerald-500/20 bg-emerald-900/20' },
+          { label:'Locks Secured',    value: displayLocks.filter(l=>l.status==='LOCKED').length, color:'text-indigo-300 border-indigo-500/20 bg-indigo-900/20' },
+          { label:'Energy Today',     value:'584 kWh', color:'text-violet-300 border-violet-500/20 bg-violet-900/20' },
         ].map(s => (
           <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-            <p className="text-2xl font-black text-white">{s.value}</p>
+            <p className="text-xl font-black text-white truncate">{s.value}</p>
             <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {([['controls','Room Controls'],['locks','Smart Locks'],['energy','Energy Monitor']] as const).map(([v,l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className={`px-4 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors ${tab===v ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+      <div className="flex gap-2 flex-wrap">
+        {[
+          ['controls', 'Room Controls'],
+          ['locks', 'Smart Locks'],
+          ['hardware', '⚙️ Hardware Gateway & Pairing'],
+          ['energy', 'Energy Monitor'],
+        ].map(([v, l]) => (
+          <button
+            key={v}
+            onClick={() => setTab(v as any)}
+            className={`px-4 h-10 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
+              tab === v
+                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-900/30'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
             {l}
           </button>
         ))}
@@ -72,17 +147,44 @@ export default function SmartHotelPage() {
       {tab === 'controls' && (
         <div>
           <div className="flex gap-2 mb-3 flex-wrap">
-            {MOCK_LOCKS.filter(l=>l.status!=='OFFLINE').map(l => (
-              <button key={l.id} onClick={() => setActiveRoom(l.roomNumber)}
-                className={`px-3 h-8 rounded-xl text-[10px] font-black transition-colors ${activeRoom===l.roomNumber ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-                Rm {l.roomNumber}
+            {roomsList.map(num => (
+              <button
+                key={num}
+                onClick={() => setActiveRoom(num)}
+                className={`px-3.5 h-8 rounded-xl text-[11px] font-black transition-colors ${
+                  activeRoom === num
+                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-900/30'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Rm {num}
               </button>
             ))}
           </div>
           <RoomControls roomNumber={activeRoom} />
         </div>
       )}
-      {tab === 'locks' && <SmartLocks locks={MOCK_LOCKS} />}
+
+      {tab === 'locks' && <SmartLocks locks={displayLocks} />}
+
+      {tab === 'hardware' && (
+        <GatewaySetup
+          initialConfig={
+            gatewayConfig || {
+              gatewayType: 'TTLOCK',
+              status: 'DISCONNECTED',
+              lastSync: null,
+              ttlock: { clientId: '', clientSecret: '', gatewayId: '', gatewayName: 'Hotel G2 Gateway' },
+              tuya: { accessId: '', accessSecret: '', endpoint: 'https://openapi.tuyaeu.com' },
+              mqtt: { brokerUrl: 'mqtt://192.168.1.100:1883', username: '', password: '', topicPrefix: 'hotel/smart' },
+              devices: [],
+            }
+          }
+          rooms={hotelRooms.length > 0 ? hotelRooms : [{ id: '1', roomNumber: '101', floor: '1' }, { id: '2', roomNumber: '102', floor: '1' }]}
+          onSave={handleSaveConfig}
+        />
+      )}
+
       {tab === 'energy' && (
         <div className="rounded-2xl bg-slate-900/50 border border-white/5 p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -124,3 +226,4 @@ export default function SmartHotelPage() {
     </div>
   );
 }
+

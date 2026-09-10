@@ -1,1012 +1,1068 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  Loader2, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Wrench, 
-  Plus, 
-  Clock, 
-  User, 
-  Activity, 
-  ClipboardCheck,
-  Check,
-  ListTodo,
-  ShieldAlert,
-  UserPlus,
-  CalendarDays,
-  RefreshCw,
-  X,
-  Building2
-} from 'lucide-react';
-import { toast, Toaster } from 'sonner';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import {
+  Play,
+  Users,
+  ChevronDown,
+  Info,
+  Printer,
+  Upload,
+  ArrowUpDown,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Search,
+  SlidersHorizontal,
+  X,
+  Building2,
+  Check
+} from 'lucide-react';
+import { HousekeepersModal } from '@/components/hotel/housekeeping/HousekeepersModal';
+import { LearnToUseModal } from '@/components/hotel/operations/LearnToUseModal';
+import { printHousekeepingInspectionSheet, HousekeepingPrintItem } from '@/lib/housekeeping-print-utils';
 
-export default function HousekeepingConsole() {
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [staff, setStaff] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'rooms' | 'tasks' | 'maintenance'>('rooms');
-  
-  // Filter & Search States
-  const [filterRoomType, setFilterRoomType] = useState<string>('ALL'); // 'ALL' | 'DIRTY' | 'CLEAN' | 'OCCUPIED' | 'VACANT' | 'MAINTENANCE'
-  const [roomSearch, setRoomSearch] = useState('');
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+interface RoomTypeItem {
+  id: string;
+  name: string;
+}
 
-  // Housekeeping Task Form State
-  const [showAddTask, setShowAddTask] = useState(false);
-  const [submittingTask, setSubmittingTask] = useState(false);
-  const [taskFormRoomId, setTaskFormRoomId] = useState('');
-  const [taskFormType, setTaskFormType] = useState('Standard Cleaning');
-  const [taskFormPriority, setTaskFormPriority] = useState('NORMAL');
-  const [taskFormAssignedTo, setTaskFormAssignedTo] = useState('');
-  const [taskFormScheduledAt, setTaskFormScheduledAt] = useState('');
-  const [taskFormRemarks, setTaskFormRemarks] = useState('');
+interface RoomItem {
+  id: string;
+  roomNumber: string;
+  roomTypeId: string;
+  roomType?: RoomTypeItem;
+  status: string;
+  housekeepingStatus: string;
+  maintenanceStatus?: string | null;
+  description?: string | null;
+}
 
-  // Maintenance Ticket Form State
-  const [selectedRoomId, setSelectedRoomId] = useState('');
-  const [issueType, setIssueType] = useState('Plumbing');
-  const [priority, setPriority] = useState('MEDIUM');
-  const [description, setDescription] = useState('');
-  const [showAddTicket, setShowAddTicket] = useState(false);
-  const [submittingTicket, setSubmittingTicket] = useState(false);
-
-  const loadData = (isSilent = false) => {
-    if (!isSilent) setLoading(true);
-    Promise.all([
-      fetch('/api/hotel/rooms').then((res) => res.json()),
-      fetch('/api/hotel/maintenance').then((res) => res.json()),
-      fetch('/api/hotel/housekeeping').then((res) => res.json()),
-      fetch('/api/staff-members').then((res) => res.json()),
-    ])
-      .then(([roomsRes, ticketsRes, hkRes, staffRes]) => {
-        if (roomsRes.success) setRooms(roomsRes.data);
-        if (ticketsRes.success) setTickets(ticketsRes.data);
-        if (hkRes.success) {
-          setTasks(hkRes.data.tasks || []);
-        }
-        if (staffRes.success) {
-          setStaff(staffRes.data || []);
-        }
-      })
-      .catch((err) => {
-        console.error('Error loading console data:', err);
-        if (!isSilent) toast.error('Failed to load system data');
-      })
-      .finally(() => {
-        if (!isSilent) setLoading(false);
-      });
+interface ReservationItem {
+  id: string;
+  bookingNo: string;
+  guestName?: string;
+  guest?: {
+    firstName?: string;
+    lastName?: string;
   };
+  status: string;
+  arrivalDate: string;
+  departureDate: string;
+  assignedRoomId?: string;
+  rooms?: Array<{
+    roomId?: string;
+  }>;
+  checkIns?: Array<{
+    roomId?: string;
+    checkedInAt?: string;
+    expectedCheckoutAt?: string;
+    status?: string;
+  }>;
+}
+
+interface StaffItem {
+  id: string;
+  name: string;
+  phone?: string | null;
+  designation?: string | null;
+  shiftHours?: number | null;
+}
+
+export default function HousekeepingInspectionPage() {
+  const [rooms, setRooms] = useState<RoomItem[]>([]);
+  const [roomTypes, setRoomTypes] = useState<RoomTypeItem[]>([]);
+  const [bookings, setBookings] = useState<ReservationItem[]>([]);
+  const [staffList, setStaffList] = useState<StaffItem[]>([]);
+  const [property, setProperty] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Local state for assignments and DND (roomId -> staffName / boolean)
+  const [assignedMap, setAssignedMap] = useState<Record<string, string>>({});
+  const [dndMap, setDndMap] = useState<Record<string, boolean>>({});
+
+  // Modals
+  const [isHousekeepersModalOpen, setIsHousekeepersModalOpen] = useState(false);
+  const [isLearnOpen, setIsLearnOpen] = useState(false);
+  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+
+  // Filter States
+  const [selectedUnitType, setSelectedUnitType] = useState<string>('ALL');
+  const [selectedFrontdeskStatus, setSelectedFrontdeskStatus] = useState<string>('ALL');
+  const [filterOccupied, setFilterOccupied] = useState<boolean>(true);
+  const [filterVacant, setFilterVacant] = useState<boolean>(true);
+  const [filterClean, setFilterClean] = useState<boolean>(true);
+  const [filterDirty, setFilterDirty] = useState<boolean>(true);
+  const [filterDndYes, setFilterDndYes] = useState<boolean>(true);
+  const [filterDndNo, setFilterDndNo] = useState<boolean>(true);
+  const [selectedStaffFilter, setSelectedStaffFilter] = useState<string>('ALL');
+
+  // Sorting
+  const [sortField, setSortField] = useState<string>('roomNumber');
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
+
+  // Toast feedback
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  const showFeedback = (msg: string) => {
+    setFeedbackMsg(msg);
+    setTimeout(() => setFeedbackMsg(null), 3000);
+  };
+
+  // Fetch real data from APIs
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [roomsRes, typesRes, bookingsRes, staffRes, propRes] = await Promise.all([
+        fetch('/api/hotel/rooms').then((r) => r.json()),
+        fetch('/api/hotel/room-types').then((r) => r.json()),
+        fetch('/api/hotel/bookings').then((r) => r.json()),
+        fetch('/api/staff-members').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+        fetch('/api/setup/properties').then((r) => r.json()).catch(() => ({ data: [] })),
+      ]);
+
+      if (roomsRes.success) {
+        setRooms(roomsRes.data || []);
+
+        // Initialize DND and assignments from room description / maintenanceStatus
+        const initDnd: Record<string, boolean> = {};
+        const initAssigned: Record<string, string> = {};
+
+        (roomsRes.data || []).forEach((rm: RoomItem) => {
+          if (rm.description?.includes('DND')) {
+            initDnd[rm.id] = true;
+          }
+          if (rm.maintenanceStatus && rm.maintenanceStatus.startsWith('ASSIGNED:')) {
+            const rawName = rm.maintenanceStatus.replace('ASSIGNED:', '').trim();
+            if (rawName && rawName.toLowerCase() !== 'unassigned') {
+              initAssigned[rm.id] = rawName;
+            }
+          }
+        });
+
+        setDndMap(initDnd);
+        setAssignedMap(initAssigned);
+      }
+
+      if (typesRes.success) setRoomTypes(typesRes.data || []);
+      if (bookingsRes.success) setBookings(bookingsRes.data || []);
+      if (staffRes.success) setStaffList(staffRes.data || []);
+      if (propRes.data && propRes.data.length > 0) setProperty(propRes.data[0]);
+    } catch (err) {
+      console.error('Error loading housekeeping data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
-    // Real-time live background sync every 3 seconds
-    const syncInterval = setInterval(() => {
-      loadData(true);
-    }, 3000);
-    return () => clearInterval(syncInterval);
-  }, []);
+  }, [loadData]);
 
-  const handleUpdateHousekeeping = async (roomId: string, currentStatus: string) => {
-    setUpdatingId(roomId);
-    const newHousekeepingStatus = currentStatus === 'DIRTY' ? 'CLEAN' : 'DIRTY';
-    
+  // Combine rooms with real reservation / frontdesk data
+  const inspectionItems = useMemo(() => {
+    return rooms.map((room) => {
+      // Find matching active or recent reservation
+      const matchingRes = bookings.find((b) => {
+        if (b.status === 'CANCELLED') return false;
+        if (b.assignedRoomId === room.id) return true;
+        if (b.rooms?.some((br) => br.roomId === room.id)) return true;
+        if (b.checkIns?.some((ci) => ci.roomId === room.id)) return true;
+        return false;
+      });
+
+      const isOccupied =
+        room.status === 'OCCUPIED' ||
+        matchingRes?.status === 'CHECKED_IN' ||
+        matchingRes?.checkIns?.some((ci) => ci.status === 'ACTIVE');
+
+      const unitStatus = isOccupied ? 'Occupied' : 'Vacant';
+
+      // Frontdesk Status
+      let frontdeskStatus = 'Not Reserved';
+      if (matchingRes) {
+        if (matchingRes.status === 'CHECKED_IN') frontdeskStatus = 'Checked-In';
+        else if (matchingRes.status === 'CHECKED_OUT') frontdeskStatus = 'Checked-Out';
+        else if (matchingRes.status === 'CONFIRMED' || matchingRes.status === 'PENDING') frontdeskStatus = 'Reserved';
+      }
+
+      // Format Arrival & Departure Dates / Times
+      let arrivalTime = 'Unknown';
+      let arrivalDate = '-';
+      let departureDate = '-';
+
+      if (matchingRes?.arrivalDate) {
+        const arr = new Date(matchingRes.arrivalDate);
+        if (!isNaN(arr.getTime())) {
+          arrivalDate = `${String(arr.getDate()).padStart(2, '0')}/${String(arr.getMonth() + 1).padStart(2, '0')}/${arr.getFullYear()}`;
+          const hours = arr.getHours();
+          const mins = arr.getMinutes();
+          if (hours > 0 || mins > 0) {
+            arrivalTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+          } else {
+            arrivalTime = '14:00'; // Standard hotel checkin time
+          }
+        }
+      }
+
+      if (matchingRes?.departureDate) {
+        const dep = new Date(matchingRes.departureDate);
+        if (!isNaN(dep.getTime())) {
+          departureDate = `${String(dep.getDate()).padStart(2, '0')}/${String(dep.getMonth() + 1).padStart(2, '0')}/${dep.getFullYear()}`;
+        }
+      }
+
+      const assignedTo = (assignedMap[room.id] && assignedMap[room.id] !== 'Unassigned') ? assignedMap[room.id] : 'Unassigned';
+      const doNotDisturb = dndMap[room.id] ?? false;
+
+      // Condition from room housekeepingStatus
+      let condition = 'Clean';
+      if (room.housekeepingStatus?.toUpperCase() === 'DIRTY') condition = 'Dirty';
+      else if (room.housekeepingStatus?.toUpperCase() === 'OUT_OF_ORDER') condition = 'Out of Order';
+      else if (room.housekeepingStatus?.toUpperCase() === 'INSPECTED') condition = 'Inspected';
+
+      return {
+        id: room.id,
+        unitNumber: room.roomNumber,
+        unitType: room.roomType?.name || 'Standard',
+        roomTypeId: room.roomTypeId,
+        condition,
+        unitStatus,
+        arrivalTime,
+        arrivalDate,
+        departureDate,
+        frontdeskStatus,
+        assignedTo,
+        doNotDisturb,
+        rawRoom: room,
+        rawBooking: matchingRes,
+      };
+    });
+  }, [rooms, bookings, assignedMap, dndMap, staffList]);
+
+  // Filter items based on user criteria
+  const filteredItems = useMemo(() => {
+    return inspectionItems.filter((item) => {
+      // Unit Type Filter
+      if (selectedUnitType !== 'ALL' && item.roomTypeId !== selectedUnitType) {
+        return false;
+      }
+
+      // Frontdesk Status Filter
+      if (selectedFrontdeskStatus !== 'ALL' && item.frontdeskStatus !== selectedFrontdeskStatus) {
+        return false;
+      }
+
+      // Unit Status Checkboxes
+      if (item.unitStatus === 'Occupied' && !filterOccupied) return false;
+      if (item.unitStatus === 'Vacant' && !filterVacant) return false;
+
+      // Condition Checkboxes
+      if (item.condition === 'Clean' && !filterClean) return false;
+      if (item.condition === 'Dirty' && !filterDirty) return false;
+
+      // Do Not Disturb Checkboxes
+      if (item.doNotDisturb && !filterDndYes) return false;
+      if (!item.doNotDisturb && !filterDndNo) return false;
+
+      // Assigned To Filter
+      if (selectedStaffFilter !== 'ALL' && item.assignedTo.toLowerCase() !== selectedStaffFilter.toLowerCase()) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    inspectionItems,
+    selectedUnitType,
+    selectedFrontdeskStatus,
+    filterOccupied,
+    filterVacant,
+    filterClean,
+    filterDirty,
+    filterDndYes,
+    filterDndNo,
+    selectedStaffFilter,
+  ]);
+
+  // Sort items
+  const sortedItems = useMemo(() => {
+    const list = [...filteredItems];
+    list.sort((a: any, b: any) => {
+      let valA = a[sortField] ?? '';
+      let valB = b[sortField] ?? '';
+
+      if (sortField === 'unitNumber') {
+        return sortAsc
+          ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+          : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      if (typeof valA === 'string') {
+        return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return sortAsc ? (valA > valB ? 1 : -1) : valA < valB ? 1 : -1;
+    });
+    return list;
+  }, [filteredItems, sortField, sortAsc]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  // Condition Change Handler (Updates room housekeepingStatus in DB)
+  const handleConditionChange = async (roomId: string, newCondition: string) => {
     try {
+      const dbStatus =
+        newCondition === 'Clean'
+          ? 'CLEAN'
+          : newCondition === 'Dirty'
+          ? 'DIRTY'
+          : newCondition === 'Out of Order'
+          ? 'OUT_OF_ORDER'
+          : 'INSPECTED';
+
+      // Optimistic update
+      setRooms((prev) =>
+        prev.map((r) => (r.id === roomId ? { ...r, housekeepingStatus: dbStatus } : r))
+      );
+
       const res = await fetch('/api/hotel/rooms', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: roomId, housekeepingStatus: newHousekeepingStatus }),
+        body: JSON.stringify({ id: roomId, housekeepingStatus: dbStatus }),
       });
+
       const data = await res.json();
       if (data.success) {
-        setRooms(rooms.map((r) => (r.id === roomId ? data.data : r)));
-        toast.success(`Room marked as ${newHousekeepingStatus}`);
-      } else {
-        toast.error(data.message || 'Failed to update room cleanliness');
+        showFeedback(`✓ Condition updated to ${newCondition}`);
       }
     } catch (err) {
-      toast.error('Network error updating room status');
-    } finally {
-      setUpdatingId(null);
+      console.error('Error updating condition:', err);
+      showFeedback('Error updating condition in database.');
     }
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!taskFormRoomId) {
-      toast.error('Please select a room');
-      return;
-    }
-    if (!taskFormType) {
-      toast.error('Please specify the task type');
-      return;
-    }
+  // Staff Assignment Handler
+  const handleAssignChange = async (roomId: string, staffName: string) => {
+    const isUnassigned = !staffName || staffName === 'Unassigned';
+    setAssignedMap((prev) => ({ ...prev, [roomId]: isUnassigned ? 'Unassigned' : staffName }));
 
-    setSubmittingTask(true);
     try {
-      const res = await fetch('/api/hotel/housekeeping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: taskFormRoomId,
-          taskType: taskFormType,
-          priority: taskFormPriority,
-          assignedTo: taskFormAssignedTo || null,
-          scheduledAt: taskFormScheduledAt ? new Date(taskFormScheduledAt).toISOString() : null,
-          remarks: taskFormRemarks || null,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Housekeeping task created successfully');
-        
-        // Find room name to update locally if needed
-        const roomObj = rooms.find(r => r.id === taskFormRoomId);
-        const taskWithRoom = { 
-          ...data.data, 
-          room: roomObj ? { ...roomObj, roomType: { name: roomObj.roomType?.name } } : null 
-        };
-        
-        setTasks([taskWithRoom, ...tasks]);
-        
-        // Reset form
-        setTaskFormRoomId('');
-        setTaskFormType('Standard Cleaning');
-        setTaskFormPriority('NORMAL');
-        setTaskFormAssignedTo('');
-        setTaskFormScheduledAt('');
-        setTaskFormRemarks('');
-        setShowAddTask(false);
-        loadData();
-      } else {
-        toast.error(data.message || 'Failed to create task');
-      }
-    } catch (err) {
-      toast.error('Network error creating task');
-    } finally {
-      setSubmittingTask(false);
-    }
-  };
-
-  const handleUpdateTaskStatus = async (taskId: string, newStatus: string, roomId: string) => {
-    try {
-      const res = await fetch('/api/hotel/housekeeping', {
+      // Persist in room maintenanceStatus as metadata (empty string to unassign)
+      await fetch('/api/hotel/rooms', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: taskId,
-          status: newStatus,
+        body: JSON.stringify({ 
+          id: roomId, 
+          maintenanceStatus: isUnassigned ? '' : `ASSIGNED:${staffName}` 
         }),
       });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Task status updated to ${newStatus}`);
-        
-        // If task is completed, automatically mark the room as CLEAN
-        if (newStatus === 'COMPLETED' || newStatus === 'DONE') {
-          try {
-            await fetch('/api/hotel/rooms', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: roomId, housekeepingStatus: 'CLEAN' }),
-            });
-            toast.success('Room marked as Clean');
-          } catch (err) {
-            console.error('Failed to auto-mark room clean:', err);
-          }
-        }
-        
-        loadData();
-      } else {
-        toast.error(data.message || 'Failed to update task');
-      }
+      showFeedback(isUnassigned ? '✓ Unit marked as Unassigned' : `✓ Unit assigned to ${staffName}`);
     } catch (err) {
-      toast.error('Network error updating task');
+      console.error(err);
     }
   };
 
-  const handleCreateTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRoomId) {
-      toast.error('Please select a room');
-      return;
-    }
+  // DND Toggle Handler
+  const handleToggleDnd = async (roomId: string, currentVal: boolean) => {
+    const nextVal = !currentVal;
+    setDndMap((prev) => ({ ...prev, [roomId]: nextVal }));
 
-    setSubmittingTicket(true);
     try {
-      const res = await fetch('/api/hotel/maintenance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: selectedRoomId,
-          issueType,
-          priority,
-          description,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Maintenance ticket created. Room status set to Maintenance.');
-        setTickets([data.data, ...tickets]);
-        
-        // Update room status local state to MAINTENANCE
-        setRooms(rooms.map((r) => r.id === selectedRoomId ? { ...r, status: 'MAINTENANCE' } : r));
-        
-        // Reset form
-        setSelectedRoomId('');
-        setDescription('');
-        setShowAddTicket(false);
-        loadData();
-      } else {
-        toast.error(data.message || 'Failed to file maintenance ticket');
-      }
-    } catch (err) {
-      toast.error('Network error filing ticket');
-    } finally {
-      setSubmittingTicket(false);
-    }
-  };
-
-  const handleResolveTicket = async (ticketId: string) => {
-    try {
-      const res = await fetch('/api/hotel/maintenance', {
+      await fetch('/api/hotel/rooms', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticketId,
-          status: 'RESOLVED',
-        }),
+        body: JSON.stringify({ id: roomId, description: nextVal ? 'DND' : '' }),
       });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Ticket resolved. Room is back in active service.');
-        setTickets(tickets.map((t) => t.id === ticketId ? { ...t, status: 'RESOLVED', resolvedAt: new Date().toISOString() } : t));
-        loadData();
-      } else {
-        toast.error(data.message || 'Failed to update ticket status');
-      }
+      showFeedback(`✓ Do Not Disturb set to ${nextVal ? 'Yes' : 'No'}`);
     } catch (err) {
-      toast.error('Network error updating ticket');
+      console.error(err);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-indigo-500" size={36} />
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Synchronizing Console...</span>
-      </div>
-    );
-  }
+  // Clear Filters
+  const handleClearFilters = () => {
+    setSelectedUnitType('ALL');
+    setSelectedFrontdeskStatus('ALL');
+    setFilterOccupied(true);
+    setFilterVacant(true);
+    setFilterClean(true);
+    setFilterDirty(true);
+    setFilterDndYes(true);
+    setFilterDndNo(true);
+    setSelectedStaffFilter('ALL');
+    showFeedback('Filters reset to default.');
+  };
 
-  // Calculate Metrics
-  const totalRoomsCount = rooms.length;
-  const cleanRoomsCount = rooms.filter((r) => r.housekeepingStatus === 'CLEAN').length;
-  const dirtyRoomsCount = rooms.filter((r) => r.housekeepingStatus === 'DIRTY').length;
-  const openTicketsCount = tickets.filter((t) => t.status === 'OPEN').length;
-  const activeTasksCount = tasks.filter((t) => t.status === 'PENDING' || t.status === 'IN_PROGRESS').length;
+  // Quick Action Bulk Operations
+  const handleBulkAction = async (action: 'MARK_ALL_CLEAN' | 'MARK_ALL_DIRTY' | 'ASSIGN_ALL') => {
+    setIsQuickActionOpen(false);
 
-  // Filter rooms based on query and type filter
-  const filteredRooms = rooms.filter((room) => {
-    const matchesSearch = room.roomNumber.toLowerCase().includes(roomSearch.toLowerCase()) ||
-      room.roomType?.name?.toLowerCase().includes(roomSearch.toLowerCase());
-    
-    if (!matchesSearch) return false;
+    if (action === 'MARK_ALL_CLEAN') {
+      showFeedback('Updating all units to Clean...');
+      await Promise.all(
+        rooms.map((r) =>
+          fetch('/api/hotel/rooms', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: r.id, housekeepingStatus: 'CLEAN' }),
+          })
+        )
+      );
+      loadData();
+      showFeedback('✓ All units marked as Clean!');
+    } else if (action === 'MARK_ALL_DIRTY') {
+      showFeedback('Updating all units to Dirty...');
+      await Promise.all(
+        rooms.map((r) =>
+          fetch('/api/hotel/rooms', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: r.id, housekeepingStatus: 'DIRTY' }),
+          })
+        )
+      );
+      loadData();
+      showFeedback('✓ All units marked as Dirty!');
+    } else if (action === 'ASSIGN_ALL') {
+      const defaultStaff = staffList[0]?.name || 'Housekeeping Crew';
+      const updatedMap: Record<string, string> = {};
+      rooms.forEach((r) => {
+        updatedMap[r.id] = defaultStaff;
+      });
+      setAssignedMap(updatedMap);
+      showFeedback(`✓ All units assigned to ${defaultStaff}!`);
+    }
+  };
 
-    if (filterRoomType === 'DIRTY') return room.housekeepingStatus === 'DIRTY';
-    if (filterRoomType === 'CLEAN') return room.housekeepingStatus === 'CLEAN';
-    if (filterRoomType === 'OCCUPIED') return room.status === 'OCCUPIED';
-    if (filterRoomType === 'VACANT') return room.status === 'VACANT' || (!room.status && room.status !== 'OCCUPIED' && room.status !== 'MAINTENANCE');
-    if (filterRoomType === 'MAINTENANCE') return room.status === 'MAINTENANCE';
-    return true;
-  });
+  // Print Inspection Sheet
+  const handlePrint = () => {
+    const printPayload: HousekeepingPrintItem[] = sortedItems.map((item) => ({
+      unitNumber: item.unitNumber,
+      unitType: item.unitType,
+      condition: item.condition,
+      unitStatus: item.unitStatus,
+      arrivalTime: item.arrivalTime,
+      arrivalDate: item.arrivalDate,
+      departureDate: item.departureDate,
+      frontdeskStatus: item.frontdeskStatus,
+      assignedTo: item.assignedTo,
+      doNotDisturb: item.doNotDisturb,
+    }));
+    printHousekeepingInspectionSheet(printPayload, property?.name || 'Main Hotel');
+  };
 
-  const formatDate = (isoString: string | null) => {
-    if (!isoString) return 'Unscheduled';
-    const date = new Date(isoString);
-    return date.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+  // Export CSV
+  const handleExportCSV = () => {
+    const headers = [
+      'Unit Number',
+      'Unit Type',
+      'Condition',
+      'Unit Status',
+      'Arrival Time',
+      'Arrival Date',
+      'Departure Date',
+      'Frontdesk Status',
+      'Assigned To',
+      'Do Not Disturb',
+    ];
+
+    const rows = sortedItems.map((item) => [
+      `"${item.unitNumber}"`,
+      `"${item.unitType}"`,
+      `"${item.condition}"`,
+      `"${item.unitStatus}"`,
+      `"${item.arrivalTime}"`,
+      `"${item.arrivalDate}"`,
+      `"${item.departureDate}"`,
+      `"${item.frontdeskStatus}"`,
+      `"${item.assignedTo}"`,
+      `"${item.doNotDisturb ? 'Yes' : 'No'}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `housekeeping_inspection_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showFeedback('✓ Inspection CSV report exported!');
   };
 
   return (
-    <div className="space-y-8 pb-12">
-      <Toaster position="top-right" richColors />
-
-      {/* Header Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0f172a]/40 border border-slate-800/80 p-6 rounded-3xl backdrop-blur-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-indigo-400">
-              <Sparkles size={12} className="text-violet-400 animate-pulse" /> HMS Operations Hub
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              LIVE HOUSEKEEPER SYNC
-            </span>
+    <div className="min-h-screen bg-[#080d1a] text-white p-4 sm:p-6 lg:p-7 font-sans antialiased select-none pb-20">
+      {/* ── Top Header Bar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800/80">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-[28px] font-bold text-white tracking-tight">
+              Housekeeping
+            </h1>
+            <button
+              onClick={() => setIsLearnOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-[#00b894] border border-[#00b894]/40 bg-[#00b894]/10 hover:bg-[#00b894]/20 transition-colors cursor-pointer shadow-2xs"
+            >
+              <Play className="w-2.5 h-2.5 fill-[#00b894]" />
+              <span>Learn to Use</span>
+            </button>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-white leading-none">
-            Housekeeping & Maintenance Console
-          </h1>
-          <p className="text-xs text-slate-500 font-bold">
-            Real-time cleanliness monitoring, task assignments, and room engineering log.
-          </p>
+          <div className="flex items-center gap-2 text-[13px] text-slate-400 mt-1 font-normal">
+            <Link href="/hotel" className="hover:text-white transition-colors">
+              Home
+            </Link>
+            <span>-</span>
+            <span className="text-slate-300 font-medium">Housekeeping</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3 self-start md:self-center">
-          <Link
-            href="/hotel/lost-found"
-            className="px-4 py-2.5 rounded-xl border border-amber-600/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-amber-950/20"
+
+        {/* Right Corner Button: Housekeepers */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsHousekeepersModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-sky-400 border border-sky-500/50 bg-sky-500/10 hover:bg-sky-500/20 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
           >
-            📦 Lost & Found Register
-          </Link>
-          <button 
-            onClick={() => loadData()}
-            title="Refresh dashboard data"
-            className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-all active:scale-95 cursor-pointer"
-          >
-            <RefreshCw size={15} />
+            <Users className="w-3.5 h-3.5" />
+            <span>Housekeepers</span>
           </button>
         </div>
       </div>
 
-      {/* Interactive Metrics Hub */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
-        {/* Card 1: Cleanliness */}
-        <div 
-          onClick={() => { setActiveTab('rooms'); setFilterRoomType('CLEAN'); }}
-          className="group cursor-pointer rounded-3xl bg-[#0f172a] border border-slate-800/80 p-5 flex items-center gap-4 transition-all hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-950/10"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-            <CheckCircle2 size={24} />
-          </div>
+      {/* Floating Feedback Toast */}
+      {feedbackMsg && (
+        <div className="fixed top-5 right-5 z-50 bg-[#0f172a] border border-emerald-500/50 text-emerald-300 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{feedbackMsg}</span>
+        </div>
+      )}
+
+      {/* ── Top Filter Card Panel (Matching Screenshot) ── */}
+      <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 mt-5 shadow-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+          {/* 1. Unit Type */}
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Clean Rooms</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {cleanRoomsCount} <span className="text-xs text-slate-500">/ {totalRoomsCount}</span>
-            </h3>
-            <div className="w-24 bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1.5">
-              <div 
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${totalRoomsCount > 0 ? (cleanRoomsCount / totalRoomsCount) * 100 : 0}%` }}
-              />
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+              Unit Type
+            </label>
+            <div className="relative">
+              <select
+                value={selectedUnitType}
+                onChange={(e) => setSelectedUnitType(e.target.value)}
+                className="w-full appearance-none bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#00b894] cursor-pointer"
+              >
+                <option value="ALL">All selected</option>
+                {roomTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
-        </div>
 
-        {/* Card 2: Dirty Rooms */}
-        <div 
-          onClick={() => { setActiveTab('rooms'); setFilterRoomType('DIRTY'); }}
-          className="group cursor-pointer rounded-3xl bg-[#0f172a] border border-slate-800/80 p-5 flex items-center gap-4 transition-all hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-950/10"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
-            <AlertTriangle size={24} />
-          </div>
+          {/* 2. Frontdesk Status */}
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Dirty Rooms</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">{dirtyRoomsCount}</h3>
-            <span className="text-[10px] font-bold text-amber-400/90 block mt-1">Requires service</span>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-bold text-slate-300">Frontdesk Status</label>
+              <span title="Filter by guest reservation status"><Info className="w-3 h-3 text-slate-400 cursor-help" /></span>
+            </div>
+            <div className="relative">
+              <select
+                value={selectedFrontdeskStatus}
+                onChange={(e) => setSelectedFrontdeskStatus(e.target.value)}
+                className="w-full appearance-none bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#00b894] cursor-pointer"
+              >
+                <option value="ALL">All selected</option>
+                <option value="Checked-In">Checked-In</option>
+                <option value="Checked-Out">Checked-Out</option>
+                <option value="Reserved">Reserved</option>
+                <option value="Not Reserved">Not Reserved</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
-        </div>
 
-        {/* Card 3: Pending Tasks */}
-        <div 
-          onClick={() => setActiveTab('tasks')}
-          className="group cursor-pointer rounded-3xl bg-[#0f172a] border border-slate-800/80 p-5 flex items-center gap-4 transition-all hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-950/10"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-            <ClipboardCheck size={24} />
-          </div>
+          {/* 3. Unit Status Checkboxes */}
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Active Cleaning Tasks</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">{activeTasksCount}</h3>
-            <span className="text-[10px] font-bold text-indigo-400/90 block mt-1">Scheduled or in-progress</span>
+            <label className="block text-xs font-bold text-slate-300 mb-2">
+              Unit Status
+            </label>
+            <div className="flex items-center gap-5 pt-1">
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer font-medium hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={filterOccupied}
+                  onChange={(e) => setFilterOccupied(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-[#1e293b] text-indigo-600 focus:ring-0 cursor-pointer accent-[#0284c7]"
+                />
+                <span>Occupied</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer font-medium hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={filterVacant}
+                  onChange={(e) => setFilterVacant(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-[#1e293b] text-indigo-600 focus:ring-0 cursor-pointer accent-[#0284c7]"
+                />
+                <span>Vacant</span>
+              </label>
+            </div>
           </div>
-        </div>
 
-        {/* Card 4: Open Maintenance */}
-        <div 
-          onClick={() => setActiveTab('maintenance')}
-          className="group cursor-pointer rounded-3xl bg-[#0f172a] border border-slate-800/80 p-5 flex items-center gap-4 transition-all hover:border-rose-500/40 hover:shadow-lg hover:shadow-rose-950/10"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
-            <Wrench size={24} />
-          </div>
+          {/* 4. Condition Checkboxes */}
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Maintenance Alerts</p>
-            <h3 className="text-2xl font-black text-white mt-0.5 text-rose-400">{openTicketsCount}</h3>
-            <span className="text-[10px] font-bold text-rose-400/90 block mt-1">Rooms blocked or locked</span>
+            <label className="block text-xs font-bold text-slate-300 mb-2">
+              Condition
+            </label>
+            <div className="flex items-center gap-5 pt-1">
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer font-medium hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={filterClean}
+                  onChange={(e) => setFilterClean(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-[#1e293b] focus:ring-0 cursor-pointer accent-[#00b894]"
+                />
+                <span>Clean</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer font-medium hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={filterDirty}
+                  onChange={(e) => setFilterDirty(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-[#1e293b] focus:ring-0 cursor-pointer accent-[#f43f5e]"
+                />
+                <span>Dirty</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 5. Do Not Disturb Checkboxes */}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-2">
+              Do Not Disturb
+            </label>
+            <div className="flex items-center gap-5 pt-1">
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer font-medium hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={filterDndYes}
+                  onChange={(e) => setFilterDndYes(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-[#1e293b] focus:ring-0 cursor-pointer accent-[#0284c7]"
+                />
+                <span>Yes</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer font-medium hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={filterDndNo}
+                  onChange={(e) => setFilterDndNo(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-[#1e293b] focus:ring-0 cursor-pointer accent-[#0284c7]"
+                />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 6. Assigned to Selector */}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+              Assigned to
+            </label>
+            <div className="relative">
+              <select
+                value={selectedStaffFilter}
+                onChange={(e) => setSelectedStaffFilter(e.target.value)}
+                className="w-full appearance-none bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#00b894] cursor-pointer"
+              >
+                <option value="ALL">All housekeepers</option>
+                {staffList.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name} ({s.designation || 'Staff'})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 7. Action Filter Buttons (Bottom Right) */}
+          <div className="sm:col-span-2 lg:col-span-2 flex items-end justify-end gap-2.5 pt-2">
+            <button
+              onClick={() => showFeedback('Filters applied')}
+              className="px-6 py-2.5 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer"
+            >
+              Apply
+            </button>
+            <button
+              onClick={handleClearFilters}
+              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-xl border border-slate-700 transition-colors cursor-pointer"
+            >
+              Clear
+            </button>
           </div>
         </div>
-
       </div>
 
-      {/* Tabs Layout */}
-      <div className="flex gap-6 border-b border-slate-800">
-        <button
-          onClick={() => setActiveTab('rooms')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'rooms'
-              ? 'border-indigo-500 text-indigo-400 font-black'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Building2 size={16} /> Room Status Board
-        </button>
-        <button
-          onClick={() => setActiveTab('tasks')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'tasks'
-              ? 'border-indigo-500 text-indigo-400 font-black'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <ListTodo size={16} /> Housekeeping Tasks ({tasks.filter(t => t.status === 'PENDING' || t.status === 'IN_PROGRESS').length} Active)
-        </button>
-        <button
-          onClick={() => setActiveTab('maintenance')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'maintenance'
-              ? 'border-indigo-500 text-indigo-400 font-black'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Wrench size={16} /> Maintenance Control Log ({openTicketsCount} Open)
-        </button>
-      </div>
-
-      {/* ────────────────── PANEL 1: ROOMS LIST ────────────────── */}
-      {activeTab === 'rooms' && (
-        <div className="space-y-6">
-          {/* Quick Filters & Room Search */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { label: 'All Rooms', val: 'ALL', count: totalRoomsCount, activeStyle: 'bg-indigo-600 border-indigo-500 text-white' },
-                { label: 'Dirty', val: 'DIRTY', count: dirtyRoomsCount, activeStyle: 'bg-amber-500/20 border-amber-500/30 text-amber-400' },
-                { label: 'Clean', val: 'CLEAN', count: cleanRoomsCount, activeStyle: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' },
-                { label: 'Occupied', val: 'OCCUPIED', count: rooms.filter(r => r.status === 'OCCUPIED').length, activeStyle: 'bg-rose-500/20 border-rose-500/30 text-rose-400' },
-                { label: 'Vacant', val: 'VACANT', count: rooms.filter(r => r.status === 'VACANT' || (!r.status && r.status !== 'OCCUPIED' && r.status !== 'MAINTENANCE')).length, activeStyle: 'bg-sky-500/20 border-sky-500/30 text-sky-400' },
-                { label: 'Blocked', val: 'MAINTENANCE', count: rooms.filter(r => r.status === 'MAINTENANCE').length, activeStyle: 'bg-slate-700/30 border-slate-700/50 text-slate-300' }
-              ].map((btn) => (
-                <button
-                  key={btn.val}
-                  onClick={() => setFilterRoomType(btn.val)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                    filterRoomType === btn.val
-                      ? btn.activeStyle
-                      : 'bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {btn.label} ({btn.count})
-                </button>
-              ))}
-            </div>
-
-            <div className="w-full md:max-w-xs">
-              <input
-                type="text"
-                placeholder="Search rooms by number or type..."
-                value={roomSearch}
-                onChange={(e) => setRoomSearch(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-              />
-            </div>
+      {/* ── Inspection Table Card (Matching Screenshot) ── */}
+      <div className="bg-[#0f172a] rounded-2xl border border-slate-800 mt-6 shadow-2xl overflow-hidden">
+        {/* Table Header Controls */}
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 bg-[#0b1120]">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Inspection
+            </h2>
+            <span className="text-xs font-semibold bg-slate-800 text-slate-400 px-2.5 py-1 rounded-md border border-slate-700">
+              {sortedItems.length} Units
+            </span>
           </div>
 
-          {/* Rooms Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filteredRooms.length === 0 ? (
-              <div className="col-span-full py-16 text-center rounded-3xl bg-[#0f172a] border border-slate-800/80 text-slate-500 text-sm italic">
-                No rooms match the selected filter. ✨
-              </div>
-            ) : (
-              filteredRooms.map((room) => {
-                const isDirty = room.housekeepingStatus === 'DIRTY';
-                const isOccupied = room.status === 'OCCUPIED';
-                const isMaintenance = room.status === 'MAINTENANCE';
+          {/* Action Buttons: Quick Action, Print, Export */}
+          <div className="flex items-center gap-2.5">
+            {/* Quick Action Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-[#1e293b]/70 hover:bg-[#1e293b] border border-slate-700 transition-colors cursor-pointer shadow-xs"
+              >
+                <span>Quick Action</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
 
-                return (
-                  <div
-                    key={room.id}
-                    className={`rounded-3xl bg-[#0f172a] border p-5 flex flex-col justify-between gap-5 transition-all hover:scale-[1.01] ${
-                      isDirty ? 'border-amber-500/25 bg-amber-500/[0.01]' : 'border-slate-800'
-                    }`}
+              {isQuickActionOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl p-1.5 z-40 text-xs font-medium animate-in fade-in">
+                  <button
+                    onClick={() => handleBulkAction('MARK_ALL_CLEAN')}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-black text-white">Room {room.roomNumber}</h3>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
-                          {room.roomType?.name || 'Standard'}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 font-sans">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                          isOccupied 
-                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' 
-                            : isMaintenance
-                            ? 'bg-slate-800 text-slate-400 border-slate-700'
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        }`}>
-                          {isOccupied ? 'Occupied' : isMaintenance ? 'Maintenance' : 'Vacant'}
-                        </span>
-                        
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                          isDirty 
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        }`}>
-                          {isDirty ? 'Dirty' : 'Clean'}
-                        </span>
-                      </div>
-                    </div>
+                    Mark All as Clean
+                  </button>
+                  <button
+                    onClick={() => handleBulkAction('MARK_ALL_DIRTY')}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-700 text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                  >
+                    Mark All as Dirty
+                  </button>
+                  <button
+                    onClick={() => handleBulkAction('ASSIGN_ALL')}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-semibold cursor-pointer border-t border-slate-700/60 mt-1"
+                  >
+                    Assign All to First Staff
+                  </button>
+                </div>
+              )}
+            </div>
 
-                    <div className="space-y-2 mt-2">
-                      <button
-                        disabled={updatingId === room.id}
-                        onClick={() => handleUpdateHousekeeping(room.id, room.housekeepingStatus)}
-                        className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wide border flex items-center justify-center gap-1.5 transition-colors ${
-                          isDirty
-                            ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-600/10 cursor-pointer'
-                            : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer'
+            {/* Print Button */}
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-[#1e293b]/70 hover:bg-[#1e293b] border border-slate-700 transition-colors cursor-pointer shadow-xs"
+              title="Print Housekeeping Inspection Sheet"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-400" />
+              <span>Print</span>
+            </button>
+
+            {/* Export Button */}
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-[#1e293b]/70 hover:bg-[#1e293b] border border-slate-700 transition-colors cursor-pointer shadow-xs"
+              title="Export Inspection Report as CSV"
+            >
+              <Upload className="w-3.5 h-3.5 text-slate-400" />
+              <span>Export</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Inspection Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs" style={{ minWidth: '1080px' }}>
+            <thead>
+              <tr className="border-b border-slate-800 bg-[#0f172a] text-slate-400 text-[11px] font-bold">
+                {/* 1. Unit Number */}
+                <th
+                  onClick={() => handleSort('unitNumber')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Unit Number</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 2. Unit Type */}
+                <th
+                  onClick={() => handleSort('unitType')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Unit Type</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 3. Condition */}
+                <th
+                  onClick={() => handleSort('condition')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Condition</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 4. Unit Status */}
+                <th
+                  onClick={() => handleSort('unitStatus')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Unit Status</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 5. Arrival Time */}
+                <th
+                  onClick={() => handleSort('arrivalTime')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Arrival Time</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 6. Arrival Date */}
+                <th
+                  onClick={() => handleSort('arrivalDate')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Arrival Date</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 7. Departure Date */}
+                <th
+                  onClick={() => handleSort('departureDate')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Departure Date</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 8. Frontdesk Status */}
+                <th
+                  onClick={() => handleSort('frontdeskStatus')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Frontdesk Status</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 9. Assigned to */}
+                <th
+                  onClick={() => handleSort('assignedTo')}
+                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Assigned to</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+
+                {/* 10. Do Not Disturb */}
+                <th
+                  onClick={() => handleSort('doNotDisturb')}
+                  className="p-3.5 text-center cursor-pointer hover:text-white transition-colors"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Do Not Disturb</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-800/60 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="py-20 text-center text-slate-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#00b894]" />
+                      <span>Loading Housekeeping Inspection data...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : sortedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-16 text-center text-slate-500">
+                    No hotel units match the selected inspection criteria.
+                  </td>
+                </tr>
+              ) : (
+                sortedItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-slate-800/30 transition-colors group/row"
+                  >
+                    {/* 1. Unit Number */}
+                    <td className="p-3.5 font-bold text-white text-xs">
+                      Room {item.unitNumber}
+                    </td>
+
+                    {/* 2. Unit Type */}
+                    <td className="p-3.5 text-slate-300">
+                      {item.unitType}
+                    </td>
+
+                    {/* 3. Condition (Interactive Select matching screenshot) */}
+                    <td className="p-3.5">
+                      <div className="relative inline-block">
+                        <select
+                          value={item.condition}
+                          onChange={(e) => handleConditionChange(item.id, e.target.value)}
+                          className={`appearance-none font-bold text-xs pl-2.5 pr-6 py-1 rounded-lg border transition-all cursor-pointer focus:outline-none ${
+                            item.condition === 'Clean'
+                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
+                              : item.condition === 'Dirty'
+                              ? 'bg-rose-500/15 text-rose-400 border-rose-500/30 hover:bg-rose-500/25'
+                              : 'bg-amber-500/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/25'
+                          }`}
+                        >
+                          <option value="Clean" className="bg-[#1e293b] text-emerald-400">Clean</option>
+                          <option value="Dirty" className="bg-[#1e293b] text-rose-400">Dirty</option>
+                          <option value="Inspected" className="bg-[#1e293b] text-teal-400">Inspected</option>
+                          <option value="Out of Order" className="bg-[#1e293b] text-amber-400">Out of Order</option>
+                        </select>
+                        <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </td>
+
+                    {/* 4. Unit Status (Occupied / Vacant) */}
+                    <td className="p-3.5">
+                      <span
+                        className={`font-semibold ${
+                          item.unitStatus === 'Occupied' ? 'text-sky-400' : 'text-slate-400'
                         }`}
                       >
-                        {updatingId === room.id ? (
-                          <Loader2 className="animate-spin" size={12} />
-                        ) : isDirty ? (
-                          <>
-                            <CheckCircle2 size={12} /> Mark Clean
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle size={12} /> Mark Dirty
-                          </>
-                        )}
-                      </button>
+                        {item.unitStatus}
+                      </span>
+                    </td>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            setTaskFormRoomId(room.id);
-                            setActiveTab('tasks');
-                            setShowAddTask(true);
-                          }}
-                          className="py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Plus size={10} /> Schedule Task
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedRoomId(room.id);
-                            setActiveTab('maintenance');
-                            setShowAddTicket(true);
-                          }}
-                          className="py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Wrench size={10} /> Report Fix
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
+                    {/* 5. Arrival Time */}
+                    <td className="p-3.5 font-mono text-slate-400 text-xs">
+                      {item.arrivalTime}
+                    </td>
 
-      {/* ────────────────── PANEL 2: HOUSEKEEPING TASKS ────────────────── */}
-      {activeTab === 'tasks' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="space-y-0.5">
-              <h2 className="text-xl font-black text-white">Housekeeping Tasks</h2>
-              <p className="text-xs text-slate-500">Assign cleaning, deep cleaning, or turn-down services to hotel staff.</p>
-            </div>
-            <button
-              onClick={() => setShowAddTask(!showAddTask)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              {showAddTask ? <X size={14} /> : <Plus size={14} />} 
-              {showAddTask ? 'Close Form' : 'Schedule New Task'}
-            </button>
-          </div>
+                    {/* 6. Arrival Date */}
+                    <td className="p-3.5 font-mono text-slate-300 text-xs">
+                      {item.arrivalDate}
+                    </td>
 
-          {/* Add Housekeeping Task Form */}
-          {showAddTask && (
-            <form onSubmit={handleCreateTask} className="p-6 rounded-3xl bg-[#0f172a] border border-slate-800 space-y-4 max-w-2xl animate-in fade-in zoom-in duration-200">
-              <h3 className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
-                <UserPlus size={12} /> Schedule New Work Order
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Select Room *</label>
-                  <select
-                    required
-                    value={taskFormRoomId}
-                    onChange={(e) => setTaskFormRoomId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="">Select Room</option>
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        Room {r.roomNumber} ({r.roomType?.name || 'Standard'}) - {r.housekeepingStatus}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    {/* 7. Departure Date */}
+                    <td className="p-3.5 font-mono text-slate-300 text-xs">
+                      {item.departureDate}
+                    </td>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Task Type *</label>
-                  <select
-                    required
-                    value={taskFormType}
-                    onChange={(e) => setTaskFormType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="Standard Cleaning">Standard Cleaning</option>
-                    <option value="Deep Cleaning">Deep Cleaning</option>
-                    <option value="Room Inspection">Room Inspection</option>
-                    <option value="Linen & Laundry">Linen & Laundry Change</option>
-                    <option value="Turn Down Service">Turn Down Service</option>
-                    <option value="Restock Amenities">Restock Amenities</option>
-                    <option value="Room Repairs">Room Repairs</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Priority</label>
-                  <select
-                    value={taskFormPriority}
-                    onChange={(e) => setTaskFormPriority(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Assign Staff Member</label>
-                  <select
-                    value={taskFormAssignedTo}
-                    onChange={(e) => setTaskFormAssignedTo(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="">Unassigned (Open Pool)</option>
-                    {staff.map((member) => (
-                      <option key={member.id} value={member.name}>
-                        {member.name} ({member.designation || 'Staff'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Scheduled At</label>
-                  <input
-                    type="datetime-local"
-                    value={taskFormScheduledAt}
-                    onChange={(e) => setTaskFormScheduledAt(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Task Remarks / Special Instructions</label>
-                <textarea
-                  placeholder="e.g. Guest requested extra pillows, pay special attention to the balcony, double sheets required..."
-                  value={taskFormRemarks}
-                  onChange={(e) => setTaskFormRemarks(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 min-h-[80px]"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddTask(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingTask}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {submittingTask ? 'Creating...' : 'Schedule Task'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Active tasks list */}
-          <div className="space-y-4">
-            {tasks.length === 0 ? (
-              <div className="py-16 text-center rounded-3xl bg-[#0f172a] border border-slate-800/80 text-slate-500 text-sm italic">
-                No housekeeping tasks scheduled.
-              </div>
-            ) : (
-              tasks.map((task) => {
-                const isPending = task.status === 'PENDING';
-                const isInProgress = task.status === 'IN_PROGRESS';
-                const isCompleted = task.status === 'COMPLETED' || task.status === 'DONE';
-
-                return (
-                  <div
-                    key={task.id}
-                    className={`p-5 rounded-3xl bg-[#0f172a] border transition-all flex flex-col md:flex-row justify-between md:items-center gap-4 ${
-                      isCompleted ? 'border-slate-800/60 opacity-70' : 
-                      isInProgress ? 'border-indigo-500/20 shadow-md shadow-indigo-950/5' : 
-                      'border-slate-800'
-                    }`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${
-                          isCompleted
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : isInProgress
-                            ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 animate-pulse'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}>
-                          {task.status}
-                        </span>
-                        
-                        <span className="text-[10px] text-slate-400 font-bold">• {task.taskType}</span>
-                        
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                          task.priority === 'URGENT' ? 'bg-rose-600/20 text-rose-300 border-rose-500/30' :
-                          task.priority === 'HIGH' ? 'bg-amber-600/20 text-amber-300 border-amber-500/30' :
-                          task.priority === 'NORMAL' ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/30' :
-                          'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}>{task.priority}</span>
-                      </div>
-                      
-                      <h4 className="text-base font-bold text-white">
-                        Room {task.room?.roomNumber || 'Unknown'} —{' '}
-                        <span className="text-sm font-normal text-slate-400">
-                          {task.remarks || 'No instructions provided'}
-                        </span>
-                      </h4>
-
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-[10px] text-slate-500">
-                        <span className="flex items-center gap-1 shrink-0">
-                          <CalendarDays size={10} /> Scheduled: {formatDate(task.scheduledAt)}
-                        </span>
-                        {task.assignedTo ? (
-                          <span className="flex items-center gap-1 shrink-0 text-slate-400">
-                            <User size={10} /> Assigned to: <strong className="text-indigo-400 font-semibold">{task.assignedTo}</strong>
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 shrink-0 text-amber-500/80 italic">
-                            <User size={10} /> Unassigned (Open Pool)
-                          </span>
-                        )}
-                        {task.completedAt && (
-                          <span className="flex items-center gap-1 shrink-0 text-emerald-500/80">
-                            <CheckCircle2 size={10} /> Completed at: {formatDate(task.completedAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-start md:self-center shrink-0">
-                      {isPending && (
-                        <button
-                          onClick={() => handleUpdateTaskStatus(task.id, 'IN_PROGRESS', task.roomId)}
-                          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          <Activity size={12} /> Start Task
-                        </button>
-                      )}
-                      
-                      {isInProgress && (
-                        <button
-                          onClick={() => handleUpdateTaskStatus(task.id, 'COMPLETED', task.roomId)}
-                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          <Check size={12} /> Complete Task
-                        </button>
-                      )}
-
-                      {isCompleted && (
-                        <span className="text-slate-600 text-xs font-black uppercase flex items-center gap-1">
-                          <CheckCircle2 size={14} className="text-emerald-500" /> Done
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ────────────────── PANEL 3: MAINTENANCE TICKETS ────────────────── */}
-      {activeTab === 'maintenance' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="space-y-0.5">
-              <h2 className="text-xl font-bold text-white">Maintenance & Repair Tickets</h2>
-              <p className="text-xs text-slate-500">Lock rooms for plumbing, electrical, heating or furniture issues.</p>
-            </div>
-            <button
-              onClick={() => setShowAddTicket(!showAddTicket)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              {showAddTicket ? <X size={14} /> : <Plus size={14} />} 
-              {showAddTicket ? 'Close Form' : 'File Issue Ticket'}
-            </button>
-          </div>
-
-          {/* Add Ticket Form */}
-          {showAddTicket && (
-            <form onSubmit={handleCreateTicket} className="p-6 rounded-3xl bg-[#0f172a] border border-slate-800 space-y-4 max-w-xl animate-in fade-in zoom-in duration-200">
-              <h3 className="text-xs font-black uppercase tracking-widest text-rose-400 flex items-center gap-1.5">
-                <ShieldAlert size={12} /> File Room Issue Ticket
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Select Room *</label>
-                  <select
-                    required
-                    value={selectedRoomId}
-                    onChange={(e) => setSelectedRoomId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="">Select Room</option>
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.id}>Room {r.roomNumber} ({r.roomType?.code || 'RM'})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Issue Type *</label>
-                  <select
-                    required
-                    value={issueType}
-                    onChange={(e) => setIssueType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="Plumbing">Plumbing</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="AC / Heating">AC / Heating</option>
-                    <option value="Furniture">Furniture</option>
-                    <option value="Housekeeping">Housekeeping</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Priority *</label>
-                  <select
-                    required
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors animate-none"
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                    <option value="CRITICAL">Critical</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Problem Details</label>
-                <textarea
-                  placeholder="Describe the issue (e.g. AC remote missing, bathroom flush leaking, floor tiles broken)..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 min-h-[80px]"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddTicket(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingTicket}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {submittingTicket ? 'Filing...' : 'File Ticket & Block Room'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Tickets Log List */}
-          <div className="space-y-4">
-            {tickets.length === 0 ? (
-              <div className="py-12 text-center rounded-3xl bg-[#0f172a] border border-slate-800/80 text-slate-500 text-sm italic">
-                No maintenance tickets filed yet.
-              </div>
-            ) : (
-              tickets.map((t) => {
-                const isOpen = t.status === 'OPEN';
-                const createdDate = new Date(t.openedAt).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`p-5 rounded-3xl bg-[#0f172a] border transition-all flex flex-col sm:flex-row justify-between sm:items-center gap-4 ${
-                      isOpen ? 'border-rose-500/25 bg-rose-500/[0.01]' : 'border-slate-800/60 opacity-70'
-                    }`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${
-                          isOpen 
-                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        }`}>
-                          {t.status}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-bold">{t.ticketNo}</span>
-                        <span className="text-[10px] text-slate-400 font-bold">• {t.issueType}</span>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                          t.priority === 'CRITICAL' ? 'bg-rose-600/20 text-rose-300 border border-rose-500/30' :
-                          t.priority === 'HIGH' ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30' :
-                          t.priority === 'MEDIUM' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' :
-                          'bg-slate-800 text-slate-400 border border-slate-700'
-                        }`}>{t.priority}</span>
-                      </div>
-                      
-                      <h4 className="text-base font-bold text-white">
-                        Room {t.room?.roomNumber || 'Unknown'} —{' '}
-                        <span className="text-sm font-normal text-slate-400">
-                          {t.description || 'No description provided'}
-                        </span>
-                      </h4>
-
-                      <div className="flex items-center gap-4 text-[10px] text-slate-500">
-                        <span className="flex items-center gap-1"><Clock size={10} /> Opened: {createdDate}</span>
-                        {t.raisedBy && <span className="flex items-center gap-1"><User size={10} /> Raised by: {t.raisedBy}</span>}
-                      </div>
-                    </div>
-
-                    {isOpen && (
-                      <button
-                        onClick={() => handleResolveTicket(t.id)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition-all self-start sm:self-center flex items-center gap-1.5 cursor-pointer"
+                    {/* 8. Frontdesk Status */}
+                    <td className="p-3.5">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
+                          item.frontdeskStatus === 'Checked-In'
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                            : item.frontdeskStatus === 'Checked-Out'
+                            ? 'bg-slate-800 text-slate-300 border-slate-700'
+                            : item.frontdeskStatus === 'Reserved'
+                            ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                            : 'bg-slate-900/60 text-slate-500 border-slate-800'
+                        }`}
                       >
-                        <Check size={14} /> Mark Resolved
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+                        {item.frontdeskStatus}
+                      </span>
+                    </td>
+
+                    {/* 9. Assigned to (Interactive Dropdown matching screenshot) */}
+                    <td className="p-3.5">
+                      <div className="relative inline-block min-w-[130px]">
+                        <select
+                          value={item.assignedTo}
+                          onChange={(e) => handleAssignChange(item.id, e.target.value)}
+                          className="w-full appearance-none bg-[#1e293b]/70 hover:bg-[#1e293b] border border-slate-700 rounded-lg pl-2.5 pr-6 py-1 text-xs text-slate-200 font-medium focus:outline-none focus:ring-1 focus:ring-[#00b894] cursor-pointer transition-colors"
+                        >
+                          <option value="Unassigned" className="bg-[#1e293b] text-slate-400">Unassigned</option>
+                          {staffList.map((s) => (
+                            <option key={s.id} value={s.name} className="bg-[#1e293b] text-white">
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </td>
+
+                    {/* 10. Do Not Disturb (Interactive Toggle Switch matching screenshot) */}
+                    <td className="p-3.5 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleDnd(item.id, item.doNotDisturb)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            item.doNotDisturb ? 'bg-[#0284c7]' : 'bg-slate-700'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                              item.doNotDisturb ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span className={`text-[11px] font-semibold ${item.doNotDisturb ? 'text-[#0284c7]' : 'text-slate-400'}`}>
+                          {item.doNotDisturb ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
+
+      {/* ── Modals ── */}
+      <HousekeepersModal
+        isOpen={isHousekeepersModalOpen}
+        onClose={() => setIsHousekeepersModalOpen(false)}
+        staffList={staffList}
+        rooms={rooms}
+        assignedMap={assignedMap}
+      />
+
+      <LearnToUseModal
+        isOpen={isLearnOpen}
+        onClose={() => setIsLearnOpen(false)}
+      />
     </div>
   );
 }

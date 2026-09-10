@@ -46,6 +46,7 @@ const DEPARTMENTS = [
     iconBg: 'bg-sky-500/15',
     cardBorder: 'border-slate-800 hover:border-sky-500/40',
     modules: [
+      { name: 'Operations Dashboard', href: '/hotel/operations-dashboard', icon: LayoutGrid },
       { name: 'Bookings Manager',   href: '/hotel/bookings',        icon: PlusCircle },
       { name: 'Agent Bookings',      href: '/hotel/agent-bookings',  icon: Handshake  },
       { name: 'Room Availability',   href: '/hotel/calendar',        icon: Calendar   },

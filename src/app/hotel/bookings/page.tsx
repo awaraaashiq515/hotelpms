@@ -41,6 +41,7 @@ import {
   Clock,
   BadgeCheck,
   Star,
+  ChevronDown,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -114,10 +115,12 @@ const DEFAULT_SPA_PACKAGES = [
   { id: 'AYURVEDIC', name: 'Traditional Ayurvedic Rejuvenation (₹3,200)', price: 3200 },
 ];
 
-  // Booking Form Pool & Spa Package States
+  // Booking Form Pool & Spa Package States (Collapsible Extras)
+  const [showAddons, setShowAddons] = useState(false);
   const [poolAccess, setPoolAccess] = useState(false);
   const [poolPackage, setPoolPackage] = useState('Complimentary / Free Pool Access');
   const [poolPassCost, setPoolPassCost] = useState('0');
+  const [spaAccess, setSpaAccess] = useState(false);
   const [spaPackage, setSpaPackage] = useState('NONE');
   const [spaPackageCost, setSpaPackageCost] = useState('0');
   const [addOnNotes, setAddOnNotes] = useState('');
@@ -498,13 +501,16 @@ const DEFAULT_SPA_PACKAGES = [
   const handleMealPlanChange = (plan: string) => {
     setMealPlan(plan);
     if (plan === 'AI') {
+      setShowAddons(true);
       setPoolAccess(true);
       setPoolPackage('Complimentary / Free Pool Access');
       setPoolPassCost('0');
+      setSpaAccess(true);
       setSpaPackage('COMPLIMENTARY_WELCOME');
       setSpaPackageCost('0');
       toast.info('All Inclusive Plan: Complimentary Pool & Spa added automatically!');
     } else if (plan === 'FB' || plan === 'MAP') {
+      setShowAddons(true);
       setPoolAccess(true);
       setPoolPackage('Complimentary / Free Pool Access');
       setPoolPassCost('0');
@@ -550,6 +556,18 @@ const DEFAULT_SPA_PACKAGES = [
     else if (pkg === 'DETOX_SAUNA') setSpaPackageCost('2800');
     else if (pkg === 'COUPLE_SPA') setSpaPackageCost('4500');
     else if (pkg === 'AYURVEDIC') setSpaPackageCost('3200');
+  };
+
+  const toggleSpaAccess = () => {
+    const next = !spaAccess;
+    setSpaAccess(next);
+    if (!next) {
+      setSpaPackage('NONE');
+      setSpaPackageCost('0');
+    } else {
+      setSpaPackage('RELAXATION_60MIN');
+      setSpaPackageCost('1800');
+    }
   };
 
   // Recalculate rent when dates, roomType, pool access, or spa package changes
@@ -1237,74 +1255,96 @@ const DEFAULT_SPA_PACKAGES = [
                   </div>
                 </div>
 
-                {/* Corporate / GST Billing Toggle & Fields */}
-                <div className="pt-3 border-t border-slate-800/80 space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-slate-800/60">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-                        <Building2 size={15} />
+                {/* Corporate / GST Billing Collapsible Option */}
+                <div className="pt-3 border-t border-slate-800/80">
+                  <div className="rounded-2xl bg-slate-950/60 border border-slate-800/60 overflow-hidden transition-all duration-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsCorporateBooking(!isCorporateBooking)}
+                      className="w-full p-3 flex items-center justify-between hover:bg-slate-900/60 transition-colors text-left cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
+                          <Building2 size={15} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-200">Corporate / Business Booking (GST Invoice)</span>
+                            <span className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                              Optional
+                            </span>
+                            {isCorporateBooking && (
+                              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                ✓ Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {isCorporateBooking && (companyName || gstNumber)
+                              ? `${companyName || 'Company'} • GSTIN: ${gstNumber || 'Required'}`
+                              : 'Enable if the guest wants the bill on their Company GSTIN'}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-200">Corporate / Business Booking (GST Invoice)</p>
-                        <p className="text-[10px] text-slate-500">Enable if the guest wants the bill on their Company GSTIN</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isCorporateBooking}
-                        onChange={(e) => setIsCorporateBooking(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-                    </label>
-                  </div>
 
-                  {isCorporateBooking && (
-                    <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3 animate-in fade-in duration-200">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border transition-all ${
+                          isCorporateBooking
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                        }`}>
+                          {isCorporateBooking ? 'Hide GST Option' : '+ Add GST Option'}
+                        </span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCorporateBooking ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+
+                    {isCorporateBooking && (
+                      <div className="p-4 pt-1 border-t border-slate-800/80 space-y-3 bg-amber-500/5 animate-in fade-in duration-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                              Company / Business Name *
+                            </label>
+                            <input
+                              type="text"
+                              required={isCorporateBooking}
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              placeholder="e.g. Acme Tech Solutions Pvt Ltd"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                              Guest GST Number (GSTIN) *
+                            </label>
+                            <input
+                              type="text"
+                              required={isCorporateBooking}
+                              maxLength={15}
+                              value={gstNumber}
+                              onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                              placeholder="e.g. 07AAAAA0000A1Z5"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-amber-300 font-mono font-bold text-xs uppercase focus:outline-none focus:border-amber-500 transition-colors"
+                            />
+                          </div>
+                        </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                            Company / Business Name *
+                            Company Billing Address (Optional)
                           </label>
                           <input
                             type="text"
-                            required={isCorporateBooking}
-                            value={companyName}
-                            onChange={(e) => setCompanyName(e.target.value)}
-                            placeholder="e.g. Acme Tech Solutions Pvt Ltd"
+                            value={billingAddress}
+                            onChange={(e) => setBillingAddress(e.target.value)}
+                            placeholder="e.g. 123 Tech Park, Phase 2, New Delhi - 110001"
                             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
                           />
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                            Guest GST Number (GSTIN) *
-                          </label>
-                          <input
-                            type="text"
-                            required={isCorporateBooking}
-                            maxLength={15}
-                            value={gstNumber}
-                            onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
-                            placeholder="e.g. 07AAAAA0000A1Z5"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-amber-300 font-mono font-bold text-xs uppercase focus:outline-none focus:border-amber-500 transition-colors"
-                          />
-                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                          Company Billing Address (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={billingAddress}
-                          onChange={(e) => setBillingAddress(e.target.value)}
-                          placeholder="e.g. 123 Tech Park, Phase 2, New Delhi - 110001"
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
-                        />
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1426,141 +1466,193 @@ const DEFAULT_SPA_PACKAGES = [
                 </div>
               </div>
 
-              {/* Card 3: Swimming Pool & Spa Package Add-ons */}
-              <div className="p-6 rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
-                      <Waves size={16} />
+              {/* Card 3: Swimming Pool & Spa Package Add-ons (Collapsible) */}
+              <div className="rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 overflow-hidden transition-all duration-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddons(!showAddons)}
+                  className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                      <Waves size={18} />
                     </span>
-                    <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">3. Swimming Pool & Spa Add-ons</h3>
-                  </div>
-                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
-                    Luxury Extras
-                  </span>
-                </div>
-
-                {/* Swimming Pool Section */}
-                <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
-                        <Droplets size={18} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold text-slate-200">Swimming Pool Access Pass</h4>
-                          {poolAccess && Number(poolPassCost || 0) === 0 && (
-                            <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                              ✨ Complimentary / Free
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400">Include swimming pool access pass & privileges for guests</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setPoolAccess(!poolAccess)}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                        poolAccess 
-                          ? 'bg-cyan-500 text-cyan-950 shadow-lg shadow-cyan-500/20 font-black' 
-                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                      }`}
-                    >
-                      {poolAccess ? <CheckCircle2 size={12} /> : null}
-                      {poolAccess ? 'Pool Included' : 'No Pool'}
-                    </button>
-                  </div>
-
-                  {poolAccess && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-cyan-500/15 animate-in fade-in duration-150">
-                      <div>
-                        <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Category</label>
-                        <select
-                          value={poolPackage}
-                          onChange={(e) => handlePoolPackageChange(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
-                        >
-                          {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
-                            <option key={p.id || p.name} value={p.name}>
-                              {p.name} (₹{p.price}{p.price === 0 ? ' - Free' : ` / ${p.duration || 'Stay'}`})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Charge (₹)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={poolPassCost}
-                          onChange={(e) => setPoolPassCost(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-cyan-200 text-xs font-mono font-bold focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Spa & Wellness Package Section */}
-                <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
-                      <Flower2 size={18} />
-                    </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-slate-200">Spa & Wellness Packages</h4>
-                        {spaPackage !== 'NONE' && Number(spaPackageCost || 0) === 0 && (
-                          <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                            ✨ Complimentary / Free with Plan
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-black text-xs sm:text-sm uppercase tracking-wider text-slate-300">
+                          3. Swimming Pool & Spa Add-ons
+                        </h3>
+                        <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                          Optional
+                        </span>
+                        {(poolAccess || spaAccess) && (
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                            ✓ Active
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400">Select luxury spa massage & relaxation packages</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {poolAccess || spaAccess
+                          ? `${poolAccess ? 'Swimming Pool Included' : ''}${poolAccess && spaAccess ? ' • ' : ''}${spaAccess ? spaPackage : ''}`
+                          : 'Click to add Swimming Pool access pass, Luxury Spa packages & special requests'}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Choice</label>
-                      <select
-                        value={spaPackage}
-                        onChange={(e) => handleSpaPackageChange(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-purple-400 font-semibold"
-                      >
-                        {DEFAULT_SPA_PACKAGES.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Charge (₹)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={spaPackageCost}
-                        onChange={(e) => setSpaPackageCost(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-purple-200 text-xs font-mono font-bold focus:outline-none"
-                      />
-                    </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
+                      showAddons
+                        ? 'bg-slate-800 text-slate-300 border-slate-700'
+                        : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20'
+                    }`}>
+                      {showAddons ? 'Hide Options' : '+ Add Options'}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showAddons ? 'rotate-180' : ''}`} />
                   </div>
+                </button>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Add-on Slot / Preferred Time Notes</label>
-                    <input
-                      type="text"
-                      value={addOnNotes}
-                      onChange={(e) => setAddOnNotes(e.target.value)}
-                      placeholder="e.g. Preferred time 5 PM, Essential aroma oil preference"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none"
-                    />
+                {showAddons && (
+                  <div className="p-5 sm:p-6 pt-0 border-t border-slate-800/80 space-y-4 animate-in fade-in duration-200 mt-3">
+                    {/* Swimming Pool Section */}
+                    <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
+                            <Droplets size={18} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs font-bold text-slate-200">Swimming Pool Access Pass</h4>
+                              {poolAccess && Number(poolPassCost || 0) === 0 && (
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                  ✨ Complimentary / Free
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400">Include swimming pool access pass & privileges for guests</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setPoolAccess(!poolAccess)}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                            poolAccess 
+                              ? 'bg-cyan-500 text-cyan-950 shadow-lg shadow-cyan-500/20 font-black' 
+                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          {poolAccess ? <CheckCircle2 size={12} /> : null}
+                          {poolAccess ? 'Pool Included' : 'No Pool'}
+                        </button>
+                      </div>
+
+                      {poolAccess && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-cyan-500/15 animate-in fade-in duration-150">
+                          <div>
+                            <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Category</label>
+                            <select
+                              value={poolPackage}
+                              onChange={(e) => handlePoolPackageChange(e.target.value)}
+                              className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
+                            >
+                              {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
+                                <option key={p.id || p.name} value={p.name}>
+                                  {p.name} (₹{p.price}{p.price === 0 ? ' - Free' : ` / ${p.duration || 'Stay'}`})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Charge (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={poolPassCost}
+                              onChange={(e) => setPoolPassCost(e.target.value)}
+                              className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-cyan-200 text-xs font-mono font-bold focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Spa & Wellness Package Section */}
+                    <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
+                            <Flower2 size={18} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs font-bold text-slate-200">Spa & Wellness Packages</h4>
+                              {spaAccess && Number(spaPackageCost || 0) === 0 && (
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                  ✨ Complimentary / Free with Plan
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400">Select luxury spa massage & relaxation packages</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={toggleSpaAccess}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                            spaAccess
+                              ? 'bg-purple-500 text-purple-950 shadow-lg shadow-purple-500/20 font-black'
+                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          {spaAccess ? <CheckCircle2 size={12} /> : null}
+                          {spaAccess ? 'Spa Included' : 'No Spa'}
+                        </button>
+                      </div>
+
+                      {spaAccess && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-purple-500/15 animate-in fade-in duration-150">
+                          <div>
+                            <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Choice</label>
+                            <select
+                              value={spaPackage}
+                              onChange={(e) => handleSpaPackageChange(e.target.value)}
+                              className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-purple-400 font-semibold"
+                            >
+                              {DEFAULT_SPA_PACKAGES.filter(s => s.id !== 'NONE').map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Charge (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={spaPackageCost}
+                              onChange={(e) => setSpaPackageCost(e.target.value)}
+                              className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-purple-200 text-xs font-mono font-bold focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Add-on Slot / Preferred Time Notes</label>
+                        <input
+                          type="text"
+                          value={addOnNotes}
+                          onChange={(e) => setAddOnNotes(e.target.value)}
+                          placeholder="e.g. Preferred time 5 PM, Essential aroma oil preference"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 

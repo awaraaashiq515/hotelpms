@@ -38,6 +38,7 @@ interface HKRoom {
   floor?: string | null
   status: string
   housekeepingStatus: string
+  maintenanceStatus?: string | null
   isVIP?: boolean
   roomType: { name: string }
   housekeepingTasks: HKTask[]
@@ -105,13 +106,84 @@ const STANDARD_CHECKLIST = [
 ]
 
 // Simple English cleaning steps shown to staff in checklist modal
-const CLEAN_STEPS: { emoji: string; label: string; sublabel: string }[] = [
-  { emoji: '🧹', label: 'Swept & Dusted Room',             sublabel: 'Floors swept, surfaces wiped clean' },
-  { emoji: '🛏️', label: 'Changed Bed Sheet & Pillows',    sublabel: 'Fresh sheet, pillow covers replaced' },
-  { emoji: '🚿', label: 'Cleaned Bathroom',                sublabel: 'Toilet, sink, floor cleaned; towels placed' },
-  { emoji: '🧴', label: 'Placed Amenities Kit',            sublabel: 'Soap, shampoo, conditioner restocked' },
-  { emoji: '🧺', label: 'Collected Laundry Bag',           sublabel: 'Used linen sent for laundry' },
-  { emoji: '🔍', label: 'Lost Item Check Done',            sublabel: 'Checked under bed, sofa & drawers' },
+const CLEAN_STEPS: { emoji: string; label: string; sublabel: string; color: string; items: string[] }[] = [
+  {
+    emoji: '🧹', label: 'Swept & Dusted Room', color: '#a78bfa',
+    sublabel: 'Floors swept, all surfaces wiped clean',
+    items: [
+      'Swept / vacuumed entire floor',
+      'Wiped all furniture surfaces & shelves',
+      'Cleaned mirrors & glass panels',
+      'Dusted AC vents & light fixtures',
+      'Mopped floor with disinfectant',
+    ],
+  },
+  {
+    emoji: '🛏️', label: 'Changed Bed Sheet & Pillows', color: '#60a5fa',
+    sublabel: 'Fresh linens & pillow covers replaced',
+    items: [
+      'Removed used bedsheet & fitted sheet',
+      'Placed fresh fitted sheet on mattress',
+      'Placed fresh top bedsheet',
+      'Replaced all pillow covers with fresh ones',
+      'Neatly made the bed & tucked corners',
+      'Placed duvet/blanket neatly folded',
+    ],
+  },
+  {
+    emoji: '🚿', label: 'Cleaned Bathroom', color: '#34d399',
+    sublabel: 'Toilet, sink & floor sanitized; fresh towels placed',
+    items: [
+      'Scrubbed & sanitized toilet bowl & seat',
+      'Cleaned sink, faucet & counter top',
+      'Scrubbed & cleaned bathtub / shower area',
+      'Mopped bathroom floor with disinfectant',
+      'Cleaned mirror & wipe dry',
+      'Placed fresh bath towel & hand towel',
+      'Replaced floor mat with fresh one',
+      'Emptied bathroom trash bin & relined',
+    ],
+  },
+  {
+    emoji: '🧴', label: 'Placed Amenities Kit', color: '#fbbf24',
+    sublabel: 'Full amenity kit restocked in bathroom',
+    items: [
+      '🧼 Soap bar (1 pc)',
+      '🧴 Shampoo bottle (1 pc)',
+      '🧴 Conditioner bottle (1 pc)',
+      '🧴 Body wash / shower gel (1 pc)',
+      '🪥 Toothbrush + Toothpaste kit (1 set)',
+      '💆 Moisturizer / lotion (1 pc)',
+      '🧢 Shower cap (1 pc)',
+      '🪒 Shaving kit (1 set)',
+      '🧻 Toilet paper rolls (2 rolls)',
+      '💊 Cotton pads & Q-tips kit',
+    ],
+  },
+  {
+    emoji: '🧺', label: 'Collected Laundry Bag', color: '#f87171',
+    sublabel: 'Used linen collected & sent for laundry',
+    items: [
+      'Collected used bedsheets from room',
+      'Collected used pillow covers',
+      'Collected used bath towels & hand towels',
+      'Collected used bath mat / floor mat',
+      'Placed all items in laundry bag',
+      'Tagged bag with room number & sent to laundry',
+    ],
+  },
+  {
+    emoji: '🔍', label: 'Lost Item Check Done', color: '#94a3b8',
+    sublabel: 'Full room checked for guest left-behind items',
+    items: [
+      'Checked under the bed & mattress edges',
+      'Checked sofa cushions & gaps',
+      'Checked wardrobe shelves & hangers',
+      'Checked all drawers & bedside tables',
+      'Checked bathroom shelf & behind toilet',
+      'No lost items found OR reported to supervisor',
+    ],
+  },
 ]
 
 export default function HousekeeperPortalPage({ params }: { params: Promise<{ propertyCode: string }> }) {
@@ -144,7 +216,21 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   /* Quick cleaning checklist modal */
   const [checklistRoom, setChecklistRoom] = useState<HKRoom | null>(null)
   const [checklistTicks, setChecklistTicks] = useState<boolean[]>(Array(CLEAN_STEPS.length).fill(false))
-  const [checklistStep, setChecklistStep] = useState(0) // 0..CLEAN_STEPS.length-1 = cleaning steps, then CLEAN_STEPS.length = review
+  const [checklistStep, setChecklistStep] = useState(0)
+  // Per-item status inside each wizard step: stepIdx -> itemIdx -> 'CHANGED'|'ALREADY_OK'|null
+  const [itemStatuses, setItemStatuses] = useState<Record<number, Record<number, 'CHANGED' | 'ALREADY_OK' | null>>>({})
+
+  const getItemStatus = (stepIdx: number, itemIdx: number): 'CHANGED' | 'ALREADY_OK' | null =>
+    itemStatuses[stepIdx]?.[itemIdx] ?? null
+
+  const toggleItemStatus = (stepIdx: number, itemIdx: number) => {
+    const cur = getItemStatus(stepIdx, itemIdx)
+    const next = cur === null ? 'CHANGED' : cur === 'CHANGED' ? 'ALREADY_OK' : null
+    setItemStatuses(prev => ({
+      ...prev,
+      [stepIdx]: { ...(prev[stepIdx] || {}), [itemIdx]: next },
+    }))
+  }
 
   /* Cleaning stopwatch / clean timer */
   const [activeTimerRoomId, setActiveTimerRoomId] = useState<string | null>(null)
@@ -994,35 +1080,32 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   ]
 
   return (
-    <div style={{ height: '100dvh', maxWidth: 500, margin: '0 auto', background: '#06070c', fontFamily: '"Inter",-apple-system,sans-serif', color: '#f1f5f9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', maxWidth: 500, margin: '0 auto', background: '#06070c', fontFamily: '"Outfit","Inter",-apple-system,sans-serif', color: '#f1f5f9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <Toaster richColors position="top-center" theme="dark" />
 
-      {/* ─── HEADER (Glassmorphic) ─── */}
-      <header style={{ flexShrink: 0, padding: '12px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(20px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* ─── HEADER (Glassmorphic Premium) ─── */}
+      <header style={{ flexShrink: 0, padding: '11px 16px', background: 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(6,7,12,0.95) 100%)', borderBottom: '1px solid rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(24px)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
           {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.fullName}
-              style={{ width: 34, height: 34, borderRadius: 10, objectFit: 'cover', border: '1.5px solid rgba(124,58,237,0.4)', flexShrink: 0 }}
-            />
+            <img src={user.avatarUrl} alt={user.fullName}
+              style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover', border: '2px solid rgba(124,58,237,0.5)', flexShrink: 0, boxShadow: '0 0 12px rgba(124,58,237,0.25)' }} />
           ) : (
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 0 16px rgba(124,58,237,0.3)', flexShrink: 0 }}>🧹</div>
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'linear-gradient(135deg,#7c3aed,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, boxShadow: '0 0 20px rgba(124,58,237,0.4)', flexShrink: 0 }}>🧹</div>
           )}
           <div>
-            <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>{propName}</div>
-            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 800, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {user.fullName} · Executive Housekeeper
+            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: '#f8fafc' }}>{propName}</div>
+            <div style={{ fontSize: 9, color: '#a78bfa', fontWeight: 700, marginTop: 3, letterSpacing: '0.04em' }}>
+              {user.fullName} · Housekeeper
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Live Sync Connectivity Indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: isOnline ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${isOnline ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)'}`, borderRadius: 6, padding: '3px 8px', fontSize: 8, fontWeight: 900, color: isOnline ? '#34d399' : '#f87171', letterSpacing: '0.05em' }}>
-            <span>{isOnline ? '📶 ONLINE' : '⚠️ OFFLINE'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isOnline ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, borderRadius: 20, padding: '4px 10px', fontSize: 9, fontWeight: 800, color: isOnline ? '#34d399' : '#f87171' }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? '#34d399' : '#f87171', boxShadow: isOnline ? '0 0 6px #34d399' : '0 0 6px #f87171', animation: 'pulse 2s infinite' }} />
+            {isOnline ? 'LIVE' : 'OFFLINE'}
           </div>
-          <button onClick={handleLogout} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '6px 11px', cursor: 'pointer', color: '#f87171', fontSize: 10, fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: 'inherit' }}>
-            ⏻ Exit
+          <button onClick={handleLogout} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '7px 12px', cursor: 'pointer', color: '#f87171', fontSize: 10, fontWeight: 800, fontFamily: 'inherit' }}>
+            ⏻
           </button>
         </div>
       </header>
@@ -1048,18 +1131,20 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
         {activeTab === 'rooms' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Sticky Filters Block */}
-            <div style={{ padding: '12px 14px 0', background: '#06070c', position: 'sticky', top: 0, zIndex: 10 }}>
-              {/* Quick statistics widgets */}
-              <div style={{ display: 'flex', gap: 7, marginBottom: 12 }}>
+            <div style={{ padding: '12px 14px 0', background: 'rgba(6,7,12,0.98)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(20px)' }}>
+              {/* Premium Stats Bar */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                 {[
-                  { label: 'Clean', val: stats.clean, color: '#34d399' },
-                  { label: 'Dirty', val: stats.dirty, color: '#f87171' },
-                  { label: 'Inspection', val: stats.inspecting, color: '#818cf8' },
-                  { label: 'Tasks', val: stats.tasks, color: '#fbbf24' },
+                  { label: 'Clean', val: stats.clean, color: '#34d399', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', icon: '✅' },
+                  { label: 'Dirty', val: stats.dirty, color: '#f87171', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)', icon: '🧹' },
+                  { label: 'Inspect', val: stats.inspecting, color: '#818cf8', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.2)', icon: '🔍' },
+                  { label: 'Tasks', val: stats.tasks, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)', icon: '📋' },
                 ].map(s => (
-                  <div key={s.label} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, padding: '8px 4px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: s.color }}>{s.val}</div>
-                    <div style={{ fontSize: 8, color: '#475569', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</div>
+                  <div key={s.label} style={{ flex: 1, background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: '8px 4px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ fontSize: 9, marginBottom: 2 }}>{s.icon}</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.val}</div>
+                    <div style={{ fontSize: 7.5, color: s.color, opacity: 0.7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{s.label}</div>
+                    {s.val > 0 && s.label === 'Dirty' && <div style={{ position: 'absolute', top: 4, right: 4, width: 5, height: 5, borderRadius: '50%', background: s.color, animation: 'pulse 1.5s infinite' }} />}
                   </div>
                 ))}
               </div>
@@ -1123,74 +1208,101 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                   const checklistTotal = STANDARD_CHECKLIST.length
 
                   return (
-                    <div key={room.id} onClick={() => {
-                      if (room.housekeepingStatus === 'DIRTY') {
-                        setChecklistRoom(room)
-                        setChecklistTicks(Array(CLEAN_STEPS.length).fill(false))
-                        setChecklistStep(0)
-                      } else {
-                        setSelectedRoom(room)
-                        setActiveMaintTickets([])
-                      }
-                    }}
-                      style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', border: room.isVIP ? '1.5px solid #fbbf24' : `1.5px solid ${hkCfg.border}`, borderRadius: 16, padding: '12px 12px', cursor: 'pointer', position: 'relative', opacity: updatingId === room.id ? 0.5 : 1, transition: 'transform 0.15s, border-color 0.15s', boxShadow: room.isVIP ? '0 0 12px rgba(251,191,36,0.1)' : 'none' }}>
-                      
-                      {/* VIP Sparkle Badge */}
-                      {room.isVIP && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, background: '#fbbf24', color: '#000', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.04em' }}>VIP</div>
+                    <div key={room.id}
+                      style={{
+                        background: `linear-gradient(160deg, ${hkCfg.bg} 0%, rgba(6,7,12,0.9) 60%)`,
+                        border: room.isVIP ? '1.5px solid #fbbf24' : `1.5px solid ${hkCfg.border}`,
+                        borderRadius: 18, padding: '0', cursor: 'pointer', position: 'relative',
+                        opacity: updatingId === room.id ? 0.5 : 1,
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        boxShadow: room.housekeepingStatus === 'DIRTY'
+                          ? `0 0 16px ${hkCfg.border}, 0 4px 16px rgba(0,0,0,0.5)`
+                          : room.isVIP ? '0 0 16px rgba(251,191,36,0.15), 0 4px 16px rgba(0,0,0,0.5)'
+                          : '0 4px 16px rgba(0,0,0,0.4)',
+                        overflow: 'hidden',
+                      }}>
+
+                      {/* Dirty rooms get animated border glow */}
+                      {room.housekeepingStatus === 'DIRTY' && (
+                        <div style={{ position: 'absolute', inset: 0, borderRadius: 18, border: `1.5px solid ${hkCfg.color}`, animation: 'dirtyPulse 2s ease-in-out infinite', pointerEvents: 'none', zIndex: 0 }} />
                       )}
 
-                      {/* Clean/Dirty Status Dot indicator */}
-                      {!room.isVIP && hasTasks && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 5px #fbbf24' }} />
-                      )}
+                      {/* Card Top: Room number + floor + status */}
+                      <div style={{ padding: '12px 13px 8px', position: 'relative', zIndex: 1 }} onClick={() => {
+                        if (room.housekeepingStatus === 'DIRTY') {
+                          setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)); setItemStatuses({}); setChecklistStep(0)
+                        } else {
+                          setSelectedRoom(room); setActiveMaintTickets([])
+                        }
+                      }}>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: 17, fontWeight: 900, color: '#f1f5f9' }}>{room.roomNumber}</span>
-                        <span style={{ fontSize: 13 }}>{hkCfg.emoji}</span>
-                      </div>
-                      
-                      <div style={{ fontSize: 9, color: '#475569', fontWeight: 800, marginBottom: 6 }}>
-                        {room.floor ? `FLOOR ${room.floor} · ` : ''}{room.roomType.name}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }}>
-                        <span style={{ alignSelf: 'flex-start', fontSize: 8, fontWeight: 900, padding: '2px 7px', borderRadius: 999, background: hkCfg.bg, color: hkCfg.color, border: `1px solid ${hkCfg.border}` }}>
-                          {hkCfg.label.toUpperCase()}
-                        </span>
-                        <span style={{ fontSize: 9, color: rCfg.color, fontWeight: 700 }}>
-                          {rCfg.emoji} {rCfg.label} {guest ? `(${guest.firstName[0]}. ${guest.lastName})` : ''}
-                        </span>
-                      </div>
-
-                      {/* Checklist progress bar */}
-                      <div style={{ marginTop: 6 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#475569', marginBottom: 2, fontWeight: 800 }}>
-                          <span>CLEAN AUDIT</span>
-                          <span style={{ color: checklistDone === checklistTotal ? '#34d399' : '#64748b' }}>{checklistDone}/{checklistTotal} Done</span>
+                        {/* Room Number Row */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <div>
+                            <div style={{ fontSize: 22, fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.03em', lineHeight: 1 }}>{room.roomNumber}</div>
+                            <div style={{ fontSize: 8, color: '#64748b', fontWeight: 700, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              {room.floor ? `Floor ${room.floor} · ` : ''}{room.roomType.name}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                            {room.isVIP && <span style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#000', fontSize: 8, fontWeight: 900, padding: '2px 7px', borderRadius: 6, letterSpacing: '0.05em' }}>⭐ VIP</span>}
+                            {hasTasks && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24', animation: 'pulse 1.5s infinite' }} />}
+                          </div>
                         </div>
-                        <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{ width: `${(checklistDone/checklistTotal)*100}%`, height: '100%', background: checklistDone === checklistTotal ? '#34d399' : 'linear-gradient(90deg,#7c3aed,#db2777)', transition: 'width 0.3s' }} />
-                        </div>
+
+                        {/* Status Chip */}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 900, padding: '3px 9px', borderRadius: 999, background: hkCfg.bg, color: hkCfg.color, border: `1px solid ${hkCfg.border}`, marginBottom: 6, letterSpacing: '0.04em' }}>
+                          {hkCfg.emoji} {hkCfg.label}
+                        </span>
+
+                        {/* Guest chip - visible */}
+                        {guest && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 8, padding: '3px 8px', marginBottom: 4 }}>
+                            <span style={{ fontSize: 9 }}>👤</span>
+                            <span style={{ fontSize: 9, color: '#93c5fd', fontWeight: 700 }}>{guest.firstName} {guest.lastName}</span>
+                          </div>
+                        )}
+
+                        {/* Assigned to You badge */}
+                        {room.maintenanceStatus?.startsWith('ASSIGNED:') && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 8, padding: '3px 8px', marginBottom: 4 }}>
+                            <span style={{ fontSize: 9 }}>📌</span>
+                            <span style={{ fontSize: 9, color: '#a78bfa', fontWeight: 800 }}>Assigned to You</span>
+                          </div>
+                        )}
+
+                        {/* Checklist progress */}
+                        {checklistDone > 0 && (
+                          <div style={{ marginTop: 4 }}>
+                            <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ width: `${(checklistDone/checklistTotal)*100}%`, height: '100%', background: checklistDone === checklistTotal ? '#34d399' : 'linear-gradient(90deg,#7c3aed,#db2777)', transition: 'width 0.3s' }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {activeTimerRoomId === room.id && (
+                          <div style={{ fontSize: 8, color: '#34d399', marginTop: 5, fontWeight: 900, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', animation: 'pulse 1s infinite' }} />
+                            LIVE {formatElapsedTime(elapsedSeconds)}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Simple 2-Button Room Actions */}
-                      <div style={{ display: 'flex', gap: 5, marginTop: 8, paddingTop: 6, borderTop: '1px dashed rgba(255,255,255,0.05)' }} onClick={e => e.stopPropagation()}>
+                      {/* Quick Action Buttons — full width bottom strip */}
+                      <div style={{ display: 'flex', borderTop: `1px solid ${hkCfg.border}`, background: 'rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => updateHKStatus(room.id, 'DIRTY')}
-                          style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 8.5, fontWeight: 900, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          🧹 Mark Dirty
+                          style={{ flex: 1, padding: '9px 0', borderRight: '1px solid rgba(255,255,255,0.05)', fontSize: 9, fontWeight: 900, background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
+                          🧹 Dirty
                         </button>
-                        <button onClick={() => { setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)); setChecklistStep(0) }}
-                          style={{ flex: 1.4, padding: '7px 0', borderRadius: 8, fontSize: 8.5, fontWeight: 900, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
+                        <button onClick={() => { setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)); setItemStatuses({}); setChecklistStep(0) }}
+                          style={{ flex: 1.6, padding: '9px 0', fontSize: 9, fontWeight: 900, background: room.housekeepingStatus === 'DIRTY' ? 'linear-gradient(90deg,rgba(16,185,129,0.25),rgba(5,150,105,0.25))' : 'none', border: 'none', color: '#34d399', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
                           ✅ Clean & Log
                         </button>
+                        <button onClick={() => { setSelectedRoom(room); setActiveMaintTickets([]) }}
+                          style={{ flex: 1, padding: '9px 0', fontSize: 9, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
+                          ⋯ More
+                        </button>
                       </div>
-
-                      {activeTimerRoomId === room.id && (
-                        <div style={{ fontSize: 8, color: '#34d399', marginTop: 6, fontWeight: 900, letterSpacing: '0.04em' }}>
-                          ⏱️ LIVE: {formatElapsedTime(elapsedSeconds)}
-                        </div>
-                      )}
                     </div>
                   )
                 })}
@@ -1776,145 +1888,356 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
 
       {/* ══ STEP-BY-STEP CLEANING WIZARD ══ */}
       {checklistRoom && (() => {
-        const TOTAL_STEPS = CLEAN_STEPS.length // 6 cleaning steps
+        const TOTAL_STEPS = CLEAN_STEPS.length
         const isReview = checklistStep >= TOTAL_STEPS
         const currentStep = CLEAN_STEPS[checklistStep]
         const doneTicks = checklistTicks.filter(Boolean).length
-
-        const openChecklist = () => {
-          setChecklistRoom(null)
-        }
+        const doneSteps = CLEAN_STEPS.filter((_, i) => checklistTicks[i])
+        const skippedSteps = CLEAN_STEPS.filter((_, i) => !checklistTicks[i])
+        // Amenities kit items (step index 3)
+        const kitStep = CLEAN_STEPS[3]
 
         return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 240, background: '#080b12', fontFamily: '"Inter",-apple-system,sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 240, background: '#070a10', fontFamily: '"Inter",-apple-system,sans-serif', display: 'flex', flexDirection: 'column' }}>
 
             {/* ── Top Bar ── */}
-            <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.015)', backdropFilter: 'blur(20px)' }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 900, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Room Cleaning</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#f1f5f9', marginTop: 2 }}>Room {checklistRoom.roomNumber}</div>
+                <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Room Cleaning</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9', marginTop: 1, letterSpacing: '-0.02em' }}>Room {checklistRoom.roomNumber}</div>
               </div>
-              <button onClick={openChecklist}
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '7px 14px', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}>
+              <button onClick={() => setChecklistRoom(null)}
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '8px 16px', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
                 ✕ Cancel
               </button>
             </div>
 
-            {/* ── Step Progress Dots ── */}
-            <div style={{ padding: '14px 18px 0', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-              {CLEAN_STEPS.map((_, i) => (
+            {/* ── Step Progress Bar ── */}
+            <div style={{ padding: '12px 18px 0', display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
+              {CLEAN_STEPS.map((step, i) => (
                 <div key={i} style={{
                   height: 4, flex: 1, borderRadius: 2,
                   background: i < checklistStep
                     ? '#10b981'
                     : i === checklistStep && !isReview
-                      ? '#f1f5f9'
-                      : 'rgba(255,255,255,0.1)',
+                      ? step.color || '#f1f5f9'
+                      : 'rgba(255,255,255,0.08)',
                   transition: 'background 0.3s',
+                  boxShadow: i === checklistStep && !isReview ? `0 0 8px ${step.color}60` : 'none'
                 }} />
               ))}
-              {/* Review dot */}
-              <div style={{ height: 4, flex: 1, borderRadius: 2, background: isReview ? '#f1f5f9' : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
+              <div style={{ height: 4, flex: 1, borderRadius: 2, background: isReview ? '#f1f5f9' : 'rgba(255,255,255,0.08)', transition: 'background 0.3s' }} />
             </div>
-            <div style={{ padding: '6px 18px 0', fontSize: 9, fontWeight: 800, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
-              {isReview ? 'Final Review' : `Step ${checklistStep + 1} of ${TOTAL_STEPS}`}
+            <div style={{ padding: '5px 18px 0', fontSize: 9, fontWeight: 800, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
+              {isReview ? '✨ Final Review' : `Step ${checklistStep + 1} of ${TOTAL_STEPS}`}
             </div>
 
-            {/* ── Step Content ── */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 24px 0' }}>
+            {/* ── Scrollable Step Content ── */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
               {!isReview && currentStep ? (
-                /* ── CLEANING STEP ── */
-                <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
-                  {/* Big emoji */}
-                  <div style={{ fontSize: 80, marginBottom: 20, lineHeight: 1 }}>{currentStep.emoji}</div>
+                /* ── INDIVIDUAL CLEANING STEP ── */
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 20px 20px' }}>
 
-                  <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9', marginBottom: 8, letterSpacing: '-0.02em' }}>
-                    {currentStep.label}
-                  </div>
-                  <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600, marginBottom: 40, lineHeight: 1.5 }}>
-                    {currentStep.sublabel}
-                  </div>
+                  {/* Step Card - Premium */}
+                  <div style={{ width: '100%', maxWidth: 420 }}>
 
-                  {/* YES / SKIP buttons — big, easy to tap */}
-                  <div style={{ display: 'flex', gap: 12, width: '100%' }}>
-                    <button
-                      onClick={() => {
-                        // Mark as done & go to next
-                        setChecklistTicks(prev => { const n = [...prev]; n[checklistStep] = true; return n })
-                        setChecklistStep(s => s + 1)
-                      }}
-                      style={{
-                        flex: 2, padding: '20px', borderRadius: 18, fontSize: 16, fontWeight: 900,
-                        background: 'linear-gradient(135deg,#10b981,#059669)',
-                        border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                        boxShadow: '0 0 30px rgba(16,185,129,0.3)',
+                    {/* Emoji + Step Title */}
+                    <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                      <div style={{
+                        width: 100, height: 100, borderRadius: 28, margin: '0 auto 18px',
+                        background: `linear-gradient(135deg, ${currentStep.color}20, ${currentStep.color}08)`,
+                        border: `2px solid ${currentStep.color}30`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 52,
+                        boxShadow: `0 0 40px ${currentStep.color}20`,
                       }}>
-                      ✅  Done
-                    </button>
-                    <button
-                      onClick={() => {
-                        // Skip step (mark not done) & continue
-                        setChecklistTicks(prev => { const n = [...prev]; n[checklistStep] = false; return n })
-                        setChecklistStep(s => s + 1)
-                      }}
-                      style={{
-                        flex: 1, padding: '20px', borderRadius: 18, fontSize: 13, fontWeight: 800,
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1.5px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontFamily: 'inherit',
-                      }}>
-                      Skip
-                    </button>
-                  </div>
+                        {currentStep.emoji}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9', marginBottom: 6, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                        {currentStep.label}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, lineHeight: 1.5 }}>
+                        {currentStep.sublabel}
+                      </div>
+                    </div>
 
-                  {/* Go back */}
-                  {checklistStep > 0 && (
-                    <button onClick={() => setChecklistStep(s => s - 1)}
-                      style={{ marginTop: 16, background: 'none', border: 'none', color: '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      ← Back to previous step
-                    </button>
-                  )}
+                    {/* ── Tappable Checklist Items ── */}
+                    <div style={{ background: `linear-gradient(135deg, ${currentStep.color}06, rgba(255,255,255,0.01))`, border: `1px solid ${currentStep.color}18`, borderRadius: 18, padding: '14px', marginBottom: checklistStep === 4 ? 14 : 22 }}>
+                      <div style={{ fontSize: 9, fontWeight: 900, color: currentStep.color, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>📋 Tap each item to confirm</span>
+                        <span style={{ fontSize: 8, color: '#475569', fontWeight: 700, textTransform: 'none' }}>
+                          {currentStep.items.filter((_, i) => getItemStatus(checklistStep, i) !== null).length}/{currentStep.items.length} done
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {currentStep.items.map((item, idx) => {
+                          const status = getItemStatus(checklistStep, idx)
+                          const isChanged = status === 'CHANGED'
+                          const isOk = status === 'ALREADY_OK'
+                          return (
+                            <button key={idx} onClick={() => toggleItemStatus(checklistStep, idx)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                                borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%',
+                                background: isChanged ? `rgba(16,185,129,0.12)` : isOk ? `rgba(96,165,250,0.1)` : 'rgba(255,255,255,0.02)',
+                                border: isChanged ? '1px solid rgba(16,185,129,0.3)' : isOk ? '1px solid rgba(96,165,250,0.25)' : `1px solid rgba(255,255,255,0.06)`,
+                                transition: 'all 0.2s',
+                              }}>
+                              {/* Status icon */}
+                              <div style={{
+                                width: 24, height: 24, borderRadius: 8, flexShrink: 0,
+                                background: isChanged ? 'rgba(16,185,129,0.2)' : isOk ? 'rgba(96,165,250,0.15)' : `${currentStep.color}12`,
+                                border: isChanged ? '1.5px solid #34d399' : isOk ? '1.5px solid #60a5fa' : `1px solid ${currentStep.color}30`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
+                              }}>
+                                {isChanged ? '✓' : isOk ? '↺' : <span style={{ fontSize: 9, fontWeight: 900, color: currentStep.color }}>{idx + 1}</span>}
+                              </div>
+                              {/* Item text */}
+                              <span style={{
+                                fontSize: 12, fontWeight: 600, lineHeight: 1.4, flex: 1,
+                                color: isChanged ? '#34d399' : isOk ? '#93c5fd' : '#cbd5e1',
+                                textDecoration: isChanged ? 'line-through' : isOk ? 'line-through' : 'none',
+                                opacity: (isChanged || isOk) ? 0.85 : 1,
+                              }}>{item}</span>
+                              {/* Status label */}
+                              {isChanged && <span style={{ fontSize: 8, fontWeight: 900, color: '#34d399', flexShrink: 0 }}>CHANGED</span>}
+                              {isOk && <span style={{ fontSize: 8, fontWeight: 900, color: '#60a5fa', flexShrink: 0 }}>WAS OK</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {/* Helper text */}
+                      <div style={{ marginTop: 10, fontSize: 9, color: '#334155', fontWeight: 600, textAlign: 'center' }}>
+                        Tap once = ✓ Changed · Tap again = ↺ Was Already OK · Tap 3rd = Reset
+                      </div>
+                    </div>
+
+                    {/* ── LAUNDRY STEP: Interactive Item Picker ── */}
+                    {checklistStep === 4 && (
+                      <div style={{ background: 'rgba(239,68,68,0.05)', border: '1.5px solid rgba(239,68,68,0.18)', borderRadius: 18, padding: '16px', marginBottom: 22 }}>
+                        <div style={{ fontSize: 9, fontWeight: 900, color: '#f87171', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          🧺 Items Collected from Room {checklistRoom.roomNumber}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#475569', fontWeight: 600, marginBottom: 14 }}>
+                          Tap + to log each item collected for laundry
+                        </div>
+
+                        {stockItemsLoading ? (
+                          <div style={{ textAlign: 'center', padding: '12px 0', color: '#475569', fontSize: 10 }}>Loading items…</div>
+                        ) : stockItems.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                            <div style={{ fontSize: 10, color: '#475569', marginBottom: 10 }}>No stock items in inventory.</div>
+                            <button onClick={seedStockItems} disabled={stockItemsLoading}
+                              style={{ padding: '8px 14px', borderRadius: 8, background: 'linear-gradient(135deg,#f87171,#dc2626)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              ✨ Add Default Items
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {stockItems.map(item => {
+                              const qty = laundryCounters[item.id] || 0
+                              return (
+                                <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: qty > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${qty > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.06)'}`, borderRadius: 12, padding: '10px 13px', transition: 'all 0.15s' }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 800, color: qty > 0 ? '#fca5a5' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                                    <div style={{ fontSize: 9, color: '#475569', fontWeight: 600, marginTop: 1 }}>{item.unit || 'pcs'} · Stock: {item.currentStock}</div>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                    <button onClick={() => setLaundryCounters(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
+                                      style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: 16, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>−</button>
+                                    <span style={{ fontSize: 15, fontWeight: 900, color: qty > 0 ? '#f87171' : '#334155', minWidth: 20, textAlign: 'center' }}>{qty}</span>
+                                    <button onClick={() => setLaundryCounters(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
+                                      style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#f87171', fontSize: 16, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>+</button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Total selected summary */}
+                        {Object.values(laundryCounters).some(v => v > 0) && (
+                          <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 800 }}>🧺 Total Collected</span>
+                            <span style={{ fontSize: 14, fontWeight: 900, color: '#f87171' }}>{Object.values(laundryCounters).reduce((a, b) => a + b, 0)} items</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Done / Skip Buttons ── */}
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <button
+                        onClick={() => {
+                          setChecklistTicks(prev => { const n = [...prev]; n[checklistStep] = true; return n })
+                          // If laundry step and items selected, auto-submit laundry log
+                          if (checklistStep === 4 && checklistRoom && Object.values(laundryCounters).some(v => v > 0)) {
+                            submitLaundry(checklistRoom)
+                          }
+                          setChecklistStep(s => s + 1)
+                        }}
+                        style={{
+                          flex: 2, padding: '18px', borderRadius: 18, fontSize: 16, fontWeight: 900,
+                          background: checklistStep === 4 && Object.values(laundryCounters).some(v => v > 0)
+                            ? 'linear-gradient(135deg, #dc2626, #f87171)'
+                            : 'linear-gradient(135deg, #10b981, #059669)',
+                          border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                          boxShadow: checklistStep === 4 && Object.values(laundryCounters).some(v => v > 0)
+                            ? '0 4px 24px rgba(239,68,68,0.4)'
+                            : '0 4px 24px rgba(16,185,129,0.4)',
+                          letterSpacing: '0.02em',
+                        }}>
+                        {checklistStep === 4 && Object.values(laundryCounters).some(v => v > 0)
+                          ? `🧺 Log & Done (${Object.values(laundryCounters).reduce((a,b)=>a+b,0)} items)`
+                          : '✅  Done'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setChecklistTicks(prev => { const n = [...prev]; n[checklistStep] = false; return n })
+                          setChecklistStep(s => s + 1)
+                        }}
+                        style={{
+                          flex: 1, padding: '18px', borderRadius: 18, fontSize: 13, fontWeight: 800,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1.5px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontFamily: 'inherit',
+                        }}>
+                        Skip
+                      </button>
+                    </div>
+
+                    {checklistStep > 0 && (
+                      <div style={{ textAlign: 'center', marginTop: 14 }}>
+                        <button onClick={() => setChecklistStep(s => s - 1)}
+                          style={{ background: 'none', border: 'none', color: '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          ← Back to previous step
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 /* ── REVIEW STEP ── */
-                <div style={{ width: '100%', maxWidth: 420 }}>
-                  <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <div style={{ fontSize: 60, marginBottom: 12 }}>{doneTicks === TOTAL_STEPS ? '🌟' : '📋'}</div>
+                <div style={{ padding: '20px 18px 32px' }}>
+
+                  {/* Review Hero */}
+                  <div style={{ textAlign: 'center', marginBottom: 24, padding: '20px', background: doneTicks === TOTAL_STEPS ? 'rgba(16,185,129,0.07)' : 'rgba(251,191,36,0.06)', borderRadius: 20, border: `1px solid ${doneTicks === TOTAL_STEPS ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
+                    <div style={{ fontSize: 52, marginBottom: 10 }}>{doneTicks === TOTAL_STEPS ? '🌟' : '📋'}</div>
                     <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.01em' }}>
-                      {doneTicks === TOTAL_STEPS ? 'All Steps Complete!' : `${doneTicks} of ${TOTAL_STEPS} steps done`}
+                      {doneTicks === TOTAL_STEPS ? 'All Steps Complete!' : `${doneTicks} of ${TOTAL_STEPS} done`}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, fontWeight: 600 }}>Review before marking room clean</div>
-                  </div>
-
-                  {/* Steps review list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 28 }}>
-                    {CLEAN_STEPS.map((step, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                        borderRadius: 14, background: checklistTicks[i] ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.06)',
-                        border: `1px solid ${checklistTicks[i] ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.15)'}`,
-                      }}>
-                        <div style={{ fontSize: 18, flexShrink: 0 }}>{step.emoji}</div>
-                        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: checklistTicks[i] ? '#34d399' : '#f87171' }}>
-                          {step.label}
-                        </div>
-                        <div style={{ fontSize: 16, flexShrink: 0 }}>{checklistTicks[i] ? '✅' : '❌'}</div>
-                        {/* Let staff re-tap to fix */}
-                        <button
-                          onClick={() => {
-                            setChecklistTicks(prev => { const n = [...prev]; n[i] = !n[i]; return n })
-                          }}
-                          style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 9, fontWeight: 800, color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                          {checklistTicks[i] ? 'Undo' : 'Done'}
-                        </button>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 6, fontWeight: 600 }}>Room {checklistRoom.roomNumber} · Review before marking clean</div>
+                    {checklistRoom.checkIns[0]?.guest && (
+                      <div style={{ marginTop: 8, fontSize: 10, color: '#a78bfa', fontWeight: 700 }}>
+                        Guest: {checklistRoom.checkIns[0].guest.firstName} {checklistRoom.checkIns[0].guest.lastName}
                       </div>
-                    ))}
+                    )}
                   </div>
 
-                  {/* Final action */}
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  {/* ── Completed Steps Summary ── */}
+                  {doneSteps.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 9, fontWeight: 900, color: '#34d399', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        ✅ Completed Tasks ({doneSteps.length})
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {CLEAN_STEPS.map((step, i) => checklistTicks[i] ? (
+                          <div key={i} style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(16,185,129,0.18)', background: 'rgba(16,185,129,0.05)' }}>
+                            {/* Step header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: '1px solid rgba(16,185,129,0.1)' }}>
+                              <span style={{ fontSize: 18 }}>{step.emoji}</span>
+                              <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: '#34d399' }}>{step.label}</span>
+                              <span style={{ fontSize: 14 }}>✅</span>
+                            </div>
+                            {/* Step items - what was done */}
+                            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                              {step.items.map((item, idx) => (
+                                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                  <span style={{ color: '#34d399', fontSize: 10, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, lineHeight: 1.35 }}>{item}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Skipped Steps ── */}
+                  {skippedSteps.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 9, fontWeight: 900, color: '#f87171', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        ❌ Skipped / Not Done ({skippedSteps.length})
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {CLEAN_STEPS.map((step, i) => !checklistTicks[i] ? (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 14, background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                            <span style={{ fontSize: 18 }}>{step.emoji}</span>
+                            <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#f87171' }}>{step.label}</span>
+                            <button
+                              onClick={() => {
+                                setChecklistTicks(prev => { const n = [...prev]; n[i] = true; return n })
+                              }}
+                              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 8, padding: '4px 10px', fontSize: 9, fontWeight: 900, color: '#34d399', cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Mark Done
+                            </button>
+                          </div>
+                        ) : null)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Laundry Items Summary (if any collected) ── */}
+                  {Object.values(laundryCounters).some(v => v > 0) && (
+                    <div style={{ marginBottom: 16, background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 18, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>🧺</span>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: '#f87171' }}>Laundry Collected</div>
+                          <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, marginTop: 1 }}>Items picked up from Room {checklistRoom.roomNumber}</div>
+                        </div>
+                        <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, padding: '3px 9px', borderRadius: 999, background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          {Object.values(laundryCounters).reduce((a, b) => a + b, 0)} ITEMS
+                        </span>
+                      </div>
+                      <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {stockItems.filter(item => (laundryCounters[item.id] || 0) > 0).map(item => (
+                          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{item.name}</span>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: '#f87171' }}>× {laundryCounters[item.id]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Kit Items Summary (always shown) ── */}
+                  <div style={{ marginBottom: 20, background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.15)', borderRadius: 18, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>🧴</span>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: '#fbbf24' }}>Amenities Kit Placed</div>
+                        <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, marginTop: 1 }}>Items stocked in bathroom</div>
+                      </div>
+                      <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, padding: '3px 9px', borderRadius: 999, background: checklistTicks[3] ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.12)', color: checklistTicks[3] ? '#34d399' : '#f87171', border: `1px solid ${checklistTicks[3] ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.2)'}` }}>
+                        {checklistTicks[3] ? 'STOCKED' : 'SKIPPED'}
+                      </span>
+                    </div>
+                    <div style={{ padding: '10px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px' }}>
+                      {kitStep.items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color: checklistTicks[3] ? '#fbbf24' : '#475569', flexShrink: 0 }}>{checklistTicks[3] ? '✓' : '○'}</span>
+                          <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600, lineHeight: 1.3 }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Final action buttons ── */}
+                  <div style={{ display: 'flex', gap: 10, position: 'sticky', bottom: 16 }}>
                     <button onClick={() => setChecklistStep(TOTAL_STEPS - 1)}
-                      style={{ flex: 1, padding: '15px', borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      style={{ flex: 1, padding: '14px', borderRadius: 16, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
                       ← Go Back
                     </button>
                     <button
@@ -1925,10 +2248,10 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                       }}
                       disabled={updatingId === checklistRoom.id}
                       style={{
-                        flex: 2, padding: '15px', borderRadius: 16, fontSize: 13, fontWeight: 900,
+                        flex: 2.5, padding: '14px', borderRadius: 16, fontSize: 13, fontWeight: 900,
                         background: 'linear-gradient(135deg,#10b981,#059669)',
                         border: 'none', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                        boxShadow: '0 0 24px rgba(16,185,129,0.35)',
+                        boxShadow: '0 4px 24px rgba(16,185,129,0.4)',
                         opacity: updatingId === checklistRoom.id ? 0.6 : 1,
                         letterSpacing: '0.03em',
                       }}>
@@ -1939,17 +2262,31 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
               )}
             </div>
 
-            {/* Bottom spacer */}
-            <div style={{ height: 'calc(40px + env(safe-area-inset-bottom))', flexShrink: 0 }} />
+            {/* Bottom safe area */}
+            <div style={{ height: 'env(safe-area-inset-bottom)', flexShrink: 0 }} />
           </div>
         )
       })()}
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
         @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.92); }
+        }
+        @keyframes dirtyPulse {
+          0%, 100% { opacity: 0.6; box-shadow: 0 0 8px rgba(248,113,113,0.3); }
+          50% { opacity: 1; box-shadow: 0 0 18px rgba(248,113,113,0.6); }
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         * { box-sizing: border-box }
         input::placeholder { color: rgba(148,163,184,0.3) }
         ::-webkit-scrollbar { display: none }
+        button:active { transform: scale(0.97); }
       `}</style>
     </div>
   )

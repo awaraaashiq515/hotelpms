@@ -95,7 +95,7 @@ export async function PUT(request: NextRequest) {
       data: {
         status: status || undefined,
         housekeepingStatus: housekeepingStatus || undefined,
-        maintenanceStatus: maintenanceStatus || undefined,
+        maintenanceStatus: maintenanceStatus !== undefined ? (maintenanceStatus ? maintenanceStatus : null) : undefined,
         amenities: amenities !== undefined ? amenities : undefined,
         customRate: customRate !== undefined ? (customRate ? Number(customRate) : null) : undefined,
         discount: discount !== undefined ? (discount ? Number(discount) : null) : undefined,

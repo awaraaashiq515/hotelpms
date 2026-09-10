@@ -11,8 +11,47 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
 
+    const propertyId = propertyIdParam || session.propertyId;
+    let targetPropertyId = propertyId;
+
+    if (propertyId && propertyId !== 'all' && propertyId !== 'null' && propertyId !== 'undefined') {
+      const prop = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { hmsEnabled: true, type: true, organizationId: true }
+      });
+      if (prop && !prop.hmsEnabled && prop.type !== 'HOTEL') {
+        const hotelProp = await prisma.property.findFirst({
+          where: {
+            organizationId: prop.organizationId || session.organizationId,
+            OR: [
+              { hmsEnabled: true },
+              { type: 'HOTEL' }
+            ]
+          },
+          select: { id: true }
+        });
+        if (hotelProp) {
+          targetPropertyId = hotelProp.id;
+        }
+      }
+    } else if (session.organizationId) {
+      const hotelProp = await prisma.property.findFirst({
+        where: {
+          organizationId: session.organizationId,
+          OR: [
+            { hmsEnabled: true },
+            { type: 'HOTEL' }
+          ]
+        },
+        select: { id: true }
+      });
+      if (hotelProp) {
+        targetPropertyId = hotelProp.id;
+      }
+    }
+
     const roomTypes = await prisma.roomType.findMany({
-      where: getMultiTenantWhere(session, propertyIdParam),
+      where: targetPropertyId ? { propertyId: targetPropertyId } : getMultiTenantWhere(session, propertyIdParam),
       include: {
         rooms: true,
       },
@@ -80,6 +119,35 @@ export async function DELETE(request: NextRequest) {
     });
 
     return apiResponse(null, 'Room Type deleted successfully');
+  } catch (error) {
+    return apiError(error);
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) return apiError(new Error('Unauthorized'), 401);
+
+    const body = await request.json();
+    const { id, name, code, baseRate, maxOccupancy } = body;
+
+    if (!id) {
+      return apiError(new Error('Room Type ID is required'), 400);
+    }
+
+    const roomType = await prisma.roomType.update({
+      where: { id },
+      data: {
+        name: name || undefined,
+        code: code || undefined,
+        baseRate: baseRate !== undefined ? Number(baseRate) : undefined,
+        maxOccupancy: maxOccupancy !== undefined ? Number(maxOccupancy) : undefined,
+      },
+      include: { rooms: true },
+    });
+
+    return apiResponse(roomType, 'Room Type updated successfully');
   } catch (error) {
     return apiError(error);
   }
