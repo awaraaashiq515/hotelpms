@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgres"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -3108,6 +3108,7 @@ model HotelInventoryKit {
   name        String                  // e.g. "Standard Room Turnover"
   description String?
   kitType     String                  @default("ROOM") // ROOM | SUITE | GUEST | SERVICE | CUSTOM
+  priority    Int                     @default(99)     // 1 = highest / most urgent; lower = runs first
   isActive    Boolean                 @default(true)
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
@@ -3116,6 +3117,7 @@ model HotelInventoryKit {
   usageLogs   HotelInventoryKitUsage[]
 
   @@index([propertyId])
+  @@index([propertyId, priority])
 }
 
 model HotelInventoryKitItem {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import {
   Package,
   Plus,
@@ -19,7 +20,9 @@ import {
   ArrowDownCircle,
   Wine,
   Droplets,
-  Filter
+  Filter,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -34,7 +37,9 @@ const MOVEMENT_LABELS: Record<string, { label: string; color: string }> = {
   ADJUSTMENT_OUT: { label: 'Adj (-)', color: 'text-orange-600 bg-orange-50' },
 };
 
-export default function BarInventory() {
+export default function BarInventory({ propertyCode: propCodeProp }: { propertyCode?: string } = {}) {
+  const params = useParams();
+  const propertyCode = propCodeProp || (params?.propertyCode as string) || '';
   const [tab, setTab] = useState<'items' | 'movements' | 'stock-in' | 'adjustments' | 'mapping'>('items');
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [itemSearch, setItemSearch] = useState('');
@@ -56,15 +61,23 @@ export default function BarInventory() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [mappingLoading, setMappingLoading] = useState<string>('');
+  const [seedingDefaults, setSeedingDefaults] = useState(false);
+  const [autoMapping, setAutoMapping] = useState(false);
+  const [mappingSearch, setMappingSearch] = useState('');
+  const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
   const fetchStockItems = useCallback(async () => {
     setLoadingItems(true);
     try {
-      const data = await inventoryApi.listStockItems({ search: itemSearch, itemType: 'BAR' });
+      const data = await inventoryApi.listStockItems({
+        search: itemSearch,
+        itemType: 'BAR',
+        ...(propertyCode ? { propertyId: propertyCode } : {}),
+      });
       setStockItems(data || []);
     } catch { setStockItems([]); }
     finally { setLoadingItems(false); }
-  }, [itemSearch]);
+  }, [itemSearch, propertyCode]);
 
   const fetchMovements = useCallback(async () => {
     setLoadingMov(true);
@@ -78,17 +91,42 @@ export default function BarInventory() {
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
-      const data = await productsApi.list();
+      const data = await productsApi.list(propertyCode || undefined);
       setProducts(data.filter((p: any) => p.menuType === 'BAR') || []);
     } catch { setProducts([]); }
     finally { setLoadingProducts(false); }
-  }, []);
+  }, [propertyCode]);
 
   useEffect(() => { fetchStockItems(); }, [fetchStockItems]);
   useEffect(() => {
     if (tab === 'movements') fetchMovements();
     if (tab === 'mapping') { fetchProducts(); fetchStockItems(); }
   }, [tab, fetchMovements, fetchProducts, fetchStockItems]);
+
+  const handleSeedDefaults = async () => {
+    setSeedingDefaults(true);
+    try {
+      const res = await fetch('/api/inventory/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemType: 'BAR' }),
+      });
+      const data = await res.json();
+      if (data.data) {
+        setSeedMsg(`✓ ${data.data.created} items loaded · ${data.data.skipped} already existed`);
+        setTimeout(() => setSeedMsg(null), 5000);
+        fetchStockItems();
+      } else {
+        setSeedMsg('⚠ ' + (data.message || 'Could not seed items'));
+        setTimeout(() => setSeedMsg(null), 4000);
+      }
+    } catch {
+      setSeedMsg('Error loading defaults');
+      setTimeout(() => setSeedMsg(null), 4000);
+    } finally {
+      setSeedingDefaults(false);
+    }
+  };
 
   const openAddItem = () => {
     setEditItem(null);
@@ -137,6 +175,32 @@ export default function BarInventory() {
     finally { setMappingLoading(''); }
   };
 
+  const handleAutoMapBar = async () => {
+    setAutoMapping(true);
+    let count = 0;
+    try {
+      for (const prod of products as any[]) {
+        if (prod.stockItemId) continue;
+        const matched = stockItems.find((s) =>
+          s.name.toLowerCase().includes(prod.name.toLowerCase()) ||
+          prod.name.toLowerCase().includes(s.name.toLowerCase())
+        );
+        if (matched) {
+          await inventoryApi.mapProduct(prod.id, matched.id);
+          count++;
+        }
+      }
+      setSeedMsg(`✓ Automatically linked ${count} drinks to inventory stock`);
+      setTimeout(() => setSeedMsg(null), 5000);
+      await fetchProducts();
+    } catch (err: any) {
+      setSeedMsg(`⚠ Error: ${err.message || 'Failed to auto-map'}`);
+      setTimeout(() => setSeedMsg(null), 4000);
+    } finally {
+      setAutoMapping(false);
+    }
+  };
+
   const tabs = [
     { id: 'items', label: 'Liquor Stock', icon: Wine },
     { id: 'movements', label: 'Bar Ledger', icon: BarChart2 },
@@ -147,25 +211,46 @@ export default function BarInventory() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Action Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-1 p-1 bg-white/50 dark:bg-slate-800/40 backdrop-blur-xl rounded-xl border border-white dark:border-slate-700/50 shadow-sm">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1.5 bg-white/80 dark:bg-slate-800/70 backdrop-blur-xl rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm overflow-x-auto no-scrollbar max-w-full shrink-0">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id} onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all duration-300 ${
+              className={`whitespace-nowrap shrink-0 flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 ${
                 tab === id 
-                  ? 'bg-amber-600 text-white shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-500/25 ring-1 ring-amber-500/20' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
               }`}
             >
-              <Icon size={14} /> <span>{label}</span>
+              <Icon size={15} /> <span>{label}</span>
             </button>
           ))}
         </div>
-        <Button onClick={openAddItem} className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest px-5 py-2.5 shadow-md shadow-amber-200/40 active:scale-95 transition-all">
-          <Plus size={16} className="mr-2" /> Add Liquor Brand
-        </Button>
+        <div className="flex items-center gap-2.5 shrink-0 self-end xl:self-auto flex-wrap sm:flex-nowrap">
+          <button
+            onClick={handleSeedDefaults}
+            disabled={seedingDefaults}
+            className="h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95 disabled:opacity-60 shadow-sm shrink-0"
+            title="Load 28 standard bar liquor items"
+          >
+            <RefreshCw size={13} className={seedingDefaults ? 'animate-spin' : ''} />
+            <span>{seedingDefaults ? 'Loading...' : 'Bar Defaults'}</span>
+          </button>
+          <Button 
+            onClick={openAddItem} 
+            className="h-10 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black uppercase tracking-wider px-5 shadow-md shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 shrink-0"
+          >
+            <Plus size={16} /> <span>Add Liquor Brand</span>
+          </Button>
+        </div>
       </div>
+
+      {/* Seed toast */}
+      {seedMsg && (
+        <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest shadow-lg animate-in slide-in-from-top-2 duration-300">
+          <CheckCircle size={14} /><span>{seedMsg}</span>
+        </div>
+      )}
 
       {/* Content Section */}
       <div className="relative group">
@@ -202,7 +287,33 @@ export default function BarInventory() {
                     {loadingItems ? (
                       <tr><td colSpan={7} className="py-24 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Scanning Cellar...</td></tr>
                     ) : stockItems.length === 0 ? (
-                      <tr><td colSpan={7} className="py-24 text-center text-[10px] font-black text-slate-300 uppercase">No brands found</td></tr>
+                      <tr>
+                        <td colSpan={7} className="py-6 px-6">
+                          <div className="rounded-3xl border-2 border-dashed border-amber-100 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-900/10 p-8 text-center space-y-4">
+                            <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center mx-auto">
+                              <Wine size={28} className="text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-slate-700 dark:text-slate-200 mb-1">Bar Cellar is Empty</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Load 28 standard bar stock items in one click</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 justify-center text-[9px] font-black uppercase tracking-widest">
+                              {['Royal Stag', 'Old Monk', 'Smirnoff', 'Kingfisher', 'Sula Shiraz', 'Bombay Sapphire', 'Soda Water', 'Budweiser'].map(item => (
+                                <span key={item} className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-amber-100 dark:border-slate-700 text-amber-700 dark:text-amber-400 rounded-lg">{item}</span>
+                              ))}
+                              <span className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-400 rounded-lg">+20 more...</span>
+                            </div>
+                            <button
+                              onClick={handleSeedDefaults}
+                              disabled={seedingDefaults}
+                              className="inline-flex items-center gap-2 px-8 py-3 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-amber-300/50 transition-all active:scale-95 disabled:opacity-60"
+                            >
+                              <RefreshCw size={14} className={seedingDefaults ? 'animate-spin' : ''} />
+                              {seedingDefaults ? 'Loading Bar Items...' : 'Load Bar Defaults (28 Items)'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     ) : stockItems.map(item => (
                       <tr key={item.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-colors group/row">
                         <td className="px-6 py-4">
@@ -259,57 +370,135 @@ export default function BarInventory() {
             </div>
           )}
 
-          {tab === 'mapping' && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-               <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                <h3 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-widest">Bar Menu Sync</h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Connect drink items with inventory stock</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50/50 dark:bg-slate-800/50">
-                      <th className="px-8 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Beverage</th>
-                      <th className="px-8 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Inventory Source</th>
-                      <th className="px-8 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {loadingProducts ? (
-                       <tr><td colSpan={3} className="py-20 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Syncing Bar...</td></tr>
-                    ) : products.map((product: any) => (
-                      <tr key={product.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-all">
-                        <td className="px-8 py-5">
-                           <div className="font-black text-xs text-slate-900 dark:text-white leading-tight">{product.name}</div>
-                           <div className="text-[9px] font-bold text-slate-400 uppercase">{product.category?.name}</div>
-                        </td>
-                        <td className="px-8 py-5">
+          {tab === 'mapping' && (() => {
+            const filtered = products.filter((p: any) =>
+              !mappingSearch || p.name.toLowerCase().includes(mappingSearch.toLowerCase())
+            );
+            const mappedCount = products.filter((p: any) => p.stockItemId).length;
+
+            return (
+              <div className="animate-in fade-in duration-300">
+                {/* Header Bar */}
+                <div className="p-5 md:p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-widest">
+                        Bar Menu Sync
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/50">
+                        {mappedCount} / {products.length} Mapped
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                      Connect drink menu items with bar inventory stock bottles & cans
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={handleAutoMapBar}
+                      disabled={autoMapping}
+                      className="h-10 flex items-center gap-2 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50 shrink-0"
+                      title="Automatically link matching drinks to bar stock items by name"
+                    >
+                      {autoMapping ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                      <span>Auto-Link by Name</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search */}
+                <div className="p-4 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                  <div className="relative max-w-md w-full">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={mappingSearch}
+                      onChange={(e) => setMappingSearch(e.target.value)}
+                      placeholder="Search drinks (e.g. Kingfisher, Old Monk, Smirnoff)..."
+                      className="w-full h-10 pl-10 pr-9 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-sm"
+                    />
+                    {mappingSearch && (
+                      <button 
+                        onClick={() => setMappingSearch('')} 
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto no-scrollbar">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                        <th className="px-8 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Beverage</th>
+                        <th className="px-8 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Inventory Source</th>
+                        <th className="px-8 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {loadingProducts ? (
+                        <tr><td colSpan={3} className="py-20 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Syncing Bar...</td></tr>
+                      ) : filtered.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="py-16 px-6 text-center">
+                            <div className="rounded-3xl border-2 border-dashed border-amber-100 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-900/10 p-8 text-center space-y-3 max-w-md mx-auto">
+                              <Wine size={28} className="mx-auto text-amber-600" />
+                              <p className="text-xs font-black text-slate-800 dark:text-slate-200">No Bar Beverages Found</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Add bar products or click auto-link to connect drinks to cellar stock.
+                              </p>
+                              {products.length > 0 && (
+                                <button
+                                  onClick={handleAutoMapBar}
+                                  disabled={autoMapping}
+                                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md transition-all active:scale-95"
+                                >
+                                  {autoMapping ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                  <span>Auto-Link by Name</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ) : filtered.map((product: any) => (
+                        <tr key={product.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-all">
+                          <td className="px-8 py-5">
+                            <div className="font-black text-xs text-slate-900 dark:text-white leading-tight">{product.name}</div>
+                            <div className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                              {product.category?.name || 'Bar Item'} · <span className="text-amber-600 font-black">₹{product.sellingPrice}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5">
                             <select
                               value={product.stockItemId || ''}
                               onChange={(e) => handleMapProduct(product.id, e.target.value || null)}
                               disabled={mappingLoading === product.id}
-                              className="w-full max-w-xs px-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-[10px] font-black outline-none focus:ring-2 focus:ring-amber-500/10 appearance-none shadow-sm cursor-pointer"
+                              className="w-full max-w-sm px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl text-[10px] font-black outline-none focus:ring-2 focus:ring-amber-500/20 appearance-none shadow-sm cursor-pointer"
                             >
                               <option value="">-- Manual Deduction --</option>
-                              {stockItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                              {stockItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>)}
                             </select>
-                        </td>
-                        <td className="px-8 py-5 text-center">
-                           {product.stockItemId ? (
-                             <div className="w-8 h-8 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                               <CheckCircle size={16} />
-                             </div>
-                           ) : (
-                             <div className="w-2 h-2 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto" />
-                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                          <td className="px-8 py-5 text-center">
+                            {product.stockItemId ? (
+                              <div className="w-8 h-8 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                                <CheckCircle size={16} />
+                              </div>
+                            ) : (
+                              <div className="w-2 h-2 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto" />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {tab === 'stock-in' && (
             <div className="max-w-md mx-auto py-12 px-6 animate-in zoom-in-95 duration-300">

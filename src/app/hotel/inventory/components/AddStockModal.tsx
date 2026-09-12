@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, Search, Package, CheckCircle2, ChevronRight,
   Plus, Minus, ShoppingCart, ArrowLeft, Sparkles,
@@ -536,9 +537,14 @@ export function AddStockModal({ allItems: initialItems, onClose, onConfirm }: Ad
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} />
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative w-full sm:max-w-2xl sm:rounded-3xl rounded-t-3xl
                       bg-slate-900 border border-white/8 shadow-2xl
@@ -577,6 +583,7 @@ export function AddStockModal({ allItems: initialItems, onClose, onConfirm }: Ad
           />
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

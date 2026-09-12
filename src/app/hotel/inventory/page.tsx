@@ -198,7 +198,7 @@ export default function InventoryPage() {
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-orange-600 hover:bg-orange-500
-                       text-white text-xs font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-600/20"
+                       text-white text-xs font-black uppercase tracking-wider transition-colors shadow-lg shadow-orange-600/20 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <Plus size={14} /> Add Stock / Restock
           </button>

@@ -124,6 +124,18 @@ export const inventoryApi = {
     return apiClient.post('/api/inventory/recipes', { productId, ingredients });
   },
 
+  async seedDefaultRecipes(options?: { propertyId?: string; overwrite?: boolean }): Promise<any> {
+    return apiClient.post('/api/inventory/recipes/seed-defaults', options || {});
+  },
+
+  async suggestRecipe(dishName: string, propertyId?: string): Promise<any> {
+    return apiClient.get('/api/inventory/recipes/suggest', { params: { dishName, ...(propertyId ? { propertyId } : {}) } });
+  },
+
+  async setupFullRestaurant(propertyId?: string): Promise<any> {
+    return apiClient.post('/api/inventory/setup-full-restaurant', { propertyId });
+  },
+
   // Warehouses & Transfers
   async listWarehouses(): Promise<any[]> {
     return apiClient.get('/api/inventory/transfer');

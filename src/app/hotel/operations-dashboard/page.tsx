@@ -21,6 +21,7 @@ import { QuickNotesModal } from '@/components/hotel/operations/QuickNotesModal';
 import { QuickReservationModal } from '@/components/hotel/operations/QuickReservationModal';
 import { LearnToUseModal } from '@/components/hotel/operations/LearnToUseModal';
 import { GuestRegistrationCardModal } from '@/components/hotel/operations/GuestRegistrationCardModal';
+import { ReservationDetailDrawer } from '@/components/hotel/calendar/ReservationDetailDrawer';
 import { printDailyOperationsManifest } from '@/lib/hotel-print-utils';
 
 export default function HotelOperationsDashboard() {
@@ -28,6 +29,7 @@ export default function HotelOperationsDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedBookingForDrawer, setSelectedBookingForDrawer] = useState<any | null>(null);
   const [activeReservationForNotes, setActiveReservationForNotes] = useState<ReservationItem | null>(null);
   const [activeReservationForPrint, setActiveReservationForPrint] = useState<ReservationItem | null>(null);
   const [isNewResModalOpen, setIsNewResModalOpen] = useState(false);
@@ -63,14 +65,22 @@ export default function HotelOperationsDashboard() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  // Handler to open booking details drawer
+  const handleOpenBookingDetails = (item: any) => {
+    if (!item) return;
+    const bookingObj = item.booking || item;
+    setSelectedBookingForDrawer(bookingObj);
+  };
+
   // Real Check-In Handler
-  const handleCheckIn = async (resItem: ReservationItem) => {
+  const handleCheckIn = async (resItem: any) => {
     try {
-      showToast(`Processing check-in for ${resItem.guestName}...`);
+      const gName = resItem.guestName || (resItem.guest ? `${resItem.guest.firstName || ''} ${resItem.guest.lastName || ''}`.trim() : 'Guest');
+      showToast(`Processing check-in for ${gName}...`);
       const payload = {
         reservationId: resItem.id,
-        guestId: resItem.guestId,
-        roomId: resItem.assignedRoomId,
+        guestId: resItem.guestId || resItem.guest?.id,
+        roomId: resItem.assignedRoomId || resItem.rooms?.[0]?.roomId,
         expectedCheckoutAt: resItem.departureDate || new Date(Date.now() + 86400000).toISOString(),
       };
 
@@ -82,8 +92,9 @@ export default function HotelOperationsDashboard() {
 
       const data = await res.json();
       if (data.success) {
-        showToast(`✓ Check-in successful for ${resItem.guestName}!`);
+        showToast(`✓ Check-in successful for ${gName}!`);
         fetchDashboardData();
+        setSelectedBookingForDrawer(null);
       } else {
         // Fallback: update status to CHECKED_IN directly on reservation
         const patchRes = await fetch('/api/hotel/bookings', {
@@ -93,8 +104,9 @@ export default function HotelOperationsDashboard() {
         });
         const patchData = await patchRes.json();
         if (patchData.success) {
-          showToast(`✓ Checked in: ${resItem.guestName} (${resItem.unitNumber})`);
+          showToast(`✓ Checked in: ${gName}`);
           fetchDashboardData();
+          setSelectedBookingForDrawer(null);
         } else {
           showToast(`Check-in notice: ${data.message || patchData.message}`);
         }
@@ -105,9 +117,80 @@ export default function HotelOperationsDashboard() {
     }
   };
 
+  // Real Check-Out Handler
+  const handleCheckOut = async (b: any) => {
+    try {
+      const gName = b.guestName || (b.guest ? `${b.guest.firstName || ''} ${b.guest.lastName || ''}`.trim() : 'Guest');
+      showToast(`Processing checkout for ${gName}...`);
+      const res = await fetch('/api/hotel/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationId: b.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`✓ Check-out successful for ${gName}!`);
+        fetchDashboardData();
+        setSelectedBookingForDrawer(null);
+      } else {
+        // Fallback: update status to CHECKED_OUT directly on reservation
+        const patchRes = await fetch('/api/hotel/bookings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: b.id, status: 'CHECKED_OUT' }),
+        });
+        const patchData = await patchRes.json();
+        if (patchData.success) {
+          showToast(`✓ Checked out: ${gName}`);
+          fetchDashboardData();
+          setSelectedBookingForDrawer(null);
+        } else {
+          showToast(`Checkout notice: ${data.message || patchData.message}`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error processing checkout.');
+    }
+  };
+
   // Real Print Handler for Individual Guest (GRC / Folio Voucher)
-  const handlePrint = (resItem: ReservationItem) => {
-    setActiveReservationForPrint(resItem);
+  const handlePrint = (resItem: any) => {
+    const formatted: ReservationItem = {
+      id: resItem.id,
+      guestId: resItem.guestId || resItem.guest?.id,
+      guestName: resItem.guest
+        ? `${((resItem.guest as any).name || (resItem.guest.firstName || '') + ' ' + (resItem.guest.lastName || '')).trim()}` || resItem.guestName || 'Guest'
+        : resItem.guestName || 'Guest',
+      guestFirstName: resItem.guest?.firstName || resItem.guestFirstName || '',
+      guestLastName: resItem.guest?.lastName || resItem.guestLastName || '',
+      guestMobile: resItem.guest?.mobile || resItem.guestMobile || '',
+      guestEmail: resItem.guest?.email || resItem.guestEmail || '',
+      guestAddress: resItem.guest?.address || resItem.guestAddress || '',
+      guestIdType: resItem.guest?.idType || resItem.guestIdType || 'Aadhaar Card',
+      guestIdNumber: resItem.guest?.idNumber || resItem.guestIdNumber || 'Verified ID',
+      guestNationality: resItem.guest?.nationality || resItem.guestNationality || 'Indian',
+      companyName: resItem.companyName || resItem.source || 'Direct Front Desk',
+      gstNumber: resItem.gstNumber || '',
+      reservationNumber: resItem.bookingNo || resItem.reservationNumber || 'N/A',
+      unitNumber: resItem.rooms?.[0]?.room?.roomNumber || resItem.unitNumber || 'Unassigned',
+      assignedRoomId: resItem.assignedRoomId || resItem.rooms?.[0]?.roomId,
+      roomTypeName: resItem.roomType?.name || resItem.roomTypeName || 'Standard Room',
+      status: resItem.status || 'CONFIRMED',
+      arrivalDate: resItem.arrivalDate,
+      departureDate: resItem.departureDate,
+      nights: resItem.nights,
+      ratePerNight: resItem.ratePerNight,
+      adults: resItem.adults || 1,
+      children: resItem.children || 0,
+      mealPlan: resItem.mealPlan || 'RO',
+      totalAmount: resItem.totalAmount || 0,
+      advanceAmount: resItem.advanceAmount || 0,
+      dueAmount: resItem.dueAmount || 0,
+      notes: resItem.addOnNotes || resItem.notes || '',
+      source: resItem.companyName || resItem.source || 'Direct',
+    };
+    setActiveReservationForPrint(formatted);
   };
 
   // Real Print Handler for Front Desk Daily Operations Manifest
@@ -260,6 +343,7 @@ export default function HotelOperationsDashboard() {
           onCheckIn={handleCheckIn}
           onPrint={handlePrint}
           onPrintList={(items) => handlePrintManifest(items)}
+          onSelectReservation={(res) => handleOpenBookingDetails(res)}
         />
 
         {/* Right Column: Today's Activity */}
@@ -267,7 +351,7 @@ export default function HotelOperationsDashboard() {
           activityData={dashboardData?.activity || { sales: [], cancellations: [], bookedTodayCount: 0, unitNights: 0, todayRevenue: 0 }}
           currency={dashboardData?.property?.currency || '₹'}
           onRefresh={fetchDashboardData}
-          onRowClick={(act) => showToast(`Selected booking: ${act.guestName} (${dashboardData?.property?.currency || '₹'}${act.revenue})`)}
+          onRowClick={(act) => handleOpenBookingDetails(act)}
         />
       </div>
 
@@ -280,6 +364,19 @@ export default function HotelOperationsDashboard() {
       </div>
 
       {/* ── Modals & Drawers ── */}
+      <ReservationDetailDrawer
+        booking={selectedBookingForDrawer}
+        roomsList={dashboardData?.roomsList || []}
+        currency={dashboardData?.property?.currency || '₹'}
+        onClose={() => setSelectedBookingForDrawer(null)}
+        onCheckIn={handleCheckIn}
+        onCheckOut={handleCheckOut}
+        onPrint={handlePrint}
+        onUpdated={() => {
+          fetchDashboardData();
+        }}
+      />
+
       <QuickNotesModal
         reservation={activeReservationForNotes}
         onClose={() => setActiveReservationForNotes(null)}

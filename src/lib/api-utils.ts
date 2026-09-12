@@ -138,3 +138,101 @@ export async function resolveAdminProperty(session: any, prisma: any): Promise<s
   return null;
 }
 
+/**
+ * Resolves any property identifier (CUID id, property code, name, or URL slug like 'main-hotel')
+ * to the actual Property record from the database.
+ * Supports graceful fallback to session property, organization property, or active property.
+ */
+export async function resolvePropertyIdentifier(
+  identifier?: string | null,
+  session?: any,
+  prismaClient?: any
+): Promise<{ id: string; name: string; code: string } | null> {
+  const p = prismaClient || (await import('@/lib/prisma')).prisma;
+  const clean = identifier?.trim();
+
+  if (clean && clean !== 'all' && clean !== 'null' && clean !== 'undefined') {
+    const spaced = clean.replace(/[-_]+/g, ' ');
+
+    // 1. Direct Prisma match on id, code, uppercase code, or exact name
+    let prop = await p.property.findFirst({
+      where: {
+        OR: [
+          { id: clean },
+          { code: clean },
+          { code: clean.toUpperCase() },
+          { name: clean },
+          { name: spaced },
+        ],
+      },
+      select: { id: true, name: true, code: true },
+    });
+
+    if (prop) return prop;
+
+    // 2. In-memory comparison for case-insensitivity and slug match
+    const all = await p.property.findMany({
+      select: { id: true, name: true, code: true },
+    });
+
+    const targetLower = clean.toLowerCase();
+    const targetSpaced = targetLower.replace(/[-_]+/g, ' ');
+
+    const slugifyInline = (text: string) =>
+      text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\-]+/g, '')
+        .replace(/\-\-+/g, '-');
+
+    prop = all.find((item: any) => {
+      const nameLower = (item.name || '').toLowerCase();
+      const codeLower = (item.code || '').toLowerCase();
+      const slugName = slugifyInline(item.name || '');
+      const slugCode = slugifyInline(item.code || '');
+      return (
+        item.id === clean ||
+        codeLower === targetLower ||
+        nameLower === targetLower ||
+        nameLower === targetSpaced ||
+        slugName === targetLower ||
+        slugCode === targetLower
+      );
+    });
+
+    if (prop) return prop;
+  }
+
+  // 3. Fallback to session propertyId
+  if (session?.propertyId) {
+    const prop = await p.property.findUnique({
+      where: { id: session.propertyId },
+      select: { id: true, name: true, code: true },
+    });
+    if (prop) return prop;
+  }
+
+  // 4. Fallback to admin property in user's organization
+  if (session) {
+    const adminPropId = await resolveAdminProperty(session, p);
+    if (adminPropId) {
+      const prop = await p.property.findUnique({
+        where: { id: adminPropId },
+        select: { id: true, name: true, code: true },
+      });
+      if (prop) return prop;
+    }
+  }
+
+  // 5. Final fallback to first active property so API never crashes
+  const fallback = await p.property.findFirst({
+    select: { id: true, name: true, code: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return fallback || null;
+}
+
+

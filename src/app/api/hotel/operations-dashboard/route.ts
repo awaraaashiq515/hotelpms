@@ -199,15 +199,55 @@ export async function GET(request: NextRequest) {
         const arr = new Date(r.arrivalDate);
         const dep = new Date(r.departureDate);
         const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
+        const guestName = r.guest ? `${((r.guest as any).name || (r.guest.firstName || '') + ' ' + (r.guest.lastName || '')).trim()}` || 'Guest' : 'Guest';
+        const assignedRoomNo = r.rooms?.[0]?.room?.roomNumber || r.roomType?.name || 'Unassigned';
         return {
           id: r.id,
-          guestName: r.guest ? `${((r.guest as any).name || (r.guest.firstName || '') + ' ' + (r.guest.lastName || '')).trim()}` || 'Guest' : 'Guest',
+          guestName,
           revenue: r.totalAmount,
           currency,
           checkInDate: arr.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
           nights,
           source: r.companyName || 'Direct',
-          type: 'Sales'
+          type: 'Sales' as const,
+          booking: {
+            id: r.id,
+            bookingNo: r.bookingNo,
+            reservationNumber: r.bookingNo,
+            guestId: r.guestId,
+            guestName,
+            guestFirstName: r.guest?.firstName || '',
+            guestLastName: r.guest?.lastName || '',
+            guestMobile: r.guest?.mobile || '',
+            guestEmail: r.guest?.email || '',
+            guestAddress: r.guest?.address || (r.guest as any)?.billingAddress || r.billingAddress || '',
+            guestIdType: r.guest?.idType || 'Aadhaar Card',
+            guestIdNumber: r.guest?.idNumber || 'Verified ID',
+            guestNationality: r.guest?.nationality || 'Indian',
+            companyName: r.companyName || r.guest?.companyName || 'Direct Front Desk',
+            gstNumber: r.gstNumber || r.guest?.gstNumber || '',
+            unitNumber: assignedRoomNo,
+            assignedRoomId: r.assignedRoomId || r.rooms?.[0]?.roomId,
+            roomTypeName: r.roomType?.name || 'Standard Room',
+            status: r.status,
+            arrivalDate: r.arrivalDate,
+            departureDate: r.departureDate,
+            nights,
+            ratePerNight: r.rooms?.[0]?.ratePerNight || Math.round(r.totalAmount / nights),
+            adults: r.adults || 1,
+            children: r.children || 0,
+            mealPlan: r.mealPlan || 'RO',
+            totalAmount: r.totalAmount,
+            advanceAmount: r.advanceAmount,
+            dueAmount: r.dueAmount,
+            notes: r.addOnNotes || '',
+            addOnNotes: r.addOnNotes || '',
+            source: r.companyName || 'Direct',
+            createdAt: r.createdAt,
+            guest: r.guest,
+            roomType: r.roomType,
+            rooms: r.rooms,
+          }
         };
       });
 
@@ -223,7 +263,11 @@ export async function GET(request: NextRequest) {
         checkInDate: arr.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
         nights,
         source: c.source,
-        type: 'Cancellation'
+        type: 'Cancellation' as const,
+        booking: {
+          ...c,
+          bookingNo: c.reservationNumber,
+        }
       };
     });
 

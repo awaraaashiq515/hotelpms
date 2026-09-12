@@ -18,6 +18,7 @@ export interface ActivityItem {
   nights: number;
   source: string;
   type: 'Sales' | 'Cancellation' | 'Overbookings';
+  booking?: any;
 }
 
 interface ActivityData {
@@ -227,7 +228,8 @@ export function TodayActivityWidget({
                   <tr
                     key={act.id}
                     onClick={() => onRowClick?.(act)}
-                    className="group hover:bg-slate-800/40 transition-colors cursor-pointer"
+                    title="Click to view booking details"
+                    className="group hover:bg-slate-800/60 active:bg-slate-800/80 transition-colors cursor-pointer"
                   >
                     {/* Guest Name & icon */}
                     <td className="py-3 px-2 font-medium text-white">

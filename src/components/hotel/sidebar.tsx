@@ -224,7 +224,7 @@ const NAV_GROUPS: NavGroup[] = [
 export const HotelSidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { isOpen, toggle } = useSidebar();
+  const { isOpen, toggle, setIsOpen } = useSidebar();
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
   const [hasRestaurant, setHasRestaurant] = React.useState(false);
   const [restaurantCode, setRestaurantCode] = React.useState<string | null>(null);
@@ -341,6 +341,7 @@ export const HotelSidebar: React.FC = () => {
                       <Link
                         key={item.path}
                         href={item.path}
+                        onClick={() => setIsOpen(false)}
                         title={!isOpen ? item.name : undefined}
                         className={`
                           w-full flex items-center rounded-xl transition-all duration-200 group relative
@@ -369,6 +370,18 @@ export const HotelSidebar: React.FC = () => {
                             {item.badge}
                           </span>
                         )}
+
+                        {/* Floating Tooltip when collapsed to the side */}
+                        {!isOpen && (
+                          <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-white text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50 flex items-center gap-1.5">
+                            <span>{item.name}</span>
+                            {item.badge && (
+                              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${item.badgeColor || 'bg-indigo-500/20 text-indigo-400'}`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </Link>
                     );
                   })}
@@ -389,8 +402,9 @@ export const HotelSidebar: React.FC = () => {
         {hasRestaurant && (
           <Link
             href={restaurantCode ? `/${restaurantCode}/billing` : '/billing'}
+            onClick={() => setIsOpen(false)}
             title={!isOpen ? 'Restaurant POS' : undefined}
-            className={`w-full flex items-center py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition-all text-xs font-bold group ${
+            className={`w-full flex items-center py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition-all text-xs font-bold group relative ${
               isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'
             }`}
           >
@@ -398,17 +412,28 @@ export const HotelSidebar: React.FC = () => {
             {isOpen && (
               <span className="flex-1 truncate">Restaurant POS</span>
             )}
+            {!isOpen && (
+              <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-emerald-300 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
+                Restaurant POS
+              </div>
+            )}
           </Link>
         )}
 
         {/* All Properties / Switch Property link (always visible) */}
         <Link
           href="/restaurantadmin"
+          onClick={() => setIsOpen(false)}
           title={!isOpen ? 'All Properties' : undefined}
-          className={`w-full flex items-center py-2 rounded-xl hover:bg-slate-800/60 text-slate-600 hover:text-slate-300 transition-all text-xs font-bold group ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
+          className={`w-full flex items-center py-2 rounded-xl hover:bg-slate-800/60 text-slate-600 hover:text-slate-300 transition-all text-xs font-bold group relative ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
         >
           <Building2 size={14} className="group-hover:scale-110 transition-transform shrink-0" />
           {isOpen && <span>All Properties</span>}
+          {!isOpen && (
+            <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-slate-200 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
+              All Properties
+            </div>
+          )}
         </Link>
 
         <button

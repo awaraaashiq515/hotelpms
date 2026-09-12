@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, resolvePropertyIdentifier } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
@@ -9,6 +9,12 @@ export async function GET(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
+    const rawProp = searchParams.get('propertyId') || searchParams.get('propertyCode') || session?.propertyId;
+    const prop = await resolvePropertyIdentifier(rawProp, session);
+    const propertyId = prop?.id;
+
+    if (!propertyId) return apiError(new Error('propertyId is required'), 400);
+
     const stockItemId = searchParams.get('stockItemId');
     const movementType = searchParams.get('movementType');
     const page = parseInt(searchParams.get('page') || '1');
@@ -16,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const movements = await prisma.stockMovement.findMany({
       where: {
-        propertyId: session.propertyId!,
+        propertyId,
         ...(stockItemId ? { stockItemId } : {}),
         ...(movementType ? { movementType } : {}),
       },
@@ -31,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     const total = await prisma.stockMovement.count({
       where: {
-        propertyId: session.propertyId!,
+        propertyId,
         ...(stockItemId ? { stockItemId } : {}),
         ...(movementType ? { movementType } : {}),
       },

@@ -44,6 +44,8 @@ export default function ProductsPage() {
   const [isComboDeleteOpen, setIsComboDeleteOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
   const [propertyDetails, setPropertyDetails] = useState<any>(null);
+  const [seedingMenu, setSeedingMenu] = useState(false);
+  const [seedToast, setSeedToast] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -214,6 +216,33 @@ export default function ProductsPage() {
       alert('Failed to update products');
     } finally {
       setMutationLoading(false);
+    }
+  };
+
+  const handleSeedMenu = async (menuType: 'RESTAURANT' | 'BAR' | 'ALL') => {
+    setSeedingMenu(true);
+    try {
+      const propertyId = selectedPropertyId !== 'all' ? selectedPropertyId : propertyDetails?.id;
+      const res = await fetch('/api/products/seed-menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId, menuType }),
+      });
+      const data = await res.json();
+      if (data.data) {
+        const { categoriesCreated, productsCreated, skipped } = data.data;
+        setSeedToast(`✓ ${productsCreated} products loaded (${categoriesCreated} categories) · ${skipped} already existed`);
+        setTimeout(() => setSeedToast(null), 5000);
+        fetchProducts();
+      } else {
+        setSeedToast(`⚠ ${data.message || 'Could not seed menu'}`);
+        setTimeout(() => setSeedToast(null), 4000);
+      }
+    } catch (e) {
+      setSeedToast('Error loading menu defaults');
+      setTimeout(() => setSeedToast(null), 4000);
+    } finally {
+      setSeedingMenu(false);
     }
   };
 
@@ -451,7 +480,28 @@ export default function ProductsPage() {
         showBack
         backUrl="/operations"
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* ── Seed Menu Defaults ── */}
+            <div className="relative group">
+              <Button
+                disabled={seedingMenu}
+                onClick={() => handleSeedMenu('ALL')}
+                variant="secondary"
+                className="font-black text-[9px] tracking-widest px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center gap-1 disabled:opacity-60"
+              >
+                {seedingMenu
+                  ? <><Download size={10} className="animate-bounce" /> LOADING...</>
+                  : <><Sparkles size={10} /> LOAD MENU DEFAULTS</>
+                }
+              </Button>
+              {/* Dropdown for specific menu type */}
+              <div className="absolute top-full mt-1 right-0 hidden group-hover:flex flex-col bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden min-w-[160px]">
+                <button onClick={() => handleSeedMenu('RESTAURANT')} className="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 text-left">Restaurant Only</button>
+                <button onClick={() => handleSeedMenu('BAR')} className="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-amber-600 hover:bg-amber-50 text-left">Bar Only</button>
+                <button onClick={() => handleSeedMenu('ALL')} className="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 text-left">All (Restaurant + Bar)</button>
+              </div>
+            </div>
+
             <Button
               onClick={() => setSelectedMenuTypeFilter('AI_SCAN')}
               variant="secondary"
@@ -523,9 +573,16 @@ export default function ProductsPage() {
               COMBO
             </Button>
           </div>
-
         }
       />
+
+      {/* Seed toast notification */}
+      {seedToast && (
+        <div className="mx-auto mb-2 flex items-center gap-3 px-5 py-3 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-200/60 animate-in slide-in-from-top-3 duration-300">
+          <Check size={16} className="shrink-0" />
+          <span>{seedToast}</span>
+        </div>
+      )}
 
       <SearchToolbar
         value={search}

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty, resolvePropertyIdentifier } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
@@ -18,11 +18,15 @@ export async function GET(request: NextRequest) {
     const lowStockOnly = searchParams.get('lowStock') === 'true';
     const itemType = searchParams.get('itemType');
     // WT staff must pass propertyId explicitly
-    const propertyIdParam = searchParams.get('propertyId');
+    let propertyIdParam = searchParams.get('propertyId') || searchParams.get('propertyCode');
+    if (propertyIdParam && propertyIdParam !== 'all') {
+      const prop = await resolvePropertyIdentifier(propertyIdParam, session);
+      if (prop) propertyIdParam = prop.id;
+    }
 
     let where: any;
     if (session) {
-      where = getMultiTenantWhere(session);
+      where = getMultiTenantWhere(session, propertyIdParam);
     } else {
       // WT token path — filter by propertyId passed in query
       const propertyId = propertyIdParam || staff?.propertyId;
@@ -81,8 +85,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !session.propertyId)
-      return apiError(new Error('Unauthorized'), 401);
+    let staff: any = null;
+    if (!session) staff = await getWTUserFromRequest(request as any);
+    if (!session && !staff) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
     const {
@@ -98,10 +103,15 @@ export async function POST(request: NextRequest) {
 
     if (!name) return apiError(new Error('Name is required'), 400);
 
+    let rawPropertyId = body.propertyId || body.propertyCode || session?.propertyId || staff?.propertyId;
+    const prop = await resolvePropertyIdentifier(rawPropertyId, session);
+    const propertyId = prop?.id;
+    if (!propertyId) return apiError(new Error('propertyId is required'), 400);
+
     // Create stock item
     const stockItem = await prisma.stockItem.create({
       data: {
-        propertyId: session.propertyId,
+        propertyId,
         name,
         sku: sku || null,
         unit: unit || null,
@@ -118,12 +128,12 @@ export async function POST(request: NextRequest) {
     // We need a default warehouse for this property
     if (Number(openingStock) > 0) {
       let warehouse = await prisma.warehouse.findFirst({
-        where: { propertyId: session.propertyId },
+        where: { propertyId },
       });
       if (!warehouse) {
         warehouse = await prisma.warehouse.create({
           data: {
-            propertyId: session.propertyId,
+            propertyId,
             name: 'Main Store',
             code: 'MAIN',
           },
@@ -132,7 +142,7 @@ export async function POST(request: NextRequest) {
 
       await prisma.stockMovement.create({
         data: {
-          propertyId: session.propertyId,
+          propertyId,
           warehouseId: warehouse.id,
           stockItemId: stockItem.id,
           movementType: 'OPENING',

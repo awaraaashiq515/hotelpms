@@ -7,7 +7,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, description, kitType, items } = body
+    const { name, description, kitType, priority, items } = body
 
     // Delete old items and re-create (simple replace strategy)
     await prisma.hotelInventoryKitItem.deleteMany({ where: { kitId: id } })
@@ -18,6 +18,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         name,
         description: description || null,
         kitType: kitType || 'ROOM',
+        ...(typeof priority === 'number' ? { priority } : {}),
         items: {
           create: (items || []).map((it: {
             itemId: string; itemName: string; category?: string; unit?: string; qtyPerUse: number

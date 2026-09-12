@@ -1,20 +1,38 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError } from '@/lib/api-utils';
+import { apiResponse, apiError, resolveAdminProperty, resolvePropertyIdentifier } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
+
+// Helper to resolve propertyId safely
+async function getResolvedPropertyId(request: NextRequest, session: any, explicitIdOrCode?: string | null): Promise<string | null> {
+  const { searchParams } = new URL(request.url);
+  const target = explicitIdOrCode || searchParams.get('propertyId') || searchParams.get('propertyCode') || session?.propertyId;
+  const prop = await resolvePropertyIdentifier(target, session);
+  return prop?.id ?? null;
+}
 
 // POST: Transfer stock between warehouses
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !session.propertyId)
-      return apiError(new Error('Unauthorized'), 401);
+    let staff: any = null;
+    if (!session) staff = await getWTUserFromRequest(request as any);
+    if (!session && !staff) return apiError(new Error('Unauthorized'), 401);
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const { stockItemId, fromWarehouseId, toWarehouseId, qty } = body;
 
-    if (!stockItemId || !fromWarehouseId || !toWarehouseId || !qty || qty <= 0)
+    if (!stockItemId || !fromWarehouseId || !toWarehouseId || !qty || Number(qty) <= 0)
       return apiError(new Error('stockItemId, warehouses and qty > 0 required'), 400);
+
+    const stockItem = await prisma.stockItem.findUnique({
+      where: { id: stockItemId },
+      select: { id: true, propertyId: true },
+    });
+    if (!stockItem) return apiError(new Error('Stock item not found'), 404);
+
+    const propertyId = stockItem.propertyId;
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 1. Deduct from source
@@ -26,7 +44,7 @@ export async function POST(request: NextRequest) {
 
       await tx.stockMovement.create({
         data: {
-          propertyId: session.propertyId!,
+          propertyId,
           warehouseId: fromWarehouseId,
           stockItemId,
           movementType: 'TRANSFER_OUT',
@@ -46,7 +64,7 @@ export async function POST(request: NextRequest) {
 
       await tx.stockMovement.create({
         data: {
-          propertyId: session.propertyId!,
+          propertyId,
           warehouseId: toWarehouseId,
           stockItemId,
           movementType: 'TRANSFER_IN',
@@ -70,28 +88,25 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    let staff: any = null;
+    if (!session) staff = await getWTUserFromRequest(request as any);
+    if (!session && !staff) return apiError(new Error('Unauthorized'), 401);
+
+    const propertyId = await getResolvedPropertyId(request, session, staff?.propertyId);
+    if (!propertyId) return apiError(new Error('Property context required'), 400);
 
     let warehouses = await prisma.warehouse.findMany({
-      where: { propertyId: session.propertyId! }
+      where: { propertyId }
     });
 
-    // Ensure at least Main Store and Kitchen exist
+    // Ensure at least Main Store exists for this property
     if (warehouses.length === 0) {
-      await prisma.warehouse.createMany({
-        data: [
-          { propertyId: session.propertyId!, name: 'Main Store', code: 'MAIN' },
-          { propertyId: session.propertyId!, name: 'Kitchen Store', code: 'KITCHEN' },
-        ]
+      await prisma.warehouse.create({
+        data: { propertyId, name: 'Main Store', code: 'MAIN' },
       });
       warehouses = await prisma.warehouse.findMany({
-        where: { propertyId: session.propertyId! }
+        where: { propertyId }
       });
-    } else if (!warehouses.some((w: any) => w.name.toLowerCase().includes('kitchen'))) {
-       const k = await prisma.warehouse.create({
-         data: { propertyId: session.propertyId!, name: 'Kitchen Store', code: 'KITCHEN' }
-       });
-       warehouses.push(k);
     }
 
     return apiResponse(warehouses);

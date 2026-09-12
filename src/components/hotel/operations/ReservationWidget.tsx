@@ -60,6 +60,7 @@ interface ReservationWidgetProps {
   onCheckIn?: (res: ReservationItem) => void;
   onPrint?: (res: ReservationItem) => void;
   onPrintList?: (items: ReservationItem[]) => void;
+  onSelectReservation?: (res: ReservationItem) => void;
 }
 
 export function ReservationWidget({
@@ -69,6 +70,7 @@ export function ReservationWidget({
   onCheckIn,
   onPrint,
   onPrintList,
+  onSelectReservation,
 }: ReservationWidgetProps) {
   const [activeTab, setActiveTab] = useState<'Arrivals' | 'Departures' | 'Stayovers' | 'In-House Guest' | 'Balance Due'>('Arrivals');
   const [activeDay, setActiveDay] = useState<'today' | 'tomorrow'>('today');
@@ -295,7 +297,9 @@ export function ReservationWidget({
                 filteredItems.map((res) => (
                   <tr
                     key={res.id}
-                    className="group hover:bg-slate-800/40 transition-colors"
+                    onClick={() => onSelectReservation?.(res)}
+                    title="Click to view booking details"
+                    className="group hover:bg-slate-800/60 active:bg-slate-800/80 transition-colors cursor-pointer"
                   >
                     {/* Guest Name & Notes Icon */}
                     <td className="py-3 px-2 font-medium text-white">
@@ -308,7 +312,10 @@ export function ReservationWidget({
                         >
                           <button
                             type="button"
-                            onClick={() => onAddNote?.(res)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddNote?.(res);
+                            }}
                             className="text-slate-400 hover:text-[#00b894] transition-colors p-0.5"
                             title="Notes"
                           >
@@ -357,7 +364,10 @@ export function ReservationWidget({
                       <div className="flex items-center justify-center gap-2">
                         {/* Check-in Button */}
                         <button
-                          onClick={() => onCheckIn?.(res)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCheckIn?.(res);
+                          }}
                           title="Check-in Actions"
                           className="flex items-center gap-1 text-slate-300 hover:text-emerald-400 hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
                         >
@@ -367,7 +377,10 @@ export function ReservationWidget({
 
                         {/* Print Button */}
                         <button
-                          onClick={() => onPrint?.(res)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPrint?.(res);
+                          }}
                           title="Print Document"
                           className="flex items-center gap-1 text-slate-300 hover:text-sky-400 hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
                         >

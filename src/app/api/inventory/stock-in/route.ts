@@ -2,30 +2,40 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 import { createNotification } from '@/lib/notificationService';
 
 // API for manual stock-in: purchase entry or opening stock adjustments
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || !session.propertyId)
-      return apiError(new Error('Unauthorized'), 401);
+    let staff: any = null;
+    if (!session) staff = await getWTUserFromRequest(request as any);
+    if (!session && !staff) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
     const { stockItemId, qty, unitCost, movementType, referenceModule, referenceId, remarks } = body;
 
-    if (!stockItemId || !qty || qty <= 0)
+    if (!stockItemId || !qty || Number(qty) <= 0)
       return apiError(new Error('stockItemId and qty > 0 required'), 400);
 
+    // Fetch stockItem to safely get the correct propertyId
+    const stockItem = await prisma.stockItem.findUnique({
+      where: { id: stockItemId },
+      select: { id: true, propertyId: true, openingStock: true },
+    });
+    if (!stockItem) return apiError(new Error('Stock item not found'), 404);
+
+    const propertyId = stockItem.propertyId;
     const type = movementType || 'PURCHASE_IN';
 
-    // Ensure warehouse exists
+    // Ensure warehouse exists for this exact property
     let warehouse = await prisma.warehouse.findFirst({
-      where: { propertyId: session.propertyId },
+      where: { propertyId },
     });
     if (!warehouse) {
       warehouse = await prisma.warehouse.create({
-        data: { propertyId: session.propertyId, name: 'Main Store', code: 'MAIN' },
+        data: { propertyId, name: 'Main Store', code: 'MAIN' },
       });
     }
 
@@ -34,14 +44,13 @@ export async function POST(request: NextRequest) {
         where: { stockItemId, warehouseId: warehouse!.id },
         _sum: { qtyIn: true, qtyOut: true },
       });
-      const stockItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-      const openingStock = stockItem?.openingStock || 0;
+      const openingStock = stockItem.openingStock || 0;
       const currentBalance = openingStock + (agg._sum.qtyIn || 0) - (agg._sum.qtyOut || 0);
       const newBalance = currentBalance + Number(qty);
 
       const movement = await tx.stockMovement.create({
         data: {
-          propertyId: session.propertyId!,
+          propertyId,
           warehouseId: warehouse!.id,
           stockItemId,
           movementType: type,
@@ -59,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Notify about stock-in
     try {
       await createNotification({
-        propertyId: session.propertyId!,
+        propertyId,
         title: 'Inventory Stock-In',
         message: `New stock of ${qty} units added.`,
         type: 'INVENTORY',

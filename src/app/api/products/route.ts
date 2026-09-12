@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
+import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty, resolvePropertyIdentifier } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
@@ -13,7 +13,12 @@ export async function GET(request: NextRequest) {
     if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
-    const propertyIdParam = searchParams.get('propertyId');
+    let propertyIdParam = searchParams.get('propertyId') || searchParams.get('propertyCode');
+
+    if (propertyIdParam && propertyIdParam !== 'all') {
+      const prop = await resolvePropertyIdentifier(propertyIdParam, session);
+      if (prop) propertyIdParam = prop.id;
+    }
 
     let products;
 
@@ -24,7 +29,12 @@ export async function GET(request: NextRequest) {
         include: {
           category: true,
           variants: true,
-          property: { select: { name: true, city: true } }
+          property: { select: { name: true, city: true } },
+          ingredients: {
+            include: {
+              stockItem: true,
+            },
+          },
         },
         orderBy: { name: 'asc' },
       });
@@ -38,7 +48,12 @@ export async function GET(request: NextRequest) {
         include: {
           category: true,
           variants: true,
-          property: { select: { name: true, city: true } }
+          property: { select: { name: true, city: true } },
+          ingredients: {
+            include: {
+              stockItem: true,
+            },
+          },
         },
         orderBy: { name: 'asc' },
       });

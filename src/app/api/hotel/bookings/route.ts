@@ -435,12 +435,16 @@ export async function PATCH(request: NextRequest) {
     const { 
       id, 
       status,
-      wifiPassword, 
-      wifiStatus, 
-      mealPlan, 
+      assignedRoomId,
+      roomTypeId,
+      upgradeCharge,
+      arrivalDate,
       departureDate, 
       extraCharge, 
       expectedCheckoutAt,
+      wifiPassword, 
+      wifiStatus, 
+      mealPlan, 
       poolAccess,
       poolPackage,
       poolPassCost,
@@ -473,6 +477,34 @@ export async function PATCH(request: NextRequest) {
     if (spaPackageCost !== undefined) updateData.spaPackageCost = Number(spaPackageCost);
     if (addOnNotes !== undefined) updateData.addOnNotes = addOnNotes;
 
+    // Handle arrival date modification
+    if (arrivalDate) {
+      updateData.arrivalDate = new Date(arrivalDate);
+    }
+
+    // Handle room assignment / upgrade
+    if (assignedRoomId) {
+      updateData.assignedRoomId = assignedRoomId;
+      const targetRoom = await prisma.room.findUnique({
+        where: { id: assignedRoomId },
+        include: { roomType: true }
+      });
+      if (targetRoom) {
+        updateData.roomTypeId = targetRoom.roomTypeId;
+      }
+    } else if (roomTypeId) {
+      updateData.roomTypeId = roomTypeId;
+    }
+
+    // Handle room upgrade extra charge
+    if (upgradeCharge && Number(upgradeCharge) > 0) {
+      const currentRes = await prisma.reservation.findUnique({ where: { id } });
+      if (currentRes) {
+        updateData.totalAmount = (currentRes.totalAmount || 0) + Number(upgradeCharge);
+        updateData.dueAmount = Math.max(0, (currentRes.dueAmount || 0) + Number(upgradeCharge));
+      }
+    }
+
     // Handle stay extension: update departure date + recalc amounts
     if (departureDate) {
       const reservation = await prisma.reservation.findUnique({ where: { id } });
@@ -491,9 +523,70 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: updateData,
       include: {
-        rooms: true,
+        rooms: {
+          include: {
+            room: true
+          }
+        },
+        roomType: true,
+        guest: true,
       }
     });
+
+    // Handle room assignment & upgrade side effects
+    if (assignedRoomId) {
+      await prisma.reservationRoom.updateMany({
+        where: { reservationId: id },
+        data: { roomId: assignedRoomId }
+      }).catch(() => null);
+
+      const activeCheckIn = await prisma.checkIn.findFirst({
+        where: { reservationId: id, status: 'ACTIVE' }
+      });
+      if (activeCheckIn) {
+        const oldRoomId = activeCheckIn.roomId;
+        if (oldRoomId && oldRoomId !== assignedRoomId) {
+          await prisma.room.update({
+            where: { id: oldRoomId },
+            data: { status: 'AVAILABLE', housekeepingStatus: 'DIRTY' }
+          }).catch(() => null);
+        }
+        await prisma.room.update({
+          where: { id: assignedRoomId },
+          data: { status: 'OCCUPIED' }
+        }).catch(() => null);
+        await prisma.checkIn.update({
+          where: { id: activeCheckIn.id },
+          data: { roomId: assignedRoomId }
+        }).catch(() => null);
+
+        if (upgradeCharge && Number(upgradeCharge) > 0) {
+          const openFolio = await prisma.folio.findFirst({
+            where: { reservationId: id, status: 'OPEN' }
+          });
+          if (openFolio) {
+            await prisma.folioTransaction.create({
+              data: {
+                folioId: openFolio.id,
+                txnType: 'DEBIT',
+                sourceModule: 'HMS',
+                description: `Room Upgrade Surcharge`,
+                debitAmount: Number(upgradeCharge),
+                creditAmount: 0,
+                netAmount: Number(upgradeCharge),
+              }
+            }).catch(() => null);
+            await prisma.folio.update({
+              where: { id: openFolio.id },
+              data: {
+                totalCharges: { increment: Number(upgradeCharge) },
+                closingBalance: { increment: Number(upgradeCharge) },
+              }
+            }).catch(() => null);
+          }
+        }
+      }
+    }
 
     // Handle CHECKED_IN status side effects
     if (status === 'CHECKED_IN') {

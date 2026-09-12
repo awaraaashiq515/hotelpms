@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
           take: 10,
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
     })
 
     return apiResponse(kits, 'Kits fetched successfully')
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { propertyId, name, description, kitType, items } = body
+    const { propertyId, name, description, kitType, priority, items } = body
 
     if (!propertyId || !name) {
       return apiError(new Error('propertyId and name are required'), 400)
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
         name,
         description: description || null,
         kitType: kitType || 'ROOM',
+        priority: typeof priority === 'number' ? priority : 99,
         items: {
           create: (items || []).map((it: {
             itemId: string; itemName: string; category?: string; unit?: string; qtyPerUse: number

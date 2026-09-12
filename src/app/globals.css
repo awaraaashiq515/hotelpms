@@ -113,10 +113,24 @@ html {
       opacity: 1;
     }
   }
+
+  @keyframes room-ticker {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+  }
 }
 
 /* Premium Utility Classes */
 @layer utilities {
+  .animate-room-ticker {
+    display: flex;
+    width: max-content;
+    animation: room-ticker 40s linear infinite;
+  }
+  .animate-room-ticker:hover {
+    animation-play-state: paused;
+  }
+
   .glass-morphism {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);

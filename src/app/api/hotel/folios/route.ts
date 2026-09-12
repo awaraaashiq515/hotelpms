@@ -11,7 +11,96 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const folioId = searchParams.get('folioId');
     const roomId = searchParams.get('roomId');
+    const reservationId = searchParams.get('reservationId');
     const propertyIdParam = searchParams.get('propertyId');
+
+    if (reservationId) {
+      const reservation = await prisma.reservation.findUnique({
+        where: { id: reservationId },
+        include: {
+          guest: true,
+          roomType: true,
+          rooms: { include: { room: true } },
+          folios: {
+            include: {
+              transactions: {
+                orderBy: { txnDate: 'desc' }
+              },
+              posOrders: {
+                orderBy: { createdAt: 'desc' },
+                include: {
+                  outlet: { select: { name: true, type: true } },
+                  items: {
+                    include: {
+                      product: { select: { name: true, isVeg: true } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!reservation) {
+        return apiError(new Error('Reservation not found'), 404);
+      }
+
+      // Also find all POS orders related to this reservation's room or guest
+      const assignedRoomId = reservation.assignedRoomId || reservation.rooms?.[0]?.roomId;
+      const roomNumber = reservation.rooms?.[0]?.room?.roomNumber;
+      const folioIds = reservation.folios.map(f => f.id);
+
+      const additionalOrders = await prisma.posOrder.findMany({
+        where: {
+          OR: [
+            ...(folioIds.length > 0 ? [{ folioId: { in: folioIds } }] : []),
+            ...(assignedRoomId ? [{ roomId: assignedRoomId }] : []),
+            ...(roomNumber ? [{ tableNo: `Room ${roomNumber}` }, { tableNo: roomNumber }] : []),
+            ...(reservation.guestId ? [{ guestId: reservation.guestId, createdAt: { gte: reservation.arrivalDate } }] : [])
+          ]
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          outlet: { select: { name: true, type: true } },
+          items: {
+            include: {
+              product: { select: { name: true, isVeg: true } }
+            }
+          }
+        }
+      });
+
+      // Combine orders without duplicates
+      const orderMap = new Map();
+      reservation.folios.forEach(f => {
+        f.posOrders.forEach((o: any) => orderMap.set(o.id, o));
+      });
+      additionalOrders.forEach(o => orderMap.set(o.id, o));
+      const allOrders = Array.from(orderMap.values());
+
+      // Collect all transactions from all folios
+      const allTransactions = reservation.folios.flatMap(f => f.transactions);
+
+      // Total restaurant / F&B spend
+      const totalRestaurantBill = allOrders.reduce((sum, o: any) => sum + (Number(o.grandTotal) || 0), 0);
+      const totalRoomCharges = allTransactions
+        .filter(t => t.sourceModule !== 'PAYMENT')
+        .reduce((sum, t) => sum + (Number(t.debitAmount) || 0), 0);
+
+      return apiResponse({
+        reservation,
+        folios: reservation.folios,
+        orders: allOrders,
+        transactions: allTransactions,
+        summary: {
+          totalRestaurantBill,
+          totalRoomCharges,
+          totalOrdersCount: allOrders.length,
+          grandTotalWithFood: (reservation.totalAmount || 0) + totalRestaurantBill
+        }
+      });
+    }
 
     if (folioId) {
       const folio = await prisma.folio.findUnique({

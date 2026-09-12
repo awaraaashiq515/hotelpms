@@ -6,6 +6,7 @@ import { SidebarProvider, useSidebar } from '@/components/hotel/SidebarContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { Building2, User, ChevronDown, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { NotificationBell } from '@/components/hotel/NotificationBell';
+import { RoomStatusTicker } from '@/components/hotel/navigation/RoomStatusTicker';
 
 // Inner layout that can access sidebar context
 function HotelLayoutInner({ children }: { children: React.ReactNode }) {
@@ -16,18 +17,9 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
 
-  // Auto-collapse sidebar on dashboard, operations dashboard, calendar & housekeeping for full-width view
+  // Auto-collapse sidebar to the side across all hotel pages for a clean, full-width layout
   useEffect(() => {
-    if (
-      pathname === '/hotel/calendar' ||
-      pathname === '/hotel' ||
-      pathname === '/hotel/operations-dashboard' ||
-      pathname === '/hotel/housekeeping'
-    ) {
-      setIsOpen(false);
-    } else {
-      setIsOpen(true);
-    }
+    setIsOpen(false);
   }, [pathname, setIsOpen]);
 
   // Force dark mode on html tag for hotel dashboard
@@ -118,7 +110,7 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Portal Header */}
         <header className="h-16 border-b border-slate-800 bg-[#0f172a]/60 backdrop-blur-md px-4 flex items-center justify-between shrink-0 relative z-30">
           {/* Left: Sidebar Toggle + Property */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {/* Sidebar Toggle Button */}
             <button
               onClick={toggle}
@@ -140,8 +132,11 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
+          {/* Center: Live Room Status Ticker */}
+          <RoomStatusTicker />
+
           {/* Right Action Tray */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 shrink-0">
             {/* Calendar indicator pill */}
             {isCalendar && (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-black uppercase tracking-widest text-indigo-300">

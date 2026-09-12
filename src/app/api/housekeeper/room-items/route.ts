@@ -16,7 +16,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { propertyId, roomId, roomNumber, items, staffName } = body;
+    const { propertyId: rawPropertyId, roomId, roomNumber, items, staffName } = body;
+
+    let targetPropertyId = rawPropertyId || session?.propertyId || staff?.propertyId;
+    if (targetPropertyId) {
+      const prop = await prisma.property.findFirst({
+        where: { OR: [{ id: targetPropertyId }, { code: targetPropertyId }] },
+        select: { id: true },
+      });
+      if (prop) targetPropertyId = prop.id;
+    }
+    const propertyId = targetPropertyId;
 
     if (!propertyId || !roomId || !Array.isArray(items) || items.length === 0) {
       return apiError(new Error('propertyId, roomId, and items[] are required'), 400);
