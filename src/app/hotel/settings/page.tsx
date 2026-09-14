@@ -5,6 +5,7 @@ import {
   Settings, Building2, Clock, Star, Percent, Utensils,
   XCircle, MessageSquare, Phone, Globe, Users, Shield,
   Save, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Hotel, ExternalLink, Key, Lock, Heart, IndianRupee,
+  Mail, Eye, EyeOff, Sparkles,
 } from 'lucide-react';
 
 interface SettingSection {
@@ -17,6 +18,7 @@ interface SettingSection {
 
 const SECTIONS: SettingSection[] = [
   { id: 'property',      emoji: '🏨', title: 'Property Info',        desc: 'Name, address, star rating, category',     color: 'text-indigo-400' },
+  { id: 'gmailsync',     emoji: '📧', title: 'Gmail & OTA Booking Sync', desc: 'Auto-import bookings from Booking.com, Agoda, MakeMyTrip via Gmail', color: 'text-indigo-400' },
   { id: 'timing',        emoji: '⏰', title: 'Check-in / Check-out', desc: 'Standard times, early/late policy',         color: 'text-sky-400' },
   { id: 'rates',         emoji: '💰', title: 'Rate Settings',        desc: 'Base rates, seasonal pricing, weekend',     color: 'text-emerald-400' },
   { id: 'taxes',         emoji: '📋', title: 'Tax Configuration',    desc: 'GST %, service charge, inclusive/exclusive',color: 'text-amber-400' },
@@ -31,6 +33,8 @@ const SECTIONS: SettingSection[] = [
   { id: 'roomcharging',  emoji: '🏨', title: 'Restaurant Room Billing', desc: 'Allow restaurant guests to charge food bill to their hotel room', color: 'text-violet-400' },
   { id: 'tipping',       emoji: '💝', title: 'Staff Tipping',           desc: 'Allow guests to tip waiters & housekeeping via UPI',           color: 'text-amber-400' },
 ];
+
+const getSection = (id: string) => SECTIONS.find(s => s.id === id) || SECTIONS[0];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -94,6 +98,13 @@ export default function HotelSettingsPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
+
+  // Gmail & Booking Email Sync
+  const [bookingEmail, setBookingEmail] = useState('');
+  const [gmailAppPassword, setGmailAppPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [syncingGmail, setSyncingGmail] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   // Timing
   const [checkIn, setCheckIn] = useState('14:00');
@@ -160,7 +171,9 @@ export default function HotelSettingsPage() {
           setPropertyName(p.name || '');
           setAddress(p.address || '');
           setPhone(p.phone || '');
-          setEmail(p.email || '');
+          setEmail(p.bookingEmail || p.email || '');
+          setBookingEmail(p.bookingEmail || p.email || '');
+          setGmailAppPassword(p.gmailAppPassword || '');
           setWebsite(p.website || '');
           setStarRating(String(p.starRating || '3'));
           setCategory(p.hotelCategory || 'MIDSCALE');
@@ -195,6 +208,7 @@ export default function HotelSettingsPage() {
   const handleSave = async () => {
     if (!propertyId) return;
     try {
+      const activeEmail = (bookingEmail || email || '').trim();
       const res = await fetch(`/api/setup/properties/${propertyId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -202,7 +216,9 @@ export default function HotelSettingsPage() {
           name: propertyName,
           address,
           phone,
-          email,
+          email: activeEmail,
+          bookingEmail: activeEmail,
+          gmailAppPassword,
           website,
           starRating: Number(starRating),
           hotelCategory: category,
@@ -233,6 +249,49 @@ export default function HotelSettingsPage() {
     }
   };
 
+  const handleTestAndSync = async () => {
+    const targetEmail = (bookingEmail || email || '').trim();
+    if (!targetEmail || !gmailAppPassword) {
+      alert('Please enter both your Gmail address and Google App Password.');
+      return;
+    }
+    setSyncingGmail(true);
+    setSyncMessage(null);
+    try {
+      // 1. Save credentials to property first
+      const saveRes = await fetch(`/api/setup/properties/${propertyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingEmail: targetEmail,
+          gmailAppPassword,
+        })
+      });
+      const saveData = await saveRes.json();
+      if (!saveData.success) {
+        setSyncMessage({ text: saveData.message || 'Failed to save credentials', isError: true });
+        return;
+      }
+
+      // 2. Call Gmail IMAP sync
+      const syncRes = await fetch('/api/hotel/email-bookings/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId }),
+      });
+      const syncData = await syncRes.json();
+      if (syncData.success) {
+        setSyncMessage({ text: syncData.message || 'Gmail sync connected successfully!', isError: false });
+      } else {
+        setSyncMessage({ text: syncData.message || 'Sync failed. Please verify credentials.', isError: true });
+      }
+    } catch (err: any) {
+      setSyncMessage({ text: err.message || 'Network error during sync test', isError: true });
+    } finally {
+      setSyncingGmail(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-10 max-w-3xl">
       {/* Header */}
@@ -256,11 +315,21 @@ export default function HotelSettingsPage() {
       <div className="space-y-3">
 
         {/* Property Info */}
-        <SectionCard section={SECTIONS[0]}>
+        <SectionCard section={getSection('property')}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Hotel Name"><input value={propertyName} onChange={e => setPropertyName(e.target.value)} placeholder="e.g. Hotel Paradise" className={inputClass} /></Field>
             <Field label="Phone"><input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 9876543210" className={inputClass} /></Field>
-            <Field label="Email"><input value={email} onChange={e => setEmail(e.target.value)} placeholder="hotel@example.com" className={inputClass} /></Field>
+            <Field label="Email / Gmail" hint="Primary email for hotel notifications & bookings">
+              <input
+                value={email}
+                onChange={e => {
+                  setEmail(e.target.value);
+                  if (!bookingEmail || bookingEmail === email) setBookingEmail(e.target.value);
+                }}
+                placeholder="hotel@example.com"
+                className={inputClass}
+              />
+            </Field>
             <Field label="Website"><input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." className={inputClass} /></Field>
             <Field label="Star Rating">
               <select value={starRating} onChange={e => setStarRating(e.target.value)} className={inputClass}>
@@ -281,8 +350,117 @@ export default function HotelSettingsPage() {
           </div>
         </SectionCard>
 
+        {/* Gmail & OTA Booking Sync */}
+        <SectionCard section={getSection('gmailsync')}>
+          <div className="space-y-4">
+            {/* Status indicator banner */}
+            <div className={`p-4 rounded-xl border flex items-center justify-between flex-wrap gap-3 ${
+              bookingEmail && gmailAppPassword
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-amber-500/10 border-amber-500/30'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  bookingEmail && gmailAppPassword ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                }`}>
+                  <Mail size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white flex items-center gap-2">
+                    {bookingEmail && gmailAppPassword ? 'Gmail Sync Configured & Active' : 'Gmail Credentials Required'}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      bookingEmail && gmailAppPassword ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {bookingEmail && gmailAppPassword ? 'Ready' : 'Setup Needed'}
+                    </span>
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    {bookingEmail ? `Connected account: ${bookingEmail}` : 'Enter your Gmail address and 16-digit App Password below'}
+                  </p>
+                </div>
+              </div>
+              <a
+                href="/hotel/email-bookings"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-indigo-400 text-xs font-bold border border-indigo-500/20 transition-colors"
+              >
+                <ExternalLink size={12} /> Go to Email Bookings
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Gmail Address" hint="Gmail where your hotel receives OTA reservation emails (Agoda, Booking.com, MMT)">
+                <input
+                  type="email"
+                  value={bookingEmail}
+                  onChange={e => {
+                    setBookingEmail(e.target.value);
+                    if (!email || email === bookingEmail) setEmail(e.target.value);
+                  }}
+                  placeholder="e.g. nasha0750@gmail.com"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Google 16-Digit App Password" hint="Created in Google Account Security (NOT your normal Gmail password)">
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={gmailAppPassword}
+                    onChange={e => setGmailAppPassword(e.target.value)}
+                    placeholder="xxxx xxxx xxxx xxxx"
+                    className={`${inputClass} pr-10 font-mono`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </Field>
+            </div>
+
+            {/* Step-by-step instructions */}
+            <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 space-y-2">
+              <p className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Key size={13} /> How to generate your 16-digit Google App Password:
+              </p>
+              <ol className="text-[10px] text-slate-300 space-y-1.5 list-decimal list-inside leading-relaxed">
+                <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="text-indigo-400 underline font-bold">Google Account Security</a> and make sure <strong>2-Step Verification</strong> is ON.</li>
+                <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-indigo-400 underline font-bold">Google App Passwords</a>.</li>
+                <li>Under App name, enter <strong>Gustflow Hotel</strong> and click <strong>Create</strong>.</li>
+                <li>Google will show a 16-digit password (e.g. <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">abcd efgh ijkl mnop</code>). Copy and paste it above.</li>
+                <li>Click <strong>Save & Test Gmail Connection</strong> below to verify.</li>
+              </ol>
+            </div>
+
+            {/* Test & Sync Action */}
+            <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleTestAndSync}
+                disabled={syncingGmail}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-black shadow-lg shadow-indigo-900/30 transition-all cursor-pointer"
+              >
+                <RefreshCw size={14} className={syncingGmail ? 'animate-spin' : ''} />
+                {syncingGmail ? 'Testing IMAP Connection…' : '⚡ Save & Test Gmail Connection'}
+              </button>
+
+              {syncMessage && (
+                <div className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${
+                  syncMessage.isError
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                }`}>
+                  {syncMessage.text}
+                </div>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+
         {/* Check-in / Check-out Timing */}
-        <SectionCard section={SECTIONS[1]}>
+        <SectionCard section={getSection('timing')}>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <Field label="Standard Check-in Time"><input type="time" value={checkIn} onChange={e => setCheckIn(e.target.value)} className={inputClass} /></Field>
             <Field label="Standard Check-out Time"><input type="time" value={checkOut} onChange={e => setCheckOut(e.target.value)} className={inputClass} /></Field>
@@ -308,7 +486,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Tax Configuration */}
-        <SectionCard section={SECTIONS[3]}>
+        <SectionCard section={getSection('taxes')}>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <Field label="GST %" hint="Applicable GST percentage on room tariff">
               <input type="number" value={gstPercent} onChange={e => setGstPercent(e.target.value)} placeholder="12" className={inputClass} />
@@ -330,7 +508,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Meal Plans */}
-        <SectionCard section={SECTIONS[4]}>
+        <SectionCard section={getSection('meals')}>
           <div className="space-y-3">
             {[
               { key: 'EP', label: 'EP — European Plan', desc: 'Room only, no meals', enabled: epEnabled, setEnabled: setEpEnabled, rate: null },
@@ -357,7 +535,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Cancellation Policy */}
-        <SectionCard section={SECTIONS[5]}>
+        <SectionCard section={getSection('cancellation')}>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Free Cancellation Window" hint="Number of days before arrival for free cancel">
               <input type="number" value={freeCancelDays} onChange={e => setFreeCancelDays(e.target.value)} placeholder="3" className={inputClass} />
@@ -369,7 +547,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Communication */}
-        <SectionCard section={SECTIONS[6]}>
+        <SectionCard section={getSection('communication')}>
           <div className="space-y-3">
             {[
               { label: 'WhatsApp Notifications', desc: 'Send booking confirmations via WhatsApp', value: whatsappEnabled, set: setWhatsappEnabled },
@@ -388,7 +566,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* OTA Channels */}
-        <SectionCard section={SECTIONS[8]}>
+        <SectionCard section={getSection('ota')}>
           <div className="space-y-2">
             <p className="text-xs text-slate-500 mb-3">Label bookings from each channel for reporting</p>
             {['Booking.com', 'MakeMyTrip', 'OYO', 'Airbnb', 'Goibibo', 'Direct Website', 'Phone / Walk-in'].map(ota => (
@@ -404,7 +582,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Guest Portal Settings */}
-        <SectionCard section={SECTIONS[10]}>
+        <SectionCard section={getSection('guestportal')}>
           <div className="space-y-5">
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/8">
               <div>
@@ -495,7 +673,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Restaurant Room Billing */}
-        <SectionCard section={SECTIONS[12]}>
+        <SectionCard section={getSection('roomcharging')}>
           <div className="space-y-5">
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/8">
               <div>
@@ -544,7 +722,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* WiFi & House Rules Settings Card */}
-        <SectionCard section={SECTIONS[11]}>
+        <SectionCard section={getSection('wifirules')}>
           <div className="space-y-5">
             <div>
               <p className="text-xs font-bold text-white mb-1">📶 Complimentary WiFi Details</p>
@@ -570,7 +748,7 @@ export default function HotelSettingsPage() {
         </SectionCard>
 
         {/* Tipping Settings */}
-        <SectionCard section={SECTIONS[12]}>
+        <SectionCard section={getSection('tipping')}>
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <div>

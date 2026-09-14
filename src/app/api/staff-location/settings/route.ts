@@ -12,7 +12,14 @@ export async function GET(request: NextRequest) {
   try {
     const wtUser = await getWTUserFromRequest(request);
     const session = await getSession();
-    const propertyId: string | undefined = wtUser?.propertyId || session?.propertyId || undefined;
+    let propertyId: string | undefined = wtUser?.propertyId || session?.propertyId || undefined;
+
+    if (!propertyId && session?.organizationId) {
+      const prop = await prisma.property.findFirst({
+        where: { organizationId: session.organizationId }
+      });
+      propertyId = prop?.id;
+    }
 
     if (!propertyId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -69,7 +76,14 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session?.propertyId) {
+    let propertyId = session?.propertyId;
+    if (!propertyId && session?.organizationId) {
+      const prop = await prisma.property.findFirst({
+        where: { organizationId: session.organizationId }
+      });
+      propertyId = prop?.id;
+    }
+    if (!propertyId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -77,7 +91,7 @@ export async function PUT(request: NextRequest) {
     const { baseLat, baseLng, alertDistanceMeters, trackingEnabled } = body;
 
     const settings = await (prisma as any).staffLocationSettings.upsert({
-      where: { propertyId: session.propertyId },
+      where: { propertyId },
       update: {
         baseLat: parseFloat(baseLat) || 0,
         baseLng: parseFloat(baseLng) || 0,

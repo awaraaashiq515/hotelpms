@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
 import { syncAllProperties, syncGmailForProperty } from '@/lib/gmail-imap-syncer';
 
 // POST /api/hotel/email-bookings/sync
@@ -12,7 +13,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const propertyId = body.propertyId || session.propertyId;
+    let propertyId = body.propertyId || session.propertyId;
+
+    if (!propertyId && session.organizationId) {
+      const first = await prisma.property.findFirst({
+        where: { organizationId: session.organizationId },
+        select: { id: true },
+        orderBy: { createdAt: 'asc' }
+      });
+      propertyId = first?.id;
+    }
 
     console.log('[DEBUG] Sync API POST called. Session propertyId:', session.propertyId, 'Request body propertyId:', body.propertyId, 'Final propertyId:', propertyId);
 

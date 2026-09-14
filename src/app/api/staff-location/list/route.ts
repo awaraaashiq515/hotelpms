@@ -13,11 +13,16 @@ import { getSession } from '@/lib/session';
 export async function GET(_request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session?.propertyId) {
+    let propertyId = session?.propertyId;
+    if (!propertyId && session?.organizationId) {
+      const prop = await prisma.property.findFirst({
+        where: { organizationId: session.organizationId }
+      });
+      propertyId = prop?.id;
+    }
+    if (!propertyId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-
-    const propertyId = session.propertyId;
 
     // Fetch all staff users for this property
     const staffUsers = await prisma.user.findMany({

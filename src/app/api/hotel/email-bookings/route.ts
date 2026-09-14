@@ -11,7 +11,16 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const propertyId = searchParams.get('propertyId') || session.propertyId;
+    let propertyId = searchParams.get('propertyId') || session.propertyId;
+
+    if (!propertyId && session.organizationId) {
+      const first = await prisma.property.findFirst({
+        where: { organizationId: session.organizationId },
+        select: { id: true },
+        orderBy: { createdAt: 'asc' }
+      });
+      propertyId = first?.id ?? null;
+    }
 
     if (!propertyId) {
       return apiError(new Error('Property ID is required'), 400);
@@ -72,13 +81,47 @@ export async function POST(request: NextRequest) {
         roomTypeId,
         adults,
         children,
-        assignedRoomId
+        assignedRoomId,
+        // Add-Ons
+        mealPlan,
+        poolAccess,
+        poolPackage,
+        poolPassCost,
+        spaPackage,
+        spaPackageCost,
+        addOnNotes,
+        // GST / Corporate Billing
+        gstNumber,
+        companyName,
+        billingAddress,
+        // Discount
+        discountType,
+        discountValue,
+        advanceAmount,
       } = body;
 
       const finalGuestEmail = guestEmail !== undefined ? guestEmail : emailBooking.guestEmail;
       const finalGuestPhone = guestPhone !== undefined ? guestPhone : emailBooking.guestPhone;
       const finalGuestName = guestName || emailBooking.guestName || 'Guest';
-      const finalAmount = amount !== undefined ? Number(amount) : (emailBooking.amount || 0);
+      const baseAmount = amount !== undefined ? Number(amount) : (emailBooking.amount || 0);
+
+      // Compute add-on costs
+      const finalPoolPassCost = poolAccess ? (Number(poolPassCost) || 0) : 0;
+      const finalSpaPackageCost = spaPackage && spaPackage !== 'NONE' ? (Number(spaPackageCost) || 0) : 0;
+      const subTotal = baseAmount + finalPoolPassCost + finalSpaPackageCost;
+
+      // Apply discount
+      let discountAmount = 0;
+      if (discountValue && Number(discountValue) > 0) {
+        if (discountType === 'PERCENTAGE') {
+          discountAmount = Math.round((subTotal * Number(discountValue)) / 100);
+        } else {
+          discountAmount = Number(discountValue);
+        }
+      }
+      const finalTotal = Math.max(0, subTotal - discountAmount);
+      const finalAdvance = advanceAmount ? Number(advanceAmount) : 0;
+      const finalDue = Math.max(0, finalTotal - finalAdvance);
 
       // 1. Find or create Guest
       let guest = null;
@@ -122,6 +165,7 @@ export async function POST(request: NextRequest) {
       const bookingNo = `EB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const parsedCheckIn = checkIn ? new Date(checkIn) : (emailBooking.checkIn || new Date());
       const parsedCheckOut = checkOut ? new Date(checkOut) : (emailBooking.checkOut || new Date(Date.now() + 24 * 60 * 60 * 1000));
+      const nights = Math.max(1, Math.round((parsedCheckOut.getTime() - parsedCheckIn.getTime()) / (1000 * 60 * 60 * 24)));
 
       const reservation = await prisma.reservation.create({
         data: {
@@ -135,12 +179,25 @@ export async function POST(request: NextRequest) {
           roomTypeId: finalRoomTypeId,
           assignedRoomId: assignedRoomId || null,
           status: 'CONFIRMED',
-          totalAmount: finalAmount,
-          dueAmount: finalAmount,
+          totalAmount: finalTotal,
+          advanceAmount: finalAdvance,
+          dueAmount: finalDue,
+          // Add-Ons
+          mealPlan: mealPlan || 'RO',
+          poolAccess: !!poolAccess,
+          poolPackage: poolAccess ? (poolPackage || 'DAY_PASS') : 'NONE',
+          poolPassCost: finalPoolPassCost,
+          spaPackage: spaPackage || 'NONE',
+          spaPackageCost: finalSpaPackageCost,
+          addOnNotes: addOnNotes ? String(addOnNotes).trim() : null,
+          // GST / Corporate Billing
+          gstNumber: gstNumber ? String(gstNumber).trim().toUpperCase() : null,
+          companyName: companyName ? String(companyName).trim() : null,
+          billingAddress: billingAddress ? String(billingAddress).trim() : null,
           rooms: {
             create: {
               roomId: assignedRoomId || null,
-              ratePerNight: finalAmount / Math.max(1, Math.round((parsedCheckOut.getTime() - parsedCheckIn.getTime()) / (1000 * 60 * 60 * 24))),
+              ratePerNight: baseAmount / nights,
               adults: adults ? Number(adults) : 2,
               children: children ? Number(children) : 0,
             }

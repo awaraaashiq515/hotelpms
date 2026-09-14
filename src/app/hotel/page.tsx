@@ -8,6 +8,7 @@ import {
   Package, Building2, ChefHat, Receipt, Moon, Banknote,
   IndianRupee, Users, Crown, Brain, Wifi, Shield, Settings,
   ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
+  UserCheck, Radio, Navigation,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 
@@ -167,6 +168,30 @@ const DEPARTMENTS = [
       { name: 'Room Tablet Portal', href: '/hotel/room-portal-admin', icon: Tablet },
       { name: 'Smart Hotel IoT',   href: '/hotel/smart-hotel',    icon: Wifi  },
       { name: 'Booking Engine',    href: '/hotel/booking-engine', icon: Globe },
+    ],
+  },
+  {
+    name: 'Staff & GPS Attendance',
+    emoji: '📍',
+    labelColor: 'text-emerald-400',
+    dotColor: 'bg-emerald-400',
+    glowColor: 'rgba(52,211,153,0.3)',
+    borderActive: 'rgba(52,211,153,0.55)',
+    borderIdle: 'rgba(52,211,153,0.13)',
+    gradFrom: 'rgba(52,211,153,0.13)',
+    gradTo: 'rgba(52,211,153,0.04)',
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/15',
+    cardBorder: 'border-slate-800 hover:border-emerald-500/40',
+    modules: [
+      { name: 'Live GPS Tracking',        href: '/hotel/staff?tab=location',        icon: MapPin       },
+      { name: 'Staff Attendance Hub',     href: '/hotel/staff/attendance',          icon: UserCheck    },
+      { name: 'Punch Locations Verifier', href: '/hotel/staff/attendance-location', icon: Navigation   },
+      { name: 'Live Proximity Radar',     href: '/hotel/staff/location',            icon: Radio        },
+      { name: 'Staff Directory & Roster', href: '/hotel/staff',                     icon: Users        },
+      { name: 'Attendance Reports',       href: '/hotel/reports/attendance',        icon: ScrollText   },
+      { name: 'HR & Leaves Hub',          href: '/hotel/hr',                        icon: Calendar     },
+      { name: 'Payroll Structures',       href: '/hotel/payroll',                   icon: IndianRupee  },
     ],
   },
   {
@@ -385,8 +410,8 @@ export default function HotelDashboard() {
         /* ── Normal mode ── */
         <div className="space-y-3">
 
-          {/* Step 1 — 7 Category Boxes in a grid (always visible) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-2">
+          {/* Step 1 — 8 Category Boxes in a grid (always visible) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-2">
             {DEPARTMENTS.map((dept) => {
               const isActive = activeDept === dept.name;
               return (

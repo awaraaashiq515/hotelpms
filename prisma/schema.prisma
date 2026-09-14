@@ -201,6 +201,11 @@ model Property {
   // ── Inventory Kit / Recipe Mapping ────────────────────────
   inventoryKits                 HotelInventoryKit[]
 
+  // ── HR & Payroll ──────────────────────────────────────────
+  leaveRequests                 LeaveRequest[]
+  payrollRuns                   PayrollRun[]
+  payrollSetting                PayrollSetting?
+
   @@index([organizationId])
 }
 
@@ -1587,6 +1592,9 @@ model StaffMember {
   // Link to POS User credentials for staff login portal
   userId String? @unique
   user   User?   @relation("StaffUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  // HR
+  leaveRequests LeaveRequest[]
 
   @@index([propertyId])
 }
@@ -3144,5 +3152,94 @@ model HotelInventoryKitUsage {
   kit         HotelInventoryKit @relation(fields: [kitId], references: [id])
 
   @@index([kitId])
+  @@index([propertyId])
+}
+
+// ── Leave Management ─────────────────────────────────────────────────────────
+model LeaveRequest {
+  id         String      @id @default(cuid())
+  propertyId String
+  staffId    String
+  leaveType  String      // CASUAL | SICK | EARNED | EMERGENCY
+  fromDate   DateTime
+  toDate     DateTime
+  days       Int
+  reason     String?
+  status     String      @default("PENDING") // PENDING | APPROVED | REJECTED
+  appliedOn  DateTime    @default(now())
+  approvedBy String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  staff      StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([staffId])
+}
+
+// ── Payroll ──────────────────────────────────────────────────────────────────
+model PayrollRun {
+  id         String           @id @default(cuid())
+  propertyId String
+  month      Int              // 1-12
+  year       Int
+  status     String           @default("DRAFT") // DRAFT | FINALIZED
+  totalNet   Float            @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  entries    PayrollRunEntry[]
+  property   Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, month, year])
+  @@index([propertyId])
+}
+
+model PayrollRunEntry {
+  id           String     @id @default(cuid())
+  payrollRunId String
+  staffId      String
+  staffName    String
+  designation  String?
+  basicSalary  Float
+  grossSalary  Float
+  deductions   Float
+  netSalary    Float
+  paidDays     Int        @default(26)
+  workingDays  Int        @default(26)
+  presentDays  Int        @default(26)
+  leaveDays    Int        @default(0)
+  absentDays   Int        @default(0)
+  status       String     @default("PENDING") // PENDING | PROCESSED | PAID
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+
+  @@index([payrollRunId])
+  @@index([staffId])
+}
+
+// ── Payroll Configuration & Policies ─────────────────────────────────────────
+model PayrollSetting {
+  id                    String   @id @default(cuid())
+  propertyId            String   @unique
+  salaryDisbursementDay Int      @default(7)       // Day of the month salaries are paid (1-31)
+  standardWorkingDays   Int      @default(26)      // Standard working days per month (26 or 30)
+  defaultPaidLeaves     Int      @default(2)       // Default monthly paid leave quota per employee
+  defaultStructure      String   @default("FLAT")  // FLAT | STATUTORY
+  enableHra             Boolean  @default(false)
+  hraPercentage         Float    @default(20.0)
+  enablePf              Boolean  @default(false)
+  pfPercentage          Float    @default(12.0)
+  enableEsi             Boolean  @default(false)
+  esiPercentage         Float    @default(0.75)
+  enableTds             Boolean  @default(false)
+  enableOvertime        Boolean  @default(false)
+  overtimeHourlyRate    Float    @default(100.0)
+  authorizedSignatory   String?  @default("Hotel General Manager")
+  currency              String   @default("INR")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  property              Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
   @@index([propertyId])
 }

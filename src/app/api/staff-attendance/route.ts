@@ -27,6 +27,21 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('User or Property ID missing'), 400);
     }
 
+    const { searchParams } = new URL(request.url);
+    const fetchAll = searchParams.get('all') === 'true';
+
+    if (fetchAll) {
+      const records = await prisma.attendance.findMany({
+        where: { propertyId },
+        orderBy: { clockIn: 'desc' },
+        take: 500,
+        include: {
+          staffMember: { select: { id: true, name: true, designation: true } },
+        },
+      });
+      return apiResponse(records, 'All attendance records fetched');
+    }
+
     // Find staff member linked to user if any
     const staffMember = await prisma.staffMember.findFirst({
       where: { OR: [{ userId }, { id: userId }] },

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight, LogOut, ShieldCheck, X } from 'lucide-react';
 import { getSidebarMenu } from '@/lib/menu-config';
@@ -11,6 +11,7 @@ import { useSidebar } from '@/context/sidebar-context';
 export const DashboardAdminSidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const params = useParams();
   const { isOpen, close } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -72,8 +73,12 @@ export const DashboardAdminSidebar: React.FC = () => {
     return undefined;
   };
 
+  const propertyCode = (params?.propertyCode as string) || (session?.propertyCode as string) || null;
+  const isHotelAdmin = session?.role === 'HOTEL_ADMIN' || session?.role === 'HOTEL_MANAGER';
+  const effectiveRole = isHotelAdmin ? 'RESTAURANTS_ADMIN' : session?.role;
+
   // Filter menu based on role and dynamic paths
-  const menu = session ? getSidebarMenu(session.role, session.organizationSlug) : [];
+  const menu = session ? getSidebarMenu(effectiveRole, session.organizationSlug, propertyCode) : [];
 
   const operationalNames = [
     'POS Home',
@@ -95,19 +100,22 @@ export const DashboardAdminSidebar: React.FC = () => {
     // Filter out operational POS items from the Admin Sidebar
     if (operationalNames.includes(item.name)) return false;
 
+    const isSuper = session.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'RESTAURANTS_ADMIN' || isHotelAdmin || isSuper;
+
     // 1. Super admin always sees everything
-    if (session.role === 'SUPER_ADMIN') return true;
+    if (isSuper) return true;
 
     // 2. Package Feature Gating (Strict Enforcement for all except SUPER_ADMIN)
     if (item.feature) {
-      const isCrmBypass = item.feature === 'CRM' && (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM');
+      const isCrmBypass = item.feature === 'CRM' && (isAdmin || session.role === 'POSSYSTEM');
       const hasFeature = isCrmBypass || session.packageFeatures?.includes(item.feature);
       if (!hasFeature) return false;
     }
 
-    // 3. Admin always sees items that list their role
-    if (session.role === 'RESTAURANTS_ADMIN') {
-      const isRoleListed = item.roles?.includes('RESTAURANTS_ADMIN');
+    // 3. Admin always sees items that list their role or RESTAURANTS_ADMIN
+    if (isAdmin) {
+      const isRoleListed = item.roles?.includes('RESTAURANTS_ADMIN') || item.roles?.includes('HOTEL_ADMIN') || item.roles?.includes('POSSYSTEM') || item.roles?.includes(session.role);
       if (isRoleListed) return true;
       // If no roles specified, show it
       if (!item.roles) return true;
@@ -124,27 +132,30 @@ export const DashboardAdminSidebar: React.FC = () => {
 
       if (hasPerm) return true;
       if (!isRoleListed) return false;
-      if (session.role !== 'RESTAURANTS_ADMIN') return false;
+      if (!isAdmin) return false;
     }
 
     if (item.roles && !isRoleListed) return false;
     return true;
   }).map((item: any) => {
     if (item.subItems) {
+      const isSuper = session.role === 'SUPER_ADMIN';
+      const isAdmin = session.role === 'RESTAURANTS_ADMIN' || isHotelAdmin || isSuper;
+
       const filteredSubs = item.subItems.filter((sub: any) => {
-        if (session.role === 'SUPER_ADMIN') return true;
+        if (isSuper) return true;
 
         // 1. Sub-item feature gating (Strict Enforcement for all except SUPER_ADMIN)
         if (sub.feature) {
-          const isSubCrmBypass = sub.feature === 'CRM' && (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM');
+          const isSubCrmBypass = sub.feature === 'CRM' && (isAdmin || session.role === 'POSSYSTEM');
           const hasFeature = isSubCrmBypass || session.packageFeatures?.includes(sub.feature);
           if (!hasFeature) return false;
         }
 
         // ADMIN & POSSYSTEM see all sub-items of permitted parents
-        if (session.role === 'RESTAURANTS_ADMIN' || session.role === 'POSSYSTEM') {
+        if (isAdmin || session.role === 'POSSYSTEM') {
           if (!sub.roles) return true;
-          return sub.roles.includes(session.role);
+          return sub.roles.includes('RESTAURANTS_ADMIN') || sub.roles.includes('HOTEL_ADMIN') || sub.roles.includes(session.role);
         }
         const isRoleListed = sub.roles?.includes(session.role);
 

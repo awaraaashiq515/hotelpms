@@ -183,6 +183,7 @@ export const getSidebarMenu = (role: string, organizationSlug?: string | null, p
         { name: 'Settlements',       path: '/reports/settlements', feature: 'REPORTS' },
         { name: 'Tax Report',        path: '/reports/tax',         feature: 'REPORTS' },
         { name: 'Inventory Report',  path: '/reports/inventory',   feature: 'REPORTS' },
+        { name: 'Staff Attendance',  path: '/reports/attendance',  feature: 'REPORTS' },
         { name: 'Audit Logs',        path: '/reports/audit',       feature: 'REPORTS' },
         { name: 'Customer Feedback', path: '/reports/ratings',     feature: 'REPORTS' },
       ],

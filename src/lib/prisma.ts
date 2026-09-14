@@ -5,7 +5,13 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function getPrismaClient(): PrismaClient {
-  if (globalForPrisma.prisma && (globalForPrisma.prisma as any).spaService) {
+  if (
+    globalForPrisma.prisma &&
+    (globalForPrisma.prisma as any).leaveRequest &&
+    (globalForPrisma.prisma as any).payrollRun &&
+    (globalForPrisma.prisma as any).payrollRunEntry &&
+    (globalForPrisma.prisma as any).payrollSetting
+  ) {
     return globalForPrisma.prisma
   }
   // Clear stale client so it gets rebuilt with latest generated schema
@@ -32,7 +38,30 @@ function getPrismaClient(): PrismaClient {
 
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop) {
-    const client = getPrismaClient() as any
+    let client = getPrismaClient() as any
+    // Auto-reload client if accessing a model not present on current cached instance
+    if (
+      typeof prop === 'string' &&
+      client[prop] === undefined &&
+      !prop.startsWith('$') &&
+      !prop.startsWith('_')
+    ) {
+      globalForPrisma.prisma = undefined
+      try {
+        if (typeof require !== 'undefined' && require.cache) {
+          Object.keys(require.cache).forEach((key) => {
+            if (key.includes('@prisma/client') || key.includes('.prisma')) {
+              delete require.cache[key]
+            }
+          })
+        }
+      } catch {}
+      const FreshPrisma = require('@prisma/client').PrismaClient
+      client = new FreshPrisma({ log: ['error', 'warn'] })
+      if (process.env.NODE_ENV !== 'production') {
+        globalForPrisma.prisma = client
+      }
+    }
     const val = client[prop]
     if (typeof val === 'function') {
       return val.bind(client)

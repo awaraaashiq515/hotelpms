@@ -130,9 +130,12 @@ export async function syncGmailForProperty(propertyId: string): Promise<{ synced
     const errors: string[] = [];
     let syncedCount = 0;
 
+    const cleanEmail = property.bookingEmail!.trim();
+    const cleanPassword = property.gmailAppPassword!.replace(/\s+/g, '');
+
     const imap = new Imap({
-      user: property.bookingEmail!,
-      password: property.gmailAppPassword!,
+      user: cleanEmail,
+      password: cleanPassword,
       host: 'imap.gmail.com',
       port: 993,
       tls: true,

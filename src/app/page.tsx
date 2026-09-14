@@ -21,40 +21,71 @@ import {
   Apple,
   Download,
   Building2,
-  Utensils,
-  Wine,
-  ChefHat,
-  Bell,
-  Star,
-  Clock,
-  Layers,
-  Users,
-  CreditCard,
   Bed,
   Calendar,
   Radio,
   Receipt,
-  FileSpreadsheet,
   Headphones,
   Check,
   Plus,
   Minus,
   Laptop,
-  Play
+  Play,
+  Star,
+  Clock,
+  Users,
+  Compass,
+  KeyRound,
+  RefreshCw,
+  Sliders,
+  DollarSign,
+  Coffee,
+  CheckCheck,
+  Shield,
+  Award,
+  Globe,
+  Hotel
 } from 'lucide-react';
 
-const CYAN = '#00c8ff';
-const CYAN2 = '#0099e6';
-const CYAN_GLOW = 'rgba(0, 200, 255, 0.15)';
-const BG_DARK = '#060a12';
-const CARD_BG = '#0a1020';
-const CARD_BORDER = 'rgba(255, 255, 255, 0.08)';
+const liveHotelEvents = [
+  {
+    icon: '⚡',
+    tag: '2-Way Channel Manager',
+    tagColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    text: 'Booking.com: Deluxe Ocean King booked • 50+ OTAs inventory deducted automatically in 0.1s',
+  },
+  {
+    icon: '🛎️',
+    tag: 'Front Desk Express',
+    tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    text: '45-second guest check-in completed via digital Passport scan & RFID keycard encoded',
+  },
+  {
+    icon: '🧹',
+    tag: 'Housekeeping Mobile',
+    tagColor: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
+    text: 'Floor 2 Supervisor marked Suite 402 as "Inspected & Clean" • Front desk notified live',
+  },
+  {
+    icon: '🍽️',
+    tag: 'In-Room Dining Folio',
+    tagColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    text: 'Chef specialty room service order (₹2,850) charged directly to Room Folio 301',
+  },
+  {
+    icon: '🌙',
+    tag: 'Automated Night Audit',
+    tagColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    text: 'Daily midnight financial audit completed • 100% GST reconciled with zero folio leakage',
+  },
+];
 
 export default function WebsiteHomePage() {
-  const [activeTab, setActiveTab] = useState<'hotel' | 'restaurant' | 'bar' | 'cloud'>('hotel');
+  const [activeTab, setActiveTab] = useState<'frontdesk' | 'channel' | 'housekeeping' | 'folio' | 'audit'>('frontdesk');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [settings, setSettings] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -64,6 +95,12 @@ export default function WebsiteHomePage() {
         if (json.success) setSettings(json.data);
       })
       .catch(() => {});
+
+    const tickerInterval = setInterval(() => {
+      setCurrentEventIndex((prev) => (prev + 1) % liveHotelEvents.length);
+    }, 3800);
+
+    return () => clearInterval(tickerInterval);
   }, []);
 
   if (mounted && settings?.maintenanceMode) {
@@ -75,126 +112,142 @@ export default function WebsiteHomePage() {
     );
   }
 
-  const hotelName = settings?.hotelName || 'GuestFlow';
-  const tagline = settings?.tagline || 'Next-Generation Hotel & Restaurant Management OS';
-
-  const industryTabs = [
+  // Hotel Operational Modules Showcase
+  const hotelModules = [
     {
-      id: 'hotel',
-      label: 'Hotel & Resort PMS',
+      id: 'frontdesk',
+      label: 'Front Desk & Room Grid',
       icon: <Bed className="w-4 h-4" />,
-      tag: 'Complete Front-Desk & Room Operations',
-      title: 'Smart Hotel PMS with Visual Room Grid & Instant Folio Billing',
-      desc: 'Seamlessly coordinate bookings across OTAs, front desk check-ins, guest folios, housekeeping assignments, and automated night audits from one intuitive master console.',
-      image: '/images/website/hotel-pms-suite.jpg',
-      badge: 'Boutique & Luxury Resorts',
+      badge: 'Interactive Tape Chart',
+      tag: 'Front Office Master Console',
+      title: 'Visual Room Calendar, Digital ID Scanner & 60-Sec Check-in',
+      desc: 'Eliminate front-desk queues. Assign rooms visually, drag-and-drop booking extensions, scan guest identity cards instantly, encode room keys, and manage multi-folio settlements in seconds.',
+      image: '/images/website/hotel-frontdesk-reception.jpg',
+      statVal: '< 60s',
+      statLabel: 'Average Guest Check-in Time',
       highlights: [
-        'Drag-and-drop live room calendar & quick room shifts',
-        'Instant guest check-in with digital ID verification',
-        'Housekeeping live status (Dirty, Clean, In-Progress, Inspected)',
-        'Multi-folio billing & automated daily night audit reconciliation',
+        'Color-coded tape chart with real-time room availability & clean status',
+        'Instant digital Aadhaar / Passport scanner with automated C-Form generation',
+        'Multi-room group reservations with 1-click master folio creation',
+        'Seamless integration with RFID room keycard encoders & thermal slip printers',
       ],
-      statVal: '99.8%',
-      statLabel: 'Occupancy Accuracy',
     },
     {
-      id: 'restaurant',
-      label: 'Fine Dining & POS',
-      icon: <Utensils className="w-4 h-4" />,
-      tag: 'High-Speed Restaurant Billing & Steward App',
-      title: 'Lightning-Fast Table POS with Smart KOT & Split Billing',
-      desc: 'Supercharge your dining room operations. Captains take orders table-side on tablets, orders instantly beam to kitchen stations, and bills split effortlessly with multi-mode payments.',
-      image: '/images/website/restaurant-pos-live.jpg',
-      badge: 'Dine-In & Casual Restaurants',
-      highlights: [
-        'Visual floor plan with real-time occupied/vacant table timers',
-        'Direct steward ordering app with instant kitchen printer & KDS sync',
-        'Split bills by item, percentage, or covers with 1-click discount presets',
-        'Full GST compliance, QR code UPI invoices, and WhatsApp receipts',
-      ],
-      statVal: '0.2s',
-      statLabel: 'KOT Transmission Speed',
-    },
-    {
-      id: 'bar',
-      label: 'Bar & Lounge',
-      icon: <Wine className="w-4 h-4" />,
-      tag: 'Liquor Precision & Peg-Wise Inventory',
-      title: 'Industry-Leading Peg-Wise Liquor Control & Bottle Tracking',
-      desc: 'Eliminate bar inventory shrinkage. Track 30ml, 60ml, 90ml pours automatically against master bottle weights with scheduled happy hours and bartender quick-punching.',
-      image: '/images/website/bar-liquor-pos.jpg',
-      badge: 'Pubs, Nightclubs & Lounges',
-      highlights: [
-        'Automated peg-to-bottle stock depletion & recipe cocktail costing',
-        'Real-time happy hour pricing scheduler and VIP discount manager',
-        'Fast bartender touch layout optimized for low-light environments',
-        'Loss prevention alerts for bottle transfers and wastage tracking',
-      ],
+      id: 'channel',
+      label: 'Channel Manager & OTAs',
+      icon: <Globe className="w-4 h-4" />,
+      badge: '2-Way Live Sync',
+      tag: 'Zero Overbooking Engine',
+      title: 'Instant 2-Way Sync Across Booking.com, Agoda, MakeMyTrip & MMT',
+      desc: 'Sync rates, minimum night restrictions, and room availability live across all major OTA channels and your direct hotel website. When a room sells, availability updates across all platforms in under 3 seconds.',
+      image: '/images/website/hotel-suite-luxury.jpg',
       statVal: '100%',
-      statLabel: 'Liquor Stock Reconciliation',
+      statLabel: 'Inventory Sync Accuracy',
+      highlights: [
+        'Instant bidirectional sync with Booking.com, Agoda, Expedia, MakeMyTrip & Airbnb',
+        'Automated rate parity manager with dynamic surge pricing rules',
+        'Zero commission direct booking engine for your hotel official website',
+        'Automated OTA cancellation processing and instant room re-listing',
+      ],
     },
     {
-      id: 'cloud',
-      label: 'Room Service & Cloud Dining',
-      icon: <ChefHat className="w-4 h-4" />,
-      tag: 'Contactless Dining & Fast In-Room Service',
-      title: 'QR Code Digital Menus & Rapid Room Delivery Dispatch',
-      desc: 'Guests scan an in-room QR code to browse high-definition food menus, place orders directly to the hotel kitchen, and charge bills automatically to their room folio.',
-      image: '/images/website/kds-kitchen-screen.jpg',
-      badge: 'In-Room Dining & Cloud Kitchens',
+      id: 'housekeeping',
+      label: 'Housekeeping & Maintenance',
+      icon: <Radio className="w-4 h-4" />,
+      badge: 'Live Operations & Walkie-Talkie',
+      tag: 'Turnover & Inspection Ops',
+      title: 'Mobile Housekeeper Status, Room Turnover & Built-in Walkie-Talkie',
+      desc: 'Empower floor supervisors and attendants with instant mobile room updates. Rooms automatically flag as Dirty upon checkout, update to In-Progress when staff enter, and notify front-desk immediately once Inspected.',
+      image: '/images/website/hotel-pms-suite.jpg',
+      statVal: '-40%',
+      statLabel: 'Room Turnover Turnaround Time',
       highlights: [
-        'Branded digital guest portal requiring zero app installation',
-        'Direct charge to guest room folio or instant online UPI payment',
-        'Delivery rider dispatch with live GPS and status notifications',
-        'Combo upselling engine to increase average room guest spend',
+        'Live room states: Dirty, Cleaning, Inspected, Out-of-Order, and Do-Not-Disturb',
+        'Floor-wise digital walkie-talkie audio channels for instant staff coordination',
+        'Linen & guest amenity replenishment tracking with minibar stock audits',
+        'Maintenance ticketing with photo proof and priority escalation alerts',
       ],
-      statVal: '+34%',
-      statLabel: 'Higher Guest In-Room Spend',
+    },
+    {
+      id: 'folio',
+      label: 'Guest Folios & In-Room Dining',
+      icon: <Coffee className="w-4 h-4" />,
+      badge: 'Unified Guest Ledger',
+      tag: 'Complete Guest Billing',
+      title: 'Transfer Room Service, Spa & Restaurant Bills to Room Folio',
+      desc: 'Give guests a 5-star seamless experience. In-room dining orders, banquet charges, bar beverages, and spa therapies post directly to the guest room folio with digital signature verification.',
+      image: '/images/website/hotel-hero-luxury.jpg',
+      statVal: '+35%',
+      statLabel: 'Higher Guest In-Room Spending',
+      highlights: [
+        'In-room QR code digital menus for seamless in-room dining without phone calls',
+        'Split folio billing by room, guest, company corporate account, or payment type',
+        'Full GST invoice generation with dynamic UPI QR code on checkout bills',
+        'Automated WhatsApp & Email invoice dispatch directly to the guest phone',
+      ],
+    },
+    {
+      id: 'audit',
+      label: 'Night Audit & Revenue BI',
+      icon: <BarChart3 className="w-4 h-4" />,
+      badge: 'Automated Financials',
+      tag: 'Executive Financial Control',
+      title: 'Automated 1-Click Midnight Audit, RevPAR, ADR & Tax Compliance',
+      desc: 'Sleep easy while GuestFlow reconciles daily guest folios, posts automated room room tariffs with taxes, audits cash & card balances, and delivers an executive revenue report to your WhatsApp every morning.',
+      image: '/images/website/guestflow-hero-dash.jpg',
+      statVal: '0 min',
+      statLabel: 'Manual Night Audit Effort',
+      highlights: [
+        'Automated rollover with zero front-desk downtime during midnight audits',
+        'Live tracking of RevPAR (Revenue Per Available Room), ADR, and Occupancy %',
+        'Comprehensive GSTR-1, GSTR-3B tax exports and tally accounting sync',
+        'HQ multi-property revenue dashboard for hotel owners and chain directors',
+      ],
     },
   ];
 
-  const currentTab = industryTabs.find((t) => t.id === activeTab) || industryTabs[0];
+  const currentTab = hotelModules.find((m) => m.id === activeTab) || hotelModules[0];
 
   const appPlatforms = [
     {
-      id: 'android',
-      name: 'Android POS & Tablet',
-      icon: <Smartphone className="w-6 h-6 text-sky-400" />,
-      desc: 'Optimized for Handheld POS, Sunmi terminals, and Waiter Tablets.',
-      badge: 'Recommended for Staff',
-      btnLabel: 'Download APK',
-      link: '/downloads/ordermint.apk',
-      version: 'v4.2.0 • Android 8+',
-    },
-    {
       id: 'windows',
-      name: 'Windows Desktop Admin',
-      icon: <Monitor className="w-6 h-6 text-emerald-400" />,
-      desc: 'High-speed desktop administration, thermal printer spooling & local KOT.',
-      badge: 'Front Desk & Cashier',
+      name: 'Front-Desk Windows Terminal',
+      icon: <Monitor className="w-6 h-6 text-cyan-400" />,
+      desc: 'Ultra-fast front office desktop app with RFID keycard encoders, passport scanners & thermal printing.',
+      badge: 'Reception & Cashier',
       btnLabel: 'Download EXE',
       link: '/downloads/ordermint.exe',
-      version: 'v4.2.0 • Win 10/11 x64',
+      version: 'v4.5.0 • Windows 10/11 x64',
+    },
+    {
+      id: 'android',
+      name: 'Housekeeping Android App',
+      icon: <Smartphone className="w-6 h-6 text-emerald-400" />,
+      desc: 'Rugged smartphone & tablet interface for housekeeping floor staff, room inspections & minibar audits.',
+      badge: 'Housekeeping & Staff',
+      btnLabel: 'Download APK',
+      link: '/downloads/ordermint.apk',
+      version: 'v4.5.0 • Android 8+',
     },
     {
       id: 'mac',
-      name: 'macOS Desktop',
-      icon: <Apple className="w-6 h-6 text-slate-300" />,
-      desc: 'Native desktop application for Apple Silicon M1/M2/M3 and Intel Macs.',
-      badge: 'Management & HQ',
+      name: 'macOS General Manager App',
+      icon: <Apple className="w-6 h-6 text-slate-200" />,
+      desc: 'Native executive dashboard for Apple Silicon M1/M2/M3 and Intel Macs with live property analytics.',
+      badge: 'General Managers',
       btnLabel: 'Download DMG',
       link: '/downloads/ordermint.dmg',
-      version: 'v4.2.0 • macOS 12+',
+      version: 'v4.5.0 • macOS 12+',
     },
     {
       id: 'web',
-      name: 'Cloud Web Terminal',
+      name: 'Cloud Browser Console',
       icon: <Laptop className="w-6 h-6 text-indigo-400" />,
-      desc: 'Instant browser access from any device with zero installation.',
-      badge: 'Instant Access',
-      btnLabel: 'Launch Web App',
+      desc: 'Instant browser access from any device, anywhere in the world with zero setup or installation.',
+      badge: 'Zero Install Required',
+      btnLabel: 'Launch Web PMS',
       link: '/login',
-      version: 'Cloud Version • Always Updated',
+      version: 'Cloud Version • Always Auto-Updated',
     },
   ];
 
@@ -202,250 +255,461 @@ export default function WebsiteHomePage() {
     {
       name: 'Rajesh Malhotra',
       role: 'General Manager',
-      property: 'Grand Vista Palace & Resort',
+      property: 'Grand Vista Heritage Palace',
       location: 'Udaipur, Rajasthan',
       avatar: '🏨',
       rating: 5,
       quote:
-        'Switching to GuestFlow streamlined our entire 80-room resort and 2 multi-cuisine restaurants. Check-in time dropped from 8 minutes to under 60 seconds, and night audits are completely automated.',
+        'Switching to GuestFlow transformed our 85-room heritage resort. Check-in time dropped from 8 minutes to under 60 seconds with digital ID scanning. The 2-way OTA sync completely eliminated double bookings during our high season.',
     },
     {
-      name: 'Vikramaditya Sen',
-      role: 'Director of F&B',
-      property: 'Skyline Gastro Pub & Brewery',
-      location: 'Bengaluru, Karnataka',
-      avatar: '🍸',
+      name: 'Sunil Nair',
+      role: 'Managing Director',
+      property: 'Ocean Palm Luxury Resort & Spa',
+      location: 'North Goa, Goa',
+      avatar: '🌴',
       rating: 5,
       quote:
-        'The peg-wise liquor inventory system is nothing short of revolutionary. We eliminated over 14% of monthly beverage leakage within our first 30 days of deploying GuestFlow.',
+        'The live housekeeping room grid and walkie-talkie feature save our floor supervisors over 2 hours every single day. Rooms are turned around 40% faster, and front desk knows the moment a suite is inspected and ready.',
     },
     {
       name: 'Ananya Deshmukh',
-      role: 'Managing Partner',
-      property: 'The Olive Branch Cafe & Patisserie',
-      location: 'Pune, Maharashtra',
-      avatar: '☕',
+      role: 'Operations Director',
+      property: 'The Zenith Business Hotel & Suites',
+      location: 'Bengaluru, Karnataka',
+      avatar: '🏢',
       rating: 5,
       quote:
-        'Our waitstaff love the tablet ordering app. Kitchen orders print in real-time, customers get instant WhatsApp bills, and our peak hour table turnover increased by 28%.',
+        'The automated night audit is magical. Every morning at 6 AM, I receive our full RevPAR, ADR, and GST revenue breakdown on my phone. Guest folios never miss an in-room dining or laundry charge now.',
     },
   ];
 
   const faqs = [
     {
-      q: 'Can GuestFlow run on our existing thermal printers, POS touchscreens, and tablets?',
-      a: 'Yes! GuestFlow is 100% hardware-agnostic. It works seamlessly with all standard USB, Ethernet, Bluetooth, and Wi-Fi thermal printers (Epson, TVS, Citizen, Posiflex), barcode scanners, cash drawers, Sunmi devices, Android tablets, and Windows/Mac computers.',
+      q: 'Can GuestFlow connect directly with OTAs like Booking.com, Agoda, MakeMyTrip, and Expedia?',
+      a: 'Yes! GuestFlow features a built-in 2-Way Channel Manager. When a room is booked at your front desk or on your website, availability is automatically deducted across all connected OTAs within seconds, eliminating double bookings forever.',
     },
     {
-      q: 'What happens if our internet connection drops during peak business hours?',
-      a: 'GuestFlow features advanced Offline Resilience. Your staff can continue punching KOTs, adding items, printing customer bills, and taking cash/card payments uninterrupted. Everything automatically syncs to the cloud the instant internet reconnects.',
+      q: 'Does GuestFlow work with our existing keycard encoders and thermal receipt printers?',
+      a: 'Absolutely. GuestFlow is fully hardware-agnostic. It seamlessly integrates with standard RFID/Mifare keycard encoders, high-speed thermal slip printers (Epson, TVS, Posiflex), passport/document flatbed scanners, and barcode scanners.',
     },
     {
-      q: 'Does GuestFlow handle both Hotel Room Bookings and Restaurant / Bar POS together?',
-      a: 'Absolutely! GuestFlow is built specifically as a unified platform. A guest dining at your restaurant or ordering room service can choose to pay immediately or transfer their food bill directly to their Room Folio with 1-click.',
+      q: 'How does the Housekeeping and Floor Walkie-Talkie system work?',
+      a: 'Housekeeping staff log into their mobile portal on any Android tablet or smartphone. They see assigned rooms in order of priority (Check-out vs Stayover). With 1 tap, they mark rooms In-Progress or Cleaned. The built-in push-to-talk Walkie-Talkie lets front desk and floor attendants coordinate instantly without expensive radio sets.',
     },
     {
-      q: 'How fast can we set up our hotel rooms and restaurant menu?',
-      a: 'Most properties are up and running within 24 to 48 hours. Our dedicated onboarding team provides free menu digitisation, table layout configuration, and live staff training sessions.',
+      q: 'Can restaurant, bar, and room service orders be charged directly to the guest room folio?',
+      a: 'Yes! When guests dine in your hotel restaurant or order room service, staff can transfer the entire bill to their Room Folio with 1-click. The guest signs digitally or enters their room key PIN, and the bill settles automatically upon checkout.',
     },
     {
-      q: 'Is there a free trial available?',
-      a: 'Yes! You can explore GuestFlow with a full-featured 14-day free trial. No credit card is required to get started.',
+      q: 'What happens if our hotel internet goes down during peak check-in time?',
+      a: 'GuestFlow features advanced Offline Resilience. Front desk staff can continue checking in guests, generating keycards, printing folios, and taking payments uninterrupted. Everything synchronizes automatically to the cloud the moment connectivity resumes.',
+    },
+    {
+      q: 'How quickly can our hotel be migrated and staff trained?',
+      a: 'Most boutique hotels and resorts are fully live within 24 to 48 hours. Our dedicated hospitality onboarding engineers assist with room category mapping, rate plan digitisation, OTA connection, and live 1-on-1 staff training sessions.',
     },
   ];
 
   return (
-    <div className="relative overflow-hidden text-slate-100 selection:bg-cyan-500 selection:text-black">
-      {/* ── AMBIENT BACKGROUND GLOWS ── */}
+    <div className="relative overflow-hidden text-slate-100 selection:bg-cyan-500 selection:text-black bg-[#040711]">
+      {/* ── AMBIENT LUXURY ANIMATED LIGHTING ── */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div
-          className="absolute -top-40 left-1/4 w-[700px] h-[700px] rounded-full blur-[180px] opacity-25"
+        <motion.div
+          animate={{ scale: [1, 1.18, 1], opacity: [0.18, 0.3, 0.18] }}
+          transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut' }}
+          className="absolute -top-40 left-1/4 w-[750px] h-[750px] rounded-full blur-[200px]"
           style={{ background: 'radial-gradient(circle, #00c8ff, transparent 70%)' }}
         />
-        <div
-          className="absolute top-1/2 -right-40 w-[600px] h-[600px] rounded-full blur-[200px] opacity-15"
-          style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)' }}
+        <motion.div
+          animate={{ scale: [1, 1.25, 1], opacity: [0.12, 0.22, 0.12] }}
+          transition={{ repeat: Infinity, duration: 10, ease: 'easeInOut', delay: 1 }}
+          className="absolute top-1/3 -right-40 w-[650px] h-[650px] rounded-full blur-[220px]"
+          style={{ background: 'radial-gradient(circle, #f59e0b, transparent 70%)' }}
         />
-        <div
-          className="absolute bottom-10 left-10 w-[500px] h-[500px] rounded-full blur-[180px] opacity-15"
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.24, 0.12] }}
+          transition={{ repeat: Infinity, duration: 9, ease: 'easeInOut', delay: 2 }}
+          className="absolute bottom-10 left-10 w-[550px] h-[550px] rounded-full blur-[180px]"
           style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }}
         />
       </div>
 
       <div className="relative z-10">
         <WebsiteHeader dark />
+
         {/* ════════════════════════════════════════════════════════════════════
-            1. HERO SECTION (WITH IMMERSIVE LUXURY BACKGROUND)
+            1. HERO SECTION: LUXURY 5-STAR HOTEL LOBBY + LIVE INTERACTIVE PMS
         ════════════════════════════════════════════════════════════════════ */}
-        <section className="relative pt-36 pb-24 md:pt-44 md:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
-          {/* ── LUXURY HOTEL & RESTAURANT HERO BACKGROUND (HIGH VISIBILITY) ── */}
+        <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
+          {/* ── CINEMATIC AESTHETIC LUXURY RESORT HERO BACKGROUND ── */}
           <div className="absolute inset-0 z-0 pointer-events-none">
             <Image
-              src="/images/website/hero-luxury-bg.jpg"
-              alt="Luxury Hotel & Restaurant Atmosphere"
+              src="/images/website/hero-resort-twilight.jpg"
+              alt="Breathtaking Luxury Resort & Hotel Architecture at Twilight"
               fill
               priority
-              className="object-cover object-center"
-              style={{ opacity: 0.68, filter: 'contrast(1.08) brightness(1.02)' }}
+              className="object-cover object-center scale-105"
+              style={{ opacity: 0.52, filter: 'contrast(1.12) brightness(0.96) saturate(1.15)' }}
             />
-            {/* Top-to-Bottom Smooth Gradient Overlay */}
+            {/* Top-to-bottom luxury vignette gradient */}
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(to bottom, rgba(6, 10, 18, 0.45) 0%, rgba(6, 10, 18, 0.5) 45%, rgba(6, 10, 18, 0.85) 80%, #060a12 100%)',
+                background:
+                  'linear-gradient(to bottom, rgba(4, 7, 17, 0.45) 0%, rgba(4, 7, 17, 0.6) 35%, rgba(4, 7, 17, 0.92) 80%, #040711 100%)',
               }}
             />
-            {/* Soft Edge Vignette */}
+            {/* Side edge vignettes */}
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(to right, rgba(6, 10, 18, 0.55) 0%, transparent 20%, transparent 80%, rgba(6, 10, 18, 0.55) 100%)',
+                background:
+                  'linear-gradient(to right, rgba(4, 7, 17, 0.75) 0%, transparent 20%, transparent 80%, rgba(4, 7, 17, 0.75) 100%)',
               }}
             />
-            {/* Central Radial Cyan Spotlight */}
+            {/* Central Soft Cyan Spotlight */}
             <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[550px] rounded-full blur-[150px] pointer-events-none"
-              style={{ background: 'radial-gradient(circle, rgba(0, 200, 255, 0.16), transparent 70%)' }}
+              className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[550px] rounded-full blur-[160px] pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(0, 212, 255, 0.14), transparent 70%)' }}
             />
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto">
-            {/* Badge */}
+            {/* Top Luxury Pill Badge */}
             <motion.div
               initial={{ opacity: 0, y: -15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className="flex justify-center mb-6"
             >
-            <div
-              className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full backdrop-blur-md transition-all hover:scale-105"
-              style={{
-                background: 'rgba(6, 10, 18, 0.65)',
-                border: '1px solid rgba(0, 200, 255, 0.4)',
-                boxShadow: '0 0 25px rgba(0, 200, 255, 0.25)',
-              }}
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
-              </span>
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300 drop-shadow">
-                Next-Gen Hospitality & POS Cloud Platform
-              </span>
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-            </div>
-          </motion.div>
-
-          {/* Main Headline */}
-          <div className="text-center max-w-4xl mx-auto mb-5">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.4rem] font-black tracking-tight leading-[1.12] text-white drop-shadow-2xl"
-              style={{
-                textShadow: '0 4px 20px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 200, 255, 0.25)',
-              }}
-            >
-              One Cloud OS to Run Your{' '}
-              <span
-                className="bg-clip-text text-transparent bg-gradient-to-r from-[#00c8ff] via-[#38bdf8] to-[#34d399]"
-                style={{ textShadow: '0 0 40px rgba(0, 200, 255, 0.4)' }}
+              <div
+                className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full backdrop-blur-xl transition-all hover:scale-105"
+                style={{
+                  background: 'rgba(10, 16, 32, 0.75)',
+                  border: '1px solid rgba(0, 200, 255, 0.4)',
+                  boxShadow: '0 0 30px rgba(0, 200, 255, 0.25)',
+                }}
               >
-                Hotel, Restaurant & Bar.
-              </span>
-            </motion.h1>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+                </span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300 drop-shadow">
+                  Next-Gen Cloud Hotel PMS & Guest OS
+                </span>
+                <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+              </div>
+            </motion.div>
 
-            <motion.p
+            {/* Main Headline & Value Proposition */}
+            <div className="text-center max-w-4xl mx-auto mb-8">
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.12] text-white drop-shadow-2xl"
+              >
+                The Intelligent Operating System for{' '}
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00d4ff] via-[#38bdf8] to-[#34d399]">
+                  Luxury Hotels & Boutique Resorts.
+                </span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="mt-5 text-sm sm:text-base md:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed font-normal drop-shadow"
+              >
+                Unify visual room reservations, 60-second digital guest check-ins, 2-way OTA channel sync, live housekeeping dispatch, in-room dining folios, and automated night audits into one intuitive master console.
+              </motion.p>
+            </div>
+
+            {/* Hero CTAs */}
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="mt-4 text-sm sm:text-base md:text-lg text-slate-100 max-w-2xl mx-auto leading-relaxed font-medium drop-shadow-lg"
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
+            >
+              <Link
+                href="/pricing"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm text-slate-950 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl group"
+                style={{
+                  background: 'linear-gradient(135deg, #00d4ff, #00f2fe)',
+                  boxShadow: '0 0 35px rgba(0, 212, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+                }}
+              >
+                <span>Start Free 14-Day Hotel Trial</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+
+              <Link
+                href="/contact"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 backdrop-blur-md transition-all duration-200 hover:bg-white/10 hover:border-cyan-500/40 active:scale-95"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                }}
+              >
+                <Play className="w-4 h-4 text-cyan-400 fill-cyan-400/20" />
+                <span>Book Live 1-on-1 Hotel Demo</span>
+              </Link>
+            </motion.div>
+
+            {/* Trust Badges */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-300 font-medium mb-12"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                <span>No Credit Card Required</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                <span>24-Hour Express Hotel Setup</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                <span>Zero OTA Double-Bookings</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                <span>Works Offline & Online</span>
+              </div>
+            </motion.div>
+
+            {/* ── SAAS MULTI-PROPERTY CLOUD PLATFORM CONSOLE PREVIEW ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.5 }}
+              className="rounded-3xl p-4 sm:p-7 backdrop-blur-2xl relative overflow-hidden"
               style={{
-                textShadow: '0 2px 10px rgba(0, 0, 0, 0.9)',
+                background: 'rgba(10, 16, 32, 0.85)',
+                border: '1px solid rgba(0, 200, 255, 0.3)',
+                boxShadow:
+                  '0 25px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 200, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
             >
-              Unify front-desk room reservations, lightning-fast POS billing, table management, peg-wise liquor control, housekeeping, and smart guest folios into one intelligent operating system.
-            </motion.p>
-          </div>
+              {/* SaaS Browser Header Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
+                <div className="flex items-center gap-3">
+                  {/* Window dots */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                  </div>
+                </div>
 
-          {/* Action CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-6"
-          >
-            <Link
-              href="/pricing"
-              className="w-full sm:w-auto px-7 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-950 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl group"
-              style={{
-                background: 'linear-gradient(135deg, #00c8ff, #00e5ff)',
-                boxShadow: '0 0 35px rgba(0, 200, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
-              }}
-            >
-              <span>Start Free 14-Day Trial</span>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Link>
+                {/* SaaS Property Switcher (Highlighting Multi-Hotel Capability) */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs font-bold text-cyan-300">
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Multi-Property Mode: All Hotel Branches</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  </div>
 
-            <Link
-              href="/contact"
-              className="w-full sm:w-auto px-7 py-3 rounded-xl font-bold text-xs sm:text-sm text-white flex items-center justify-center gap-2 backdrop-blur-md transition-all duration-200 hover:bg-white/10 hover:border-cyan-500/40 active:scale-95"
-              style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <Play className="w-4 h-4 text-cyan-400 fill-cyan-400/20" />
-              <span>Book Live 1-on-1 Demo</span>
-            </Link>
-          </motion.div>
+                  <div className="px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.08] text-right">
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Live System Status</div>
+                    <div className="text-xs font-bold text-emerald-400">● 50+ OTAs 2-Way Synced</div>
+                  </div>
+                </div>
+              </div>
 
-          {/* Trust points */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-medium mb-8"
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-              <span>No Credit Card Required</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-              <span>Setup in 24 Hours</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-              <span>Works Offline & Online</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-              <span>24/7 Priority Support</span>
-            </div>
-          </motion.div>
+              {/* ── LIVE HOTEL SAAS ACTIVITY TICKER ANIMATION ── */}
+              <div className="mt-5 mb-2 p-2 sm:p-2.5 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl flex items-center justify-between gap-3 overflow-hidden">
+                <div className="flex items-center gap-2 flex-shrink-0 pl-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                    Live System Feed
+                  </span>
+                </div>
+
+                <div className="flex-1 min-w-0 overflow-hidden h-7 flex items-center">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentEventIndex}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.35 }}
+                      className="flex items-center gap-2 text-xs truncate"
+                    >
+                      <span className="text-sm">{liveHotelEvents[currentEventIndex].icon}</span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${liveHotelEvents[currentEventIndex].tagColor} hidden sm:inline-block`}
+                      >
+                        {liveHotelEvents[currentEventIndex].tag}
+                      </span>
+                      <span className="text-slate-200 font-medium truncate text-[11px] sm:text-xs">
+                        {liveHotelEvents[currentEventIndex].text}
+                      </span>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                <span className="text-[10px] text-slate-500 font-mono hidden md:inline-block pr-2">
+                  Sync Latency: 0.12s
+                </span>
+              </div>
+
+              {/* SaaS Dashboard Showcase Screen with Floating Capability Highlights */}
+              <div className="mt-4 relative rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl group">
+                <div className="relative aspect-[16/9] w-full">
+                  <Image
+                    src="/images/website/guestflow-hero-dash.jpg"
+                    alt="GuestFlow Multi-Property Hotel PMS Cloud Console"
+                    fill
+                    priority
+                    className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#040711]/90 via-[#040711]/30 to-transparent pointer-events-none" />
+
+                  {/* Top Floating Glass Badge: Multi-Hotel Central Management (Floating Animation) */}
+                  <motion.div
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ repeat: Infinity, duration: 4.5, ease: 'easeInOut' }}
+                    className="absolute top-4 left-4 sm:top-6 sm:left-6 p-3 sm:p-4 rounded-2xl backdrop-blur-xl bg-black/75 border border-cyan-500/40 shadow-[0_10px_35px_rgba(0,212,255,0.2)] max-w-xs z-20"
+                  >
+                    <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold mb-1">
+                      <Building2 className="w-4 h-4" />
+                      <span>Multi-Hotel Portfolio Console</span>
+                    </div>
+                    <p className="text-[11px] text-slate-200 leading-snug">
+                      Manage 1 boutique property or 50+ resort chains from a single master administrative cloud login.
+                    </p>
+                  </motion.div>
+
+                  {/* Top Right Floating Badge: 2-Way OTA Channel Manager (Floating Animation) */}
+                  <motion.div
+                    animate={{ y: [0, 8, 0] }}
+                    transition={{ repeat: Infinity, duration: 5.2, ease: 'easeInOut', delay: 0.5 }}
+                    className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 sm:p-4 rounded-2xl backdrop-blur-xl bg-black/75 border border-emerald-500/40 shadow-[0_10px_35px_rgba(16,185,129,0.2)] max-w-xs text-right hidden sm:block z-20"
+                  >
+                    <div className="flex items-center justify-end gap-2 text-emerald-400 text-xs font-bold mb-1">
+                      <Globe className="w-4 h-4" />
+                      <span>Instant 2-Way OTA Sync</span>
+                    </div>
+                    <p className="text-[11px] text-slate-200 leading-snug">
+                      Booking.com • Agoda • MakeMyTrip • Expedia • Airbnb — 0% overbookings with sub-second rate updates.
+                    </p>
+                  </motion.div>
+
+                  {/* Bottom Strip: Key SaaS Platform Capabilities */}
+                  <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 p-4 rounded-2xl backdrop-blur-xl bg-black/80 border border-white/[0.12] flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-6 text-xs text-slate-300">
+                      <div className="flex items-center gap-2">
+                        <CheckCheck className="w-4 h-4 text-cyan-400" />
+                        <span>Visual Room Grid & Tape Chart</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCheck className="w-4 h-4 text-cyan-400" />
+                        <span>Mobile Housekeeping & Walkie-Talkie</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCheck className="w-4 h-4 text-cyan-400" />
+                        <span>In-Room Dining to Room Folio</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCheck className="w-4 h-4 text-cyan-400" />
+                        <span>Automated Daily Night Audit</span>
+                      </div>
+                    </div>
+
+                    <Link
+                      href="/features"
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 text-slate-950 hover:bg-cyan-400 transition-all flex items-center gap-1.5 shadow-lg"
+                    >
+                      <span>Explore Platform Modules</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 Multi-Tenant SaaS Pillars for Hotel Clients */}
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                {[
+                  {
+                    icon: <Hotel className="w-4 h-4 text-cyan-400" />,
+                    title: 'Boutique & Luxury Hotels',
+                    desc: 'Speed up front desk check-in to under 60 seconds with digital passport & Aadhaar scan.',
+                  },
+                  {
+                    icon: <Globe className="w-4 h-4 text-emerald-400" />,
+                    title: '2-Way OTA Channel Manager',
+                    desc: 'Real-time bidirectional inventory & rate distribution across 50+ global travel portals.',
+                  },
+                  {
+                    icon: <Radio className="w-4 h-4 text-amber-400" />,
+                    title: 'Mobile Housekeeper Apps',
+                    desc: 'Live floor-wise room status tracking, turnover checklists, and push-to-talk walkie-talkie.',
+                  },
+                  {
+                    icon: <Receipt className="w-4 h-4 text-indigo-400" />,
+                    title: 'Automated Night Audit & GST',
+                    desc: 'Zero-downtime daily financial rollovers, multi-folio settlements, and WhatsApp reports.',
+                  },
+                ].map((pillar, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-cyan-500/30 transition-all"
+                  >
+                    <div className="flex items-center gap-2.5 mb-1.5">
+                      <div className="p-1.5 rounded-lg bg-white/[0.05]">{pillar.icon}</div>
+                      <span className="text-xs font-bold text-white">{pillar.title}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">{pillar.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           </div>
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            2. STATS & LIVE TRUST COUNTERS
+            2. HOTEL KEY PERFORMANCE & LIVE TRUST METRICS
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-12 border-y border-white/[0.06] bg-black/40 backdrop-blur-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
               {[
-                { val: '500+', label: 'Active Hotels & Restaurants', icon: <Building2 className="w-5 h-5 text-cyan-400" /> },
-                { val: '< 0.2s', label: 'Real-time KOT & Folio Sync', icon: <Zap className="w-5 h-5 text-amber-400" /> },
-                { val: '99.99%', label: 'Guaranteed Cloud Uptime', icon: <ShieldCheck className="w-5 h-5 text-emerald-400" /> },
-                { val: '₹45M+', label: 'Monthly Bills & Folios Processed', icon: <TrendingUp className="w-5 h-5 text-indigo-400" /> },
+                {
+                  val: '500+',
+                  label: 'Luxury Hotels & Boutique Resorts',
+                  icon: <Building2 className="w-5 h-5 text-cyan-400" />,
+                },
+                {
+                  val: '< 60s',
+                  label: 'Digital Check-in with ID Scanner',
+                  icon: <Zap className="w-5 h-5 text-amber-400" />,
+                },
+                {
+                  val: '0%',
+                  label: 'OTA Overbooking Guarantee',
+                  icon: <ShieldCheck className="w-5 h-5 text-emerald-400" />,
+                },
+                {
+                  val: '₹65M+',
+                  label: 'Monthly Room Tariffs & Folios Processed',
+                  icon: <TrendingUp className="w-5 h-5 text-indigo-400" />,
+                },
               ].map((stat, idx) => (
                 <div
                   key={idx}
                   className="p-5 rounded-2xl transition-all duration-300 hover:scale-105"
                   style={{
                     background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
                   }}
                 >
                   <div className="flex items-center justify-center mb-2">{stat.icon}</div>
@@ -467,30 +731,30 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            3. INTERACTIVE INDUSTRY SOLUTIONS SHOWCASE (TABS + IMAGES)
+            3. CORE HOTEL OPERATIONAL MODULES (INTERACTIVE TABS + HIGH-RES HOTEL VISUALS)
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
-              Specialized Modules
+              Comprehensive Hotel PMS Architecture
             </span>
             <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-              Tailored Power for <span className="text-cyan-400">Every Hospitality Format.</span>
+              Purpose-Built for <span className="text-cyan-400">5-Star Hospitality Operations.</span>
             </h2>
             <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
-              Whether you run a 150-room luxury resort, a high-octane craft brewery, or a boutique dining room — GuestFlow adapts to your precise operational flow.
+              Whether you manage an 80-room heritage palace, an oceanfront beach resort, or a boutique city hotel — GuestFlow empowers your team with seamless automation from check-in to night audit.
             </p>
           </div>
 
-          {/* Solution Tabs Selector */}
+          {/* Module Tabs Selector */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
-            {industryTabs.map((tab) => {
+            {hotelModules.map((tab) => {
               const isSelected = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 ${
+                  className={`flex items-center gap-2.5 px-5 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 ${
                     isSelected
                       ? 'bg-cyan-500 text-slate-950 shadow-lg scale-105'
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white border border-white/[0.08]'
@@ -510,7 +774,7 @@ export default function WebsiteHomePage() {
             })}
           </div>
 
-          {/* Active Solution Content Card */}
+          {/* Active Hotel Module Card */}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentTab.id}
@@ -525,7 +789,7 @@ export default function WebsiteHomePage() {
                 boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
             >
-              {/* Left Column: Description & Highlights */}
+              {/* Left: Description & Specs */}
               <div className="lg:col-span-6 space-y-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                   {currentTab.badge}
@@ -551,24 +815,26 @@ export default function WebsiteHomePage() {
                   ))}
                 </div>
 
-                {/* Stat block & CTA */}
+                {/* Stat block & Action link */}
                 <div className="pt-4 flex flex-wrap items-center gap-6">
                   <div className="p-3.5 rounded-2xl bg-black/40 border border-white/[0.08]">
                     <div className="text-2xl font-black text-cyan-400">{currentTab.statVal}</div>
-                    <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">{currentTab.statLabel}</div>
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                      {currentTab.statLabel}
+                    </div>
                   </div>
 
                   <Link
                     href="/features"
                     className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-400 hover:text-cyan-300 transition-colors group"
                   >
-                    <span>Explore Full Specs</span>
+                    <span>Explore Hotel Specifications</span>
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </div>
               </div>
 
-              {/* Right Column: High-Res Image Preview */}
+              {/* Right: High-Res Hotel Photo Preview */}
               <div className="lg:col-span-6 relative">
                 <div className="relative aspect-[16/11] rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl group">
                   <Image
@@ -577,10 +843,13 @@ export default function WebsiteHomePage() {
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#060a12]/80 via-transparent to-transparent pointer-events-none" />
-                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between p-3 rounded-xl backdrop-blur-md bg-black/60 border border-white/[0.1]">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#040711]/90 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between p-3.5 rounded-xl backdrop-blur-md bg-black/60 border border-white/[0.1]">
                     <span className="text-xs font-bold text-white">{currentTab.tag}</span>
-                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Live System View</span>
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                      Hotel Production Ready
+                    </span>
                   </div>
                 </div>
               </div>
@@ -589,23 +858,23 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            4. BENTO FEATURE MATRIX (KDS, ANALYTICS, INVENTORY, MOBILE APPS)
+            4. HOTELIER BENTO MATRIX: SOLVING REAL HOTEL HEADACHES
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
-              Deep Architectural Power
+              Deep Operational Engineering
             </span>
             <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-              Engineered for Speed, Precision & Zero Wastage.
+              Designed to Solve Every Hotelier's Pain Point.
             </h2>
             <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
-              Explore the core modules built to eliminate kitchen errors, maximize table turnover, and automate compliance.
+              Say goodbye to lost revenue, double-booked rooms, paper registers, and delayed housekeeping room turns.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
-            {/* Bento Card 1: KDS (Span 7) */}
+            {/* Bento Card 1: 5-Star Front Desk Experience (Span 7) */}
             <div
               className="lg:col-span-7 rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden relative group transition-all duration-300 hover:border-cyan-500/40"
               style={{
@@ -614,26 +883,26 @@ export default function WebsiteHomePage() {
               }}
             >
               <div className="mb-6 z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-4">
-                  <ChefHat className="w-3.5 h-3.5" /> Kitchen Intelligence
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 mb-4">
+                  <KeyRound className="w-3.5 h-3.5" /> Front-Office Operations
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Paperless Kitchen Display System (KDS)</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Instant Digital ID & 60-Second Check-in</h3>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
-                  Route orders instantaneously to specific stations (Curry, Tandoor, Chinese, Bar). Prep timers color-code delayed items automatically to ensure 100% table harmony.
+                  Front-desk staff scan passport, Aadhaar, or driver's license with auto-filled guest registration cards. Encode RFID room keycards with 1-click and delight arriving guests instantly.
                 </p>
               </div>
 
               <div className="relative aspect-[16/9] rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl z-10">
                 <Image
-                  src="/images/website/kds-kitchen-screen.jpg"
-                  alt="Kitchen Display System KDS Interface"
+                  src="/images/website/hotel-frontdesk-reception.jpg"
+                  alt="Hotel Front Desk Reception Check-In"
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
             </div>
 
-            {/* Bento Card 2: AI Analytics (Span 5) */}
+            {/* Bento Card 2: Executive Revenue BI (Span 5) */}
             <div
               className="lg:col-span-5 rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden relative group transition-all duration-300 hover:border-cyan-500/40"
               style={{
@@ -643,25 +912,25 @@ export default function WebsiteHomePage() {
             >
               <div className="mb-6 z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4">
-                  <BarChart3 className="w-3.5 h-3.5" /> Executive BI
+                  <BarChart3 className="w-3.5 h-3.5" /> Executive BI & ADR
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Real-Time Revenue Analytics</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Real-Time RevPAR & Occupancy Analytics</h3>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  Monitor live sales, RevPAR, item profitability margins, peak hour surges, and staff sales performance from your phone anywhere in the world.
+                  Monitor live property occupancy, average daily rate (ADR), room category yield, and OTA commission costs from anywhere in the world on your smartphone.
                 </p>
               </div>
 
               <div className="relative aspect-[16/10] rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl z-10">
                 <Image
                   src="/images/website/guestflow-hero-dash.jpg"
-                  alt="Real-time Revenue Analytics Dashboard"
+                  alt="Hotel Revenue Analytics Dashboard"
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
             </div>
 
-            {/* Bento Card 3: Mobile Waiter Station (Span 4) */}
+            {/* Bento Card 3: Luxury Suite Experience & In-Room Dining (Span 4) */}
             <div
               className="lg:col-span-4 rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/40"
               style={{
@@ -670,20 +939,25 @@ export default function WebsiteHomePage() {
               }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-4 border border-cyan-500/20">
-                  <Smartphone className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 mb-4 border border-amber-500/20">
+                  <Coffee className="w-5 h-5" />
                 </div>
-                <h4 className="text-lg font-bold text-white mb-2">Tablet & Handheld POS</h4>
+                <h4 className="text-lg font-bold text-white mb-2">In-Room Dining to Room Folio</h4>
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Turn any Android tablet or smartphone into a mobile waiter station. Punch KOTs, modify spice levels, and print invoices right at the customer's table.
+                  Guests scan an in-room QR code to view high-resolution food menus, order breakfast in bed, and post charges directly to their room folio.
                 </p>
               </div>
               <div className="relative aspect-[16/10] rounded-xl overflow-hidden border border-white/[0.08]">
-                <Image src="/images/website/restaurant-pos-live.jpg" alt="Handheld POS Mobile" fill className="object-cover" />
+                <Image
+                  src="/images/website/hotel-suite-luxury.jpg"
+                  alt="Luxury Hotel Master Suite"
+                  fill
+                  className="object-cover"
+                />
               </div>
             </div>
 
-            {/* Bento Card 4: Housekeeping & Walkie-Talkie (Span 4) */}
+            {/* Bento Card 4: Housekeeping & Floor Walkie-Talkie (Span 4) */}
             <div
               className="lg:col-span-4 rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/40"
               style={{
@@ -695,23 +969,27 @@ export default function WebsiteHomePage() {
                 <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400 mb-4 border border-violet-500/20">
                   <Radio className="w-5 h-5" />
                 </div>
-                <h4 className="text-lg font-bold text-white mb-2">Staff Walkie-Talkie & Tasks</h4>
+                <h4 className="text-lg font-bold text-white mb-2">Staff Walkie-Talkie & Turns</h4>
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  Coordinate housekeeping teams across multiple floors with built-in push-to-talk digital walkie-talkie audio channels and real-time cleaning checklists.
+                  Coordinate housekeeping staff across hotel floors with built-in push-to-talk voice channels, priority room clean flags, and instant inspection notifications.
                 </p>
               </div>
-              <div className="p-4 rounded-xl bg-black/40 border border-white/[0.05] space-y-2">
+              <div className="p-4 rounded-xl bg-black/40 border border-white/[0.05] space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300">Channel: Housekeeping Floor 2</span>
-                  <span className="text-emerald-400 font-bold">● Active (4 Staff)</span>
+                  <span className="text-slate-300 font-medium">Floor 1 Housekeeping Channel</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Active (6 Staff)
+                  </span>
                 </div>
                 <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-violet-400 h-full w-3/4 rounded-full" />
+                  <div className="bg-violet-400 h-full w-4/5 rounded-full" />
                 </div>
+                <div className="text-[10px] text-slate-400">12 Rooms Turnaround • 4 Ready for Inspection</div>
               </div>
             </div>
 
-            {/* Bento Card 5: GST Billing & Multi-Payment (Span 4) */}
+            {/* Bento Card 5: GST Billing & Multi-Tender Invoicing (Span 4) */}
             <div
               className="lg:col-span-4 rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:border-cyan-500/40"
               style={{
@@ -723,15 +1001,15 @@ export default function WebsiteHomePage() {
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-4 border border-emerald-500/20">
                   <Receipt className="w-5 h-5" />
                 </div>
-                <h4 className="text-lg font-bold text-white mb-2">GST Invoicing & Payments</h4>
+                <h4 className="text-lg font-bold text-white mb-2">GST Compliance & Night Audit</h4>
                 <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                  100% GST compliant invoicing with HSN code mapping, dynamic UPI QR on bill slips, multi-tender splits (Cash + Card + UPI), and WhatsApp auto-receipts.
+                  100% compliant hotel GST invoices with SAC 9963 codes, dynamic UPI QR on check-out bills, corporate B2B tax billing, and WhatsApp auto-receipts.
                 </p>
               </div>
               <div className="p-4 rounded-xl bg-black/40 border border-white/[0.05] flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-slate-400">Supported Gateways</div>
-                  <div className="text-sm font-bold text-white">Razorpay • PineLabs • Paytm</div>
+                  <div className="text-xs text-slate-400">Night Audit Mode</div>
+                  <div className="text-sm font-bold text-white">Automated Daily Reconciled</div>
                 </div>
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               </div>
@@ -740,18 +1018,99 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            5. MULTI-PLATFORM DOWNLOAD SHOWCASE
+            5. COMPARISON: LEGACY HOTEL SOFTWARE VS GUESTFLOW CLOUD OS
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
+              The Modern Advantage
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+              Why Premier Hotels Are Replacing <span className="text-slate-400">Legacy PMS Systems.</span>
+            </h2>
+          </div>
+
+          <div
+            className="rounded-3xl overflow-hidden border border-white/[0.08] backdrop-blur-xl"
+            style={{ background: 'rgba(10, 16, 32, 0.8)' }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.08]">
+              {/* Old Legacy Column */}
+              <div className="p-8 space-y-5 bg-red-950/10">
+                <div className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <h3 className="text-lg font-bold text-slate-300">Legacy Desktop PMS (Opera/IDS/Old Systems)</h3>
+                </div>
+                <div className="space-y-4 text-xs sm:text-sm text-slate-400">
+                  <div className="flex items-start gap-3">
+                    <span className="text-red-400 font-bold">✕</span>
+                    <span>Costly on-premise local servers that crash during power cuts</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-red-400 font-bold">✕</span>
+                    <span>Manual rate updates leading to high-frequency OTA overbooking</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-red-400 font-bold">✕</span>
+                    <span>Clunky 1990s Windows interface requiring weeks of staff training</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-red-400 font-bold">✕</span>
+                    <span>Paper housekeeping logs and lost room service charge slips</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-red-400 font-bold">✕</span>
+                    <span>45-minute manual night audit that freezes reception systems</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* GuestFlow Cloud OS Column */}
+              <div className="p-8 space-y-5 bg-cyan-950/20">
+                <div className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full bg-cyan-400" />
+                  <h3 className="text-lg font-bold text-white">GuestFlow Hospitality Cloud OS</h3>
+                </div>
+                <div className="space-y-4 text-xs sm:text-sm text-slate-200 font-medium">
+                  <div className="flex items-start gap-3">
+                    <CheckCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span>100% Cloud + Offline Resilience: Runs anywhere with zero server costs</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span>Instant 2-way live sync with 50+ OTAs (Zero double-bookings)</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span>Intuitive modern UI: New front-desk staff master check-ins in under 1 hour</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span>Mobile housekeeper app + staff walkie-talkie + automatic folio posting</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span>Automated 1-click midnight audit with revenue reports sent to WhatsApp</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            6. MULTI-PLATFORM DOWNLOAD SHOWCASE
         ════════════════════════════════════════════════════════════════════ */}
         <section id="download" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
-              Deploy Instantly Everywhere
+              Deploy Across Your Property
             </span>
             <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-              One Login. <span className="text-cyan-400">Every Device.</span>
+              One Cloud Account. <span className="text-cyan-400">Every Hotel Device.</span>
             </h2>
             <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
-              Download native high-performance applications designed specifically for your hardware setup.
+              Download native high-performance apps customized for front desk PCs, housekeeping tablets, and manager smartphones.
             </p>
           </div>
 
@@ -786,8 +1145,8 @@ export default function WebsiteHomePage() {
                     download={app.id !== 'web'}
                     className="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 text-slate-950 hover:opacity-90"
                     style={{
-                      background: 'linear-gradient(135deg, #00c8ff, #38bdf8)',
-                      boxShadow: '0 0 20px rgba(0, 200, 255, 0.25)',
+                      background: 'linear-gradient(135deg, #00d4ff, #38bdf8)',
+                      boxShadow: '0 0 20px rgba(0, 212, 255, 0.3)',
                     }}
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -800,18 +1159,18 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            6. SOCIAL PROOF & CUSTOMER REVIEWS
+            7. HOTELIER TESTIMONIALS & SOCIAL PROOF
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-white/[0.06]">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-400 block mb-3">
-              Trusted by Leaders
+              Trusted by 500+ Properties
             </span>
             <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-              Loved by 500+ Hoteliers & Restaurateurs.
+              Loved by General Managers & Owners.
             </h2>
             <p className="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
-              Discover why premier boutique resorts and high-volume outlets choose GuestFlow to power their day-to-day operations.
+              Discover why heritage palaces, beachfront resorts, and boutique luxury hotels rely on GuestFlow every day.
             </p>
           </div>
 
@@ -826,7 +1185,6 @@ export default function WebsiteHomePage() {
                 }}
               >
                 <div>
-                  {/* Rating Stars */}
                   <div className="flex items-center gap-1 text-amber-400 mb-4">
                     {[...Array(t.rating)].map((_, i) => (
                       <Star key={i} className="w-4 h-4 fill-amber-400" />
@@ -844,7 +1202,9 @@ export default function WebsiteHomePage() {
                   </div>
                   <div>
                     <div className="text-sm font-bold text-white">{t.name}</div>
-                    <div className="text-[11px] text-cyan-300 font-medium">{t.role} • {t.property}</div>
+                    <div className="text-[11px] text-cyan-300 font-medium">
+                      {t.role} • {t.property}
+                    </div>
                     <div className="text-[10px] text-slate-400">{t.location}</div>
                   </div>
                 </div>
@@ -854,37 +1214,39 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            7. 24/7 DEDICATED SUPPORT & ONBOARDING PROMISE
+            8. WHITE-GLOVE HOTEL ONBOARDING & SETUP GUARANTEE
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div
             className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center p-8 sm:p-12 rounded-3xl overflow-hidden relative"
             style={{
-              background: 'radial-gradient(ellipse at top left, rgba(0, 200, 255, 0.1), rgba(10, 16, 32, 0.95))',
+              background: 'radial-gradient(ellipse at top left, rgba(0, 200, 255, 0.12), rgba(10, 16, 32, 0.95))',
               border: '1px solid rgba(0, 200, 255, 0.25)',
               boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
             }}
           >
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                <Headphones className="w-3.5 h-3.5" /> White-Glove Onboarding
+                <Headphones className="w-3.5 h-3.5" /> White-Glove Hotel Onboarding
               </div>
 
               <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                We Setup Everything For You. <br />
-                <span className="text-cyan-400">Zero Technical Stress.</span>
+                We Setup Your Entire Property. <br />
+                <span className="text-cyan-400">Zero Technical Effort Required.</span>
               </h3>
 
               <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                Our hospitality engineers digitize your full room inventory, configure printer dispatch routes, upload your food & beverage menus with item photos, and train your staff live.
+                Our hospitality engineers digitize your full room inventory, link your OTA channels, configure keycard encoders and printers, and conduct live interactive training with your front-desk and housekeeping teams.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 {[
-                  'Free Menu & Room Digitization',
-                  '1-on-1 Staff Training Sessions',
-                  'Dedicated WhatsApp Support Group',
-                  'Hardware & Thermal Printer Setup',
+                  'Free Room Inventory & Rate Plan Setup',
+                  'Live 1-on-1 Front Desk Staff Training',
+                  '2-Way OTA Channel Manager Activation',
+                  'Keycard Encoders & Thermal Printers Setup',
+                  'Dedicated WhatsApp GM Support Group',
+                  'Full Historical Guest Data Migration',
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2.5 text-xs sm:text-sm text-slate-200 font-medium">
                     <CheckCircle2 className="w-4 h-4 text-cyan-400 flex-shrink-0" />
@@ -898,7 +1260,7 @@ export default function WebsiteHomePage() {
                   href="/contact"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors shadow-lg"
                 >
-                  <span>Talk to an Onboarding Specialist</span>
+                  <span>Talk to a Hospitality Onboarding Specialist</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -908,7 +1270,7 @@ export default function WebsiteHomePage() {
               <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl">
                 <Image
                   src="/images/website/contact-team.png"
-                  alt="GuestFlow Dedicated Support Team"
+                  alt="GuestFlow Dedicated Hospitality Support Team"
                   fill
                   className="object-cover"
                 />
@@ -918,7 +1280,7 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            8. INTERACTIVE FAQ ACCORDION
+            9. HOTEL FAQ ACCORDION
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
           <div className="text-center mb-12">
@@ -926,7 +1288,7 @@ export default function WebsiteHomePage() {
               Got Questions?
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Frequently Asked Questions.
+              Frequently Asked Questions by Hoteliers.
             </h2>
           </div>
 
@@ -972,31 +1334,32 @@ export default function WebsiteHomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            9. GRAND FINALE HIGH-CONVERTING CTA
+            10. GRAND HOTEL FINALE CALL TO ACTION
         ════════════════════════════════════════════════════════════════════ */}
         <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center relative overflow-hidden">
           <div
             className="p-10 sm:p-16 rounded-3xl relative overflow-hidden backdrop-blur-2xl"
             style={{
-              background: 'linear-gradient(135deg, rgba(0, 200, 255, 0.12), rgba(10, 16, 32, 0.95), rgba(99, 102, 241, 0.12))',
-              border: '1px solid rgba(0, 200, 255, 0.3)',
+              background:
+                'linear-gradient(135deg, rgba(0, 200, 255, 0.15), rgba(10, 16, 32, 0.95), rgba(99, 102, 241, 0.15))',
+              border: '1px solid rgba(0, 200, 255, 0.35)',
               boxShadow: '0 30px 80px rgba(0, 0, 0, 0.7), 0 0 60px rgba(0, 200, 255, 0.15)',
             }}
           >
             <div className="relative z-10 max-w-2xl mx-auto">
               <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-cyan-400 block mb-4">
-                Join 500+ Top Hospitality Brands
+                Join 500+ Top Hotels & Luxury Resorts
               </span>
 
               <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight mb-6">
-                Ready to Upgrade to the{' '}
+                Ready to Upgrade Your Hotel to the{' '}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-emerald-400">
                   Ultimate Hospitality OS?
                 </span>
               </h2>
 
               <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-8">
-                Start your free 14-day trial today. No credit card required. Experience faster check-ins, automated KOTs, and zero inventory leakage.
+                Start your free 14-day trial today. No credit card required. Experience faster check-ins, automated OTA sync, live housekeeping dispatch, and zero inventory leakage.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -1004,11 +1367,11 @@ export default function WebsiteHomePage() {
                   href="/pricing"
                   className="w-full sm:w-auto px-10 py-4 rounded-xl font-bold text-sm text-slate-950 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl"
                   style={{
-                    background: 'linear-gradient(135deg, #00c8ff, #00e5ff)',
-                    boxShadow: '0 0 35px rgba(0, 200, 255, 0.4)',
+                    background: 'linear-gradient(135deg, #00d4ff, #00f2fe)',
+                    boxShadow: '0 0 35px rgba(0, 212, 255, 0.45)',
                   }}
                 >
-                  <span>Start Free Trial Now</span>
+                  <span>Start Free 14-Day Trial</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
 
@@ -1019,7 +1382,7 @@ export default function WebsiteHomePage() {
                     border: '1px solid rgba(255, 255, 255, 0.15)',
                   }}
                 >
-                  <span>Schedule Personal Demo</span>
+                  <span>Schedule Private Hotel Walkthrough</span>
                 </Link>
               </div>
             </div>

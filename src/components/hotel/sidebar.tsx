@@ -56,6 +56,8 @@ import {
   BookOpen,
   Store,
   Tablet,
+  Radio,
+  Navigation,
 } from 'lucide-react';
 
 
@@ -193,11 +195,18 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'HR & Staff',
-    emoji: '👤',
-    color: 'text-blue-400',
+    label: 'Staff & GPS Attendance',
+    emoji: '📍',
+    color: 'text-emerald-400',
     items: [
-      { name: 'Staff & Team',       path: '/hotel/staff',            icon: Users },
+      { name: 'Live GPS Tracking',  path: '/hotel/staff?tab=location',        icon: MapPin, badge: 'GPS', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { name: 'Staff Attendance',   path: '/hotel/staff/attendance',          icon: UserCheck },
+      { name: 'Punch Locations',    path: '/hotel/staff/attendance-location', icon: Navigation },
+      { name: 'Proximity Radar',    path: '/hotel/staff/location',            icon: Radio, badge: 'LIVE', badgeColor: 'bg-indigo-500/20 text-indigo-300' },
+      { name: 'Staff & Team',       path: '/hotel/staff',                     icon: Users },
+      { name: 'Attendance Reports', path: '/hotel/reports/attendance',        icon: ScrollText },
+      { name: 'HR & Leaves Hub',    path: '/hotel/hr',                        icon: Calendar },
+      { name: 'Hotel Payroll',      path: '/hotel/payroll',                   icon: IndianRupee },
     ],
   },
   {

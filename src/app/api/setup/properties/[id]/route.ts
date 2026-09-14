@@ -18,7 +18,7 @@ export async function PUT(
 
     const body = await request.json();
     console.log('Incoming Payload:', body);
-    const { name, brandName, logoUrl, city, state, country, address, phone, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, restaurantPosEnabled, showRestaurantInQrMenu, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, deliveryEnabled, showDeliveryInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours, latitude, longitude, guestPortalEnabled, guestPortalPasswordMode, guestPortalDefaultPassword, hotelWifiName, hotelWifiPassword, breakfastTimings, poolTimings, gymTimings, checkoutPolicy, restaurantRoomChargingEnabled } = body;
+    const { name, brandName, logoUrl, city, state, country, address, phone, email, bookingEmail, gmailAppPassword, bookingEmailParserApiKey, starRating, hotelCategory, checkInTime, checkOutTime, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, restaurantPosEnabled, showRestaurantInQrMenu, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, deliveryEnabled, showDeliveryInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours, latitude, longitude, guestPortalEnabled, guestPortalPasswordMode, guestPortalDefaultPassword, hotelWifiName, hotelWifiPassword, breakfastTimings, poolTimings, gymTimings, checkoutPolicy, restaurantRoomChargingEnabled } = body;
     const isSuperAdmin = session.role === 'SUPER_ADMIN';
 
     const updateData: any = {};
@@ -31,6 +31,31 @@ export async function PUT(
     if (whatsAppInstanceId !== undefined) updateData.whatsAppInstanceId = whatsAppInstanceId;
     if (whatsAppTemplate !== undefined) updateData.whatsAppTemplate = whatsAppTemplate;
     if (whatsAppWelcomeMessage !== undefined) updateData.whatsAppWelcomeMessage = whatsAppWelcomeMessage;
+
+    // Hotel & Gmail Sync settings
+    if (bookingEmail !== undefined) {
+      updateData.bookingEmail = bookingEmail ? String(bookingEmail).trim() : null;
+    } else if (email !== undefined) {
+      updateData.bookingEmail = email ? String(email).trim() : null;
+    }
+    if (gmailAppPassword !== undefined) {
+      updateData.gmailAppPassword = gmailAppPassword ? String(gmailAppPassword).replace(/\s+/g, '') : null;
+    }
+    if (bookingEmailParserApiKey !== undefined) {
+      updateData.bookingEmailParserApiKey = bookingEmailParserApiKey ? String(bookingEmailParserApiKey).trim() : null;
+    }
+    if (starRating !== undefined) {
+      updateData.starRating = starRating !== null && starRating !== '' ? Number(starRating) : null;
+    }
+    if (hotelCategory !== undefined) {
+      updateData.hotelCategory = hotelCategory || null;
+    }
+    if (checkInTime !== undefined) {
+      updateData.checkInTime = checkInTime || null;
+    }
+    if (checkOutTime !== undefined) {
+      updateData.checkOutTime = checkOutTime || null;
+    }
 
     // Guest Portal & Hotel Timings/WiFi settings
     if (guestPortalEnabled !== undefined) updateData.guestPortalEnabled = guestPortalEnabled;
