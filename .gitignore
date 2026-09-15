@@ -42,7 +42,8 @@ next-env.d.ts
 *.db
 prisma/dev.db
 public/uploads/
-public/downloads/
+public/downloads/*
+!public/downloads/OrderMintPMS.apk
 dist/
 dev_server.log
 *.db-shm

@@ -87,64 +87,72 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── Determine attendance action taken ──
+    // ── Auto-Attendance via Geofence ──
     let attendanceAction = 'no_change';
     if (autoAttendance) {
       try {
-        const u = await prisma.user.findUnique({ where: { id: userId }, select: { wtStatus: true, fullName: true } });
-        if (u?.wtStatus === 'online') {
-          const active = await prisma.attendance.findFirst({
-            where: { userId, clockOut: null },
-            orderBy: { clockIn: 'desc' }
-          });
+        // Fetch user info — also check if there is a StaffMember record for a better name
+        const u = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true, email: true },
+        });
+        const staffMember = await prisma.staffMember.findFirst({
+          where: { userId },
+          select: { name: true },
+        });
+        const displayName = staffMember?.name || u?.fullName || u?.email || 'Staff member';
 
-          if (!isOutOfRange) {
-            if (!active) {
-              const attendance = await prisma.attendance.create({
-                data: {
-                  propertyId,
-                  userId,
-                  clockIn: new Date(),
-                  status: 'PRESENT',
-                  note: 'Auto Clock-In (GPS Proximity)',
-                  locationIn: `${lat},${lng}`
-                }
+        const active = await prisma.attendance.findFirst({
+          where: { userId, clockOut: null },
+          orderBy: { clockIn: 'desc' },
+        });
+
+        if (!isOutOfRange) {
+          // Staff entered property range → Auto Clock-In
+          if (!active) {
+            const attendance = await prisma.attendance.create({
+              data: {
+                propertyId,
+                userId,
+                clockIn: new Date(),
+                status: 'PRESENT',
+                note: 'Auto Clock-In (GPS Proximity)',
+                locationIn: `${lat},${lng}`,
+              },
+            });
+            attendanceAction = 'clocked_in';
+            try {
+              await createNotification({
+                propertyId,
+                title: '📍 Auto Clock-In (Geofence)',
+                message: `${displayName} automatically clocked in — entered property range.`,
+                type: 'STAFF',
+                priority: 'MEDIUM',
+                metadata: { userId, attendanceId: attendance.id, link: '/hotel/staff/attendance', isAuto: true, source: 'geofence' },
               });
-              attendanceAction = 'clocked_in';
-              try {
-                await createNotification({
-                  propertyId,
-                  title: 'Auto Clock-In',
-                  message: `${u.fullName || 'Staff member'} logged in automatically (entered restaurant base range).`,
-                  type: 'STAFF',
-                  priority: 'LOW',
-                  metadata: { userId, attendanceId: attendance.id, link: '/reports/attendance' }
-                });
-              } catch (e) {}
-            } else {
-              attendanceAction = 'already_clocked_in';
-            }
+            } catch (e) {}
           } else {
-            if (active) {
-              const attendance = await prisma.attendance.update({
-                where: { id: active.id },
-                data: { clockOut: new Date(), locationOut: `${lat},${lng}` }
-              });
-              attendanceAction = 'clocked_out';
-              try {
-                await createNotification({
-                  propertyId,
-                  title: 'Auto Clock-Out',
-                  message: `${u.fullName || 'Staff member'} logged out automatically (left restaurant base range).`,
-                  type: 'STAFF',
-                  priority: 'LOW',
-                  metadata: { userId, attendanceId: attendance.id, link: '/reports/attendance' }
-                });
-              } catch (e) {}
-            }
+            attendanceAction = 'already_clocked_in';
           }
         } else {
-          attendanceAction = 'skipped_offline';
+          // Staff left property range → Auto Clock-Out
+          if (active) {
+            const attendance = await prisma.attendance.update({
+              where: { id: active.id },
+              data: { clockOut: new Date(), locationOut: `${lat},${lng}` },
+            });
+            attendanceAction = 'clocked_out';
+            try {
+              await createNotification({
+                propertyId,
+                title: '📍 Auto Clock-Out (Geofence)',
+                message: `${displayName} automatically clocked out — left property range.`,
+                type: 'STAFF',
+                priority: 'MEDIUM',
+                metadata: { userId, attendanceId: attendance.id, link: '/hotel/staff/attendance', isAuto: true, source: 'geofence' },
+              });
+            } catch (e) {}
+          }
         }
       } catch (autoErr) {
         console.error('[Auto-Attendance Trigger Error]', autoErr);

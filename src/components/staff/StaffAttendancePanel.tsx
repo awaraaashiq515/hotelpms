@@ -184,10 +184,10 @@ export default function StaffAttendancePanel({ user, wtToken }: StaffAttendanceP
   const fetchHistory = async () => {
     setFetchingHistory(true);
     try {
-      const res = await fetch(`/api/staff/attendance/report?userId=${user.id}`);
+      const res = await fetch(`/api/staff-attendance`);
       const data = await res.json();
       if (data.success && data.data) {
-        setHistory(data.data);
+        setHistory(Array.isArray(data.data) ? data.data : (data.data.present || []));
       }
     } catch (error) {
       console.error('Failed to fetch attendance history');

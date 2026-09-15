@@ -11,7 +11,7 @@ const ESI_RATE       = 0.0075;
 const TDS_MULT       = 0.30;
 const WORKING_DAYS   = 26;
 
-export function calcPayroll(
+function calcPayroll(
   basic: number,
   structure: 'FLAT' | 'STATUTORY' = 'FLAT',
   days: { workingDays: number; paidDays: number; absentDays: number } = { workingDays: 26, paidDays: 26, absentDays: 0 }

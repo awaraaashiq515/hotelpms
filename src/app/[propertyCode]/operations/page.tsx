@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { ActionTile } from '@/components/shared/action-tile';
-import AttendanceHubSection from '@/components/staff/AttendanceHubSection';
+
 import {
   Menu,
   Printer,
@@ -44,7 +44,7 @@ import {
   LayoutGrid,
   Sparkles,
   ArrowRight,
-  Clock,
+
   Bell,
   Trash2,
   Truck,
@@ -53,7 +53,7 @@ import {
   Tablet,
   Search,
   X,
-  MapPin,
+
   Download,
   BedDouble,
   Building2
@@ -371,8 +371,6 @@ export default function OperationsPage() {
   const staffActions: DashboardAction[] = [
     { label: 'Staff Portal',      perm: 'POS Terminal',    icon: Tablet,         path: `/staff-portal${p}`,      feature: 'POS' },
     { label: 'POS Staff',         perm: 'POS Staff',       icon: Users,          path: `${p}/pos-staff`,         feature: 'STAFF' },
-    { label: 'Staff Attendance',  perm: 'POS Staff',       icon: Clock,          path: `${p}/staff/attendance`,  feature: 'STAFF' },
-    { label: 'Staff Locations',   perm: 'POS Staff',       icon: MapPin,         path: `${p}/staff?tab=location`, feature: 'STAFF' },
   ];
 
   const billingPaymentsActions: DashboardAction[] = [
@@ -401,7 +399,6 @@ export default function OperationsPage() {
     { label: 'Settlements Report', perm: 'Reports', icon: Receipt, path: `${p}/reports/settlements`, feature: 'REPORTS' },
     { label: 'Tax Report', perm: 'Reports', icon: FileText, path: `${p}/reports/tax`, feature: 'REPORTS' },
     { label: 'Inventory Report', perm: 'Reports', icon: Package, path: `${p}/reports/inventory`, feature: 'REPORTS' },
-    { label: 'Attendance Report', perm: 'Reports', icon: Users, path: `${p}/reports/attendance`, feature: 'REPORTS' },
     { label: 'Audit Logs', perm: 'Reports', icon: ClipboardList, path: `${p}/reports/audit`, feature: 'REPORTS' },
   ];
 
@@ -673,16 +670,7 @@ export default function OperationsPage() {
             getLateStatusForAction={getLateStatusForAction}
           />
 
-          {/* Staff Attendance Terminal */}
-          <section className="space-y-8">
-            <div className="flex items-center gap-4">
-              <div className="h-6 w-1 bg-pos-primary rounded-full"></div>
-              <h2 className="text-sm font-black section-heading uppercase tracking-[0.2em]">Staff Attendance Terminal</h2>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-900/30 rounded-[48px] p-8 border border-slate-100 dark:border-slate-800/50">
-               <AttendanceHubSection />
-            </div>
-          </section>
+
 
         </div>
       )}

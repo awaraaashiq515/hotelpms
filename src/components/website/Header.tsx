@@ -39,6 +39,7 @@ export const WebsiteHeader = ({ isSimple = false, dark = true }: { isSimple?: bo
   const navLinks = [
     { name: 'Features', href: '/features' },
     { name: 'Pricing', href: '/pricing' },
+    { name: 'Download App', href: '/#download' },
     { name: 'About', href: '/about' },
     { name: 'Blog', href: '/blog' },
     { name: 'Contact', href: '/contact' },

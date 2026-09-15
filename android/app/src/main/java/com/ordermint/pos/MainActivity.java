@@ -84,7 +84,7 @@ public class MainActivity extends BridgeActivity {
             if (!allGranted) {
                 Toast.makeText(
                         this,
-                        "Kuch permissions deny ki gayi hain. Printer/Camera ke liye Settings > Apps > OrderMint > Permissions mein ja ke on karein.",
+                        "Kuch permissions deny ki gayi hain. Printer/Camera ke liye Settings > Apps > OrderMint PMS > Permissions mein ja ke on karein.",
                         Toast.LENGTH_LONG
                 ).show();
             }

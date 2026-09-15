@@ -193,6 +193,28 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const prevCountRef = useRef<number>(0);
+  const isFirstLoadRef = useRef<boolean>(true);
+
+  /** Play a soft chime using Web Audio API — no external sound file needed */
+  const playChime = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);       // A5
+      osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.12); // C6
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (_) {
+      // Web Audio not supported — silently ignore
+    }
+  };
 
   const fetchNotifications = async (signal?: AbortSignal) => {
     try {
@@ -204,8 +226,18 @@ export function NotificationBell() {
 
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.data || []);
-        setUnreadCount(data.data ? data.data.length : 0);
+        const newNotifs: Notification[] = data.data || [];
+        setNotifications(newNotifs);
+        const newCount = newNotifs.length;
+        setUnreadCount(newCount);
+
+        // Play sound when a new STAFF notification arrives (skip on first page load)
+        if (!isFirstLoadRef.current && newCount > prevCountRef.current) {
+          const hasStaff = newNotifs.some(n => n.type === 'STAFF');
+          if (hasStaff) playChime();
+        }
+        prevCountRef.current = newCount;
+        isFirstLoadRef.current = false;
       }
     } catch (error: any) {
       // Ignore AbortError — this is expected when the component unmounts

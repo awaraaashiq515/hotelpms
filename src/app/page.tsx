@@ -221,13 +221,13 @@ export default function WebsiteHomePage() {
     },
     {
       id: 'android',
-      name: 'Housekeeping Android App',
+      name: 'OrderMint PMS Android App',
       icon: <Smartphone className="w-6 h-6 text-emerald-400" />,
-      desc: 'Rugged smartphone & tablet interface for housekeeping floor staff, room inspections & minibar audits.',
-      badge: 'Housekeeping & Staff',
-      btnLabel: 'Download APK',
-      link: '/downloads/ordermint.apk',
-      version: 'v4.5.0 • Android 8+',
+      desc: 'Mobile & Tablet PMS app for staff attendance, housekeeping, room inspections, walkie-talkie & thermal printing.',
+      badge: 'OrderMint PMS Official',
+      btnLabel: 'Download OrderMint PMS APK',
+      link: '/downloads/OrderMintPMS.apk',
+      version: 'v1.0 • Android 8.0+',
     },
     {
       id: 'mac',
@@ -455,6 +455,19 @@ export default function WebsiteHomePage() {
               >
                 <Play className="w-4 h-4 text-cyan-400 fill-cyan-400/20" />
                 <span>Book Live 1-on-1 Hotel Demo</span>
+              </Link>
+
+              <Link
+                href="#download"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-sm text-emerald-300 flex items-center justify-center gap-2 backdrop-blur-md transition-all duration-200 hover:bg-emerald-500/20 hover:border-emerald-400/50 active:scale-95 group"
+                style={{
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(52, 211, 153, 0.35)',
+                  boxShadow: '0 0 25px rgba(16, 185, 129, 0.2)',
+                }}
+              >
+                <Smartphone className="w-4 h-4 text-emerald-400 transition-transform group-hover:scale-110" />
+                <span>Download OrderMint PMS App</span>
               </Link>
             </motion.div>
 

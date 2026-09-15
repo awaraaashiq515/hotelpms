@@ -99,7 +99,7 @@ export async function PUT(request: NextRequest) {
         trackingEnabled: Boolean(trackingEnabled),
       },
       create: {
-        propertyId: session.propertyId,
+        propertyId: propertyId!,
         baseLat: parseFloat(baseLat) || 0,
         baseLng: parseFloat(baseLng) || 0,
         alertDistanceMeters: parseFloat(alertDistanceMeters) || 500,

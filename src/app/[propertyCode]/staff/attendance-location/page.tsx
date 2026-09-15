@@ -118,13 +118,40 @@ export default function AttendanceLocationPage() {
       const res = await fetch(`/api/staff/attendance/report?month=${monthStr}`);
       const data = await res.json();
       if (data.success && data.data) {
-        setLogs(data.data);
-        
+        const presentRecords = Array.isArray(data.data)
+          ? data.data
+          : (data.data.present ?? []);
+
+        const flatLogs: AttendanceLog[] = presentRecords
+          .filter((r: any) => r.clockIn)
+          .map((r: any) => ({
+            id: r.id,
+            clockIn: r.clockIn,
+            clockOut: r.clockOut,
+            status: r.status || 'PRESENT',
+            note: r.note || null,
+            locationIn: r.locationIn || null,
+            locationOut: r.locationOut || null,
+            employeeName: r.employeeName || 'Unknown',
+            employeeRole: r.employeeRole || 'Staff',
+            distanceIn: r.distanceIn ?? null,
+            distanceOut: r.distanceOut ?? null,
+            isOutOfRangeIn: r.isOutOfRangeIn ?? false,
+            isOutOfRangeOut: r.isOutOfRangeOut ?? false,
+            alertDistanceMeters: r.alertDistanceMeters ?? 500,
+          }));
+
+        setLogs(flatLogs);
+
         // Auto-expand the latest date
-        const fetchedLogs = data.data as AttendanceLog[];
-        if (fetchedLogs.length > 0) {
-          const latestDateKey = format(new Date(fetchedLogs[0].clockIn), 'yyyy-MM-dd');
-          setExpandedDates({ [latestDateKey]: true });
+        if (flatLogs.length > 0) {
+          try {
+            const d = new Date(flatLogs[0].clockIn);
+            const latestDateKey = !isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : '';
+            if (latestDateKey) setExpandedDates({ [latestDateKey]: true });
+          } catch {
+            setExpandedDates({});
+          }
         } else {
           setExpandedDates({});
         }
@@ -136,9 +163,10 @@ export default function AttendanceLocationPage() {
     }
   };
 
+
   // Filter logs based on search term & filters
   const filteredLogs = logs.filter(log => {
-    const nameMatch = log.employeeName.toLowerCase().includes(searchTerm.toLowerCase());
+    const nameMatch = (log.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     // Proximity checks
     let proximityMatch = true;
@@ -163,11 +191,16 @@ export default function AttendanceLocationPage() {
   // Group filtered logs by date (YYYY-MM-DD)
   const logsByDate: { [dateStr: string]: AttendanceLog[] } = {};
   filteredLogs.forEach(log => {
-    const dateKey = format(new Date(log.clockIn), 'yyyy-MM-dd');
-    if (!logsByDate[dateKey]) {
-      logsByDate[dateKey] = [];
+    try {
+      const d = new Date(log.clockIn);
+      const dateKey = !isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : 'Unknown';
+      if (!logsByDate[dateKey]) {
+        logsByDate[dateKey] = [];
+      }
+      logsByDate[dateKey].push(log);
+    } catch {
+      // ignore
     }
-    logsByDate[dateKey].push(log);
   });
 
   // Sorted date keys in descending order
@@ -194,18 +227,35 @@ export default function AttendanceLocationPage() {
 
   const calculateDuration = (inTime: string, outTime: string | null) => {
     if (!outTime) return 'Active Shift';
-    const diff = new Date(outTime).getTime() - new Date(inTime).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${mins}m`;
+    try {
+      const diff = new Date(outTime).getTime() - new Date(inTime).getTime();
+      if (isNaN(diff) || diff < 0) return '—';
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${mins}m`;
+    } catch {
+      return '—';
+    }
   };
 
   const getDayName = (dateStr: string) => {
-    return format(new Date(dateStr), 'MMM dd, yyyy');
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '—';
+      return format(d, 'MMM dd, yyyy');
+    } catch {
+      return '—';
+    }
   };
 
   const getTimeOnly = (dateStr: string) => {
-    return format(new Date(dateStr), 'hh:mm a');
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '—';
+      return format(d, 'hh:mm a');
+    } catch {
+      return '—';
+    }
   };
 
   return (

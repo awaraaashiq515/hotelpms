@@ -492,13 +492,15 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
     try {
       let locationStr = 'Hotel Location (Geofenced)'
       if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            locationStr = `GPS (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}) - Geofenced`
-          },
-          () => {},
-          { timeout: 3000 }
-        )
+        try {
+          locationStr = await new Promise<string>((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve(`${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`),
+              () => resolve('Hotel Location (Geofenced)'),
+              { timeout: 2500 }
+            );
+          });
+        } catch {}
       }
 
       const res = await fetch('/api/staff-attendance/clock-in', {
@@ -1434,10 +1436,27 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
               <button
                 onClick={async () => {
                   try {
+                    let locationCoord: string | undefined = undefined;
+                    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+                      try {
+                        locationCoord = await new Promise<string | undefined>((resolve) => {
+                          navigator.geolocation.getCurrentPosition(
+                            (pos) => resolve(`${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`),
+                            () => resolve(undefined),
+                            { timeout: 3000, enableHighAccuracy: true }
+                          );
+                        });
+                      } catch {}
+                    }
+
                     const endpoint = clockedIn ? '/api/staff-attendance/clock-out' : '/api/staff-attendance/clock-in'
                     const res = await fetch(endpoint, {
                       method: 'POST',
-                      headers: { Authorization: `Bearer ${wtToken}` },
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${wtToken}` 
+                      },
+                      body: JSON.stringify(locationCoord ? { location: locationCoord } : {}),
                     })
                     if (res.ok) {
                       setClockedIn(!clockedIn)
