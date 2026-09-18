@@ -4,9 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   MapPin, 
   Users, 
-  ArrowLeft, 
   Calendar, 
-  Clock, 
   Search, 
   Filter, 
   Loader2, 
@@ -269,14 +267,6 @@ export default function AttendanceLocationPage() {
       {/* ━━━ HEADER ━━━ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Link href="/hotel/staff" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all group">
-              <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform text-emerald-400" /> Back to Staff Portal
-            </Link>
-            <Link href="/hotel" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/50 hover:bg-slate-800 border border-slate-800/80 text-slate-400 hover:text-white text-xs font-bold transition-all">
-              Hotel Dashboard
-            </Link>
-          </div>
           <PageHeader 
             title="Attendance Geolocation Verifier" 
             subtitle="Audit employee check-in & check-out locations, distance metrics, and alert details."

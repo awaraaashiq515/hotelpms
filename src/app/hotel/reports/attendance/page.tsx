@@ -8,7 +8,6 @@ import {
   Filter,
   Loader2,
   Compass,
-  ArrowLeft,
   Users,
   Clock,
   CheckCircle2,
@@ -340,16 +339,6 @@ export default function AttendanceReportPage() {
 
   return (
     <div className="space-y-4 pb-10">
-      {/* ━━━ Back Buttons ━━━ */}
-      <div className="flex items-center gap-2">
-        <Link href="/hotel/staff" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all shadow-sm group">
-          <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform text-amber-400" />
-          <span>Back to Staff Portal</span>
-        </Link>
-        <Link href="/hotel" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/70 text-slate-400 hover:text-white text-xs font-bold transition-all">
-          <span>Hotel Dashboard</span>
-        </Link>
-      </div>
 
       {/* ━━━ Header + Action Buttons ━━━ */}
       <div className="flex items-center justify-between gap-4 flex-wrap">

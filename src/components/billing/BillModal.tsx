@@ -54,9 +54,11 @@ interface BillModalProps {
   isProforma?: boolean;
   autoPrint?: boolean;
   guestId?: string;
+  property?: any;
+  printers?: any[];
 }
 
-export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer, autoPrint = false, guestId }) => {
+export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma = true, onSettle, paymentModes, customers = [], onAddCustomer, autoPrint = false, guestId, property: initialProperty, printers: initialPrinters = [] }) => {
   const [isSettling, setIsSettling] = React.useState(false);
   const [selectedModeId, setSelectedModeId] = React.useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = React.useState('');
@@ -68,6 +70,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [ratingComments, setRatingComments] = React.useState('');
   const [settledInvoiceId, setSettledInvoiceId] = React.useState<string | null>(null);
   const [sendWhatsApp, setSendWhatsApp] = React.useState(true);
+  const [isFinishing, setIsFinishing] = React.useState(false);
 
   const [newCustFirst, setNewCustFirst] = React.useState('');
   const [newCustLast, setNewCustLast] = React.useState('');
@@ -157,11 +160,23 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   const [membershipCard, setMembershipCard] = React.useState<any>(bill?.membershipCard || null);
   const [membershipDiscount, setMembershipDiscount] = React.useState(bill?.membershipDiscount || 0);
 
-  const [property, setProperty] = React.useState<any>(null);
-  const [printers, setPrinters] = React.useState<any[]>([]);
+  const [property, setProperty] = React.useState<any>(initialProperty || null);
+  const [printers, setPrinters] = React.useState<any[]>(initialPrinters || []);
 
   React.useEffect(() => {
-    if (property?.id) {
+    if (initialProperty) {
+      setProperty(initialProperty);
+    }
+  }, [initialProperty]);
+
+  React.useEffect(() => {
+    if (initialPrinters && initialPrinters.length > 0) {
+      setPrinters(initialPrinters);
+    }
+  }, [initialPrinters]);
+
+  React.useEffect(() => {
+    if (property?.id && (!printers || printers.length === 0)) {
       fetch(`/api/settings/printers?propertyId=${property.id}`)
         .then(res => res.json())
         .then(data => {
@@ -171,7 +186,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
         })
         .catch(err => console.error('Failed to fetch printers:', err));
     }
-  }, [property?.id]);
+  }, [property?.id, printers?.length]);
 
   const validateMembership = async (cardNumber: string | null, mobile?: string) => {
     setIsValidatingMembership(true);
@@ -263,20 +278,24 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   }, [membershipCard, bill?.subtotal]);
 
   React.useEffect(() => {
-    fetch('/api/setup/properties/current')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setProperty(data.data);
-        }
-      })
-      .catch(err => console.error('Failed to fetch property branding:', err));
-  }, []);
+    if (!initialProperty) {
+      fetch('/api/setup/properties/current')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setProperty(data.data);
+          }
+        })
+        .catch(err => console.error('Failed to fetch property branding:', err));
+    }
+  }, [initialProperty]);
 
   React.useEffect(() => {
     if (autoPrint && property && bill) {
-      handlePrint();
-      onClose(!!settledInvoiceId);
+      (async () => {
+        await handlePrint();
+        onClose(!!settledInvoiceId);
+      })();
     }
   }, [autoPrint, property, !!bill]);
 
@@ -298,12 +317,11 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   }, [bill, guestId]);
 
   const filteredCustomers = React.useMemo(() => {
-    if (!customerSearch) return customers.slice(0, 5);
-    const s = customerSearch.toLowerCase();
+    if (!customerSearch.trim()) return [];
     return customers.filter(c => 
-        (c.firstName + ' ' + c.lastName).toLowerCase().includes(s) || 
-        c.mobile?.includes(s)
-    ).slice(0, 10);
+      c.name?.toLowerCase().includes(customerSearch.toLowerCase()) || 
+      c.mobile?.includes(customerSearch)
+    );
   }, [customers, customerSearch]);
 
   const couponDiscount = React.useMemo(() => {
@@ -318,25 +336,65 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     return appliedCoupon.discountValue;
   }, [appliedCoupon, bill?.subtotal]);
 
-  if (!bill) return null;
-
   const loyaltyDiscount = Number(redeemPointsInput || 0) * 1.0;
 
-  const currentGrandTotal = Math.max(0, bill.subtotal - membershipDiscount - (bill.manualDiscount || 0) - couponDiscount - loyaltyDiscount + bill.tax);
+  const currentGrandTotal = React.useMemo(() => {
+    if (!bill) return 0;
+    const subtotal = bill.subtotal || 0;
+    const tax = bill.tax || 0;
+    const totalDiscount = membershipDiscount + (bill.manualDiscount || 0);
+    const calculated = Math.max(0, subtotal + tax - totalDiscount);
+    return bill.grandTotal || calculated;
+  }, [bill?.subtotal, bill?.tax, bill?.grandTotal, bill?.manualDiscount, membershipDiscount]);
+
+  const handleCreateCustomer = async () => {
+    if (!newCustFirst || !newCustMobile) return;
+    setIsAddingCustomer(true);
+    try {
+      if (onAddCustomer) {
+        const created = await onAddCustomer({
+          firstName: newCustFirst,
+          lastName: newCustLast,
+          mobile: newCustMobile
+        });
+        if (created && created.id) {
+          setSelectedGuestId(created.id);
+          setShowAddCustomer(false);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to create customer', err);
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
 
   const handleSettle = async () => {
-    if (!onSettle || !selectedModeId) return;
+    if (isSettling) return;
     setIsSettling(true);
     try {
+      if (!selectedModeId) {
+        alert('Please select a payment mode');
+        setIsSettling(false);
+        return;
+      }
+
       let activePaymentModeId = selectedModeId;
+
       if (selectedModeId === 'POST_TO_ROOM') {
-        const selectedRoom = occupiedRooms.find((b: any) => b.rooms?.[0]?.room?.id === selectedRoomIdState);
-        const roomNo = selectedRoom ? selectedRoom.rooms[0].room.roomNumber : (bill.tableNo ? bill.tableNo.replace('Room ', '').trim() : '');
-        const postResponse = await fetch('/api/hotel/post-to-room', {
+        const targetRoomId = selectedRoomIdState || (bill as any).roomId;
+        if (!targetRoomId) {
+          alert('Please select an occupied room to post charges.');
+          setIsSettling(false);
+          return;
+        }
+
+        const postResponse = await fetch('/api/hotel/room-charges', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            roomNumber: roomNo,
+            roomId: targetRoomId,
+            folioId: (bill as any).folioId || undefined,
             amount: currentGrandTotal,
             description: `Room Service Order ${bill.orderNo}`,
             sourceRefId: bill.orderId || null,
@@ -347,7 +405,6 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
         if (!postResult.success) {
           throw new Error(postResult.message || 'Failed to post charges to the room bill.');
         }
-        // Mark as PAY_LATER on the restaurant order since hotel folio now holds the charge
         activePaymentModeId = 'PAY_LATER';
       }
 
@@ -399,54 +456,86 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   };
 
   const submitRating = async () => {
-    if (!settledInvoiceId) return;
+    if (!settledInvoiceId || isFinishing) return;
+    setIsFinishing(true);
     try {
+      if (rating > 0) {
         await fetch(`/api/invoices/${settledInvoiceId}/rate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rating, comments: ratingComments })
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating, comments: ratingComments })
         });
-        if (selectedModeId !== 'POST_TO_ROOM') {
-          handlePrint();
-        }
-        onClose(true);
+      }
     } catch (err) {
-        console.error('Rating failed', err);
-        if (selectedModeId !== 'POST_TO_ROOM') {
-          handlePrint();
-        }
-        onClose(true);
+      console.error('Rating failed', err);
+    }
+    try {
+      if (selectedModeId !== 'POST_TO_ROOM') {
+        await handlePrint();
+      }
+    } catch (printErr) {
+      console.error('Print failed', printErr);
+    } finally {
+      setIsFinishing(false);
+      onClose(true);
+    }
+  };
+
+  const handleSkipRating = async () => {
+    if (isFinishing) return;
+    setIsFinishing(true);
+    try {
+      if (selectedModeId !== 'POST_TO_ROOM') {
+        await handlePrint();
+      }
+    } catch (printErr) {
+      console.error('Print failed', printErr);
+    } finally {
+      setIsFinishing(false);
+      onClose(true);
     }
   };
 
   const handlePrint = async () => {
+    if (!bill) return;
     if (property?.enableDirectPrinting) {
       try {
         const billingPrinter = printers.find(p => p.isEnabled && p.isBilling);
-        
-        if (billingPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(billingPrinter.connectionType)) {
+
+        // If running inside Android native app, print via Cordova Bluetooth Serial
+        const isCapacitorAndroid = typeof window !== 'undefined' && 
+          (window as any).Capacitor && 
+          (window as any).Capacitor.getPlatform() === 'android';
+
+        if (isCapacitorAndroid && billingPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(billingPrinter.connectionType)) {
           const nameToUse = billingPrinter.ipAddress || billingPrinter.name;
-          const rawData = printerService.formatBill(bill, property);
-          await printerService.printRaw(nameToUse, rawData);
-          toast.success(`✅ Bill printed successfully via QZ Tray on ${nameToUse}!`);
+          try {
+            const rawData = printerService.formatBill(bill, property);
+            await printerService.printRaw(nameToUse, rawData);
+            toast.success(`✅ Bill printed successfully on ${nameToUse}!`);
+            return;
+          } catch (clientErr: any) {
+            console.warn("Android native printerService failed, falling back to server /api/print:", clientErr);
+          }
+        }
+
+        // On desktop/browser: call server /api/print directly (no QZ Tray delays, keepalive true)
+        const response = await fetch('/api/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({ 
+            bill, 
+            property, 
+            printerId: billingPrinter?.id 
+          })
+        });
+        const result = await response.json();
+        if (result.success) {
+          toast.success('✅ Bill printed successfully!');
           return;
         } else {
-          const response = await fetch('/api/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              bill, 
-              property, 
-              printerId: billingPrinter?.id 
-            })
-          });
-          const result = await response.json();
-          if (result.success) {
-            toast.success('✅ Bill printed successfully!');
-            return;
-          } else {
-            throw new Error(result.message || 'Direct printing failed');
-          }
+          throw new Error(result.message || 'Direct printing failed');
         }
       } catch (e: any) {
         console.warn("Direct serial print failed, falling back to browser print:", e);
@@ -577,6 +666,7 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
   };
 
   const handleWhatsApp = () => {
+    if (!bill) return;
     const guest = customers.find(c => c.id === selectedGuestId);
     let mobile = guest?.mobile || '';
 
@@ -630,6 +720,8 @@ Thank you! Visit again.`;
         setIsAddingCustomer(false);
     }
   };
+
+  if (!bill) return null;
 
   return (
     <Modal isOpen={!!bill} onClose={() => onClose(!!settledInvoiceId)} title={isProforma ? "Order Settlement" : "Bill Details"} maxWidth="4xl">
@@ -1172,15 +1264,11 @@ Thank you! Visit again.`;
                 Send via WhatsApp
               </Button>
               <button 
-                onClick={() => { 
-                  if (selectedModeId !== 'POST_TO_ROOM') {
-                    handlePrint(); 
-                  }
-                  onClose(true); 
-                }}
-                className="text-xs font-semibold text-slate-400 dark:text-slate-505 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1"
+                onClick={handleSkipRating}
+                disabled={isFinishing}
+                className="text-xs font-semibold text-slate-400 dark:text-slate-505 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1 disabled:opacity-50"
               >
-                Skip Rating
+                {isFinishing ? 'Printing...' : 'Skip Rating'}
               </button>
             </div>
           </div>

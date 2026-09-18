@@ -15,7 +15,6 @@ import {
   ChevronRight,
   Monitor,
   BarChart2,
-  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -543,24 +542,8 @@ export default function AttendanceHubPage() {
 
   return (
     <div className="space-y-8 pb-20 max-w-[1400px] mx-auto">
-      {/* ── Breadcrumbs / Hotel Nav ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-100 dark:border-white/5">
-        <div className="flex items-center gap-3">
-          <a
-            href="/hotel/staff"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-bold transition-all shadow-sm group"
-          >
-            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform text-blue-400" />
-            <span>Back to Staff Portal</span>
-          </a>
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-            <a href="/hotel" className="hover:text-blue-400 transition-colors">Hotel</a>
-            <span>/</span>
-            <a href="/hotel/staff" className="hover:text-blue-400 transition-colors">Staff</a>
-            <span>/</span>
-            <span className="text-slate-300">Attendance Hub</span>
-          </div>
-        </div>
+      {/* ── Quick Links ── */}
+      <div className="flex items-center justify-end flex-wrap gap-3 pb-2">
         <div className="flex items-center gap-2 flex-wrap text-xs">
           <a
             href="/hotel/staff?tab=location"

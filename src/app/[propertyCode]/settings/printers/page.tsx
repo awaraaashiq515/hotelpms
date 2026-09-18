@@ -447,31 +447,48 @@ export default function PrinterSettingsPage() {
   const handleTestPrint = async (printer: Printer) => {
     setTestingId(printer.id);
     try {
-      const isLocalConn = ['SYSTEM', 'USB', 'BLUETOOTH'].includes(printer.connectionType);
-      
-      if (isLocalConn) {
+      const isCapacitorAndroid = typeof window !== 'undefined' && 
+        (window as any).Capacitor && 
+        (window as any).Capacitor.getPlatform() === 'android';
+
+      if (isCapacitorAndroid) {
+        try {
+          const nameToUse = printer.ipAddress || printer.name;
+          await printerService.testPrint(nameToUse);
+          toast.success(`✅ Test page sent to ${nameToUse} via Android Bluetooth!`);
+          return;
+        } catch (localErr: any) {
+          console.warn("Android local print failed, falling back to server:", localErr);
+        }
+      }
+
+      // Try server direct printing (which handles Bluetooth /dev/cu.*, USB, Network, and CUPS system printers directly)
+      const res = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isTest: true,
+          printerId: printer.id,
+          property: {
+            name: session?.fullName || session?.name,
+            id: session?.propertyId,
+            thermalPrinterName: printer.ipAddress || printer.name
+          }
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success('✅ Test page sent to printer!');
+        return;
+      }
+
+      // If server print wasn't successful, try client-side printerService (QZ Tray / Web Serial) as fallback
+      try {
         const nameToUse = printer.ipAddress || printer.name;
         await printerService.testPrint(nameToUse);
-        toast.success(`✅ Test page sent to ${nameToUse} via QZ Tray!`);
-      } else {
-        const res = await fetch('/api/print', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            isTest: true,
-            printerId: printer.id,
-            property: {
-              name: session?.fullName || session?.name,
-              id: session?.propertyId,
-              thermalPrinterName: printer.ipAddress || printer.name
-            }
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || data.error || 'Test print failed');
-        }
-        toast.success('✅ Test page sent to printer!');
+        toast.success(`✅ Test page sent to ${nameToUse}!`);
+      } catch (fallbackErr: any) {
+        throw new Error(data.message || data.error || fallbackErr.message || 'Test print failed');
       }
     } catch (e: any) {
       toast.error(`❌ Print Error: ${e.message}`);

@@ -11,10 +11,14 @@ class PrinterService {
     
     try {
       if (this.connected && qz.websocket.isActive()) {
-        return;
+        return; // Already connected and active — nothing to do
       }
+      // If we think we're connected but QZ Tray lost the connection in the background,
+      // reset the flag so we reconnect below.
+      this.connected = false;
     } catch (e) {
-      // isActive might throw if not initialized
+      // isActive might throw if not initialized — treat as disconnected
+      this.connected = false;
     }
 
     try {
@@ -22,6 +26,7 @@ class PrinterService {
       this.connected = true;
       console.log("QZ Tray connected");
     } catch (e) {
+      this.connected = false;
       console.error("QZ Tray connection failed", e);
       throw new Error("Could not connect to QZ Tray. Make sure the app is running.");
     }

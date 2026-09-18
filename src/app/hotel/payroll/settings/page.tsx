@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Save,
   CheckCircle2,
   Calendar,
@@ -122,14 +121,7 @@ export default function PayrollSettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4 border-b border-white/10 pb-5">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <Link
-              href="/hotel/payroll"
-              className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-emerald-400 transition-colors"
-            >
-              <ArrowLeft size={13} /> Back to Payroll
-            </Link>
-          </div>
+
           <h1 className="text-2xl font-black text-white flex items-center gap-2.5">
             <Sliders size={22} className="text-emerald-400" />
             Payroll Settings & Policy Configuration

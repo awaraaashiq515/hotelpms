@@ -8,7 +8,7 @@ import {
   Wifi, WifiOff, AlertTriangle, ChevronDown, ChevronUp,
   Navigation, Ruler, Target, Settings2, Save, Crosshair,
   Eye, EyeOff, CheckCircle, XCircle, UserCheck, Radio,
-  BarChart3, Shield, Tablet, Brush, ArrowLeft
+  BarChart3, Shield, Tablet, Brush
 } from 'lucide-react';
 import StaffManagement from '@/components/admin/StaffManagement';
 
@@ -442,16 +442,6 @@ function StaffPortalContent() {
   return (
     <div className="space-y-6 pb-10 max-w-[1400px] mx-auto">
       
-      {/* ━━━ Back Button ━━━ */}
-      <div>
-        <Link
-          href="/hotel"
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-bold transition-all shadow-sm group"
-        >
-          <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform text-blue-400" />
-          <span>Back to Hotel Dashboard</span>
-        </Link>
-      </div>
 
       {/* Header section */}
       <div className="flex items-center justify-between flex-wrap gap-3">

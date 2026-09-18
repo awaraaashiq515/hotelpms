@@ -200,29 +200,38 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
           }))
         };
 
-        if (kitchenPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(kitchenPrinter.connectionType)) {
+        const isCapacitorAndroid = typeof window !== 'undefined' && 
+          (window as any).Capacitor && 
+          (window as any).Capacitor.getPlatform() === 'android';
+
+        if (isCapacitorAndroid && kitchenPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(kitchenPrinter.connectionType)) {
           const nameToUse = kitchenPrinter.ipAddress || kitchenPrinter.name;
-          const rawData = printerService.formatKOT(kotPrintData);
-          await printerService.printRaw(nameToUse, rawData);
-          setIsPrinting(false);
-          return;
-        } else {
-          const res = await fetch('/api/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              kotData: kotPrintData, 
-              property,
-              printerId: kitchenPrinter?.id
-            })
-          });
-          const result = await res.json();
-          if (result.success) {
+          try {
+            const rawData = printerService.formatKOT(kotPrintData);
+            await printerService.printRaw(nameToUse, rawData);
             setIsPrinting(false);
             return;
+          } catch (clientErr) {
+            console.warn("[KOT] Android native printerService failed, falling back to server /api/print:", clientErr);
           }
-          throw new Error(result.message || 'Direct print failed');
         }
+
+        const res = await fetch('/api/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({ 
+            kotData: kotPrintData, 
+            property,
+            printerId: kitchenPrinter?.id
+          })
+        });
+        const result = await res.json();
+        if (result.success) {
+          setIsPrinting(false);
+          return;
+        }
+        throw new Error(result.message || 'Direct print failed');
       } catch (e: any) {
         console.warn('[KOT] Direct print failed, falling back to browser print:', e.message);
         // Fall through to browser print below

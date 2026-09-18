@@ -1,8 +1,7 @@
 import { SerialPort } from 'serialport';
-import { prisma } from './prisma';
 
-// 🔌 Default Port Path for MPT-II on macOS
-const DEFAULT_PORT_PATH = '/dev/tty.MPT-II';
+// 🔌 Default Port Path for MPT-II on macOS (/dev/cu.* for outbound Bluetooth)
+const DEFAULT_PORT_PATH = process.platform === 'darwin' ? '/dev/cu.MPT-II' : '/dev/tty.MPT-II';
 const BAUD_RATE = 115200;
 
 // 🧾 ESC/POS Command Helpers
@@ -20,8 +19,153 @@ export const ESC_POS = {
 };
 
 /**
- * 🚦 Print Queue — ensures only one print runs at a time,
- *    preventing concurrent port access within this process.
+ * Ensures outgoing serial paths on macOS use /dev/cu.* instead of /dev/tty.*.
+ * /dev/tty.* on macOS blocks waiting for modem carrier detect (DCD) which hangs Bluetooth SPP.
+ */
+function normalizePath(portPath: string): string {
+  let p = (portPath || '').trim();
+  if (!p) return DEFAULT_PORT_PATH;
+  if (process.platform === 'darwin') {
+    if (p.startsWith('/dev/tty.')) {
+      return '/dev/cu.' + p.slice(9);
+    }
+    if (!p.startsWith('/dev/')) {
+      return '/dev/cu.' + p;
+    }
+  }
+  return p;
+}
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// ─── Petpooja-Style Persistent Port Connection ──────────────────────────────
+// A single connection is established and kept OPEN permanently across prints.
+// The printer stays connected (solid blue LED), exactly like Petpooja POS.
+// Stored on globalThis to survive Next.js module re-evaluations.
+
+declare global {
+  var __petpoojaPort: SerialPort | null | undefined;
+  var __petpoojaConnecting: Promise<SerialPort> | null | undefined;
+  var printQueue: undefined | SerialPrintQueue;
+}
+
+async function getConnectedPort(targetPath: string): Promise<SerialPort> {
+  const finalPath = normalizePath(targetPath);
+
+  // If port is already open and ready, reuse it immediately (0ms delay)
+  if (globalThis.__petpoojaPort && globalThis.__petpoojaPort.isOpen) {
+    return globalThis.__petpoojaPort;
+  }
+
+  // If already in the process of connecting, await the active connection
+  if (globalThis.__petpoojaConnecting) {
+    return globalThis.__petpoojaConnecting;
+  }
+
+  // Clean up any stale/broken instance
+  if (globalThis.__petpoojaPort) {
+    try { globalThis.__petpoojaPort.close(); } catch (_) {}
+    globalThis.__petpoojaPort = null;
+  }
+
+  // Open fresh persistent connection
+  globalThis.__petpoojaConnecting = (async () => {
+    const OPEN_TIMEOUT_MS = 4000;
+    try {
+      const sp = await new Promise<SerialPort>((resolve, reject) => {
+        const port = new SerialPort({
+          path: finalPath,
+          baudRate: BAUD_RATE,
+          autoOpen: false,
+        });
+
+        const timer = setTimeout(() => {
+          try { port.close(); } catch (_) {}
+          reject(new Error(`Timeout connecting to printer ${finalPath}`));
+        }, OPEN_TIMEOUT_MS);
+
+        port.open((err) => {
+          clearTimeout(timer);
+          if (err) {
+            try { port.close(); } catch (_) {}
+            reject(err);
+          } else {
+            resolve(port);
+          }
+        });
+      });
+
+      // Maintain listeners for unexpected drops (power off, battery dead)
+      sp.on('close', () => {
+        console.log(`[Serial] Printer connection closed on ${finalPath}. Will auto-reconnect on next print.`);
+        if (globalThis.__petpoojaPort === sp) {
+          globalThis.__petpoojaPort = null;
+        }
+      });
+
+      sp.on('error', (err) => {
+        console.warn(`[Serial] Printer port error: ${err.message}`);
+        if (globalThis.__petpoojaPort === sp) {
+          try { sp.close(); } catch (_) {}
+          globalThis.__petpoojaPort = null;
+        }
+      });
+
+      console.log(`[Serial] 🔌 Persistent connection ESTABLISHED on ${finalPath} (stays connected)`);
+      globalThis.__petpoojaPort = sp;
+      return sp;
+    } finally {
+      globalThis.__petpoojaConnecting = null;
+    }
+  })();
+
+  return globalThis.__petpoojaConnecting;
+}
+
+/**
+ * Sends buffer to printer with flow-control chunking.
+ * MPT-II thermal printer has a 1KB-2KB receive buffer.
+ * Sending in 256-byte chunks with 15ms delay guarantees zero buffer overflow
+ * and prints in ~50ms total without dropping items.
+ */
+async function writeWithFlowControl(port: SerialPort, buffer: Buffer): Promise<void> {
+  const CHUNK_SIZE = 256;
+  const CHUNK_DELAY_MS = 15;
+  const WRITE_TIMEOUT_MS = 2500;
+
+  for (let offset = 0; offset < buffer.length; offset += CHUNK_SIZE) {
+    const chunk = buffer.subarray(offset, Math.min(offset + CHUNK_SIZE, buffer.length));
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Serial write timeout')), WRITE_TIMEOUT_MS);
+      port.write(chunk, (err) => {
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    if (offset + CHUNK_SIZE < buffer.length) {
+      await sleep(CHUNK_DELAY_MS);
+    }
+  }
+
+  // Drain kernel buffer to Bluetooth stack with 1s timeout
+  try {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 1000);
+      port.drain(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  } catch (_) {}
+}
+
+// ─── Print Queue ──────────────────────────────────────────────────────────────
+/**
+ * 🚦 Serial Print Queue — strictly serializes jobs to prevent interleaving.
+ * Uses persistent open connection so printing starts in 0ms without disconnecting.
  */
 class SerialPrintQueue {
   private queue: {
@@ -31,9 +175,6 @@ class SerialPrintQueue {
     reject: (err: any) => void;
   }[] = [];
   private isProcessing = false;
-
-  // Cached open ports — keeps Bluetooth RFCOMM channel alive indefinitely
-  private portCache: Map<string, { port: SerialPort }> = new Map();
 
   async add(data: string | Buffer, portPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -45,263 +186,58 @@ class SerialPrintQueue {
   private async processNext() {
     if (this.isProcessing || this.queue.length === 0) return;
     this.isProcessing = true;
-    const { data, portPath, resolve, reject } = this.queue.shift()!;
+    const item = this.queue.shift()!;
+
     try {
-      await this.executePrintWithFallback(data, portPath);
-      resolve();
+      await this.executePrint(item.data, item.portPath);
+      item.resolve();
     } catch (err) {
-      reject(err);
+      console.error('[Serial] Print job failed:', err);
+      item.reject(err);
     } finally {
       this.isProcessing = false;
-      setTimeout(() => this.processNext(), 300);
+      // Immediate next job processing (50ms gap)
+      setTimeout(() => this.processNext(), 50);
     }
   }
 
-  private async executePrintWithFallback(
-    data: string | Buffer,
-    initialPortPath: string
-  ): Promise<void> {
-    // macOS: tty.* → cu.* for outgoing connections
-    let preferredPath = initialPortPath;
-    if (process.platform === 'darwin' && preferredPath.startsWith('/dev/tty.')) {
-      preferredPath = '/dev/cu.' + preferredPath.substring(9);
-    }
+  private async executePrint(data: string | Buffer, initialPortPath: string): Promise<void> {
+    const preferredPath = normalizePath(initialPortPath);
+    const buffer = typeof data === 'string' ? Buffer.from(data, 'binary') : data;
 
     try {
-      console.log(`[Serial Spool] Trying preferred port: ${preferredPath}`);
-      await this.executePrint(data, preferredPath);
+      const port = await getConnectedPort(preferredPath);
+      await writeWithFlowControl(port, buffer);
+      console.log(`🖨️ ✅ Printed ${buffer.length} bytes to ${preferredPath} (port kept open)`);
       return;
-    } catch (err) {
-      console.warn(
-        `[Serial Spool] Preferred port ${preferredPath} failed: ${(err as any).message}. Auto-healing...`
-      );
+    } catch (err: any) {
+      console.warn(`[Serial] Write failed on ${preferredPath}: ${err.message}. Reconnecting...`);
+      // Connection may have dropped — clear and retry once fresh
+      if (globalThis.__petpoojaPort) {
+        try { globalThis.__petpoojaPort.close(); } catch (_) {}
+        globalThis.__petpoojaPort = null;
+      }
     }
 
-    // Scan for alternative Bluetooth ports
-    let ports: any[] = [];
+    // Auto-retry once with fresh connection
     try {
-      ports = await SerialPort.list();
-    } catch (e) {
-      throw new Error(`Failed to list serial ports: ${(e as any).message}`);
-    }
-
-    const isBt = /bt|bluetooth|mpt|blth|rfcomm/i.test(initialPortPath);
-    const candidates = ports
-      .map(p => {
-        let path = p.path;
-        if (process.platform === 'darwin' && path.startsWith('/dev/tty.')) {
-          path = '/dev/cu.' + path.substring(9);
-        }
-        return { ...p, path };
-      })
-      .filter(p => {
-        if (p.path === preferredPath) return false;
-        if (/incoming/i.test(p.path || '')) return false;
-        const isPortBt = /bt|bluetooth|mpt|blth|rfcomm/i.test(p.path || '');
-        const isPortUsb = /usb|usbmodem|ttyusb|ttyacm|com/i.test(p.path || '');
-        return isBt ? isPortBt : (isPortUsb || isPortBt);
-      });
-
-    if (candidates.length === 0) {
-      throw new Error(`All ports failed for ${initialPortPath} and no fallback ports found.`);
-    }
-
-    for (const cand of candidates) {
-      try {
-        console.log(`[Auto-Connect] Trying fallback port: ${cand.path}`);
-        await this.executePrint(data, cand.path);
-        console.log(`[Auto-Connect] ✅ Success on fallback port: ${cand.path}`);
-        return;
-      } catch (candErr) {
-        console.warn(`[Auto-Connect] ${cand.path} failed: ${(candErr as any).message}`);
-      }
-    }
-
-    throw new Error(`Failed to print — all known ports exhausted.`);
-  }
-
-  private executePrint(data: string | Buffer, portPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let finalPath = portPath;
-      if (process.platform === 'darwin' && portPath.startsWith('/dev/tty.')) {
-        finalPath = '/dev/cu.' + portPath.substring(9);
-      }
-
-      // ── Fast path: reuse cached open connection ──────────────────────────
-      const cached = this.portCache.get(finalPath);
-      if (cached && cached.port.isOpen) {
-        console.log(`🔌 Using cached open port: ${finalPath}`);
-
-        const buffer = typeof data === 'string' ? Buffer.from(data, 'binary') : data;
-        let settled = false;
-
-        const writeTimeout = setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            console.warn(`⏳ Cached port write/drain timeout for ${finalPath}. Reconnecting...`);
-            this.closePort(finalPath);
-            this.openAndPrint(data, finalPath, resolve, reject);
-          }
-        }, 5000); // 5 seconds timeout
-
-        cached.port.write(buffer, (writeErr) => {
-          if (writeErr) {
-            if (!settled) {
-              settled = true;
-              clearTimeout(writeTimeout);
-              console.warn(`⚠️ Cached port write failed (${writeErr.message}), reconnecting...`);
-              this.closePort(finalPath);
-              this.openAndPrint(data, finalPath, resolve, reject);
-            }
-            return;
-          }
-
-          cached.port.drain(() => {
-            if (!settled) {
-              settled = true;
-              clearTimeout(writeTimeout);
-              console.log('🖨️ Data sent to printer (cached)');
-              resolve();
-            }
-          });
-        });
-        return;
-      }
-
-      // ── Slow path: open a new connection ────────────────────────────────
-      this.openAndPrint(data, finalPath, resolve, reject);
-    });
-  }
-
-  /**
-   * Opens the port (with retry/backoff for Bluetooth RFCOMM reconnect),
-   * writes data, then keeps the port OPEN so RFCOMM stays alive indefinitely.
-   */
-  private openAndPrint(
-    data: string | Buffer,
-    finalPath: string,
-    resolve: () => void,
-    reject: (err: any) => void
-  ) {
-    const MAX_RETRIES = 5;
-    const RETRY_DELAY_MS = 2500; // 2.5 s between Bluetooth reconnect attempts
-
-    const tryOpen = (attempt: number) => {
-      console.log(`📡 Connecting to ${finalPath} @ ${BAUD_RATE} (attempt ${attempt}/${MAX_RETRIES})`);
-
-      const port = new SerialPort({ path: finalPath, baudRate: BAUD_RATE, autoOpen: false });
-
-      const retryOrFail = (msg: string) => {
-        if (attempt < MAX_RETRIES) {
-          console.warn(`⚠️ ${msg} — retrying in ${RETRY_DELAY_MS / 1000}s (${attempt}/${MAX_RETRIES})`);
-          setTimeout(() => tryOpen(attempt + 1), RETRY_DELAY_MS);
-        } else {
-          reject(new Error(`${msg} — all ${MAX_RETRIES} attempts failed.`));
-        }
-      };
-
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (!settled) {
-          settled = true;
-          port.close(() => {});
-          retryOrFail(`Timeout opening ${finalPath}`);
-        }
-      }, 10000);
-
-      port.open((openErr) => {
-        if (openErr) {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            retryOrFail(`Open failed (${openErr.message})`);
-          }
-          return;
-        }
-        if (!settled) { settled = true; clearTimeout(timer); }
-
-        console.log(`✅ Port opened: ${finalPath}`);
-
-        // Cache the port — keep RFCOMM alive indefinitely for next print
-        this.portCache.set(finalPath, { port });
-
-        // Remove from cache if port closes unexpectedly
-        port.on('close', () => {
-          console.log(`🔒 Port ${finalPath} closed.`);
-          const entry = this.portCache.get(finalPath);
-          if (entry) {
-            this.portCache.delete(finalPath);
-          }
-        });
-        port.on('error', (err) => {
-          console.error(`❌ Port error on ${finalPath}:`, err.message);
-          this.closePort(finalPath);
-        });
-
-        const buffer = typeof data === 'string' ? Buffer.from(data, 'binary') : data;
-        let writeSettled = false;
-        
-        const writeTimer = setTimeout(() => {
-          if (!writeSettled) {
-            writeSettled = true;
-            console.error('❌ Write/drain timeout on fresh open');
-            this.closePort(finalPath);
-            reject(new Error('Write/drain timeout on fresh open'));
-          }
-        }, 5000);
-
-        port.write(buffer, (writeErr) => {
-          if (writeErr) {
-            if (!writeSettled) {
-              writeSettled = true;
-              clearTimeout(writeTimer);
-              console.error('❌ Write error:', writeErr.message);
-              this.closePort(finalPath);
-              return reject(writeErr);
-            }
-            return;
-          }
-          port.drain(() => {
-            if (!writeSettled) {
-              writeSettled = true;
-              clearTimeout(writeTimer);
-              console.log('🖨️ Data sent to printer');
-              // ✅ Keep port OPEN so it stays connected!
-              resolve();
-            }
-          });
-        });
-      });
-    };
-
-    tryOpen(1);
-  }
-
-  private closePort(path: string) {
-    const entry = this.portCache.get(path);
-    if (entry) {
-      this.portCache.delete(path);
-      if (entry.port.isOpen) {
-        entry.port.close((err) => {
-          if (err) console.warn(`⚠️ Error closing ${path}:`, err.message);
-          else console.log(`🔒 Port ${path} closed.`);
-        });
-      }
+      console.log(`[Serial] Retrying fresh connection to ${preferredPath}...`);
+      const port = await getConnectedPort(preferredPath);
+      await writeWithFlowControl(port, buffer);
+      console.log(`🖨️ ✅ Retry printed ${buffer.length} bytes successfully to ${preferredPath}`);
+      return;
+    } catch (retryErr: any) {
+      throw new Error(`Printer connection failed on ${preferredPath}: ${retryErr.message}. Make sure printer is turned ON and Bluetooth is connected.`);
     }
   }
-}
-
-declare global {
-  var printQueue: undefined | SerialPrintQueue;
 }
 
 // 📦 Singleton queue instance
 const printQueue = globalThis.printQueue ?? new SerialPrintQueue();
-
-if (process.env.NODE_ENV !== 'production') globalThis.printQueue = printQueue;
+globalThis.printQueue = printQueue;
 
 /**
- * Sends data to the printer via the serial queue.
+ * Sends data to the printer via the persistent serial connection queue.
  */
 export async function printDirect(
   data: string | Buffer,

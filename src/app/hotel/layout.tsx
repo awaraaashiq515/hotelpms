@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { HotelSidebar } from '@/components/hotel/sidebar';
 import { SidebarProvider, useSidebar } from '@/components/hotel/SidebarContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { Building2, User, ChevronDown, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { Building2, User, ChevronDown, PanelLeftOpen, PanelLeftClose, ArrowLeft } from 'lucide-react';
 import { NotificationBell } from '@/components/hotel/NotificationBell';
 import { RoomStatusTicker } from '@/components/hotel/navigation/RoomStatusTicker';
+import { HotelBackButton } from '@/components/hotel/navigation/HotelBackButton';
 
 // Inner layout that can access sidebar context
 function HotelLayoutInner({ children }: { children: React.ReactNode }) {
@@ -123,6 +124,33 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
               }
             </button>
 
+            {/* Header Back Button (when not on hotel root dashboard) */}
+            {pathname && pathname !== '/hotel' && pathname !== '/hotel/' && (
+              <button
+                onClick={() => {
+                  if (
+                    typeof window !== 'undefined' &&
+                    window.history.length > 1 &&
+                    document.referrer &&
+                    document.referrer.includes(window.location.host)
+                  ) {
+                    router.back();
+                  } else {
+                    const segs = pathname.split('/').filter(Boolean);
+                    if (segs.length > 2) {
+                      router.push('/' + segs.slice(0, -1).join('/'));
+                    } else {
+                      router.push('/hotel');
+                    }
+                  }
+                }}
+                title="Go Back"
+                className="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all group shrink-0"
+              >
+                <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform text-indigo-400" />
+              </button>
+            )}
+
             <Building2 className="text-indigo-400" size={18} />
             <div className="flex flex-col text-left">
               <span className="text-xs font-semibold text-slate-400">Current Property</span>
@@ -172,10 +200,16 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Scrollable View Area */}
         <main className="flex-1 overflow-y-auto no-scrollbar bg-[#090d16] p-6 md:p-8">
-          {pathname === '/hotel' || pathname === '/hotel/calendar' ? (
+          {pathname === '/hotel' || pathname === '/hotel/' ? (
             children
+          ) : pathname === '/hotel/calendar' ? (
+            <div className="space-y-4">
+              <HotelBackButton />
+              {children}
+            </div>
           ) : (
             <div className="bg-[#0f172a]/45 border border-slate-800/80 rounded-[24px] p-6 md:p-8 shadow-xl min-h-full">
+              <HotelBackButton />
               {children}
             </div>
           )}

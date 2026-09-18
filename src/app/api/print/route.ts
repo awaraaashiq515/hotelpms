@@ -11,11 +11,16 @@ async function sendToPrinter(data: string | Buffer, printer: any) {
   } else if (printer.connectionType === 'NETWORK' && printer.ipAddress) {
     await printToNetwork(data, printer.ipAddress, printer.port || 9100);
   } else {
-    // Default to Serial for USB/Bluetooth (assuming they map to serial ports)
-    // On macOS, Bluetooth printers often appear as /dev/tty.*
-    const printerPath = printer.ipAddress || printer.name; // In serial mode, we use path or name
-    const finalPath = printerPath === 'MPT-II' ? '/dev/tty.MPT-II' : printerPath;
-    await printDirect(data, finalPath);
+    // Default to Serial for USB/Bluetooth
+    let printerPath = printer.ipAddress || printer.name || 'MPT-II';
+    if (process.platform === 'darwin') {
+      if (printerPath === 'MPT-II' || !printerPath.startsWith('/dev/')) {
+        printerPath = '/dev/cu.MPT-II';
+      } else if (printerPath.startsWith('/dev/tty.')) {
+        printerPath = '/dev/cu.' + printerPath.slice(9);
+      }
+    }
+    await printDirect(data, printerPath);
   }
 }
 
@@ -93,6 +98,9 @@ export async function POST(req: NextRequest) {
         // Note: paperSize handling can be added here (e.g. adjusting characters per line)
         const charsPerLine = printer.paperSize === '58mm' ? 32 : 48;
 
+        const isMptPrinter = /mpt/i.test(printer.name || '') || /mpt/i.test(printer.ipAddress || '');
+        const shouldCut = printer.autoCut && !isMptPrinter;
+
         if (isTest) {
           data += ESC_POS.ALIGN_CENTER;
           data += ESC_POS.BOLD_ON;
@@ -104,7 +112,7 @@ export async function POST(req: NextRequest) {
           data += `IP: ${printer.ipAddress || 'N/A'}\n`;
           data += '--------------------------------\n';
           data += ESC_POS.FEED.repeat(6);
-          if (printer.autoCut) data += ESC_POS.CUT;
+          if (shouldCut) data += ESC_POS.CUT;
           
           if (printer.connectionType === 'WEB_SERIAL') {
             webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
@@ -129,7 +137,7 @@ export async function POST(req: NextRequest) {
             data += '--------------------------------\n';
             
             kotData.items.forEach((item: any) => {
-                data += `${item.quantity.toString().padEnd(4)} ${item.name}\n`;
+                data += `${item.quantity.toString().padEnd(4)} ${item.name || item.itemName || item.product?.name || 'Item'}\n`;
                 if (item.notes) {
                     data += `     * ${item.notes}\n`;
                 }
@@ -137,7 +145,7 @@ export async function POST(req: NextRequest) {
             
             data += '--------------------------------\n';
             data += ESC_POS.FEED.repeat(6);
-            if (printer.autoCut) data += ESC_POS.CUT;
+            if (shouldCut) data += ESC_POS.CUT;
             
             if (printer.connectionType === 'WEB_SERIAL') {
               webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
@@ -148,44 +156,70 @@ export async function POST(req: NextRequest) {
         }
 
         if (bill) {
+            // ── Header ────────────────────────────────────────────
             data += ESC_POS.ALIGN_CENTER;
             data += ESC_POS.BOLD_ON;
             data += `${property?.name || 'RESTAURANT'}\n`;
             data += ESC_POS.BOLD_OFF;
-            data += `${property?.address || ''}\n`;
-            data += `${property?.phone ? 'PH: ' + property.phone : ''}\n`;
+            if (property?.address) data += `${property.address}\n`;
+            if (property?.phone) data += `PH: ${property.phone}\n`;
+            if (property?.taxDetails) data += `GSTIN: ${property.taxDetails}\n`;
             data += '--------------------------------\n';
+
+            // ── Bill info ─────────────────────────────────────────
             data += ESC_POS.ALIGN_LEFT;
-            data += `Bill: ${bill.orderNo}\n`;
+            data += `Bill: ${bill.orderNo || 'N/A'}\n`;
             data += `Table: ${bill.tableNo || 'WALK-IN'}\n`;
             data += `Date: ${new Date().toLocaleString()}\n`;
             data += '--------------------------------\n';
             data += 'ITEM             QTY    PRICE\n';
             data += '--------------------------------\n';
-            
-            bill.items.forEach((item: any) => {
-              const name = item.name.substring(0, 18).padEnd(18);
-              const qty = item.quantity.toString().padStart(4);
-              const total = (item.quantity * item.price).toFixed(0).padStart(10);
-              data += `${name}${qty}${total}\n`;
-            });
-            
+
+            // ── Items ─────────────────────────────────────────────
+            // item.price (frontend) OR item.unitPrice/sellingPrice (DB)
+            const billItems: any[] = Array.isArray(bill.items) ? bill.items : [];
+            if (billItems.length === 0) {
+              data += '(no items)\n';
+            } else {
+              billItems.forEach((item: any) => {
+                const itemName = (item.name || item.itemName || item.product?.name || 'Item').substring(0, 18).padEnd(18);
+                const qty = Number(item.quantity) || 0;
+                // Support all common price field names from different call sites
+                const unitPrice = Number(
+                  item.price ?? item.unitPrice ?? item.sellingPrice ?? item.basePrice ?? 0
+                );
+                const lineTotal = (qty * unitPrice).toFixed(0).padStart(10);
+                data += `${itemName}${qty.toString().padStart(4)}${lineTotal}\n`;
+              });
+            }
+
+            // ── Totals ────────────────────────────────────────────
+            const subtotal   = Number(bill.subtotal  ?? bill.subtotalAmount ?? 0);
+            const tax        = Number(bill.tax       ?? bill.taxAmount      ?? 0);
+            const memDisc    = Number(bill.membershipDiscount ?? 0);
+            const manDisc    = Number(bill.manualDiscount     ?? 0);
+            const totalDisc  = memDisc + manDisc;
+            // Prefer the pre-calculated grandTotal, fallback to computed
+            const grandTotal = Number(
+              bill.grandTotal ?? bill.totalAmount ?? Math.max(0, subtotal + tax - totalDisc)
+            );
+            const taxLabel = bill.taxLabel || 'Tax';
+
             data += '--------------------------------\n';
             data += ESC_POS.ALIGN_RIGHT;
-            data += `Subtotal: Rs.${bill.subtotal.toFixed(2)}\n`;
-            if (bill.membershipDiscount > 0) {
-              data += `Discount: -Rs.${bill.membershipDiscount.toFixed(2)}\n`;
-            }
-            data += `Tax (5%): Rs.${bill.tax.toFixed(2)}\n`;
+            data += `Subtotal: Rs.${subtotal.toFixed(2)}\n`;
+            if (memDisc > 0) data += `Membership: -Rs.${memDisc.toFixed(2)}\n`;
+            if (manDisc > 0) data += `Discount:   -Rs.${manDisc.toFixed(2)}\n`;
+            data += `${taxLabel}: Rs.${tax.toFixed(2)}\n`;
             data += ESC_POS.BOLD_ON;
-            data += `TOTAL:    Rs.${bill.grandTotal.toFixed(2)}\n`;
+            data += `TOTAL:    Rs.${grandTotal.toFixed(2)}\n`;
             data += ESC_POS.BOLD_OFF;
             data += '--------------------------------\n';
             data += ESC_POS.ALIGN_CENTER;
             data += 'THANK YOU!\n';
             data += 'VISIT AGAIN\n';
             data += ESC_POS.FEED.repeat(6);
-            if (printer.autoCut) data += ESC_POS.CUT;
+            if (shouldCut) data += ESC_POS.CUT;
 
             if (printer.connectionType === 'WEB_SERIAL') {
               webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });

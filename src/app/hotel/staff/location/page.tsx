@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   MapPin, AlertTriangle, Users, Navigation, Settings2, RefreshCw,
   CheckCircle, XCircle, Clock, Ruler, Wifi, WifiOff, ChevronDown,
-  ChevronUp, Target, Crosshair, Save, Eye, EyeOff, ArrowLeft
+  ChevronUp, Target, Crosshair, Save, Eye, EyeOff
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -293,26 +293,7 @@ export default function StaffLocationPage() {
         backdropFilter: 'blur(16px)', position: 'sticky', top: 0, zIndex: 100,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Link
-            href="/hotel/staff"
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 10,
-              padding: '7px 14px',
-              color: '#e2e8f0',
-              textDecoration: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 11,
-              fontWeight: 800,
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <ArrowLeft size={14} style={{ color: '#818cf8' }} /> <span>Back to Staff Portal</span>
-          </Link>
-          <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)' }} />
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 34, height: 34, borderRadius: 10,

@@ -998,28 +998,38 @@ export default function RestaurantPosView({
               
               const kitchenPrinter = printers.find(p => p.isEnabled && p.isKitchen);
               
-              if (kitchenPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(kitchenPrinter.connectionType)) {
+              const isCapacitorAndroid = typeof window !== 'undefined' && 
+                (window as any).Capacitor && 
+                (window as any).Capacitor.getPlatform() === 'android';
+
+              if (isCapacitorAndroid && kitchenPrinter && ['SYSTEM', 'USB', 'BLUETOOTH'].includes(kitchenPrinter.connectionType)) {
                 const nameToUse = kitchenPrinter.ipAddress || kitchenPrinter.name;
-                const rawData = printerService.formatKOT(kotPrintData);
-                await printerService.printRaw(nameToUse, rawData);
-                addToast('success', `KOT Printed successfully via QZ Tray on ${nameToUse}`);
-              } else {
-                const printRes = await fetch('/api/print', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    kotData: kotPrintData, 
-                    property,
-                    printerId: kitchenPrinter?.id
-                  })
-                });
-                const printResult = await printRes.json();
-                
-                if (printResult.success) {
-                  addToast('success', `KOT Printed successfully`);
-                } else {
-                  throw new Error(printResult.message || printResult.error || 'Failed to print KOT');
+                try {
+                  const rawData = printerService.formatKOT(kotPrintData);
+                  await printerService.printRaw(nameToUse, rawData);
+                  addToast('success', `KOT Printed successfully on ${nameToUse}`);
+                  return;
+                } catch (clientErr) {
+                  console.warn("[KOT] Android native printerService failed, falling back to server /api/print:", clientErr);
                 }
+              }
+
+              const printRes = await fetch('/api/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({ 
+                  kotData: kotPrintData, 
+                  property,
+                  printerId: kitchenPrinter?.id
+                })
+              });
+              const printResult = await printRes.json();
+              
+              if (printResult.success) {
+                addToast('success', `KOT Printed successfully`);
+              } else {
+                throw new Error(printResult.message || printResult.error || 'Failed to print KOT');
               }
             } catch (printErr: any) {
               console.error('KOT printing failed:', printErr);
@@ -1137,11 +1147,11 @@ export default function RestaurantPosView({
     const mappedBill: BillData = {
       orderNo: orderToPrint.orderNo,
       tableNo: slotName || tableName || (orderType === 'ROOM_SERVICE' && roomServiceRoomNo ? `Room ${roomServiceRoomNo}` : orderToPrint.tableNo) || (orderToPrint.orderType === 'DELIVERY' ? 'Delivery' : (orderToPrint.orderType === 'TAKEAWAY' || orderToPrint.orderType === 'PICKUP' || orderToPrint.orderType === 'PARKING') ? 'Take Away' : 'Walk-in'),
-      items: orderToPrint.items.map((i: any) => ({
-        id: i.productId || i.id,
-        name: i.product?.name || i.itemName || 'Item',
-        quantity: i.quantity,
-        price: i.unitPrice || i.product?.sellingPrice || 0,
+      items: (Array.isArray(orderToPrint.items) ? orderToPrint.items : []).map((i: any) => ({
+        id: i.productId || i.id || '',
+        name: i.product?.name || i.name || i.itemName || 'Item',
+        quantity: Number(i.quantity) || 1,
+        price: Number(i.unitPrice ?? i.price ?? i.product?.sellingPrice ?? 0),
         hsnCode: i.product?.hsnCode
       })),
       subtotal: orderToPrint.subtotal || displayedSubtotal,
@@ -3573,6 +3583,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
 
       <BillModal 
         bill={billData} 
+        property={property}
+        printers={printers}
         onClose={() => {
             setIsBillOpen(false);
             setBillData(null);
