@@ -9,9 +9,10 @@
     "export": "next build && next export",
     "start": "concurrently \"next start\" \"WALKIE_PORT=5005 npx tsx src/scripts/walkie-talkie-socket.ts\"",
     "lint": "eslint",
-    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && electron .\"",
-    "electron-build": "npm run build && electron-builder",
-    "build-win": "npm run build && electron-builder --win --x64"
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && electron electron/main.js\"",
+    "electron-build": "electron-builder --projectDir electron --config electron-builder.json",
+    "build-mac": "electron-builder --projectDir electron --config electron-builder.json --mac",
+    "build-win": "electron-builder --projectDir electron --config electron-builder.json --win --x64"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

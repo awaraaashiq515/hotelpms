@@ -215,8 +215,8 @@ export default function WebsiteHomePage() {
       icon: <Monitor className="w-6 h-6 text-cyan-400" />,
       desc: 'Ultra-fast front office desktop app with RFID keycard encoders, passport scanners & thermal printing.',
       badge: 'Reception & Cashier',
-      btnLabel: 'Download EXE',
-      link: '/downloads/ordermint.exe',
+      btnLabel: 'Download OrderMint PMS EXE',
+      link: 'https://drive.google.com/uc?export=download&id=1ehWFFDuGekFMTulV_hQB1mvBlksDPrCe',
       version: 'v4.5.0 • Windows 10/11 x64',
     },
     {
@@ -226,7 +226,7 @@ export default function WebsiteHomePage() {
       desc: 'Mobile & Tablet PMS app for staff attendance, housekeeping, room inspections, walkie-talkie & thermal printing.',
       badge: 'OrderMint PMS Official',
       btnLabel: 'Download OrderMint PMS APK',
-      link: '/downloads/OrderMintPMS.apk',
+      link: 'https://drive.google.com/uc?export=download&id=1I4fBHUbMYTIvH-_1S1Gsqc2oT5hpo15L',
       version: 'v1.0 • Android 8.0+',
     },
     {
@@ -235,8 +235,8 @@ export default function WebsiteHomePage() {
       icon: <Apple className="w-6 h-6 text-slate-200" />,
       desc: 'Native executive dashboard for Apple Silicon M1/M2/M3 and Intel Macs with live property analytics.',
       badge: 'General Managers',
-      btnLabel: 'Download DMG',
-      link: '/downloads/ordermint.dmg',
+      btnLabel: 'Download OrderMint PMS DMG',
+      link: 'https://drive.google.com/uc?export=download&id=117wailc838ULSq3QhCI408-9h8q1ODHT',
       version: 'v4.5.0 • macOS 12+',
     },
     {
@@ -1155,7 +1155,9 @@ export default function WebsiteHomePage() {
                   <div className="text-[10px] font-mono text-slate-400 mb-3">{app.version}</div>
                   <a
                     href={app.link}
-                    download={app.id !== 'web'}
+                    target={app.link.startsWith('http') ? '_blank' : undefined}
+                    rel={app.link.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    download={app.id !== 'web' && !app.link.startsWith('http')}
                     className="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 text-slate-950 hover:opacity-90"
                     style={{
                       background: 'linear-gradient(135deg, #00d4ff, #38bdf8)',

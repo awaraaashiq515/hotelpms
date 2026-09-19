@@ -1,0 +1,9 @@
+{
+  "name": "ordermintpms",
+  "productName": "OrderMint PMS",
+  "version": "1.0.0",
+  "main": "main.js",
+  "description": "OrderMint PMS Desktop Application",
+  "author": "OrderMint PMS",
+  "dependencies": {}
+}

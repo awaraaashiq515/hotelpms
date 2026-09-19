@@ -99,7 +99,9 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/guestflow-pos-mac.dmg"
+                    href="https://drive.google.com/uc?export=download&id=117wailc838ULSq3QhCI408-9h8q1ODHT"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Apple className="w-4 h-4" />
@@ -109,7 +111,9 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/guestflow-pos-mac.dmg"
+                    href="https://drive.google.com/uc?export=download&id=117wailc838ULSq3QhCI408-9h8q1ODHT"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Apple className="w-4 h-4" />
@@ -127,7 +131,9 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/guestflow-pos.apk"
+                    href="https://drive.google.com/uc?export=download&id=1I4fBHUbMYTIvH-_1S1Gsqc2oT5hpo15L"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Monitor className="w-4 h-4" />
@@ -145,7 +151,9 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/guestflow-pos-windows.exe"
+                    href="https://drive.google.com/uc?export=download&id=1ehWFFDuGekFMTulV_hQB1mvBlksDPrCe"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Download className="w-4 h-4" />
@@ -155,7 +163,9 @@ export const AppDownloadSection = () => {
                   <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="/downloads/guestflow-pos-windows.exe"
+                    href="https://drive.google.com/uc?export=download&id=1ehWFFDuGekFMTulV_hQB1mvBlksDPrCe"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:border-pos-primary/40 transition-all"
                   >
                     <Download className="w-4 h-4" />
@@ -253,7 +263,9 @@ export const AppDownloadSection = () => {
                 Install our proper native app for Android tablets & phones. Optimized for touch billing.
               </p>
               <a 
-                href="/downloads/guestflow-pos.apk"
+                href="https://drive.google.com/uc?export=download&id=1I4fBHUbMYTIvH-_1S1Gsqc2oT5hpo15L"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-pos-primary transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />

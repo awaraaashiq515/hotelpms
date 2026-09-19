@@ -28,6 +28,10 @@ function saveURL(url) {
 }
 
 function createWindow() {
+  const iconPath = fs.existsSync(path.join(__dirname, 'icon-512.png'))
+    ? path.join(__dirname, 'icon-512.png')
+    : path.join(__dirname, '../public/icon-512.png');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -35,8 +39,8 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    icon: path.join(__dirname, '../public/icon-512.png'),
-    title: "OrderMint POS",
+    icon: iconPath,
+    title: "OrderMint PMS",
     autoHideMenuBar: false, // Show menu so user can change settings
   });
 
@@ -52,7 +56,7 @@ function createWindow() {
     mainWindow.loadURL(`data:text/html,
       <body style="background: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center;">
         <h1 style="color: #ff4d4d;">Connection Error</h1>
-        <p>Aapka POS server connect nahi ho pa raha hai.</p>
+        <p>Aapka PMS server connect nahi ho pa raha hai.</p>
         <p>Current URL: <b>${startURL}</b></p>
         <p>Please check your internet or update the Server URL from the "Settings" menu.</p>
         <button onclick="window.location.reload()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">Retry Connection</button>
@@ -63,7 +67,7 @@ function createWindow() {
   // Create Application Menu
   const template = [
     {
-      label: 'OrderMint',
+      label: 'OrderMint PMS',
       submenu: [
         { role: 'about' },
         { type: 'separator' },
