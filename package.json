@@ -2,6 +2,10 @@
   "name": "gustflow",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/awaraaashiq515/hotelpms.git"
+  },
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"next dev --webpack\" \"npx tsx src/scripts/walkie-talkie-socket.ts\"",
@@ -10,9 +14,9 @@
     "start": "concurrently \"next start\" \"WALKIE_PORT=5005 npx tsx src/scripts/walkie-talkie-socket.ts\"",
     "lint": "eslint",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && electron electron/main.js\"",
-    "electron-build": "electron-builder --projectDir electron --config electron-builder.json",
-    "build-mac": "electron-builder --projectDir electron --config electron-builder.json --mac",
-    "build-win": "electron-builder --projectDir electron --config electron-builder.json --win --x64"
+    "electron-build": "electron-builder --projectDir electron --config electron-builder.json --publish never",
+    "build-mac": "electron-builder --projectDir electron --config electron-builder.json --mac --publish never",
+    "build-win": "electron-builder --projectDir electron --config electron-builder.json --win --x64 --publish never"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

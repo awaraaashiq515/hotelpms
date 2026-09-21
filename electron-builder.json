@@ -1,6 +1,7 @@
 {
-  "appId": "com.ordermint.pms",
-  "productName": "OrderMint PMS",
+  "appId": "com.guestflow.pms",
+  "productName": "GuestFlow PMS",
+  "publish": null,
   "directories": {
     "app": "electron",
     "output": "dist"
@@ -11,7 +12,7 @@
   "npmRebuild": false,
   "win": {
     "icon": "public/icon-512.png",
-    "artifactName": "ordermintpms.exe",
+    "artifactName": "guestflow-pms.exe",
     "target": [
       {
         "target": "nsis",
@@ -23,7 +24,7 @@
   },
   "mac": {
     "icon": "public/icon-512.png",
-    "artifactName": "ordermintpms.dmg",
+    "artifactName": "guestflow-pms.dmg",
     "target": [
       "dmg"
     ],
@@ -49,6 +50,6 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "OrderMint PMS"
+    "shortcutName": "GuestFlow PMS"
   }
 }
