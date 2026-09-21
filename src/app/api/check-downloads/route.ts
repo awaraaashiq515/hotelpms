@@ -4,16 +4,27 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
-  const winPath = path.join(process.cwd(), 'public/downloads/ordermintpms.exe');
-  const macPath = path.join(process.cwd(), 'public/downloads/ordermintpms.dmg');
-  const androidPath = path.join(process.cwd(), 'public/downloads/ordermintpms.apk');
+  const downloadsDir = path.join(process.cwd(), 'public/downloads');
+
+  // Check for GuestFlow PMS files (primary) and fallback to legacy OrderMint names
+  const winExists = fs.existsSync(path.join(downloadsDir, 'guestflow-pms.exe'))
+    || fs.existsSync(path.join(downloadsDir, 'ordermintpms.exe'))
+    || fs.existsSync(path.join(downloadsDir, 'ordermint.exe'));
+
+  const macExists = fs.existsSync(path.join(downloadsDir, 'guestflow-pms.dmg'))
+    || fs.existsSync(path.join(downloadsDir, 'ordermintpms.dmg'))
+    || fs.existsSync(path.join(downloadsDir, 'ordermint.dmg'));
+
+  const androidExists = fs.existsSync(path.join(downloadsDir, 'guestflow-pms.apk'))
+    || fs.existsSync(path.join(downloadsDir, 'ordermintpms.apk'))
+    || fs.existsSync(path.join(downloadsDir, 'OrderMintPMS.apk'));
 
   const settings = await prisma.websiteSettings.findFirst();
 
   return NextResponse.json({
-    windows: fs.existsSync(winPath) || fs.existsSync(path.join(process.cwd(), 'public/downloads/ordermint.exe')),
-    mac: fs.existsSync(macPath) || fs.existsSync(path.join(process.cwd(), 'public/downloads/ordermint.dmg')),
-    android: fs.existsSync(androidPath) || fs.existsSync(path.join(process.cwd(), 'public/downloads/OrderMintPMS.apk')),
+    windows: winExists,
+    mac: macExists,
+    android: androidExists,
     windowsComingSoon: settings?.windowsComingSoon || false,
     macComingSoon: settings?.macComingSoon || false,
     androidComingSoon: settings?.androidComingSoon || false

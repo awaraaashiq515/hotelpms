@@ -175,12 +175,8 @@ export default function LoginPage() {
       if (role === 'SUPER_ADMIN') {
         router.push('/admin/dashboard');
       } else if (role === 'RESTAURANTS_ADMIN') {
-        if (isHotelProperty) {
-          router.push('/hotel');
-        } else {
-          const slug = data.user.organizationSlug;
-          router.push(slug ? `/restaurantadmin/${slug}` : '/hotel');
-        }
+        // Always redirect to hotel dashboard — this is a Hotel PMS app
+        router.push('/hotel');
       } else if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || isHotelRole) {
         // ↑ IMPORTANT: Only route to /hotel for actual HOTEL admin/manager roles
         // Do NOT include isHotelProperty here — Waiter/Staff also have HOTEL property type
@@ -203,8 +199,8 @@ export default function LoginPage() {
         const propCode = data.user.propertyCode?.toLowerCase();
         router.push(propCode ? `/housekeeper-portal/${propCode}` : '/housekeeper-portal');
       } else if (role === 'POSSYSTEM') {
-        const propCode = data.user.propertyCode;
-        router.push(propCode ? `/${propCode}/operations` : '/operations');
+        // POS system users also go to hotel dashboard in Hotel PMS mode
+        router.push('/hotel');
       } else {
         // All other roles (Waiter, Cook, Staff, etc.) → staff-portal
         const propCode = data.user.propertyCode?.toLowerCase();

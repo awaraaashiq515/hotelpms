@@ -215,17 +215,17 @@ export default function WebsiteHomePage() {
       icon: <Monitor className="w-6 h-6 text-cyan-400" />,
       desc: 'Ultra-fast front office desktop app with RFID keycard encoders, passport scanners & thermal printing.',
       badge: 'Reception & Cashier',
-      btnLabel: 'Download OrderMint PMS EXE',
+      btnLabel: 'Download GuestFlow PMS EXE',
       link: 'https://drive.google.com/uc?export=download&id=1ehWFFDuGekFMTulV_hQB1mvBlksDPrCe',
       version: 'v4.5.0 • Windows 10/11 x64',
     },
     {
       id: 'android',
-      name: 'OrderMint PMS Android App',
+      name: 'GuestFlow PMS Android App',
       icon: <Smartphone className="w-6 h-6 text-emerald-400" />,
       desc: 'Mobile & Tablet PMS app for staff attendance, housekeeping, room inspections, walkie-talkie & thermal printing.',
-      badge: 'OrderMint PMS Official',
-      btnLabel: 'Download OrderMint PMS APK',
+      badge: 'GuestFlow PMS Official',
+      btnLabel: 'Download GuestFlow PMS APK',
       link: 'https://drive.google.com/uc?export=download&id=1I4fBHUbMYTIvH-_1S1Gsqc2oT5hpo15L',
       version: 'v1.0 • Android 8.0+',
     },
@@ -235,7 +235,7 @@ export default function WebsiteHomePage() {
       icon: <Apple className="w-6 h-6 text-slate-200" />,
       desc: 'Native executive dashboard for Apple Silicon M1/M2/M3 and Intel Macs with live property analytics.',
       badge: 'General Managers',
-      btnLabel: 'Download OrderMint PMS DMG',
+      btnLabel: 'Download GuestFlow PMS DMG',
       link: 'https://drive.google.com/uc?export=download&id=117wailc838ULSq3QhCI408-9h8q1ODHT',
       version: 'v4.5.0 • macOS 12+',
     },
@@ -467,7 +467,7 @@ export default function WebsiteHomePage() {
                 }}
               >
                 <Smartphone className="w-4 h-4 text-emerald-400 transition-transform group-hover:scale-110" />
-                <span>Download OrderMint PMS App</span>
+                <span>Download GuestFlow PMS App</span>
               </Link>
             </motion.div>
 

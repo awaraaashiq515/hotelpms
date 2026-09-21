@@ -1,8 +1,8 @@
 {
-  "name": "OrderMint POS",
-  "short_name": "OrderMint",
-  "description": "Advanced Restaurant Point of Sale & Management System",
-  "start_url": "/",
+  "name": "GuestFlow PMS",
+  "short_name": "GuestFlow",
+  "description": "All-in-one Hotel Property Management System — Rooms, Bookings, Front Desk, Housekeeping & Revenue",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
@@ -26,26 +26,26 @@
       "sizes": "1280x800",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "OrderMint Dashboard"
+      "label": "GuestFlow Hotel Dashboard"
     }
   ],
   "shortcuts": [
     {
-      "name": "New Bill",
-      "short_name": "Billing",
-      "description": "Open the billing interface",
-      "url": "/operations/billing",
+      "name": "Hotel Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open the hotel management dashboard",
+      "url": "/hotel",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Table Management",
-      "short_name": "Tables",
-      "description": "Manage restaurant tables",
-      "url": "/operations/tables",
+      "name": "Bookings",
+      "short_name": "Bookings",
+      "description": "Manage room reservations and bookings",
+      "url": "/hotel/bookings",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],
-  "categories": ["business", "productivity", "food"],
+  "categories": ["business", "productivity", "travel"],
   "orientation": "any",
   "prefer_related_applications": false
 }

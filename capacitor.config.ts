@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.ordermint.pos',
-  appName: 'OrderMint PMS',
+  appId: 'com.guestflow.pms',
+  appName: 'GuestFlow PMS',
   webDir: 'public',
   server: {
     androidScheme: 'https',
