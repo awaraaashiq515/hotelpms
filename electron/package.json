@@ -1,9 +1,13 @@
 {
-  "name": "ordermintpms",
-  "productName": "OrderMint PMS",
+  "name": "guestflow-pms",
+  "productName": "GuestFlow PMS",
   "version": "1.0.0",
   "main": "main.js",
-  "description": "OrderMint PMS Desktop Application",
-  "author": "OrderMint PMS",
+  "description": "GuestFlow PMS Desktop Application",
+  "author": "GuestFlow PMS",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/awaraaashiq515/hotelpms.git"
+  },
   "dependencies": {}
 }

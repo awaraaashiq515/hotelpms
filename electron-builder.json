@@ -1,7 +1,6 @@
 {
   "appId": "com.guestflow.pms",
   "productName": "GuestFlow PMS",
-  "publish": null,
   "directories": {
     "app": "electron",
     "output": "dist"

@@ -15,7 +15,7 @@ function getSavedURL() {
   } catch (e) {
     console.error('Failed to load config', e);
   }
-  return 'https://ordermint.in'; // Default URL
+  return 'https://ordermintpms.tech'; // Default URL
 }
 
 // Function to save URL
@@ -40,7 +40,7 @@ function createWindow() {
       contextIsolation: false,
     },
     icon: iconPath,
-    title: "OrderMint PMS",
+    title: "GuestFlow PMS",
     autoHideMenuBar: false, // Show menu so user can change settings
   });
 
@@ -67,7 +67,7 @@ function createWindow() {
   // Create Application Menu
   const template = [
     {
-      label: 'OrderMint PMS',
+      label: 'GuestFlow PMS',
       submenu: [
         { role: 'about' },
         { type: 'separator' },
