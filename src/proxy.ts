@@ -29,17 +29,27 @@ export async function proxy(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value
 
   const userAgent = request.headers.get('user-agent') || ''
-  const isCapacitor = userAgent.includes('Capacitor')
+  const isApp = userAgent.includes('Capacitor') || userAgent.includes('Electron')
 
-  // ── Android App (Capacitor) Route Guard ──
-  // Block only the 6 public marketing/website pages in the mobile app.
-  // All other pages work normally.
-  if (isCapacitor) {
+  // ── App Route Guard (Mobile & Desktop App) ──
+  // Block the 6 public marketing/website pages in the mobile and desktop apps.
+  // When an app accesses these pages:
+  // - If user has active session, redirect to /hotel
+  // - Otherwise redirect to /login
+  if (isApp) {
     const blockedWebsiteRoutes = ['/', '/features', '/pricing', '/about', '/blog', '/contact']
     const isBlockedRoute = blockedWebsiteRoutes.some(
       route => pathname === route || pathname.startsWith(route + '/')
     )
     if (isBlockedRoute) {
+      if (sessionCookie) {
+        try {
+          const verified = await jwtVerify(sessionCookie, key)
+          if (verified?.payload) {
+            return NextResponse.redirect(new URL('/hotel', request.url))
+          }
+        } catch {}
+      }
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }

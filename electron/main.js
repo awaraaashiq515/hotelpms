@@ -5,17 +5,34 @@ const fs = require('fs');
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'config.json');
 
+const BLOCKED_ROUTES = ['/', '/features', '/pricing', '/about', '/blog', '/contact'];
+
+function isMarketingRoute(pathname) {
+  if (!pathname || pathname === '' || pathname === '/') return true;
+  return BLOCKED_ROUTES.some(r => pathname === r || (r !== '/' && pathname.startsWith(r)));
+}
+
 // Function to load saved URL
 function getSavedURL() {
   try {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath));
-      return config.url;
+      if (config.url) {
+        try {
+          const parsed = new URL(config.url);
+          if (isMarketingRoute(parsed.pathname)) {
+            return `${parsed.origin}/login`;
+          }
+          return config.url;
+        } catch {
+          return 'https://ordermintpms.tech/login';
+        }
+      }
     }
   } catch (e) {
     console.error('Failed to load config', e);
   }
-  return 'https://ordermintpms.tech'; // Default URL
+  return 'https://ordermintpms.tech/login'; // Default URL always starts at /login
 }
 
 // Function to save URL
@@ -46,10 +63,24 @@ function createWindow() {
 
   const savedURL = getSavedURL();
   const startURL = !app.isPackaged 
-    ? 'http://localhost:3000' 
+    ? 'http://localhost:3000/login' 
     : savedURL;
 
   mainWindow.loadURL(startURL);
+
+  // Block marketing/website routes in desktop app
+  const blockMarketingNavigation = (event, targetUrl) => {
+    try {
+      const parsed = new URL(targetUrl);
+      if (isMarketingRoute(parsed.pathname)) {
+        event.preventDefault();
+        mainWindow.loadURL(`${parsed.origin}/login`);
+      }
+    } catch (e) {}
+  };
+
+  mainWindow.webContents.on('will-navigate', blockMarketingNavigation);
+  mainWindow.webContents.on('will-redirect', blockMarketingNavigation);
 
   // Handle connection errors
   mainWindow.webContents.on('did-fail-load', () => {

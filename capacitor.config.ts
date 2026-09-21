@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true, // Allows testing on local network HTTP
-    url: "https://ordermintpms.tech",
+    url: "https://ordermintpms.tech/login",
     allowNavigation: ["ordermintpms.tech", "*.ordermintpms.tech"]
   }
 };

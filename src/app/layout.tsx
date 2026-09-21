@@ -87,10 +87,11 @@ export default function RootLayout({
             __html: `
               (function() {
                 var ua = navigator.userAgent || navigator.vendor || window.opera;
+                var isApp = (typeof window.Capacitor !== 'undefined') || ua.indexOf('Capacitor') > -1 || ua.indexOf('Electron') > -1;
                 var isCapacitor = (typeof window.Capacitor !== 'undefined') || ua.indexOf('Capacitor') > -1;
 
-                // ── Android App Route Guard: Block only 6 marketing/website pages ──
-                if (isCapacitor) {
+                // ── App Route Guard (Android & Desktop): Block website/marketing pages ──
+                if (isApp) {
                   var path = window.location.pathname;
 
                   // Only these 6 website/marketing pages are blocked in the app
