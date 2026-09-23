@@ -3,6 +3,42 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 
+async function getTargetPropertyFilter(session: any) {
+  if (!session.propertyId) return null;
+
+  // Check if businessType is BOTH (attached hotel + restaurant)
+  let isAttachedBoth = session.businessType === 'BOTH' || (session.isMultiProperty === true && session.businessType !== 'BOTH_SEPARATE');
+
+  if (!isAttachedBoth && session.organizationId) {
+    const org = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { businessType: true }
+    });
+    if (org?.businessType === 'BOTH') {
+      isAttachedBoth = true;
+    }
+  }
+
+  // If businessType === 'BOTH_SEPARATE', or 'HOTEL', or 'RESTAURANT', or not attached:
+  // Strictly filter by current session.propertyId only!
+  if (!isAttachedBoth || !session.organizationId) {
+    return { propertyId: session.propertyId };
+  }
+
+  // Attached BOTH: Fetch all property IDs for this organization (Hotel + Restaurant)
+  const properties = await prisma.property.findMany({
+    where: { organizationId: session.organizationId },
+    select: { id: true }
+  });
+
+  const ids = properties.map(p => p.id);
+  if (ids.length <= 1) {
+    return { propertyId: session.propertyId };
+  }
+
+  return { propertyId: { in: ids } };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -10,9 +46,8 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
-    // If user has no propertyId yet (hotel admin without a linked property),
-    // return empty list gracefully instead of 401 to avoid console errors.
-    if (!session.propertyId) {
+    const propertyFilter = await getTargetPropertyFilter(session);
+    if (!propertyFilter) {
       return apiResponse([], 'No property linked');
     }
 
@@ -30,7 +65,7 @@ export async function GET(request: NextRequest) {
       try {
         await prisma.notification.deleteMany({
           where: {
-            propertyId: session.propertyId,
+            ...propertyFilter,
             createdAt: { lt: cleanupDate }
           }
         });
@@ -40,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where: any = {
-      propertyId: session.propertyId,
+      ...propertyFilter,
     };
 
     if (status && status !== 'ALL') {
@@ -59,7 +94,7 @@ export async function GET(request: NextRequest) {
     const isManagerOrAdmin = user?.role?.name?.toLowerCase().includes('manager') || 
                              user?.role?.name?.toLowerCase().includes('admin');
 
-    const assignedTableIds = user?.tableAssignments.map((ta: any) => ta.tableId) || [];
+    const assignedTableIds = user?.tableAssignments?.map((ta: any) => ta.tableId) || [];
 
     if (!isManagerOrAdmin && assignedTableIds.length > 0) {
       where.OR = [
@@ -70,6 +105,16 @@ export async function GET(request: NextRequest) {
 
     const notifications = await prisma.notification.findMany({
       where,
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            type: true,
+          }
+        }
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -114,6 +159,11 @@ export async function DELETE(request: NextRequest) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
+    const propertyFilter = await getTargetPropertyFilter(session);
+    if (!propertyFilter) {
+      return apiError(new Error('Unauthorized'), 401);
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const all = searchParams.get('all') === 'true';
@@ -126,7 +176,7 @@ export async function DELETE(request: NextRequest) {
 
     if (all) {
       await prisma.notification.deleteMany({
-        where: { propertyId: session.propertyId }
+        where: propertyFilter
       });
       return apiResponse(null, 'All notifications cleared');
     }
@@ -139,7 +189,7 @@ export async function DELETE(request: NextRequest) {
       
       const result = await prisma.notification.deleteMany({
         where: { 
-          propertyId: session.propertyId,
+          ...propertyFilter,
           createdAt: { lt: date }
         }
       });

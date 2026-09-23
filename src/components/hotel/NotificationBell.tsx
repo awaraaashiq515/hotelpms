@@ -15,7 +15,10 @@ import {
   Clock,
   ChevronRight,
   Sparkles,
-  Inbox
+  Inbox,
+  Utensils,
+  Receipt,
+  CreditCard
 } from 'lucide-react';
 
 export interface Notification {
@@ -27,50 +30,42 @@ export interface Notification {
   priority: string;
   metadata: string | null;
   createdAt: string;
+  property?: {
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+  } | null;
 }
 
 function sanitizeLink(link: string): string {
   if (!link) return '/hotel';
   
-  // If it's a relative URL pointing to /operations
-  if (link.startsWith('/operations')) {
-    if (link.startsWith('/operations/notifications')) {
-      return '/hotel/notifications';
-    }
-    if (link.startsWith('/operations/orders')) {
-      return '/hotel/room-service';
-    }
-    if (link.startsWith('/operations/tables')) {
-      return '/hotel/room-service';
-    }
-    if (link.startsWith('/operations/checkout')) {
-      return '/hotel/checkout';
-    }
-    if (link.startsWith('/operations/checkin')) {
-      return '/hotel/bookings';
-    }
-    return '/hotel';
+  // Strip external scheme/domain if present
+  const clean = link.replace(/^https?:\/\/[^\/]+/, '');
+
+  // Restaurant operational routes mapping to internal /hotel/pos routes
+  if (clean.includes('/orders')) return '/hotel/pos/orders';
+  if (clean.includes('/tables')) return '/hotel/pos/tables';
+  if (clean.includes('/kots')) return '/hotel/pos/kots';
+  if (clean.includes('/billing')) return '/hotel/pos/billing';
+  if (clean.includes('/counter-payments') || clean.includes('/counter-request')) return '/hotel/pos/billing';
+  if (clean.includes('/delivery')) return '/hotel/pos/delivery';
+  if (clean.includes('/notifications')) return '/hotel/notifications';
+  if (clean.includes('/checkout')) return '/hotel/checkout';
+  if (clean.includes('/checkin') || clean.includes('/bookings')) return '/hotel/bookings';
+  if (clean.includes('/room-service')) return '/hotel/room-service';
+  if (clean.includes('/housekeeping')) return '/hotel/housekeeping';
+
+  if (clean.startsWith('/operations')) {
+    return '/hotel/pos';
   }
   
-  // If it's an absolute URL containing /operations
-  if (link.includes('/operations')) {
-    try {
-      const urlObj = new URL(link);
-      const pathname = urlObj.pathname;
-      if (pathname.startsWith('/operations')) {
-        return sanitizeLink(pathname);
-      }
-    } catch (e) {
-      if (link.includes('/operations/notifications')) return '/hotel/notifications';
-      if (link.includes('/operations/orders')) return '/hotel/room-service';
-      if (link.includes('/operations/tables')) return '/hotel/room-service';
-      if (link.includes('/operations/checkout')) return '/hotel/checkout';
-      if (link.includes('/operations/checkin')) return '/hotel/bookings';
-      return '/hotel';
-    }
+  if (clean.startsWith('/hotel')) {
+    return clean;
   }
 
-  return link;
+  return clean || '/hotel';
 }
 
 export function getNotificationRoute(type: string, title: string, message: string, metadataStr: string | null): string {
@@ -100,11 +95,20 @@ export function getNotificationRoute(type: string, title: string, message: strin
   if (text.includes('maintenance') || text.includes('repair') || text.includes('wrench') || text.includes('broken')) {
     return '/hotel/maintenance';
   }
-  if (text.includes('order') || text.includes('room service') || text.includes('food') || text.includes('kitchen')) {
+  if (text.includes('kot') || text.includes('kitchen order')) {
+    return '/hotel/pos/kots';
+  }
+  if (text.includes('table') || text.includes('dine-in') || text.includes('waiter call') || text.includes('assistance')) {
+    return '/hotel/pos/tables';
+  }
+  if (text.includes('room service') || text.includes('room order')) {
     return '/hotel/room-service';
   }
-  if (text.includes('assistance') || text.includes('help') || text.includes('call') || text.includes('waiter')) {
-    return '/hotel/room-service'; // or frontdesk dashboard
+  if (text.includes('order') || text.includes('pos order') || text.includes('food') || text.includes('takeaway')) {
+    return '/hotel/pos/orders';
+  }
+  if (text.includes('payment') || text.includes('counter') || text.includes('settle') || text.includes('bill')) {
+    return '/hotel/pos/billing';
   }
   if (text.includes('inventory') || text.includes('purchase') || text.includes('stock') || text.includes('vendor')) {
     return '/hotel/inventory';
@@ -144,14 +148,35 @@ export function getNotificationIcon(type: string, title: string, message: string
       </div>
     );
   }
-  if (text.includes('order') || text.includes('room service') || text.includes('food') || text.includes('kitchen')) {
+  if (text.includes('payment') || text.includes('counter') || text.includes('settle') || text.includes('bill') || text.includes('cash')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+        <CreditCard className="text-emerald-400 w-4 h-4" />
+      </div>
+    );
+  }
+  if (text.includes('kot') || text.includes('kitchen')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+        <Receipt className="text-amber-400 w-4 h-4" />
+      </div>
+    );
+  }
+  if (text.includes('room service')) {
     return (
       <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
         <ChefHat className="text-violet-400 w-4 h-4" />
       </div>
     );
   }
-  if (text.includes('assistance') || text.includes('help') || text.includes('call')) {
+  if (text.includes('order') || text.includes('food') || text.includes('takeaway') || text.includes('table')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+        <Utensils className="text-cyan-400 w-4 h-4" />
+      </div>
+    );
+  }
+  if (text.includes('assistance') || text.includes('help') || text.includes('call') || text.includes('waiter')) {
     return (
       <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
         <HelpCircle className="text-orange-400 w-4 h-4" />
@@ -231,10 +256,9 @@ export function NotificationBell() {
         const newCount = newNotifs.length;
         setUnreadCount(newCount);
 
-        // Play sound when a new STAFF notification arrives (skip on first page load)
+        // Play sound when any new notification arrives (skip on first page load)
         if (!isFirstLoadRef.current && newCount > prevCountRef.current) {
-          const hasStaff = newNotifs.some(n => n.type === 'STAFF');
-          if (hasStaff) playChime();
+          playChime();
         }
         prevCountRef.current = newCount;
         isFirstLoadRef.current = false;
@@ -362,9 +386,16 @@ export function NotificationBell() {
                   {getNotificationIcon(notif.type, notif.title, notif.message)}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-1.5">
-                      <p className="text-xs font-bold text-slate-200 truncate group-hover:text-white transition-colors">
-                        {notif.title}
-                      </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-xs font-bold text-slate-200 truncate group-hover:text-white transition-colors">
+                          {notif.title}
+                        </p>
+                        {notif.property?.type === 'RESTAURANT' && (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                            Restaurant
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[9px] font-semibold text-slate-500 flex items-center gap-1 shrink-0 mt-0.5">
                         <Clock size={10} />
                         {formatTimeAgo(notif.createdAt)}

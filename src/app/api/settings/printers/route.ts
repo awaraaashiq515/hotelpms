@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       printerType, 
       paperSize, 
       isBilling, 
+      isHotelBill,
       isKitchen, 
       isEnabled, 
       autoCut,
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
       await prisma.printer.updateMany({
         where: { propertyId, isBilling: true },
         data: { isBilling: false }
+      });
+    }
+
+    // If this is set as hotel bill printer, unset others
+    if (isHotelBill) {
+      await prisma.printer.updateMany({
+        where: { propertyId, isHotelBill: true },
+        data: { isHotelBill: false }
       });
     }
 
@@ -85,10 +94,11 @@ export async function POST(req: NextRequest) {
         port: port ? parseInt(port) : 9100,
         printerType,
         paperSize,
-        isBilling,
-        isKitchen,
-        isEnabled,
-        autoCut,
+        isBilling: Boolean(isBilling),
+        isHotelBill: Boolean(isHotelBill),
+        isKitchen: Boolean(isKitchen),
+        isEnabled: isEnabled !== undefined ? Boolean(isEnabled) : true,
+        autoCut: autoCut !== undefined ? Boolean(autoCut) : true,
         fontSize: fontSize ? parseInt(fontSize) : 12,
         margin: margin ? parseInt(margin) : 0,
         padding: padding ? parseInt(padding) : 0,

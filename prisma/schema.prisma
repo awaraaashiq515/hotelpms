@@ -2003,6 +2003,7 @@ model Printer {
   paperSize      String   @default("80mm") // 58mm, 80mm, CUSTOM
   customWidth    Int? // In mm if CUSTOM
   isBilling      Boolean  @default(false)
+  isHotelBill    Boolean  @default(false)
   isKitchen      Boolean  @default(false)
   isEnabled      Boolean  @default(true)
   autoCut        Boolean  @default(true)

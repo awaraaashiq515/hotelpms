@@ -290,7 +290,16 @@ export default function NotificationsPage() {
                       {notif.message}
                     </p>
 
-                    <div className="flex items-center gap-4 mt-3">
+                    <div className="flex flex-wrap items-center gap-3 mt-3">
+                      {notif.property && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                          notif.property.type === 'RESTAURANT'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            : 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                        }`}>
+                          {notif.property.type === 'RESTAURANT' ? '🍽️ Restaurant' : '🏨 Hotel'}: {notif.property.name}
+                        </span>
+                      )}
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-800/40 px-2 py-0.5 rounded border border-slate-800">
                         Type: {notif.type}
                       </span>

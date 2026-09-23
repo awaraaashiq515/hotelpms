@@ -32,6 +32,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'wifirules',     emoji: '📶', title: 'WiFi & House Rules',    desc: 'WiFi network name, password, and stay timings shown to guests', color: 'text-indigo-400' },
   { id: 'roomcharging',  emoji: '🏨', title: 'Restaurant Room Billing', desc: 'Allow restaurant guests to charge food bill to their hotel room', color: 'text-violet-400' },
   { id: 'tipping',       emoji: '💝', title: 'Staff Tipping',           desc: 'Allow guests to tip waiters & housekeeping via UPI',           color: 'text-amber-400' },
+  { id: 'demodata',      emoji: '🧹', title: 'Demo & Sample Data',       desc: 'Clear or reset pre-loaded demo rooms, bookings, and sample guests', color: 'text-rose-400' },
 ];
 
 const getSection = (id: string) => SECTIONS.find(s => s.id === id) || SECTIONS[0];
@@ -160,8 +161,24 @@ export default function HotelSettingsPage() {
   const [tippingSaving, setTippingSaving] = useState(false);
   const [tippingSaved, setTippingSaved] = useState(false);
 
+  // Demo Data Management
+  const [demoInfo, setDemoInfo] = useState<any>(null);
+  const [clearingDemo, setClearingDemo] = useState(false);
+  const [demoClearMode, setDemoClearMode] = useState<'bookings' | 'all'>('bookings');
+  const [demoMsg, setDemoMsg] = useState<string | null>(null);
+
+  const loadDemoDataInfo = () => {
+    fetch('/api/hotel/demo-data')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setDemoInfo(d.data);
+      })
+      .catch(() => {});
+  };
+
   // Fetch settings on mount
   useEffect(() => {
+    loadDemoDataInfo();
     fetch('/api/setup/properties/current')
       .then(r => r.json())
       .then(d => {
@@ -823,6 +840,115 @@ export default function HotelSettingsPage() {
                   </button>
                 </div>
               </>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Demo & Sample Data Management */}
+        <SectionCard section={getSection('demodata')}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>🧹</span> Manage Demo & Sample Data
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  When new hotel accounts are created, sample rooms and bookings are loaded to help explore features. You can remove them here.
+                </p>
+              </div>
+              {demoInfo?.hasDemoData ? (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Demo Data Active
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Clean / Live Data
+                </span>
+              )}
+            </div>
+
+            {demoInfo?.hasDemoData ? (
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-4">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-lg font-black text-amber-400">{demoInfo.demoReservationsCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Demo Bookings</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-lg font-black text-sky-400">{demoInfo.demoGuestsCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Demo Guests</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-lg font-black text-violet-400">{demoInfo.demoRoomsCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Demo Rooms</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${demoClearMode === 'bookings' ? 'bg-indigo-500/10 border-indigo-500/40' : 'bg-slate-900 border-slate-800'}`}>
+                    <input
+                      type="radio"
+                      name="demoClearMode"
+                      checked={demoClearMode === 'bookings'}
+                      onChange={() => setDemoClearMode('bookings')}
+                      className="mt-0.5 accent-indigo-500"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-white">Remove Demo Bookings & Guests Only (Recommended)</p>
+                      <p className="text-[10px] text-slate-400">Deletes Tarun & Priya bookings and folios, but keeps your Rooms (101-203) set to Available.</p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${demoClearMode === 'all' ? 'bg-rose-500/10 border-rose-500/40' : 'bg-slate-900 border-slate-800'}`}>
+                    <input
+                      type="radio"
+                      name="demoClearMode"
+                      checked={demoClearMode === 'all'}
+                      onChange={() => setDemoClearMode('all')}
+                      className="mt-0.5 accent-rose-500"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-rose-300">Remove All Demo Data (Complete Clean Slate)</p>
+                      <p className="text-[10px] text-slate-400">Deletes demo rooms, room types, sample guests, and bookings.</p>
+                    </div>
+                  </label>
+                </div>
+
+                {demoMsg && (
+                  <p className="text-xs font-bold text-emerald-400">{demoMsg}</p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={clearingDemo}
+                  onClick={async () => {
+                    if (!confirm('Are you sure you want to remove the selected demo data?')) return;
+                    setClearingDemo(true);
+                    try {
+                      const res = await fetch(`/api/hotel/demo-data?mode=${demoClearMode}`, { method: 'DELETE' });
+                      const d = await res.json();
+                      if (d.success) {
+                        setDemoMsg(d.message || 'Demo data removed successfully!');
+                        loadDemoDataInfo();
+                        setTimeout(() => setDemoMsg(null), 4000);
+                      } else {
+                        alert(d.error || 'Failed to remove demo data');
+                      }
+                    } catch (e: any) {
+                      alert(e.message || 'Error removing demo data');
+                    } finally {
+                      setClearingDemo(false);
+                    }
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <span>🗑️</span> {clearingDemo ? 'Removing Demo Data...' : 'Remove Demo Data Now'}
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
+                ✨ No demo data found. Your hotel is clean and configured with real live data.
+              </div>
             )}
           </div>
         </SectionCard>

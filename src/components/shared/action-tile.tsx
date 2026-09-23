@@ -16,6 +16,7 @@ interface ActionTileProps {
   iconColor?: string;
   iconBg?: string;
   cardBorder?: string;
+  newTab?: boolean; // Force open in new browser tab
 }
 
 export const ActionTile: React.FC<ActionTileProps> = ({ 
@@ -29,7 +30,8 @@ export const ActionTile: React.FC<ActionTileProps> = ({
   glowColor,
   iconColor,
   iconBg,
-  cardBorder
+  cardBorder,
+  newTab = false,
 }) => {
   const router = useRouter();
 
@@ -42,6 +44,12 @@ export const ActionTile: React.FC<ActionTileProps> = ({
     }
 
     if (path) {
+      // Always open in new tab if newTab prop is set
+      if (newTab) {
+        window.open(path, '_blank');
+        return;
+      }
+
       const isCapacitor = typeof window !== 'undefined' && 
         (typeof (window as any).Capacitor !== 'undefined' || (navigator.userAgent || '').includes('Capacitor'));
 

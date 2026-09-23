@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, Printer } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Printer, FileText, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
 
@@ -11,6 +11,8 @@ export interface PrintBillModalProps {
 }
 
 export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose }) => {
+  // 'SMALL' = 58mm thermal, 'STANDARD' = 80mm thermal, 'A4' = A4 document
+  const [paperSize, setPaperSize] = useState<'SMALL' | 'STANDARD' | 'A4'>('STANDARD');
   const getSubtotal = () => {
     if (typeof bill.subtotal === 'number') return bill.subtotal;
     return (bill.items || []).reduce((s: number, i: any) => s + (Number(i.totalAmount) || (Number(i.quantity) * Number(i.unitPrice)) || 0), 0);
@@ -56,6 +58,20 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
       toast.error(`❌ Direct print failed: ${e.message}. Falling back to browser print.`);
     }
 
+    const pageCss =
+      paperSize === 'A4'
+        ? `@page { size: A4; margin: 15mm; }`
+        : paperSize === 'SMALL'
+        ? `@page { size: 58mm auto; margin: 0; }`
+        : `@page { size: 80mm auto; margin: 0; }`;
+
+    const bodyWidth =
+      paperSize === 'A4' ? '180mm' : paperSize === 'SMALL' ? '52mm' : '76mm';
+    const bodyPadding =
+      paperSize === 'A4' ? '0' : '10mm 4mm';
+    const bodyFontSize =
+      paperSize === 'A4' ? '12px' : '11px';
+
     const printWindow = window.open('', '_blank', 'width=450,height=700');
     if (!printWindow) return;
 
@@ -65,13 +81,13 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
         <head>
           <title>Invoice - ${bill.orderNo}</title>
           <style>
-            @page { size: 80mm auto; margin: 0; }
+            ${pageCss}
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
-              width: 80mm; 
-              padding: 10mm 4mm; 
+              width: ${bodyWidth}; 
+              padding: ${bodyPadding}; 
               font-family: 'Courier New', Courier, monospace; 
-              font-size: 11px; 
+              font-size: ${bodyFontSize}; 
               color: #000; 
               line-height: 1.1; 
               background: #fff;
@@ -173,7 +189,9 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
              </div>
              <div>
                 <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest leading-none">Bill Terminal</h3>
-                <p className="text-[10px] text-gray-400 font-medium uppercase mt-2 tracking-tighter">80mm Professional Layout Preview</p>
+                <p className="text-[10px] text-gray-400 font-medium uppercase mt-2 tracking-tighter">
+                  {paperSize === 'SMALL' ? '58mm Small Thermal' : paperSize === 'A4' ? 'A4 Document Layout' : '80mm Standard Thermal'}
+                </p>
              </div>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-full transition-all text-gray-400 hover:text-red-500 active:scale-90">
@@ -181,8 +199,48 @@ export const PrintBillModal: React.FC<PrintBillModalProps> = ({ bill, onClose })
           </button>
         </div>
 
+        {/* ── Paper Size Selector ────────────────────────────────── */}
+        <div className="px-8 py-5 bg-white border-b border-gray-100">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Select Print Size</p>
+          <div className="grid grid-cols-3 gap-3">
+            {([
+              { key: 'SMALL',    icon: Receipt,  label: 'Small',    sub: '58mm Thermal', color: 'emerald' },
+              { key: 'STANDARD', icon: Printer,  label: 'Standard', sub: '80mm Thermal', color: 'indigo'  },
+              { key: 'A4',       icon: FileText, label: 'Large',    sub: 'A4 Document',  color: 'violet'  },
+            ] as const).map(({ key, icon: Icon, label, sub, color }) => {
+              const active = paperSize === key;
+              const colors: Record<string, string> = {
+                emerald: active ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-emerald-50/50',
+                indigo:  active ? 'border-indigo-500 bg-indigo-50 text-indigo-700'   : 'border-gray-200 text-gray-500 hover:border-indigo-300 hover:bg-indigo-50/50',
+                violet:  active ? 'border-violet-500 bg-violet-50 text-violet-700'   : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:bg-violet-50/50',
+              };
+              return (
+                <button
+                  key={key}
+                  onClick={() => setPaperSize(key)}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 font-bold ${
+                    colors[color]
+                  } ${active ? 'shadow-md scale-[1.03]' : 'hover:scale-[1.01]'}`}
+                >
+                  <Icon size={22} />
+                  <div className="text-center">
+                    <p className="text-[11px] font-black uppercase">{label}</p>
+                    <p className="text-[9px] font-bold opacity-60">{sub}</p>
+                  </div>
+                  {active && (
+                    <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-12 bg-gray-50 flex justify-center no-scrollbar">
-          <div className="bg-white p-12 shadow-[0_10px_40px_rgba(0,0,0,0.05)] w-[80mm] min-h-[140mm] font-mono text-[11px] text-black border border-gray-100 relative">
+          <div
+            className="bg-white p-12 shadow-[0_10px_40px_rgba(0,0,0,0.05)] min-h-[140mm] font-mono text-[11px] text-black border border-gray-100 relative transition-all duration-300"
+            style={{ width: paperSize === 'A4' ? '210mm' : paperSize === 'SMALL' ? '58mm' : '80mm' }}
+          >
              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-b from-gray-50 to-transparent" />
              
              <div className="text-center font-bold space-y-2 mb-8">

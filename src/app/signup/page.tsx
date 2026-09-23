@@ -16,7 +16,7 @@ import { SupplierRegistrationForm } from '@/components/auth/SupplierRegistration
 import { SingerRegistrationForm } from '@/components/auth/SingerRegistrationForm';
 
 // ─── Business Types ───────────────────────────────────────────────────────────
-type BusinessType = 'RESTAURANT' | 'HOTEL' | 'BOTH';
+type BusinessType = 'RESTAURANT' | 'HOTEL' | 'BOTH' | 'BOTH_SEPARATE';
 
 // ─── Hotel/Restaurant Wizard: 5 Steps ────────────────────────────────────────
 const HOTEL_STEPS = [
@@ -202,11 +202,17 @@ export default function SignupPage() {
     });
   };
 
-  // ── BOTH type: Restaurant (2nd) Property ────────────────────────────────────
+  // ── BOTH / BOTH_SEPARATE: Restaurant (2nd) Property ──────────────────────────
   const [restaurantName,        setRestaurantName]        = useState('');
   const [restaurantBranchCode,  setRestaurantBranchCode]  = useState('');
   const [restaurantBranchCity,  setRestaurantBranchCity]  = useState('');
   const [restaurantBranchAddr,  setRestaurantBranchAddr]  = useState('');
+
+  // ── BOTH_SEPARATE: Separate Restaurant Admin credentials ───────────────────
+  const [rstAdminName,     setRstAdminName]     = useState('');
+  const [rstAdminEmail,    setRstAdminEmail]    = useState('');
+  const [rstAdminPassword, setRstAdminPassword] = useState('');
+  const [showRstAdminPass, setShowRstAdminPass] = useState(false);
 
   // ── Hotel Receptionist (Hotel / BOTH) ─────────────────────────────────────
   const [showHotelRecepForm, setShowHotelRecepForm] = useState(false);
@@ -227,6 +233,7 @@ export default function SignupPage() {
   const [barPosEnabled,        setBarPosEnabled]        = useState(false);
   const [cafePosEnabled,       setCafePosEnabled]       = useState(false);
   const [deliveryEnabled,      setDeliveryEnabled]      = useState(false);
+  const [loadDemoData,         setLoadDemoData]         = useState(true);
 
   // ── Non-hotel role fields ──────────────────────────────────────────────────
   const [category,         setCategory]         = useState('Vegetables');
@@ -295,33 +302,20 @@ export default function SignupPage() {
     } catch {}
   };
 
-  const completeLogin = async () => {
-    const res = await fetch('/api/auth/session');
-    const data = await res.json();
-    if (data.authenticated) {
-      const role = data.user.role;
-      const isHotelProperty = data.user.propertyType === 'HOTEL';
-      if (role === 'SUPER_ADMIN') router.push('/admin/dashboard');
-      else if (role === 'HOTEL_ADMIN' || isHotelProperty) router.push('/hotel');
-      else if (role === 'RESTAURANTS_ADMIN') {
-        const slug = data.user.organizationSlug;
-        router.push(slug ? `/restaurantadmin/${slug}` : '/hotel');
-      }
-      else if (role === 'B2B_SUPPLIER') { const c = data.user.propertyCode; router.push(c ? `/${c}/b2b/supplier` : '/b2b/supplier'); }
-      else if (role === 'DELIVERY_RIDER') router.push('/transport-portal/dashboard');
-      else if (role === 'SINGER') router.push('/singer-portal');
-      else { const c = data.user.propertyCode; router.push(c ? `/${c}/operations` : '/staff-portal'); }
-    } else router.push('/login');
-    router.refresh();
-  };
 
   // ─── Step Validation ────────────────────────────────────────────────────────
   const stepValid = () => {
     if (hotelStep === 1) return !!businessType;
-    if (hotelStep === 2) return fullName.trim().length >= 2 && email.includes('@') && password.length >= 6 && phone.trim().length >= 6;
+    if (hotelStep === 2) {
+      const baseValid = fullName.trim().length >= 2 && email.includes('@') && password.length >= 6 && phone.trim().length >= 6;
+      if (businessType === 'BOTH_SEPARATE') {
+        return baseValid && rstAdminName.trim().length >= 2 && rstAdminEmail.includes('@') && rstAdminPassword.length >= 6;
+      }
+      return baseValid;
+    }
     if (hotelStep === 3) return true;
     if (hotelStep === 4) {
-      if (businessType === 'BOTH') return businessName.trim().length >= 2 && restaurantName.trim().length >= 2;
+      if (businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') return businessName.trim().length >= 2 && restaurantName.trim().length >= 2;
       return businessName.trim().length >= 2;
     }
     return true;
@@ -335,7 +329,8 @@ export default function SignupPage() {
       // Role assignment:
       // HOTEL → HOTEL_ADMIN → /hotel
       // RESTAURANT → RESTAURANTS_ADMIN → /restaurantadmin/slug
-      // BOTH → HOTEL_ADMIN → /hotel (hotel portal manages both)
+      // BOTH → HOTEL_ADMIN → /hotel (hotel portal manages both, restaurant inside)
+      // BOTH_SEPARATE → HOTEL_ADMIN → /hotel (2 logins: hotel admin + restaurant admin)
       const roleName = businessType === 'RESTAURANT' ? 'RESTAURANTS_ADMIN' : 'HOTEL_ADMIN';
 
       await authApi.register({
@@ -350,35 +345,39 @@ export default function SignupPage() {
         branchCode: branchCode || null,
         branchCity: branchCity || null,
         branchAddress: branchAddress || null,
-        // BOTH: second restaurant property
-        restaurantPropertyName: businessType === 'BOTH' ? (restaurantName || null) : null,
-        restaurantBranchCode:   businessType === 'BOTH' ? (restaurantBranchCode || null) : null,
-        restaurantBranchCity:   businessType === 'BOTH' ? (restaurantBranchCity || null) : null,
-        restaurantBranchAddress: businessType === 'BOTH' ? (restaurantBranchAddr || null) : null,
+        // BOTH / BOTH_SEPARATE: second restaurant property
+        restaurantPropertyName: (businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? (restaurantName || null) : null,
+        restaurantBranchCode:   (businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? (restaurantBranchCode || null) : null,
+        restaurantBranchCity:   (businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? (restaurantBranchCity || null) : null,
+        restaurantBranchAddress: (businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? (restaurantBranchAddr || null) : null,
+        // BOTH_SEPARATE: separate Restaurant Admin login
+        restaurantAdminName:     businessType === 'BOTH_SEPARATE' ? (rstAdminName || null) : null,
+        restaurantAdminEmail:    businessType === 'BOTH_SEPARATE' ? (rstAdminEmail || null) : null,
+        restaurantAdminPassword: businessType === 'BOTH_SEPARATE' ? (rstAdminPassword || null) : null,
         // Plan
         packageId: isCustomPlan ? null : (packageId || null),
         paymentReference: paymentReference || null,
         paymentAmount: isCustomPlan ? (customTotal > 0 ? customTotal : null) : (paymentAmount || null),
         customFeatures: isCustomPlan ? Array.from(customSelected) : null,
         customPlanTotal: isCustomPlan ? (customTotal > 0 ? customTotal : null) : null,
-        // Hotel Receptionist (HOTEL / BOTH)
+        // Hotel Receptionist (HOTEL / BOTH / BOTH_SEPARATE)
         hotelRecepFullName: (businessType !== 'RESTAURANT' && showHotelRecepForm) ? (hotelRecepName || null) : null,
         hotelRecepEmail:    (businessType !== 'RESTAURANT' && showHotelRecepForm) ? (hotelRecepEmail || null) : null,
         hotelRecepPassword: (businessType !== 'RESTAURANT' && showHotelRecepForm) ? (hotelRecepPassword || null) : null,
-        // Restaurant POS User (RESTAURANT / BOTH)
-        posFullName: (businessType !== 'HOTEL' && showPosUserForm) ? (posFullName || null) : null,
-        posEmail:    (businessType !== 'HOTEL' && showPosUserForm) ? (posEmail || null) : null,
-        posPassword: (businessType !== 'HOTEL' && showPosUserForm) ? (posPassword || null) : null,
-        // Services — POS only for RESTAURANT / BOTH
+        // Restaurant POS User (RESTAURANT / BOTH — not BOTH_SEPARATE, it has its own admin)
+        posFullName: (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posFullName || null) : null,
+        posEmail:    (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posEmail || null) : null,
+        posPassword: (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posPassword || null) : null,
+        // Services — POS only for RESTAURANT / BOTH / BOTH_SEPARATE
         restaurantPosEnabled: businessType === 'HOTEL' ? false : restaurantPosEnabled,
         barPosEnabled:        businessType === 'HOTEL' ? false : barPosEnabled,
         cafePosEnabled:       businessType === 'HOTEL' ? false : cafePosEnabled,
         deliveryEnabled:      businessType === 'HOTEL' ? false : deliveryEnabled,
+        loadDemoData: (businessType === 'HOTEL' || businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? loadDemoData : false,
       } as any);
 
-      const loginRes = await authApi.login({ email, password, captchaText, captchaToken });
-      if (loginRes.twoFactorRequired) router.push('/login');
-      else await completeLogin();
+      // Registration successful! Redirect directly to login page
+      router.push('/login?registered=true');
     } catch (err: any) {
       setError(err instanceof APIError ? err.message : err?.message || 'Registration failed.');
       refreshCaptcha();
@@ -396,8 +395,7 @@ export default function SignupPage() {
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Singer registration failed.');
-        if (data.token && data.singer) { localStorage.setItem('singer_token', data.token); localStorage.setItem('singer_info', JSON.stringify(data.singer)); }
-        router.push('/singer-portal/dashboard'); router.refresh();
+        router.push('/login?registered=true');
         return;
       }
       await authApi.register({
@@ -406,9 +404,8 @@ export default function SignupPage() {
         vehicleNumber: vehicleNumber || null, deliveryLocation: deliveryLocation || null,
         gstNumber: gstNumber || null, category: category || null, address: address || null,
       });
-      const loginRes = await authApi.login({ email, password, captchaText, captchaToken });
-      if (loginRes.twoFactorRequired) router.push('/login');
-      else await completeLogin();
+      // Registration successful! Redirect directly to login page
+      router.push('/login?registered=true');
     } catch (err: any) {
       setError(err instanceof APIError ? err.message : err?.message || 'Registration failed.');
       refreshCaptcha();
@@ -419,11 +416,11 @@ export default function SignupPage() {
   const curStep = HOTEL_STEPS[Math.min(hotelStep, HOTEL_STEPS.length) - 1];
 
   // ─── Business type options ────────────────────────────────────────────────
-  const BUSINESS_OPTS: { type: BusinessType; emoji: string; title: string; desc: string; color: string; features: string }[] = [
+  const BUSINESS_OPTS: { type: BusinessType; emoji: string; title: string; desc: string; color: string; features: string; badge?: string }[] = [
     {
       type: 'RESTAURANT',
       emoji: '🍽️',
-      title: 'Restaurant / Dhaba / Food Court',
+      title: 'Restaurant Only',
       desc: 'POS billing, KOT, tables, delivery, inventory and staff management',
       color: '#f97316',
       features: 'POS • Tables • Delivery • Inventory • Staff',
@@ -439,10 +436,19 @@ export default function SignupPage() {
     {
       type: 'BOTH',
       emoji: '🏨🍽️',
-      title: 'Hotel + Restaurant (Both)',
-      desc: 'Manage Hotel and Restaurant together — all features in one portal',
+      title: 'Hotel + Restaurant (Attached)',
+      desc: 'One login, one portal — hotel and restaurant managed together seamlessly',
       color: '#8b5cf6',
-      features: 'All Features • Hotel + Restaurant + POS',
+      features: 'All Features • One Login • One Portal',
+      badge: '⭐ Popular',
+    },
+    {
+      type: 'BOTH_SEPARATE',
+      emoji: '🏨➕🍽️',
+      title: 'Hotel + Restaurant (Separate Logins)',
+      desc: 'Same organisation, but hotel and restaurant run on separate portals with individual logins',
+      color: '#ec4899',
+      features: 'All Features • 2 Portals • 2 Separate Logins',
     },
   ];
 
@@ -522,16 +528,19 @@ export default function SignupPage() {
                       else if (opt.type === 'RESTAURANT') setCustomSelected(new Set(['POS', 'TABLES', 'INVENTORY', 'REPORTS']));
                       else setCustomSelected(new Set(['POS', 'HMS', 'TABLES', 'INVENTORY', 'REPORTS']));
                     }}
-                    className="relative text-left p-4 rounded-2xl border-2 border-white/10 hover:border-white/25 bg-slate-900/50 hover:bg-white/3 transition-all group"
                     style={{ ['--hover-border' as any]: opt.color }}
+                    className="relative text-left p-4 rounded-2xl border-2 border-white/10 hover:border-white/25 bg-slate-900/50 hover:bg-white/3 transition-all group"
                   >
                     <div className="flex items-center gap-3 mb-1.5">
                       <span className="text-2xl">{opt.emoji}</span>
-                      <div>
-                        <p className="text-sm font-extrabold text-white group-hover:text-white">{opt.title}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-extrabold text-white group-hover:text-white">{opt.title}</p>
+                          {opt.badge && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${opt.color}25`, color: opt.color }}>{opt.badge}</span>}
+                        </div>
                         <p className="text-[10px] font-bold tracking-wider mt-0.5" style={{ color: opt.color }}>{opt.features}</p>
                       </div>
-                      <ArrowRight size={15} className="text-slate-600 group-hover:text-slate-300 ml-auto transition-all group-hover:translate-x-0.5" />
+                      <ArrowRight size={15} className="text-slate-600 group-hover:text-slate-300 shrink-0 transition-all group-hover:translate-x-0.5" />
                     </div>
                     <p className="text-[11px] text-slate-400">{opt.desc}</p>
                   </button>
@@ -639,48 +648,156 @@ export default function SignupPage() {
             {/* ── STEP 2: Account Details ────────────────────────────────── */}
             {hotelStep === 2 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
-                    <div className="relative">
-                      <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
-                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                        placeholder="John Doe" />
+
+                {/* ── BOTH_SEPARATE: Two separate account sections ────────── */}
+                {businessType === 'BOTH_SEPARATE' ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-400">You selected <span className="text-pink-400 font-bold">Hotel + Restaurant (Separate Logins)</span>. Set up both admin accounts below. Each will have their own independent login.</p>
+
+                    {/* Hotel Admin */}
+                    <div className="p-4 border border-cyan-500/30 rounded-2xl bg-cyan-500/5 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">🏨</span>
+                        <div>
+                          <p className="text-sm font-extrabold text-cyan-300">Hotel Admin Account</p>
+                          <p className="text-[10px] text-slate-400">Logs in to Hotel PMS Portal → <span className="font-bold text-cyan-400">/hotel</span></p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                              placeholder="Hotel Owner Name" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                              placeholder="+91 98765 43210" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                            placeholder="hotelowner@example.com" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
+                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                            placeholder="Min. 6 characters" />
+                          <button type="button" onClick={() => setShowPassword(v => !v)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Restaurant Admin */}
+                    <div className="p-4 border border-pink-500/30 rounded-2xl bg-pink-500/5 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">🍽️</span>
+                        <div>
+                          <p className="text-sm font-extrabold text-pink-300">Restaurant Admin Account</p>
+                          <p className="text-[10px] text-slate-400">Logs in independently to Restaurant POS Portal → <span className="font-bold text-pink-400">/login</span></p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input type="text" value={rstAdminName} onChange={e => setRstAdminName(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-pink-500 outline-none"
+                              placeholder="Restaurant Manager Name" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input type="email" value={rstAdminEmail} onChange={e => setRstAdminEmail(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-pink-500 outline-none"
+                              placeholder="manager@restaurant.com" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input type={showRstAdminPass ? 'text' : 'password'} value={rstAdminPassword} onChange={e => setRstAdminPassword(e.target.value)} required minLength={6}
+                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-pink-500 outline-none"
+                            placeholder="Min. 6 characters" />
+                          <button type="button" onClick={() => setShowRstAdminPass(v => !v)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            {showRstAdminPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
-                    <div className="relative">
-                      <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
-                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                        placeholder="+91 98765 43210" />
+                ) : (
+                  /* ── Standard single-account form for all other types ─────── */
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                            placeholder="John Doe" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                            placeholder="+91 98765 43210" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
-                  <div className="relative">
-                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                      className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                      placeholder="owner@hotel.com" />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
-                  <div className="relative">
-                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-                      className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                      placeholder="Min. 6 characters" />
-                    <button type="button" onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
+                    <div>
+                      <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
+                      <div className="relative">
+                        <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                          className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                          placeholder="owner@hotel.com" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
+                      <div className="relative">
+                        <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
+                          className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                          placeholder="Min. 6 characters" />
+                        <button type="button" onClick={() => setShowPassword(v => !v)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -831,21 +948,29 @@ export default function SignupPage() {
 
                 {/* Business type reminder pill */}
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-lg">{businessType === 'HOTEL' ? '🏨' : businessType === 'BOTH' ? '🏨🍽️' : '🍽️'}</span>
+                  <span className="text-lg">
+                    {businessType === 'HOTEL' ? '🏨' : businessType === 'BOTH' ? '🏨🍽️' : businessType === 'BOTH_SEPARATE' ? '🏨➕🍽️' : '🍽️'}
+                  </span>
                   <div>
                     <p className="text-xs font-bold text-white">
-                      {businessType === 'HOTEL' ? 'Hotel Only' : businessType === 'BOTH' ? 'Hotel + Restaurant (2 Properties)' : 'Restaurant / Dhaba'}
+                      {businessType === 'HOTEL' ? 'Hotel Only'
+                        : businessType === 'BOTH' ? 'Hotel + Restaurant (Attached — 1 Login)'
+                        : businessType === 'BOTH_SEPARATE' ? 'Hotel + Restaurant (Separate Logins)'
+                        : 'Restaurant Only'}
                     </p>
                     <p className="text-[10px] text-slate-500">
-                      {businessType === 'HOTEL' ? 'Rooms, HMS, Housekeeping' : businessType === 'BOTH' ? 'Separate Hotel + Restaurant properties will be created' : 'POS, Tables, Delivery'}
+                      {businessType === 'HOTEL' ? 'Rooms, HMS, Housekeeping'
+                        : businessType === 'BOTH' ? 'Hotel & Restaurant in one portal, one login'
+                        : businessType === 'BOTH_SEPARATE' ? 'Two separate properties — each with its own login'
+                        : 'POS, Tables, Delivery'}
                     </p>
                   </div>
                   <button type="button" onClick={() => setHotelStep(1)} className="ml-auto text-[10px] text-violet-400 hover:text-violet-300 font-bold">Change</button>
                 </div>
 
                 {/* ── Hotel / Single Property Form ─────────────── */}
-                <div className={businessType === 'BOTH' ? 'p-4 border border-cyan-500/30 rounded-2xl bg-cyan-500/5 space-y-3' : 'space-y-4'}>
-                  {businessType === 'BOTH' && (
+                <div className={(businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? 'p-4 border border-cyan-500/30 rounded-2xl bg-cyan-500/5 space-y-3' : 'space-y-4'}>
+                  {(businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') && (
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-base">🏨</span>
                       <p className="text-sm font-extrabold text-cyan-300">Hotel Property</p>
@@ -853,14 +978,14 @@ export default function SignupPage() {
                   )}
                   <div>
                     <label className={labelCls}>
-                      {businessType === 'HOTEL' ? 'Hotel Name' : businessType === 'BOTH' ? 'Hotel Name' : 'Restaurant Name'}{' '}
+                      {(businessType === 'HOTEL' || businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? 'Hotel Name' : 'Restaurant Name'}{' '}
                       <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
                       <Building2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input id="signup-business-name" type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} required
                         className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
-                        placeholder={businessType === 'HOTEL' || businessType === 'BOTH' ? 'e.g. Royal Crown Hotel' : 'e.g. Spice Garden Restaurant'} />
+                        placeholder={(businessType === 'HOTEL' || businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') ? 'e.g. Royal Crown Hotel' : 'e.g. Spice Garden Restaurant'} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -897,8 +1022,8 @@ export default function SignupPage() {
                   </div>
                 </div>
 
-                {/* ── BOTH: Restaurant (2nd) Property Form ─────── */}
-                {businessType === 'BOTH' && (
+                {/* ── BOTH / BOTH_SEPARATE: Restaurant (2nd) Property Form ─── */}
+                {(businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') && (
                   <div className="p-4 border border-orange-500/30 rounded-2xl bg-orange-500/5 space-y-3">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-base">🍽️</span>
@@ -915,7 +1040,7 @@ export default function SignupPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className={labelCls}>Branch Name</label>
+                        <label className={labelCls}>Branch Code</label>
                         <input type="text" value={restaurantBranchCode} onChange={e => setRestaurantBranchCode(e.target.value.toUpperCase())}
                           className={inputCls} placeholder="RST01" />
                       </div>
@@ -949,6 +1074,28 @@ export default function SignupPage() {
                     <div className="p-4 bg-cyan-500/10 border border-cyan-500/25 rounded-2xl">
                       <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm mb-1">🏨 Hotel Management System</div>
                       <p className="text-[11px] text-slate-400">Rooms, bookings, check-in/out, housekeeping, reports — all included. No POS will be added.</p>
+                    </div>
+
+                    {/* Preload Demo Data Option */}
+                    <div className="border border-white/10 rounded-2xl p-4 bg-violet-500/10 border-violet-500/25">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                            <Sparkles size={15} className="text-violet-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-white">Preload Sample Demo Data</p>
+                            <p className="text-[11px] text-slate-400">Includes 6 sample rooms, test bookings (Tarun & Priya) to explore (can be removed anytime from settings)</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLoadDemoData(v => !v)}
+                          className={`w-10 h-5 rounded-full transition-all relative shrink-0 ${loadDemoData ? 'bg-violet-500' : 'bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${loadDemoData ? 'left-5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Hotel Receptionist toggle */}
@@ -1054,7 +1201,100 @@ export default function SignupPage() {
                   </>
                 )}
 
-                {/* ── BOTH: Hotel + Restaurant ── */}
+                {/* ── BOTH_SEPARATE: Hotel + Restaurant with separate admin logins ── */}
+                {businessType === 'BOTH_SEPARATE' && (
+                  <div className="space-y-3">
+
+                    {/* Hotel Section */}
+                    <div className="p-4 border border-cyan-500/25 rounded-2xl bg-cyan-500/5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🏨</span>
+                        <p className="text-sm font-extrabold text-cyan-300">Hotel Portal — Your Login</p>
+                      </div>
+                      <div className="p-3 bg-cyan-500/10 rounded-xl">
+                        <p className="text-[11px] text-cyan-300">You will log in with the credentials you entered in Step 2. Hotel portal → <span className="font-bold">/hotel</span></p>
+                      </div>
+
+                      {/* Demo Data */}
+                      <div className="border border-violet-500/20 rounded-xl p-3 bg-violet-500/10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <Sparkles size={15} className="text-violet-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-white">Preload Sample Demo Data</p>
+                            <p className="text-[10px] text-slate-400">Sample rooms &amp; bookings for testing (removable anytime)</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLoadDemoData(v => !v)}
+                          className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${loadDemoData ? 'bg-violet-500' : 'bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${loadDemoData ? 'left-4' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+
+                      {/* Hotel Receptionist */}
+                      <div className="border border-cyan-500/20 rounded-xl overflow-hidden">
+                        <button type="button" onClick={() => setShowHotelRecepForm(v => !v)}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-white/3 transition-all">
+                          <User size={14} className="text-cyan-400 shrink-0" />
+                          <div className="text-left flex-1">
+                            <p className="text-xs font-bold text-white">Add Hotel Receptionist / Front Desk</p>
+                            <p className="text-[10px] text-slate-400">Will manage check-in/out and reservations</p>
+                          </div>
+                          <div className={`w-10 h-5 rounded-full transition-all relative shrink-0 ${showHotelRecepForm ? 'bg-cyan-500' : 'bg-slate-700'}`}>
+                            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${showHotelRecepForm ? 'left-5' : 'left-0.5'}`} />
+                          </div>
+                        </button>
+                        {showHotelRecepForm && (
+                          <div className="px-4 pb-4 space-y-3 border-t border-white/10 pt-3">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Receptionist Login Details</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className={labelCls}>Full Name</label>
+                                <input type="text" value={hotelRecepName} onChange={e => setHotelRecepName(e.target.value)}
+                                  className={inputCls} placeholder="Receptionist Name" />
+                              </div>
+                              <div>
+                                <label className={labelCls}>Email</label>
+                                <input type="email" value={hotelRecepEmail} onChange={e => setHotelRecepEmail(e.target.value)}
+                                  className={inputCls} placeholder="reception@hotel.com" />
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <label className={labelCls}>Password</label>
+                              <input type={showHotelRecepPass ? 'text' : 'password'} value={hotelRecepPassword} onChange={e => setHotelRecepPassword(e.target.value)}
+                                className="w-full pl-4 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                                placeholder="Min. 6 characters" />
+                              <button type="button" onClick={() => setShowHotelRecepPass(v => !v)} className="absolute right-3.5 top-[34px] text-slate-400 hover:text-white">
+                                {showHotelRecepPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Restaurant Services for BOTH_SEPARATE (credentials already set in Step 2) */}
+                    <div className="p-4 border border-pink-500/25 rounded-2xl bg-pink-500/5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🍽️</span>
+                        <div>
+                          <p className="text-sm font-extrabold text-pink-300">Restaurant Services</p>
+                          <p className="text-[10px] text-slate-400">Restaurant Admin login was set up in Step 2 — select services to enable below.</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <ServiceToggle label="Restaurant POS" desc="Billing, KOT, tables" icon={Utensils} color="#f97316" value={restaurantPosEnabled} onChange={setRestaurantPosEnabled} />
+                        <ServiceToggle label="Bar POS" desc="Drinks, bar billing" icon={Beer} color="#a855f7" value={barPosEnabled} onChange={setBarPosEnabled} />
+                        <ServiceToggle label="Cafe POS" desc="Coffee, snacks billing" icon={Coffee} color="#f59e0b" value={cafePosEnabled} onChange={setCafePosEnabled} />
+                        <ServiceToggle label="Delivery" desc="Online delivery orders" icon={Bike} color="#22c55e" value={deliveryEnabled} onChange={setDeliveryEnabled} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── BOTH: Hotel + Restaurant (Attached — same login) ── */}
                 {businessType === 'BOTH' && (
                   <div className="space-y-3">
 
@@ -1066,6 +1306,24 @@ export default function SignupPage() {
                       </div>
                       <div className="p-3 bg-cyan-500/10 rounded-xl">
                         <p className="text-[11px] text-cyan-300">HMS, rooms, check-in/out, housekeeping — automatically enabled.</p>
+                      </div>
+
+                      {/* Preload Demo Data Option */}
+                      <div className="border border-violet-500/20 rounded-xl p-3 bg-violet-500/10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <Sparkles size={15} className="text-violet-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-white">Preload Sample Demo Data</p>
+                            <p className="text-[10px] text-slate-400">Sample rooms, bookings (Tarun & Priya) for testing</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLoadDemoData(v => !v)}
+                          className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${loadDemoData ? 'bg-violet-500' : 'bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${loadDemoData ? 'left-4.5' : 'left-0.5'}`} />
+                        </button>
                       </div>
                       {/* Hotel Receptionist toggle */}
                       <div className="border border-cyan-500/20 rounded-xl overflow-hidden">
@@ -1185,7 +1443,8 @@ export default function SignupPage() {
                     ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     : <><Crown size={16} />
                         {businessType === 'HOTEL' ? 'Create Hotel Account & Open Portal'
-                          : businessType === 'BOTH' ? 'Create Hotel + Restaurant Account'
+                          : businessType === 'BOTH' ? 'Create Hotel + Restaurant Account (Attached)'
+                          : businessType === 'BOTH_SEPARATE' ? 'Create Accounts — Hotel & Restaurant (Separate Logins)'
                           : 'Create Restaurant Account & Open Portal'}
                         <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                       </>}
@@ -1231,11 +1490,11 @@ export default function SignupPage() {
               <div className="mt-3 flex justify-center">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border"
                   style={{
-                    borderColor: businessType === 'HOTEL' ? '#06b6d440' : businessType === 'BOTH' ? '#8b5cf640' : '#f9731640',
-                    color: businessType === 'HOTEL' ? '#06b6d4' : businessType === 'BOTH' ? '#8b5cf6' : '#f97316',
-                    background: businessType === 'HOTEL' ? '#06b6d410' : businessType === 'BOTH' ? '#8b5cf610' : '#f9731610',
+                    borderColor: businessType === 'HOTEL' ? '#06b6d440' : businessType === 'BOTH' ? '#8b5cf640' : businessType === 'BOTH_SEPARATE' ? '#ec489940' : '#f9731640',
+                    color: businessType === 'HOTEL' ? '#06b6d4' : businessType === 'BOTH' ? '#8b5cf6' : businessType === 'BOTH_SEPARATE' ? '#ec4899' : '#f97316',
+                    background: businessType === 'HOTEL' ? '#06b6d410' : businessType === 'BOTH' ? '#8b5cf610' : businessType === 'BOTH_SEPARATE' ? '#ec489910' : '#f9731610',
                   }}>
-                  {businessType === 'HOTEL' ? '🏨 Hotel Only' : businessType === 'BOTH' ? '🏨🍽️ Hotel + Restaurant' : '🍽️ Restaurant'}
+                  {businessType === 'HOTEL' ? '🏨 Hotel Only' : businessType === 'BOTH' ? '🏨🍽️ Hotel + Restaurant (Attached)' : businessType === 'BOTH_SEPARATE' ? '🏨➕🍽️ Hotel + Restaurant (Separate)' : '🍽️ Restaurant Only'}
                 </span>
               </div>
             )}

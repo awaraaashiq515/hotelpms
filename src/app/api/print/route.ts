@@ -27,7 +27,7 @@ async function sendToPrinter(data: string | Buffer, printer: any) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { bill, property, isTest, kotData, printerId } = body;
+    const { bill, hotelBill, property, isTest, kotData, printerId } = body;
     let propertyId = property?.id;
 
     // 🔍 If propertyId is missing, auto-detect from the database (single-property setup)
@@ -50,6 +50,12 @@ export async function POST(req: NextRequest) {
     } else if (isTest) {
        // Just use the first available printer or property default
        const p = await prisma.printer.findFirst({ where: { propertyId } });
+       if (p) targetPrinters.push(p);
+    } else if (hotelBill) {
+       // Find Hotel Bill Printer
+       const p = await prisma.printer.findFirst({ 
+         where: { propertyId, isHotelBill: true, isEnabled: true } 
+       });
        if (p) targetPrinters.push(p);
     } else if (kotData) {
        // Find Kitchen Printer
@@ -147,6 +153,71 @@ export async function POST(req: NextRequest) {
             data += ESC_POS.FEED.repeat(6);
             if (shouldCut) data += ESC_POS.CUT;
             
+            if (printer.connectionType === 'WEB_SERIAL') {
+              webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
+            } else {
+              await sendToPrinter(data, printer);
+            }
+            continue;
+        }
+
+        if (hotelBill) {
+            data += ESC_POS.ALIGN_CENTER;
+            data += ESC_POS.BOLD_ON;
+            data += `${property?.name || 'HOTEL'}\n`;
+            data += ESC_POS.BOLD_OFF;
+            if (property?.address) data += `${property.address}\n`;
+            if (property?.phone) data += `PH: ${property.phone}\n`;
+            if (property?.taxDetails) data += `GSTIN: ${property.taxDetails}\n`;
+            data += '--------------------------------\n';
+            data += ESC_POS.ALIGN_CENTER;
+            data += ESC_POS.BOLD_ON;
+            data += 'HOTEL BILL / GUEST INVOICE\n';
+            data += ESC_POS.BOLD_OFF;
+            data += '--------------------------------\n';
+            data += ESC_POS.ALIGN_LEFT;
+            data += `Invoice: ${hotelBill.invoiceNo || hotelBill.folioNo || 'N/A'}\n`;
+            if (hotelBill.guestName) data += `Guest:   ${hotelBill.guestName}\n`;
+            if (hotelBill.roomNumber) data += `Room:    ${hotelBill.roomNumber}\n`;
+            if (hotelBill.checkIn && hotelBill.checkOut) data += `Stay:    ${hotelBill.checkIn} - ${hotelBill.checkOut}\n`;
+            data += `Date:    ${new Date().toLocaleString()}\n`;
+            data += '--------------------------------\n';
+            data += 'DESCRIPTION         QTY    AMOUNT\n';
+            data += '--------------------------------\n';
+            const items = Array.isArray(hotelBill.items) ? hotelBill.items : [];
+            if (items.length === 0) {
+              const totalVal = Number(hotelBill.totalAmount || hotelBill.grandTotal || 0).toFixed(0);
+              data += `Room Charges        1     ${totalVal.padStart(7)}\n`;
+            } else {
+              items.forEach((item: any) => {
+                const name = (item.description || item.name || 'Charge').substring(0, 18).padEnd(18);
+                const qty = Number(item.quantity || 1).toString().padStart(4);
+                const amt = Number(item.amount || item.total || 0).toFixed(0).padStart(10);
+                data += `${name}${qty}${amt}\n`;
+              });
+            }
+            data += '--------------------------------\n';
+            data += ESC_POS.ALIGN_RIGHT;
+            const subtotal = Number(hotelBill.subtotal || hotelBill.totalAmount || 0);
+            const tax = Number(hotelBill.taxAmount || 0);
+            const grandTotal = Number(hotelBill.grandTotal || hotelBill.totalAmount || (subtotal + tax));
+            data += `Subtotal: Rs.${subtotal.toFixed(2)}\n`;
+            if (tax > 0) data += `Tax/GST:  Rs.${tax.toFixed(2)}\n`;
+            data += ESC_POS.BOLD_ON;
+            data += `TOTAL:    Rs.${grandTotal.toFixed(2)}\n`;
+            data += ESC_POS.BOLD_OFF;
+            if (hotelBill.totalPayments !== undefined && Number(hotelBill.totalPayments) > 0) {
+              data += `Paid:     Rs.${Number(hotelBill.totalPayments).toFixed(2)}\n`;
+            }
+            if (hotelBill.closingBalance !== undefined) {
+              data += `Balance:  Rs.${Number(hotelBill.closingBalance).toFixed(2)}\n`;
+            }
+            data += '--------------------------------\n';
+            data += ESC_POS.ALIGN_CENTER;
+            data += 'THANK YOU FOR STAYING!\n';
+            data += ESC_POS.FEED.repeat(6);
+            if (shouldCut) data += ESC_POS.CUT;
+
             if (printer.connectionType === 'WEB_SERIAL') {
               webSerialJobs.push({ printerId: (printer as any).id ?? '', ipAddress: printer.ipAddress, data });
             } else {

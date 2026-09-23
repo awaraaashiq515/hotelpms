@@ -6,7 +6,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (session.role !== 'RESTAURANTS_ADMIN' && session.role !== 'SUPER_ADMIN')) {
+    if (!session || (session.role !== 'RESTAURANTS_ADMIN' && session.role !== 'SUPER_ADMIN' && session.role !== 'HOTEL_ADMIN')) {
       return apiError(new Error('Unauthorized'), 401);
     }
 

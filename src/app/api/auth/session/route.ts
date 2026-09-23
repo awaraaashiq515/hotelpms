@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     let packageName: string | null = null;
     let packageEndDate: string | null = null;
     let subscriptionStatus = 'TRIAL';
+    let businessType: string | null = session.businessType || null;
     if (session.organizationId) {
       const org = await prisma.organization.findUnique({
         where: { id: session.organizationId },
@@ -52,7 +53,34 @@ export async function GET(request: NextRequest) {
       }
       packageEndDate = org?.packageEndDate ? org.packageEndDate.toISOString() : null;
       subscriptionStatus = org?.subscriptionStatus || 'TRIAL';
+      if (org?.businessType) {
+        businessType = org.businessType;
+      } else {
+        // Fallback auto-detection if businessType was not stored
+        const hotelCount = await prisma.property.count({ where: { organizationId: session.organizationId, type: 'HOTEL' } });
+        const rstCount = await prisma.property.count({ where: { organizationId: session.organizationId, type: 'RESTAURANT' } });
+        const hasRstAdmin = await prisma.user.findFirst({
+          where: { organizationId: session.organizationId, role: { name: 'RESTAURANTS_ADMIN' } }
+        });
+        if (hasRstAdmin) {
+          businessType = 'BOTH_SEPARATE';
+        } else if (hotelCount > 0 && rstCount > 0) {
+          businessType = 'BOTH';
+        } else if (hotelCount > 0) {
+          businessType = 'HOTEL';
+        } else if (rstCount > 0) {
+          businessType = 'RESTAURANT';
+        }
+        if (businessType) {
+          await prisma.organization.update({
+            where: { id: session.organizationId },
+            data: { businessType }
+          }).catch(() => {});
+        }
+      }
     }
+
+    const isMultiProperty = businessType === 'BOTH_SEPARATE' ? false : (session.isMultiProperty || (businessType === 'BOTH'));
 
     // Fetch propertyCode + propertySlug + propertyType + propertyName
     let propertyCode = null;
@@ -88,6 +116,8 @@ export async function GET(request: NextRequest) {
         propertyType,
         propertyName,
         designation,
+        businessType,
+        isMultiProperty,
       },
       // Also expose at top level for usePackage hook
       packageFeatures,

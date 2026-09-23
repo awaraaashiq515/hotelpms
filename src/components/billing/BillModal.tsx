@@ -373,6 +373,11 @@ export const BillModal: React.FC<BillModalProps> = ({ bill, onClose, isProforma 
     if (isSettling) return;
     setIsSettling(true);
     try {
+      if (!bill) {
+        setIsSettling(false);
+        return;
+      }
+
       if (!selectedModeId) {
         alert('Please select a payment mode');
         setIsSettling(false);

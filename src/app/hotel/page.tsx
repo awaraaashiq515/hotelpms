@@ -2,13 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles, Search, X, Calendar, Bed, PlusCircle, DoorOpen, ScrollText,
   TrendingUp, Globe, BarChart3, MapPin, BrushIcon, Wrench, Cpu, Shirt,
   Package, Building2, ChefHat, Receipt, Moon, Banknote,
-  IndianRupee, Users, Crown, Brain, Wifi, Shield, Settings,
+  IndianRupee, Users, Crown, Brain, Wifi, Settings,
   ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
-  UserCheck, Radio, Navigation,
+  UserCheck, Radio, Navigation, UtensilsCrossed, Monitor, Bell,
+  Trash2, Download, Eye, Printer, ShoppingCart, Tag, Bike, FileText,
+  Phone, Music2, Lock, ArrowUpRight, Plus,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 
@@ -29,6 +32,181 @@ function ModuleCard({ name, href, icon: Icon, iconColor, iconBg, cardBorder }: {
         {name}
       </span>
     </Link>
+  );
+}
+
+/* ─── POS Quick Action Topbar inside Restaurant & POS panel ─── */
+function RestaurantPosHeaderBar({ restaurantCode }: { restaurantCode: string | null }) {
+  const router = useRouter();
+  const [showLiveOrder, setShowLiveOrder] = useState(false);
+  const [showDisplays, setShowDisplays] = useState(false);
+  const p = '/hotel/pos';
+
+  return (
+    <div className="w-full flex flex-wrap items-center justify-between gap-2.5 p-2.5 px-3 rounded-2xl bg-[#0b1120]/95 border border-orange-500/25 shadow-xl mb-4 backdrop-blur-sm">
+      {/* Left: Quick Action Buttons & Search */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+        {/* Dine In */}
+        <Link
+          href="/hotel/pos/tables"
+          className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/25 active:scale-95 transition-all shrink-0"
+          title="Dine In (Table Layout)"
+        >
+          <Monitor size={15} />
+          <span>Dine In</span>
+        </Link>
+
+        {/* Take Away */}
+        <Link
+          href="/hotel/pos/billing"
+          className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/25 active:scale-95 transition-all shrink-0"
+          title="Take Away POS Billing"
+        >
+          <Plus size={15} />
+          <span>Take Away</span>
+        </Link>
+
+        {/* Live Order with Dropdown */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowLiveOrder(!showLiveOrder)}
+            className="h-9 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-violet-600/25 active:scale-95 transition-all"
+            title="Live Orders (Delivery / Pick Up / Room Service)"
+          >
+            <Plus size={15} />
+            <span>Live Order</span>
+          </button>
+          {showLiveOrder && (
+            <div className="absolute left-0 top-full mt-2 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <Link
+                href="/hotel/pos/billing?type=DELIVERY"
+                onClick={() => setShowLiveOrder(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 transition-colors"
+              >
+                <span className="text-base">🏍️</span> Delivery
+              </Link>
+              <Link
+                href="/hotel/pos/billing?type=PICKUP"
+                onClick={() => setShowLiveOrder(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors border-t border-slate-800/80"
+              >
+                <span className="text-base">🛍️</span> Pick Up
+              </Link>
+              <Link
+                href="/hotel/pos/billing?type=ROOM_SERVICE"
+                onClick={() => setShowLiveOrder(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-indigo-400 transition-colors border-t border-slate-800/80"
+              >
+                <span className="text-base">🏨</span> Room Service
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Search Bills input */}
+        <div className="relative hidden md:flex items-center shrink-0">
+          <Search size={14} className="absolute left-3 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search Bills..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const q = (e.target as HTMLInputElement).value;
+                router.push(`/hotel/invoices${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+              }
+            }}
+            className="h-9 w-44 pl-8 pr-12 text-xs font-medium text-slate-200 bg-slate-900/90 border border-slate-800 rounded-xl focus:border-indigo-500/60 focus:outline-none placeholder:text-slate-500"
+          />
+          <kbd className="absolute right-2 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 bg-slate-800 rounded border border-slate-700">
+            ⌘K
+          </kbd>
+        </div>
+      </div>
+
+      {/* Right: Displays, Lock, Alerts, Support, Full POS */}
+      <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+        {/* Displays Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowDisplays(!showDisplays)}
+            className="flex flex-col items-center justify-center h-9 px-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+            title="Kitchen, Bar, & Customer Displays"
+          >
+            <Monitor size={15} />
+            <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">Displays</span>
+          </button>
+          {showDisplays && (
+            <div className="absolute right-0 top-full mt-2 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <Link
+                href="/hotel/pos/kitchen-display"
+                onClick={() => setShowDisplays(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
+              >
+                🍳 Kitchen Display (KDS)
+              </Link>
+              <Link
+                href="/hotel/pos/bar-display"
+                onClick={() => setShowDisplays(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white border-t border-slate-800"
+              >
+                🍸 Bar Display (BDS)
+              </Link>
+              <Link
+                href="/order-display"
+                onClick={() => setShowDisplays(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white border-t border-slate-800"
+              >
+                📺 Customer Display (CDS)
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Lock */}
+        <Link
+          href="/hotel/pos"
+          className="flex flex-col items-center justify-center h-9 px-2.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+          title="POS Operations Hub"
+        >
+          <Lock size={15} />
+          <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">POS Hub</span>
+        </Link>
+
+        {/* Alerts */}
+        <Link
+          href="/hotel/notifications"
+          className="flex flex-col items-center justify-center h-9 px-2.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+          title="Live Alerts & Notifications"
+        >
+          <Bell size={15} />
+          <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">Alerts</span>
+        </Link>
+
+        {/* Support Phone */}
+        <a
+          href="tel:+918679800074"
+          className="hidden xl:flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold shrink-0"
+        >
+          <Phone size={13} className="text-emerald-400" />
+          <div className="flex flex-col text-left">
+            <span className="text-[7px] uppercase font-black tracking-widest text-slate-500 leading-none">Support</span>
+            <span className="text-[10px] font-black text-indigo-300 leading-none mt-0.5">+91 86798 00074</span>
+          </div>
+        </a>
+
+        {/* Full POS Portal button */}
+        <Link
+          href="/hotel/pos"
+          className="h-9 px-3.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm shrink-0 active:scale-95"
+          title="Open Integrated Hotel POS Hub"
+        >
+          <span>Full POS</span>
+          <ArrowUpRight size={14} />
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -195,6 +373,36 @@ const DEPARTMENTS = [
     ],
   },
   {
+    name: 'Restaurant & POS',
+    emoji: '🍽️',
+    labelColor: 'text-orange-400',
+    dotColor: 'bg-orange-400',
+    glowColor: 'rgba(251,146,60,0.3)',
+    borderActive: 'rgba(251,146,60,0.55)',
+    borderIdle: 'rgba(251,146,60,0.15)',
+    gradFrom: 'rgba(251,146,60,0.13)',
+    gradTo: 'rgba(251,146,60,0.04)',
+    iconColor: 'text-orange-400',
+    iconBg: 'bg-orange-500/15',
+    cardBorder: 'border-slate-800 hover:border-orange-500/40',
+    modules: [
+      { name: 'Restaurant Operations', href: '/hotel/pos',                     icon: UtensilsCrossed },
+      { name: 'Live Notifications',    href: '/hotel/pos/notifications',        icon: Bell            },
+      { name: 'Room Orders',           href: '/hotel/pos/room-service',         icon: ChefHat         },
+      { name: 'Live Occupancy',        href: '/hotel/pos/occupancy',            icon: Eye             },
+      { name: 'Table Layout',          href: '/hotel/pos/tables',               icon: LayoutGrid      },
+      { name: 'QR Gallery',            href: '/hotel/pos/tables/qr-gallery',    icon: Printer         },
+      { name: 'QR Downloads',          href: '/hotel/pos/qr-download',          icon: Download        },
+      { name: 'Waste Management',      href: '/hotel/pos/waste-management',     icon: Trash2          },
+      { name: 'Parking Management',    href: '/hotel/pos/parking',              icon: MapPin          },
+      { name: 'Delivery Management',   href: '/hotel/pos/delivery',             icon: Bike            },
+      { name: 'Delivery Analytics',    href: '/hotel/pos/delivery/analytics',   icon: BarChart3       },
+      { name: 'Delivery Riders',       href: '/hotel/pos/delivery/riders',      icon: Users           },
+      { name: 'Delivery Zones',        href: '/hotel/pos/delivery/zones',       icon: MapPin          },
+      { name: 'Delivery Flyer',        href: '/hotel/pos/delivery-flyer',       icon: FileText        },
+    ],
+  },
+  {
     name: 'System Admin & Security',
     emoji: '🔐',
     labelColor: 'text-slate-400',
@@ -209,9 +417,8 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-slate-600/60',
     modules: [
       { name: 'Staff & Team',         href: '/hotel/staff',       icon: Users    },
-      { name: 'Security Center',      href: '/hotel/security',    icon: Shield   },
-      { name: 'Super Admin Settings', href: '/hotel/super-admin', icon: Crown    },
-      { name: 'Hotel Settings',       href: '/hotel/settings',    icon: Settings },
+      { name: 'Hotel Settings',       href: '/hotel/settings',          icon: Settings },
+      { name: 'Printer Settings',     href: '/hotel/settings/printers', icon: Printer  },
     ],
   },
 ];
@@ -222,20 +429,109 @@ export default function HotelDashboard() {
   const [session, setSession]           = useState<any>(null);
   const [property, setProperty]         = useState<any>(null);
 
+  // Demo Data Management
+  const [hasDemoData, setHasDemoData]   = useState(false);
+  const [demoInfo, setDemoInfo]         = useState<any>(null);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearMode, setClearMode]       = useState<'bookings' | 'all'>('bookings');
+  const [clearing, setClearing]         = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const checkDemoData = () => {
+    fetch('/api/hotel/demo-data')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data?.hasDemoData) {
+          setHasDemoData(true);
+          setDemoInfo(d.data);
+        } else {
+          setHasDemoData(false);
+          setDemoInfo(null);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const [restaurantCode, setRestaurantCode] = useState<string | null>(null);
+
   useEffect(() => {
     fetch('/api/auth/session')
       .then(r => r.json())
-      .then(d => { if (d.authenticated) setSession(d.user); })
+      .then(d => {
+        if (d.authenticated) {
+          setSession(d.user);
+          const isAttached = d.user?.businessType === 'BOTH' || (d.user?.isMultiProperty === true && d.user?.businessType !== 'BOTH_SEPARATE');
+          if (isAttached) {
+            fetch('/api/admin/properties')
+              .then(r => r.json())
+              .then(data => {
+                if (data.success && Array.isArray(data.data)) {
+                  const rst = data.data.find((p: any) => p.type !== 'HOTEL');
+                  if (rst?.code) setRestaurantCode(rst.code);
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      })
       .catch(() => {});
     fetch('/api/setup/properties/current')
       .then(r => r.json())
       .then(d => { if (d.success) setProperty(d.data); })
       .catch(() => {});
+    checkDemoData();
   }, []);
+
+  const handleClearDemoData = async () => {
+    setClearing(true);
+    try {
+      const res = await fetch(`/api/hotel/demo-data?mode=${clearMode}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHasDemoData(false);
+        setShowClearModal(false);
+        setToastMessage(data.message || 'Demo data removed successfully!');
+        setTimeout(() => setToastMessage(null), 5000);
+      } else {
+        alert(data.error || 'Failed to remove demo data');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove demo data');
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const isSearching = searchQuery.trim().length > 0;
 
-  const filteredDepartments = DEPARTMENTS.map((dept) => {
+  const isAttached = session?.businessType === 'BOTH' || (session?.isMultiProperty === true && session?.businessType !== 'BOTH_SEPARATE');
+
+  const visibleDepartments = DEPARTMENTS.filter(dept => {
+    if (dept.name === 'Restaurant & POS') {
+      return isAttached && !!restaurantCode;
+    }
+    return true;
+  });
+
+  const departmentsWithRestaurant = visibleDepartments.map((dept) => {
+    if (dept.name === 'Restaurant & POS' && restaurantCode) {
+      return {
+        ...dept,
+        modules: [
+          { name: 'Restaurant POS Hub', href: `/hotel/pos`, icon: UtensilsCrossed },
+          { name: 'POS Billing Terminal', href: `/hotel/pos/billing`, icon: Monitor },
+          { name: 'Table Layout', href: `/hotel/pos/tables`, icon: LayoutGrid },
+          { name: 'Kitchen Display', href: `/hotel/pos/kitchen-display`, icon: Eye },
+          ...dept.modules.filter(m => m.name !== 'Restaurant Operations' && m.name !== 'Restaurant POS Hub'),
+        ],
+      };
+    }
+    return dept;
+  });
+
+  const filteredDepartments = departmentsWithRestaurant.map((dept) => {
     const matchingModules = dept.modules.filter((m) =>
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dept.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -245,6 +541,12 @@ export default function HotelDashboard() {
 
   const toggle = (name: string) =>
     setActiveDept(prev => (prev === name ? null : name));
+
+  useEffect(() => {
+    if (activeDept && !departmentsWithRestaurant.some(d => d.name === activeDept)) {
+      setActiveDept(null);
+    }
+  }, [departmentsWithRestaurant, activeDept]);
 
   // Greeting based on time
   const hour = new Date().getHours();
@@ -380,6 +682,44 @@ export default function HotelDashboard() {
         <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.3) 50%, transparent 100%)' }} />
       </div>
 
+      {/* ── Demo Data Active Banner ── */}
+      {hasDemoData && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                Sample Demo Data Loaded
+                {demoInfo && (
+                  <span className="text-[10px] font-semibold text-slate-400 normal-case">
+                    ({demoInfo.demoReservationsCount} Bookings, {demoInfo.demoGuestsCount} Guests, {demoInfo.demoRoomsCount} Rooms)
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Your dashboard currently has demo bookings (Tarun Sharma, Priya Patel). You can remove demo data anytime to start clean.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowClearModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0"
+          >
+            <span>🗑️</span> Remove Demo Data
+          </button>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-fade-in">
+          <span>✅</span> {toastMessage}
+        </div>
+      )}
+
       {/* ── Search mode: flat expanded results ── */}
       {isSearching ? (
         filteredDepartments.length === 0 ? (
@@ -410,9 +750,9 @@ export default function HotelDashboard() {
         /* ── Normal mode ── */
         <div className="space-y-3">
 
-          {/* Step 1 — 8 Category Boxes in a grid (always visible) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-2">
-            {DEPARTMENTS.map((dept) => {
+          {/* Step 1 — Category Boxes in a grid (always visible) */}
+          <div className={`grid grid-cols-2 sm:grid-cols-4 ${departmentsWithRestaurant.length > 8 ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-3 mb-2`}>
+            {departmentsWithRestaurant.map((dept) => {
               const isActive = activeDept === dept.name;
               return (
                 <button
@@ -459,13 +799,13 @@ export default function HotelDashboard() {
           </div>
 
           {/* Step 2 — Expanded modules panel (slides open below grid) */}
-          {DEPARTMENTS.map((dept) => {
+          {departmentsWithRestaurant.map((dept) => {
             const isActive = activeDept === dept.name;
             return (
               <div
                 key={dept.name}
                 style={{
-                  maxHeight: isActive ? '800px' : '0px',
+                  maxHeight: isActive ? '1200px' : '0px',
                   overflow: 'hidden',
                   transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1)',
                   marginTop: isActive ? '4px' : '0px',
@@ -495,6 +835,11 @@ export default function HotelDashboard() {
                     </button>
                   </div>
 
+                  {/* POS Quick Actions Topbar (Dine In, Take Away, Live Order, Displays, Music, Search, Support) */}
+                  {dept.name === 'Restaurant & POS' && (
+                    <RestaurantPosHeaderBar restaurantCode={restaurantCode} />
+                  )}
+
                   {/* Sub-module cards grid */}
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                     {dept.modules.map((mod) => (
@@ -513,6 +858,76 @@ export default function HotelDashboard() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Remove Demo Data Confirmation Modal ── */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#0f172a] border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xl">
+                🗑️
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Remove Demo Data</h3>
+                <p className="text-xs text-slate-400">Clean up sample data from your hotel account</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${clearMode === 'bookings' ? 'bg-indigo-500/10 border-indigo-500/50' : 'bg-slate-900 border-slate-800'}`}>
+                <input
+                  type="radio"
+                  name="clearMode"
+                  checked={clearMode === 'bookings'}
+                  onChange={() => setClearMode('bookings')}
+                  className="mt-1 accent-indigo-500"
+                />
+                <div>
+                  <p className="text-xs font-bold text-white">Remove Demo Bookings & Guests Only (Recommended)</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Deletes sample bookings for Tarun & Priya and folios. Keeps your Room Types and Rooms (101-203) and sets them to Available.
+                  </p>
+                </div>
+              </label>
+
+              <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${clearMode === 'all' ? 'bg-rose-500/10 border-rose-500/50' : 'bg-slate-900 border-slate-800'}`}>
+                <input
+                  type="radio"
+                  name="clearMode"
+                  checked={clearMode === 'all'}
+                  onChange={() => setClearMode('all')}
+                  className="mt-1 accent-rose-500"
+                />
+                <div>
+                  <p className="text-xs font-bold text-rose-300">Remove All Demo Data (Complete Reset)</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Deletes demo bookings, sample guests, AND sample rooms & room types. Start 100% blank.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={clearing}
+                onClick={() => setShowClearModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={clearing}
+                onClick={handleClearDemoData}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {clearing ? 'Removing...' : 'Confirm & Remove'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

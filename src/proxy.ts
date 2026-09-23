@@ -154,14 +154,17 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const userRole = payload?.role as string | undefined
+  const isHotelRole = userRole === 'HOTEL_ADMIN' || userRole === 'HOTEL_MANAGER' || (userRole ? userRole.startsWith('HOTEL_') : false) || payload?.propertyType === 'HOTEL'
   
   const getOperationsUrl = () => {
+    // Hotel roles and properties always go to /hotel
+    if (isHotelRole) {
+      return '/hotel'
+    }
     // Multi-property owner (BOTH hotel + restaurant) → Unified F&B Manager Hub
     if (payload?.isMultiProperty) {
       return '/restaurantadmin'
-    }
-    if (payload?.propertyType === 'HOTEL') {
-      return '/hotel'
     }
     const urlKey = payload?.propertySlug || payload?.propertyCode
     return urlKey ? `/${urlKey}/operations` : '/operations'
@@ -190,7 +193,11 @@ export async function proxy(request: NextRequest) {
   // Must be defined AFTER getBrandedDashboardUrl so it can call it
   const getPortalUrlForRole = (role: string): string => {
     if (role === 'SUPER_ADMIN') return '/admin/dashboard'
-    if (role === 'RESTAURANTS_ADMIN') return getBrandedDashboardUrl()
+    if (role === 'RESTAURANTS_ADMIN') {
+      const urlKey = payload?.propertySlug || payload?.propertyCode
+      if (urlKey) return `/${urlKey}/operations`
+      return '/operations'
+    }
     if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || role.startsWith('HOTEL_')) return '/hotel'
     if (role === 'DELIVERY_RIDER') return '/transport-portal/dashboard'
     if (role === 'SINGER') return '/singer-portal/dashboard'
@@ -216,11 +223,7 @@ export async function proxy(request: NextRequest) {
     // ── Internal rewrite for branded restaurantadmin routes ──
     // Only rewrite /restaurantadmin/{slug} (branded property dashboard URLs).
     // Do NOT rewrite bare /restaurantadmin — that's the F&B Manager Hub (root page).
-    // Also skip rewrite for HOTEL_ADMIN / RESTAURANTS_ADMIN / SUPER_ADMIN — they need the Hub.
-    const _role = payload?.role as string | undefined
-    const isAdminHubUser = _role === 'HOTEL_ADMIN' || _role === 'RESTAURANTS_ADMIN' || _role === 'SUPER_ADMIN'
-
-    if (!isAdminHubUser && pathname.startsWith('/restaurantadmin/')) {
+    if (pathname.startsWith('/restaurantadmin/')) {
       // e.g. /restaurantadmin/kunals-kitchen → /{propertyCode}/restaurantadmin/kunals-kitchen
       const urlKey = payload.propertySlug || payload.propertyCode
       if (urlKey) {
@@ -228,14 +231,22 @@ export async function proxy(request: NextRequest) {
       }
     }
 
+    const role = payload.role as string
+    const status = payload.subscriptionStatus as string | null
+
+    // Hotel Admin or Hotel Property access to root dashboard/operations → always /hotel
+    if (isHotelRole && (pathname === '/dashboard' || pathname === '/operations')) {
+      return NextResponse.redirect(new URL('/hotel', request.url))
+    }
+
     // Skip redirect for /b2b/* — these are standalone supplier portal routes (no propertyCode needed)
     if (isDashboardRoute && !hasPropertyCode && payload.propertyCode && !pathname.startsWith('/b2b/')) {
+      if (isHotelRole && (strippedPathname === '/dashboard' || strippedPathname === '/operations')) {
+        return NextResponse.redirect(new URL('/hotel', request.url))
+      }
       const urlKey = payload.propertySlug || payload.propertyCode
       return NextResponse.redirect(new URL(`/${urlKey}${pathname}`, request.url))
     }
-
-    const role = payload.role as string
-    const status = payload.subscriptionStatus as string | null
 
     if (role !== 'SUPER_ADMIN') {
       if (status === 'PENDING_PAYMENT' || status === 'PENDING_APPROVAL') {
@@ -244,6 +255,9 @@ export async function proxy(request: NextRequest) {
         }
       } else {
         if (pathname === '/payment-pending') {
+          if (isHotelRole) {
+            return NextResponse.redirect(new URL('/hotel', request.url))
+          }
           if (role === 'RESTAURANTS_ADMIN') {
             return NextResponse.redirect(new URL(getBrandedDashboardUrl(), request.url))
           }
@@ -278,9 +292,8 @@ export async function proxy(request: NextRequest) {
     // Redirection for Auth Routes (if logged in, bypass login page)
     // Uses role-aware redirect so staff/waiter go to /staff-portal, not /operations
     if (isAuthRoute) {
-      // HOTEL_ADMIN with multi-property → Unified hub
-      if (role === 'HOTEL_ADMIN' && payload?.isMultiProperty) {
-        return NextResponse.redirect(new URL('/restaurantadmin', request.url))
+      if (role === 'HOTEL_ADMIN' || isHotelRole) {
+        return NextResponse.redirect(new URL('/hotel', request.url))
       }
       return NextResponse.redirect(new URL(getPortalUrlForRole(role), request.url))
     }
@@ -311,8 +324,8 @@ export async function proxy(request: NextRequest) {
 
     // Dashboard/Operations Route Access
     if (isDashboardRoute) {
-      // Redirect pure hotel properties without propertyCode directly to hotel dashboard
-      if (payload?.propertyType === 'HOTEL' && !payload?.isMultiProperty && !hasPropertyCode && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel')) {
+      // Redirect pure hotel properties directly to hotel dashboard
+      if (isHotelRole && !hasPropertyCode && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel')) {
         return NextResponse.redirect(new URL('/hotel', request.url))
       }
 

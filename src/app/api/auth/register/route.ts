@@ -14,8 +14,8 @@ const signupSchema = z.object({
   captchaText: z.string().min(1, 'Security code is required'),
   captchaToken: z.string().optional().nullable(),
   roleName: z.string().optional().default('RESTAURANTS_ADMIN'),
-  // Business type (HOTEL | RESTAURANT | BOTH)
-  businessType: z.enum(['HOTEL', 'RESTAURANT', 'BOTH']).optional().nullable(),
+  // Business type (HOTEL | RESTAURANT | BOTH | BOTH_SEPARATE)
+  businessType: z.enum(['HOTEL', 'RESTAURANT', 'BOTH', 'BOTH_SEPARATE']).optional().nullable(),
   packageId: z.string().optional().nullable(),
   paymentReference: z.string().optional().nullable(),
   paymentAmount: z.number().optional().nullable(),
@@ -30,7 +30,7 @@ const signupSchema = z.object({
   restaurantBranchCode: z.string().optional().nullable(),
   restaurantBranchCity: z.string().optional().nullable(),
   restaurantBranchAddress: z.string().optional().nullable(),
-  // Hotel Receptionist (for HOTEL / BOTH)
+  // Hotel Receptionist (for HOTEL / BOTH / BOTH_SEPARATE)
   hotelRecepFullName: z.string().optional().nullable(),
   hotelRecepEmail: z.string().optional().nullable(),
   hotelRecepPassword: z.string().optional().nullable(),
@@ -38,6 +38,10 @@ const signupSchema = z.object({
   posFullName: z.string().optional().nullable(),
   posEmail: z.string().optional().nullable(),
   posPassword: z.string().optional().nullable(),
+  // BOTH_SEPARATE: separate Restaurant Admin (RESTAURANTS_ADMIN role)
+  restaurantAdminName: z.string().optional().nullable(),
+  restaurantAdminEmail: z.string().optional().nullable(),
+  restaurantAdminPassword: z.string().optional().nullable(),
   // Extra Rider & Supplier fields
   phone: z.string().optional().nullable(),
   vehicleType: z.string().optional().nullable(),
@@ -56,6 +60,7 @@ const signupSchema = z.object({
   // Custom plan builder
   customFeatures: z.array(z.string()).optional().nullable(),
   customPlanTotal: z.number().optional().nullable(),
+  loadDemoData: z.boolean().optional().default(true),
 })
 
 export async function POST(request: NextRequest) {
@@ -69,10 +74,12 @@ export async function POST(request: NextRequest) {
       restaurantPropertyName, restaurantBranchCode, restaurantBranchCity, restaurantBranchAddress,
       hotelRecepFullName, hotelRecepEmail, hotelRecepPassword,
       posFullName, posEmail, posPassword,
+      restaurantAdminName, restaurantAdminEmail, restaurantAdminPassword,
       phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius,
       gstNumber, category, address,
       restaurantPosEnabled, barPosEnabled, cafePosEnabled, deliveryEnabled,
       customFeatures, customPlanTotal,
+      loadDemoData,
     } = signupSchema.parse(body)
 
     // 1. Verify Security Captcha
@@ -120,8 +127,8 @@ export async function POST(request: NextRequest) {
           return apiError(new Error(`The Branch Code "${branchCode.trim()}" is already in use. Please select a unique code.`), 400)
         }
       }
-      // Check second restaurant property code for BOTH
-      if (businessType === 'BOTH' && restaurantBranchCode && restaurantBranchCode.trim().length > 0) {
+      // Check second restaurant property code for BOTH / BOTH_SEPARATE
+      if ((businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') && restaurantBranchCode && restaurantBranchCode.trim().length > 0) {
         const existingRstBranch = await prisma.property.findUnique({ where: { code: restaurantBranchCode.trim() } })
         if (existingRstBranch) {
           return apiError(new Error(`The Restaurant Branch Code "${restaurantBranchCode.trim()}" is already in use. Please choose a different code.`), 400)
@@ -145,6 +152,16 @@ export async function POST(request: NextRequest) {
         const existingCashier = await prisma.user.findUnique({ where: { email: posEmail.toLowerCase().trim() } })
         if (existingCashier) {
           return apiError(new Error('The Receptionist email address is already in use. Please use a different email.'), 400)
+        }
+      }
+      // Check BOTH_SEPARATE restaurant admin email uniqueness
+      if (businessType === 'BOTH_SEPARATE' && restaurantAdminEmail && restaurantAdminEmail.trim().length > 0) {
+        if (restaurantAdminEmail.toLowerCase().trim() === email.toLowerCase().trim()) {
+          return apiError(new Error('Restaurant Admin email cannot be the same as the Hotel Admin email. Please use a different email.'), 400)
+        }
+        const existingRstAdmin = await prisma.user.findUnique({ where: { email: restaurantAdminEmail.toLowerCase().trim() } })
+        if (existingRstAdmin) {
+          return apiError(new Error('The Restaurant Admin email is already in use. Please use a different email.'), 400)
         }
       }
     }
@@ -245,6 +262,7 @@ export async function POST(request: NextRequest) {
           paymentReference: hasPaymentRef ? paymentReference!.trim() : null,
           paymentAmount: hasPaymentRef ? (paymentAmount ?? selectedPackage?.priceINR ?? null) : null,
           paymentDate: hasPaymentRef ? new Date() : null,
+          businessType: businessType || (roleToAssign === 'HOTEL_ADMIN' ? 'HOTEL' : 'RESTAURANT'),
         },
       })
 
@@ -393,8 +411,8 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // If it's a hotel, seed default Room Types, Rooms, Guests and Reservations
-        if (isHotel) {
+        // If it's a hotel and user opted to load demo data, seed default Room Types, Rooms, Guests and Reservations
+        if (isHotel && loadDemoData) {
           // 1. Seed Room Types
           const deluxeType = await tx.roomType.create({
             data: {
@@ -632,8 +650,8 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // ─── BOTH: Create second Restaurant Property ─────────────────────────────
-        if (businessType === 'BOTH' && restaurantPropertyName && restaurantPropertyName.trim().length > 0) {
+        // ─── BOTH / BOTH_SEPARATE: Create second Restaurant Property ──────────────────────
+        if ((businessType === 'BOTH' || businessType === 'BOTH_SEPARATE') && restaurantPropertyName && restaurantPropertyName.trim().length > 0) {
           const rstCode = restaurantBranchCode && restaurantBranchCode.trim().length > 0
             ? restaurantBranchCode.trim()
             : `RST-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
@@ -657,28 +675,51 @@ export async function POST(request: NextRequest) {
             }
           })
 
-          // Restaurant POS User (for BOTH) — link to restaurant property
-          if (posFullName && posFullName.trim().length > 0 && posEmail && posEmail.trim().length > 0 && posPassword) {
-            let posRole = await tx.role.findUnique({ where: { name: 'POSSYSTEM' } })
-            if (!posRole) {
-              posRole = await tx.role.create({ data: { name: 'POSSYSTEM', description: 'POS Terminal Operator Access' } })
-            }
-            const posPassHash = await hashPassword(posPassword)
-            await tx.user.create({
-              data: {
-                fullName: posFullName.trim(),
-                email: posEmail.toLowerCase().trim(),
-                passwordHash: posPassHash,
-                organizationId: organization.id,
-                propertyId: restaurantProperty.id,
-                roleId: posRole.id,
-                isActive: true,
-                onboardingCompleted: true,
+          if (businessType === 'BOTH') {
+            // BOTH (Attached): POS user linked to restaurant property
+            if (posFullName && posFullName.trim().length > 0 && posEmail && posEmail.trim().length > 0 && posPassword) {
+              let posRole = await tx.role.findUnique({ where: { name: 'POSSYSTEM' } })
+              if (!posRole) {
+                posRole = await tx.role.create({ data: { name: 'POSSYSTEM', description: 'POS Terminal Operator Access' } })
               }
-            })
+              const posPassHash = await hashPassword(posPassword)
+              await tx.user.create({
+                data: {
+                  fullName: posFullName.trim(),
+                  email: posEmail.toLowerCase().trim(),
+                  passwordHash: posPassHash,
+                  organizationId: organization.id,
+                  propertyId: restaurantProperty.id,
+                  roleId: posRole.id,
+                  isActive: true,
+                  onboardingCompleted: true,
+                }
+              })
+            }
+          } else if (businessType === 'BOTH_SEPARATE') {
+            // BOTH_SEPARATE: Create separate RESTAURANTS_ADMIN user linked to restaurant property
+            if (restaurantAdminName && restaurantAdminName.trim().length > 0 && restaurantAdminEmail && restaurantAdminEmail.trim().length > 0 && restaurantAdminPassword) {
+              let rstAdminRole = await tx.role.findUnique({ where: { name: 'RESTAURANTS_ADMIN' } })
+              if (!rstAdminRole) {
+                rstAdminRole = await tx.role.create({ data: { name: 'RESTAURANTS_ADMIN', description: 'Restaurant Administrator' } })
+              }
+              const rstAdminPassHash = await hashPassword(restaurantAdminPassword)
+              await tx.user.create({
+                data: {
+                  fullName: restaurantAdminName.trim(),
+                  email: restaurantAdminEmail.toLowerCase().trim(),
+                  passwordHash: rstAdminPassHash,
+                  organizationId: organization.id,
+                  propertyId: restaurantProperty.id,
+                  roleId: rstAdminRole.id,
+                  isActive: true,
+                  onboardingCompleted: true,
+                }
+              })
+            }
           }
 
-          // Restaurant outlet
+          // Restaurant outlet + payment modes + cash account (for both BOTH and BOTH_SEPARATE)
           await tx.outlet.create({
             data: { name: 'Main Restaurant Outlet', type: 'RESTAURANT', propertyId: restaurantProperty.id }
           })

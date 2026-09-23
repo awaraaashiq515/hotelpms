@@ -20,12 +20,15 @@ export default async function PaymentPendingPage() {
 
   // If status is already active, redirect them
   if (organization.subscriptionStatus !== 'PENDING_PAYMENT' && organization.subscriptionStatus !== 'PENDING_APPROVAL') {
+    const isHotelRole = session.role === 'HOTEL_ADMIN' || session.role === 'HOTEL_MANAGER' || session.role?.startsWith('HOTEL_') || session.propertyType === 'HOTEL';
     if (session.role === 'SUPER_ADMIN') {
       redirect('/admin/dashboard')
+    } else if (isHotelRole) {
+      redirect('/hotel')
     } else if (session.role === 'RESTAURANTS_ADMIN') {
-      redirect('/dashboard')
+      redirect(session.propertyType === 'HOTEL' ? '/hotel' : (session.organizationSlug ? `/restaurantadmin/${session.organizationSlug}` : '/operations'))
     } else {
-      redirect('/operations')
+      redirect(isHotelRole ? '/hotel' : '/operations')
     }
   }
 
@@ -60,6 +63,9 @@ export default async function PaymentPendingPage() {
       organization={JSON.parse(JSON.stringify(organization))}
       pendingPackage={pendingPackage ? JSON.parse(JSON.stringify(pendingPackage)) : null}
       paymentSettings={JSON.parse(JSON.stringify(paymentSettings))}
+      userRole={session.role}
+      propertyType={session.propertyType}
+      organizationSlug={session.organizationSlug}
     />
   )
 }

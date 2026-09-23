@@ -32,15 +32,50 @@ interface PaymentPendingClientProps {
     bankIfsc: string;
     bankSwift: string;
   };
+  userRole?: string;
+  propertyType?: string | null;
+  organizationSlug?: string | null;
 }
 
-export default function PaymentPendingClient({ organization: initialOrg, pendingPackage, paymentSettings }: PaymentPendingClientProps) {
+export default function PaymentPendingClient({ 
+  organization: initialOrg, 
+  pendingPackage, 
+  paymentSettings,
+  userRole,
+  propertyType,
+  organizationSlug,
+}: PaymentPendingClientProps) {
   const router = useRouter();
   const [org, setOrg] = useState(initialOrg);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const navigateAfterApproval = (sessionData?: any) => {
+    const role = sessionData?.role || userRole;
+    const propType = sessionData?.propertyType || propertyType;
+    const orgSlug = sessionData?.organizationSlug || organizationSlug;
+    const isHotel = role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || role?.startsWith('HOTEL_') || propType === 'HOTEL';
+
+    if (role === 'SUPER_ADMIN') {
+      router.push('/admin/dashboard');
+    } else if (isHotel) {
+      router.push('/hotel');
+    } else if (role === 'RESTAURANTS_ADMIN') {
+      if (orgSlug) {
+        router.push(`/restaurantadmin/${orgSlug}`);
+      } else {
+        router.push('/operations');
+      }
+    } else if (role === 'DELIVERY_RIDER') {
+      router.push('/transport-portal/dashboard');
+    } else if (role === 'SINGER') {
+      router.push('/singer-portal/dashboard');
+    } else {
+      router.push('/hotel');
+    }
+  };
   
   // Form fields
   const [paymentReference, setPaymentReference] = useState('');
@@ -75,7 +110,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
           if (newStatus !== 'PENDING_APPROVAL' && newStatus !== 'PENDING_PAYMENT') {
             clearInterval(interval);
             router.refresh();
-            router.push('/dashboard');
+            navigateAfterApproval(data.data.session);
           }
         }
       } catch (err) {
@@ -84,7 +119,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
     }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(interval);
-  }, [org.subscriptionStatus, router]);
+  }, [org.subscriptionStatus, router, userRole, propertyType, organizationSlug]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -102,7 +137,7 @@ export default function PaymentPendingClient({ organization: initialOrg, pending
         const newStatus = data.data.subscriptionStatus;
         if (newStatus !== 'PENDING_APPROVAL' && newStatus !== 'PENDING_PAYMENT') {
           router.refresh();
-          router.push('/dashboard');
+          navigateAfterApproval(data.data.session);
         } else {
           setOrg(prev => ({ ...prev, subscriptionStatus: newStatus }));
           setError('Your subscription is still being reviewed by the admin. Please wait.');

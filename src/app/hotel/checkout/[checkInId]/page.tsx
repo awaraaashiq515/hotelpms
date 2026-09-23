@@ -52,6 +52,7 @@ function CheckoutDetailContent() {
   const [submitting, setSubmitting] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [checkedOut, setCheckedOut] = useState(false);
+  const [autoPrintModal, setAutoPrintModal] = useState(false);
 
   // Payment form state
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -104,6 +105,13 @@ function CheckoutDetailContent() {
           (t: { sourceModule: string }) => t.sourceModule === 'GST'
         );
         if (hasGst) setGstPosted(true);
+
+        // If folio is already checked out / closed, open receipt modal directly so it auto-prints
+        if (res.data.status === 'CLOSED') {
+          setCheckedOut(true);
+          setAutoPrintModal(true);
+          setShowReceipt(true);
+        }
       } else {
         toast.error(res.message || 'Folio not found');
       }
@@ -204,6 +212,68 @@ function CheckoutDetailContent() {
     }
   };
 
+  // Automatically print hotel bill to connected thermal/Bluetooth printer
+  const printHotelBill = useCallback(async (folioToPrint: FolioDetail) => {
+    toast.loading('🖨️ Printing bill on connected printer...', { id: 'checkout-bill-print' });
+    try {
+      const debitItems = folioToPrint.transactions
+        ?.filter((t) => t.debitAmount > 0)
+        ?.map((t) => ({
+          description: t.description || t.sourceModule || 'Charge',
+          quantity: 1,
+          amount: t.debitAmount,
+        })) || [];
+
+      const gstTxns = folioToPrint.transactions?.filter((t) => t.sourceModule === 'GST') || [];
+      const totalGst = gstTxns.reduce((sum, t) => sum + t.debitAmount, 0);
+
+      const prop = folioToPrint.reservation?.property;
+      const r = folioToPrint.reservation?.rooms?.[0]?.room;
+
+      const hotelBillPayload = {
+        invoiceNo: `INV-${folioToPrint.folioNo.replace(/\D/g, '') || Date.now()}`,
+        folioNo: folioToPrint.folioNo,
+        guestName: `${folioToPrint.guest.firstName} ${folioToPrint.guest.lastName || ''}`.trim(),
+        roomNumber: r?.roomNumber ? `Room ${r.roomNumber}` : '—',
+        checkIn: folioToPrint.reservation?.arrivalDate ? new Date(folioToPrint.reservation.arrivalDate).toLocaleDateString('en-GB') : '',
+        checkOut: folioToPrint.reservation?.departureDate ? new Date(folioToPrint.reservation.departureDate).toLocaleDateString('en-GB') : '',
+        subtotal: folioToPrint.totalCharges - totalGst,
+        taxAmount: totalGst,
+        grandTotal: folioToPrint.totalCharges,
+        totalPayments: folioToPrint.totalPayments,
+        closingBalance: folioToPrint.closingBalance,
+        items: debitItems.length > 0 ? debitItems : [
+          { description: 'Room Stay & Charges', quantity: 1, amount: folioToPrint.totalCharges }
+        ],
+      };
+
+      const res = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hotelBill: hotelBillPayload,
+          property: {
+            id: prop?.id,
+            name: prop?.name || prop?.brandName || 'HOTEL',
+            address: prop?.address,
+            phone: prop?.phone,
+            taxDetails: prop?.taxDetails,
+          },
+        }),
+      });
+
+      const printResult = await res.json().catch(() => ({}));
+      if (res.ok && printResult.success) {
+        toast.success('✅ Bill printed on connected printer!', { id: 'checkout-bill-print' });
+      } else {
+        toast.info('Printer did not respond. Check Bluetooth/USB connection.', { id: 'checkout-bill-print' });
+      }
+    } catch (err: any) {
+      console.warn('Auto print failed:', err);
+      toast.info('Print error: ' + (err.message || 'Check printer connection'), { id: 'checkout-bill-print' });
+    }
+  }, []);
+
   // Handle final checkout
   const handleCheckout = async () => {
     if (!folio || !checkInId) return;
@@ -234,9 +304,37 @@ function CheckoutDetailContent() {
       if (data.success) {
         toast.success('Guest checked out successfully! Room released.');
         setCheckedOut(true);
-        // Don't re-fetch folio (it's now CLOSED and won't appear in open folios)
-        // Just show receipt with current folio data
+
+        // Update folio state with final settlement details
+        const updatedTotalPayments = (folio.totalPayments || 0) + finalAmount;
+        const updatedClosingBalance = Math.max(0, (folio.totalCharges || 0) - updatedTotalPayments);
+        const updatedFolio: FolioDetail = {
+          ...folio,
+          status: 'CLOSED' as const,
+          totalPayments: updatedTotalPayments,
+          closingBalance: updatedClosingBalance,
+          transactions: [
+            ...folio.transactions,
+            ...(finalAmount > 0 ? [{
+              id: 'checkout-payment',
+              txnType: 'CREDIT' as const,
+              sourceModule: paymentMode,
+              description: `Payment at Checkout (${paymentMode})`,
+              debitAmount: 0,
+              creditAmount: finalAmount,
+              taxAmount: 0,
+              netAmount: finalAmount,
+              txnDate: new Date().toISOString(),
+            }] : []),
+          ],
+        };
+
+        setFolio(updatedFolio);
+        setAutoPrintModal(false);
         setShowReceipt(true);
+
+        // 🖨️ Auto-print immediately on Collect & Checkout!
+        printHotelBill(updatedFolio);
       } else {
         toast.error(data.message || 'Checkout failed');
       }
@@ -296,6 +394,7 @@ function CheckoutDetailContent() {
         <ReceiptModal
           folio={folio}
           nights={nights}
+          autoPrint={autoPrintModal}
           onClose={() => {
             setShowReceipt(false);
             router.push('/hotel/checkout');

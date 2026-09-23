@@ -31,6 +31,14 @@ export async function PATCH(
       });
     }
 
+    // If this is set as hotel bill printer, unset others
+    if (body.isHotelBill) {
+      await prisma.printer.updateMany({
+        where: { propertyId: existingPrinter.propertyId, isHotelBill: true, id: { not: id } },
+        data: { isHotelBill: false }
+      });
+    }
+
     if (body.isKitchen) {
       await prisma.printer.updateMany({
         where: { propertyId: existingPrinter.propertyId, isKitchen: true, id: { not: id } },

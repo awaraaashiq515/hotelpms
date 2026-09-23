@@ -18,6 +18,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('registered') === 'true') {
+        setSuccessMessage('Registration completed successfully! Please sign in to continue.');
+      }
+    }
+  }, []);
 
   // ── Password Reset & 2FA State ──
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -175,8 +185,17 @@ export default function LoginPage() {
       if (role === 'SUPER_ADMIN') {
         router.push('/admin/dashboard');
       } else if (role === 'RESTAURANTS_ADMIN') {
-        // Always redirect to hotel dashboard — this is a Hotel PMS app
-        router.push('/hotel');
+        const isHotelProperty = data.user.propertyType === 'HOTEL';
+        if (isHotelProperty) {
+          router.push('/hotel');
+        } else {
+          const propCode = data.user.propertyCode;
+          if (propCode) {
+            router.push(`/${propCode}/operations`);
+          } else {
+            router.push('/operations');
+          }
+        }
       } else if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || isHotelRole) {
         // ↑ IMPORTANT: Only route to /hotel for actual HOTEL admin/manager roles
         // Do NOT include isHotelProperty here — Waiter/Staff also have HOTEL property type
@@ -199,8 +218,8 @@ export default function LoginPage() {
         const propCode = data.user.propertyCode?.toLowerCase();
         router.push(propCode ? `/housekeeper-portal/${propCode}` : '/housekeeper-portal');
       } else if (role === 'POSSYSTEM') {
-        // POS system users also go to hotel dashboard in Hotel PMS mode
-        router.push('/hotel');
+        const propCode = data.user.propertyCode;
+        router.push(propCode ? `/${propCode}/billing` : '/operations');
       } else {
         // All other roles (Waiter, Cook, Staff, etc.) → staff-portal
         const propCode = data.user.propertyCode?.toLowerCase();
@@ -441,6 +460,16 @@ export default function LoginPage() {
               >
                 Open Settings
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Success Banner */}
+        {successMessage && (
+          <div className="mb-6 p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-start gap-3 text-emerald-300 text-sm font-medium">
+            <Sparkles size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              {successMessage}
             </div>
           </div>
         )}

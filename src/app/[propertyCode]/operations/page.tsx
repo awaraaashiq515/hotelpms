@@ -463,7 +463,6 @@ export default function OperationsPage() {
     ...visibleDelivery.map(a => ({ ...a, category: 'Delivery & Logistics' })),
     ...visibleStaff.map(a => ({ ...a, category: 'Staff & Attendance' })),
     ...visibleBillingPayments.map(a => ({ ...a, category: 'Billing & Payments' })),
-    ...visibleAccountingExpenses.map(a => ({ ...a, category: 'Expenses & Accounting' })),
     ...visibleReportsAnalytics.map(a => ({ ...a, category: 'Reports & Analytics' })),
     ...visibleMenuInventory.map(a => ({ ...a, category: 'Inventory & Menu Setup' })),
     ...visibleSystemSettings.map(a => ({ ...a, category: 'Store Settings & Setup' })),
@@ -622,15 +621,7 @@ export default function OperationsPage() {
             getLateStatusForAction={getLateStatusForAction}
           />
 
-          {/* 7. Expenses & Accounting */}
-          <OperationsCategorySection
-            configKey="accountingExpenses"
-            actions={visibleAccountingExpenses}
-            getBadgeForAction={getBadgeForAction}
-            getLateStatusForAction={getLateStatusForAction}
-          />
-
-          {/* 8. Delivery & Logistics */}
+          {/* 7. Delivery & Logistics */}
           <OperationsCategorySection
             configKey="delivery"
             actions={visibleDelivery}

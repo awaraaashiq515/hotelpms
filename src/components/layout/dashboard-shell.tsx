@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { TopNavbar } from '@/components/layout/top-navbar';
@@ -20,7 +20,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   // e.g., /ashoka-dhaba/kitchen-display -> /kitchen-display
   const segments = pathname.split('/').filter(Boolean);
   const relativePath = segments.length > 1 ? '/' + segments.slice(1).join('/') : '/';
-  
+
   // Normal logic: Admins get Admin Hub, others get POS
   const isAdminRole = session.role === 'RESTAURANTS_ADMIN' || session.role === 'SUPER_ADMIN' || session.role === 'HOTEL_ADMIN';
   
@@ -32,26 +32,20 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
   // Music page: show TopNavbar but hide sidebar for full DJ console view
   const isMusicPage = relativePath.startsWith('/music') || pathname.includes('/music');
 
-  // Switch to POS layout for operational pages even for admins
-  const isPosPage = 
-    relativePath === '/operations' || relativePath.startsWith('/operations/') ||
-    relativePath === '/billing' || relativePath.startsWith('/billing/') ||
-    relativePath === '/counter-payments' || relativePath.startsWith('/counter-payments/') ||
-    relativePath === '/bar-pos' || relativePath.startsWith('/bar-pos/') ||
-    relativePath === '/cafe-pos' || relativePath.startsWith('/cafe-pos/') ||
-    relativePath === '/kots' || relativePath.startsWith('/kots/') ||
-    relativePath === '/day-closing' || relativePath.startsWith('/day-closing/') ||
-    relativePath === '/inventory' || relativePath.startsWith('/inventory/') ||
-    relativePath === '/products' || relativePath.startsWith('/products/') ||
-    relativePath === '/categories' || relativePath.startsWith('/categories/');
+  // Show admin layout only for strict property & user management configuration pages
+  const isManagementAdminPage = 
+    relativePath === '/manage-properties' || relativePath.startsWith('/manage-properties/') ||
+    relativePath === '/manage-roles' || relativePath.startsWith('/manage-roles/') ||
+    relativePath === '/manage-users' || relativePath.startsWith('/manage-users/');
 
-  const showAdminLayout = isAdminRole && !isKitchenDisplay && !isPosPage;
+  const showAdminLayout = !isKitchenDisplay && isManagementAdminPage;
   const isPos = !showAdminLayout;
 
   if (session.role === 'B2B_SUPPLIER') {
     return <SupplierShell>{children}</SupplierShell>;
   }
 
+  // Full screen display monitor for kitchen/bar
   if (isKitchenDisplay) {
     return (
       <div className="h-screen flex flex-col bg-[#080d1a] selection:bg-pos-primary selection:text-white overflow-hidden relative">

@@ -17,6 +17,7 @@ interface Printer {
   printerType: string;
   paperSize: string;
   isBilling: boolean;
+  isHotelBill?: boolean;
   isKitchen: boolean;
   isEnabled: boolean;
   autoCut: boolean;
@@ -61,6 +62,7 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
     printerType: 'THERMAL',
     paperSize: '80mm',
     isBilling: false,
+    isHotelBill: false,
     isKitchen: false,
     isEnabled: true,
     autoCut: true,
@@ -78,7 +80,10 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
 
   useEffect(() => {
     if (printer) {
-      setFormData(printer);
+      setFormData({
+        ...printer,
+        isHotelBill: printer.isHotelBill ?? false,
+      });
     } else {
       setFormData({
         name: '',
@@ -88,6 +93,7 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
         printerType: 'THERMAL',
         paperSize: '80mm',
         isBilling: false,
+        isHotelBill: false,
         isKitchen: false,
         isEnabled: true,
         autoCut: true,
@@ -683,6 +689,16 @@ export const PrinterModal: React.FC<PrinterModalProps> = ({
                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span className="text-sm text-gray-600 dark:text-gray-400">Billing Printer</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isHotelBill}
+                onChange={(e) => setFormData({ ...formData, isHotelBill: e.target.checked })}
+                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">Hotel Bill</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">

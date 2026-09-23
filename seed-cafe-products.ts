@@ -20,7 +20,7 @@ async function main() {
       }
     });
   }
-
+  
   await prisma.product.create({
     data: {
       name: 'Caramel Macchiato',

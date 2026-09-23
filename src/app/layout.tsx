@@ -64,6 +64,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const viewport = {
   themeColor: "#0a0a0a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover" as const,
 };
 
 import { getProjectStatus } from "@/lib/project-status";

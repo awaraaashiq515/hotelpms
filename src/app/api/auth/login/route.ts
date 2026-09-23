@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
     let propertySlug = null;
     let propertyType = null;
     let isMultiProperty = false;
+    const isHotelAdmin = user.role.name === 'HOTEL_ADMIN';
 
     if (user.propertyId) {
       const prop = await prisma.property.findUnique({ where: { id: user.propertyId }, select: { code: true, name: true, type: true } });
@@ -126,14 +127,40 @@ export async function POST(request: NextRequest) {
       propertySlug = prop?.name ? slugify(prop.name) : null;
       propertyType = prop?.type || null;
     } else if (user.organizationId) {
-      const prop = await prisma.property.findFirst({ where: { organizationId: user.organizationId }, select: { code: true, name: true, type: true } });
+      let prop = null;
+      if (isHotelAdmin) {
+        prop = await prisma.property.findFirst({
+          where: { organizationId: user.organizationId, type: 'HOTEL' },
+          select: { code: true, name: true, type: true },
+        });
+      }
+      if (!prop) {
+        prop = await prisma.property.findFirst({
+          where: { organizationId: user.organizationId },
+          select: { code: true, name: true, type: true },
+        });
+      }
       propertyCode = prop?.code || null;
       propertySlug = prop?.name ? slugify(prop.name) : null;
       propertyType = prop?.type || null;
     }
 
-    // Check if this org has multiple properties (BOTH hotel + restaurant)
-    if (user.organizationId) {
+    // isMultiProperty = org has BOTH hotel AND restaurant properties attached together
+    // Only true for BOTH (attached / ek saath), NEVER for BOTH_SEPARATE (individual logins)
+    if (user.organization?.businessType === 'BOTH_SEPARATE') {
+      isMultiProperty = false;
+    } else if (user.organizationId && isHotelAdmin && user.propertyId) {
+      const hotelPropCount = await prisma.property.count({ where: { organizationId: user.organizationId, type: 'HOTEL' } });
+      const restaurantPropCount = await prisma.property.count({ where: { organizationId: user.organizationId, type: 'RESTAURANT' } });
+      const restaurantAdminExists = restaurantPropCount > 0
+        ? await prisma.user.findFirst({
+            where: { organizationId: user.organizationId, role: { name: 'RESTAURANTS_ADMIN' } }
+          })
+        : null;
+      if (hotelPropCount > 0 && restaurantPropCount > 0 && !restaurantAdminExists) {
+        isMultiProperty = true;
+      }
+    } else if (user.organizationId && isHotelAdmin && !user.propertyId) {
       const propCount = await prisma.property.count({ where: { organizationId: user.organizationId } });
       isMultiProperty = propCount > 1;
     }
@@ -157,7 +184,8 @@ export async function POST(request: NextRequest) {
       propertyCode,
       propertySlug,
       propertyType,
-      isMultiProperty,   // true = BOTH hotel + restaurant
+      businessType: user.organization?.businessType ?? null,
+      isMultiProperty,   // true = BOTH hotel + restaurant attached together
     }
 
     const token = await encrypt(sessionData)

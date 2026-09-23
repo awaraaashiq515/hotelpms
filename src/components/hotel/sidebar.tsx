@@ -44,10 +44,9 @@ import {
   Crown,
   Cpu,
   Wifi,
-  Shield,
+
   Key,
   Music,
-  MessageCircle,
   Waves,
   Tag,
   UtensilsCrossed,
@@ -58,6 +57,21 @@ import {
   Tablet,
   Radio,
   Navigation,
+  Monitor,
+  Eye,
+  Printer,
+  Download,
+  Trash2,
+  FileText,
+  Menu as MenuIcon,
+  ShoppingBag,
+  CreditCard,
+  History,
+  Wine,
+  Coffee,
+  Layers,
+  Activity,
+  BedDouble,
 } from 'lucide-react';
 
 
@@ -155,7 +169,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
 
   {
-    label: 'Finance',
+    label: 'Finance & Accounting',
     emoji: '💰',
     color: 'text-emerald-400',
     items: [
@@ -163,14 +177,15 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Invoices',           path: '/hotel/billing/invoices', icon: ScrollText },
       { name: 'Night Audit',        path: '/hotel/night-audit',      icon: Moon },
       { name: 'Expenses',           path: '/hotel/expenses',         icon: Banknote },
+      { name: 'New Expense',        path: '/hotel/expenses/new',     icon: PlusCircle },
+      { name: 'Expense Categories', path: '/hotel/expenses/categories', icon: Layers },
       { name: 'Accounting Hub',     path: '/hotel/accounts',         icon: BookOpen },
+      { name: 'New Voucher',        path: '/hotel/vouchers/new',      icon: PlusCircle },
+      { name: 'Vouchers List',      path: '/hotel/vouchers',          icon: Receipt },
       { name: 'Cash Book',          path: '/hotel/accounts/cash-book', icon: Banknote },
       { name: 'Day Book',           path: '/hotel/accounts/day-book', icon: BookOpen },
       { name: 'Ledger',             path: '/hotel/accounts/ledger',   icon: BookOpen },
-      { name: 'Vouchers',           path: '/hotel/vouchers',          icon: Receipt },
-      { name: 'New Voucher',        path: '/hotel/vouchers/new',      icon: PlusCircle },
-      { name: 'Add New Expense',    path: '/hotel/expenses/new',     icon: PlusCircle },
-      { name: 'Payroll',            path: '/hotel/payroll',          icon: IndianRupee },
+      { name: 'Hotel Payroll',      path: '/hotel/payroll',          icon: IndianRupee },
     ],
   },
   {
@@ -209,16 +224,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Hotel Payroll',      path: '/hotel/payroll',                   icon: IndianRupee },
     ],
   },
-  {
-    label: 'Admin & Security',
-    emoji: '🔐',
-    color: 'text-slate-400',
-    items: [
-      { name: 'Security Center',    path: '/hotel/security',                          icon: Shield },
-      { name: 'WhatsApp Settings',  path: '/hotel/super-admin/whatsapp-settings',      icon: MessageCircle, badge: 'WA', badgeColor: 'bg-green-500/20 text-green-300' },
-      { name: 'Super Admin',        path: '/hotel/super-admin',                        icon: Crown, badge: 'SaaS', badgeColor: 'bg-yellow-500/20 text-yellow-300' },
-    ],
-  },
+
   {
     label: 'Settings',
     emoji: '⚙️',
@@ -238,21 +244,82 @@ export const HotelSidebar: React.FC = () => {
   const [hasRestaurant, setHasRestaurant] = React.useState(false);
   const [restaurantCode, setRestaurantCode] = React.useState<string | null>(null);
 
-  // Detect if this org also has a restaurant property (BOTH business type)
+  // Detect if this org has an ATTACHED restaurant property (businessType === 'BOTH')
+  // When businessType === 'BOTH_SEPARATE', restaurant runs on its own dedicated portal & login,
+  // so it must NEVER appear in the Hotel sidebar or Hotel portal!
   React.useEffect(() => {
-    fetch('/api/admin/properties')
+    fetch('/api/auth/session')
       .then(r => r.json())
-      .then(d => {
-        if (d.success && Array.isArray(d.data)) {
-          const rst = d.data.find((p: any) => p.type !== 'HOTEL');
-          if (rst) {
-            setHasRestaurant(true);
-            setRestaurantCode(rst.code || null);
-          }
+      .then(sessData => {
+        if (!sessData?.authenticated) return;
+        const u = sessData.user;
+        const isAttached = u?.businessType === 'BOTH' || (u?.isMultiProperty === true && u?.businessType !== 'BOTH_SEPARATE');
+        if (!isAttached) {
+          return;
         }
+
+        fetch('/api/admin/properties')
+          .then(r => r.json())
+          .then(d => {
+            if (d.success && Array.isArray(d.data)) {
+              const rst = d.data.find((p: any) => p.type !== 'HOTEL');
+              if (rst) {
+                setHasRestaurant(true);
+                setRestaurantCode(rst.code || null);
+              }
+            }
+          })
+          .catch(() => {});
       })
       .catch(() => {});
   }, []);
+
+  // Build the full dynamic restaurant nav group from restaurantCode
+  const restaurantNavGroup = restaurantCode ? {
+    label: 'Restaurant & POS',
+    emoji: '🍽️',
+    color: 'text-orange-400',
+    items: [
+      // ── Command Center ──
+      { name: 'Restaurant POS Hub',     path: '/hotel/pos',                                   icon: UtensilsCrossed, badge: 'PORTAL', badgeColor: 'bg-orange-500/20 text-orange-300' },
+      // ── POS Billing ──
+      { name: 'POS Terminal',           path: '/hotel/pos/billing',                           icon: Monitor },
+      { name: 'Counter Payments',       path: '/hotel/pos/counter-payments',                  icon: CreditCard },
+      { name: 'Bar POS',                path: '/hotel/pos/bar-pos',                           icon: Wine },
+      { name: 'Cafe POS',               path: '/hotel/pos/cafe-pos',                          icon: Coffee },
+      // ── Displays ──
+      { name: 'Kitchen Display',        path: '/hotel/pos/kitchen-display',                   icon: Eye },
+      { name: 'Bar Display',            path: '/hotel/pos/bar-display',                       icon: Wine },
+      { name: 'Customer Display',       path: '/order-display',                               icon: Monitor },
+      // ── Orders & Tables ──
+      { name: 'Live Overview',          path: '/hotel/pos/live-overview',                     icon: LayoutGrid },
+      { name: 'Orders Control',         path: '/hotel/pos/orders',                            icon: ShoppingBag },
+      { name: 'KOTs List',              path: '/hotel/pos/kots',                              icon: ClipboardList },
+      { name: 'Room Orders',            path: '/hotel/pos/room-service',                      icon: BedDouble },
+      { name: 'Live Notifications',     path: '/hotel/pos/notifications',                     icon: Bell },
+      { name: 'Table Layout',           path: '/hotel/pos/tables',                            icon: LayoutGrid },
+      { name: 'Table Bookings',         path: '/hotel/pos/table-reservations',                icon: Calendar },
+      { name: 'Live Occupancy',         path: '/hotel/pos/occupancy',                         icon: Eye },
+      { name: 'Waste Management',       path: '/hotel/pos/waste-management',                  icon: Trash2 },
+      // ── Billing & Payments ──
+      { name: 'Day Closing',            path: '/hotel/pos/day-closing',                       icon: Moon },
+      { name: 'Invoices',               path: '/hotel/invoices',                              icon: FileText },
+      // ── Inventory & Menu ──
+      { name: 'Restaurant Inventory',   path: '/hotel/inventory',                             icon: Package },
+      { name: 'Menu Items',             path: '/hotel/products',                              icon: MenuIcon },
+      { name: 'QR Gallery',             path: '/hotel/pos/tables/qr-gallery',                 icon: Printer },
+      { name: 'QR Downloads',           path: '/hotel/pos/qr-download',                       icon: Download },
+    ],
+  } : null;
+
+  // Merge static groups + dynamic restaurant group
+  const allNavGroups = React.useMemo(() => {
+    if (restaurantNavGroup) {
+      return [...NAV_GROUPS, restaurantNavGroup];
+    }
+    return NAV_GROUPS;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantCode]);
 
   const toggleGroup = (label: string) => {
     setCollapsedGroups(prev => {
@@ -289,7 +356,7 @@ export const HotelSidebar: React.FC = () => {
     >
       {/* ── Brand ── */}
       <div className="px-4 py-5 border-b border-slate-800/60 bg-gradient-to-b from-slate-900/80 to-transparent flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+        <Link href="/hotel/operations-dashboard" className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
           <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
             <span className="text-white font-black text-lg italic">H</span>
           </div>
@@ -303,7 +370,7 @@ export const HotelSidebar: React.FC = () => {
               </p>
             </div>
           )}
-        </div>
+        </Link>
         <button
           onClick={toggle}
           className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors shrink-0"
@@ -314,7 +381,7 @@ export const HotelSidebar: React.FC = () => {
 
       {/* ── Nav Groups ── */}
       <div className="flex-1 overflow-y-auto py-3 space-y-0.5 px-2 no-scrollbar">
-        {NAV_GROUPS.map((group) => {
+        {allNavGroups.map((group) => {
           const isCollapsed = collapsedGroups.has(group.label);
           const hasActive = group.items.some(i => isActive(i.path));
 
@@ -407,43 +474,24 @@ export const HotelSidebar: React.FC = () => {
       {/* ── Footer ── */}
       <div className="p-3 border-t border-slate-800/60 space-y-1 shrink-0 bg-slate-900/30">
 
-        {/* Restaurant POS Switch — only shown for BOTH type (hotel + restaurant) */}
+
+        {/* All Properties / Switch Property link (only visible if multi-property / attached restaurant) */}
         {hasRestaurant && (
           <Link
-            href={restaurantCode ? `/${restaurantCode}/billing` : '/billing'}
+            href="/restaurantadmin"
             onClick={() => setIsOpen(false)}
-            title={!isOpen ? 'Restaurant POS' : undefined}
-            className={`w-full flex items-center py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 transition-all text-xs font-bold group relative ${
-              isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'
-            }`}
+            title={!isOpen ? 'All Properties' : undefined}
+            className={`w-full flex items-center py-2 rounded-xl hover:bg-slate-800/60 text-slate-600 hover:text-slate-300 transition-all text-xs font-bold group relative ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
           >
-            <UtensilsCrossed size={14} className="group-hover:scale-110 transition-transform shrink-0" />
-            {isOpen && (
-              <span className="flex-1 truncate">Restaurant POS</span>
-            )}
+            <Building2 size={14} className="group-hover:scale-110 transition-transform shrink-0" />
+            {isOpen && <span>All Properties</span>}
             {!isOpen && (
-              <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-emerald-300 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
-                Restaurant POS
+              <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-slate-200 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
+                All Properties
               </div>
             )}
           </Link>
         )}
-
-        {/* All Properties / Switch Property link (always visible) */}
-        <Link
-          href="/restaurantadmin"
-          onClick={() => setIsOpen(false)}
-          title={!isOpen ? 'All Properties' : undefined}
-          className={`w-full flex items-center py-2 rounded-xl hover:bg-slate-800/60 text-slate-600 hover:text-slate-300 transition-all text-xs font-bold group relative ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
-        >
-          <Building2 size={14} className="group-hover:scale-110 transition-transform shrink-0" />
-          {isOpen && <span>All Properties</span>}
-          {!isOpen && (
-            <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-slate-200 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
-              All Properties
-            </div>
-          )}
-        </Link>
 
         <button
           onClick={handleLogout}

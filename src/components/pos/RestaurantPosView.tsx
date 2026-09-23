@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useRouter, useParams } from 'next/navigation';
+import { useSearchParams, useRouter, useParams, usePathname } from 'next/navigation';
 import { 
   Plus, Search, Trash2, User as UserIcon, CreditCard, Percent, Pause, RotateCcw,
   Grid, List, ShoppingBag, Utensils, Minus, ChevronRight, ChevronLeft, Printer, 
-  Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode, Star, Receipt,
+  Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode, Star, Receipt, Maximize2,
   Coffee, IceCream, Pizza, Soup, CookingPot, ChefHat, CupSoda,
   Cake, Fish, Popcorn, Sandwich, Wine, Gift, Tag, Flame, Snowflake, Droplets, FlaskConical
 } from 'lucide-react';
@@ -189,8 +189,13 @@ export default function RestaurantPosView({
       '--pos-primary-glow': 'hsla(0, 55%, 77%, 0.4)',
     } as React.CSSProperties;
   }, [themeLayout]);
+
+  const pathname = usePathname() || '';
+  const isHotelMode = pathname.startsWith('/hotel');
   const propertyCode = params?.propertyCode as string | undefined;
-  const p = propertyCode ? `/${propertyCode}` : '';
+  const p = isHotelMode ? '/hotel/pos' : (propertyCode ? `/${propertyCode}` : '');
+  const tablesPath = isHotelMode ? '/hotel/pos/tables' : `${p}/operations/tables`;
+  const operationsPath = isHotelMode ? '/hotel/pos' : `${p}/operations`;
   const basePath = terminalMode === 'BAR' ? '/bar-pos' : terminalMode === 'CAFE' ? '/cafe-pos' : '/billing';
   const tableId = searchParams.get('tableId');
   const tableName = searchParams.get('tableName') || searchParams.get('tableNo');
@@ -890,7 +895,7 @@ export default function RestaurantPosView({
         fetchActiveOrder();
         fetchAllActiveOrders();
         // Redirect to appropriate operations page
-        router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+        router.push(parkingSlotId ? `${p}/operations/parking` : tablesPath);
       }
     } catch (err) {
       addToast('error', actionType === 'HOLD' ? 'Failed to hold order' : 'Failed to save order');
@@ -1046,7 +1051,7 @@ export default function RestaurantPosView({
 
         // If showModal is false, it means we want to save and redirect immediately (Save & KOT flow)
         if (!showModal) {
-          router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+          router.push(parkingSlotId ? `${p}/operations/parking` : tablesPath);
         }
       }
     } catch (err) {
@@ -1247,7 +1252,7 @@ export default function RestaurantPosView({
           router.replace(`${p}${basePath}`);
         } else {
           // Immediate redirect to operations for Dine-in
-          router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+          router.push(parkingSlotId ? `${p}/operations/parking` : tablesPath);
         }
       } else {
         addToast('error', result.message || 'Settlement failed');
@@ -1546,7 +1551,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
             <div className="px-3 py-1.5 flex items-center justify-between gap-3 bg-white/[0.01] border-b border-white/[0.05] backdrop-blur-md flex-shrink-0 z-10">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => router.push(`${p}/operations`)}
+                  onClick={() => router.push(operationsPath)}
                   className="p-2 hover:bg-white/5 rounded-xl transition-all text-slate-500 hover:text-white"
                   title="Back to Operations"
                 >
@@ -1626,6 +1631,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                 <div className="bg-black/30 p-0.5 rounded-lg flex border border-white/5 shrink-0">
                   <button onClick={() => setViewMode('grid')} className={`p-1 rounded transition-all ${viewMode === 'grid' ? 'bg-[#E8A838] text-black shadow-md' : 'text-slate-500 hover:text-slate-300'}`}><Grid size={14}/></button>
                   <button onClick={() => setViewMode('list')} className={`p-1 rounded transition-all ${viewMode === 'list' ? 'bg-[#E8A838] text-black shadow-md' : 'text-slate-500 hover:text-slate-300'}`}><List size={14}/></button>
+                  <button onClick={() => { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); } else { document.exitFullscreen().catch(() => {}); } }} title="Toggle Fullscreen" className="p-1 rounded transition-all text-slate-500 hover:text-slate-300"><Maximize2 size={14}/></button>
                 </div>
               </div>
             </div>
@@ -1819,7 +1825,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
             <div className="px-3 py-1.5 flex items-center justify-between gap-3 bg-white/[0.01] border-b border-white/[0.05] backdrop-blur-md flex-shrink-0 z-10">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => router.push(`${p}/operations`)}
+                  onClick={() => router.push(operationsPath)}
                   className="p-2 hover:bg-white/5 rounded-xl transition-all text-slate-500 hover:text-white"
                   title="Back to Operations"
                 >
@@ -1899,6 +1905,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                 <div className="bg-black/30 p-0.5 rounded-lg flex border border-white/5 shrink-0">
                   <button onClick={() => setViewMode('grid')} className={`p-1 rounded transition-all ${viewMode === 'grid' ? 'bg-[#D4956A] text-black shadow-md' : 'text-slate-500 hover:text-slate-300'}`}><Grid size={14}/></button>
                   <button onClick={() => setViewMode('list')} className={`p-1 rounded transition-all ${viewMode === 'list' ? 'bg-[#D4956A] text-black shadow-md' : 'text-slate-500 hover:text-slate-300'}`}><List size={14}/></button>
+                  <button onClick={() => { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); } else { document.exitFullscreen().catch(() => {}); } }} title="Toggle Fullscreen" className="p-1 rounded transition-all text-slate-500 hover:text-slate-300"><Maximize2 size={14}/></button>
                 </div>
               </div>
             </div>
@@ -2151,7 +2158,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
             <div className="px-3 py-1 flex items-center justify-between gap-3">
                <div className="flex items-center gap-2">
                  <button
-                   onClick={() => router.push(`${p}/operations`)}
+                   onClick={() => router.push(operationsPath)}
                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-500 hover:text-pos-primary"
                    title="Back to Operations"
                  >
@@ -2290,6 +2297,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                   <div className={`${theme === 'dark' ? 'bg-[#1a1a1a] border-white/5' : 'bg-white border-pos-primary/10'} p-0.5 rounded-xl flex border`}>
                      <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-pos-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}><Grid size={16}/></button>
                      <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-pos-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}><List size={16}/></button>
+                     <button onClick={() => { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); } else { document.exitFullscreen().catch(() => {}); } }} title="Toggle Fullscreen" className="p-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-300"><Maximize2 size={16}/></button>
                   </div>
                </div>
             </div>
@@ -3576,7 +3584,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
           kot={kotData} 
           onClose={() => {
             setIsKotOpen(false);
-            router.push(`${p}/operations/tables`);
+            router.push(tablesPath);
           }} 
         />
       )}
@@ -3610,7 +3618,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                 
                 router.replace(`${p}${basePath}`);
               } else {
-                router.push(parkingSlotId ? `${p}/operations/parking` : `${p}/operations/tables`);
+                router.push(parkingSlotId ? `${p}/operations/parking` : tablesPath);
               }
             }
         }} 

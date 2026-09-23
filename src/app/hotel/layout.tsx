@@ -8,6 +8,7 @@ import { Building2, User, ChevronDown, PanelLeftOpen, PanelLeftClose, ArrowLeft 
 import { NotificationBell } from '@/components/hotel/NotificationBell';
 import { RoomStatusTicker } from '@/components/hotel/navigation/RoomStatusTicker';
 import { HotelBackButton } from '@/components/hotel/navigation/HotelBackButton';
+import { HotelHeader } from '@/components/hotel/HotelHeader';
 
 // Inner layout that can access sidebar context
 function HotelLayoutInner({ children }: { children: React.ReactNode }) {
@@ -100,6 +101,14 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   if (!session) return null;
 
   const isCalendar = pathname === '/hotel/calendar';
+  const isPosTerminal = 
+    pathname.startsWith('/hotel/pos/billing') ||
+    pathname.startsWith('/hotel/pos/bar-pos') ||
+    pathname.startsWith('/hotel/pos/cafe-pos') ||
+    pathname.startsWith('/hotel/pos/kitchen-display') ||
+    pathname.startsWith('/hotel/pos/bar-display') ||
+    pathname.startsWith('/hotel/pos/tables');
+  const isPosModule = pathname.startsWith('/hotel/pos');
 
   return (
     <div className="dark min-h-screen flex bg-[#090d16] text-slate-100 selection:bg-indigo-600 selection:text-white">
@@ -109,101 +118,29 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Portal Header */}
-        <header className="h-16 border-b border-slate-800 bg-[#0f172a]/60 backdrop-blur-md px-4 flex items-center justify-between shrink-0 relative z-30">
-          {/* Left: Sidebar Toggle + Property */}
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Sidebar Toggle Button */}
-            <button
-              onClick={toggle}
-              title={isOpen ? 'Collapse sidebar' : 'Open sidebar'}
-              className="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all"
-            >
-              {isOpen
-                ? <PanelLeftClose size={16} />
-                : <PanelLeftOpen size={16} />
-              }
-            </button>
-
-            {/* Header Back Button (when not on hotel root dashboard) */}
-            {pathname && pathname !== '/hotel' && pathname !== '/hotel/' && (
-              <button
-                onClick={() => {
-                  if (
-                    typeof window !== 'undefined' &&
-                    window.history.length > 1 &&
-                    document.referrer &&
-                    document.referrer.includes(window.location.host)
-                  ) {
-                    router.back();
-                  } else {
-                    const segs = pathname.split('/').filter(Boolean);
-                    if (segs.length > 2) {
-                      router.push('/' + segs.slice(0, -1).join('/'));
-                    } else {
-                      router.push('/hotel');
-                    }
-                  }
-                }}
-                title="Go Back"
-                className="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all group shrink-0"
-              >
-                <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform text-indigo-400" />
-              </button>
-            )}
-
-            <Building2 className="text-indigo-400" size={18} />
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-semibold text-slate-400">Current Property</span>
-              <span className="text-sm font-black text-slate-100 leading-none mt-0.5">
-                {selectedProperty?.name || 'Hotel Property'}
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Live Room Status Ticker */}
-          <RoomStatusTicker />
-
-          {/* Right Action Tray */}
-          <div className="flex items-center gap-4 shrink-0">
-            {/* Calendar indicator pill */}
-            {isCalendar && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-black uppercase tracking-widest text-indigo-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                Full View
-              </div>
-            )}
-
-            {/* Live Desk Pill */}
-            {!isCalendar && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-[10px] font-black uppercase tracking-widest text-indigo-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Live Desk
-              </div>
-            )}
-
-            {/* Notification Bell Dropdown */}
-            <NotificationBell />
-
-            {/* Profile Dropdown */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-slate-800/40 transition-colors cursor-pointer border border-transparent hover:border-slate-800">
-              <div className="w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
-                <User size={14} className="text-indigo-400" />
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-xs font-bold text-slate-200 leading-none">{session.fullName}</p>
-                <p className="text-[9px] font-medium text-slate-500 mt-0.5 uppercase tracking-wider">{session.role}</p>
-              </div>
-              <ChevronDown size={12} className="text-slate-500" />
-            </div>
-          </div>
-        </header>
+        <HotelHeader session={session} property={selectedProperty} />
 
         {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto no-scrollbar bg-[#090d16] p-6 md:p-8">
-          {pathname === '/hotel' || pathname === '/hotel/' ? (
+        <main
+          className={`flex-1 ${
+            isPosTerminal
+              ? 'p-0 overflow-hidden flex flex-col min-h-0 h-full w-full'
+              : 'overflow-y-auto no-scrollbar bg-[#090d16] p-4 md:p-6 lg:p-8'
+          }`}
+        >
+          {isPosTerminal ? (
+            <div className="flex-1 h-full w-full overflow-hidden flex flex-col min-h-0">
+              {children}
+            </div>
+          ) : pathname === '/hotel' || pathname === '/hotel/' ? (
             children
           ) : pathname === '/hotel/calendar' ? (
             <div className="space-y-4">
+              <HotelBackButton />
+              {children}
+            </div>
+          ) : isPosModule ? (
+            <div className="space-y-4 min-h-full">
               <HotelBackButton />
               {children}
             </div>

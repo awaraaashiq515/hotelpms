@@ -22,6 +22,7 @@ interface Printer {
   printerType: string;
   paperSize: string;
   isBilling: boolean;
+  isHotelBill?: boolean;
   isKitchen: boolean;
   isEnabled: boolean;
   autoCut: boolean;
@@ -957,6 +958,11 @@ export default function PrinterSettingsPage() {
                         <CheckCircle2 size={10} /> Billing
                       </span>
                     )}
+                    {printer.isHotelBill && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30 rounded-xl text-[10px] font-black uppercase">
+                        <CheckCircle2 size={10} /> Hotel Bill
+                      </span>
+                    )}
                     {printer.isKitchen && (
                       <span className="flex items-center gap-1 px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30 rounded-xl text-[10px] font-black uppercase">
                         <CheckCircle2 size={10} /> Kitchen / KOT
@@ -967,7 +973,7 @@ export default function PrinterSettingsPage() {
                         Auto-Cut
                       </span>
                     )}
-                    {!printer.isBilling && !printer.isKitchen && (
+                    {!printer.isBilling && !printer.isKitchen && !printer.isHotelBill && (
                       <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/10 text-amber-600 border border-amber-100 dark:border-amber-900/30 rounded-xl text-[10px] font-black uppercase">
                         <AlertTriangle size={10} /> No role assigned
                       </span>

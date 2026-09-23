@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { CheckCircle2, Printer, X, Download } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { CheckCircle2, Printer, X, Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ interface ReceiptModalProps {
   folio: FolioDetail;
   nights: number;
   invoiceNo?: string;
+  autoPrint?: boolean;
   onClose: () => void;
 }
 
@@ -407,13 +409,15 @@ const INVOICE_CSS = `
   }
 `;
 
-export default function ReceiptModal({ folio, nights, invoiceNo, onClose }: ReceiptModalProps) {
+export default function ReceiptModal({ folio, nights, invoiceNo, autoPrint = true, onClose }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const room = folio.reservation?.rooms?.[0]?.room;
   const property = folio.reservation?.property;
   const displayInvoiceNo = invoiceNo || `INV-431298-1`;
+  const [printing, setPrinting] = useState(false);
+  const autoPrintedRef = useRef(false);
 
-  const handlePrint = () => {
+  const triggerBrowserPrint = useCallback(() => {
     const printContent = printRef.current?.innerHTML;
     if (!printContent) return;
     const w = window.open('', '_blank');
@@ -450,7 +454,81 @@ export default function ReceiptModal({ folio, nights, invoiceNo, onClose }: Rece
     setTimeout(() => {
       w.print();
     }, 500);
-  };
+  }, [displayInvoiceNo]);
+
+  const handlePrint = useCallback(async () => {
+    setPrinting(true);
+    toast.loading('🖨️ Printing bill on connected printer...', { id: 'hotel-receipt-print' });
+    try {
+      const debitItems = folio.transactions
+        ?.filter((t) => t.debitAmount > 0)
+        ?.map((t) => ({
+          description: t.description || t.sourceModule || 'Charge',
+          quantity: 1,
+          amount: t.debitAmount,
+        })) || [];
+
+      const gstTxns = folio.transactions?.filter((t) => t.sourceModule === 'GST') || [];
+      const totalGst = gstTxns.reduce((sum, t) => sum + t.debitAmount, 0);
+
+      const hotelBillPayload = {
+        invoiceNo: displayInvoiceNo,
+        folioNo: folio.folioNo,
+        guestName: `${folio.guest.firstName} ${folio.guest.lastName || ''}`.trim(),
+        roomNumber: room?.roomNumber ? `Room ${room.roomNumber}` : '—',
+        checkIn: folio.reservation?.arrivalDate ? new Date(folio.reservation.arrivalDate).toLocaleDateString('en-GB') : '',
+        checkOut: folio.reservation?.departureDate ? new Date(folio.reservation.departureDate).toLocaleDateString('en-GB') : '',
+        subtotal: folio.totalCharges - totalGst,
+        taxAmount: totalGst,
+        grandTotal: folio.totalCharges,
+        totalPayments: folio.totalPayments,
+        closingBalance: folio.closingBalance,
+        items: debitItems.length > 0 ? debitItems : [
+          { description: 'Room Stay & Charges', quantity: 1, amount: folio.totalCharges }
+        ],
+      };
+
+      const res = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hotelBill: hotelBillPayload,
+          property: {
+            id: property?.id,
+            name: property?.name || property?.brandName || 'HOTEL',
+            address: property?.address,
+            phone: property?.phone,
+            taxDetails: property?.taxDetails || (folio.reservation?.property as any)?.taxDetails,
+          },
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success('✅ Bill printed on connected printer!', { id: 'hotel-receipt-print' });
+        return;
+      }
+
+      toast.info('Direct printer not responding, opening print window...', { id: 'hotel-receipt-print' });
+      triggerBrowserPrint();
+    } catch (err: any) {
+      console.warn('Direct print error:', err);
+      toast.info('Opening browser print...', { id: 'hotel-receipt-print' });
+      triggerBrowserPrint();
+    } finally {
+      setPrinting(false);
+    }
+  }, [folio, displayInvoiceNo, room, property, triggerBrowserPrint]);
+
+  useEffect(() => {
+    if (autoPrint && !autoPrintedRef.current) {
+      autoPrintedRef.current = true;
+      const t = setTimeout(() => {
+        handlePrint();
+      }, 700);
+      return () => clearTimeout(t);
+    }
+  }, [autoPrint, handlePrint]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -469,22 +547,24 @@ export default function ReceiptModal({ folio, nights, invoiceNo, onClose }: Rece
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/30 active:scale-[0.98] transition-all"
-              title="Download Bill as PDF file"
+              onClick={triggerBrowserPrint}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700/60 transition-all"
+              title="Open Browser / A4 Print Dialog"
             >
-              <Download size={13} /> Download PDF
+              <Printer size={13} /> Browser Print
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-900/30 active:scale-[0.98] transition-all"
-              title="Print Bill"
+              disabled={printing}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-indigo-900/30 active:scale-[0.98] transition-all"
+              title="Print directly to connected Hotel Bill printer"
             >
-              <Printer size={13} /> Print
+              {printing ? <Loader2 size={13} className="animate-spin" /> : <Printer size={13} />}
+              {printing ? 'Printing…' : 'Print to Printer'}
             </button>
             <button
               onClick={onClose}
-              className="w-8.5 h-8.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white transition-all"
+              className="w-8.5 h-8.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white transition-all ml-1"
             >
               <X size={14} />
             </button>
