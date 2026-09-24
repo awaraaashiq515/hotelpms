@@ -5,29 +5,29 @@ import type { ReportDefinition } from '@/types/hotel/report.types';
 
 export const REPORT_CATALOG: ReportDefinition[] = [
   // Financial
-  { id: 'r1',  category: 'Financial',  name: 'Daily Revenue Report',        desc: 'Room stay, F&B, spa, and ancillary collections breakdown', icon: '💰', estTime: '< 1s', tags: ['Revenue', 'Daily', 'Audit'] },
-  { id: 'r2',  category: 'Financial',  name: 'Monthly P&L Statement',       desc: 'Comprehensive departmental revenue vs operational expenses', icon: '📊', estTime: '< 2s', tags: ['P&L', 'Finance', 'GOP'] },
-  { id: 'r3',  category: 'Financial',  name: 'GST Tax Filing Report',       desc: 'CGST, SGST, IGST tax breakdown with invoice numbers & B2B GSTINs', icon: '🧾', estTime: '< 1s', tags: ['GST', 'Tax', 'Invoices'] },
-  { id: 'r4',  category: 'Financial',  name: 'Accounts Receivable',         desc: 'Outstanding guest dues, unsettled folios & billing ledger', icon: '💳', estTime: '< 1s', tags: ['Dues', 'Credit', 'Folio'] },
-  { id: 'r5',  category: 'Financial',  name: 'Night Audit Summary',         desc: 'End-of-day trial balance, check-ins, check-outs & cashier handover', icon: '🌙', estTime: '< 1s', tags: ['Closing', 'Night Audit'] },
+  { id: 'r1',  category: 'Financial',  name: 'Daily Income Report',            desc: 'How much money came in today — from rooms, restaurant, spa — all in one place', icon: '💰', estTime: '< 1s', tags: ['Income', 'Daily', 'Money'] },
+  { id: 'r2',  category: 'Financial',  name: 'Monthly Income & Expense Report', desc: 'Total income and total spending for the whole month — full summary', icon: '📊', estTime: '< 2s', tags: ['Monthly', 'Income', 'Expense'] },
+  { id: 'r3',  category: 'Financial',  name: 'GST Tax Report',                  desc: 'GST details for every invoice — CGST, SGST breakdown — for tax filing', icon: '🧾', estTime: '< 1s', tags: ['GST', 'Tax', 'Invoice'] },
+  { id: 'r4',  category: 'Financial',  name: 'Pending Payments Report',         desc: 'Which guests have not paid yet — full list of pending due amounts', icon: '💳', estTime: '< 1s', tags: ['Pending', 'Due', 'Unpaid'] },
+  { id: 'r5',  category: 'Financial',  name: 'End of Day Closing Report',       desc: 'Daily closing summary — total check-ins, check-outs, and cash collected', icon: '🌙', estTime: '< 1s', tags: ['Closing', 'Daily', 'Cash'] },
   // Occupancy
-  { id: 'r6',  category: 'Occupancy', name: 'Occupancy & Inventory Report', desc: 'Daily/monthly room occupancy %, vacant keys, and sold room nights', icon: '🏨', estTime: '< 1s', tags: ['Occupancy', 'Keys', 'Yield'] },
-  { id: 'r7',  category: 'Occupancy', name: 'ADR & RevPAR Yield Trend',     desc: 'Average Daily Rate and RevPAR growth performance over time', icon: '📈', estTime: '< 1s', tags: ['ADR', 'RevPAR', 'Yield'] },
-  { id: 'r8',  category: 'Occupancy', name: 'Length of Stay Analysis',      desc: 'ALOS metrics across corporate, leisure, and group segments', icon: '🛏️', estTime: '< 1s', tags: ['ALOS', 'Stay', 'Guests'] },
+  { id: 'r6',  category: 'Occupancy', name: 'Room Occupancy Report',            desc: 'How many rooms are filled and how many are empty — daily and monthly', icon: '🏨', estTime: '< 1s', tags: ['Rooms', 'Empty', 'Filled'] },
+  { id: 'r7',  category: 'Occupancy', name: 'Room Rate Report',                 desc: 'Average price per room per night — and whether rates are going up or down', icon: '📈', estTime: '< 1s', tags: ['Rate', 'Room Price', 'Trend'] },
+  { id: 'r8',  category: 'Occupancy', name: 'Guest Stay Length Report',         desc: 'How many nights guests stay on average — families, business guests, solo', icon: '🛏️', estTime: '< 1s', tags: ['Nights', 'Stay', 'Guests'] },
   // Bookings
-  { id: 'r9',  category: 'Bookings',  name: 'Booking Source & OTA Split',   desc: 'OTA channel vs Direct web vs Walk-in volume & commissions paid', icon: '🌐', estTime: '< 1s', tags: ['OTAs', 'Channels', 'Commission'] },
-  { id: 'r10', category: 'Bookings',  name: 'Cancellation Audit Report',   desc: 'Cancelled reservations, lost potential revenue & root causes', icon: '❌', estTime: '< 1s', tags: ['Cancellations', 'Lost Rev'] },
-  { id: 'r11', category: 'Bookings',  name: 'No-Show & Retention Audit',    desc: 'Recorded guest no-shows, retention charges & forfeited advances', icon: '⚠️', estTime: '< 1s', tags: ['No-Show', 'Retention'] },
+  { id: 'r9',  category: 'Bookings',  name: 'Booking Source Report',            desc: 'Where bookings came from — Booking.com, MakeMyTrip, direct call, walk-in', icon: '🌐', estTime: '< 1s', tags: ['Booking', 'Source', 'OTA'] },
+  { id: 'r10', category: 'Bookings',  name: 'Cancelled Bookings Report',        desc: 'Which bookings were cancelled, when, why — and how much money was lost', icon: '❌', estTime: '< 1s', tags: ['Cancelled', 'Lost', 'Refund'] },
+  { id: 'r11', category: 'Bookings',  name: 'Guest Did Not Arrive Report',      desc: 'Guests who booked but never showed up — their advance and charges', icon: '⚠️', estTime: '< 1s', tags: ['No Show', 'Advance', 'Missed'] },
   // Operations
-  { id: 'r12', category: 'Operations',name: 'Housekeeping Productivity',    desc: 'Room cleaning velocity, average turnaround minutes & inspector pass rate', icon: '🧹', estTime: '< 1s', tags: ['Housekeeping', 'Cleanliness'] },
-  { id: 'r13', category: 'Operations',name: 'Maintenance & Repair Costs',  desc: 'Equipment tickets, downtime logs, and maintenance expenditures', icon: '🔧', estTime: '< 1s', tags: ['Repairs', 'Maintenance'] },
+  { id: 'r12', category: 'Operations',name: 'Room Cleaning Staff Report',       desc: 'Which staff cleaned how many rooms, how fast, and quality check results', icon: '🧹', estTime: '< 1s', tags: ['Cleaning', 'Staff', 'Rooms'] },
+  { id: 'r13', category: 'Operations',name: 'Repair & Maintenance Report',      desc: 'Which rooms had problems, when they were fixed, and how much it cost', icon: '🔧', estTime: '< 1s', tags: ['Repair', 'Problem', 'Cost'] },
   // HR
-  { id: 'r14', category: 'HR',        name: 'Staff Attendance Register',    desc: 'Monthly employee attendance, shift hours, and leave records', icon: '📋', estTime: '< 1s', tags: ['Attendance', 'Shifts', 'HR'] },
-  { id: 'r15', category: 'HR',        name: 'Payroll Disbursement Report',  desc: 'Departmental staff salary sheets, allowances & deductions', icon: '💵', estTime: '< 1s', tags: ['Payroll', 'Salaries'] },
+  { id: 'r14', category: 'HR',        name: 'Staff Attendance Report',          desc: 'How many days each staff member came to work and how many days off they took', icon: '📋', estTime: '< 1s', tags: ['Attendance', 'Leave', 'Staff'] },
+  { id: 'r15', category: 'HR',        name: 'Staff Salary Report',              desc: 'How much salary each staff got, allowances and deductions — department wise', icon: '💵', estTime: '< 1s', tags: ['Salary', 'Payroll', 'Staff'] },
   // AI
-  { id: 'r16', category: 'AI',        name: 'AI 30-Day Demand Forecast',    desc: 'Predictive occupancy curves, demand factors & optimal dynamic ADR', icon: '⚡', estTime: '< 2s', isAI: true, tags: ['AI Forecast', 'Machine Learning'] },
-  { id: 'r17', category: 'AI',        name: 'Competitor Rate CompSet',      desc: 'AI-monitored competitor benchmark pricing & market rate positioning', icon: '🎯', estTime: '< 2s', isAI: true, tags: ['CompSet', 'Competitors'] },
-  { id: 'r18', category: 'AI',        name: 'Guest Sentiment & Reviews',    desc: 'NLP sentiment scoring across cleanliness, food, Wi-Fi & hospitality', icon: '✨', estTime: '< 2s', isAI: true, tags: ['Sentiment', 'Reviews'] },
+  { id: 'r16', category: 'AI',        name: '🤖 Next 30 Days Forecast (AI)',    desc: 'AI predicts how many rooms will be booked in the next 30 days and best price to set', icon: '⚡', estTime: '< 2s', isAI: true, tags: ['AI', 'Future', 'Forecast'] },
+  { id: 'r17', category: 'AI',        name: '🤖 Competitor Hotel Rates (AI)',   desc: 'What rates are nearby hotels charging — AI comparison to help you stay competitive', icon: '🎯', estTime: '< 2s', isAI: true, tags: ['AI', 'Competitor', 'Rates'] },
+  { id: 'r18', category: 'AI',        name: '🤖 Guest Reviews Analysis (AI)',   desc: 'What guests said in reviews about cleanliness, food, staff — AI summary', icon: '✨', estTime: '< 2s', isAI: true, tags: ['AI', 'Reviews', 'Feedback'] },
 ];
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -103,20 +103,20 @@ export function ReportCard({
           onClick={() => onPreview(report.id)}
           disabled={generating}
           className="h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-colors disabled:opacity-40"
-          title="Preview table"
+          title="Table mein dekho"
         >
           <Eye size={11} />
-          <span>View</span>
+          <span>Dekho</span>
         </button>
 
         <button
           onClick={() => onDirectDownloadPDF(report.id)}
           disabled={generating}
           className="h-8 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all shadow-sm disabled:opacity-40"
-          title="Download PDF"
+          title="PDF Download karo"
         >
           <FileDown size={11} />
-          <span>PDF</span>
+          <span>PDF ↓</span>
         </button>
 
         <button
@@ -127,14 +127,14 @@ export function ReportCard({
               ? 'bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/30'
               : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
           }`}
-          title="Download CSV spreadsheet"
+          title="Excel mein download karo"
         >
           {generating ? (
             <RefreshCw size={10} className="animate-spin" />
           ) : (
             <>
               <Download size={11} />
-              <span>CSV</span>
+              <span>Excel ↓</span>
             </>
           )}
         </button>

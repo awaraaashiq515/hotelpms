@@ -144,14 +144,14 @@ export default function ReportsPage() {
             <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
             <BarChart3 size={14} className="text-cyan-400" />
             <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">
-              Report Center · Audit & Export Engine
+              Hotel Reports — All Reports in One Place
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Hotel Reports Hub
+            📋 Hotel Reports
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            {totalCount} downloadable audit reports · {aiCount} AI predictive models · Instant CSV, JSON & Print Export
+            {totalCount} reports ready · Click VIEW to see details, PDF or Excel to download
           </p>
         </div>
 
@@ -160,11 +160,11 @@ export default function ReportsPage() {
           {/* Time Range Pills */}
           <div className="flex items-center bg-slate-900/80 p-1 rounded-2xl border border-white/10 shadow-inner">
             {[
-              { id: 'today' as const, label: 'Today' },
-              { id: '7d' as const, label: '7D' },
-              { id: '30d' as const, label: '30D' },
-              { id: 'month' as const, label: 'Month' },
-              { id: 'year' as const, label: 'Year' },
+              { id: 'today' as const, label: '📅 Today' },
+              { id: '7d' as const, label: 'Last 7 Days' },
+              { id: '30d' as const, label: 'Last 30 Days' },
+              { id: 'month' as const, label: 'This Month' },
+              { id: 'year' as const, label: 'This Year' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -194,7 +194,7 @@ export default function ReportsPage() {
 
           <div className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-violet-500/20 bg-violet-950/20">
             <Sparkles size={13} className="text-violet-400 animate-spin" style={{ animationDuration: '6s' }} />
-            <span className="text-[10px] font-black text-violet-300">{aiCount} AI Models Ready</span>
+            <span className="text-[10px] font-black text-violet-300">{aiCount} AI Reports 🤖</span>
           </div>
         </div>
       </div>
@@ -279,7 +279,7 @@ export default function ReportsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search reports by keyword (e.g. GST, ADR, P&L, Night Audit, Housekeeping)…"
+            placeholder="🔍 Search reports — e.g. GST, Salary, Room, Booking, Cancelled, Attendance…"
             className="w-full h-10 pl-10 pr-4 bg-slate-900/80 border border-white/10 rounded-2xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
           />
         </div>
