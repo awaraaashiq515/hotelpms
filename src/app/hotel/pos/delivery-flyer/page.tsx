@@ -304,7 +304,7 @@ export default function DeliveryFlyerPage() {
           title="Home Delivery QR"
           subtitle="Generate and print your storefront home ordering flyer"
           showBack
-          backUrl="/hotel/pos"
+          backUrl="/hotel"
           actions={
             <div className="flex items-center gap-3">
               <Button

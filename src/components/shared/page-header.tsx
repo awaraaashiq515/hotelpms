@@ -35,7 +35,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => backUrl ? router.push(backUrl) : router.back()}  // ✅ Better back behavior
+            onClick={() => {
+              if (backUrl) {
+                if (backUrl === '/hotel/pos' || backUrl === '/hotel/pos/') {
+                  router.push('/hotel');
+                } else {
+                  router.push(backUrl);
+                }
+              } else if (typeof window !== 'undefined' && window.location.pathname.startsWith('/hotel')) {
+                router.push('/hotel');
+              } else {
+                router.back();
+              }
+            }}
             className="h-9 px-2.5 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 dark:text-white flex items-center gap-1.5"
           >
             <ChevronLeft size={14} />

@@ -154,7 +154,7 @@ export default function LiveOverviewPage() {
       const role = d.user?.role;
       const allowedRoles = ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'];
       if (!allowedRoles.includes(role)) {
-        router.push('/hotel/pos'); return;
+        router.push('/hotel'); return;
       }
       setAuthChecked(true);
     }).catch(() => router.push('/login'));

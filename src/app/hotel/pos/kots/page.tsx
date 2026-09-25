@@ -183,7 +183,7 @@ export default function KotsPage() {
         title="KOTs Control"
         subtitle="Kitchen Order Tickets History"
         showBack
-        backUrl="/hotel/pos"
+        backUrl="/hotel"
         actions={
           <div className="flex items-center gap-2 w-full md:w-auto">
             <div className="relative w-full md:w-64">

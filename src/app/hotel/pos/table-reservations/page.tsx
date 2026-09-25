@@ -219,7 +219,7 @@ export default function TableReservationsPage() {
         title="Table Bookings" 
         subtitle="Manage upcoming table reservations"
         showBack
-        backUrl="/hotel/pos"
+        backUrl="/hotel"
         actions={
           <Button 
             onClick={() => {

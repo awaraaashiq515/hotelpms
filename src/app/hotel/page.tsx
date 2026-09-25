@@ -12,6 +12,7 @@ import {
   UserCheck, Radio, Navigation, UtensilsCrossed, Monitor, Bell,
   Trash2, Download, Eye, Printer, ShoppingCart, Tag, Bike, FileText,
   Phone, Music2, Lock, ArrowUpRight, Plus,
+  Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 
@@ -35,176 +36,863 @@ function ModuleCard({ name, href, icon: Icon, iconColor, iconBg, cardBorder }: {
   );
 }
 
-/* ─── POS Quick Action Topbar inside Restaurant & POS panel ─── */
-function RestaurantPosHeaderBar({ restaurantCode }: { restaurantCode: string | null }) {
+/* ─── Distinct Premium Restaurant & POS Workspace Component (All POS Pages Integrated) ─── */
+function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | null }) {
   const router = useRouter();
   const [showLiveOrder, setShowLiveOrder] = useState(false);
   const [showDisplays, setShowDisplays] = useState(false);
-  const p = '/hotel/pos';
+  const [activeCategory, setActiveCategory] = useState<string>('ALL');
+  const [posSearch, setPosSearch] = useState<string>('');
+
+  const CATEGORIES = [
+    { id: 'ALL', label: 'All POS Pages', count: 31 },
+    { id: 'STATIONS', label: '⚡ Workstations', count: 6 },
+    { id: 'ORDERS', label: '🛎️ Orders & KOTs', count: 6 },
+    { id: 'DISPLAYS', label: '📺 Live Displays', count: 5 },
+    { id: 'DELIVERY', label: '🛵 Delivery Fleet', count: 5 },
+    { id: 'MENU', label: '📋 Menu & Floor', count: 6 },
+    { id: 'BILLING', label: '💳 Billing & Staff', count: 4 },
+  ];
+
+  // Helper filter
+  const matchesSearch = (text: string) => {
+    if (!posSearch.trim()) return true;
+    return text.toLowerCase().includes(posSearch.toLowerCase());
+  };
 
   return (
-    <div className="w-full flex flex-wrap items-center justify-between gap-2.5 p-2.5 px-3 rounded-2xl bg-[#0b1120]/95 border border-orange-500/25 shadow-xl mb-4 backdrop-blur-sm">
-      {/* Left: Quick Action Buttons & Search */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-        {/* Dine In */}
-        <Link
-          href="/hotel/pos/tables"
-          className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/25 active:scale-95 transition-all shrink-0"
-          title="Dine In (Table Layout)"
-        >
-          <Monitor size={15} />
-          <span>Dine In</span>
-        </Link>
-
-        {/* Take Away */}
-        <Link
-          href="/hotel/pos/billing"
-          className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/25 active:scale-95 transition-all shrink-0"
-          title="Take Away POS Billing"
-        >
-          <Plus size={15} />
-          <span>Take Away</span>
-        </Link>
-
-        {/* Live Order with Dropdown */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowLiveOrder(!showLiveOrder)}
-            className="h-9 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-violet-600/25 active:scale-95 transition-all"
-            title="Live Orders (Delivery / Pick Up / Room Service)"
+    <div className="space-y-4 pt-1">
+      {/* ── TOP CONTROL & QUICK CHANNELS DECK ── */}
+      <div className="relative z-30 w-full flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-[#080d19]/95 border border-orange-500/35 shadow-2xl backdrop-blur-md">
+        {/* Quick Action buttons */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          {/* Dine In Direct */}
+          <Link
+            href="/hotel/pos/tables"
+            className="h-9 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-md shadow-orange-500/25 active:scale-95 transition-all shrink-0"
+            title="Dine In (Table Layout & Seating)"
           >
-            <Plus size={15} />
-            <span>Live Order</span>
-          </button>
-          {showLiveOrder && (
-            <div className="absolute left-0 top-full mt-2 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-              <Link
-                href="/hotel/pos/billing?type=DELIVERY"
-                onClick={() => setShowLiveOrder(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 transition-colors"
+            <LayoutGrid size={14} />
+            <span>Dine In</span>
+          </Link>
+
+          {/* Take Away Direct */}
+          <Link
+            href="/hotel/pos/billing"
+            className="h-9 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-sm active:scale-95 transition-all shrink-0"
+            title="Take Away Express Counter POS"
+          >
+            <Plus size={14} />
+            <span>Take Away</span>
+          </Link>
+
+          {/* Live Order Dropdown (Delivery / Pickup / Room Service) */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setShowLiveOrder(!showLiveOrder);
+                setShowDisplays(false);
+              }}
+              className="h-9 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-md shadow-violet-600/25 active:scale-95 transition-all"
+              title="Live Order Channels (Delivery, Pickup, Room Service)"
+            >
+              <Bike size={14} />
+              <span>Live Channels</span>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${showLiveOrder ? 'rotate-180' : ''}`} />
+            </button>
+            {showLiveOrder && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowLiveOrder(false)}
+                />
+                <div className="absolute left-0 top-full mt-2 w-60 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
+                    Select Channel
+                  </div>
+                  <Link
+                    href="/hotel/pos/billing?type=DELIVERY"
+                    onClick={() => setShowLiveOrder(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 transition-colors"
+                  >
+                    <span className="text-base">🏍️</span> Delivery Order
+                  </Link>
+                  <Link
+                    href="/hotel/pos/billing?type=PICKUP"
+                    onClick={() => setShowLiveOrder(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors border-t border-slate-800/80"
+                  >
+                    <span className="text-base">🛍️</span> Counter Pick Up
+                  </Link>
+                  <Link
+                    href="/hotel/pos/billing?type=ROOM_SERVICE"
+                    onClick={() => setShowLiveOrder(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-indigo-400 transition-colors border-t border-slate-800/80"
+                  >
+                    <span className="text-base">🏨</span> Room Service
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Search Operations input */}
+          <div className="relative hidden md:flex items-center shrink-0">
+            <Search size={14} className="absolute left-3 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={posSearch}
+              onChange={(e) => setPosSearch(e.target.value)}
+              placeholder="Search POS pages, KOT, bill..."
+              className="h-9 w-52 pl-8 pr-8 text-xs font-medium text-slate-200 bg-slate-900/90 border border-slate-800 rounded-xl focus:border-orange-500/60 focus:outline-none placeholder:text-slate-500"
+            />
+            {posSearch && (
+              <button
+                onClick={() => setPosSearch('')}
+                className="absolute right-2 text-slate-400 hover:text-white"
               >
-                <span className="text-base">🏍️</span> Delivery
-              </Link>
-              <Link
-                href="/hotel/pos/billing?type=PICKUP"
-                onClick={() => setShowLiveOrder(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors border-t border-slate-800/80"
-              >
-                <span className="text-base">🛍️</span> Pick Up
-              </Link>
-              <Link
-                href="/hotel/pos/billing?type=ROOM_SERVICE"
-                onClick={() => setShowLiveOrder(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-indigo-400 transition-colors border-t border-slate-800/80"
-              >
-                <span className="text-base">🏨</span> Room Service
-              </Link>
-            </div>
-          )}
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Search Bills input */}
-        <div className="relative hidden md:flex items-center shrink-0">
-          <Search size={14} className="absolute left-3 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search Bills..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                const q = (e.target as HTMLInputElement).value;
-                router.push(`/hotel/invoices${q ? `?q=${encodeURIComponent(q)}` : ''}`);
-              }
-            }}
-            className="h-9 w-44 pl-8 pr-12 text-xs font-medium text-slate-200 bg-slate-900/90 border border-slate-800 rounded-xl focus:border-indigo-500/60 focus:outline-none placeholder:text-slate-500"
-          />
-          <kbd className="absolute right-2 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 bg-slate-800 rounded border border-slate-700">
-            ⌘K
-          </kbd>
+        {/* Right Action Icons: Displays, Alerts, Support, Full POS */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Displays Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowDisplays(!showDisplays);
+                setShowLiveOrder(false);
+              }}
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl transition-all border ${showDisplays ? 'bg-slate-800 text-white border-slate-600' : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'}`}
+              title="Kitchen, Bar, & Customer Displays"
+            >
+              <Monitor size={14} className="text-sky-400" />
+              <span className="text-[11px] font-bold">Displays</span>
+              <ChevronDown size={11} className={`transition-transform duration-200 ${showDisplays ? 'rotate-180' : ''}`} />
+            </button>
+            {showDisplays && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowDisplays(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-60 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
+                    Live Kitchen & Displays
+                  </div>
+                  <Link
+                    href="/hotel/pos/kitchen-display"
+                    onClick={() => setShowDisplays(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                  >
+                    <span className="text-base">🍳</span> Kitchen Display (KDS)
+                  </Link>
+                  <Link
+                    href="/hotel/pos/bar-display"
+                    onClick={() => setShowDisplays(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-sky-400 border-t border-slate-800/80 transition-colors"
+                  >
+                    <span className="text-base">🍸</span> Bar Display (BDS)
+                  </Link>
+                  <Link
+                    href="/order-display"
+                    onClick={() => setShowDisplays(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-amber-400 border-t border-slate-800/80 transition-colors"
+                  >
+                    <span className="text-base">📺</span> Customer Display (CDS)
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* POS Alerts */}
+          <Link
+            href="/hotel/pos/notifications"
+            className="flex items-center justify-center h-9 w-9 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all"
+            title="Live POS Alerts & Orders"
+          >
+            <Bell size={15} className="text-amber-400" />
+          </Link>
+
+          {/* Support Phone */}
+          <a
+            href="tel:+918679800074"
+            className="hidden xl:flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold shrink-0"
+          >
+            <Phone size={12} className="text-emerald-400" />
+            <div className="flex flex-col text-left">
+              <span className="text-[7px] uppercase font-black tracking-widest text-slate-500 leading-none">Support</span>
+              <span className="text-[10px] font-black text-indigo-300 leading-none mt-0.5">+91 86798 00074</span>
+            </div>
+          </a>
+
+          {/* Full POS Portal CTA */}
+          <Link
+            href="/hotel/pos"
+            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-500/50 text-orange-200 hover:text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm shrink-0 active:scale-95"
+            title="Open Dedicated Restaurant POS Portal"
+          >
+            <span>Full POS Hub</span>
+            <ArrowUpRight size={13} />
+          </Link>
         </div>
       </div>
 
-      {/* Right: Displays, Lock, Alerts, Support, Full POS */}
-      <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-        {/* Displays Dropdown */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowDisplays(!showDisplays)}
-            className="flex flex-col items-center justify-center h-9 px-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-            title="Kitchen, Bar, & Customer Displays"
-          >
-            <Monitor size={15} />
-            <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">Displays</span>
-          </button>
-          {showDisplays && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+      {/* ── CATEGORY QUICK FILTER PILLS ── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        {CATEGORIES.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`h-7 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                isActive
+                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30 ring-1 ring-orange-400'
+                  : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <span>{cat.label}</span>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${isActive ? 'bg-black/30 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                {cat.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── CORE WORKSTATIONS (TOP 6 HERO WORKSTATIONS) ── */}
+      {(activeCategory === 'ALL' || activeCategory === 'STATIONS') && (
+        <div>
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.6)]" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-orange-400">
+                Primary POS Counters & Workstations
+              </span>
+            </div>
+            <span className="text-[10px] font-medium text-slate-500">6 Fast Terminals</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            {/* 1: Billing Terminal */}
+            {matchesSearch('POS Billing Terminal counter fast bill') && (
+              <Link
+                href="/hotel/pos/billing"
+                className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-orange-500/30 hover:border-orange-500/70 hover:shadow-xl hover:shadow-orange-500/10 transition-all duration-200 active:scale-[0.98]"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Monitor className="w-4 h-4 text-orange-400" />
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                    Fast Bill
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-white group-hover:text-orange-300 transition-colors truncate">
+                    Billing Terminal
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">Quick split pay & GST</p>
+                </div>
+              </Link>
+            )}
+
+            {/* 2: Table & Floor Layout */}
+            {matchesSearch('Table Floor Layout Dine-in seating') && (
+              <Link
+                href="/hotel/pos/tables"
+                className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-amber-500/30 hover:border-amber-500/70 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-200 active:scale-[0.98]"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <LayoutGrid className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Floor Map
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">
+                    Table & Floors
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">Tables, seating & occupancy</p>
+                </div>
+              </Link>
+            )}
+
+            {/* 3: Kitchen Display KDS */}
+            {matchesSearch('Kitchen Display KDS orders chef prep') && (
               <Link
                 href="/hotel/pos/kitchen-display"
-                onClick={() => setShowDisplays(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
+                className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-rose-500/30 hover:border-rose-500/70 hover:shadow-xl hover:shadow-rose-500/10 transition-all duration-200 active:scale-[0.98]"
               >
-                🍳 Kitchen Display (KDS)
+                <div className="flex items-start justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ChefHat className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    Live KDS
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-white group-hover:text-rose-300 transition-colors truncate">
+                    Kitchen KDS
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">Tickets & chef prep timer</p>
+                </div>
               </Link>
+            )}
+
+            {/* 4: Room Service Orders */}
+            {matchesSearch('Room Service Orders dining guest hotel') && (
               <Link
-                href="/hotel/pos/bar-display"
-                onClick={() => setShowDisplays(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white border-t border-slate-800"
+                href="/hotel/pos/room-service"
+                className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-indigo-500/30 hover:border-indigo-500/70 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-200 active:scale-[0.98]"
               >
-                🍸 Bar Display (BDS)
+                <div className="flex items-start justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Bed className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    In-Room
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors truncate">
+                    Room Orders
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">Guest rooms folio bill</p>
+                </div>
               </Link>
+            )}
+
+            {/* 5: Live POS Overview */}
+            {matchesSearch('Live Overview POS status radar tables') && (
               <Link
-                href="/order-display"
-                onClick={() => setShowDisplays(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white border-t border-slate-800"
+                href="/hotel/pos/live-overview"
+                className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-cyan-500/30 hover:border-cyan-500/70 hover:shadow-xl hover:shadow-cyan-500/10 transition-all duration-200 active:scale-[0.98]"
               >
-                📺 Customer Display (CDS)
+                <div className="flex items-start justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <LayoutGrid className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    Live Ops
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
+                    Live Overview
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">Real-time orders radar</p>
+                </div>
+              </Link>
+            )}
+
+            {/* 6: Day Closing */}
+            {matchesSearch('Day Closing register cash settlement shift') && (
+              <Link
+                href="/hotel/pos/day-closing"
+                className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-emerald-500/30 hover:border-emerald-500/70 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-200 active:scale-[0.98]"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <History className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Closing
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
+                    Day Closing
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">Cash register & daily tally</p>
+                </div>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ALL REMAINING POS PAGES ORGANIZED BY DOMAINS ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+        {/* Domain 1: Orders, KOTs & POS Terminals */}
+        {(activeCategory === 'ALL' || activeCategory === 'ORDERS') && (
+          <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-orange-400">
+                  Orders, KOTs & Specialized POS
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-500 font-bold">6 Operations</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/hotel/pos/orders"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 group-hover:scale-110 transition-transform">
+                  <ShoppingCart size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Orders Control
+                  </span>
+                  <span className="text-[9px] text-slate-500">Live order queue</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/kots"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+                  <ClipboardList size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    KOTs List
+                  </span>
+                  <span className="text-[9px] text-slate-500">Kitchen tickets</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/table-reservations"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <CalendarDays size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Table Bookings
+                  </span>
+                  <span className="text-[9px] text-slate-500">Reservations</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/counter-payments"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <Store size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Counter Payments
+                  </span>
+                  <span className="text-[9px] text-slate-500">Quick cashier</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/bar-pos"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+                  <Wine size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Bar POS Terminal
+                  </span>
+                  <span className="text-[9px] text-slate-500">Cocktails & beers</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/cafe-pos"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <Coffee size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Cafe POS Terminal
+                  </span>
+                  <span className="text-[9px] text-slate-500">Bites & coffee</span>
+                </div>
               </Link>
             </div>
-          )}
-        </div>
-
-        {/* Lock */}
-        <Link
-          href="/hotel/pos"
-          className="flex flex-col items-center justify-center h-9 px-2.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-          title="POS Operations Hub"
-        >
-          <Lock size={15} />
-          <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">POS Hub</span>
-        </Link>
-
-        {/* Alerts */}
-        <Link
-          href="/hotel/notifications"
-          className="flex flex-col items-center justify-center h-9 px-2.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-          title="Live Alerts & Notifications"
-        >
-          <Bell size={15} />
-          <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">Alerts</span>
-        </Link>
-
-        {/* Support Phone */}
-        <a
-          href="tel:+918679800074"
-          className="hidden xl:flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold shrink-0"
-        >
-          <Phone size={13} className="text-emerald-400" />
-          <div className="flex flex-col text-left">
-            <span className="text-[7px] uppercase font-black tracking-widest text-slate-500 leading-none">Support</span>
-            <span className="text-[10px] font-black text-indigo-300 leading-none mt-0.5">+91 86798 00074</span>
           </div>
-        </a>
+        )}
 
-        {/* Full POS Portal button */}
-        <Link
-          href="/hotel/pos"
-          className="h-9 px-3.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm shrink-0 active:scale-95"
-          title="Open Integrated Hotel POS Hub"
-        >
-          <span>Full POS</span>
-          <ArrowUpRight size={14} />
-        </Link>
+        {/* Domain 2: Live Displays & Monitoring */}
+        {(activeCategory === 'ALL' || activeCategory === 'DISPLAYS') && (
+          <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-sky-400">
+                  Live Displays & Monitoring
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-500 font-bold">5 Screens</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/hotel/pos/kitchen-display"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+                  <ChefHat size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Kitchen Display
+                  </span>
+                  <span className="text-[9px] text-slate-500">KDS Screen</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/bar-display"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
+                  <Wine size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Bar Display
+                  </span>
+                  <span className="text-[9px] text-slate-500">BDS Screen</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/order-display"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
+                  <Monitor size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Customer Display
+                  </span>
+                  <span className="text-[9px] text-slate-500">CDS Screen</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/occupancy"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
+                  <Eye size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Live Occupancy
+                  </span>
+                  <span className="text-[9px] text-slate-500">Table Radar</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/notifications"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition-all group col-span-2"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <Bell size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Live Alerts & Notifications
+                  </span>
+                  <span className="text-[9px] text-slate-500">Real-time audio chimes & order updates</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Domain 3: Delivery Fleet & Channels */}
+        {(activeCategory === 'ALL' || activeCategory === 'DELIVERY') && (
+          <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                  Delivery Fleet & Online Channels
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-500 font-bold">5 Modules</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/hotel/pos/delivery"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <Bike size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Delivery Orders
+                  </span>
+                  <span className="text-[9px] text-slate-500">Dispatch Hub</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/delivery/riders"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <Users size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Delivery Riders
+                  </span>
+                  <span className="text-[9px] text-slate-500">Live GPS</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/delivery/zones"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <MapPin size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Delivery Zones
+                  </span>
+                  <span className="text-[9px] text-slate-500">Rates & Radius</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/delivery/analytics"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <BarChart3 size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Sales Analytics
+                  </span>
+                  <span className="text-[9px] text-slate-500">Trends & GMV</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/delivery-flyer"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group col-span-2"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <FileText size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Delivery Flyer & Menu Promo
+                  </span>
+                  <span className="text-[9px] text-slate-500">Social promo & printable menu</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Domain 4: Menu, QR Standees & Floor Operations */}
+        {(activeCategory === 'ALL' || activeCategory === 'MENU') && (
+          <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-violet-400">
+                  Menu & Floor Operations
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-500 font-bold">6 Operations</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/hotel/pos/products"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                  <UtensilsCrossed size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Menu Items
+                  </span>
+                  <span className="text-[9px] text-slate-500">Dishes & Pricing</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/categories"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                  <Layers size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Categories
+                  </span>
+                  <span className="text-[9px] text-slate-500">Menu Groups</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/tables/qr-gallery"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                  <Printer size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    QR Gallery
+                  </span>
+                  <span className="text-[9px] text-slate-500">Table Standees</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/qr-download"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                  <Download size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    QR Downloads
+                  </span>
+                  <span className="text-[9px] text-slate-500">PDFs & Assets</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/parking"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                  <MapPin size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Valet Parking
+                  </span>
+                  <span className="text-[9px] text-slate-500">Token Management</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/pos/waste-management"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                  <Trash2 size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Food Waste
+                  </span>
+                  <span className="text-[9px] text-slate-500">Kitchen Logs</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Domain 5: Billing, Invoices, Cashier & Staff */}
+        {(activeCategory === 'ALL' || activeCategory === 'BILLING') && (
+          <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">
+                  Billing, Invoices & Staff
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-500 font-bold">4 Operations</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/hotel/invoices"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                  <FileText size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Invoices & Bills
+                  </span>
+                  <span className="text-[9px] text-slate-500">GST tax invoices</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/billing"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                  <Receipt size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Payments
+                  </span>
+                  <span className="text-[9px] text-slate-500">Settlements</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/staff-portal"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                  <Tablet size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Staff Portal
+                  </span>
+                  <span className="text-[9px] text-slate-500">Waiter tablet</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/hotel/staff"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                  <Users size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    POS Staff Hub
+                  </span>
+                  <span className="text-[9px] text-slate-500">Rosters & shifts</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -386,20 +1074,37 @@ const DEPARTMENTS = [
     iconBg: 'bg-orange-500/15',
     cardBorder: 'border-slate-800 hover:border-orange-500/40',
     modules: [
-      { name: 'Restaurant Operations', href: '/hotel/pos',                     icon: UtensilsCrossed },
-      { name: 'Live Notifications',    href: '/hotel/pos/notifications',        icon: Bell            },
-      { name: 'Room Orders',           href: '/hotel/pos/room-service',         icon: ChefHat         },
-      { name: 'Live Occupancy',        href: '/hotel/pos/occupancy',            icon: Eye             },
-      { name: 'Table Layout',          href: '/hotel/pos/tables',               icon: LayoutGrid      },
-      { name: 'QR Gallery',            href: '/hotel/pos/tables/qr-gallery',    icon: Printer         },
-      { name: 'QR Downloads',          href: '/hotel/pos/qr-download',          icon: Download        },
-      { name: 'Waste Management',      href: '/hotel/pos/waste-management',     icon: Trash2          },
-      { name: 'Parking Management',    href: '/hotel/pos/parking',              icon: MapPin          },
-      { name: 'Delivery Management',   href: '/hotel/pos/delivery',             icon: Bike            },
-      { name: 'Delivery Analytics',    href: '/hotel/pos/delivery/analytics',   icon: BarChart3       },
-      { name: 'Delivery Riders',       href: '/hotel/pos/delivery/riders',      icon: Users           },
-      { name: 'Delivery Zones',        href: '/hotel/pos/delivery/zones',       icon: MapPin          },
-      { name: 'Delivery Flyer',        href: '/hotel/pos/delivery-flyer',       icon: FileText        },
+      { name: 'POS Billing Terminal',  href: '/hotel/pos/billing',              icon: Monitor },
+      { name: 'Table Layout & Floors', href: '/hotel/pos/tables',               icon: LayoutGrid },
+      { name: 'Kitchen Display (KDS)', href: '/hotel/pos/kitchen-display',       icon: ChefHat },
+      { name: 'Room Service Orders',   href: '/hotel/pos/room-service',         icon: Bed },
+      { name: 'Live Overview',         href: '/hotel/pos/live-overview',        icon: LayoutGrid },
+      { name: 'Day Closing',           href: '/hotel/pos/day-closing',          icon: History },
+      { name: 'Orders Control',        href: '/hotel/pos/orders',               icon: ShoppingCart },
+      { name: 'KOTs List',             href: '/hotel/pos/kots',                 icon: ClipboardList },
+      { name: 'Table Bookings',        href: '/hotel/pos/table-reservations',   icon: CalendarDays },
+      { name: 'Counter Payments',      href: '/hotel/pos/counter-payments',     icon: Store },
+      { name: 'Bar POS Terminal',      href: '/hotel/pos/bar-pos',              icon: Wine },
+      { name: 'Cafe POS Terminal',     href: '/hotel/pos/cafe-pos',             icon: Coffee },
+      { name: 'Bar Display (BDS)',     href: '/hotel/pos/bar-display',          icon: Wine },
+      { name: 'Customer Display (CDS)',href: '/order-display',                  icon: Monitor },
+      { name: 'Live Occupancy Radar',  href: '/hotel/pos/occupancy',            icon: Eye },
+      { name: 'Live Notifications',    href: '/hotel/pos/notifications',        icon: Bell },
+      { name: 'Delivery Dispatch',     href: '/hotel/pos/delivery',             icon: Bike },
+      { name: 'Delivery Riders GPS',   href: '/hotel/pos/delivery/riders',      icon: Users },
+      { name: 'Delivery Zones & Rates',href: '/hotel/pos/delivery/zones',       icon: MapPin },
+      { name: 'Delivery Analytics',    href: '/hotel/pos/delivery/analytics',   icon: BarChart3 },
+      { name: 'Delivery Flyer & Promo',href: '/hotel/pos/delivery-flyer',       icon: FileText },
+      { name: 'Menu Items',            href: '/hotel/pos/products',             icon: UtensilsCrossed },
+      { name: 'Menu Categories',       href: '/hotel/pos/categories',           icon: Layers },
+      { name: 'Table QR Gallery',      href: '/hotel/pos/tables/qr-gallery',    icon: Printer },
+      { name: 'QR Downloads',          href: '/hotel/pos/qr-download',          icon: Download },
+      { name: 'Valet Parking',         href: '/hotel/pos/parking',              icon: MapPin },
+      { name: 'Waste Management',      href: '/hotel/pos/waste-management',     icon: Trash2 },
+      { name: 'Restaurant Invoices',   href: '/hotel/invoices',                 icon: FileText },
+      { name: 'Payments & Billing',    href: '/hotel/billing',                  icon: Receipt },
+      { name: 'Staff Portal',          href: '/staff-portal',                   icon: Tablet },
+      { name: 'Restaurant POS Hub',    href: '/hotel/pos',                      icon: UtensilsCrossed },
     ],
   },
   {
@@ -516,18 +1221,6 @@ export default function HotelDashboard() {
   });
 
   const departmentsWithRestaurant = visibleDepartments.map((dept) => {
-    if (dept.name === 'Restaurant & POS' && restaurantCode) {
-      return {
-        ...dept,
-        modules: [
-          { name: 'Restaurant POS Hub', href: `/hotel/pos`, icon: UtensilsCrossed },
-          { name: 'POS Billing Terminal', href: `/hotel/pos/billing`, icon: Monitor },
-          { name: 'Table Layout', href: `/hotel/pos/tables`, icon: LayoutGrid },
-          { name: 'Kitchen Display', href: `/hotel/pos/kitchen-display`, icon: Eye },
-          ...dept.modules.filter(m => m.name !== 'Restaurant Operations' && m.name !== 'Restaurant POS Hub'),
-        ],
-      };
-    }
     return dept;
   });
 
@@ -805,7 +1498,7 @@ export default function HotelDashboard() {
               <div
                 key={dept.name}
                 style={{
-                  maxHeight: isActive ? '1200px' : '0px',
+                  maxHeight: isActive ? '2500px' : '0px',
                   overflow: 'hidden',
                   transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1)',
                   marginTop: isActive ? '4px' : '0px',
@@ -835,25 +1528,24 @@ export default function HotelDashboard() {
                     </button>
                   </div>
 
-                  {/* POS Quick Actions Topbar (Dine In, Take Away, Live Order, Displays, Music, Search, Support) */}
-                  {dept.name === 'Restaurant & POS' && (
-                    <RestaurantPosHeaderBar restaurantCode={restaurantCode} />
+                  {/* Custom Workspace for Restaurant & POS, Standard Grid for other departments */}
+                  {dept.name === 'Restaurant & POS' ? (
+                    <RestaurantPosWorkspace restaurantCode={restaurantCode} />
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 relative z-10">
+                      {dept.modules.map((mod) => (
+                        <ModuleCard
+                          key={mod.name}
+                          name={mod.name}
+                          href={mod.href}
+                          icon={mod.icon}
+                          iconColor={dept.iconColor}
+                          iconBg={dept.iconBg}
+                          cardBorder={dept.cardBorder}
+                        />
+                      ))}
+                    </div>
                   )}
-
-                  {/* Sub-module cards grid */}
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-                    {dept.modules.map((mod) => (
-                      <ModuleCard
-                        key={mod.name}
-                        name={mod.name}
-                        href={mod.href}
-                        icon={mod.icon}
-                        iconColor={dept.iconColor}
-                        iconBg={dept.iconBg}
-                        cardBorder={dept.cardBorder}
-                      />
-                    ))}
-                  </div>
                 </div>
               </div>
             );

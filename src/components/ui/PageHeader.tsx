@@ -24,14 +24,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, show
             variant="secondary"
             size="sm"
             onClick={() => {
-              if (backUrl) {
-                router.push(backUrl);
+              const target = (backUrl === '/hotel/pos' || backUrl === '/hotel/pos/') ? '/hotel' : backUrl;
+              if (target) {
+                router.push(target);
                 // Fallback for Electron/Static environments where router might be slow
                 setTimeout(() => {
-                  if (window.location.pathname !== backUrl) {
-                    window.location.href = backUrl;
+                  if (window.location.pathname !== target) {
+                    window.location.href = target;
                   }
                 }, 300);
+              } else if (typeof window !== 'undefined' && window.location.pathname.startsWith('/hotel')) {
+                router.push('/hotel');
               } else {
                 router.back();
               }

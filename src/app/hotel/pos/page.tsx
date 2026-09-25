@@ -394,8 +394,8 @@ export default function RestaurantPosPage() {
 
   const menuInventoryActions: DashboardAction[] = [
     { label: 'Inventory', perm: 'Inventory', icon: Package, path: `/hotel/inventory`, feature: 'INVENTORY', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
-    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: `/hotel/products`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
-    { label: 'Categories', perm: 'Inventory', icon: Layers, path: `/hotel/products`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
+    { label: 'Menu Items', perm: 'Inventory', icon: Menu, path: `/hotel/pos/products`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
+    { label: 'Categories', perm: 'Inventory', icon: Layers, path: `/hotel/pos/categories`, feature: 'POS', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
     { label: 'Table Layout', perm: 'Table Layout', icon: Layers, path: `/hotel/pos/tables`, feature: 'TABLES', roles: ['POSSYSTEM', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
     { label: 'QR Gallery', perm: 'Table Layout', icon: Printer, path: `/hotel/pos/tables/qr-gallery`, feature: 'TABLES' },
     { label: 'QR Downloads', perm: 'Table Layout', icon: Download, path: `/hotel/pos/qr-download`, feature: 'TABLES' },

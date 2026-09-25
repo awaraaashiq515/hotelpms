@@ -364,7 +364,7 @@ export default function ParkingOperationsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push('/hotel/pos')}
+            onClick={() => router.push('/hotel')}
             className="rounded-2xl h-12 w-12 p-0 flex items-center justify-center bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
           >
             <ChevronLeft size={20} />

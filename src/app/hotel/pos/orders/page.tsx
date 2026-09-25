@@ -198,7 +198,7 @@ export default function OrdersPage() {
         title="Orders Control"
         subtitle="Live tracking and management of all active orders"
         showBack
-        backUrl="/hotel/pos"
+        backUrl="/hotel"
       />
 
       {/* ── Summary Cards ──────────────────────────────────── */}

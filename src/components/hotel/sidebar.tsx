@@ -306,7 +306,8 @@ export const HotelSidebar: React.FC = () => {
       { name: 'Invoices',               path: '/hotel/invoices',                              icon: FileText },
       // ── Inventory & Menu ──
       { name: 'Restaurant Inventory',   path: '/hotel/inventory',                             icon: Package },
-      { name: 'Menu Items',             path: '/hotel/products',                              icon: MenuIcon },
+      { name: 'Menu Items',             path: '/hotel/pos/products',                          icon: MenuIcon },
+      { name: 'Menu Categories',        path: '/hotel/pos/categories',                        icon: Layers },
       { name: 'QR Gallery',             path: '/hotel/pos/tables/qr-gallery',                 icon: Printer },
       { name: 'QR Downloads',           path: '/hotel/pos/qr-download',                       icon: Download },
     ],

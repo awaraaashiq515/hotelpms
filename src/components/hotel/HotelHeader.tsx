@@ -92,24 +92,24 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
         {pathname && pathname !== '/hotel' && pathname !== '/hotel/' && (
           <button
             onClick={() => {
-              if (
-                typeof window !== 'undefined' &&
-                window.history.length > 1 &&
-                document.referrer &&
-                document.referrer.includes(window.location.host)
-              ) {
-                router.back();
+              if (pathname.startsWith('/hotel/pos')) {
+                router.push('/hotel');
               } else {
                 const segs = pathname.split('/').filter(Boolean);
                 if (segs.length > 2) {
-                  router.push('/' + segs.slice(0, -1).join('/'));
+                  const parentPath = '/' + segs.slice(0, -1).join('/');
+                  if (parentPath === '/hotel/pos') {
+                    router.push('/hotel');
+                  } else {
+                    router.push(parentPath);
+                  }
                 } else {
                   router.push('/hotel');
                 }
               }
             }}
-            title="Go Back"
-            className="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all group shrink-0"
+            title="Back to Hotel Dashboard"
+            className="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all group shrink-0 cursor-pointer"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform text-indigo-400" />
           </button>

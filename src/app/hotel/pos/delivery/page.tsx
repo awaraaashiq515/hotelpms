@@ -436,7 +436,7 @@ export default function DeliveryOperationsPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="secondary" size="sm"
-            onClick={() => router.push('/hotel/pos')}
+            onClick={() => router.push('/hotel')}
             className="rounded-xl h-9 w-9 p-0 flex items-center justify-center bg-slate-950/40 border-slate-800 text-white/70 hover:bg-slate-800/80 hover:text-white"
           >
             <ChevronLeft size={18} />

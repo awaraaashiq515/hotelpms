@@ -858,7 +858,7 @@ export default function TableManagementPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push('/hotel/pos')}
+            onClick={() => router.push('/hotel')}
             className="rounded-xl h-8 w-8 p-0 flex items-center justify-center bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
           >
             <ChevronLeft size={14} />

@@ -64,7 +64,9 @@ const SECTION_LABELS: Record<string, string> = {
   'booking-engine': 'Direct Booking Engine',
 };
 
-function formatSegmentLabel(segment: string): string {
+function formatSegmentLabel(segment: string, allSegments?: string[]): string {
+  if (segment === 'products' && allSegments?.includes('pos')) return 'Restaurant Menu Items';
+  if (segment === 'categories' && allSegments?.includes('pos')) return 'Menu Categories';
   if (SECTION_LABELS[segment]) return SECTION_LABELS[segment];
   // If it looks like an ID (UUID, starts with prefix + number, etc.), label as Details
   if (/^[a-zA-Z0-9_-]{12,}$/.test(segment) || /^(chk_|bk_|usr_|inv_|rm_)/i.test(segment) || /^\d+$/.test(segment)) {
@@ -88,16 +90,29 @@ export function HotelBackButton({ className = '' }: { className?: string }) {
 
   const segments = pathname.split('/').filter(Boolean); // e.g. ['hotel', 'payroll']
   
-  // Calculate parent href and label
+  // Calculate parent href and label - Default ALWAYS goes to /hotel
   let parentHref = '/hotel';
   let backLabel = 'Back to Hotel Dashboard';
 
   if (segments.length > 2) {
     const parentSegments = segments.slice(0, -1);
-    parentHref = '/' + parentSegments.join('/');
-    const parentKey = parentSegments[parentSegments.length - 1];
-    const parentTitle = formatSegmentLabel(parentKey);
-    backLabel = `Back to ${parentTitle}`;
+    const parentPath = '/' + parentSegments.join('/');
+    // NEVER go back to /hotel/pos - all POS subpages must return to the main /hotel dashboard
+    if (parentPath === '/hotel/pos' || segments.includes('pos')) {
+      parentHref = '/hotel';
+      backLabel = 'Back to Hotel Dashboard';
+    } else {
+      parentHref = parentPath;
+      const parentKey = parentSegments[parentSegments.length - 1];
+      const parentTitle = formatSegmentLabel(parentKey);
+      backLabel = `Back to ${parentTitle}`;
+    }
+  }
+
+  // If currently on /hotel/pos itself, going back must go to /hotel
+  if (pathname === '/hotel/pos' || pathname === '/hotel/pos/') {
+    parentHref = '/hotel';
+    backLabel = 'Back to Hotel Dashboard';
   }
 
   // Generate breadcrumb items
@@ -106,22 +121,18 @@ export function HotelBackButton({ className = '' }: { className?: string }) {
   for (let i = 1; i < segments.length; i++) {
     const seg = segments[i];
     accumulatedPath += `/${seg}`;
+    // Never link breadcrumbs to /hotel/pos; pos segment maps to /hotel
+    const crumbHref = (seg === 'pos') ? '/hotel' : `/hotel${accumulatedPath === `/${seg}` ? `/${seg}` : accumulatedPath}`;
     breadcrumbs.push({
-      label: formatSegmentLabel(seg),
-      href: `/hotel${accumulatedPath === `/${seg}` ? `/${seg}` : accumulatedPath}`,
+      label: formatSegmentLabel(seg, segments),
+      href: crumbHref,
     });
   }
 
   const handleBackClick = (e: React.MouseEvent) => {
-    if (
-      typeof window !== 'undefined' &&
-      window.history.length > 1 &&
-      document.referrer &&
-      document.referrer.includes(window.location.host)
-    ) {
-      e.preventDefault();
-      router.back();
-    }
+    e.preventDefault();
+    // Always navigate directly to parentHref (/hotel), never pop history back to /hotel/pos
+    router.push(parentHref);
   };
 
   return (
@@ -130,7 +141,7 @@ export function HotelBackButton({ className = '' }: { className?: string }) {
         <Link
           href={parentHref}
           onClick={handleBackClick}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 hover:border-slate-600 text-xs font-bold transition-all shadow-sm group"
+          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 hover:border-slate-600 text-xs font-bold transition-all shadow-sm group cursor-pointer"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform text-indigo-400" />
           <span>{backLabel}</span>

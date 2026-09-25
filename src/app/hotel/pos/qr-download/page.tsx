@@ -444,7 +444,7 @@ export default function QRDownloadPage() {
         title="QR Downloads Center"
         subtitle="Download high-resolution styled QR cards and flyers for your restaurant operations."
         showBack
-        backUrl="/hotel/pos"
+        backUrl="/hotel"
         actions={
           <Button
             onClick={downloadAllQRs}

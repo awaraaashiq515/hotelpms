@@ -195,7 +195,7 @@ export default function RestaurantPosView({
   const propertyCode = params?.propertyCode as string | undefined;
   const p = isHotelMode ? '/hotel/pos' : (propertyCode ? `/${propertyCode}` : '');
   const tablesPath = isHotelMode ? '/hotel/pos/tables' : `${p}/operations/tables`;
-  const operationsPath = isHotelMode ? '/hotel/pos' : `${p}/operations`;
+  const operationsPath = isHotelMode ? '/hotel' : `${p}/operations`;
   const basePath = terminalMode === 'BAR' ? '/bar-pos' : terminalMode === 'CAFE' ? '/cafe-pos' : '/billing';
   const tableId = searchParams.get('tableId');
   const tableName = searchParams.get('tableName') || searchParams.get('tableNo');

@@ -663,7 +663,7 @@ export default function KitchenDisplayPage() {
       <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-[#0c1221]">
         <div className="flex items-center gap-4">
           <Link
-            href="/hotel/pos"
+            href="/hotel"
             className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-400 hover:text-white transition-all shadow-sm"
           >
             <ChevronLeft size={20} />
