@@ -346,7 +346,7 @@ export default function RestaurantPosPage() {
     { label: 'Live Dashboard',    icon: Activity,          path: `/hotel/operations-dashboard`,   feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
     { label: 'Orders Control',    perm: 'Orders Control',  icon: ShoppingBag,    path: `/hotel/pos/orders`,            feature: 'POS', roles: ['RESTAURANTS_ADMIN', 'SUPER_ADMIN', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
     { label: 'KOTs List',         perm: 'KOTs',            icon: ClipboardList,  path: `/hotel/pos/kots`,              feature: 'POS' },
-    { label: 'Room Orders',       perm: 'POS Terminal',    icon: BedDouble,      path: `/hotel/pos/room-service`, feature: 'POS' },
+    { label: 'Room Orders',       perm: 'POS Terminal',    icon: BedDouble,      path: `/hotel/pos/room-orders`, feature: 'POS' },
     { label: 'Live Notifications', icon: Bell,             path: `/hotel/pos/notifications`, feature: 'POS' },
     { label: 'Table Bookings',    perm: 'Table Bookings',  icon: CalendarDays,   path: `/hotel/pos/table-reservations`, feature: 'TABLES', roles: ['POSSYSTEM', 'HOTEL_ADMIN', 'HOTEL_MANAGER'] },
     { label: 'Live Occupancy',    perm: 'Table Layout',    icon: Eye,            path: `/hotel/pos/occupancy`, feature: 'HMS' },

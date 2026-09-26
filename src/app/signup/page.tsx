@@ -219,6 +219,7 @@ export default function SignupPage() {
   const [hotelRecepName,     setHotelRecepName]     = useState('');
   const [hotelRecepEmail,    setHotelRecepEmail]    = useState('');
   const [hotelRecepPassword, setHotelRecepPassword] = useState('');
+  const [hotelRecepPhone,    setHotelRecepPhone]    = useState('');
   const [showHotelRecepPass, setShowHotelRecepPass] = useState(false);
 
   // ── Restaurant POS User (Restaurant / BOTH) ───────────────────────────────
@@ -309,7 +310,9 @@ export default function SignupPage() {
     if (hotelStep === 2) {
       const baseValid = fullName.trim().length >= 2 && email.includes('@') && password.length >= 6 && phone.trim().length >= 6;
       if (businessType === 'BOTH_SEPARATE') {
-        return baseValid && rstAdminName.trim().length >= 2 && rstAdminEmail.includes('@') && rstAdminPassword.length >= 6;
+        const rstValid = rstAdminName.trim().length >= 2 && rstAdminEmail.includes('@') && rstAdminPassword.length >= 6;
+        const recepValid = hotelRecepName.trim().length >= 2 && hotelRecepEmail.includes('@') && hotelRecepPassword.length >= 6;
+        return baseValid && rstValid && recepValid;
       }
       return baseValid;
     }
@@ -360,10 +363,11 @@ export default function SignupPage() {
         paymentAmount: isCustomPlan ? (customTotal > 0 ? customTotal : null) : (paymentAmount || null),
         customFeatures: isCustomPlan ? Array.from(customSelected) : null,
         customPlanTotal: isCustomPlan ? (customTotal > 0 ? customTotal : null) : null,
-        // Hotel Receptionist (HOTEL / BOTH / BOTH_SEPARATE)
-        hotelRecepFullName: (businessType !== 'RESTAURANT' && showHotelRecepForm) ? (hotelRecepName || null) : null,
-        hotelRecepEmail:    (businessType !== 'RESTAURANT' && showHotelRecepForm) ? (hotelRecepEmail || null) : null,
-        hotelRecepPassword: (businessType !== 'RESTAURANT' && showHotelRecepForm) ? (hotelRecepPassword || null) : null,
+        // Hotel Receptionist / Front Office (HOTEL / BOTH / BOTH_SEPARATE)
+        hotelRecepFullName: (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepName))) ? (hotelRecepName || null) : null,
+        hotelRecepEmail:    (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepEmail))) ? (hotelRecepEmail || null) : null,
+        hotelRecepPassword: (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepPassword))) ? (hotelRecepPassword || null) : null,
+        hotelRecepPhone:    (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepPhone))) ? (hotelRecepPhone || null) : null,
         // Restaurant POS User (RESTAURANT / BOTH — not BOTH_SEPARATE, it has its own admin)
         posFullName: (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posFullName || null) : null,
         posEmail:    (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posEmail || null) : null,
@@ -649,18 +653,18 @@ export default function SignupPage() {
             {hotelStep === 2 && (
               <div className="space-y-4">
 
-                {/* ── BOTH_SEPARATE: Two separate account sections ────────── */}
+                {/* ── BOTH_SEPARATE: Three separate account sections ────────── */}
                 {businessType === 'BOTH_SEPARATE' ? (
                   <div className="space-y-4">
-                    <p className="text-xs text-slate-400">You selected <span className="text-pink-400 font-bold">Hotel + Restaurant (Separate Logins)</span>. Set up both admin accounts below. Each will have their own independent login.</p>
+                    <p className="text-xs text-slate-400">You selected <span className="text-pink-400 font-bold">Hotel + Restaurant (Separate Logins)</span>. Set up admin accounts below. Each will have their own independent login.</p>
 
-                    {/* Hotel Admin */}
-                    <div className="p-4 border border-cyan-500/30 rounded-2xl bg-cyan-500/5 space-y-3">
+                    {/* Hotel Owner Account */}
+                    <div className="p-4 border border-amber-500/30 rounded-2xl bg-amber-500/5 space-y-3">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-base">🏨</span>
                         <div>
-                          <p className="text-sm font-extrabold text-cyan-300">Hotel Admin Account</p>
-                          <p className="text-[10px] text-slate-400">Logs in to Hotel PMS Portal → <span className="font-bold text-cyan-400">/hotel</span></p>
+                          <p className="text-sm font-extrabold text-amber-300">Hotel Owner Account</p>
+                          <p className="text-[10px] text-slate-400">Logs in to Hotel Owner Hub → <span className="font-bold text-amber-400">Owner Control Center</span></p>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -669,7 +673,7 @@ export default function SignupPage() {
                           <div className="relative">
                             <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                             <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
-                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
                               placeholder="Hotel Owner Name" />
                           </div>
                         </div>
@@ -678,7 +682,7 @@ export default function SignupPage() {
                           <div className="relative">
                             <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                             <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
-                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
                               placeholder="+91 98765 43210" />
                           </div>
                         </div>
@@ -688,7 +692,7 @@ export default function SignupPage() {
                         <div className="relative">
                           <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                           <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
                             placeholder="hotelowner@example.com" />
                         </div>
                       </div>
@@ -697,11 +701,64 @@ export default function SignupPage() {
                         <div className="relative">
                           <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                           <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
                             placeholder="Min. 6 characters" />
                           <button type="button" onClick={() => setShowPassword(v => !v)}
                             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
                             {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Front Office Account */}
+                    <div className="p-4 border border-cyan-500/30 rounded-2xl bg-cyan-500/5 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">🛎️</span>
+                        <div>
+                          <p className="text-sm font-extrabold text-cyan-300">Front Office Account</p>
+                          <p className="text-[10px] text-slate-400">Logs in to Hotel PMS Portal → <span className="font-bold text-cyan-400">/hotel</span></p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-recepname" type="text" value={hotelRecepName} onChange={e => setHotelRecepName(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                              placeholder="Front Office / Receptionist Name" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-recepphone" type="tel" value={hotelRecepPhone} onChange={e => setHotelRecepPhone(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                              placeholder="+91 98765 43211" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-recepemail" type="email" value={hotelRecepEmail} onChange={e => setHotelRecepEmail(e.target.value)} required
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                            placeholder="frontdesk@hotel.com" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-receppassword" type={showHotelRecepPass ? 'text' : 'password'} value={hotelRecepPassword} onChange={e => setHotelRecepPassword(e.target.value)} required minLength={6}
+                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                            placeholder="Min. 6 characters" />
+                          <button type="button" onClick={() => setShowHotelRecepPass(v => !v)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            {showHotelRecepPass ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
                         </div>
                       </div>

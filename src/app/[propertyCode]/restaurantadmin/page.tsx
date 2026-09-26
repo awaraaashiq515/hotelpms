@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useSidebar } from '@/context/sidebar-context';
 import {
@@ -9,6 +10,7 @@ import {
   RefreshCw, ChefHat, CreditCard, Star, ArrowUpRight, UserCheck,
   UserX, MapPin, Wifi, WifiOff, Activity, IndianRupee, Timer,
   Package, Bell, CircleAlert, Flame, ThumbsUp, Languages, Building2, ChevronDown,
+  Bed, BedDouble, DoorOpen, LogIn, LogOut, ArrowRight, ShieldCheck, Sparkles, Settings, Hotel,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -17,18 +19,28 @@ import {
 const LANG = {
   en: {
     live:               'Live Operations',
+    ownerDashboard:     'Hotel & Property Owner Dashboard',
     updatedAt:          (t: string) => `Updated at ${t}`,
     refresh:            'Refresh',
     attentionTitle:     'Attention Needed',
     allGood:            'All good! No issues right now.',
     liveStatus:         'Live Status Right Now',
     tableMap:           'Table Map — Which Tables Are Occupied',
+    roomMap:            'Room Status Map — Occupied & Available Rooms',
+    tabRooms:           'Hotel Rooms',
+    tabTables:          'Restaurant Tables',
     todayBusiness:      "Today's Business",
     topSelling:         'Top Selling Items Today',
     recentOrders:       'Recently Settled Orders',
     staffToday:         'Staff — Today\'s Status',
     allTimeRecord:      'All-Time Records',
     refresh30:          (t: string) => `Auto-refreshes every 30s · Last: ${t}`,
+    // Hotel live cards
+    roomsOccupied:      'Rooms Occupied',
+    roomsVacant:        'Rooms Available',
+    todayCheckIns:      "Today's Check-ins",
+    todayCheckOuts:     "Today's Check-outs",
+    dirtyRooms:         'Housekeeping Needed',
     // Live cards
     tablesOccupied:     'Tables Occupied',
     tablesVacant:       'Tables Vacant',
@@ -96,18 +108,28 @@ const LANG = {
   },
   hi: {
     live:               'Live Operations',
+    ownerDashboard:     'Hotel Owner Command Center',
     updatedAt:          (t: string) => `${t} pe update hua`,
     refresh:            'Refresh Karo',
     attentionTitle:     'Dhyan Do',
     allGood:            'Sab theek hai! Abhi koi problem nahi.',
     liveStatus:         'Abhi Kya Ho Raha Hai',
     tableMap:           'Table Map — Kaun si Table Lagi Hai',
+    roomMap:            'Room Status Map — Bhare aur Khaali Kamre',
+    tabRooms:           'Hotel Kamre',
+    tabTables:          'Restaurant Tables',
     todayBusiness:      'Aaj Ka Business',
     topSelling:         'Aaj Sabse Zyada Bika',
     recentOrders:       'Haal Ke Settle Orders',
     staffToday:         'Staff — Aaj Ka Haal',
     allTimeRecord:      'Sab Time Ka Record',
     refresh30:          (t: string) => `Har 30 second mein update hota hai · Aakhri: ${t}`,
+    // Hotel live cards
+    roomsOccupied:      'Kamre Bhare Hain',
+    roomsVacant:        'Kamre Khaali Hain',
+    todayCheckIns:      'Aaj Ke Check-ins',
+    todayCheckOuts:     'Aaj Ke Check-outs',
+    dirtyRooms:         'Housekeeping Chahiye',
     // Live cards
     tablesOccupied:     'Tables Lagi Hain',
     tablesVacant:       'Tables Khaali',
@@ -185,14 +207,60 @@ interface TableData {
   activeOrder: { orderNo: string; grandTotal: number; guestCount: number; status: string; elapsedMinutes: number } | null;
 }
 
+interface RoomData {
+  id: string;
+  roomNumber: string;
+  type: string;
+  price: number;
+  status: string;
+  housekeepingStatus: string;
+  guestName: string | null;
+}
+
+interface BookingData {
+  id: string;
+  bookingNo: string;
+  guestName: string;
+  phone?: string;
+  roomType: string;
+  status: string;
+  arrivalDate: string;
+  departureDate: string;
+}
+
 interface DashboardData {
+  property?: {
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    city?: string;
+    hmsEnabled?: boolean;
+  };
+  hotel?: {
+    isHotel: boolean;
+    totalRooms: number;
+    occupiedRooms: number;
+    availableRooms: number;
+    dirtyRooms: number;
+    maintenanceRooms: number;
+    todayCheckIns: number;
+    todayCheckOuts: number;
+    todayDepartures?: number;
+    todayRoomRevenue: number;
+    rooms: RoomData[];
+    recentBookings: BookingData[];
+  };
   live: {
     totalTables: number; occupiedTables: number; vacantTables: number;
     activeKotCount: number; inProgressOrderCount: number; paymentPendingCount: number;
     tables: TableData[];
   };
   today: {
-    totalSales: number; invoiceCount: number; orderCount: number;
+    totalSales: number;
+    fnbSales?: number;
+    roomSales?: number;
+    invoiceCount: number; orderCount: number;
     totalCustomers: number; avgOrderValue: number;
     orderTypes: Record<string, { count: number; revenue: number }>;
     topItems: { productId: string; name: string; qty: number; revenue: number }[];
@@ -244,8 +312,10 @@ export default function RestaurantLiveDashboard() {
   const [activeStaffTab, setActiveStaffTab] = useState<'present' | 'absent' | 'location'>('present');
   const [lang, setLang] = useState<LangKey>('en');
   const [roleChecked, setRoleChecked] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
+  const [activeMapTab, setActiveMapTab] = useState<'rooms' | 'tables'>('rooms');
   // Property selector for restaurant admin multi-property support
-  const [properties, setProperties] = useState<{ id: string; name: string; code: string; city?: string }[]>([]);
+  const [properties, setProperties] = useState<{ id: string; name: string; code: string; type?: string; city?: string }[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
   const { setOpen } = useSidebar();
@@ -262,11 +332,16 @@ export default function RestaurantLiveDashboard() {
       .then(d => {
         if (!d.authenticated) { router.push('/login'); return; }
         const role = d.user?.role;
+        setUserRole(role || '');
         if (role === 'POSSYSTEM') {
           router.replace(`/${propertyCode}/live-overview`);
           return;
         }
-        if (role !== 'RESTAURANTS_ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HOTEL_ADMIN') {
+        if (role === 'HOTEL_ADMIN') {
+          router.replace(`/${propertyCode}/hoteladmin`);
+          return;
+        }
+        if (role !== 'RESTAURANTS_ADMIN' && role !== 'SUPER_ADMIN') {
           router.replace(`/${propertyCode}/operations`);
           return;
         }
@@ -294,7 +369,15 @@ export default function RestaurantLiveDashboard() {
       const url = pid ? `/api/restaurant-dashboard?propertyId=${pid}` : '/api/restaurant-dashboard';
       const res = await fetch(url);
       const json = await res.json();
-      if (json.success) { setData(json.data); setLastUpdated(new Date()); }
+      if (json.success) {
+        setData(json.data);
+        setLastUpdated(new Date());
+        if (json.data?.hotel?.isHotel && (!json.data?.live?.tables || json.data.live.tables.length === 0)) {
+          setActiveMapTab('rooms');
+        } else if (!json.data?.hotel?.isHotel && json.data?.live?.tables && json.data.live.tables.length > 0) {
+          setActiveMapTab('tables');
+        }
+      }
       else { setData(null); }
     } catch (e) { console.error(e); setData(null); }
     finally { setLoading(false); setRefreshing(false); }
@@ -332,12 +415,17 @@ export default function RestaurantLiveDashboard() {
     );
   }
 
-  const { live, today, allTime, staff } = data;
+  const { live, today, allTime, staff, hotel } = data;
+  const isHotel = hotel?.isHotel || selectedProperty?.type === 'HOTEL' || userRole === 'HOTEL_ADMIN';
   const orderTypeMeta = getOrderTypeMeta(l);
   const totalOrdersToday = Object.values(today.orderTypes).reduce((s, v) => s + v.count, 0);
   const longWaitTables = live.tables?.filter(t => t.activeOrder && t.activeOrder.elapsedMinutes > 60) || [];
 
   const alerts: { msg: string; color: string; icon: React.ReactNode }[] = [];
+  if (hotel && hotel.dirtyRooms > 0)
+    alerts.push({ msg: `${hotel.dirtyRooms} room${hotel.dirtyRooms !== 1 ? 's' : ''} marked dirty — housekeeping attention needed`, color: 'bg-amber-500/15 border-amber-500/30 text-amber-300', icon: <Sparkles size={14} /> });
+  if (hotel && (hotel.todayDepartures ?? 0) > 0)
+    alerts.push({ msg: `${hotel.todayDepartures} guest departure${hotel.todayDepartures !== 1 ? 's' : ''} scheduled today`, color: 'bg-sky-500/15 border-sky-500/30 text-sky-300', icon: <LogOut size={14} /> });
   if (live.paymentPendingCount > 0)
     alerts.push({ msg: l.alertPayPending(live.paymentPendingCount), color: 'bg-amber-500/15 border-amber-500/30 text-amber-300', icon: <CreditCard size={14} /> });
   if (live.activeKotCount >= 5)
@@ -350,8 +438,8 @@ export default function RestaurantLiveDashboard() {
   return (
     <div className="min-h-screen bg-[#09090e] text-white">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-violet-700/8 rounded-full blur-[140px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-sky-700/6 rounded-full blur-[120px]" />
+        <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[140px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-700/6 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-5 space-y-6">
@@ -359,18 +447,27 @@ export default function RestaurantLiveDashboard() {
         {/* ── HEADER ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
+            <div className="flex items-center gap-2 mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em]">{l.live}</span>
+              {isHotel && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[9px] font-black text-amber-400 uppercase tracking-wider">
+                  Hotel Owner Radar
+                </span>
+              )}
               {lastUpdated && (
                 <span className="text-[10px] text-slate-600 font-bold">· {l.updatedAt(fmtTime(lastUpdated.toISOString()))}</span>
               )}
             </div>
-            <h1 className="text-xl font-black text-white tracking-tight">Restaurant Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              {isHotel || userRole === 'HOTEL_ADMIN' ? l.ownerDashboard : 'Restaurant Live Dashboard'}
+            </h1>
             {selectedProperty && (
-              <p className="text-[10px] text-slate-500 font-bold mt-0.5 flex items-center gap-1">
-                <Building2 size={9} className="text-violet-400" />
-                {selectedProperty.name}{selectedProperty.city ? ` · ${selectedProperty.city}` : ''}
+              <p className="text-[10px] text-slate-400 font-bold mt-1 flex items-center gap-1.5">
+                <Building2 size={11} className={isHotel ? 'text-amber-400' : 'text-violet-400'} />
+                <span className="text-slate-200 font-bold">{selectedProperty.name}</span>
+                {selectedProperty.city ? ` · ${selectedProperty.city}` : ''}
+                <span className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] text-slate-500 font-mono">[{selectedProperty.code}]</span>
               </p>
             )}
           </div>
@@ -382,17 +479,17 @@ export default function RestaurantLiveDashboard() {
               <div className="relative">
                 <button
                   onClick={() => setShowPropertyDropdown(prev => !prev)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-violet-500/30 bg-violet-500/10 text-[11px] font-black text-violet-300 hover:bg-violet-500/20 transition-all max-w-[200px]"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[11px] font-black text-amber-300 hover:bg-amber-500/20 transition-all max-w-[220px]"
                 >
-                  <Building2 size={12} className="text-violet-400 shrink-0" />
+                  <Building2 size={13} className="text-amber-400 shrink-0" />
                   <span className="truncate">{selectedProperty?.name || 'Select Property'}</span>
                   <ChevronDown size={11} className={`shrink-0 transition-transform ${showPropertyDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showPropertyDropdown && (
-                  <div className="absolute right-0 top-full mt-2 z-50 min-w-[220px] bg-[#0f0f1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                    <div className="p-2 border-b border-white/5">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2">Select Property</p>
+                  <div className="absolute right-0 top-full mt-2 z-50 min-w-[240px] bg-[#0f0f1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="p-2.5 border-b border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2">Switch Property</p>
                     </div>
                     <div className="max-h-60 overflow-y-auto">
                       {properties.map(prop => (
@@ -401,17 +498,18 @@ export default function RestaurantLiveDashboard() {
                           onClick={() => {
                             setSelectedPropertyId(prop.id);
                             setShowPropertyDropdown(false);
+                            router.push(`/${prop.code}/restaurantadmin`);
                           }}
                           className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-all ${
-                            prop.id === selectedPropertyId ? 'bg-violet-500/10' : ''
+                            prop.id === selectedPropertyId ? 'bg-amber-500/10' : ''
                           }`}
                         >
                           <div className={`w-2 h-2 rounded-full shrink-0 ${
-                            prop.id === selectedPropertyId ? 'bg-violet-400' : 'bg-slate-700'
+                            prop.id === selectedPropertyId ? 'bg-amber-400' : 'bg-slate-700'
                           }`} />
                           <div className="min-w-0">
                             <p className={`text-xs font-bold truncate ${
-                              prop.id === selectedPropertyId ? 'text-violet-300' : 'text-slate-300'
+                              prop.id === selectedPropertyId ? 'text-amber-300' : 'text-slate-300'
                             }`}>{prop.name}</p>
                             <p className="text-[9px] text-slate-600 font-bold">{prop.code}{prop.city ? ` · ${prop.city}` : ''}</p>
                           </div>
@@ -446,6 +544,52 @@ export default function RestaurantLiveDashboard() {
           </div>
         </div>
 
+        {/* ── OWNER COMMAND BAR / QUICK JUMP LINKS ── */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          <Link
+            href="/hotel"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-500/30 text-amber-300 text-xs font-black hover:bg-amber-500/25 transition-all shrink-0"
+          >
+            <Hotel size={14} className="text-amber-400" />
+            <span>Front Office PMS</span>
+          </Link>
+          <Link
+            href={`/${propertyCode}/billing`}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-xs font-black hover:bg-white/10 hover:text-white transition-all shrink-0"
+          >
+            <UtensilsCrossed size={14} className="text-orange-400" />
+            <span>POS Billing</span>
+          </Link>
+          <Link
+            href={`/${propertyCode}/operations`}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-xs font-black hover:bg-white/10 hover:text-white transition-all shrink-0"
+          >
+            <LayoutGrid size={14} className="text-violet-400" />
+            <span>All Operations</span>
+          </Link>
+          <Link
+            href="/hotel/reports/sales"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-xs font-black hover:bg-white/10 hover:text-white transition-all shrink-0"
+          >
+            <TrendingUp size={14} className="text-emerald-400" />
+            <span>Reports & Ledger</span>
+          </Link>
+          <Link
+            href="/hotel/staff"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-xs font-black hover:bg-white/10 hover:text-white transition-all shrink-0"
+          >
+            <Users size={14} className="text-sky-400" />
+            <span>Staff Directory</span>
+          </Link>
+          <Link
+            href="/hotel/settings"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-xs font-black hover:bg-white/10 hover:text-white transition-all shrink-0"
+          >
+            <Settings size={14} className="text-slate-400" />
+            <span>Settings</span>
+          </Link>
+        </div>
+
         {/* Click outside to close dropdown */}
         {showPropertyDropdown && (
           <div className="fixed inset-0 z-40" onClick={() => setShowPropertyDropdown(false)} />
@@ -472,106 +616,269 @@ export default function RestaurantLiveDashboard() {
         {/* ── LIVE STATUS ── */}
         <div>
           <SectionLabel icon={<Activity size={12} />} text={l.liveStatus} />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <LiveCard label={l.tablesOccupied} value={`${live.occupiedTables}`} sub={`${live.vacantTables} ${l.tablesVacant.toLowerCase()} · ${live.totalTables} total`} icon={<LayoutGrid size={18} />} color="violet" pulse={live.occupiedTables > 0} />
-            <LiveCard label={l.tablesVacant}   value={`${live.vacantTables}`}   sub={l.availableNow}    icon={<CheckCircle2 size={18} />} color="emerald" />
-            <LiveCard label={l.kitchenKot}      value={`${live.activeKotCount}`} sub={l.activeInKitchen} icon={<ChefHat size={18} />}     color={live.activeKotCount >= 5 ? 'rose' : live.activeKotCount > 0 ? 'amber' : 'slate'} pulse={live.activeKotCount > 0} />
-            <LiveCard label={l.ordersInProgress} value={`${live.inProgressOrderCount}`} sub={l.processingNow} icon={<Clock size={18} />}   color="sky" pulse={live.inProgressOrderCount > 0} />
-            <LiveCard label={l.paymentPending}  value={`${live.paymentPendingCount}`} sub={l.waitingApproval} icon={<CreditCard size={18} />} color={live.paymentPendingCount > 0 ? 'amber' : 'slate'} pulse={live.paymentPendingCount > 0} />
-            <LiveCard label={l.staffPresent}    value={`${staff.presentNow}`}    sub={`${staff.notArrivedCount} ${lang === 'en' ? 'not arrived' : 'nahi aaya'} · ${staff.totalActive} total`} icon={<UserCheck size={18} />} color={staff.notArrivedCount > 0 ? 'orange' : 'teal'} pulse />
-          </div>
+          {isHotel && hotel ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <LiveCard
+                label={l.roomsOccupied}
+                value={`${hotel.occupiedRooms}`}
+                sub={`${hotel.totalRooms} total · ${Math.round((hotel.occupiedRooms / (hotel.totalRooms || 1)) * 100)}% occ`}
+                icon={<BedDouble size={18} />}
+                color="violet"
+                pulse={hotel.occupiedRooms > 0}
+              />
+              <LiveCard
+                label={l.roomsVacant}
+                value={`${hotel.availableRooms}`}
+                sub={l.availableNow}
+                icon={<CheckCircle2 size={18} />}
+                color="emerald"
+              />
+              <LiveCard
+                label={l.todayCheckIns}
+                value={`${hotel.todayCheckIns}`}
+                sub="Check-ins today"
+                icon={<LogIn size={18} />}
+                color="sky"
+                pulse={hotel.todayCheckIns > 0}
+              />
+              <LiveCard
+                label={l.todayCheckOuts}
+                value={`${hotel.todayCheckOuts}`}
+                sub="Check-outs today"
+                icon={<LogOut size={18} />}
+                color="amber"
+                pulse={hotel.todayCheckOuts > 0}
+              />
+              <LiveCard
+                label={l.dirtyRooms}
+                value={`${hotel.dirtyRooms}`}
+                sub="Needs cleaning"
+                icon={<Sparkles size={18} />}
+                color={hotel.dirtyRooms > 0 ? 'orange' : 'slate'}
+                pulse={hotel.dirtyRooms > 0}
+              />
+              <LiveCard
+                label={l.staffPresent}
+                value={`${staff.presentNow}`}
+                sub={`${staff.notArrivedCount} ${lang === 'en' ? 'absent' : 'nahi aaya'} · ${staff.totalActive} total`}
+                icon={<UserCheck size={18} />}
+                color={staff.notArrivedCount > 0 ? 'orange' : 'teal'}
+                pulse
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <LiveCard label={l.tablesOccupied} value={`${live.occupiedTables}`} sub={`${live.vacantTables} ${l.tablesVacant.toLowerCase()} · ${live.totalTables} total`} icon={<LayoutGrid size={18} />} color="violet" pulse={live.occupiedTables > 0} />
+              <LiveCard label={l.tablesVacant}   value={`${live.vacantTables}`}   sub={l.availableNow}    icon={<CheckCircle2 size={18} />} color="emerald" />
+              <LiveCard label={l.kitchenKot}      value={`${live.activeKotCount}`} sub={l.activeInKitchen} icon={<ChefHat size={18} />}     color={live.activeKotCount >= 5 ? 'rose' : live.activeKotCount > 0 ? 'amber' : 'slate'} pulse={live.activeKotCount > 0} />
+              <LiveCard label={l.ordersInProgress} value={`${live.inProgressOrderCount}`} sub={l.processingNow} icon={<Clock size={18} />}   color="sky" pulse={live.inProgressOrderCount > 0} />
+              <LiveCard label={l.paymentPending}  value={`${live.paymentPendingCount}`} sub={l.waitingApproval} icon={<CreditCard size={18} />} color={live.paymentPendingCount > 0 ? 'amber' : 'slate'} pulse={live.paymentPendingCount > 0} />
+              <LiveCard label={l.staffPresent}    value={`${staff.presentNow}`}    sub={`${staff.notArrivedCount} ${lang === 'en' ? 'not arrived' : 'nahi aaya'} · ${staff.totalActive} total`} icon={<UserCheck size={18} />} color={staff.notArrivedCount > 0 ? 'orange' : 'teal'} pulse />
+            </div>
+          )}
         </div>
 
-        {/* ── TABLE MAP ── */}
-        {live.tables && live.tables.length > 0 && (
-          <div>
-            <SectionLabel icon={<LayoutGrid size={12} />} text={l.tableMap} />
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2.5">
-              {live.tables.map((table) => {
-                const order    = table.activeOrder;
-                const isVacant  = table.status === 'VACANT';
-                const isHold    = table.status === 'HOLD';
-                const isPending = order?.status === 'PAYMENT_AWAITING_APPROVAL';
-                const isLong    = (order?.elapsedMinutes || 0) > 60;
-                const isOccupied = !isVacant;
-
-                const cardStyle =
-                  isPending  ? 'border-amber-500/50 bg-amber-500/10' :
-                  isLong     ? 'border-rose-500/50 bg-rose-500/10'   :
-                  isHold     ? 'border-slate-500/30 bg-slate-500/5'  :
-                  isOccupied ? 'border-violet-500/40 bg-violet-500/8':
-                  'border-white/5 bg-white/[0.02]';
-
-                const dot =
-                  isPending  ? 'bg-amber-400 animate-pulse'  :
-                  isLong     ? 'bg-rose-400 animate-pulse'   :
-                  isHold     ? 'bg-slate-500'                :
-                  isOccupied ? 'bg-violet-400 animate-pulse' :
-                  'bg-emerald-500';
-
-                const statusText =
-                  isPending  ? l.payPending     :
-                  isLong     ? l.settleUrgent   :
-                  isHold     ? l.onHold         :
-                  isOccupied ? l.occupied       :
-                  l.vacant;
-
-                const statusColor =
-                  isPending  ? 'text-amber-400'  :
-                  isLong     ? 'text-rose-400'   :
-                  isHold     ? 'text-slate-400'  :
-                  isOccupied ? 'text-violet-400' :
-                  'text-emerald-400';
-
-                return (
-                  <div key={table.id} className={`rounded-2xl border ${cardStyle} p-3 flex flex-col gap-1.5 transition-all duration-300`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-white">{table.name}</span>
-                      <span className={`w-2 h-2 rounded-full ${dot}`} />
-                    </div>
-                    <p className={`text-[9px] font-black uppercase tracking-widest ${statusColor}`}>{statusText}</p>
-                    {isOccupied && order ? (
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-black text-white">{fmt(order.grandTotal)}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] text-slate-500 font-bold">{l.guests(order.guestCount)}</span>
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${isLong ? 'bg-rose-500/20 text-rose-400' : 'bg-white/5 text-slate-400'}`}>
-                            {fmtElapsed(order.elapsedMinutes)}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-[9px] text-slate-600 font-bold">{l.seats(table.capacity)}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-4 mt-3 px-1">
-              {[
-                { dot: 'bg-emerald-500', txt: l.vacant.replace(/^[^ ]+ /, '') },
-                { dot: 'bg-violet-400',  txt: l.occupied.replace(/^[^ ]+ /, '') },
-                { dot: 'bg-amber-400',   txt: l.payPending.replace(/^[^ ]+ /, '') },
-                { dot: 'bg-rose-400',    txt: l.settleUrgent.replace(/^[^ ]+ /, '') },
-                { dot: 'bg-slate-500',   txt: l.onHold.replace(/^[^ ]+ /, '') },
-              ].map(leg => (
-                <div key={leg.txt} className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${leg.dot} shrink-0`} />
-                  <span className="text-[9px] font-bold text-slate-500">{leg.txt}</span>
-                </div>
-              ))}
-            </div>
+        {/* ── OPERATIONAL MAP (ROOMS / TABLES) ── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <SectionLabel icon={<LayoutGrid size={12} />} text={activeMapTab === 'rooms' ? l.roomMap : l.tableMap} />
+            {hotel?.rooms && hotel.rooms.length > 0 && live.tables && live.tables.length > 0 && (
+              <div className="flex items-center gap-1 p-1 bg-white/5 rounded-xl border border-white/10">
+                <button
+                  onClick={() => setActiveMapTab('rooms')}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    activeMapTab === 'rooms' ? 'bg-amber-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🛏️ {l.tabRooms} ({hotel.rooms.length})
+                </button>
+                <button
+                  onClick={() => setActiveMapTab('tables')}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    activeMapTab === 'tables' ? 'bg-violet-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🍽️ {l.tabTables} ({live.tables.length})
+                </button>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* ROOMS MAP VIEW */}
+          {activeMapTab === 'rooms' && hotel?.rooms && hotel.rooms.length > 0 && (
+            <div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2.5">
+                {hotel.rooms.map((room) => {
+                  const isOccupied = room.status === 'OCCUPIED';
+                  const isDirty = room.housekeepingStatus === 'DIRTY';
+                  const isMaintenance = room.status === 'MAINTENANCE';
+
+                  const cardStyle = isOccupied
+                    ? 'border-violet-500/40 bg-violet-500/10'
+                    : isMaintenance
+                    ? 'border-rose-500/30 bg-rose-500/5'
+                    : isDirty
+                    ? 'border-amber-500/40 bg-amber-500/10'
+                    : 'border-emerald-500/30 bg-emerald-500/5';
+
+                  const dotColor = isOccupied
+                    ? 'bg-violet-400 animate-pulse'
+                    : isMaintenance
+                    ? 'bg-rose-400'
+                    : isDirty
+                    ? 'bg-amber-400'
+                    : 'bg-emerald-400';
+
+                  const statusLabel = isOccupied
+                    ? '🟣 Occupied'
+                    : isMaintenance
+                    ? '🔴 Maint.'
+                    : isDirty
+                    ? '🧹 Dirty'
+                    : '🟢 Available';
+
+                  return (
+                    <div key={room.id} className={`rounded-2xl border ${cardStyle} p-3 flex flex-col justify-between gap-2 transition-all`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-white">Room {room.roomNumber}</span>
+                        <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 truncate">{room.type}</p>
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-300 mt-0.5">{statusLabel}</p>
+                        {isOccupied && room.guestName && (
+                          <p className="text-[10px] font-black text-violet-300 truncate mt-1">👤 {room.guestName}</p>
+                        )}
+                        {room.price > 0 && (
+                          <p className="text-[9px] text-slate-500 font-bold mt-0.5">{fmt(room.price)}/night</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Room legend */}
+              <div className="flex flex-wrap gap-4 mt-3 px-1">
+                {[
+                  { dot: 'bg-emerald-400', txt: 'Available / Clean' },
+                  { dot: 'bg-violet-400',  txt: 'Occupied' },
+                  { dot: 'bg-amber-400',   txt: 'Dirty / Housekeeping' },
+                  { dot: 'bg-rose-400',    txt: 'Maintenance' },
+                ].map(leg => (
+                  <div key={leg.txt} className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${leg.dot} shrink-0`} />
+                    <span className="text-[9px] font-bold text-slate-500">{leg.txt}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TABLE MAP VIEW */}
+          {(activeMapTab === 'tables' || (!hotel?.rooms?.length && live.tables && live.tables.length > 0)) && (
+            <div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2.5">
+                {live.tables.map((table) => {
+                  const order    = table.activeOrder;
+                  const isVacant  = table.status === 'VACANT';
+                  const isHold    = table.status === 'HOLD';
+                  const isPending = order?.status === 'PAYMENT_AWAITING_APPROVAL';
+                  const isLong    = (order?.elapsedMinutes || 0) > 60;
+                  const isOccupied = !isVacant;
+
+                  const cardStyle =
+                    isPending  ? 'border-amber-500/50 bg-amber-500/10' :
+                    isLong     ? 'border-rose-500/50 bg-rose-500/10'   :
+                    isHold     ? 'border-slate-500/30 bg-slate-500/5'  :
+                    isOccupied ? 'border-violet-500/40 bg-violet-500/8':
+                    'border-white/5 bg-white/[0.02]';
+
+                  const dot =
+                    isPending  ? 'bg-amber-400 animate-pulse'  :
+                    isLong     ? 'bg-rose-400 animate-pulse'   :
+                    isHold     ? 'bg-slate-500'                :
+                    isOccupied ? 'bg-violet-400 animate-pulse' :
+                    'bg-emerald-500';
+
+                  const statusText =
+                    isPending  ? l.payPending     :
+                    isLong     ? l.settleUrgent   :
+                    isHold     ? l.onHold         :
+                    isOccupied ? l.occupied       :
+                    l.vacant;
+
+                  const statusColor =
+                    isPending  ? 'text-amber-400'  :
+                    isLong     ? 'text-rose-400'   :
+                    isHold     ? 'text-slate-400'  :
+                    isOccupied ? 'text-violet-400' :
+                    'text-emerald-400';
+
+                  return (
+                    <div key={table.id} className={`rounded-2xl border ${cardStyle} p-3 flex flex-col gap-1.5 transition-all duration-300`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-white">{table.name}</span>
+                        <span className={`w-2 h-2 rounded-full ${dot}`} />
+                      </div>
+                      <p className={`text-[9px] font-black uppercase tracking-widest ${statusColor}`}>{statusText}</p>
+                      {isOccupied && order ? (
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-black text-white">{fmt(order.grandTotal)}</p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] text-slate-500 font-bold">{l.guests(order.guestCount)}</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${isLong ? 'bg-rose-500/20 text-rose-400' : 'bg-white/5 text-slate-400'}`}>
+                              {fmtElapsed(order.elapsedMinutes)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[9px] text-slate-600 font-bold">{l.seats(table.capacity)}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-4 mt-3 px-1">
+                {[
+                  { dot: 'bg-emerald-500', txt: l.vacant.replace(/^[^ ]+ /, '') },
+                  { dot: 'bg-violet-400',  txt: l.occupied.replace(/^[^ ]+ /, '') },
+                  { dot: 'bg-amber-400',   txt: l.payPending.replace(/^[^ ]+ /, '') },
+                  { dot: 'bg-rose-400',    txt: l.settleUrgent.replace(/^[^ ]+ /, '') },
+                  { dot: 'bg-slate-500',   txt: l.onHold.replace(/^[^ ]+ /, '') },
+                ].map(leg => (
+                  <div key={leg.txt} className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${leg.dot} shrink-0`} />
+                    <span className="text-[9px] font-bold text-slate-500">{leg.txt}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── TODAY'S BUSINESS ── */}
         <div>
           <SectionLabel icon={<TrendingUp size={12} />} text={l.todayBusiness} />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="col-span-2 md:col-span-1 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-600/20 to-violet-900/5 p-5">
-              <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-2">💰 {l.todayRevenue}</p>
+            <div className="col-span-2 md:col-span-1 rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-600/20 to-amber-900/5 p-5">
+              <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">💰 {l.todayRevenue}</p>
               <p className="text-3xl font-black text-white tracking-tight">{fmt(today.totalSales)}</p>
-              <p className="text-[10px] text-violet-300/50 font-bold mt-1">{l.billsRaised(today.invoiceCount)}</p>
+              <div className="text-[10px] text-amber-300/80 font-bold mt-2 space-y-0.5">
+                {today.roomSales !== undefined && today.roomSales > 0 && (
+                  <p className="flex items-center justify-between">
+                    <span className="text-slate-400">🏨 Rooms:</span>
+                    <span className="text-white">{fmt(today.roomSales)}</span>
+                  </p>
+                )}
+                {today.fnbSales !== undefined && today.fnbSales > 0 && (
+                  <p className="flex items-center justify-between">
+                    <span className="text-slate-400">🍽️ F&B POS:</span>
+                    <span className="text-white">{fmt(today.fnbSales)}</span>
+                  </p>
+                )}
+                <p className="text-slate-500 text-[9px] mt-1">{l.billsRaised(today.invoiceCount)}</p>
+              </div>
             </div>
             <InfoCard label={l.totalOrders}     value={today.orderCount.toString()}     sub={l.today}       icon={<ShoppingBag size={16} />}  color="text-amber-400" />
             <InfoCard label={l.customersServed} value={today.totalCustomers.toString()} sub={l.totalCovers} icon={<Users size={16} />}         color="text-sky-400"   />

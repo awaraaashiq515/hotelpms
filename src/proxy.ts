@@ -46,7 +46,9 @@ export async function proxy(request: NextRequest) {
         try {
           const verified = await jwtVerify(sessionCookie, key)
           if (verified?.payload) {
-            return NextResponse.redirect(new URL('/hotel', request.url))
+            const role = verified.payload.role as string
+            const pCode = verified.payload.propertyCode as string | undefined
+            return NextResponse.redirect(new URL(role === 'HOTEL_ADMIN' ? (pCode ? `/${pCode}/restaurantadmin` : '/restaurantadmin') : '/hotel', request.url))
           }
         } catch {}
       }
@@ -61,7 +63,7 @@ export async function proxy(request: NextRequest) {
     'expenses', 'accounts', 'manage-properties', 'manage-users', 'manage-roles',
     'pos', 'vouchers', 'orders', 'all-bills', 'categories', 'products', 'day-closing',
     'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display', 'bar-display',
-    'staff', 'cafe-pos'
+    'staff', 'cafe-pos', 'hoteladmin', 'restaurantadmin'
   ]
 
   let strippedPathname = pathname
@@ -119,7 +121,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal'].includes(parts[0])) {
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname
@@ -143,13 +145,13 @@ export async function proxy(request: NextRequest) {
       payload = verified.payload
     } catch (err) {
       // If token is invalid for a protected route, redirect to login
-      if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin')) {
+      if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin')) {
         return NextResponse.redirect(new URL('/login', request.url))
       }
     }
   } else {
     // No session cookie and trying to access a protected route
-    if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin')) {
+    if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin')) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }
@@ -158,7 +160,12 @@ export async function proxy(request: NextRequest) {
   const isHotelRole = userRole === 'HOTEL_ADMIN' || userRole === 'HOTEL_MANAGER' || (userRole ? userRole.startsWith('HOTEL_') : false) || payload?.propertyType === 'HOTEL'
   
   const getOperationsUrl = () => {
-    // Hotel roles and properties always go to /hotel
+    // Hotel Owner → Hotel Admin Live Dashboard
+    if (userRole === 'HOTEL_ADMIN') {
+      const urlKey = payload?.propertySlug || payload?.propertyCode
+      return urlKey ? `/${urlKey}/hoteladmin` : '/hoteladmin'
+    }
+    // Hotel staff roles and properties → /hotel PMS
     if (isHotelRole) {
       return '/hotel'
     }
@@ -198,7 +205,12 @@ export async function proxy(request: NextRequest) {
       if (urlKey) return `/${urlKey}/operations`
       return '/operations'
     }
-    if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || role.startsWith('HOTEL_')) return '/hotel'
+    if (role === 'HOTEL_ADMIN') {
+      const urlKey = payload?.propertySlug || payload?.propertyCode
+      if (urlKey) return `/${urlKey}/hoteladmin`
+      return '/hoteladmin'
+    }
+    if (role === 'HOTEL_MANAGER' || role.startsWith('HOTEL_')) return '/hotel'
     if (role === 'DELIVERY_RIDER') return '/transport-portal/dashboard'
     if (role === 'SINGER') return '/singer-portal/dashboard'
     if (role.toUpperCase().includes('HOUSEKEEPER') || role.toUpperCase().includes('HOUSEKEEPING')) {
@@ -234,15 +246,18 @@ export async function proxy(request: NextRequest) {
     const role = payload.role as string
     const status = payload.subscriptionStatus as string | null
 
-    // Hotel Admin or Hotel Property access to root dashboard/operations → always /hotel
+    // Hotel Admin or Hotel Property access to root dashboard/operations
     if (isHotelRole && (pathname === '/dashboard' || pathname === '/operations')) {
-      return NextResponse.redirect(new URL('/hotel', request.url))
+      // HOTEL_ADMIN (owner) → Owner Dashboard, all other hotel staff → /hotel PMS
+      const pKey = payload.propertySlug || payload.propertyCode
+      return NextResponse.redirect(new URL(userRole === 'HOTEL_ADMIN' ? (pKey ? `/${pKey}/hoteladmin` : '/hoteladmin') : '/hotel', request.url))
     }
 
     // Skip redirect for /b2b/* — these are standalone supplier portal routes (no propertyCode needed)
     if (isDashboardRoute && !hasPropertyCode && payload.propertyCode && !pathname.startsWith('/b2b/')) {
       if (isHotelRole && (strippedPathname === '/dashboard' || strippedPathname === '/operations')) {
-        return NextResponse.redirect(new URL('/hotel', request.url))
+        const pKey = payload.propertySlug || payload.propertyCode
+        return NextResponse.redirect(new URL(userRole === 'HOTEL_ADMIN' ? (pKey ? `/${pKey}/hoteladmin` : '/hoteladmin') : '/hotel', request.url))
       }
       const urlKey = payload.propertySlug || payload.propertyCode
       return NextResponse.redirect(new URL(`/${urlKey}${pathname}`, request.url))
@@ -255,6 +270,9 @@ export async function proxy(request: NextRequest) {
         }
       } else {
         if (pathname === '/payment-pending') {
+          if (role === 'HOTEL_ADMIN') {
+            return NextResponse.redirect(new URL('/hoteladmin', request.url))
+          }
           if (isHotelRole) {
             return NextResponse.redirect(new URL('/hotel', request.url))
           }
@@ -292,7 +310,11 @@ export async function proxy(request: NextRequest) {
     // Redirection for Auth Routes (if logged in, bypass login page)
     // Uses role-aware redirect so staff/waiter go to /staff-portal, not /operations
     if (isAuthRoute) {
-      if (role === 'HOTEL_ADMIN' || isHotelRole) {
+      if (role === 'HOTEL_ADMIN') {
+        const urlKey = payload.propertySlug || payload.propertyCode
+        return NextResponse.redirect(new URL(urlKey ? `/${urlKey}/hoteladmin` : '/hoteladmin', request.url))
+      }
+      if (isHotelRole) {
         return NextResponse.redirect(new URL('/hotel', request.url))
       }
       return NextResponse.redirect(new URL(getPortalUrlForRole(role), request.url))
@@ -322,10 +344,20 @@ export async function proxy(request: NextRequest) {
       }
     }
 
+    // Redirect HOTEL_ADMIN away from restaurantadmin to hoteladmin
+    if (role === 'HOTEL_ADMIN' && pathname.includes('/restaurantadmin')) {
+      const redirectPath = pathname.replace('/restaurantadmin', '/hoteladmin')
+      return NextResponse.redirect(new URL(redirectPath, request.url))
+    }
+
     // Dashboard/Operations Route Access
     if (isDashboardRoute) {
-      // Redirect pure hotel properties directly to hotel dashboard
-      if (isHotelRole && !hasPropertyCode && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel')) {
+      // Redirect pure hotel properties directly to hotel dashboard or owner hub
+      if (isHotelRole && !hasPropertyCode && !pathname.startsWith('/b2b/') && !pathname.startsWith('/hotel') && !pathname.startsWith('/restaurantadmin') && !pathname.startsWith('/hoteladmin')) {
+        if (role === 'HOTEL_ADMIN') {
+          const urlKey = payload.propertySlug || payload.propertyCode
+          return NextResponse.redirect(new URL(urlKey ? `/${urlKey}/hoteladmin` : '/hoteladmin', request.url))
+        }
         return NextResponse.redirect(new URL('/hotel', request.url))
       }
 
@@ -335,7 +367,7 @@ export async function proxy(request: NextRequest) {
         if (pathname === '/manage-properties' || pathname.startsWith('/manage-properties/')) {
           return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
         }
-        if (pathname.startsWith('/restaurantadmin')) {
+        if (pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin')) {
           return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
         }
         if (pathname === '/all-bills' || pathname.startsWith('/all-bills/')) {

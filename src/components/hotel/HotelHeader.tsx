@@ -11,7 +11,8 @@ import {
   ArrowLeft,
   LogOut,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  Hotel
 } from 'lucide-react';
 import { useSidebar } from '@/components/hotel/SidebarContext';
 import { NotificationBell } from '@/components/hotel/NotificationBell';
@@ -129,6 +130,18 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
 
       {/* Right Action Tray */}
       <div className="flex items-center gap-3 md:gap-4 shrink-0">
+        {/* Owner Hub shortcut button for Hotel Admins & Owners */}
+        {(session?.role === 'HOTEL_ADMIN' || session?.role === 'SUPER_ADMIN' || session?.role === 'RESTAURANTS_ADMIN') && (
+          <button
+            onClick={() => router.push('/restaurantadmin')}
+            title="Switch property or open Hotel Owner Hub"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all shadow-sm"
+          >
+            <Hotel size={13} className="text-amber-400" />
+            <span>Owner Hub</span>
+          </button>
+        )}
+
         {/* Calendar indicator pill */}
         {isCalendar && (
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-black uppercase tracking-widest text-indigo-300">
@@ -173,6 +186,19 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
                 <p className="text-xs font-black text-white truncate">{session?.fullName || session?.email}</p>
                 <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider mt-0.5">{session?.role}</p>
               </div>
+
+              {(session?.role === 'HOTEL_ADMIN' || session?.role === 'SUPER_ADMIN' || session?.role === 'RESTAURANTS_ADMIN') && (
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    router.push('/restaurantadmin');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 transition-colors"
+                >
+                  <Hotel size={14} className="text-amber-400" />
+                  Hotel Owner Hub
+                </button>
+              )}
 
               <button
                 onClick={() => {

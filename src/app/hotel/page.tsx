@@ -11,10 +11,11 @@ import {
   ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
   UserCheck, Radio, Navigation, UtensilsCrossed, Monitor, Bell,
   Trash2, Download, Eye, Printer, ShoppingCart, Tag, Bike, FileText,
-  Phone, Music2, Lock, ArrowUpRight, Plus,
-  Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers,
+  Phone, Music2, Lock, Plus,
+  Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers, BedDouble,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
+import { SelectRoomOrderModal } from '@/components/hotel/pos/SelectRoomOrderModal';
 
 /* ─── Module sub-card (same as before) ─── */
 function ModuleCard({ name, href, icon: Icon, iconColor, iconBg, cardBorder }: {
@@ -43,6 +44,7 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
   const [showDisplays, setShowDisplays] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [posSearch, setPosSearch] = useState<string>('');
+  const [showRoomOrderModal, setShowRoomOrderModal] = useState(false);
 
   const CATEGORIES = [
     { id: 'ALL', label: 'All POS Pages', count: 31 },
@@ -86,6 +88,16 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
             <span>Take Away</span>
           </Link>
 
+          {/* Room Order Direct (Dedicated Full Page) */}
+          <Link
+            href="/hotel/pos/room-orders"
+            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-md shadow-indigo-600/30 active:scale-95 transition-all shrink-0"
+            title="Room Order (Dedicated Hotel Rooms Layout for POS)"
+          >
+            <BedDouble size={14} />
+            <span>Room Order</span>
+          </Link>
+
           {/* Live Order Dropdown (Delivery / Pickup / Room Service) */}
           <div className="relative shrink-0">
             <button
@@ -126,7 +138,7 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                     <span className="text-base">🛍️</span> Counter Pick Up
                   </Link>
                   <Link
-                    href="/hotel/pos/billing?type=ROOM_SERVICE"
+                    href="/hotel/pos/room-orders"
                     onClick={() => setShowLiveOrder(false)}
                     className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-indigo-400 transition-colors border-t border-slate-800/80"
                   >
@@ -231,16 +243,6 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
               <span className="text-[10px] font-black text-indigo-300 leading-none mt-0.5">+91 86798 00074</span>
             </div>
           </a>
-
-          {/* Full POS Portal CTA */}
-          <Link
-            href="/hotel/pos"
-            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-500/50 text-orange-200 hover:text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm shrink-0 active:scale-95"
-            title="Open Dedicated Restaurant POS Portal"
-          >
-            <span>Full POS Hub</span>
-            <ArrowUpRight size={13} />
-          </Link>
         </div>
       </div>
 
@@ -353,7 +355,7 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
             {/* 4: Room Service Orders */}
             {matchesSearch('Room Service Orders dining guest hotel') && (
               <Link
-                href="/hotel/pos/room-service"
+                href="/hotel/pos/room-orders"
                 className="group relative flex flex-col justify-between p-3.5 rounded-2xl bg-gradient-to-br from-[#0c1424] to-[#080d19] border border-indigo-500/30 hover:border-indigo-500/70 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-200 active:scale-[0.98]"
               >
                 <div className="flex items-start justify-between">
@@ -894,6 +896,12 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
           </div>
         )}
       </div>
+
+      {/* ── Room Order Selector Modal ── */}
+      <SelectRoomOrderModal
+        isOpen={showRoomOrderModal}
+        onClose={() => setShowRoomOrderModal(false)}
+      />
     </div>
   );
 }

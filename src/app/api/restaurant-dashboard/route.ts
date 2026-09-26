@@ -8,18 +8,15 @@ export async function GET(request: NextRequest) {
     if (!session?.propertyId && !session?.organizationId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    if (session?.role === 'SUPER_ADMIN') {
-      return NextResponse.json({ message: 'Forbidden: SUPER_ADMIN access restricted' }, { status: 403 });
-    }
 
-    // Allow RESTAURANTS_ADMIN to pass a specific propertyId via query param
+    // Allow RESTAURANTS_ADMIN, HOTEL_ADMIN and SUPER_ADMIN to pass a specific propertyId via query param
     // so they can switch between their properties
     const { searchParams } = new URL(request.url);
     const requestedPropertyId = searchParams.get('propertyId');
 
     let propertyId = session.propertyId;
 
-    if (requestedPropertyId && session.role === 'RESTAURANTS_ADMIN') {
+    if (requestedPropertyId && ['RESTAURANTS_ADMIN', 'HOTEL_ADMIN', 'SUPER_ADMIN'].includes(session.role)) {
       // Security: Verify the requested property belongs to the admin's organization
       const propCheck = await prisma.property.findFirst({
         where: { id: requestedPropertyId, organizationId: session.organizationId ?? undefined },
@@ -70,6 +67,13 @@ export async function GET(request: NextRequest) {
       // Staff location pings
       staffLocationData,
       activeDeliveries,
+      // Hotel & Property queries
+      propDetails,
+      hotelRooms,
+      hotelReservations,
+      hotelCheckInsToday,
+      hotelCheckOutsToday,
+      hotelFoliosToday,
     ] = await Promise.all([
       // 1. Tables (all, with active order if any)
       prisma.table.findMany({
@@ -305,6 +309,64 @@ export async function GET(request: NextRequest) {
           deliveryPhone: true,
         },
       }),
+
+      // 17. Current Property details
+      prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { id: true, name: true, code: true, type: true, hmsEnabled: true, city: true },
+      }),
+
+      // 18. Hotel rooms (if applicable)
+      prisma.room.findMany({
+        where: { propertyId },
+        include: {
+          roomType: { select: { name: true, baseRate: true } },
+          checkIns: {
+            where: { status: 'ACTIVE' },
+            include: { guest: { select: { firstName: true, lastName: true, mobile: true } } },
+            take: 1,
+          },
+        },
+        orderBy: { roomNumber: 'asc' },
+      }),
+
+      // 19. Hotel active reservations
+      prisma.reservation.findMany({
+        where: {
+          propertyId,
+          status: { in: ['CONFIRMED', 'CHECKED_IN'] },
+        },
+        include: {
+          guest: { select: { firstName: true, lastName: true, mobile: true } },
+          roomType: { select: { name: true } },
+        },
+        orderBy: { arrivalDate: 'asc' },
+        take: 15,
+      }),
+
+      // 20. Hotel check-ins today
+      prisma.checkIn.count({
+        where: {
+          room: { propertyId },
+          checkedInAt: { gte: todayStart, lte: todayEnd },
+        },
+      }),
+
+      // 21. Hotel check-outs today
+      prisma.checkOut.count({
+        where: {
+          checkIn: { room: { propertyId } },
+          checkedOutAt: { gte: todayStart, lte: todayEnd },
+        },
+      }),
+
+      // 22. Hotel folios / room revenue today
+      prisma.folio.aggregate({
+        where: {
+          reservation: { propertyId },
+        },
+        _sum: { totalCharges: true },
+      }),
     ]);
 
     // ── Enrich top items with product names ─────────────────────────────────
@@ -441,9 +503,60 @@ export async function GET(request: NextRequest) {
     const todayOrderCount = todayOrders._count.id || 0;
     const avgOrderValue = todayOrderCount > 0 ? todayTotalSales / todayOrderCount : 0;
 
+    // ── Hotel Operations Processing ──────────────────────────────────────────
+    const isHotel = propDetails?.type === 'HOTEL' || propDetails?.hmsEnabled === true;
+    const totalRooms = hotelRooms.length;
+    const occupiedRooms = hotelRooms.filter((r: any) => r.status === 'OCCUPIED').length;
+    const availableRooms = hotelRooms.filter((r: any) => r.status === 'AVAILABLE' || r.status === 'VACANT').length;
+    const dirtyRooms = hotelRooms.filter((r: any) => r.housekeepingStatus === 'DIRTY').length;
+    const maintenanceRooms = hotelRooms.filter((r: any) => r.status === 'MAINTENANCE').length;
+    const todayRoomRevenue = hotelFoliosToday._sum?.totalCharges || 0;
+
+    const enrichedRooms = hotelRooms.map((r: any) => {
+      const activeCheckIn = r.checkIns?.[0];
+      const guestName = activeCheckIn?.guest
+        ? `${activeCheckIn.guest.firstName || ''} ${activeCheckIn.guest.lastName || ''}`.trim()
+        : null;
+      return {
+        id: r.id,
+        roomNumber: r.roomNumber,
+        type: r.roomType?.name || 'Standard',
+        price: r.customRate || r.roomType?.baseRate || 0,
+        status: r.status,
+        housekeepingStatus: r.housekeepingStatus,
+        guestName,
+      };
+    });
+
+    const enrichedReservations = hotelReservations.map((res: any) => ({
+      id: res.id,
+      bookingNo: res.bookingNo,
+      guestName: res.guest ? `${res.guest.firstName || ''} ${res.guest.lastName || ''}`.trim() : 'Guest',
+      phone: res.guest?.mobile,
+      roomType: res.roomType?.name || 'Standard',
+      status: res.status,
+      arrivalDate: res.arrivalDate,
+      departureDate: res.departureDate,
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
+        property: propDetails,
+        hotel: {
+          isHotel,
+          totalRooms,
+          occupiedRooms,
+          availableRooms,
+          dirtyRooms,
+          maintenanceRooms,
+          todayCheckIns: hotelCheckInsToday,
+          todayCheckOuts: hotelCheckOutsToday,
+          todayDepartures: hotelCheckOutsToday,
+          todayRoomRevenue,
+          rooms: enrichedRooms,
+          recentBookings: enrichedReservations,
+        },
         // Live ops
         live: {
           totalTables,
@@ -457,7 +570,9 @@ export async function GET(request: NextRequest) {
         },
         // Today's business
         today: {
-          totalSales: todayTotalSales,
+          totalSales: isHotel ? (todayTotalSales + todayRoomRevenue) : todayTotalSales,
+          fnbSales: todayTotalSales,
+          roomSales: todayRoomRevenue,
           invoiceCount: todayInvoices._count.id || 0,
           orderCount: todayOrderCount,
           totalCustomers: todayOrders._sum.guestCount || 0,

@@ -7,7 +7,8 @@ import {
   Grid, List, ShoppingBag, Utensils, Minus, ChevronRight, ChevronLeft, Printer, 
   Save, CheckCircle2, UserPlus, CarFront, Trophy, QrCode, Star, Receipt, Maximize2,
   Coffee, IceCream, Pizza, Soup, CookingPot, ChefHat, CupSoda,
-  Cake, Fish, Popcorn, Sandwich, Wine, Gift, Tag, Flame, Snowflake, Droplets, FlaskConical
+  Cake, Fish, Popcorn, Sandwich, Wine, Gift, Tag, Flame, Snowflake, Droplets, FlaskConical,
+  BedDouble
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { productsApi, Product } from '@/lib/api/products';
@@ -22,6 +23,7 @@ import { KotSlipModal } from '@/components/kots/KotSlipModal';
 import { BillModal, BillData } from '@/components/billing/BillModal';
 import { CustomerForm } from '@/components/forms/customer-form';
 import { DriverForm } from '@/components/forms/driver-form';
+import { SelectRoomOrderModal } from '@/components/hotel/pos/SelectRoomOrderModal';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -249,6 +251,8 @@ export default function RestaurantPosView({
   const [hotelRooms, setHotelRooms] = useState<any[]>([]);
   const [roomServiceRoomId, setRoomServiceRoomId] = useState<string>('');
   const [roomServiceFolioId, setRoomServiceFolioId] = useState<string>('');
+  const [selectedGuestName, setSelectedGuestName] = useState<string>('');
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [showRoomDropdown, setShowRoomDropdown] = useState(false);
   const [roomSearch, setRoomSearch] = useState('');
   const [occupiedRooms, setOccupiedRooms] = useState<any[]>([]);
@@ -360,8 +364,12 @@ export default function RestaurantPosView({
     if (type === 'PICKUP') setOrderType('PICKUP');
     if (type === 'DINE_IN') setOrderType('DINE_IN');
     if (type === 'ROOM_SERVICE') setOrderType('ROOM_SERVICE');
-    const roomNo = searchParams.get('room');
+    const roomNo = searchParams.get('room') || searchParams.get('roomNo');
     if (roomNo) setRoomServiceRoomNo(roomNo);
+    const rId = searchParams.get('roomId');
+    if (rId) setRoomServiceRoomId(rId);
+    const gName = searchParams.get('guestName');
+    if (gName) setSelectedGuestName(gName);
   }, [searchParams]);
 
   // Auto-fetch room folio details when bookingId is pre-selected from tables page
@@ -376,6 +384,7 @@ export default function RestaurantPosView({
             setPreSelectedRoomFolioId(d.data.folioId || '');
             setPreSelectedRoomGuestId(d.data.guestId || '');
             if (d.data.guestId) setSelectedGuestId(d.data.guestId);
+            if (d.data.guestName) setSelectedGuestName(d.data.guestName);
           }
         })
         .catch(() => {});
@@ -417,6 +426,9 @@ export default function RestaurantPosView({
             if (d.data.guestId) {
               setSelectedGuestId(d.data.guestId);
             }
+            if (d.data.guestName) {
+              setSelectedGuestName(d.data.guestName);
+            }
           } else {
             setRoomServiceFolioId('');
           }
@@ -424,9 +436,10 @@ export default function RestaurantPosView({
         .catch(() => {
           setRoomServiceFolioId('');
         });
-    } else {
+    } else if (orderType !== 'ROOM_SERVICE') {
       setRoomServiceRoomId('');
       setRoomServiceFolioId('');
+      setSelectedGuestName('');
     }
   }, [roomServiceRoomNo, orderType, roomServiceRoomId]);
 
@@ -2799,18 +2812,55 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                    {terminalMode === 'BAR' ? 'Bar Order' : terminalMode === 'CAFE' ? 'Cafe Order' : 'Order Details'}
                  </h2>
                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em]">
-                   {tableName || (orderType === 'DELIVERY' ? 'Delivery Order' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter Service')}
+                   {tableName || (orderType === 'ROOM_SERVICE' ? `Room Service (Room ${roomServiceRoomNo || preSelectedRoomNo || '?'})` : orderType === 'DELIVERY' ? 'Delivery Order' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter Service')}
                  </p>
                  {/* Room billing indicator */}
-                 {preSelectedRoomNo && (
-                   <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/25">
-                     <span className="text-sm">🏨</span>
-                     <span className="text-[9px] font-black text-violet-400 uppercase tracking-wider">
-                       Room {preSelectedRoomNo} — Bill to Room
-                     </span>
-                     {preSelectedRoomId && (
-                       <span className="text-[8px] text-emerald-400 font-bold ml-1">✓ Folio Linked</span>
-                     )}
+                 {(preSelectedRoomNo || (orderType === 'ROOM_SERVICE' && roomServiceRoomNo)) && (
+                   <div className="mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-indigo-950/80 via-blue-950/60 to-slate-900 border border-indigo-500/40 shadow-lg shadow-indigo-950/50 flex items-center justify-between gap-2 animate-in fade-in duration-200">
+                     <div className="flex items-center gap-2 min-w-0">
+                       <div className="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-indigo-400 shrink-0">
+                         <BedDouble size={16} />
+                       </div>
+                       <div className="min-w-0">
+                         <div className="flex items-center gap-1.5">
+                           <span className="text-[11px] font-black text-white uppercase tracking-wider">
+                             Room #{roomServiceRoomNo || preSelectedRoomNo}
+                           </span>
+                           <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300">
+                             Room Order
+                           </span>
+                         </div>
+                         {selectedGuestName ? (
+                           <p className="text-[10px] text-slate-300 font-bold truncate">
+                             Guest: {selectedGuestName}
+                           </p>
+                         ) : (
+                           <p className="text-[9px] text-slate-400 font-medium truncate">
+                             In-Room Dining
+                           </p>
+                         )}
+                       </div>
+                     </div>
+                     <div className="flex items-center gap-1 shrink-0">
+                       {(preSelectedRoomFolioId || roomServiceFolioId) ? (
+                         <span className="text-[9px] text-emerald-400 font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center gap-1">
+                           <CheckCircle2 size={10} />
+                           Folio Linked
+                         </span>
+                       ) : (
+                         <span className="text-[9px] text-amber-400 font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30">
+                           Post to Room
+                         </span>
+                       )}
+                       <button
+                         type="button"
+                         onClick={() => setIsRoomModalOpen(true)}
+                         className="text-[9px] font-bold bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded-lg transition-colors ml-0.5"
+                         title="Select a different room"
+                       >
+                         Change
+                       </button>
+                     </div>
                    </div>
                  )}
               </div>
@@ -2982,12 +3032,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                   <button 
                     type="button"
                     onClick={() => {
-                      if (orderType === 'ROOM_SERVICE') {
-                        setShowRoomDropdown(!showRoomDropdown);
-                      } else {
-                        setOrderType('ROOM_SERVICE');
-                        setShowRoomDropdown(true);
-                      }
+                      setIsRoomModalOpen(true);
                       setShowCustomerDropdown(false);
                       setShowDriverDropdown(false);
                     }}
@@ -3004,6 +3049,8 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           setRoomServiceRoomNo(''); 
+                          setRoomServiceRoomId('');
+                          setSelectedGuestName('');
                           setOrderType('DINE_IN');
                           setShowRoomDropdown(false);
                         }}
@@ -3727,6 +3774,24 @@ Total Amount: ₹${grandTotal.toFixed(2)}
           </div>
         )}
       </Modal>
+
+      {/* ── Room Order Selector Modal ── */}
+      <SelectRoomOrderModal
+        isOpen={isRoomModalOpen}
+        onClose={() => setIsRoomModalOpen(false)}
+        onSelectRoom={(room) => {
+          setOrderType('ROOM_SERVICE');
+          setRoomServiceRoomNo(room.roomNumber);
+          setRoomServiceRoomId(room.id);
+          if (room.activeGuest?.guestName) {
+            setSelectedGuestName(room.activeGuest.guestName);
+          }
+          if (room.activeGuest?.guestId) {
+            setSelectedGuestId(room.activeGuest.guestId);
+          }
+          setIsRoomModalOpen(false);
+        }}
+      />
     </div>
   );
 }

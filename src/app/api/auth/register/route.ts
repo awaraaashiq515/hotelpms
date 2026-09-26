@@ -34,6 +34,7 @@ const signupSchema = z.object({
   hotelRecepFullName: z.string().optional().nullable(),
   hotelRecepEmail: z.string().optional().nullable(),
   hotelRecepPassword: z.string().optional().nullable(),
+  hotelRecepPhone: z.string().optional().nullable(),
   // Restaurant POS user (for RESTAURANT / BOTH)
   posFullName: z.string().optional().nullable(),
   posEmail: z.string().optional().nullable(),
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       packageId, paymentReference, paymentAmount,
       branchName, branchCode, branchCity, branchAddress, branchPhone,
       restaurantPropertyName, restaurantBranchCode, restaurantBranchCity, restaurantBranchAddress,
-      hotelRecepFullName, hotelRecepEmail, hotelRecepPassword,
+      hotelRecepFullName, hotelRecepEmail, hotelRecepPassword, hotelRecepPhone,
       posFullName, posEmail, posPassword,
       restaurantAdminName, restaurantAdminEmail, restaurantAdminPassword,
       phone, vehicleType, vehicleNumber, deliveryLocation, deliveryLat, deliveryLng, deliveryRadius,
@@ -157,7 +158,10 @@ export async function POST(request: NextRequest) {
       // Check BOTH_SEPARATE restaurant admin email uniqueness
       if (businessType === 'BOTH_SEPARATE' && restaurantAdminEmail && restaurantAdminEmail.trim().length > 0) {
         if (restaurantAdminEmail.toLowerCase().trim() === email.toLowerCase().trim()) {
-          return apiError(new Error('Restaurant Admin email cannot be the same as the Hotel Admin email. Please use a different email.'), 400)
+          return apiError(new Error('Restaurant Admin email cannot be the same as the Hotel Owner email. Please use a different email.'), 400)
+        }
+        if (hotelRecepEmail && restaurantAdminEmail.toLowerCase().trim() === hotelRecepEmail.toLowerCase().trim()) {
+          return apiError(new Error('Restaurant Admin email cannot be the same as the Front Office email. Please use a different email.'), 400)
         }
         const existingRstAdmin = await prisma.user.findUnique({ where: { email: restaurantAdminEmail.toLowerCase().trim() } })
         if (existingRstAdmin) {
@@ -323,6 +327,7 @@ export async function POST(request: NextRequest) {
             data: {
               fullName: hotelRecepFullName.trim(),
               email: hotelRecepEmail.toLowerCase().trim(),
+              phone: hotelRecepPhone && hotelRecepPhone.trim().length > 0 ? hotelRecepPhone.trim() : null,
               passwordHash: recepPassHash,
               organizationId: organization.id,
               propertyId: branch.id,

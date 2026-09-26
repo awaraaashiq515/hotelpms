@@ -196,9 +196,16 @@ export default function LoginPage() {
             router.push('/operations');
           }
         }
-      } else if (role === 'HOTEL_ADMIN' || role === 'HOTEL_MANAGER' || isHotelRole) {
-        // ↑ IMPORTANT: Only route to /hotel for actual HOTEL admin/manager roles
-        // Do NOT include isHotelProperty here — Waiter/Staff also have HOTEL property type
+      } else if (role === 'HOTEL_ADMIN') {
+        // Hotel Owner / Admin → Hotel Admin Live Dashboard
+        const propCode = data.user.propertyCode;
+        if (propCode) {
+          router.push(`/${propCode}/hoteladmin`);
+        } else {
+          router.push('/hoteladmin');
+        }
+      } else if (role === 'HOTEL_MANAGER' || isHotelRole) {
+        // Front Office Staff (Receptionist, Manager, etc.) → Hotel PMS (/hotel)
         router.push('/hotel');
       } else if (role === 'B2B_SUPPLIER') {
         const propCode = data.user.propertyCode;

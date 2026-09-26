@@ -25,6 +25,7 @@ import {
   ClipboardList,
   MapPin,
   Building2,
+  Hotel,
   ChevronDown,
   ChevronUp,
   ScrollText,
@@ -243,16 +244,18 @@ export const HotelSidebar: React.FC = () => {
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
   const [hasRestaurant, setHasRestaurant] = React.useState(false);
   const [restaurantCode, setRestaurantCode] = React.useState<string | null>(null);
+  const [isOwnerOrAdmin, setIsOwnerOrAdmin] = React.useState(false);
 
-  // Detect if this org has an ATTACHED restaurant property (businessType === 'BOTH')
-  // When businessType === 'BOTH_SEPARATE', restaurant runs on its own dedicated portal & login,
-  // so it must NEVER appear in the Hotel sidebar or Hotel portal!
+  // Detect if user is Hotel Admin/Owner, Super Admin, or has attached restaurant
   React.useEffect(() => {
     fetch('/api/auth/session')
       .then(r => r.json())
       .then(sessData => {
         if (!sessData?.authenticated) return;
         const u = sessData.user;
+        if (u?.role === 'HOTEL_ADMIN' || u?.role === 'SUPER_ADMIN' || u?.role === 'RESTAURANTS_ADMIN') {
+          setIsOwnerOrAdmin(true);
+        }
         const isAttached = u?.businessType === 'BOTH' || (u?.isMultiProperty === true && u?.businessType !== 'BOTH_SEPARATE');
         if (!isAttached) {
           return;
@@ -476,19 +479,19 @@ export const HotelSidebar: React.FC = () => {
       <div className="p-3 border-t border-slate-800/60 space-y-1 shrink-0 bg-slate-900/30">
 
 
-        {/* All Properties / Switch Property link (only visible if multi-property / attached restaurant) */}
-        {hasRestaurant && (
+        {/* Hotel Owner Hub link (visible for owners, admins, or multi-property) */}
+        {(isOwnerOrAdmin || hasRestaurant) && (
           <Link
             href="/restaurantadmin"
             onClick={() => setIsOpen(false)}
-            title={!isOpen ? 'All Properties' : undefined}
-            className={`w-full flex items-center py-2 rounded-xl hover:bg-slate-800/60 text-slate-600 hover:text-slate-300 transition-all text-xs font-bold group relative ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
+            title={!isOpen ? 'Hotel Owner Hub' : undefined}
+            className={`w-full flex items-center py-2 rounded-xl hover:bg-amber-500/10 text-amber-400/80 hover:text-amber-300 transition-all text-xs font-bold group relative ${isOpen ? 'px-3 gap-2.5' : 'px-0 justify-center'}`}
           >
-            <Building2 size={14} className="group-hover:scale-110 transition-transform shrink-0" />
-            {isOpen && <span>All Properties</span>}
+            <Hotel size={14} className="group-hover:scale-110 transition-transform shrink-0 text-amber-400" />
+            {isOpen && <span>Hotel Owner Hub</span>}
             {!isOpen && (
-              <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-slate-200 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
-                All Properties
+              <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 border border-slate-700/80 text-amber-300 text-xs font-bold rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 whitespace-nowrap z-50">
+                Hotel Owner Hub
               </div>
             )}
           </Link>

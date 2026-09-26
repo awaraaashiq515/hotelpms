@@ -42,7 +42,7 @@ interface AddPropertyForm {
 const emptyAddForm = (): AddPropertyForm => ({
   name: '',
   code: '',
-  type: 'RESTAURANT',
+  type: 'HOTEL',
   city: '',
   state: '',
   phone: '',
@@ -54,7 +54,7 @@ const emptyAddForm = (): AddPropertyForm => ({
   checkOutTime: '11:00',
 });
 
-export default function RestaurantAdminPortal() {
+export default function HotelOwnerPortal() {
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +67,7 @@ export default function RestaurantAdminPortal() {
   const [addError, setAddError] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'restaurant' | 'hotel'>('all');
   const [viewMode, setViewMode] = useState<'properties' | 'staff'>('properties');
+  const [dashStats, setDashStats] = useState<any>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -100,6 +101,17 @@ export default function RestaurantAdminPortal() {
           .then(pData => {
             if (pData.success && pData.data?.length > 0) {
               setProperties(pData.data);
+              // For HOTEL_ADMIN: Auto-direct to the live operations dashboard unless they explicitly opened the multi-property hub with ?hub=1
+              if (role === 'HOTEL_ADMIN' && typeof window !== 'undefined') {
+                const sp = new URLSearchParams(window.location.search);
+                if (!sp.get('hub')) {
+                  const targetCode = d.user?.propertyCode || pData.data[0]?.code;
+                  if (targetCode) {
+                    router.replace(`/${targetCode}/restaurantadmin`);
+                    return;
+                  }
+                }
+              }
             } else {
               setProperties([]);
             }
@@ -113,6 +125,14 @@ export default function RestaurantAdminPortal() {
     loadProperties();
   }, [loadProperties]);
 
+  // Fetch owner-level dashboard stats
+  useEffect(() => {
+    fetch('/api/admin/dashboard')
+      .then(r => r.json())
+      .then(d => { if (d.success) setDashStats(d.data); })
+      .catch(() => {});
+  }, []);
+
   const handleSelect = async (property: Property) => {
     setSelecting(property.id);
     try {
@@ -123,13 +143,8 @@ export default function RestaurantAdminPortal() {
       });
       const data = await res.json();
       if (data.success) {
-        if (property.type === 'HOTEL') {
-          // Hotel property → hotel PMS portal
-          router.push('/hotel');
-        } else {
-          // Restaurant/Cafe → POS Billing Terminal
-          router.push(`/${property.code}/billing`);
-        }
+        // Direct to the operational dashboard for this property
+        router.push(`/${property.code}/restaurantadmin`);
         router.refresh();
       } else {
         alert(data.error || 'Failed to select property.');
@@ -205,14 +220,14 @@ export default function RestaurantAdminPortal() {
       <div className="min-h-screen bg-[#07070d] flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <div className="w-20 h-20 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Utensils size={24} className="text-emerald-400" />
+              <Hotel size={24} className="text-amber-400" />
             </div>
           </div>
           <div className="text-center space-y-1">
-            <p className="text-sm font-black text-white">Loading your properties…</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Property Hub</p>
+            <p className="text-sm font-black text-white">Loading your hotels…</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Hotel Owner Hub</p>
           </div>
         </div>
       </div>
@@ -245,9 +260,9 @@ export default function RestaurantAdminPortal() {
 
       {/* Background glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/3 w-[700px] h-[700px] bg-violet-700/6 rounded-full blur-[180px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-amber-700/4 rounded-full blur-[150px]" />
-        <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-indigo-600/4 rounded-full blur-[120px]" />
+        <div className="absolute top-0 left-1/3 w-[700px] h-[700px] bg-indigo-700/6 rounded-full blur-[180px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-amber-700/5 rounded-full blur-[150px]" />
+        <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-amber-600/4 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative z-10 min-h-screen flex flex-col">
@@ -256,11 +271,11 @@ export default function RestaurantAdminPortal() {
         <div className="border-b border-white/5 bg-black/20 backdrop-blur-xl">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                <Building2 size={16} className="text-emerald-400" />
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                <Hotel size={16} className="text-amber-400" />
               </div>
               <div>
-                <p className="text-sm font-black text-white leading-tight">Property Hub</p>
+                <p className="text-sm font-black text-white leading-tight">Hotel Owner Hub</p>
                 <p className="text-[10px] text-slate-500 font-bold">Welcome back, {userName}</p>
               </div>
             </div>
@@ -271,7 +286,7 @@ export default function RestaurantAdminPortal() {
                 onClick={() => setViewMode('properties')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === 'properties'
-                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                    ? 'bg-amber-500/20 border border-amber-500/30 text-amber-300'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -281,7 +296,7 @@ export default function RestaurantAdminPortal() {
                 onClick={() => setViewMode('staff')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === 'staff'
-                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                    ? 'bg-amber-500/20 border border-amber-500/30 text-amber-300'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -292,7 +307,7 @@ export default function RestaurantAdminPortal() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => { setAddForm(emptyAddForm()); setAddError(''); setShowAddModal(true); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/25 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/25 text-[11px] font-bold text-amber-400 hover:bg-amber-500/25 transition-all"
               >
                 <Plus size={13} /> Add Property
               </button>
@@ -317,22 +332,77 @@ export default function RestaurantAdminPortal() {
               <>
                 {/* Heading */}
                 <div className="text-center mb-8">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Property & Outlet Directory
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Hotel Owner Control Center
                   </div>
                   <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-3">
-                    Select a Property<br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-amber-400">
-                      to Open Dashboard or POS
+                    Manage Your Hotels<br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-indigo-400">
+                      & Properties
                     </span>
                   </h1>
                   <p className="text-sm text-slate-500 font-bold">
                     {properties.length} {properties.length === 1 ? 'property' : 'properties'} available
                     {hotelCount > 0 && <span className="ml-2 text-amber-500/70">• {hotelCount} Hotel{hotelCount !== 1 ? 's' : ''}</span>}
-                    {restaurantCount > 0 && <span className="ml-2 text-emerald-500/70">• {restaurantCount} Restaurant / POS{restaurantCount !== 1 ? 's' : ''}</span>}
+                    {restaurantCount > 0 && <span className="ml-2 text-indigo-500/70">• {restaurantCount} Restaurant / POS{restaurantCount !== 1 ? 's' : ''}</span>}
                   </p>
                 </div>
+
+                {/* Direct Live Owner Dashboard Banner */}
+                {properties.length > 0 && (
+                  <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-violet-500/10 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                        <Activity size={20} className="animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white">Live Owner Operations Dashboard</p>
+                        <p className="text-xs text-slate-400">Real-time room occupancy, active orders, live KOTs, staff & revenue</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const target = properties.find(p => p.type === 'HOTEL') || properties[0];
+                        if (target) router.push(`/${target.code}/restaurantadmin`);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all shrink-0"
+                    >
+                      <span>Open Live Dashboard</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Owner Revenue & Stats Overview */}
+                {dashStats && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7">
+                    <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 bg-amber-500/5 rounded-full blur-xl" />
+                      <p className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest mb-1">Total Revenue</p>
+                      <p className="text-2xl font-black text-white tabular-nums">₹{(dashStats.totalSales || 0).toLocaleString('en-IN')}</p>
+                      <p className="text-[9px] text-slate-600 font-bold mt-0.5">All properties combined</p>
+                    </div>
+                    <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-transparent border border-indigo-500/20">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 bg-indigo-500/5 rounded-full blur-xl" />
+                      <p className="text-[10px] font-bold text-indigo-400/80 uppercase tracking-widest mb-1">Properties</p>
+                      <p className="text-2xl font-black text-white">{dashStats.totalBusinesses || 0}</p>
+                      <p className="text-[9px] text-slate-600 font-bold mt-0.5">{dashStats.totalOutlets || 0} outlets active</p>
+                    </div>
+                    <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-sky-500/10 to-transparent border border-sky-500/20">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 bg-sky-500/5 rounded-full blur-xl" />
+                      <p className="text-[10px] font-bold text-sky-400/80 uppercase tracking-widest mb-1">Total Staff</p>
+                      <p className="text-2xl font-black text-white">{dashStats.totalUsers || 0}</p>
+                      <p className="text-[9px] text-slate-600 font-bold mt-0.5">Across all properties</p>
+                    </div>
+                    <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 bg-emerald-500/5 rounded-full blur-xl" />
+                      <p className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest mb-1">B2B Orders</p>
+                      <p className="text-2xl font-black text-white">{dashStats.b2bActiveOrders || 0}</p>
+                      <p className="text-[9px] text-slate-600 font-bold mt-0.5">Active supply orders</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Tab Filter */}
                 {properties.length > 0 && hotelCount > 0 && restaurantCount > 0 && (
@@ -347,7 +417,7 @@ export default function RestaurantAdminPortal() {
                         onClick={() => setActiveTab(tab.key as typeof activeTab)}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                           activeTab === tab.key
-                            ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
                             : 'bg-white/[0.03] border border-white/8 text-slate-500 hover:text-slate-300'
                         }`}
                       >
@@ -366,7 +436,7 @@ export default function RestaurantAdminPortal() {
                     <p className="text-slate-500 font-bold mb-2">No properties found</p>
                     <button
                       onClick={() => { setAddForm(emptyAddForm()); setAddError(''); setShowAddModal(true); }}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-sm font-bold text-emerald-400 hover:bg-emerald-500/25 transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/25 text-sm font-bold text-amber-400 hover:bg-amber-500/25 transition-all"
                     >
                       <Plus size={14} /> Add your first property
                     </button>
@@ -391,24 +461,24 @@ export default function RestaurantAdminPortal() {
 
                 {/* Footer note */}
                 <p className="text-center text-[10px] text-slate-700 font-bold mt-10">
-                  Select an F&B outlet for Live POS dashboard or a Hotel for PMS portal.
+                  Select a hotel to open PMS portal or an outlet for POS dashboard.
                 </p>
               </>
             ) : (
               <>
                 {/* Staff Management Heading */}
                 <div className="text-center mb-8">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-[0.25em] mb-5">
                     <Users size={12} className="inline mr-1" /> Staff Directory & Access Control
                   </div>
                   <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-3">
                     Staff Accounts<br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-amber-400">
-                      Manage POS & F&B Access
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-indigo-400">
+                      Manage Hotel & Property Staff
                     </span>
                   </h1>
                   <p className="text-sm text-slate-500 font-bold">
-                    Manage waiters, cashiers, riders, receptionists, and managers across all properties.
+                    Manage receptionists, housekeeping, waiters, cashiers, and managers across all properties.
                   </p>
                 </div>
 
@@ -642,7 +712,7 @@ export default function RestaurantAdminPortal() {
               <button
                 onClick={handleAddProperty}
                 disabled={addLoading}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-emerald-900/40"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-black transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-amber-900/40"
               >
                 {addLoading ? (
                   <><RefreshCw size={14} className="animate-spin" /> Creating…</>
@@ -789,7 +859,7 @@ function PropertyCard({
           </>
         ) : (
           <>
-            {isHotel ? 'Open Hotel PMS' : 'Open POS System'}
+            {isHotel ? 'Open Owner Dashboard' : 'Open Live Dashboard'}
             <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform duration-200" />
           </>
         )}
