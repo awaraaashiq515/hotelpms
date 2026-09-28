@@ -13,16 +13,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    let propertyId = body.propertyId || session.propertyId;
+    let propertyQuery = body.propertyId || session.propertyId;
 
-    if (!propertyId && session.organizationId) {
-      const first = await prisma.property.findFirst({
+    let targetProperty = null;
+    if (propertyQuery) {
+      targetProperty = await prisma.property.findFirst({
+        where: { OR: [{ id: propertyQuery }, { code: propertyQuery }] },
+        select: { id: true }
+      });
+    } else if (session.organizationId) {
+      targetProperty = await prisma.property.findFirst({
         where: { organizationId: session.organizationId },
         select: { id: true },
         orderBy: { createdAt: 'asc' }
       });
-      propertyId = first?.id;
     }
+
+    const propertyId = targetProperty?.id;
 
     console.log('[DEBUG] Sync API POST called. Session propertyId:', session.propertyId, 'Request body propertyId:', body.propertyId, 'Final propertyId:', propertyId);
 

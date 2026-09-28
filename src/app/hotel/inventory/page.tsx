@@ -187,7 +187,7 @@ export default function InventoryPage() {
           unit: item.unit || 'Pcs',
           currentStock: item.currentQuantity ?? 0,
           reorderLevel: item.minThreshold ?? 0,
-          maxStock: item.maxStock ?? (item.minThreshold * 4) ?? 100,
+          maxStock: item.maxStock ?? (item.minThreshold ? item.minThreshold * 4 : 100),
           unitCost: item.costPrice ?? 0,
           supplier: item.supplier || 'Texco / HygienePro',
         }));

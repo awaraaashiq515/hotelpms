@@ -121,7 +121,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal'].includes(parts[0])) {
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'hotel', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname
@@ -145,13 +145,13 @@ export async function proxy(request: NextRequest) {
       payload = verified.payload
     } catch (err) {
       // If token is invalid for a protected route, redirect to login
-      if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin')) {
+      if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin') || pathname.startsWith('/hotel')) {
         return NextResponse.redirect(new URL('/login', request.url))
       }
     }
   } else {
     // No session cookie and trying to access a protected route
-    if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin')) {
+    if (isDashboardRoute || isAdminRoute || pathname === '/payment-pending' || pathname.startsWith('/restaurantadmin') || pathname.startsWith('/hoteladmin') || pathname.startsWith('/hotel')) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }
@@ -361,8 +361,8 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL('/hotel', request.url))
       }
 
-      // Permissions-based Access Control for non-admins
-      if (role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN' && role !== 'HOTEL_ADMIN' && role !== 'HOTEL_MANAGER') {
+      // Permissions-based Access Control for non-admins (applies to POS / restaurant routes)
+      if (!pathname.startsWith('/hotel') && role !== 'SUPER_ADMIN' && role !== 'RESTAURANTS_ADMIN' && role !== 'HOTEL_ADMIN' && role !== 'HOTEL_MANAGER' && role !== 'HOTEL_RECEPTIONIST') {
         // Hard block for property management and restaurant admin path for non-admins
         if (pathname === '/manage-properties' || pathname.startsWith('/manage-properties/')) {
           return NextResponse.redirect(new URL(getOperationsUrl(), request.url))
@@ -427,7 +427,7 @@ export async function proxy(request: NextRequest) {
 
   // Hard route enforcement for Package Features
   // Applies to ALL non-SUPER_ADMIN roles (including RESTAURANTS_ADMIN and POSSYSTEM)
-  if (payload && !isAdminRoute && isDashboardRoute) {
+  if (payload && !isAdminRoute && isDashboardRoute && !pathname.startsWith('/hotel')) {
     const role = payload.role as string
     const packageFeatures = (payload.packageFeatures as string[] || [])
 

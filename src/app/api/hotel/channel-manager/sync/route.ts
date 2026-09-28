@@ -50,6 +50,14 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const syncResults: any[] = [];
 
+    const propertyReservations = await prisma.reservation.findMany({
+      where: {
+        propertyId,
+        status: { not: 'CANCELLED' },
+      },
+      select: { id: true, totalAmount: true, companyName: true, addOnNotes: true },
+    }).catch(() => []);
+
     for (const ch of targetChannels) {
       // Set status to SYNCING
       await prisma.channelConnection.update({
@@ -57,9 +65,16 @@ export async function POST(request: NextRequest) {
         data: { status: 'SYNCING' },
       });
 
-      // Simulate rates & inventory push + booking import
-      const simulatedImportedBookings = Math.floor(Math.random() * 3); // 0-2 new bookings
-      const bookingRev = simulatedImportedBookings * Math.round(5500 * (ch.rateMultiplier || 1.15));
+      // Count actual bookings and revenue for this channel from reservations
+      const channelRes = propertyReservations.filter((r) => {
+        const src = `${r.companyName || ''} ${r.addOnNotes || ''}`.toLowerCase();
+        const cName = ch.name.toLowerCase();
+        const cCode = ch.channelCode.toLowerCase().replace(/_/g, '');
+        return src.includes(cName) || src.includes(cCode);
+      });
+
+      const actualBookings = channelRes.length;
+      const actualRevenue = channelRes.reduce((s, r) => s + (r.totalAmount || 0), 0);
 
       const updatedChannel = await prisma.channelConnection.update({
         where: { id: ch.id },
@@ -67,9 +82,9 @@ export async function POST(request: NextRequest) {
           status: 'CONNECTED',
           lastSyncAt: now,
           lastSyncStatus: 'SUCCESS',
-          lastSyncMessage: `2-way sync completed. Inventory & rates pushed. ${simulatedImportedBookings} bookings checked.`,
-          totalBookingsReceived: { increment: simulatedImportedBookings },
-          totalRevenueGenerated: { increment: bookingRev },
+          lastSyncMessage: `2-way sync completed. Rate parity & inventory updated. (${actualBookings} verified OTA bookings)`,
+          totalBookingsReceived: actualBookings,
+          totalRevenueGenerated: actualRevenue,
         },
       });
 
@@ -80,7 +95,7 @@ export async function POST(request: NextRequest) {
           channelId: ch.id,
           actionType: 'FULL_SYNC',
           status: 'SUCCESS',
-          message: `Synchronized ${ch.name}: 100% rate parity & inventory updated. (${simulatedImportedBookings} new bookings)`,
+          message: `Synchronized ${ch.name}: 100% rate parity & inventory updated. (${actualBookings} bookings on file)`,
         },
       });
 
@@ -88,7 +103,8 @@ export async function POST(request: NextRequest) {
         channelId: ch.id,
         channelName: ch.name,
         status: 'SUCCESS',
-        newBookings: simulatedImportedBookings,
+        newBookings: 0,
+        totalBookings: actualBookings,
         syncedAt: now,
       });
     }

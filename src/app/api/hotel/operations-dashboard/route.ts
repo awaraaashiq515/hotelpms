@@ -284,6 +284,7 @@ export async function GET(request: NextRequest) {
       // Count bookings active on targetDate
       let bookedUnits = 0;
       let projectedRev = 0;
+      const dayBookings: any[] = [];
 
       allReservations.forEach(r => {
         if (r.status === 'CANCELLED') return;
@@ -294,6 +295,47 @@ export async function GET(request: NextRequest) {
           bookedUnits++;
           const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
           projectedRev += Math.round(r.totalAmount / nights);
+
+          const assignedRoomNo = r.rooms?.[0]?.room?.roomNumber || r.roomType?.name || 'Unassigned';
+          const ratePerNight = r.rooms?.[0]?.ratePerNight || Math.round(r.totalAmount / nights);
+
+          dayBookings.push({
+            id: r.id,
+            guestId: r.guestId,
+            guestName: r.guest ? `${((r.guest as any).name || (r.guest.firstName || '') + ' ' + (r.guest.lastName || '')).trim()}` || 'Guest' : 'Guest',
+            guestFirstName: r.guest?.firstName || '',
+            guestLastName: r.guest?.lastName || '',
+            guestMobile: r.guest?.mobile || '',
+            guestEmail: r.guest?.email || '',
+            guestAddress: r.guest?.address || r.guest?.billingAddress || r.billingAddress || '',
+            guestIdType: r.guest?.idType || 'Aadhaar Card',
+            guestIdNumber: r.guest?.idNumber || 'Verified ID',
+            guestNationality: r.guest?.nationality || 'Indian',
+            companyName: r.companyName || r.guest?.companyName || '',
+            gstNumber: r.gstNumber || r.guest?.gstNumber || '',
+            reservationNumber: r.bookingNo,
+            bookingNo: r.bookingNo,
+            unitNumber: assignedRoomNo,
+            assignedRoomId: r.assignedRoomId || r.rooms?.[0]?.roomId,
+            roomTypeName: r.roomType?.name || 'Standard Room',
+            status: r.status,
+            arrivalDate: r.arrivalDate,
+            departureDate: r.departureDate,
+            nights,
+            ratePerNight,
+            adults: r.adults || 1,
+            children: r.children || 0,
+            mealPlan: r.mealPlan || 'RO',
+            totalAmount: r.totalAmount,
+            advanceAmount: r.advanceAmount,
+            dueAmount: r.dueAmount,
+            notes: r.addOnNotes || '',
+            source: r.companyName || 'Direct Front Desk',
+            createdAt: r.createdAt,
+            rooms: r.rooms,
+            roomType: r.roomType,
+            guest: r.guest,
+          });
         }
       });
 
@@ -310,7 +352,8 @@ export async function GET(request: NextRequest) {
         totalUnits: effectiveTotal,
         occupancyRate: occRate,
         projectedRevenue: projectedRev > 0 ? projectedRev : (effectiveBooked * averageDailyRate),
-        currency
+        currency,
+        bookings: dayBookings,
       });
     }
 

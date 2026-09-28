@@ -8,10 +8,21 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
+    const { searchParams } = new URL(request.url);
+    const propertyId = searchParams.get('propertyId') || session.propertyId;
+
+    const where: any = {};
+    if (propertyId) {
+      where.OR = [
+        { reservations: { some: { propertyId } } },
+        { organization: { properties: { some: { id: propertyId } } } }
+      ];
+    } else if (session.organizationId) {
+      where.organizationId = session.organizationId;
+    }
+
     const guests = await prisma.guest.findMany({
-      where: {
-        organization: { properties: { some: { id: session.propertyId! } } }
-      },
+      where,
       include: {
         _count: { select: { folios: true, checkIns: true, posOrders: true } },
         folios: { select: { totalCharges: true } },

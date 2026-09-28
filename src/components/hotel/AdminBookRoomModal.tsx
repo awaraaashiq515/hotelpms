@@ -31,6 +31,15 @@ interface AdminBookRoomModalProps {
   roomTypes: RoomTypeOption[];
   availableRooms: AvailableRoomOption[];
   preselectedRoom?: { id: string; roomNumber: string; roomTypeId: string } | null;
+  initialBookingData?: {
+    guestName?: string;
+    guestEmail?: string;
+    guestPhone?: string;
+    arrivalDate?: string;
+    departureDate?: string;
+    totalAmount?: number;
+    source?: string;
+  } | null;
   onBookingSuccess: () => void;
 }
 
@@ -59,6 +68,7 @@ export function AdminBookRoomModal({
   roomTypes,
   availableRooms,
   preselectedRoom,
+  initialBookingData,
   onBookingSuccess,
 }: AdminBookRoomModalProps) {
   // Guest Details
@@ -117,6 +127,33 @@ export function AdminBookRoomModal({
   // Submitting
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Handle prefill from email booking or preselected room
+  useEffect(() => {
+    if (initialBookingData) {
+      if (initialBookingData.guestName) {
+        const parts = initialBookingData.guestName.trim().split(' ');
+        setFirstName(parts[0] || '');
+        setLastName(parts.slice(1).join(' ') || '');
+      }
+      if (initialBookingData.guestEmail) setEmail(initialBookingData.guestEmail);
+      if (initialBookingData.guestPhone) setMobile(initialBookingData.guestPhone);
+      if (initialBookingData.arrivalDate) {
+        const d = new Date(initialBookingData.arrivalDate);
+        if (!isNaN(d.getTime())) setArrivalDate(d.toISOString().split('T')[0]);
+      }
+      if (initialBookingData.departureDate) {
+        const d = new Date(initialBookingData.departureDate);
+        if (!isNaN(d.getTime())) setDepartureDate(d.toISOString().split('T')[0]);
+      }
+      if (initialBookingData.totalAmount) {
+        setTotalAmount(String(initialBookingData.totalAmount));
+      }
+      if (initialBookingData.source) {
+        setDiscountReason(`Booked via ${initialBookingData.source}`);
+      }
+    }
+  }, [initialBookingData, isOpen]);
 
   // Handle preselected room
   useEffect(() => {

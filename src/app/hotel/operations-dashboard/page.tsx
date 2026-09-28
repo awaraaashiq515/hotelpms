@@ -33,6 +33,7 @@ export default function HotelOperationsDashboard() {
   const [activeReservationForNotes, setActiveReservationForNotes] = useState<ReservationItem | null>(null);
   const [activeReservationForPrint, setActiveReservationForPrint] = useState<ReservationItem | null>(null);
   const [isNewResModalOpen, setIsNewResModalOpen] = useState(false);
+  const [newResArrivalDate, setNewResArrivalDate] = useState<string | undefined>(undefined);
   const [isLearnModalOpen, setIsLearnModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -341,6 +342,7 @@ export default function HotelOperationsDashboard() {
           onRefresh={fetchDashboardData}
           onAddNote={(res) => setActiveReservationForNotes(res)}
           onCheckIn={handleCheckIn}
+          onCheckOut={handleCheckOut}
           onPrint={handlePrint}
           onPrintList={(items) => handlePrintManifest(items)}
           onSelectReservation={(res) => handleOpenBookingDetails(res)}
@@ -360,6 +362,11 @@ export default function HotelOperationsDashboard() {
         <FourteenDayOutlook
           forecastData={dashboardData?.outlook || []}
           currency={dashboardData?.property?.currency || '₹'}
+          onAddBooking={(dateStr) => {
+            setNewResArrivalDate(dateStr);
+            setIsNewResModalOpen(true);
+          }}
+          onSelectBooking={(b) => handleOpenBookingDetails(b)}
         />
       </div>
 
@@ -389,7 +396,11 @@ export default function HotelOperationsDashboard() {
       <QuickReservationModal
         isOpen={isNewResModalOpen}
         roomsList={dashboardData?.roomsList || []}
-        onClose={() => setIsNewResModalOpen(false)}
+        initialArrivalDate={newResArrivalDate}
+        onClose={() => {
+          setIsNewResModalOpen(false);
+          setNewResArrivalDate(undefined);
+        }}
         onCreated={() => {
           showToast('✓ Real booking created successfully!');
           fetchDashboardData();

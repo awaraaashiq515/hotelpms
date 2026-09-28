@@ -34,20 +34,26 @@ export async function POST(request: NextRequest) {
       const orderNo = `RM-${Date.now().toString(36).toUpperCase()}`;
       const grandTotal = items.reduce((s: number, i: any) => s + (i.price * i.qty), 0);
 
+      // Find outlet
+      const outlet = await prisma.outlet.findFirst({
+        where: { propertyId },
+        select: { id: true },
+      });
+
       // Create POS order (Room Service type)
       const posOrder = await prisma.posOrder.create({
         data: {
           propertyId,
+          outletId: outlet?.id || 'default-outlet',
           orderNo,
           orderType: 'ROOM_SERVICE',
           status: 'PENDING',
           tableNo: roomNo ? `Room ${roomNo}` : (tableNo || 'Admin Order'),
           guestCount: 1,
           grandTotal,
-          subTotal: grandTotal,
-          taxTotal: 0,
-          discountTotal: 0,
-          note: note || `Admin room service order for ${guestName || 'Guest'}`,
+          subtotal: grandTotal,
+          taxAmount: 0,
+          discountAmount: 0,
           deliveryCustomerName: guestName || null,
           items: {
             create: items.map((it: any) => ({
@@ -73,6 +79,7 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
 
+      const userDisplayName = (session as any).fullName || (session as any).name || session.email || 'Hotel Admin';
       const itemsList = items.map((i: any) => `${i.name} x${i.qty}`).join(', ');
       await prisma.notification.create({
         data: {
@@ -82,7 +89,7 @@ export async function POST(request: NextRequest) {
           type: 'ORDER',
           priority: 'HIGH',
           status: 'UNREAD',
-          metadata: JSON.stringify({ orderNo, orderId: posOrder.id, guestName, roomNo, items, grandTotal, placedBy: session.fullName || 'Hotel Admin' }),
+          metadata: JSON.stringify({ orderNo, orderId: posOrder.id, guestName, roomNo, items, grandTotal, placedBy: userDisplayName }),
         },
       });
 
@@ -94,6 +101,7 @@ export async function POST(request: NextRequest) {
       const { items, note, supplierName } = body;
       if (!items?.length) return NextResponse.json({ message: 'No items selected' }, { status: 400 });
 
+      const userDisplayName = (session as any).fullName || (session as any).name || session.email || 'Hotel Admin';
       const itemsList = items.map((i: any) => `${i.name}: ${i.requestedQty} ${i.unit || 'pcs'}`).join(', ');
       const poNo = `PO-${Date.now().toString(36).toUpperCase()}`;
 
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest) {
           type: 'INVENTORY',
           priority: 'HIGH',
           status: 'UNREAD',
-          metadata: JSON.stringify({ poNo, items, supplierName, note, placedBy: session.fullName || 'Hotel Admin' }),
+          metadata: JSON.stringify({ poNo, items, supplierName, note, placedBy: userDisplayName }),
         },
       });
 

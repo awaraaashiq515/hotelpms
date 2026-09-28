@@ -34,7 +34,7 @@ interface UseChannelManagerReturn {
   toggleStopSell: (channelId: string, roomTypeId: string, stopSell: boolean) => Promise<boolean>;
 }
 
-export function useChannelManager(): UseChannelManagerReturn {
+export function useChannelManager(propertyId?: string): UseChannelManagerReturn {
   const [summary, setSummary] = useState<ChannelManagerSummary | null>(null);
   const [channels, setChannels] = useState<ChannelItem[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomTypeItem[]>([]);
@@ -48,9 +48,10 @@ export function useChannelManager(): UseChannelManagerReturn {
     setLoading(true);
     setError(null);
     try {
+      const q = propertyId ? `?propertyId=${encodeURIComponent(propertyId)}` : '';
       const [mainRes, logsRes] = await Promise.all([
-        fetch('/api/hotel/channel-manager'),
-        fetch('/api/hotel/channel-manager/logs'),
+        fetch(`/api/hotel/channel-manager${q}`),
+        fetch(`/api/hotel/channel-manager/logs${q}`),
       ]);
 
       const mainJson = await mainRes.json();
@@ -74,7 +75,7 @@ export function useChannelManager(): UseChannelManagerReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [propertyId]);
 
   useEffect(() => {
     fetchChannelData();
@@ -91,7 +92,7 @@ export function useChannelManager(): UseChannelManagerReturn {
       const res = await fetch('/api/hotel/channel-manager/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId, syncAll: !channelId }),
+        body: JSON.stringify({ channelId, syncAll: !channelId, propertyId }),
       });
       const json = await res.json();
       if (json.success) {

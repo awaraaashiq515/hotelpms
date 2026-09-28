@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     // Parallel DB fetches
     const [rooms, roomTypes, reservations, payments, posOrders, housekeeping, maintenance, staff, attendances] = await Promise.all([
-      prisma.room.findMany({ where, include: { roomType: true } }),
-      prisma.roomType.findMany({ where }),
+      prisma.room.findMany({ where, include: { roomType: true } }).catch(() => []),
+      prisma.roomType.findMany({ where }).catch(() => []),
       prisma.reservation.findMany({
         where,
         include: { guest: true, roomType: true },

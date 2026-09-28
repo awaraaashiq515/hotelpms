@@ -312,3 +312,61 @@ export async function PATCH(request: NextRequest) {
     return apiError(error);
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) return apiError(new Error('Unauthorized'), 401);
+
+    const { searchParams } = new URL(request.url);
+    const folioId = searchParams.get('folioId');
+    const transactionId = searchParams.get('transactionId');
+    const sourceModule = searchParams.get('sourceModule');
+
+    if (!folioId) return apiError(new Error('folioId is required'), 400);
+
+    const folio = await prisma.folio.findUnique({
+      where: { id: folioId },
+      include: { transactions: true }
+    });
+    if (!folio) return apiError(new Error('Folio not found'), 404);
+
+    let txnsToDelete: typeof folio.transactions = [];
+    if (transactionId) {
+      txnsToDelete = folio.transactions.filter(t => t.id === transactionId);
+    } else if (sourceModule) {
+      txnsToDelete = folio.transactions.filter(t => t.sourceModule === sourceModule);
+    }
+
+    if (txnsToDelete.length === 0) {
+      return apiResponse({ deletedCount: 0, folio }, 'No matching transactions found');
+    }
+
+    const totalDebitRemoved = txnsToDelete.reduce((s, t) => s + (t.debitAmount || 0), 0);
+    const totalCreditRemoved = txnsToDelete.reduce((s, t) => s + (t.creditAmount || 0), 0);
+
+    await prisma.folioTransaction.deleteMany({
+      where: { id: { in: txnsToDelete.map(t => t.id) } }
+    });
+
+    const newTotalCharges = Math.max(0, folio.totalCharges - totalDebitRemoved);
+    const newTotalPayments = Math.max(0, folio.totalPayments - totalCreditRemoved);
+    const newClosingBalance = newTotalCharges - newTotalPayments;
+
+    const updatedFolio = await prisma.folio.update({
+      where: { id: folioId },
+      data: {
+        totalCharges: newTotalCharges,
+        totalPayments: newTotalPayments,
+        closingBalance: newClosingBalance,
+      },
+      include: {
+        transactions: { orderBy: { txnDate: 'desc' } }
+      }
+    });
+
+    return apiResponse({ deletedCount: txnsToDelete.length, folio: updatedFolio }, 'Transaction(s) removed successfully');
+  } catch (error) {
+    return apiError(error);
+  }
+}

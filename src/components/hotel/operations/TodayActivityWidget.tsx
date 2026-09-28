@@ -6,7 +6,8 @@ import {
   ClipboardCheck,
   Moon,
   Wallet,
-  ArrowUpDown
+  ArrowUpDown,
+  Eye,
 } from 'lucide-react';
 
 export interface ActivityItem {
@@ -214,12 +215,13 @@ export function TodayActivityWidget({
                     Reserva... Source <ArrowUpDown className="w-3 h-3 text-slate-500" />
                   </div>
                 </th>
+                <th className="py-2.5 px-2 font-semibold text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-[13px]">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-slate-500 text-xs">
+                  <td colSpan={6} className="text-center py-8 text-slate-500 text-xs">
                     No activity logs found for {activeTab}.
                   </td>
                 </tr>
@@ -264,6 +266,22 @@ export function TodayActivityWidget({
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${getSourceBadgeStyle(act.source)}`}>
                         {act.source}
                       </span>
+                    </td>
+
+                    {/* View Action */}
+                    <td className="py-3 px-2 text-right">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRowClick?.(act);
+                        }}
+                        title="View Full Booking Details"
+                        className="inline-flex items-center gap-1 text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border border-indigo-500/25 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>View</span>
+                      </button>
                     </td>
                   </tr>
                 ))

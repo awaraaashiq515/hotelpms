@@ -13,12 +13,29 @@ import {
   Settings, BarChart3, X, Plus, Calendar,
   Phone, User, Loader2, Check, Clock, AlertCircle, ChevronDown,
   Package, ShoppingCart, AlertTriangle, Minus, Search as SearchIcon,
+  Mail, Inbox, Send, ShieldCheck, Download,
 } from 'lucide-react';
 import { AdminBookRoomModal } from '@/components/hotel/AdminBookRoomModal';
+import { EmailBookingConfigModal } from '@/components/hotel/EmailBookingConfigModal';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────────────────
+interface EmailBookingItem {
+  id: string;
+  sender: string;
+  subject: string;
+  body: string;
+  guestName: string | null;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  amount: number | null;
+  source: string;
+  status: 'PENDING' | 'IMPORTED' | 'REJECTED';
+  createdAt: string;
+}
 interface RoomData {
   id: string; roomNumber: string; type: string; price: number;
   status: string; housekeepingStatus: string; guestName: string | null; roomTypeId?: string;
@@ -407,6 +424,26 @@ export default function HotelAdminDashboard() {
   const [foodOrderNote, setFoodOrderNote] = useState('');
   const [foodOrderSubmitting, setFoodOrderSubmitting] = useState(false);
   const [foodProductSearch, setFoodProductSearch] = useState('');
+  // Email & OTA Bookings state
+  const [emailBookings, setEmailBookings] = useState<EmailBookingItem[]>([]);
+  const [emailBookingsSummary, setEmailBookingsSummary] = useState({ total: 0, pending: 0, imported: 0, rejected: 0 });
+  const [emailConfig, setEmailConfig] = useState({ bookingEmail: '', isConfigured: false, hasAppPassword: false });
+  const [showEmailConfigModal, setShowEmailConfigModal] = useState(false);
+  const [emailSyncing, setEmailSyncing] = useState(false);
+  const [emailSyncMessage, setEmailSyncMessage] = useState<string | null>(null);
+  const [simulatingEmail, setSimulatingEmail] = useState(false);
+  const [emailBookingTab, setEmailBookingTab] = useState<'PENDING' | 'ALL' | 'IMPORTED'>('PENDING');
+  const [emailImportingId, setEmailImportingId] = useState<string | null>(null);
+  const [adminPrefillBooking, setAdminPrefillBooking] = useState<{
+    guestName?: string;
+    guestEmail?: string;
+    guestPhone?: string;
+    arrivalDate?: string;
+    departureDate?: string;
+    totalAmount?: number;
+    source?: string;
+  } | null>(null);
+
   const { setOpen } = useSidebar();
 
   useEffect(() => { setOpen(false); }, [setOpen]);
@@ -498,13 +535,136 @@ export default function HotelAdminDashboard() {
     finally { setLoading(false); if (isManual) setRefreshing(false); }
   }, [selectedPropertyId]);
 
+  const fetchEmailBookings = useCallback(async () => {
+    if (!selectedPropertyId) return;
+    try {
+      const res = await fetch(`/api/hotel/email-bookings?propertyId=${selectedPropertyId}`);
+      const json = await res.json();
+      if (json.success) {
+        setEmailBookings(json.data || []);
+        if (json.summary) setEmailBookingsSummary(json.summary);
+        if (json.propertyConfig) setEmailConfig(json.propertyConfig);
+      }
+    } catch (err) {
+      console.error('Failed to fetch email bookings', err);
+    }
+  }, [selectedPropertyId]);
+
+  const handleSyncGmail = async () => {
+    if (!emailConfig.isConfigured) {
+      setShowEmailConfigModal(true);
+      return;
+    }
+    setEmailSyncing(true);
+    setEmailSyncMessage(null);
+    try {
+      const res = await fetch('/api/hotel/email-bookings/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId: selectedPropertyId }),
+      });
+      const json = await res.json();
+      setEmailSyncMessage(json.message || (json.success ? 'Sync completed' : 'Sync failed'));
+      await fetchEmailBookings();
+      setTimeout(() => setEmailSyncMessage(null), 6000);
+    } catch (err: any) {
+      setEmailSyncMessage('Sync request failed. Check server.');
+    } finally {
+      setEmailSyncing(false);
+    }
+  };
+
+  const handleSimulateEmail = async (source: string = 'Booking.com') => {
+    setSimulatingEmail(true);
+    try {
+      const names = ['Vikram Seth', 'Ananya Roy', 'Rohan Mehra', 'Pooja Bhatt', 'Karan Singhal'];
+      const randomName = names[Math.floor(Math.random() * names.length)];
+      const randomAmount = Math.floor(Math.random() * 5 + 3) * 1200;
+      const res = await fetch('/api/hotel/email-bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SIMULATE',
+          propertyId: selectedPropertyId,
+          source,
+          guestName: randomName,
+          guestEmail: `${randomName.toLowerCase().replace(' ', '.')}@example.com`,
+          guestPhone: `+91 ${Math.floor(9000000000 + Math.random() * 999999999)}`,
+          amount: randomAmount,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchEmailBookings();
+      }
+    } catch (err) {
+      console.error('Failed to simulate email booking', err);
+    } finally {
+      setSimulatingEmail(false);
+    }
+  };
+
+  const handleImportEmailBooking = async (booking: EmailBookingItem) => {
+    setEmailImportingId(booking.id);
+    try {
+      const res = await fetch('/api/hotel/email-bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'IMPORT',
+          emailBookingId: booking.id,
+          guestName: booking.guestName,
+          guestEmail: booking.guestEmail,
+          guestPhone: booking.guestPhone,
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut,
+          amount: booking.amount,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchEmailBookings();
+        fetchData(false);
+      } else {
+        alert(json.message || 'Failed to import booking');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Import failed');
+    } finally {
+      setEmailImportingId(null);
+    }
+  };
+
+  const handleRejectEmailBooking = async (bookingId: string) => {
+    try {
+      const res = await fetch('/api/hotel/email-bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'REJECT',
+          emailBookingId: bookingId,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchEmailBookings();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Reject failed');
+    }
+  };
+
   useEffect(() => {
     if (!roleChecked || !selectedPropertyId) return;
     setLoading(true);
     fetchData(false, selectedPropertyId);
-    const iv = setInterval(() => fetchData(false, selectedPropertyId), 30000);
+    fetchEmailBookings();
+    const iv = setInterval(() => {
+      fetchData(false, selectedPropertyId);
+      fetchEmailBookings();
+    }, 30000);
     return () => clearInterval(iv);
-  }, [roleChecked, selectedPropertyId]); // eslint-disable-line
+  }, [roleChecked, selectedPropertyId, fetchEmailBookings]); // eslint-disable-line
 
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
   const p = `/${propertyCode}`;
@@ -536,8 +696,8 @@ export default function HotelAdminDashboard() {
   const { live, today, allTime, staff, hotel } = data;
   const occupancyPct = hotel ? (hotel.totalRooms > 0 ? Math.round((hotel.occupiedRooms / hotel.totalRooms) * 100) : 0) : 0;
   const alerts: { msg: string; icon: React.ReactNode; color: string }[] = [];
-  if (hotel?.dirtyRooms > 0) alerts.push({ msg: `${hotel.dirtyRooms} room${hotel.dirtyRooms !== 1 ? 's' : ''} need housekeeping`, icon: <Sparkles size={14} />, color: 'amber' });
-  if ((hotel?.todayDepartures ?? 0) > 0) alerts.push({ msg: `${hotel.todayDepartures} departure${hotel.todayDepartures !== 1 ? 's' : ''} scheduled today`, icon: <LogOut size={14} />, color: 'sky' });
+  if (hotel && hotel.dirtyRooms > 0) alerts.push({ msg: `${hotel.dirtyRooms} room${hotel.dirtyRooms !== 1 ? 's' : ''} need housekeeping`, icon: <Sparkles size={14} />, color: 'amber' });
+  if (hotel && (hotel.todayDepartures ?? 0) > 0) alerts.push({ msg: `${hotel.todayDepartures} departure${hotel.todayDepartures !== 1 ? 's' : ''} scheduled today`, icon: <LogOut size={14} />, color: 'sky' });
   if (live.paymentPendingCount > 0) alerts.push({ msg: `${live.paymentPendingCount} tables waiting for payment`, icon: <CreditCard size={14} />, color: 'amber' });
   if (staff.notArrivedCount > 0) alerts.push({ msg: `${staff.notArrivedCount} staff not yet arrived`, icon: <UserX size={14} />, color: 'rose' });
 
@@ -804,10 +964,13 @@ export default function HotelAdminDashboard() {
           <p className="text-base font-black text-white">Recent Bookings</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/hotel/bookings"
-            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-black text-[11px] font-black rounded-xl shadow-lg shadow-amber-500/20">
+          <button
+            type="button"
+            onClick={() => { setPreselectedRoom(null); setAdminPrefillBooking(null); setShowBookRoomModal(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-black rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+          >
             <Plus size={14} /> New Booking
-          </Link>
+          </button>
           <Link href={`${p}/hoteladmin/bookings`}
             className="px-3 py-2 border border-white/10 text-slate-300 text-[11px] font-black rounded-xl hover:border-amber-500/30 transition-all">
             All →
@@ -1128,6 +1291,299 @@ export default function HotelAdminDashboard() {
   };
 
   // ────────────────────────────────────────────────────────────────────────────
+  // Email & OTA Inbound Bookings Section
+  // ────────────────────────────────────────────────────────────────────────────
+  const EmailBookingsSection = () => {
+    const filteredBookings = emailBookings.filter(b => {
+      if (emailBookingTab === 'PENDING') return b.status === 'PENDING';
+      if (emailBookingTab === 'IMPORTED') return b.status === 'IMPORTED';
+      return true;
+    });
+
+    const getSourceBadge = (source: string) => {
+      const s = (source || 'Direct').toLowerCase();
+      if (s.includes('booking')) {
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-blue-500/20 text-blue-400 border border-blue-500/30">Booking.com</span>;
+      }
+      if (s.includes('agoda')) {
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30">Agoda</span>;
+      }
+      if (s.includes('mmt') || s.includes('makemytrip')) {
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/30">MakeMyTrip</span>;
+      }
+      if (s.includes('airbnb')) {
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-pink-500/20 text-pink-400 border border-pink-500/30">Airbnb</span>;
+      }
+      return <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-500/20 text-purple-400 border border-purple-500/30">{source || 'Email Direct'}</span>;
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">Inbound Bookings</p>
+              {emailConfig.isConfigured ? (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Gmail Sync Active
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  Setup Required
+                </span>
+              )}
+            </div>
+            <p className="text-base font-black text-white">Email & OTA Channel Hub</p>
+            {emailConfig.bookingEmail ? (
+              <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                <Mail size={12} className="text-amber-400 shrink-0" />
+                <span>Syncing from: <strong className="text-slate-200">{emailConfig.bookingEmail}</strong></span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Connect your hotel Gmail to auto-import bookings from Booking.com, Agoda, and MMT.
+              </p>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              onClick={() => handleSimulateEmail('Booking.com')}
+              disabled={simulatingEmail}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 text-slate-300 text-[11px] font-black transition-all active:scale-95 disabled:opacity-50"
+              title="Generate a test booking from Booking.com / Agoda"
+            >
+              {simulatingEmail ? <RefreshCw size={13} className="animate-spin text-amber-400" /> : <Sparkles size={13} className="text-amber-400" />}
+              <span>Test Email Booking</span>
+            </button>
+
+            <button
+              onClick={handleSyncGmail}
+              disabled={emailSyncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/15 border border-sky-500/30 hover:bg-sky-500/25 text-sky-300 text-[11px] font-black transition-all active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={emailSyncing ? 'animate-spin' : ''} />
+              <span>{emailSyncing ? 'Syncing...' : 'Sync Gmail'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowEmailConfigModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-black shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+            >
+              <Settings size={13} />
+              <span>Email Settings</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sync message alert */}
+        {emailSyncMessage && (
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-slate-200 flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+            <span>{emailSyncMessage}</span>
+          </div>
+        )}
+
+        {/* Counters & Filter Tabs */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            {
+              id: 'PENDING',
+              label: 'Pending Review',
+              count: emailBookingsSummary.pending,
+              color: 'text-amber-400 bg-amber-500/10 border-amber-500/25',
+              activeColor: 'ring-2 ring-amber-400',
+            },
+            {
+              id: 'IMPORTED',
+              label: 'Imported to PMS',
+              count: emailBookingsSummary.imported,
+              color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25',
+              activeColor: 'ring-2 ring-emerald-400',
+            },
+            {
+              id: 'ALL',
+              label: 'Total Received',
+              count: emailBookingsSummary.total,
+              color: 'text-sky-400 bg-sky-500/10 border-sky-500/25',
+              activeColor: 'ring-2 ring-sky-400',
+            },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setEmailBookingTab(tab.id as any)}
+              className={`${tab.color} ${emailBookingTab === tab.id ? tab.activeColor : ''} border rounded-2xl p-3 text-center transition-all cursor-pointer`}
+            >
+              <p className="text-2xl font-black">{tab.count}</p>
+              <p className="text-[9px] font-black uppercase mt-0.5 opacity-80">{tab.label}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Bookings List */}
+        {filteredBookings.length > 0 ? (
+          <div className="space-y-3">
+            {filteredBookings.map(item => {
+              const nights = item.checkIn && item.checkOut
+                ? Math.max(1, Math.round((new Date(item.checkOut).getTime() - new Date(item.checkIn).getTime()) / 86400000))
+                : 1;
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-2xl bg-[#0c0e1a] border border-white/[0.08] hover:border-white/15 transition-all space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      {getSourceBadge(item.source)}
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                        item.status === 'IMPORTED'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : item.status === 'REJECTED'
+                          ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      }`}>
+                        {item.status}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="text-right sm:text-right">
+                      <span className="text-sm font-black text-emerald-400">{fmt(item.amount || 0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Guest and stay details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-sm font-black text-white">{item.guestName || 'Unnamed Guest'}</p>
+                      <div className="flex items-center gap-3 text-slate-400 text-[11px] mt-0.5">
+                        {item.guestPhone && (
+                          <span className="flex items-center gap-1">
+                            <Phone size={11} className="text-slate-500" />
+                            {item.guestPhone}
+                          </span>
+                        )}
+                        {item.guestEmail && (
+                          <span className="flex items-center gap-1 truncate max-w-[180px]">
+                            <Mail size={11} className="text-slate-500" />
+                            {item.guestEmail}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                      <Calendar size={13} className="text-amber-400 shrink-0" />
+                      <span>
+                        {item.checkIn ? new Date(item.checkIn).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                        {' → '}
+                        {item.checkOut ? new Date(item.checkOut).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 font-bold">
+                        {nights}N
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Subject preview */}
+                  <p className="text-[11px] text-slate-400 bg-white/[0.03] p-2.5 rounded-xl border border-white/[0.05] truncate">
+                    <span className="text-slate-500 mr-1.5 font-bold">Subject:</span>
+                    {item.subject}
+                  </p>
+
+                  {/* Action buttons */}
+                  {item.status === 'PENDING' && (
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/[0.04]">
+                      <button
+                        onClick={() => handleRejectEmailBooking(item.id)}
+                        className="px-3 py-1.5 rounded-xl border border-white/10 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 text-[11px] font-bold transition-all"
+                      >
+                        Dismiss
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAdminPrefillBooking({
+                            guestName: item.guestName || undefined,
+                            guestEmail: item.guestEmail || undefined,
+                            guestPhone: item.guestPhone || undefined,
+                            arrivalDate: item.checkIn ? new Date(item.checkIn).toISOString().split('T')[0] : undefined,
+                            departureDate: item.checkOut ? new Date(item.checkOut).toISOString().split('T')[0] : undefined,
+                            totalAmount: item.amount || undefined,
+                            source: item.source || 'OTA Email',
+                          });
+                          setShowBookRoomModal(true);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-black border border-white/10 transition-all"
+                      >
+                        Customize Room & Price
+                      </button>
+
+                      <button
+                        onClick={() => handleImportEmailBooking(item)}
+                        disabled={emailImportingId === item.id}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-black shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {emailImportingId === item.id ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : (
+                          <Check size={12} />
+                        )}
+                        <span>{emailImportingId === item.id ? 'Importing...' : '1-Click Confirm to PMS'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-8 text-center rounded-2xl bg-[#0c0e1a] border border-white/[0.06] p-6 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
+              <Inbox size={22} />
+            </div>
+            <div>
+              <p className="text-white text-sm font-black">
+                {emailBookingTab === 'PENDING' ? 'No Pending Email Bookings' : 'No Email Bookings Found'}
+              </p>
+              <p className="text-slate-500 text-xs mt-1">
+                {emailConfig.isConfigured
+                  ? 'All email bookings have been confirmed or imported into PMS.'
+                  : 'Connect your hotel Gmail account to start syncing incoming bookings automatically.'}
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => handleSimulateEmail('Booking.com')}
+                disabled={simulatingEmail}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
+              >
+                <Sparkles size={13} />
+                <span>Simulate OTA Test Booking</span>
+              </button>
+              {!emailConfig.isConfigured && (
+                <button
+                  onClick={() => setShowEmailConfigModal(true)}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                >
+                  <Settings size={13} />
+                  <span>Configure Gmail</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
   return (
     <div className="text-white" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
 
@@ -1342,14 +1798,17 @@ export default function HotelAdminDashboard() {
         onClose={() => {
           setShowBookRoomModal(false);
           setPreselectedRoom(null);
+          setAdminPrefillBooking(null);
         }}
         propertyId={selectedPropertyId}
         propertyCode={propertyCode}
         roomTypes={roomTypes}
         availableRooms={availableRooms}
         preselectedRoom={preselectedRoom}
+        initialBookingData={adminPrefillBooking}
         onBookingSuccess={() => {
           fetchData(true);
+          fetchEmailBookings();
           if (selectedPropertyId) {
             fetch(`/api/hotel/rooms?propertyId=${selectedPropertyId}`)
               .then(r => r.json())
@@ -1366,6 +1825,20 @@ export default function HotelAdminDashboard() {
                 );
               }).catch(() => {});
           }
+        }}
+      />
+
+      {/* ── EMAIL BOOKINGS CONFIG MODAL ── */}
+      <EmailBookingConfigModal
+        isOpen={showEmailConfigModal}
+        onClose={() => setShowEmailConfigModal(false)}
+        propertyId={selectedPropertyId}
+        propertyCode={propertyCode}
+        initialEmail={emailConfig.bookingEmail}
+        isConfigured={emailConfig.isConfigured}
+        onSaved={async (email) => {
+          setEmailConfig(prev => ({ ...prev, bookingEmail: email, isConfigured: true }));
+          await fetchEmailBookings();
         }}
       />
 
@@ -1439,6 +1912,7 @@ export default function HotelAdminDashboard() {
             </div>
           )}
           <StaffSection />
+          <EmailBookingsSection />
           <InventorySection />
         </div>
       </div>
@@ -1497,6 +1971,7 @@ export default function HotelAdminDashboard() {
             <RevenueCard />
             <QuickAccessGrid />
             <RoomsGrid />
+            <EmailBookingsSection />
             <InventorySection />
           </div>
 

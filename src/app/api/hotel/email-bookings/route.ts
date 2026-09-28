@@ -11,27 +11,66 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    let propertyId = searchParams.get('propertyId') || session.propertyId;
+    let propertyQuery = searchParams.get('propertyId') || session.propertyId;
 
-    if (!propertyId && session.organizationId) {
-      const first = await prisma.property.findFirst({
+    let property = null;
+    if (propertyQuery) {
+      property = await prisma.property.findFirst({
+        where: { OR: [{ id: propertyQuery }, { code: propertyQuery }] },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          bookingEmail: true,
+          gmailAppPassword: true,
+        }
+      });
+    } else if (session.organizationId) {
+      property = await prisma.property.findFirst({
         where: { organizationId: session.organizationId },
-        select: { id: true },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          bookingEmail: true,
+          gmailAppPassword: true,
+        },
         orderBy: { createdAt: 'asc' }
       });
-      propertyId = first?.id ?? null;
     }
 
-    if (!propertyId) {
-      return apiError(new Error('Property ID is required'), 400);
+    if (!property) {
+      return apiError(new Error('Property not found'), 404);
     }
 
     const emailBookings = await prisma.emailBooking.findMany({
-      where: { propertyId },
+      where: { propertyId: property.id },
       orderBy: { createdAt: 'desc' }
     });
 
-    return apiResponse(emailBookings, 'Email bookings fetched successfully');
+    const summary = {
+      total: emailBookings.length,
+      pending: emailBookings.filter(b => b.status === 'PENDING').length,
+      imported: emailBookings.filter(b => b.status === 'IMPORTED').length,
+      rejected: emailBookings.filter(b => b.status === 'REJECTED').length,
+    };
+
+    const propertyConfig = {
+      propertyId: property.id,
+      propertyCode: property.code,
+      propertyName: property.name,
+      bookingEmail: property.bookingEmail || '',
+      hasAppPassword: !!property.gmailAppPassword,
+      isConfigured: !!(property.bookingEmail && property.gmailAppPassword),
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: emailBookings,
+      summary,
+      propertyConfig,
+      message: 'Email bookings fetched successfully'
+    });
   } catch (error) {
     return apiError(error);
   }
@@ -45,8 +84,85 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { emailBookingId, action } = body;
+    const { action } = body;
 
+    // 1. Save Gmail / Email settings for property
+    if (action === 'SAVE_EMAIL_CONFIG') {
+      const { propertyId: propQuery, bookingEmail, gmailAppPassword } = body;
+      const targetQuery = propQuery || session.propertyId;
+      let targetProp = null;
+      if (targetQuery) {
+        targetProp = await prisma.property.findFirst({
+          where: { OR: [{ id: targetQuery }, { code: targetQuery }] }
+        });
+      } else if (session.organizationId) {
+        targetProp = await prisma.property.findFirst({
+          where: { organizationId: session.organizationId },
+          orderBy: { createdAt: 'asc' }
+        });
+      }
+      if (!targetProp) return apiError(new Error('Property not found'), 404);
+
+      const cleanEmail = bookingEmail ? String(bookingEmail).trim() : null;
+      const updateData: any = { bookingEmail: cleanEmail };
+      if (gmailAppPassword !== undefined) {
+        updateData.gmailAppPassword = gmailAppPassword ? String(gmailAppPassword).replace(/\s+/g, '') : null;
+      }
+
+      const updated = await prisma.property.update({
+        where: { id: targetProp.id },
+        data: updateData,
+        select: { id: true, code: true, name: true, bookingEmail: true }
+      });
+      return apiResponse(updated, 'Email settings saved successfully');
+    }
+
+    // 2. Simulate Inbound Booking Email (Booking.com, Agoda, MakeMyTrip, Airbnb, etc.)
+    if (action === 'SIMULATE') {
+      const { propertyId: propQuery, source, guestName, guestEmail, guestPhone, checkIn, checkOut, amount } = body;
+      const targetQuery = propQuery || session.propertyId;
+      let targetProp = null;
+      if (targetQuery) {
+        targetProp = await prisma.property.findFirst({
+          where: { OR: [{ id: targetQuery }, { code: targetQuery }] }
+        });
+      } else if (session.organizationId) {
+        targetProp = await prisma.property.findFirst({
+          where: { organizationId: session.organizationId },
+          orderBy: { createdAt: 'asc' }
+        });
+      }
+      if (!targetProp) return apiError(new Error('Property not found'), 404);
+
+      const simSource = source || 'Booking.com';
+      const simGuest = guestName || 'Rahul Sharma';
+      const simEmail = guestEmail || 'guest@example.com';
+      const simPhone = guestPhone || '+91 98765 43210';
+      const simAmount = Number(amount) || 4500;
+      const simCheckIn = checkIn ? new Date(checkIn) : new Date();
+      const simCheckOut = checkOut ? new Date(checkOut) : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+      const refCode = `BK-${Date.now().toString().slice(-6)}`;
+
+      const simBooking = await prisma.emailBooking.create({
+        data: {
+          propertyId: targetProp.id,
+          sender: `reservations@${simSource.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+          subject: `New Reservation Confirmed #${refCode} - ${simGuest} (${simSource})`,
+          body: `Booking Confirmation #${refCode}\nSource: ${simSource}\nGuest: ${simGuest}\nContact: ${simPhone} | ${simEmail}\nCheck-in: ${simCheckIn.toDateString()}\nCheck-out: ${simCheckOut.toDateString()}\nTotal Amount: ₹${simAmount}\nChannel: ${simSource}`,
+          guestName: simGuest,
+          guestEmail: simEmail,
+          guestPhone: simPhone,
+          checkIn: simCheckIn,
+          checkOut: simCheckOut,
+          amount: simAmount,
+          source: simSource,
+          status: 'PENDING'
+        }
+      });
+      return apiResponse(simBooking, `Simulated email booking from ${simSource} received!`);
+    }
+
+    const { emailBookingId } = body;
     if (!emailBookingId) {
       return apiError(new Error('Missing emailBookingId parameter'), 400);
     }

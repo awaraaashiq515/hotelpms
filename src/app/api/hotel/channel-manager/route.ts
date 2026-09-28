@@ -163,9 +163,9 @@ export async function GET(request: NextRequest) {
             autoSyncRates: def.autoSyncRates,
             autoSyncInventory: def.autoSyncInventory,
             autoImportBookings: def.autoImportBookings,
-            totalBookingsReceived: def.status === 'CONNECTED' ? Math.floor(Math.random() * 80 + 20) : 0,
-            totalRevenueGenerated: def.status === 'CONNECTED' ? Math.floor((Math.random() * 80 + 20) * 5800) : 0,
-            lastSyncAt: def.status === 'CONNECTED' ? new Date(Date.now() - Math.floor(Math.random() * 15 + 2) * 60000) : null,
+            totalBookingsReceived: 0,
+            totalRevenueGenerated: 0,
+            lastSyncAt: def.status === 'CONNECTED' ? new Date() : null,
           },
         }).catch(() => null);
       }
@@ -189,24 +189,44 @@ export async function GET(request: NextRequest) {
       }),
       prisma.reservation.findMany({
         where: { propertyId },
-        select: { id: true, totalAmount: true, status: true, arrivalDate: true },
+        select: { id: true, totalAmount: true, status: true, arrivalDate: true, companyName: true, addOnNotes: true },
       }).catch(() => []),
       prisma.room.findMany({
         where: { propertyId },
       }).catch(() => []),
     ]);
 
+    // Compute actual channel statistics from real reservations
+    const enrichedChannels = channels.map((c) => {
+      const channelRes = reservations.filter((r) => {
+        if (r.status === 'CANCELLED') return false;
+        const src = `${r.companyName || ''} ${r.addOnNotes || ''}`.toLowerCase();
+        const cName = c.name.toLowerCase();
+        const cCode = c.channelCode.toLowerCase().replace(/_/g, '');
+        return src.includes(cName) || src.includes(cCode);
+      });
+
+      const actualBookings = channelRes.length;
+      const actualRevenue = channelRes.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+
+      return {
+        ...c,
+        totalBookingsReceived: actualBookings > 0 ? actualBookings : (c.totalBookingsReceived || 0),
+        totalRevenueGenerated: actualRevenue > 0 ? actualRevenue : (c.totalRevenueGenerated || 0),
+      };
+    });
+
     // Compute Summary KPIs
-    const totalChannels = channels.length;
-    const connectedChannels = channels.filter((c) => c.status === 'CONNECTED').length;
-    const syncingChannels = channels.filter((c) => c.status === 'SYNCING').length;
-    const pausedChannels = channels.filter((c) => c.status === 'PAUSED').length;
-    const disconnectedChannels = channels.filter((c) => c.status === 'DISCONNECTED').length;
+    const totalChannels = enrichedChannels.length;
+    const connectedChannels = enrichedChannels.filter((c) => c.status === 'CONNECTED').length;
+    const syncingChannels = enrichedChannels.filter((c) => c.status === 'SYNCING').length;
+    const pausedChannels = enrichedChannels.filter((c) => c.status === 'PAUSED').length;
+    const disconnectedChannels = enrichedChannels.filter((c) => c.status === 'DISCONNECTED').length;
 
-    let totalOtaBookings = channels.reduce((s, c) => s + (c.totalBookingsReceived || 0), 0);
-    let totalOtaRevenue = channels.reduce((s, c) => s + (c.totalRevenueGenerated || 0), 0);
+    let totalOtaBookings = enrichedChannels.reduce((s, c) => s + (c.totalBookingsReceived || 0), 0);
+    let totalOtaRevenue = enrichedChannels.reduce((s, c) => s + (c.totalRevenueGenerated || 0), 0);
 
-    const connectedList = channels.filter((c) => c.status === 'CONNECTED');
+    const connectedList = enrichedChannels.filter((c) => c.status === 'CONNECTED');
     const avgCommissionPct = connectedList.length > 0
       ? Number((connectedList.reduce((s, c) => s + c.commissionPct, 0) / connectedList.length).toFixed(1))
       : 15.0;
@@ -219,7 +239,7 @@ export async function GET(request: NextRequest) {
     const netOtaYield = Math.round(totalOtaRevenue * (1 - avgCommissionPct / 100));
 
     // Find most recent sync timestamp
-    const syncDates = channels.map((c) => c.lastSyncAt).filter(Boolean).map((d) => new Date(d!).getTime());
+    const syncDates = enrichedChannels.map((c) => c.lastSyncAt).filter(Boolean).map((d) => new Date(d!).getTime());
     const lastGlobalSyncAt = syncDates.length > 0 ? new Date(Math.max(...syncDates)).toISOString() : null;
 
     const summary: any = {
@@ -240,7 +260,7 @@ export async function GET(request: NextRequest) {
     const parityMatrix = roomTypes.map((rt) => {
       const typeRooms = rooms.filter((r) => r.roomTypeId === rt.id).length || rt.rooms?.length || 5;
 
-      const channelColumns = channels.map((ch) => {
+      const channelColumns = enrichedChannels.map((ch) => {
         const mapping = ch.roomMappings?.find((m) => m.roomTypeId === rt.id);
         const markupPct = mapping ? mapping.priceMarkupPct : Math.round((ch.rateMultiplier - 1) * 100);
         const channelRate = Math.round(rt.baseRate * (1 + markupPct / 100));
@@ -269,7 +289,7 @@ export async function GET(request: NextRequest) {
 
     return apiResponse({
       summary,
-      channels,
+      channels: enrichedChannels,
       roomTypes,
       parityMatrix,
     });

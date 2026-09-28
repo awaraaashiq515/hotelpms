@@ -16,6 +16,7 @@ interface QuickReservationModalProps {
   roomsList: RoomOption[];
   onClose: () => void;
   onCreated: () => void;
+  initialArrivalDate?: string;
 }
 
 export function QuickReservationModal({
@@ -23,6 +24,7 @@ export function QuickReservationModal({
   roomsList,
   onClose,
   onCreated,
+  initialArrivalDate,
 }: QuickReservationModalProps) {
   const [guestFirstName, setGuestFirstName] = useState('');
   const [guestLastName, setGuestLastName] = useState('');
@@ -34,6 +36,23 @@ export function QuickReservationModal({
   );
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialArrivalDate) {
+        setArrivalDate(initialArrivalDate);
+        const nextDay = new Date(initialArrivalDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        setDepartureDate(nextDay.toISOString().split('T')[0]);
+      } else {
+        setArrivalDate(new Date().toISOString().split('T')[0]);
+        setDepartureDate(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+      }
+      if (roomsList.length > 0 && !selectedRoomId) {
+        setSelectedRoomId(roomsList[0].id);
+      }
+    }
+  }, [isOpen, initialArrivalDate, roomsList, selectedRoomId]);
 
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RotateCcw,
   Printer,
@@ -8,7 +8,11 @@ import {
   Search,
   ChevronDown,
   ArrowUpDown,
-  LogIn
+  LogIn,
+  LogOut,
+  Eye,
+  FileText,
+  Receipt,
 } from 'lucide-react';
 
 export interface ReservationItem {
@@ -58,6 +62,7 @@ interface ReservationWidgetProps {
   onRefresh?: () => void;
   onAddNote?: (res: ReservationItem) => void;
   onCheckIn?: (res: ReservationItem) => void;
+  onCheckOut?: (res: ReservationItem) => void;
   onPrint?: (res: ReservationItem) => void;
   onPrintList?: (items: ReservationItem[]) => void;
   onSelectReservation?: (res: ReservationItem) => void;
@@ -68,6 +73,7 @@ export function ReservationWidget({
   onRefresh,
   onAddNote,
   onCheckIn,
+  onCheckOut,
   onPrint,
   onPrintList,
   onSelectReservation,
@@ -78,6 +84,16 @@ export function ReservationWidget({
   const [sortField, setSortField] = useState<keyof ReservationItem>('guestName');
   const [sortAsc, setSortAsc] = useState(true);
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null);
+  const [openPrintMenuId, setOpenPrintMenuId] = useState<string | null>(null);
+
+  // Close print dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = () => setOpenPrintMenuId(null);
+    if (openPrintMenuId) {
+      window.addEventListener('click', handleOutsideClick);
+      return () => window.removeEventListener('click', handleOutsideClick);
+    }
+  }, [openPrintMenuId]);
 
   // Select list based on active tab
   const getItemsForTab = (): ReservationItem[] => {
@@ -359,34 +375,121 @@ export function ReservationWidget({
                       </span>
                     </td>
 
-                    {/* Actions: Check-in button and Print button */}
+                    {/* Actions: View button, Check-in/out button, and Print dropdown */}
                     <td className="py-3 px-2">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Check-in Button */}
+                      <div className="flex items-center justify-center gap-1.5">
+                        {/* Direct View Button */}
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onCheckIn?.(res);
+                            onSelectReservation?.(res);
                           }}
-                          title="Check-in Actions"
-                          className="flex items-center gap-1 text-slate-300 hover:text-emerald-400 hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
+                          title="View Full Booking Details"
+                          className="flex items-center gap-1 text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border border-indigo-500/25 hover:border-indigo-500/40 px-2 py-1 rounded-lg transition-all text-xs font-semibold cursor-pointer shadow-2xs"
                         >
-                          <LogIn className="w-4 h-4 text-slate-400 hover:text-emerald-400" />
-                          <ChevronDown className="w-3 h-3 text-slate-500" />
+                          <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>View</span>
                         </button>
 
-                        {/* Print Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPrint?.(res);
-                          }}
-                          title="Print Document"
-                          className="flex items-center gap-1 text-slate-300 hover:text-sky-400 hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
-                        >
-                          <Printer className="w-4 h-4 text-slate-400 hover:text-sky-400" />
-                          <ChevronDown className="w-3 h-3 text-slate-500" />
-                        </button>
+                        {/* Status Quick Action: In / Out */}
+                        {res.status === 'CHECKED_IN' ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCheckOut?.(res);
+                            }}
+                            title="Check-out Guest"
+                            className="flex items-center gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            <span className="text-[11px] hidden sm:inline">Out</span>
+                          </button>
+                        ) : res.status === 'CHECKED_OUT' ? null : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCheckIn?.(res);
+                            }}
+                            title="Check-in Guest"
+                            className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer"
+                          >
+                            <LogIn className="w-3.5 h-3.5" />
+                            <span className="text-[11px] hidden sm:inline">In</span>
+                          </button>
+                        )}
+
+                        {/* Print Document Dropdown Button */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenPrintMenuId(openPrintMenuId === res.id ? null : res.id);
+                            }}
+                            title="Print Document / Voucher / GRC"
+                            className="flex items-center gap-1 text-slate-300 hover:text-sky-400 hover:bg-slate-800 border border-slate-700/60 hover:border-sky-500/40 px-2 py-1 rounded-lg transition-all text-xs cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-slate-400 hover:text-sky-400" />
+                            <ChevronDown className="w-3 h-3 text-slate-500" />
+                          </button>
+
+                          {openPrintMenuId === res.id && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-full mt-1.5 z-40 w-56 rounded-xl bg-[#0f172a] border border-slate-700 shadow-2xl p-1.5 animate-in fade-in zoom-in-95"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPrintMenuId(null);
+                                  onPrint?.(res);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors font-medium cursor-pointer"
+                              >
+                                <FileText className="w-4 h-4 text-sky-400 shrink-0" />
+                                <div>
+                                  <div className="font-semibold text-white">Print Registration Card</div>
+                                  <div className="text-[10px] text-slate-400">Guest GRC document for check-in</div>
+                                </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPrintMenuId(null);
+                                  onPrint?.(res);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors font-medium cursor-pointer"
+                              >
+                                <Receipt className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <div>
+                                  <div className="font-semibold text-white">Print Stay Folio Voucher</div>
+                                  <div className="text-[10px] text-slate-400">Bills, room rate & tax breakdown</div>
+                                </div>
+                              </button>
+
+                              <div className="h-px bg-slate-800 my-1"></div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPrintMenuId(null);
+                                  onSelectReservation?.(res);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left text-indigo-300 hover:text-white hover:bg-indigo-500/10 rounded-lg transition-colors font-medium cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4 text-indigo-400 shrink-0" />
+                                <div>
+                                  <div className="font-semibold text-white">View Full Reservation</div>
+                                  <div className="text-[10px] text-slate-400">Guest folio & room details drawer</div>
+                                </div>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>

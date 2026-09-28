@@ -110,8 +110,13 @@ function isBookingEmail(subject: string, text: string): boolean {
 }
 
 export async function syncGmailForProperty(propertyId: string): Promise<{ synced: number; errors: string[] }> {
-  const property = await prisma.property.findUnique({
-    where: { id: propertyId },
+  const property = await prisma.property.findFirst({
+    where: {
+      OR: [
+        { id: propertyId },
+        { code: propertyId }
+      ]
+    },
     select: {
       id: true,
       name: true,
@@ -120,7 +125,7 @@ export async function syncGmailForProperty(propertyId: string): Promise<{ synced
     }
   });
 
-  console.log('[DEBUG] syncGmailForProperty called for id:', propertyId, 'Retrieved property:', JSON.stringify(property));
+  console.log('[DEBUG] syncGmailForProperty called for id/code:', propertyId, 'Retrieved property:', JSON.stringify(property));
 
   if (!property?.bookingEmail || !property?.gmailAppPassword) {
     return { synced: 0, errors: ['Gmail credentials not configured for this property'] };

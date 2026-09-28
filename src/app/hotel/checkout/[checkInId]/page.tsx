@@ -7,7 +7,7 @@ import {
   CheckCircle2, AlertTriangle, TrendingDown, TrendingUp, Wallet,
   Printer, X, Banknote, Smartphone, Building2, Globe, DoorOpen,
   Clock, Phone, Hash, UtensilsCrossed, ShoppingBag, Sparkles,
-  Percent, BadgePercent, PlusCircle,
+  Percent, BadgePercent, PlusCircle, RefreshCw, XCircle,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -65,6 +65,7 @@ function CheckoutDetailContent() {
 
   // GST state
   const [gstRate, setGstRate] = useState(0);
+  const [currentAppliedGstRate, setCurrentAppliedGstRate] = useState(0);
   const [addingGst, setAddingGst] = useState(false);
   const [gstPosted, setGstPosted] = useState(false);
 
@@ -101,10 +102,28 @@ function CheckoutDetailContent() {
         if (currentGst || currentComp) setGstInfoSaved(true);
 
         // Check if GST already posted in this folio
-        const hasGst = res.data.transactions?.some(
-          (t: { sourceModule: string }) => t.sourceModule === 'GST'
+        const gstTxn = res.data.transactions?.find(
+          (t: { sourceModule: string; debitAmount: number; description?: string }) => t.sourceModule === 'GST'
         );
-        if (hasGst) setGstPosted(true);
+        if (gstTxn) {
+          setGstPosted(true);
+          const match = gstTxn.description?.match(/GST\s*@\s*(\d+)%/i);
+          if (match?.[1]) {
+            const parsedRate = Number(match[1]);
+            setGstRate(parsedRate);
+            setCurrentAppliedGstRate(parsedRate);
+          } else {
+            // fallback calculate approx rate
+            const approxRate = res.data.totalCharges > 0 && gstTxn.debitAmount > 0
+              ? Math.round((gstTxn.debitAmount / Math.max(1, res.data.totalCharges - gstTxn.debitAmount)) * 100)
+              : 18;
+            setGstRate(approxRate);
+            setCurrentAppliedGstRate(approxRate);
+          }
+        } else {
+          setGstPosted(false);
+          setCurrentAppliedGstRate(0);
+        }
 
         // If folio is already checked out / closed, open receipt modal directly so it auto-prints
         if (res.data.status === 'CLOSED') {
@@ -175,38 +194,65 @@ function CheckoutDetailContent() {
   };
 
   // ── GST Calculations ────────────────────────────────────────────────────────
-  const baseCharges = folio?.totalCharges ?? 0;
+  // Calculate taxable base charges strictly without previous GST debits
+  const gstTxns = folio?.transactions?.filter((t: any) => t.sourceModule === 'GST') || [];
+  const existingGstAmount = gstTxns.reduce((sum: number, t: any) => sum + (Number(t.debitAmount) || 0), 0);
+  const baseCharges = Math.max(0, (folio?.totalCharges ?? 0) - existingGstAmount);
   const gstAmount = gstRate > 0 ? Math.round(baseCharges * gstRate) / 100 : 0;
   const cgst = gstAmount / 2;
   const sgst = gstAmount / 2;
 
-  // Handle: Post GST to folio
-  const handleAddGst = async () => {
-    if (!folio || gstRate === 0 || gstPosted) return;
+  // Handle: Add, Update or Remove GST from folio
+  const handleAddOrUpdateGst = async (overrideRate?: number) => {
+    const rateToApply = overrideRate !== undefined ? overrideRate : gstRate;
+    if (!folio) return;
     setAddingGst(true);
     try {
-      const res = await fetch('/api/hotel/folios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          folioId: folio.id,
-          txnType: 'DEBIT',
-          description: `GST @ ${gstRate}% on Room Charges (CGST ${gstRate / 2}% + SGST ${gstRate / 2}%)`,
-          amount: gstAmount,
-          taxAmount: gstAmount,
-          sourceModule: 'GST',
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`GST @${gstRate}% (₹${gstAmount}) added to bill`);
-        setGstPosted(true);
-        await loadFolio(); // re-fetch to get updated totals
-      } else {
-        toast.error(data.message || 'Failed to add GST');
+      // 1. Remove previous GST transaction(s) if any exist
+      if (gstPosted || gstTxns.length > 0) {
+        await fetch(`/api/hotel/folios?folioId=${folio.id}&sourceModule=GST`, {
+          method: 'DELETE',
+        });
       }
+
+      // 2. If rate > 0, post new GST transaction
+      if (rateToApply > 0) {
+        const newGstAmount = Math.round(baseCharges * rateToApply) / 100;
+        const res = await fetch('/api/hotel/folios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folioId: folio.id,
+            txnType: 'DEBIT',
+            description: `GST @ ${rateToApply}% on Room Charges (CGST ${rateToApply / 2}% + SGST ${rateToApply / 2}%)`,
+            amount: newGstAmount,
+            taxAmount: newGstAmount,
+            sourceModule: 'GST',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success(currentAppliedGstRate > 0
+            ? `GST rate updated from ${currentAppliedGstRate}% to ${rateToApply}% (₹${newGstAmount})`
+            : `GST @${rateToApply}% (₹${newGstAmount}) added to bill`
+          );
+          setGstPosted(true);
+          setCurrentAppliedGstRate(rateToApply);
+          setGstRate(rateToApply);
+        } else {
+          toast.error(data.message || 'Failed to update GST');
+        }
+      } else {
+        // Rate is 0%: GST removed
+        toast.success('GST removed from bill (0% applied)');
+        setGstPosted(false);
+        setCurrentAppliedGstRate(0);
+        setGstRate(0);
+      }
+
+      await loadFolio(); // re-fetch to get updated balances
     } catch {
-      toast.error('Connection error adding GST');
+      toast.error('Connection error updating GST');
     } finally {
       setAddingGst(false);
     }
@@ -656,34 +702,63 @@ function CheckoutDetailContent() {
               <div className="flex items-center gap-2 mb-4">
                 <BadgePercent size={14} className="text-amber-400" />
                 <h3 className="font-black text-white text-sm">GST / Tax</h3>
-                {gstPosted && (
-                  <span className="ml-auto flex items-center gap-1 text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    <CheckCircle2 size={8} /> Added
+                {gstPosted ? (
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <CheckCircle2 size={8} /> {currentAppliedGstRate}% Added
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleAddOrUpdateGst(0)}
+                      disabled={addingGst}
+                      className="text-[9px] font-bold text-slate-400 hover:text-rose-400 hover:underline transition-all cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <span className="ml-auto text-[9px] font-bold text-slate-500">
+                    Not Added
                   </span>
                 )}
               </div>
 
               {/* GST Rate Selector */}
               <div className="mb-4">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">
-                  GST Rate
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    GST Rate
+                  </label>
+                  {gstPosted && gstRate !== currentAppliedGstRate && (
+                    <span className="text-[10px] font-bold text-amber-400">
+                      Change to {gstRate}% selected
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-5 gap-1.5">
-                  {GST_RATES.map((rate) => (
-                    <button
-                      key={rate}
-                      type="button"
-                      disabled={gstPosted}
-                      onClick={() => setGstRate(rate)}
-                      className={`py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                        gstRate === rate
-                          ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
-                          : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
-                      }`}
-                    >
-                      {rate}%
-                    </button>
-                  ))}
+                  {GST_RATES.map((rate) => {
+                    const isSelected = gstRate === rate;
+                    const isCurrentlyActive = gstPosted && currentAppliedGstRate === rate;
+                    return (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => setGstRate(rate)}
+                        className={`py-2 rounded-xl text-xs font-black transition-all relative cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-500/25 border-2 border-amber-400 text-amber-200 shadow-md shadow-amber-500/20'
+                            : isCurrentlyActive
+                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                            : 'bg-slate-800/50 border border-slate-700/40 text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                        }`}
+                      >
+                        {rate}%
+                        {isCurrentlyActive && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -703,27 +778,83 @@ function CheckoutDetailContent() {
                     <span className="font-bold text-amber-400">{fmt(sgst)}</span>
                   </div>
                   <div className="flex justify-between text-[12px] font-black border-t border-amber-500/15 pt-2">
-                    <span className="text-amber-300">Total GST</span>
+                    <span className="text-amber-300">Total GST ({gstRate}%)</span>
                     <span className="text-amber-300">{fmt(gstAmount)}</span>
                   </div>
                 </div>
               )}
 
-              {/* Add GST Button */}
-              <button
-                onClick={handleAddGst}
-                disabled={gstRate === 0 || gstPosted || addingGst}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-lg shadow-amber-900/20"
-              >
-                {addingGst ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : gstPosted ? (
-                  <CheckCircle2 size={13} />
-                ) : (
-                  <PlusCircle size={13} />
-                )}
-                {addingGst ? 'Adding GST…' : gstPosted ? 'GST Added to Bill' : `Add GST @${gstRate}% to Bill`}
-              </button>
+              {gstRate === 0 && gstPosted && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300">
+                  Selecting 0% will remove the currently applied {currentAppliedGstRate}% GST from this bill.
+                </div>
+              )}
+
+              {/* Action Button */}
+              {(() => {
+                const isDifferentRate = gstPosted && gstRate !== currentAppliedGstRate;
+                const isSameRate = gstPosted && gstRate === currentAppliedGstRate;
+
+                if (isSameRate) {
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30">
+                        <CheckCircle2 size={13} />
+                        <span>GST @ {currentAppliedGstRate}% Active on Bill</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAddOrUpdateGst(0)}
+                        disabled={addingGst}
+                        className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer"
+                        title="Remove GST from bill"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                }
+
+                if (isDifferentRate && gstRate > 0) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleAddOrUpdateGst()}
+                      disabled={addingGst}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-black transition-all bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer"
+                    >
+                      {addingGst ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                      <span>{addingGst ? 'Updating GST…' : `Change GST to ${gstRate}% (from ${currentAppliedGstRate}%)`}</span>
+                    </button>
+                  );
+                }
+
+                if (isDifferentRate && gstRate === 0) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleAddOrUpdateGst(0)}
+                      disabled={addingGst}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-white transition-all bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-900/20 active:scale-95 cursor-pointer"
+                    >
+                      {addingGst ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />}
+                      <span>{addingGst ? 'Removing GST…' : `Remove GST from Bill (Set 0%)`}</span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => handleAddOrUpdateGst()}
+                    disabled={gstRate === 0 || addingGst}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-lg shadow-amber-900/20 active:scale-95 cursor-pointer"
+                  >
+                    {addingGst ? <Loader2 size={13} className="animate-spin" /> : <PlusCircle size={13} />}
+                    <span>{addingGst ? 'Adding GST…' : gstRate > 0 ? `Add GST @${gstRate}% to Bill` : 'Select a GST Rate Above'}</span>
+                  </button>
+                );
+              })()}
 
               {gstRate === 0 && !gstPosted && (
                 <p className="text-center text-[10px] text-slate-600 mt-2 font-bold">

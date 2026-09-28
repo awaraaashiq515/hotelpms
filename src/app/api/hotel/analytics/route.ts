@@ -108,7 +108,11 @@ export async function GET(request: NextRequest) {
         orderBy: { openedAt: 'desc' },
       }).catch(() => []),
       prisma.guest.findMany({
-        where: propertyId ? { propertyId } : (where as any),
+        where: propertyId
+          ? { reservations: { some: { propertyId } } }
+          : session.organizationId
+          ? { organizationId: session.organizationId }
+          : {},
       }).catch(() => []),
       prisma.tableFeedback.findMany({
         where,
