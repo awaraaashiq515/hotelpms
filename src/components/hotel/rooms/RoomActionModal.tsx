@@ -17,6 +17,7 @@ import {
   Brush,
   ArrowRight,
   DoorOpen,
+  BellOff,
 } from 'lucide-react';
 import type { RoomBoardItem, HousekeepingStatus, RoomOperationalStatus, MaintenanceStatus } from '@/types/hotel/room-board.types';
 import Link from 'next/link';
@@ -30,6 +31,7 @@ interface RoomActionModalProps {
     status?: RoomOperationalStatus;
     maintenanceStatus?: MaintenanceStatus;
     isVIP?: boolean;
+    isDND?: boolean;
   }) => Promise<boolean>;
 }
 
@@ -59,6 +61,7 @@ interface RoomActionFormProps {
     status?: RoomOperationalStatus;
     maintenanceStatus?: MaintenanceStatus;
     isVIP?: boolean;
+    isDND?: boolean;
   }) => Promise<boolean>;
 }
 
@@ -71,6 +74,7 @@ function RoomActionForm({
   const [opStatus, setOpStatus] = useState<RoomOperationalStatus>(room.status);
   const [maintStatus, setMaintStatus] = useState<MaintenanceStatus>(room.maintenanceStatus);
   const [isVIP, setIsVIP] = useState<boolean>(Boolean(room.isVIP));
+  const [isDND, setIsDND] = useState<boolean>(Boolean(room.isDND));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -80,6 +84,7 @@ function RoomActionForm({
       status: opStatus,
       maintenanceStatus: maintStatus,
       isVIP,
+      isDND,
     });
     setSaving(false);
     if (success) {
@@ -99,7 +104,7 @@ function RoomActionForm({
               {room.roomNumber}
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-black text-white">Room {room.roomNumber}</h2>
                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/5">
                   Floor {room.floor}
@@ -107,6 +112,11 @@ function RoomActionForm({
                 {isVIP && (
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                     VIP
+                  </span>
+                )}
+                {isDND && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white border border-rose-500 shadow-sm animate-pulse flex items-center gap-1">
+                    <BellOff size={10} /> DND ACTIVE
                   </span>
                 )}
               </div>
@@ -245,8 +255,8 @@ function RoomActionForm({
             </div>
           </div>
 
-          {/* Maintenance Status & VIP Toggle */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Maintenance Status, VIP & DND Toggles */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
                 <Wrench size={11} />
@@ -255,7 +265,7 @@ function RoomActionForm({
               <select
                 value={maintStatus}
                 onChange={(e) => setMaintStatus(e.target.value as MaintenanceStatus)}
-                className="w-full h-9 px-2.5 rounded-xl bg-slate-800 border border-white/10 text-white text-xs"
+                className="w-full h-9 px-2.5 rounded-xl bg-slate-800 border border-white/10 text-white text-xs cursor-pointer focus:outline-none focus:border-indigo-500"
               >
                 <option value="OK">OK / Normal</option>
                 <option value="UNDER_MAINTENANCE">Under Maintenance</option>
@@ -263,20 +273,61 @@ function RoomActionForm({
             </div>
 
             <div className="flex flex-col justify-end">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                <Sparkles size={11} />
+                <span>VIP Priority</span>
+              </label>
               <button
                 type="button"
                 onClick={() => setIsVIP(!isVIP)}
-                className={`w-full h-9 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                className={`w-full h-9 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   isVIP
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
                     : 'bg-slate-800 border-white/10 text-slate-400 hover:text-white'
                 }`}
               >
                 <Sparkles size={12} />
-                <span>{isVIP ? 'VIP Room: Active' : 'Mark as VIP'}</span>
+                <span>{isVIP ? 'VIP: Active' : 'Mark as VIP'}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col justify-end">
+              <label className="text-[10px] font-black uppercase tracking-wider text-rose-400 mb-1.5 flex items-center gap-1">
+                <BellOff size={11} />
+                <span>Guest Privacy</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsDND(!isDND)}
+                className={`w-full h-9 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  isDND
+                    ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-900/40 animate-pulse'
+                    : 'bg-slate-800 border-white/10 text-slate-400 hover:text-rose-300 hover:border-rose-500/30'
+                }`}
+              >
+                <BellOff size={12} className={isDND ? 'text-white' : 'text-rose-400'} />
+                <span>{isDND ? '🚫 DND ACTIVE' : 'Set DND'}</span>
               </button>
             </div>
           </div>
+
+          {/* DND Staff Warning Banner */}
+          {isDND && (
+            <div className="p-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/40 flex items-center gap-3 text-rose-200">
+              <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md animate-pulse">
+                <BellOff size={16} />
+              </div>
+              <div>
+                <p className="font-black text-rose-300 text-xs flex items-center gap-1.5">
+                  <span>⛔ DO NOT DISTURB (DND ACTIVE)</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-200">Staff Alert</span>
+                </p>
+                <p className="text-[10px] text-rose-200/80 leading-relaxed mt-0.5 font-medium">
+                  Guest has requested complete privacy. Housekeeping, cleaning & service staff must <strong>NOT knock or enter</strong> this room!
+                </p>
+              </div>
+            </div>
+          )}
 
           {room.assignedStaffName && (
             <div className="p-2.5 rounded-xl bg-slate-800/30 border border-white/5 flex items-center justify-between text-[10px]">

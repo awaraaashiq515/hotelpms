@@ -11,7 +11,8 @@ import {
   Loader2,
   Building2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { KpiCardsRow, KpiStats } from '@/components/hotel/operations/KpiCardsRow';
 import { ReservationWidget, ReservationItem } from '@/components/hotel/operations/ReservationWidget';
@@ -19,6 +20,7 @@ import { TodayActivityWidget } from '@/components/hotel/operations/TodayActivity
 import { FourteenDayOutlook } from '@/components/hotel/operations/FourteenDayOutlook';
 import { QuickNotesModal } from '@/components/hotel/operations/QuickNotesModal';
 import { QuickReservationModal } from '@/components/hotel/operations/QuickReservationModal';
+import { QuickQueryModal, QueryItem } from '@/components/hotel/operations/QuickQueryModal';
 import { LearnToUseModal } from '@/components/hotel/operations/LearnToUseModal';
 import { GuestRegistrationCardModal } from '@/components/hotel/operations/GuestRegistrationCardModal';
 import { ReservationDetailDrawer } from '@/components/hotel/calendar/ReservationDetailDrawer';
@@ -36,6 +38,42 @@ export default function HotelOperationsDashboard() {
   const [newResArrivalDate, setNewResArrivalDate] = useState<string | undefined>(undefined);
   const [isLearnModalOpen, setIsLearnModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
+  const [selectedQueryForModal, setSelectedQueryForModal] = useState<QueryItem | null>(null);
+  const [initialGuestDataForBooking, setInitialGuestDataForBooking] = useState<{
+    firstName?: string;
+    lastName?: string;
+    mobile?: string;
+    email?: string;
+    notes?: string;
+  } | null>(null);
+
+  const handleOpenNewQuery = () => {
+    setSelectedQueryForModal(null);
+    setIsQueryModalOpen(true);
+  };
+
+  const handleSelectQuery = (q: any) => {
+    setSelectedQueryForModal(q);
+    setIsQueryModalOpen(true);
+  };
+
+  const handleConvertQueryToBooking = (q: any) => {
+    const fullName = (q.guestName || q.name || '').trim();
+    const parts = fullName.split(' ');
+    const firstName = parts[0] || '';
+    const lastName = parts.slice(1).join(' ') || '';
+
+    setInitialGuestDataForBooking({
+      firstName,
+      lastName,
+      mobile: q.phone || '',
+      email: q.email || '',
+      notes: `Converted from Query: ${q.subject || ''} - ${q.message || ''}`,
+    });
+    setIsNewResModalOpen(true);
+    showToast(`Converting enquiry for ${fullName} into booking...`);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -291,6 +329,16 @@ export default function HotelOperationsDashboard() {
             <span>Print Manifest</span>
           </button>
 
+          {/* Log Guest Query Button */}
+          <button
+            onClick={() => handleOpenNewQuery()}
+            title="Record front desk or phone customer enquiry"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+            <span>Log Guest Query</span>
+          </button>
+
           {/* Create New Reservation Button */}
           <button
             onClick={() => setIsNewResModalOpen(true)}
@@ -338,7 +386,7 @@ export default function HotelOperationsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
         {/* Left Column: Reservation Console */}
         <ReservationWidget
-          reservations={dashboardData?.reservations || { arrivals: [], departures: [], stayovers: [], inHouse: [], balanceDue: [] }}
+          reservations={dashboardData?.reservations || { arrivals: [], departures: [], stayovers: [], inHouse: [], balanceDue: [], queries: [] }}
           onRefresh={fetchDashboardData}
           onAddNote={(res) => setActiveReservationForNotes(res)}
           onCheckIn={handleCheckIn}
@@ -346,14 +394,18 @@ export default function HotelOperationsDashboard() {
           onPrint={handlePrint}
           onPrintList={(items) => handlePrintManifest(items)}
           onSelectReservation={(res) => handleOpenBookingDetails(res)}
+          onSelectQuery={handleSelectQuery}
+          onAddQuery={handleOpenNewQuery}
         />
 
         {/* Right Column: Today's Activity */}
         <TodayActivityWidget
-          activityData={dashboardData?.activity || { sales: [], cancellations: [], bookedTodayCount: 0, unitNights: 0, todayRevenue: 0 }}
+          activityData={dashboardData?.activity || { sales: [], cancellations: [], queries: [], bookedTodayCount: 0, unitNights: 0, todayRevenue: 0 }}
           currency={dashboardData?.property?.currency || '₹'}
           onRefresh={fetchDashboardData}
           onRowClick={(act) => handleOpenBookingDetails(act)}
+          onSelectQuery={handleSelectQuery}
+          onAddQuery={handleOpenNewQuery}
         />
       </div>
 
@@ -397,14 +449,31 @@ export default function HotelOperationsDashboard() {
         isOpen={isNewResModalOpen}
         roomsList={dashboardData?.roomsList || []}
         initialArrivalDate={newResArrivalDate}
+        initialGuestData={initialGuestDataForBooking}
         onClose={() => {
           setIsNewResModalOpen(false);
           setNewResArrivalDate(undefined);
+          setInitialGuestDataForBooking(null);
         }}
         onCreated={() => {
           showToast('✓ Real booking created successfully!');
+          setInitialGuestDataForBooking(null);
           fetchDashboardData();
         }}
+      />
+
+      <QuickQueryModal
+        isOpen={isQueryModalOpen}
+        queryToView={selectedQueryForModal}
+        onClose={() => {
+          setIsQueryModalOpen(false);
+          setSelectedQueryForModal(null);
+        }}
+        onSaved={() => {
+          showToast('✓ Guest query updated successfully in system!');
+          fetchDashboardData();
+        }}
+        onConvertToBooking={handleConvertQueryToBooking}
       />
 
       <LearnToUseModal

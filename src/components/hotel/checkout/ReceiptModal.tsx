@@ -82,8 +82,35 @@ export interface FolioDetail {
       quantity: number;
       unitPrice: number;
       totalAmount: number;
-      product: { name: string };
+      product: { name: string; isVeg?: boolean };
     }[];
+  }[] | null;
+  spaBookings?: {
+    id: string;
+    bookingNo: string;
+    scheduledAt: string;
+    duration: number;
+    amount: number;
+    taxAmount: number;
+    totalAmount: number;
+    status: string;
+    paymentStatus: string;
+    notes?: string | null;
+    service: { name: string; category?: string; price: number };
+    spa?: { name: string } | null;
+    therapist?: { name: string } | null;
+  }[] | null;
+  laundryRequests?: {
+    id: string;
+    roomNumber: string;
+    guestName?: string | null;
+    itemsCount: number;
+    itemsDetail?: string | null;
+    amount: number;
+    status: string;
+    collectedAt: string;
+    deliveredAt?: string | null;
+    notes?: string | null;
   }[] | null;
 }
 

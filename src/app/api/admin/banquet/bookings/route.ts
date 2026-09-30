@@ -12,113 +12,13 @@ export async function GET(request: NextRequest) {
     if (propertyId) where.propertyId = propertyId;
     if (status && status !== 'ALL') where.status = status;
 
-    let bookings = await prisma.banquetBooking.findMany({
+    const bookings = await prisma.banquetBooking.findMany({
       where,
       include: {
         hall: true
       },
       orderBy: { eventDate: 'asc' }
     });
-
-    // Seed mock bookings if database is empty
-    if (bookings.length === 0) {
-      const halls = await prisma.banquetHall.findMany();
-      if (halls.length > 0) {
-        const h0 = halls[0].id;
-        const h1 = halls[1] ? halls[1].id : h0;
-        const h2 = halls[2] ? halls[2].id : h0;
-
-        const defaultBookings = [
-          {
-            hallId: h0,
-            eventName: 'Sharma Wedding Reception',
-            eventType: 'Wedding',
-            clientName: 'Raj Sharma',
-            clientPhone: '+91 98765 00001',
-            clientEmail: 'raj.sharma@example.com',
-            eventDate: new Date('2026-07-29T00:00:00.000Z'),
-            startTime: new Date('2026-07-29T19:00:00.000Z'),
-            endTime: new Date('2026-07-29T23:30:00.000Z'),
-            paxCount: 350,
-            slotType: 'EVENING',
-            seatingLayout: 'CLUSTER',
-            cateringPackage: 'Diamond Wedding Feast',
-            ratePerPlate: 1200,
-            hallRent: 75000,
-            extraCharges: 25000,
-            totalAmount: 495000,
-            advancePaid: 250000,
-            dueAmount: 245000,
-            status: 'CONFIRMED',
-            paymentStatus: 'PARTIAL',
-            specialInstructions: 'Floral entrance arch, DJ stage setup by 5 PM, Live Chaat counter.'
-          },
-          {
-            hallId: h1,
-            eventName: 'TechCorp Annual Leaders Summit',
-            eventType: 'Corporate',
-            clientName: 'HR Dept (TechCorp)',
-            clientPhone: '+91 98765 00002',
-            clientEmail: 'events@techcorp.io',
-            eventDate: new Date('2026-07-30T00:00:00.000Z'),
-            startTime: new Date('2026-07-30T09:00:00.000Z'),
-            endTime: new Date('2026-07-30T17:00:00.000Z'),
-            paxCount: 80,
-            slotType: 'FULL_DAY',
-            seatingLayout: 'U_SHAPE',
-            cateringPackage: 'Corporate Executive Lunch',
-            ratePerPlate: 850,
-            hallRent: 25000,
-            extraCharges: 10000,
-            totalAmount: 103000,
-            advancePaid: 103000,
-            dueAmount: 0,
-            status: 'CONFIRMED',
-            paymentStatus: 'PAID',
-            specialInstructions: 'Dual projectors, high-speed WiFi credentials on desk cards.'
-          },
-          {
-            hallId: h2,
-            eventName: 'Ananya 18th Birthday Bash',
-            eventType: 'Birthday',
-            clientName: 'Meera Kapoor',
-            clientPhone: '+91 98765 00003',
-            clientEmail: 'meera.k@example.com',
-            eventDate: new Date('2026-07-31T00:00:00.000Z'),
-            startTime: new Date('2026-07-31T18:30:00.000Z'),
-            endTime: new Date('2026-07-31T22:30:00.000Z'),
-            paxCount: 60,
-            slotType: 'EVENING',
-            seatingLayout: 'ROUND_TABLE',
-            cateringPackage: 'Gold Party Menu',
-            ratePerPlate: 950,
-            hallRent: 20000,
-            extraCharges: 8000,
-            totalAmount: 85000,
-            advancePaid: 30000,
-            dueAmount: 55000,
-            status: 'TENTATIVE',
-            paymentStatus: 'PARTIAL',
-            specialInstructions: 'Neon photo booth near pool, mocktail fountain station.'
-          }
-        ];
-
-        for (const b of defaultBookings) {
-          await prisma.banquetBooking.create({
-            data: {
-              ...b,
-              propertyId: propertyId || undefined
-            }
-          });
-        }
-
-        bookings = await prisma.banquetBooking.findMany({
-          where,
-          include: { hall: true },
-          orderBy: { eventDate: 'asc' }
-        });
-      }
-    }
 
     return NextResponse.json({ success: true, data: bookings });
   } catch (error: any) {
@@ -134,7 +34,7 @@ export async function POST(request: NextRequest) {
     const {
       hallId, eventName, eventType, clientName, clientPhone, clientEmail, clientGst,
       eventDate, startTime, endTime, paxCount, slotType, seatingLayout,
-      cateringPackage, ratePerPlate, hallRent, extraCharges, advancePaid, specialInstructions, propertyId
+      cateringPackage, ratePerPlate, hallRent, extraCharges, miscCharges, advancePaid, specialInstructions, propertyId
     } = body;
 
     if (!hallId || !eventName || !clientName || !clientPhone || !eventDate) {
@@ -173,6 +73,7 @@ export async function POST(request: NextRequest) {
         ratePerPlate: perPlate,
         hallRent: rent,
         extraCharges: extra,
+        miscCharges: typeof miscCharges === 'string' ? miscCharges : miscCharges ? JSON.stringify(miscCharges) : null,
         totalAmount,
         advancePaid: advance,
         dueAmount,

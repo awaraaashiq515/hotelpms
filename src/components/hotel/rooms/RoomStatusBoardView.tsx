@@ -82,6 +82,7 @@ export default function RoomStatusBoardView() {
       status?: RoomOperationalStatus;
       maintenanceStatus?: MaintenanceStatus;
       isVIP?: boolean;
+      isDND?: boolean;
     }
   ): Promise<boolean> => {
     try {
@@ -121,6 +122,7 @@ export default function RoomStatusBoardView() {
 
     // Status filter
     if (statusFilter !== 'ALL') {
+      if (statusFilter === 'DND' && !r.isDND) return false;
       if (statusFilter === 'OCCUPIED' && r.status !== 'OCCUPIED' && !r.activeGuest) return false;
       if (statusFilter === 'CLEAN' && (r.housekeepingStatus !== 'CLEAN' || r.status === 'OCCUPIED' || r.activeGuest)) return false;
       if (statusFilter === 'DIRTY' && r.housekeepingStatus !== 'DIRTY') return false;
@@ -385,6 +387,7 @@ export default function RoomStatusBoardView() {
             className="h-10 px-3 rounded-xl bg-slate-800 border border-white/10 text-white text-xs font-bold focus:outline-none focus:border-indigo-500"
           >
             <option value="ALL">All Room States</option>
+            <option value="DND">🚫 Do Not Disturb (DND Active)</option>
             <option value="OCCUPIED">Occupied Stay</option>
             <option value="CLEAN">Vacant Clean (Ready)</option>
             <option value="DIRTY">Vacant Dirty</option>
@@ -506,6 +509,10 @@ export default function RoomStatusBoardView() {
                       statusBadgeStyle = 'bg-violet-500/20 text-violet-300 border-violet-500/40';
                     }
 
+                    if (room.isDND) {
+                      cardBg = 'bg-gradient-to-br from-rose-950/40 via-slate-900/90 to-slate-900/70 border-rose-500/70 hover:border-rose-400 ring-1 ring-rose-500/50 shadow-lg shadow-rose-950/30';
+                    }
+
                     return (
                       <div
                         key={room.id}
@@ -523,8 +530,13 @@ export default function RoomStatusBoardView() {
                                 {room.roomNumber}
                               </span>
                               {room.isVIP && (
-                                <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                                   VIP
+                                </span>
+                              )}
+                              {room.isDND && (
+                                <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-md shadow-rose-900/50 flex items-center gap-1 animate-pulse">
+                                  <span>🚫</span> DND
                                 </span>
                               )}
                             </div>
@@ -532,6 +544,17 @@ export default function RoomStatusBoardView() {
                               {statusLabel}
                             </span>
                           </div>
+
+                          {/* DND Staff Warning Banner */}
+                          {room.isDND && (
+                            <div className="mb-2 px-2.5 py-1.5 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center gap-2 text-rose-200 shadow-inner">
+                              <span className="text-sm">🚫</span>
+                              <div className="leading-tight">
+                                <p className="text-[9px] font-black uppercase tracking-wider text-rose-300">DND Active · Do Not Disturb</p>
+                                <p className="text-[8px] text-rose-300/80 font-medium">Staff strictly do NOT knock or enter!</p>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Room Category */}
                           <p className="text-[10px] text-slate-400 font-bold mb-3 truncate">

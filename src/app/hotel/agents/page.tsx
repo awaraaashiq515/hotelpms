@@ -35,6 +35,11 @@ interface TravelAgent {
   email?: string;
   companyName?: string;
   city?: string;
+  travelId?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  idType?: string;
+  idNumber?: string;
   commissionRate: number;
   isActive: boolean;
   isBlocked?: boolean;
@@ -70,7 +75,9 @@ export default function AgentsPage() {
 
   const [form, setForm] = useState({
     name: '', phone: '', email: '', companyName: '',
-    city: '', commissionRate: '10', pinCode: '1234', notes: '',
+    city: '', travelId: '', gstNumber: '', panNumber: '',
+    idType: 'PAN Card', idNumber: '',
+    commissionRate: '10', pinCode: '1234', notes: '',
   });
 
   useEffect(() => { loadData(); }, []);
@@ -109,7 +116,12 @@ export default function AgentsPage() {
       if (json.success) {
         toast.success(json.message || 'Agent registered!');
         setShowAddModal(false);
-        setForm({ name: '', phone: '', email: '', companyName: '', city: '', commissionRate: '10', pinCode: '1234', notes: '' });
+        setForm({
+          name: '', phone: '', email: '', companyName: '',
+          city: '', travelId: '', gstNumber: '', panNumber: '',
+          idType: 'PAN Card', idNumber: '',
+          commissionRate: '10', pinCode: '1234', notes: '',
+        });
         loadData();
       } else {
         toast.error(json.message || 'Failed to create agent.');
@@ -255,7 +267,16 @@ export default function AgentsPage() {
 
   const filteredAgents = agents.filter(a => {
     const q = search.toLowerCase();
-    return !q || a.name.toLowerCase().includes(q) || a.phone.includes(q) || a.agentCode.toLowerCase().includes(q) || (a.companyName || '').toLowerCase().includes(q);
+    return (
+      !q ||
+      a.name.toLowerCase().includes(q) ||
+      a.phone.includes(q) ||
+      a.agentCode.toLowerCase().includes(q) ||
+      (a.companyName || '').toLowerCase().includes(q) ||
+      (a.travelId || '').toLowerCase().includes(q) ||
+      (a.gstNumber || '').toLowerCase().includes(q) ||
+      (a.panNumber || '').toLowerCase().includes(q)
+    );
   });
 
   const filteredBookings = bookings.filter(b => bookingFilter === 'all' || b.status === bookingFilter);
@@ -408,6 +429,26 @@ export default function AgentsPage() {
                       <span className="flex items-center gap-1"><Phone size={10} />{agent.phone}</span>
                       {agent.city && <span className="flex items-center gap-1"><MapPin size={10} />{agent.city}</span>}
                     </div>
+
+                    {(agent.gstNumber || agent.panNumber || agent.travelId) && (
+                      <div className="flex flex-wrap gap-1 text-[9px] pt-1 border-t border-slate-800/60">
+                        {agent.travelId && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 font-bold" title="Travel / IATA License ID">
+                            ID: {agent.travelId}
+                          </span>
+                        )}
+                        {agent.gstNumber && (
+                          <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 font-bold" title="GSTIN (B2B Tax Invoice)">
+                            GST: {agent.gstNumber}
+                          </span>
+                        )}
+                        {agent.panNumber && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold" title="PAN Number (TDS Sec 194H)">
+                            PAN: {agent.panNumber}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-1 border-t border-slate-800">
@@ -637,14 +678,17 @@ export default function AgentsPage() {
       {/* ─── MODAL 1: ADD NEW AGENT ─────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 my-8 text-white">
+          <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-6 w-full max-w-xl shadow-2xl space-y-4 my-8 text-white max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-base font-black text-white flex items-center gap-2">
-                <Handshake size={18} className="text-violet-400" /> Register New Travel Agent
-              </h2>
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <Handshake size={18} className="text-violet-400" /> Register New Travel Agent
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">Add agent profile, commission terms, ID proof & GST compliance</p>
+              </div>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white p-1"><X size={18} /></button>
             </div>
-            <form onSubmit={handleCreateAgent} className="space-y-3">
+            <form onSubmit={handleCreateAgent} className="space-y-3.5">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Agent / Contact Name *</label>
@@ -659,6 +703,7 @@ export default function AgentsPage() {
                     value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Email Address</label>
@@ -673,6 +718,7 @@ export default function AgentsPage() {
                     value={form.companyName} onChange={e => setForm({ ...form, companyName: e.target.value })} />
                 </div>
               </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">City</label>
@@ -693,6 +739,94 @@ export default function AgentsPage() {
                     value={form.pinCode} onChange={e => setForm({ ...form, pinCode: e.target.value })} />
                 </div>
               </div>
+
+              {/* ID Proof & Tax Compliance Section */}
+              <div className="bg-[#050a14] border border-slate-800 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Shield size={13} className="text-violet-400" />
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-200">
+                      ID Proof & Tax Compliance (GST / TDS)
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-amber-400/90 font-bold bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                    Important for Invoices & Payouts
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">
+                      Travel ID / License No.
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. IATA-8899 / MOTA-559"
+                      className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-violet-500 placeholder-slate-600"
+                      value={form.travelId}
+                      onChange={e => setForm({ ...form, travelId: e.target.value.toUpperCase() })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">
+                      GSTIN Number (for B2B Invoice)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      placeholder="e.g. 07AAAAA0000A1Z5"
+                      className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-violet-500 placeholder-slate-600 font-mono"
+                      value={form.gstNumber}
+                      onChange={e => setForm({ ...form, gstNumber: e.target.value.toUpperCase() })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1 flex items-center justify-between">
+                      <span>PAN Card Number</span>
+                      <span className="text-[8px] text-emerald-400 font-bold">Sec 194H TDS</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      placeholder="e.g. ABCDE1234F"
+                      className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-violet-500 placeholder-slate-600 font-mono"
+                      value={form.panNumber}
+                      onChange={e => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Govt ID Type</label>
+                      <select
+                        className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-violet-500"
+                        value={form.idType}
+                        onChange={e => setForm({ ...form, idType: e.target.value })}
+                      >
+                        <option value="PAN Card">PAN Card</option>
+                        <option value="Aadhaar Card">Aadhaar Card</option>
+                        <option value="Passport">Passport</option>
+                        <option value="Voter ID">Voter ID</option>
+                        <option value="Driving License">Driving License</option>
+                        <option value="Tourism Reg ID">Tourism Reg ID</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">ID Number</label>
+                      <input
+                        type="text"
+                        placeholder="Doc No."
+                        className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-2 py-2 text-xs text-white uppercase focus:outline-none focus:border-violet-500 placeholder-slate-600"
+                        value={form.idNumber}
+                        onChange={e => setForm({ ...form, idNumber: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Notes (optional)</label>
                 <textarea rows={2} placeholder="Any special agreements or notes..."
@@ -716,7 +850,7 @@ export default function AgentsPage() {
       {/* ─── MODAL 2: AGENT DETAIL ──────────────────────────────── */}
       {selectedAgent && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setSelectedAgent(null)}>
-          <div className="w-full max-w-md bg-[#090f1e] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden text-white" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-lg bg-[#090f1e] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden text-white" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-slate-800 bg-gradient-to-r from-violet-950/50 to-indigo-950/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600/30 to-indigo-600/30 border border-violet-500/20 flex items-center justify-center">
@@ -737,7 +871,7 @@ export default function AgentsPage() {
               </div>
               <button onClick={() => setSelectedAgent(null)} className="p-1 text-slate-400 hover:text-white"><X size={18} /></button>
             </div>
-            <div className="p-5 space-y-3 text-xs">
+            <div className="p-5 space-y-3 text-xs max-h-[80vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-950 rounded-xl p-3">
                   <span className="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Mobile</span>
@@ -748,12 +882,63 @@ export default function AgentsPage() {
                   <span className="font-black text-indigo-400 text-base">{selectedAgent.commissionRate}%</span>
                 </div>
               </div>
-              {selectedAgent.companyName && (
-                <div className="bg-slate-950 rounded-xl p-3">
-                  <span className="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Company</span>
-                  <span className="font-bold text-white flex items-center gap-1"><Building size={10} className="text-violet-400" />{selectedAgent.companyName}</span>
+
+              <div className="grid grid-cols-2 gap-2">
+                {selectedAgent.companyName ? (
+                  <div className="bg-slate-950 rounded-xl p-3">
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Company</span>
+                    <span className="font-bold text-white flex items-center gap-1"><Building size={10} className="text-violet-400" />{selectedAgent.companyName}</span>
+                  </div>
+                ) : (
+                  <div className="bg-slate-950 rounded-xl p-3">
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Category</span>
+                    <span className="font-bold text-slate-400">Independent Partner</span>
+                  </div>
+                )}
+                {selectedAgent.city && (
+                  <div className="bg-slate-950 rounded-xl p-3">
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">City</span>
+                    <span className="font-bold text-white flex items-center gap-1"><MapPin size={10} className="text-violet-400" />{selectedAgent.city}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ID Proof & Tax Compliance Details */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                  <span className="text-[10px] text-slate-300 uppercase font-bold flex items-center gap-1.5">
+                    <Shield size={12} className="text-violet-400" /> ID Proof & Tax Compliance
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-mono">B2B / TDS Sec 194H</span>
                 </div>
-              )}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="bg-slate-900/60 rounded-lg p-2.5">
+                    <span className="text-[9px] text-slate-500 block uppercase font-bold">Travel / IATA ID</span>
+                    <span className="font-mono font-bold text-violet-300 text-xs">
+                      {selectedAgent.travelId || 'Not Provided'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-900/60 rounded-lg p-2.5">
+                    <span className="text-[9px] text-slate-500 block uppercase font-bold">GSTIN Number</span>
+                    <span className="font-mono font-bold text-blue-300 text-xs">
+                      {selectedAgent.gstNumber || 'Unregistered'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-900/60 rounded-lg p-2.5">
+                    <span className="text-[9px] text-slate-500 block uppercase font-bold">PAN Number (TDS)</span>
+                    <span className="font-mono font-bold text-emerald-300 text-xs">
+                      {selectedAgent.panNumber || 'Not Provided'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-900/60 rounded-lg p-2.5">
+                    <span className="text-[9px] text-slate-500 block uppercase font-bold">{selectedAgent.idType || 'Govt ID Proof'}</span>
+                    <span className="font-mono font-bold text-amber-300 text-xs">
+                      {selectedAgent.idNumber || 'Not Provided'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-slate-950 rounded-xl p-3">
                 <span className="text-[9px] text-slate-500 uppercase font-bold block mb-1">Portal Login Credentials</span>
                 <div className="flex items-center justify-between">

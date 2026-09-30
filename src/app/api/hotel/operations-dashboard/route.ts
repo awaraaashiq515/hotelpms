@@ -88,6 +88,24 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     });
 
+    // Fetch Guest & Front Desk Enquiries/Queries
+    const rawEnquiries = await prisma.enquiry.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    const queries = rawEnquiries.map((enq) => ({
+      id: enq.id,
+      guestName: enq.name || 'Guest Enquiry',
+      phone: enq.phone || '',
+      email: enq.email || '',
+      subject: enq.subject || 'Room / Hotel Query',
+      message: enq.message || '',
+      status: enq.status || 'NEW',
+      createdAt: enq.createdAt,
+      type: 'Queries',
+    }));
+
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -146,6 +164,10 @@ export async function GET(request: NextRequest) {
         adults: res.adults || 1,
         children: res.children || 0,
         mealPlan: res.mealPlan || 'RO',
+        spaPackage: res.spaPackage || 'NONE',
+        spaPackageCost: res.spaPackageCost || 0,
+        poolAccess: res.poolAccess || false,
+        poolPackage: res.poolPackage || 'NONE',
         totalAmount: res.totalAmount,
         advanceAmount: res.advanceAmount,
         dueAmount: res.dueAmount,
@@ -385,10 +407,12 @@ export async function GET(request: NextRequest) {
         stayovers,
         inHouse,
         balanceDue,
+        queries,
       },
       activity: {
         sales,
         cancellations: cancellationItems,
+        queries,
         bookedTodayCount: allReservations.filter(r => isSameDay(new Date(r.createdAt), now)).length,
         unitNights: totalActiveNights,
         todayRevenue: totalActiveRevenue,

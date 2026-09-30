@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
       email: body.guestEmail || '',
       idType: body.idType || '',
       idNumber: body.idNumber || '',
+      address: body.address || body.guestAddress || '',
+      nationality: body.nationality || body.guestNationality || '',
       documentUrl: body.documentUrl || '',
     } : null);
 
@@ -196,6 +198,8 @@ export async function POST(request: NextRequest) {
         const updateData: any = {};
         if (effectiveGuestData.idType) updateData.idType = effectiveGuestData.idType;
         if (effectiveGuestData.idNumber) updateData.idNumber = effectiveGuestData.idNumber;
+        if (effectiveGuestData.address) updateData.address = effectiveGuestData.address;
+        if (effectiveGuestData.nationality) updateData.nationality = effectiveGuestData.nationality;
         if (resolvedGstNumber) updateData.gstNumber = resolvedGstNumber;
         if (resolvedCompanyName) updateData.companyName = resolvedCompanyName;
         if (resolvedBillingAddress) updateData.billingAddress = resolvedBillingAddress;
@@ -226,6 +230,8 @@ export async function POST(request: NextRequest) {
             email: effectiveGuestData.email || '',
             idType: effectiveGuestData.idType || '',
             idNumber: effectiveGuestData.idNumber || '',
+            address: effectiveGuestData.address || '',
+            nationality: effectiveGuestData.nationality || 'Indian',
             gstNumber: resolvedGstNumber,
             companyName: resolvedCompanyName,
             billingAddress: resolvedBillingAddress,
@@ -287,7 +293,7 @@ export async function POST(request: NextRequest) {
         rooms: {
           create: {
             roomId: assignedRoomId || null,
-            ratePerNight: total / Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24))),
+            ratePerNight: Number(body.ratePerNight) || (total / Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)))),
             adults: Number(adults || 1),
             children: Number(children || 0),
           }

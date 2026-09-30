@@ -7,12 +7,17 @@ import {
   CheckCircle2, AlertTriangle, TrendingDown, TrendingUp, Wallet,
   Printer, X, Banknote, Smartphone, Building2, Globe, DoorOpen,
   Clock, Phone, Hash, UtensilsCrossed, ShoppingBag, Sparkles,
-  Percent, BadgePercent, PlusCircle, RefreshCw, XCircle,
+  Percent, BadgePercent, PlusCircle, RefreshCw, XCircle, Eye, Shirt,
+  ChevronRight, FileText,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
 // ─── Modular Component Imports ──────────────────────────────────────────────
 import ReceiptModal, { FolioDetail } from '@/components/hotel/checkout/ReceiptModal';
+import BookingDetailModal from '@/components/hotel/checkout/BookingDetailModal';
+import DepartmentalSlipModal, { DepartmentalSlipData } from '@/components/hotel/checkout/DepartmentalSlipModal';
+import { GuestRegistrationCardModal } from '@/components/hotel/operations/GuestRegistrationCardModal';
+import { ReservationItem } from '@/components/hotel/operations/ReservationWidget';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -75,6 +80,12 @@ function CheckoutDetailContent() {
   const [billingAddress, setBillingAddress] = useState('');
   const [savingGstInfo, setSavingGstInfo] = useState(false);
   const [gstInfoSaved, setGstInfoSaved] = useState(false);
+
+  // User-requested Booking View & Departmental Bills states
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showGrcModal, setShowGrcModal] = useState(false);
+  const [activeSlip, setActiveSlip] = useState<DepartmentalSlipData | null>(null);
+  const [deptTab, setDeptTab] = useState<'ALL' | 'POS' | 'LAUNDRY' | 'SPA' | 'OTHER'>('ALL');
 
   // Load folio directly by folioId (passed as query param from list page)
   const loadFolio = useCallback(async () => {
@@ -401,6 +412,111 @@ function CheckoutDetailContent() {
   const isSettled = dueBalance <= 0;
   const activeCheckIn = folio?.reservation?.checkIns?.[0];
 
+  // Departmental Orders & Charges
+  const posOrdersList = folio?.posOrders || [];
+  const laundryList = folio?.laundryRequests || [];
+  const spaList = folio?.spaBookings || [];
+  const otherTxns = folio?.transactions?.filter(
+    (t: any) => !['ROOM_CHARGES', 'GST', 'PAYMENT', 'CASH', 'UPI', 'CARD', 'ONLINE', 'BANK_TRANSFER', 'SPLIT'].includes(t.sourceModule)
+  ) || [];
+
+  const totalPosSpend = posOrdersList.reduce((s: number, o: any) => s + (Number(o.grandTotal) || 0), 0);
+  const totalLaundrySpend = laundryList.reduce((s: number, l: any) => s + (Number(l.amount) || 0), 0);
+  const totalSpaSpend = spaList.reduce((s: number, sp: any) => s + (Number(sp.totalAmount || sp.amount) || 0), 0);
+  const totalOtherSpend = otherTxns.reduce((s: number, ot: any) => s + (Number(ot.debitAmount) || 0), 0);
+
+  const mappedReservation: ReservationItem | null = folio ? {
+    id: folio.reservation.id,
+    guestId: folio.guestId,
+    guestName: `${folio.guest.firstName} ${folio.guest.lastName || ''}`.trim(),
+    guestFirstName: folio.guest.firstName,
+    guestLastName: folio.guest.lastName || undefined,
+    guestMobile: folio.guest.mobile || undefined,
+    guestEmail: folio.guest.email || undefined,
+    guestAddress: folio.guest.address || undefined,
+    guestIdType: folio.guest.idType || undefined,
+    guestIdNumber: folio.guest.idNumber || undefined,
+    guestNationality: folio.guest.nationality || undefined,
+    companyName: folio.reservation.companyName || folio.guest.companyName || undefined,
+    gstNumber: folio.reservation.gstNumber || folio.guest.gstNumber || undefined,
+    reservationNumber: folio.reservation.bookingNo,
+    unitNumber: room?.roomNumber || '—',
+    roomTypeName: folio.reservation.roomType?.name || 'Standard Room',
+    status: activeCheckIn?.status || 'CHECKED_IN',
+    arrivalDate: folio.reservation.arrivalDate,
+    departureDate: folio.reservation.departureDate,
+    nights: nights,
+    adults: folio.reservation.adults,
+    children: folio.reservation.children,
+    totalAmount: folio.totalCharges,
+    advanceAmount: folio.totalPayments,
+    dueAmount: folio.closingBalance,
+  } : null;
+
+  const openPosSlip = (order: any) => {
+    setActiveSlip({
+      type: 'POS',
+      title: `Restaurant Bill #${order.orderNo}`,
+      hotelName: folio?.reservation?.property?.name || 'HOTEL RESORT',
+      roomNumber: room?.roomNumber,
+      guestName: `${folio?.guest?.firstName || ''} ${folio?.guest?.lastName || ''}`.trim(),
+      referenceNo: order.orderNo,
+      date: new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+      status: 'CHARGED TO ROOM',
+      outletName: order.outlet?.name || 'Restaurant & Dining',
+      items: order.items?.map((it: any) => ({
+        name: it.product?.name || 'Item',
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        totalAmount: it.totalAmount,
+        isVeg: it.product?.isVeg,
+      })) || [],
+      subtotal: (order.grandTotal || 0) - (order.taxAmount || 0),
+      taxAmount: order.taxAmount || 0,
+      grandTotal: order.grandTotal || 0,
+    });
+  };
+
+  const openLaundrySlip = (req: any) => {
+    setActiveSlip({
+      type: 'LAUNDRY',
+      title: `Laundry Slip #${req.id.slice(-6).toUpperCase()}`,
+      hotelName: folio?.reservation?.property?.name || 'HOTEL RESORT',
+      roomNumber: req.roomNumber || room?.roomNumber,
+      guestName: req.guestName || `${folio?.guest?.firstName || ''} ${folio?.guest?.lastName || ''}`.trim(),
+      referenceNo: req.id.slice(-6).toUpperCase(),
+      date: new Date(req.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+      status: req.status || 'DELIVERED',
+      itemsCount: req.itemsCount,
+      itemsDetail: req.itemsDetail || req.notes || 'In-House Laundry & Dry Cleaning Service',
+      collectedAt: req.collectedAt,
+      deliveredAt: req.deliveredAt,
+      subtotal: req.amount || 0,
+      taxAmount: 0,
+      grandTotal: req.amount || 0,
+    });
+  };
+
+  const openSpaSlip = (booking: any) => {
+    setActiveSlip({
+      type: 'SPA',
+      title: `Spa Voucher #${booking.bookingNo}`,
+      hotelName: folio?.reservation?.property?.name || 'HOTEL RESORT',
+      roomNumber: room?.roomNumber,
+      guestName: booking.guestName || `${folio?.guest?.firstName || ''} ${folio?.guest?.lastName || ''}`.trim(),
+      referenceNo: booking.bookingNo,
+      date: new Date(booking.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+      status: booking.status || 'COMPLETED',
+      spaName: booking.spa?.name || 'Wellness Spa Center',
+      serviceName: booking.service?.name || 'Spa Service',
+      duration: booking.duration,
+      therapistName: booking.therapist?.name,
+      subtotal: booking.amount || 0,
+      taxAmount: booking.taxAmount || 0,
+      grandTotal: booking.totalAmount || booking.amount || 0,
+    });
+  };
+
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -423,7 +539,7 @@ function CheckoutDetailContent() {
         <p className="text-red-400 font-bold">Folio not found for this check-in</p>
         <button
           onClick={() => router.push('/hotel/checkout')}
-          className="mt-4 px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold"
+          className="mt-4 px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold cursor-pointer"
         >
           ← Back to Checkouts
         </button>
@@ -435,6 +551,54 @@ function CheckoutDetailContent() {
     <div className="space-y-6 pb-12">
       <Toaster position="top-right" richColors />
 
+      {/* User Requested: Booking Details Modal */}
+      {showBookingModal && (
+        <BookingDetailModal
+          isOpen={showBookingModal}
+          folio={folio}
+          nights={nights}
+          onClose={() => setShowBookingModal(false)}
+          onPrintGrc={() => {
+            setShowBookingModal(false);
+            setShowGrcModal(true);
+          }}
+          onPrintBill={() => {
+            setShowBookingModal(false);
+            setAutoPrintModal(false);
+            setShowReceipt(true);
+          }}
+        />
+      )}
+
+      {/* User Requested: Guest Registration Card (GRC) / Stay Voucher Modal */}
+      {showGrcModal && mappedReservation && (
+        <GuestRegistrationCardModal
+          isOpen={showGrcModal}
+          reservation={mappedReservation}
+          property={{
+            name: folio.reservation?.property?.name || 'Hotel Resort',
+            address: folio.reservation?.property?.address || undefined,
+            city: folio.reservation?.property?.city || undefined,
+            state: folio.reservation?.property?.state || undefined,
+            country: folio.reservation?.property?.country || undefined,
+            pinCode: folio.reservation?.property?.pinCode || undefined,
+            phone: folio.reservation?.property?.phone || undefined,
+            taxDetails: folio.reservation?.property?.taxDetails || undefined,
+            currency: '₹',
+          }}
+          onClose={() => setShowGrcModal(false)}
+        />
+      )}
+
+      {/* User Requested: Departmental Bill Slip Modal (Restaurant, Laundry, Spa) */}
+      {activeSlip && (
+        <DepartmentalSlipModal
+          isOpen={Boolean(activeSlip)}
+          data={activeSlip}
+          onClose={() => setActiveSlip(null)}
+        />
+      )}
+
       {/* Receipt Modal */}
       {showReceipt && (
         <ReceiptModal
@@ -443,38 +607,71 @@ function CheckoutDetailContent() {
           autoPrint={autoPrintModal}
           onClose={() => {
             setShowReceipt(false);
-            router.push('/hotel/checkout');
+            if (checkedOut) router.push('/hotel/checkout');
           }}
         />
       )}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push('/hotel/checkout')}
-          className="w-9 h-9 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white transition-all"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <div className="flex items-center gap-2">
-            <DoorOpen className="text-orange-400" size={20} />
-            <h1 className="text-xl font-black text-white tracking-tight">Guest Checkout</h1>
-            {checkedOut && (
-              <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                <CheckCircle2 size={10} /> CHECKED OUT
-              </span>
-            )}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/hotel/checkout')}
+            className="w-9 h-9 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <DoorOpen className="text-orange-400" size={20} />
+              <h1 className="text-xl font-black text-white tracking-tight">Guest Checkout</h1>
+              {checkedOut && (
+                <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                  <CheckCircle2 size={10} /> CHECKED OUT
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 font-bold mt-0.5">
+              Folio {folio.folioNo} · Booking #{folio.reservation.bookingNo}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 font-bold mt-0.5">
-            Folio {folio.folioNo} · Booking #{folio.reservation.bookingNo}
-          </p>
+        </div>
+
+        {/* User Requested Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowBookingModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+            title="View complete booking voucher & stay details"
+          >
+            <Eye size={13} className="text-orange-400" /> View Booking
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowGrcModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+            title="Print Guest Registration Card / Stay Document"
+          >
+            <Printer size={13} className="text-indigo-400" /> Print GRC / Voucher
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAutoPrintModal(false);
+              setShowReceipt(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-violet-900/20 active:scale-95 transition-all cursor-pointer"
+            title="Preview or print hotel folio invoice"
+          >
+            <Receipt size={13} /> View / Print Bill
+          </button>
         </div>
       </div>
 
       {/* ── Main Grid ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* LEFT: Folio Ledger (2 cols) */}
+        {/* LEFT: Folio Ledger & Departmental Bills (2 cols) */}
         <div className="xl:col-span-2 space-y-5">
           {/* Guest + Stay Summary Card */}
           <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
@@ -494,10 +691,14 @@ function CheckoutDetailContent() {
                   )}
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-500 font-bold">
-                  <Hash size={8} className="inline" /> {folio.reservation.bookingNo}
-                </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBookingModal(true)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Eye size={10} className="text-orange-400" /> Booking #{folio.reservation.bookingNo}
+                </button>
               </div>
             </div>
 
@@ -522,6 +723,283 @@ function CheckoutDetailContent() {
                 <p className="text-xs font-black text-white">{fmtDate(folio.reservation.departureDate)}</p>
                 <p className="text-[9px] text-slate-600 font-bold">Check-out</p>
               </div>
+            </div>
+          </div>
+
+          {/* User Requested: Departmental Bills & In-Room Services (Restaurant, Laundry, Spa, Extra) */}
+          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Receipt className="text-violet-400" size={16} />
+                <h3 className="font-black text-white text-sm">Departmental Bills & In-House Services</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300">
+                  {posOrdersList.length + laundryList.length + spaList.length + otherTxns.length} Total Bills
+                </span>
+              </div>
+              <span className="text-xs font-black text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20">
+                Total Dept Charges: {fmt(totalPosSpend + totalLaundrySpend + totalSpaSpend + totalOtherSpend)}
+              </span>
+            </div>
+
+            {/* Department Quick Filter Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setDeptTab('ALL')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  deptTab === 'ALL'
+                    ? 'bg-violet-600 text-white shadow-md'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white border border-slate-700/40'
+                }`}
+              >
+                All Bills ({posOrdersList.length + laundryList.length + spaList.length + otherTxns.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeptTab('POS')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  deptTab === 'POS'
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white border border-slate-700/40'
+                }`}
+              >
+                <UtensilsCrossed size={12} /> Restaurant & KOT ({posOrdersList.length}) · {fmt(totalPosSpend)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeptTab('LAUNDRY')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  deptTab === 'LAUNDRY'
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white border border-slate-700/40'
+                }`}
+              >
+                <Shirt size={12} /> Laundry ({laundryList.length}) · {fmt(totalLaundrySpend)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeptTab('SPA')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  deptTab === 'SPA'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white border border-slate-700/40'
+                }`}
+              >
+                <Sparkles size={12} /> Spa & Wellness ({spaList.length}) · {fmt(totalSpaSpend)}
+              </button>
+              {otherTxns.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDeptTab('OTHER')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    deptTab === 'OTHER'
+                      ? 'bg-slate-700 text-white shadow-md'
+                      : 'bg-slate-800/60 text-slate-400 hover:text-white border border-slate-700/40'
+                  }`}
+                >
+                  Other Add-ons ({otherTxns.length}) · {fmt(totalOtherSpend)}
+                </button>
+              )}
+            </div>
+
+            {/* List Content */}
+            <div className="space-y-2.5">
+              {/* POS Orders */}
+              {(deptTab === 'ALL' || deptTab === 'POS') && posOrdersList.map((order) => (
+                <div
+                  key={order.id}
+                  className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-amber-500/30 transition-all flex items-center justify-between flex-wrap gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                      <UtensilsCrossed size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-white text-xs">
+                          {order.outlet?.name || 'Restaurant & Dining'} — Bill #{order.orderNo}
+                        </span>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold">
+                          Room Charge
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {order.items.length} dish{order.items.length !== 1 ? 'es' : ''} ({order.items.map((i: any) => `${i.quantity}x ${i.product?.name || 'Item'}`).join(', ').slice(0, 45)}{order.items.length > 2 ? '…' : ''})
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-sm font-black text-amber-400 block">{fmt(order.grandTotal)}</span>
+                      {order.taxAmount > 0 && (
+                        <span className="text-[9px] text-slate-500">incl. {fmt(order.taxAmount)} tax</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openPosSlip(order)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title="View KOT / Bill Details"
+                      >
+                        <Eye size={11} className="text-amber-400" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openPosSlip(order)}
+                        className="px-2.5 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title="Print Restaurant Bill Slip"
+                      >
+                        <Printer size={11} /> Print
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Laundry Requests */}
+              {(deptTab === 'ALL' || deptTab === 'LAUNDRY') && laundryList.map((req: any) => (
+                <div
+                  key={req.id}
+                  className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-sky-500/30 transition-all flex items-center justify-between flex-wrap gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                      <Shirt size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-white text-xs">
+                          Laundry Slip #{req.id.slice(-6).toUpperCase()}
+                        </span>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-300 font-bold uppercase">
+                          {req.status}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {req.itemsCount} piece(s) · {req.itemsDetail || req.notes || 'Washing & Dry Clean'} · {new Date(req.createdAt).toLocaleDateString('en-GB')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-sm font-black text-sky-400 block">{fmt(req.amount)}</span>
+                      <span className="text-[9px] text-slate-500">Room {req.roomNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openLaundrySlip(req)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={11} className="text-sky-400" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openLaundrySlip(req)}
+                        className="px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Printer size={11} /> Print
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Spa Bookings */}
+              {(deptTab === 'ALL' || deptTab === 'SPA') && spaList.map((spa: any) => (
+                <div
+                  key={spa.id}
+                  className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-purple-500/30 transition-all flex items-center justify-between flex-wrap gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                      <Sparkles size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-white text-xs">
+                          {spa.service?.name || 'Spa Service'} — #{spa.bookingNo}
+                        </span>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 font-bold">
+                          {spa.status}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {spa.duration ? `${spa.duration} Mins · ` : ''}{spa.therapist?.name ? `Therapist: ${spa.therapist.name} · ` : ''}{new Date(spa.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-sm font-black text-purple-400 block">{fmt(spa.totalAmount || spa.amount)}</span>
+                      <span className="text-[9px] text-slate-500">{spa.paymentStatus || 'Charged'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openSpaSlip(spa)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={11} className="text-purple-400" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openSpaSlip(spa)}
+                        className="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Printer size={11} /> Print
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Other Departmental Debits (Minibar, Room Service, etc.) */}
+              {(deptTab === 'ALL' || deptTab === 'OTHER') && otherTxns.map((t: any) => (
+                <div
+                  key={t.id}
+                  className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 transition-all flex items-center justify-between flex-wrap gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0">
+                      <ShoppingBag size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-white text-xs">{t.description || t.sourceModule}</span>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-bold uppercase">
+                          {t.sourceModule}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Posted on {fmtDate(t.txnDate)} · Room Charge Debit
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-sm font-black text-red-400 block">{fmt(t.debitAmount)}</span>
+                    <span className="text-[9px] text-slate-500">Folio Debit</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Empty state when no orders in selected tab */}
+              {((deptTab === 'ALL' && posOrdersList.length === 0 && laundryList.length === 0 && spaList.length === 0 && otherTxns.length === 0) ||
+                (deptTab === 'POS' && posOrdersList.length === 0) ||
+                (deptTab === 'LAUNDRY' && laundryList.length === 0) ||
+                (deptTab === 'SPA' && spaList.length === 0) ||
+                (deptTab === 'OTHER' && otherTxns.length === 0)) && (
+                <div className="py-8 text-center border border-dashed border-slate-800/80 rounded-2xl">
+                  <Receipt size={24} className="mx-auto text-slate-600 mb-1.5" />
+                  <p className="text-xs font-bold text-slate-400">No departmental bills found for this category</p>
+                  <p className="text-[10px] text-slate-600 mt-0.5">Only room stay & taxes are currently posted to this folio</p>
+                </div>
+              )}
             </div>
           </div>
 

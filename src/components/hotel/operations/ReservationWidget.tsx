@@ -13,6 +13,7 @@ import {
   Eye,
   FileText,
   Receipt,
+  Plus,
 } from 'lucide-react';
 
 export interface ReservationItem {
@@ -55,6 +56,7 @@ interface CategorizedReservations {
   stayovers: ReservationItem[];
   inHouse: ReservationItem[];
   balanceDue: ReservationItem[];
+  queries?: any[];
 }
 
 interface ReservationWidgetProps {
@@ -66,6 +68,8 @@ interface ReservationWidgetProps {
   onPrint?: (res: ReservationItem) => void;
   onPrintList?: (items: ReservationItem[]) => void;
   onSelectReservation?: (res: ReservationItem) => void;
+  onSelectQuery?: (query: any) => void;
+  onAddQuery?: () => void;
 }
 
 export function ReservationWidget({
@@ -77,8 +81,10 @@ export function ReservationWidget({
   onPrint,
   onPrintList,
   onSelectReservation,
+  onSelectQuery,
+  onAddQuery,
 }: ReservationWidgetProps) {
-  const [activeTab, setActiveTab] = useState<'Arrivals' | 'Departures' | 'Stayovers' | 'In-House Guest' | 'Balance Due'>('Arrivals');
+  const [activeTab, setActiveTab] = useState<'Arrivals' | 'Departures' | 'Stayovers' | 'In-House Guest' | 'Balance Due' | 'Queries'>('Arrivals');
   const [activeDay, setActiveDay] = useState<'today' | 'tomorrow'>('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<keyof ReservationItem>('guestName');
@@ -108,6 +114,18 @@ export function ReservationWidget({
         return reservations.inHouse || [];
       case 'Balance Due':
         return reservations.balanceDue || [];
+      case 'Queries':
+        return (reservations.queries || []).map((q: any) => ({
+          id: q.id,
+          guestName: q.guestName || q.name || 'Guest Enquiry',
+          reservationNumber: q.subject || 'Room Query',
+          unitNumber: q.phone || 'Inquiry',
+          status: q.status || 'NEW',
+          notes: q.message || '',
+          source: q.email || 'Direct Phone / Walk-in',
+          createdAt: q.createdAt,
+          rawQuery: q,
+        }));
     }
   };
 
@@ -146,11 +164,16 @@ export function ReservationWidget({
   const getStatusBadge = (status: string) => {
     switch (status?.toUpperCase()) {
       case 'CHECKED_IN':
+      case 'NEW':
         return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
       case 'CONFIRMED':
+      case 'RESOLVED':
         return 'text-sky-400 bg-sky-500/10 border-sky-500/20';
       case 'PENDING':
+      case 'IN_PROGRESS':
         return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+      case 'CONVERTED':
+        return 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20';
       case 'CHECKED_OUT':
         return 'text-slate-400 bg-slate-800 border-slate-700';
       default:
@@ -167,10 +190,20 @@ export function ReservationWidget({
             Reservation
           </h2>
           <div className="flex items-center gap-2">
+            {onAddQuery && (
+              <button
+                type="button"
+                onClick={onAddQuery}
+                className="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Log Query</span>
+              </button>
+            )}
             <button
               title="Refresh list"
               onClick={onRefresh}
-              className="w-8 h-8 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800/60 flex items-center justify-center text-slate-300 transition-colors"
+              className="w-8 h-8 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800/60 flex items-center justify-center text-slate-300 transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -186,7 +219,7 @@ export function ReservationWidget({
               onClick={() => {
                 navigator.clipboard?.writeText(JSON.stringify(filteredItems, null, 2));
               }}
-              className="w-8 h-8 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800/60 flex items-center justify-center text-slate-300 transition-colors"
+              className="w-8 h-8 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800/60 flex items-center justify-center text-slate-300 transition-colors cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
@@ -195,7 +228,7 @@ export function ReservationWidget({
 
         {/* ── Filter Tabs ── */}
         <div className="flex items-center gap-1.5 overflow-x-auto py-2 border-b border-slate-800/80 no-scrollbar">
-          {(['Arrivals', 'Departures', 'Stayovers', 'In-House Guest', 'Balance Due'] as const).map((tab) => {
+          {(['Arrivals', 'Departures', 'Stayovers', 'In-House Guest', 'Balance Due', 'Queries'] as const).map((tab) => {
             const isActive = activeTab === tab;
             let count = 0;
             if (tab === 'Arrivals') count = reservations.arrivals?.length || 0;
@@ -203,19 +236,30 @@ export function ReservationWidget({
             if (tab === 'Stayovers') count = reservations.stayovers?.length || 0;
             if (tab === 'In-House Guest') count = reservations.inHouse?.length || 0;
             if (tab === 'Balance Due') count = reservations.balanceDue?.length || 0;
+            if (tab === 'Queries') count = reservations.queries?.length || 0;
 
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isActive
-                    ? 'bg-slate-800 text-white font-semibold shadow-xs border border-slate-700'
+                    ? tab === 'Queries'
+                      ? 'bg-amber-500/20 text-amber-300 font-semibold shadow-xs border border-amber-500/40'
+                      : 'bg-slate-800 text-white font-semibold shadow-xs border border-slate-700'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
                 }`}
               >
                 <span>{tab}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-[#00b894]/20 text-[#00b894] font-bold' : 'bg-slate-800 text-slate-400'}`}>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isActive
+                      ? tab === 'Queries'
+                        ? 'bg-amber-500/30 text-amber-300 font-bold'
+                        : 'bg-[#00b894]/20 text-[#00b894] font-bold'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
                   {count}
                 </span>
               </button>
@@ -280,7 +324,8 @@ export function ReservationWidget({
                     className="flex items-center gap-1 cursor-pointer hover:text-white"
                     onClick={() => handleSort('reservationNumber')}
                   >
-                    Reservation Number <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    {activeTab === 'Queries' ? 'Query Topic' : 'Reservation Number'}{' '}
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
                   </div>
                 </th>
                 <th className="py-2.5 px-2 font-semibold">
@@ -288,7 +333,8 @@ export function ReservationWidget({
                     className="flex items-center gap-1 cursor-pointer hover:text-white"
                     onClick={() => handleSort('unitNumber')}
                   >
-                    Unit Number <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    {activeTab === 'Queries' ? 'Phone / Contact' : 'Unit Number'}{' '}
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
                   </div>
                 </th>
                 <th className="py-2.5 px-2 font-semibold">
@@ -306,15 +352,23 @@ export function ReservationWidget({
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-10 text-slate-500 text-xs">
-                    No active reservations found in {activeTab}.
+                    {activeTab === 'Queries'
+                      ? 'No active queries or enquiries recorded yet.'
+                      : `No active reservations found in ${activeTab}.`}
                   </td>
                 </tr>
               ) : (
                 filteredItems.map((res) => (
                   <tr
                     key={res.id}
-                    onClick={() => onSelectReservation?.(res)}
-                    title="Click to view booking details"
+                    onClick={() => {
+                      if (activeTab === 'Queries') {
+                        onSelectQuery?.((res as any).rawQuery || res);
+                      } else {
+                        onSelectReservation?.(res);
+                      }
+                    }}
+                    title={activeTab === 'Queries' ? 'Click to view query details' : 'Click to view booking details'}
                     className="group hover:bg-slate-800/60 active:bg-slate-800/80 transition-colors cursor-pointer"
                   >
                     {/* Guest Name & Notes Icon */}
@@ -363,9 +417,16 @@ export function ReservationWidget({
                       {res.reservationNumber}
                     </td>
 
-                    {/* Unit Number */}
-                    <td className="py-3 px-2 font-medium text-slate-300">
-                      {res.unitNumber}
+                    {/* Unit Number / Phone */}
+                    <td className="py-3 px-2">
+                      <div className="font-medium text-slate-300">{res.unitNumber}</div>
+                      {activeTab !== 'Queries' && (
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1 font-normal">
+                          <span className="text-emerald-400 font-semibold">{res.nights || 1}N</span>
+                          <span>•</span>
+                          <span className="text-amber-400/90">{res.mealPlan || 'RO'}</span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Status */}
@@ -383,42 +444,52 @@ export function ReservationWidget({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectReservation?.(res);
+                            if (activeTab === 'Queries') {
+                              onSelectQuery?.((res as any).rawQuery || res);
+                            } else {
+                              onSelectReservation?.(res);
+                            }
                           }}
-                          title="View Full Booking Details"
-                          className="flex items-center gap-1 text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border border-indigo-500/25 hover:border-indigo-500/40 px-2 py-1 rounded-lg transition-all text-xs font-semibold cursor-pointer shadow-2xs"
+                          title={activeTab === 'Queries' ? 'View Query Details' : 'View Full Booking Details'}
+                          className={`flex items-center gap-1 border px-2 py-1 rounded-lg transition-all text-xs font-semibold cursor-pointer shadow-2xs ${
+                            activeTab === 'Queries'
+                              ? 'text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-600/30 border-amber-500/25'
+                              : 'text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border-indigo-500/25 hover:border-indigo-500/40'
+                          }`}
                         >
-                          <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                          <Eye className={`w-3.5 h-3.5 ${activeTab === 'Queries' ? 'text-amber-400' : 'text-indigo-400'}`} />
                           <span>View</span>
                         </button>
 
-                        {/* Status Quick Action: In / Out */}
-                        {res.status === 'CHECKED_IN' ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCheckOut?.(res);
-                            }}
-                            title="Check-out Guest"
-                            className="flex items-center gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer"
-                          >
-                            <LogOut className="w-3.5 h-3.5" />
-                            <span className="text-[11px] hidden sm:inline">Out</span>
-                          </button>
-                        ) : res.status === 'CHECKED_OUT' ? null : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCheckIn?.(res);
-                            }}
-                            title="Check-in Guest"
-                            className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer"
-                          >
-                            <LogIn className="w-3.5 h-3.5" />
-                            <span className="text-[11px] hidden sm:inline">In</span>
-                          </button>
+                        {/* Status Quick Action: In / Out (Reservations only) */}
+                        {activeTab !== 'Queries' && (
+                          res.status === 'CHECKED_IN' ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCheckOut?.(res);
+                              }}
+                              title="Check-out Guest"
+                              className="flex items-center gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer"
+                            >
+                              <LogOut className="w-3.5 h-3.5" />
+                              <span className="text-[11px] hidden sm:inline">Out</span>
+                            </button>
+                          ) : res.status === 'CHECKED_OUT' ? null : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCheckIn?.(res);
+                              }}
+                              title="Check-in Guest"
+                              className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer"
+                            >
+                              <LogIn className="w-3.5 h-3.5" />
+                              <span className="text-[11px] hidden sm:inline">In</span>
+                            </button>
+                          )
                         )}
 
                         {/* Print Document Dropdown Button */}

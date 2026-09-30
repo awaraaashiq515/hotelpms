@@ -7,7 +7,7 @@ import {
   ArrowLeft, Music, Star, FileText, MapPin,
   Calendar, CheckCircle2, Clock, Phone,
   Mail, Loader2, MessageSquare, Heart, Video,
-  Mic2, Award
+  Mic2, Award, Sparkles
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -22,6 +22,10 @@ interface SingerProfile {
   coverPhotoUrl: string | null;
   rating: number;
   isActive: boolean;
+  chargeWithoutGst?: number | null;
+  gstPercent?: number | null;
+  chargeWithGst?: number | null;
+  gstNumber?: string | null;
   createdAt: string;
   avgRating: number;
   totalReviews: number;
@@ -304,6 +308,54 @@ export default function SingerProfilePage() {
           {/* OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-5">
+              {/* Performance Charges & GST Card */}
+              <div className="bg-[#090f1e]/80 border border-indigo-500/20 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                    <Sparkles size={12} /> Performance Charges & GST Billing
+                  </h3>
+                  {profile.gstNumber ? (
+                    <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                      GSTIN: {profile.gstNumber}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-bold bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-lg">
+                      Non-GST / Exempt
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-[#050a14] border border-slate-800/80 rounded-xl p-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                      Out of GST (Base Charge)
+                    </span>
+                    <span className="text-2xl font-black text-white mt-1 block">
+                      {profile.chargeWithoutGst != null ? `₹${profile.chargeWithoutGst.toLocaleString('en-IN')}` : 'Not Specified'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-1 block font-medium">
+                      Excl. GST / Net Artist Performance Fee
+                    </span>
+                  </div>
+
+                  <div className="bg-[#050a14] border border-emerald-500/30 rounded-xl p-4">
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
+                      With GST (Total Charge)
+                    </span>
+                    <span className="text-2xl font-black text-emerald-400 mt-1 block">
+                      {profile.chargeWithGst != null 
+                        ? `₹${profile.chargeWithGst.toLocaleString('en-IN')}` 
+                        : profile.chargeWithoutGst != null 
+                          ? `₹${Math.round(profile.chargeWithoutGst * (1 + ((profile.gstPercent ?? 18) / 100))).toLocaleString('en-IN')}`
+                          : 'Not Specified'}
+                    </span>
+                    <span className="text-[10px] text-indigo-400 font-bold mt-1 block">
+                      Incl. {profile.gstPercent ?? 18}% GST
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-[#090f1e]/80 border border-slate-800 rounded-2xl p-5">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-3 flex items-center gap-2">
                   <Mic2 size={12} /> About the Artist

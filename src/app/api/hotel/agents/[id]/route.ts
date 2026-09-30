@@ -11,7 +11,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, email, companyName, address, city, commissionRate, pinCode, isActive, isBlocked, blockedReason, notes, portalPassword } = body;
+    const {
+      name, phone, email, companyName, address, city,
+      commissionRate, pinCode, isActive, isBlocked, blockedReason, notes, portalPassword,
+      travelId, gstNumber, panNumber, idType, idNumber
+    } = body;
 
     const agent = await prisma.travelAgent.findUnique({
       where: { id },
@@ -25,6 +29,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (phone !== undefined) updateData.phone = phone;
     if (email !== undefined) updateData.email = email;
     if (companyName !== undefined) updateData.companyName = companyName;
+    if (travelId !== undefined) updateData.travelId = travelId ? String(travelId).trim() : null;
+    if (gstNumber !== undefined) updateData.gstNumber = gstNumber ? String(gstNumber).trim().toUpperCase() : null;
+    if (panNumber !== undefined) updateData.panNumber = panNumber ? String(panNumber).trim().toUpperCase() : null;
+    if (idType !== undefined) updateData.idType = idType || null;
+    if (idNumber !== undefined) updateData.idNumber = idNumber ? String(idNumber).trim() : null;
     if (address !== undefined) updateData.address = address;
     if (city !== undefined) updateData.city = city;
     if (pinCode !== undefined) updateData.pinCode = String(pinCode);

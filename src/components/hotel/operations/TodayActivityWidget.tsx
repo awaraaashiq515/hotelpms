@@ -8,6 +8,10 @@ import {
   Wallet,
   ArrowUpDown,
   Eye,
+  HelpCircle,
+  Plus,
+  Phone,
+  MessageSquare,
 } from 'lucide-react';
 
 export interface ActivityItem {
@@ -22,9 +26,22 @@ export interface ActivityItem {
   booking?: any;
 }
 
+export interface ActivityQueryItem {
+  id: string;
+  guestName: string;
+  phone: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: string;
+  createdAt: string | Date;
+  type?: string;
+}
+
 interface ActivityData {
   sales: ActivityItem[];
   cancellations: ActivityItem[];
+  queries?: ActivityQueryItem[];
   bookedTodayCount: number;
   unitNights: number;
   todayRevenue: number;
@@ -35,6 +52,8 @@ interface TodayActivityWidgetProps {
   currency?: string;
   onRefresh?: () => void;
   onRowClick?: (item: ActivityItem) => void;
+  onSelectQuery?: (query: ActivityQueryItem) => void;
+  onAddQuery?: () => void;
 }
 
 export function TodayActivityWidget({
@@ -42,8 +61,10 @@ export function TodayActivityWidget({
   currency = '₹',
   onRefresh,
   onRowClick,
+  onSelectQuery,
+  onAddQuery,
 }: TodayActivityWidgetProps) {
-  const [activeTab, setActiveTab] = useState<'Sales' | 'Cancellation' | 'Overbookings'>('Sales');
+  const [activeTab, setActiveTab] = useState<'Sales' | 'Cancellation' | 'Overbookings' | 'Queries'>('Sales');
   const [sortField, setSortField] = useState<keyof ActivityItem>('guestName');
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -56,6 +77,8 @@ export function TodayActivityWidget({
     if (valA > valB) return sortAsc ? 1 : -1;
     return 0;
   });
+
+  const queryItems = activityData.queries || [];
 
   const handleSort = (field: keyof ActivityItem) => {
     if (sortField === field) {
@@ -76,6 +99,22 @@ export function TodayActivityWidget({
     return 'text-slate-300 bg-slate-800 border-slate-700';
   };
 
+  const getQueryStatusBadge = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'NEW':
+        return 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30';
+      case 'IN_PROGRESS':
+        return 'text-amber-400 bg-amber-500/15 border-amber-500/30';
+      case 'RESPONDED':
+      case 'RESOLVED':
+        return 'text-sky-400 bg-sky-500/15 border-sky-500/30';
+      case 'CONVERTED':
+        return 'text-indigo-400 bg-indigo-500/15 border-indigo-500/30';
+      default:
+        return 'text-slate-400 bg-slate-800 border-slate-700';
+    }
+  };
+
   return (
     <div className="bg-[#0f172a] rounded-2xl border border-slate-800 shadow-xl p-5 w-full flex flex-col justify-between">
       {/* ── Top Header Row ── */}
@@ -85,6 +124,16 @@ export function TodayActivityWidget({
             Today&apos;s Activity
           </h2>
           <div className="flex items-center gap-2">
+            {onAddQuery && (
+              <button
+                type="button"
+                onClick={onAddQuery}
+                className="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Log Query</span>
+              </button>
+            )}
             <button
               onClick={onRefresh}
               className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
@@ -94,7 +143,7 @@ export function TodayActivityWidget({
             <button
               onClick={onRefresh}
               title="Refresh"
-              className="w-8 h-8 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800/60 flex items-center justify-center text-slate-300 transition-colors"
+              className="w-8 h-8 rounded-lg border border-slate-700 hover:border-slate-600 bg-slate-800/60 flex items-center justify-center text-slate-300 transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -102,25 +151,36 @@ export function TodayActivityWidget({
         </div>
 
         {/* ── Filter Tabs ── */}
-        <div className="flex items-center gap-1.5 py-2 border-b border-slate-800/80">
-          {(['Sales', 'Cancellation', 'Overbookings'] as const).map((tab) => {
+        <div className="flex items-center gap-1.5 py-2 border-b border-slate-800/80 overflow-x-auto no-scrollbar">
+          {(['Sales', 'Cancellation', 'Overbookings', 'Queries'] as const).map((tab) => {
             const isActive = activeTab === tab;
             let count = 0;
             if (tab === 'Sales') count = activityData.sales?.length || 0;
             if (tab === 'Cancellation') count = activityData.cancellations?.length || 0;
+            if (tab === 'Queries') count = queryItems.length;
 
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isActive
-                    ? 'bg-slate-800 text-white font-semibold shadow-xs border border-slate-700'
+                    ? tab === 'Queries'
+                      ? 'bg-amber-500/20 text-amber-300 font-semibold shadow-xs border border-amber-500/40'
+                      : 'bg-slate-800 text-white font-semibold shadow-xs border border-slate-700'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
                 }`}
               >
                 <span>{tab}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-indigo-500/20 text-indigo-300 font-bold' : 'bg-slate-800 text-slate-400'}`}>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isActive
+                      ? tab === 'Queries'
+                        ? 'bg-amber-500/30 text-amber-300 font-bold'
+                        : 'bg-indigo-500/20 text-indigo-300 font-bold'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
                   {count}
                 </span>
               </button>
@@ -172,122 +232,219 @@ export function TodayActivityWidget({
 
         {/* ── Data Table ── */}
         <div className="overflow-x-auto mt-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-[12px] font-medium text-slate-400">
-                <th className="py-2.5 px-2 font-semibold">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('guestName')}
-                  >
-                    Guest Name <ArrowUpDown className="w-3 h-3 text-slate-500" />
-                  </div>
-                </th>
-                <th className="py-2.5 px-2 font-semibold">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('revenue')}
-                  >
-                    Revenue <ArrowUpDown className="w-3 h-3 text-slate-500" />
-                  </div>
-                </th>
-                <th className="py-2.5 px-2 font-semibold">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('checkInDate')}
-                  >
-                    Check-In <ArrowUpDown className="w-3 h-3 text-slate-500" />
-                  </div>
-                </th>
-                <th className="py-2.5 px-2 font-semibold">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('nights')}
-                  >
-                    Night <ArrowUpDown className="w-3 h-3 text-slate-500" />
-                  </div>
-                </th>
-                <th className="py-2.5 px-2 font-semibold">
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('source')}
-                  >
-                    Reserva... Source <ArrowUpDown className="w-3 h-3 text-slate-500" />
-                  </div>
-                </th>
-                <th className="py-2.5 px-2 font-semibold text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-[13px]">
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-500 text-xs">
-                    No activity logs found for {activeTab}.
-                  </td>
+          {activeTab === 'Queries' ? (
+            /* Queries View */
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-[12px] font-medium text-slate-400">
+                  <th className="py-2.5 px-2 font-semibold">Guest & Contact</th>
+                  <th className="py-2.5 px-2 font-semibold">Query Topic</th>
+                  <th className="py-2.5 px-2 font-semibold">Date</th>
+                  <th className="py-2.5 px-2 font-semibold">Status</th>
+                  <th className="py-2.5 px-2 font-semibold text-right">Action</th>
                 </tr>
-              ) : (
-                filteredItems.map((act) => (
-                  <tr
-                    key={act.id}
-                    onClick={() => onRowClick?.(act)}
-                    title="Click to view booking details"
-                    className="group hover:bg-slate-800/60 active:bg-slate-800/80 transition-colors cursor-pointer"
-                  >
-                    {/* Guest Name & icon */}
-                    <td className="py-3 px-2 font-medium text-white">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-slate-500 group-hover:text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                        </svg>
-                        <span className="truncate max-w-[130px] sm:max-w-none text-slate-200">
-                          {act.guestName}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Revenue */}
-                    <td className="py-3 px-2 font-semibold text-emerald-400 whitespace-nowrap">
-                      {currency} {act.revenue.toLocaleString('en-IN')}
-                    </td>
-
-                    {/* Check-In */}
-                    <td className="py-3 px-2 text-slate-400 whitespace-nowrap text-[12px]">
-                      {act.checkInDate}
-                    </td>
-
-                    {/* Night */}
-                    <td className="py-3 px-2 font-medium text-slate-300">
-                      {act.nights}
-                    </td>
-
-                    {/* Source */}
-                    <td className="py-3 px-2 whitespace-nowrap">
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${getSourceBadgeStyle(act.source)}`}>
-                        {act.source}
-                      </span>
-                    </td>
-
-                    {/* View Action */}
-                    <td className="py-3 px-2 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRowClick?.(act);
-                        }}
-                        title="View Full Booking Details"
-                        className="inline-flex items-center gap-1 text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border border-indigo-500/25 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>View</span>
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-[13px]">
+                {queryItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 text-slate-500 text-xs">
+                      No active queries or enquiries recorded yet.
+                      {onAddQuery && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={onAddQuery}
+                            className="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-lg text-xs font-semibold hover:bg-amber-500/30 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Log First Query</span>
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  queryItems.map((q) => (
+                    <tr
+                      key={q.id}
+                      onClick={() => onSelectQuery?.(q)}
+                      title="Click to view full query details"
+                      className="group hover:bg-slate-800/60 active:bg-slate-800/80 transition-colors cursor-pointer"
+                    >
+                      {/* Guest Name & Phone */}
+                      <td className="py-3 px-2 font-medium text-white">
+                        <div className="text-slate-200 font-semibold">{q.guestName}</div>
+                        {q.phone && (
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1 font-normal">
+                            <Phone className="w-3 h-3 text-slate-500" />
+                            <span>{q.phone}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Subject / Message */}
+                      <td className="py-3 px-2 max-w-[200px]">
+                        <div className="text-xs font-semibold text-amber-300 truncate">
+                          {q.subject}
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">
+                          {q.message}
+                        </div>
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-3 px-2 text-slate-400 text-[11px] whitespace-nowrap">
+                        {new Date(q.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                        })}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3 px-2 whitespace-nowrap">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getQueryStatusBadge(q.status)}`}>
+                          {q.status}
+                        </span>
+                      </td>
+
+                      {/* View Action */}
+                      <td className="py-3 px-2 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectQuery?.(q);
+                          }}
+                          className="inline-flex items-center gap-1 text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-600/30 border border-amber-500/25 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-amber-400" />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            /* Sales / Cancellations / Overbookings View */
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-[12px] font-medium text-slate-400">
+                  <th className="py-2.5 px-2 font-semibold">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-white"
+                      onClick={() => handleSort('guestName')}
+                    >
+                      Guest Name <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    </div>
+                  </th>
+                  <th className="py-2.5 px-2 font-semibold">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-white"
+                      onClick={() => handleSort('revenue')}
+                    >
+                      Revenue <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    </div>
+                  </th>
+                  <th className="py-2.5 px-2 font-semibold">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-white"
+                      onClick={() => handleSort('checkInDate')}
+                    >
+                      Check-In <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    </div>
+                  </th>
+                  <th className="py-2.5 px-2 font-semibold">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-white"
+                      onClick={() => handleSort('nights')}
+                    >
+                      Night <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    </div>
+                  </th>
+                  <th className="py-2.5 px-2 font-semibold">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-white"
+                      onClick={() => handleSort('source')}
+                    >
+                      Reserva... Source <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                    </div>
+                  </th>
+                  <th className="py-2.5 px-2 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-[13px]">
+                {filteredItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-slate-500 text-xs">
+                      No activity logs found for {activeTab}.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredItems.map((act) => (
+                    <tr
+                      key={act.id}
+                      onClick={() => onRowClick?.(act)}
+                      title="Click to view booking details"
+                      className="group hover:bg-slate-800/60 active:bg-slate-800/80 transition-colors cursor-pointer"
+                    >
+                      {/* Guest Name & icon */}
+                      <td className="py-3 px-2 font-medium text-white">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-slate-500 group-hover:text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                          </svg>
+                          <span className="truncate max-w-[130px] sm:max-w-none text-slate-200">
+                            {act.guestName}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Revenue */}
+                      <td className="py-3 px-2 font-semibold text-emerald-400 whitespace-nowrap">
+                        {currency} {act.revenue.toLocaleString('en-IN')}
+                      </td>
+
+                      {/* Check-In */}
+                      <td className="py-3 px-2 text-slate-400 whitespace-nowrap text-[12px]">
+                        {act.checkInDate}
+                      </td>
+
+                      {/* Night */}
+                      <td className="py-3 px-2 font-medium text-slate-300">
+                        {act.nights}
+                      </td>
+
+                      {/* Source */}
+                      <td className="py-3 px-2 whitespace-nowrap">
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${getSourceBadgeStyle(act.source)}`}>
+                          {act.source}
+                        </span>
+                      </td>
+
+                      {/* View Action */}
+                      <td className="py-3 px-2 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRowClick?.(act);
+                          }}
+                          title="View Full Booking Details"
+                          className="inline-flex items-center gap-1 text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border border-indigo-500/25 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

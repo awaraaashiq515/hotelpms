@@ -23,6 +23,10 @@ export async function GET(
         coverPhotoUrl: true,
         rating: true,
         isActive: true,
+        chargeWithoutGst: true,
+        gstPercent: true,
+        chargeWithGst: true,
+        gstNumber: true,
         createdAt: true,
         videos: {
           select: { id: true, title: true, videoUrl: true, description: true, createdAt: true },

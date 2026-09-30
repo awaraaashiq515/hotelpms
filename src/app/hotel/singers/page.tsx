@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Music, Plus, Edit, Trash2, Calendar, Star, Users, Video, 
-  FileText, Play, CheckCircle2, XCircle, ArrowLeft, Loader2, Sparkles, MapPin, Briefcase
+  FileText, Play, CheckCircle2, XCircle, ArrowLeft, Loader2, Sparkles, MapPin, Briefcase, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
@@ -18,6 +18,10 @@ interface Singer {
   photoUrl: string | null;
   rating: number;
   isActive: boolean;
+  chargeWithoutGst?: number | null;
+  gstPercent?: number | null;
+  chargeWithGst?: number | null;
+  gstNumber?: string | null;
 }
 
 interface Performance {
@@ -78,8 +82,70 @@ export default function AdminSingersPage() {
     bio: '',
     genre: '',
     photoUrl: '',
-    isActive: true
+    isActive: true,
+    chargeWithoutGst: '',
+    gstPercent: '18',
+    chargeWithGst: '',
+    gstNumber: '',
   });
+
+  const handleChargeWithoutGstChange = (val: string) => {
+    const withoutGst = parseFloat(val);
+    const gstRate = parseFloat(singerForm.gstPercent) || 0;
+    if (!isNaN(withoutGst) && withoutGst >= 0) {
+      const gstAmt = (withoutGst * gstRate) / 100;
+      const withGst = Math.round(withoutGst + gstAmt);
+      setSingerForm(prev => ({
+        ...prev,
+        chargeWithoutGst: val,
+        chargeWithGst: withGst.toString()
+      }));
+    } else {
+      setSingerForm(prev => ({
+        ...prev,
+        chargeWithoutGst: val,
+        chargeWithGst: ''
+      }));
+    }
+  };
+
+  const handleGstPercentChange = (val: string) => {
+    const gstRate = parseFloat(val) || 0;
+    const withoutGst = parseFloat(singerForm.chargeWithoutGst);
+    if (!isNaN(withoutGst) && withoutGst >= 0) {
+      const gstAmt = (withoutGst * gstRate) / 100;
+      const withGst = Math.round(withoutGst + gstAmt);
+      setSingerForm(prev => ({
+        ...prev,
+        gstPercent: val,
+        chargeWithGst: withGst.toString()
+      }));
+    } else {
+      setSingerForm(prev => ({
+        ...prev,
+        gstPercent: val
+      }));
+    }
+  };
+
+  const handleChargeWithGstChange = (val: string) => {
+    const withGst = parseFloat(val);
+    const gstRate = parseFloat(singerForm.gstPercent) || 0;
+    if (!isNaN(withGst) && withGst >= 0) {
+      const withoutGst = Math.round(withGst / (1 + (gstRate / 100)));
+      setSingerForm(prev => ({
+        ...prev,
+        chargeWithGst: val,
+        chargeWithoutGst: withoutGst.toString()
+      }));
+    } else {
+      setSingerForm(prev => ({
+        ...prev,
+        chargeWithGst: val,
+        chargeWithoutGst: ''
+      }));
+    }
+  };
 
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingForm, setBookingForm] = useState({
@@ -318,7 +384,11 @@ export default function AdminSingersPage() {
       bio: singer.bio || '',
       genre: singer.genre || '',
       photoUrl: singer.photoUrl || '',
-      isActive: singer.isActive
+      isActive: singer.isActive,
+      chargeWithoutGst: singer.chargeWithoutGst != null ? singer.chargeWithoutGst.toString() : '',
+      gstPercent: singer.gstPercent != null ? singer.gstPercent.toString() : '18',
+      chargeWithGst: singer.chargeWithGst != null ? singer.chargeWithGst.toString() : '',
+      gstNumber: singer.gstNumber || '',
     });
     setShowSingerModal(true);
   };
@@ -349,7 +419,11 @@ export default function AdminSingersPage() {
       bio: '',
       genre: '',
       photoUrl: '',
-      isActive: true
+      isActive: true,
+      chargeWithoutGst: '',
+      gstPercent: '18',
+      chargeWithGst: '',
+      gstNumber: '',
     });
   };
 
@@ -494,9 +568,41 @@ export default function AdminSingersPage() {
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                     {singer.bio || 'No biography written yet for this performer.'}
                   </p>
+
+                  {/* Performance Charges Badge (GST & Out of GST) */}
+                  <div className="bg-[#050a14] border border-slate-800 rounded-xl p-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Out of GST (Base)</span>
+                        <span className="font-black text-white text-sm">
+                          {singer.chargeWithoutGst != null ? `₹${singer.chargeWithoutGst.toLocaleString('en-IN')}` : 'Not Specified'}
+                        </span>
+                        <span className="text-[9px] text-slate-500 block">Excl. GST / Raw Fee</span>
+                      </div>
+                      <div className="border-l border-slate-800/80 pl-3">
+                        <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block">With GST (Total)</span>
+                        <span className="font-black text-emerald-300 text-sm">
+                          {singer.chargeWithGst != null 
+                            ? `₹${singer.chargeWithGst.toLocaleString('en-IN')}` 
+                            : singer.chargeWithoutGst != null 
+                              ? `₹${Math.round(singer.chargeWithoutGst * (1 + ((singer.gstPercent ?? 18) / 100))).toLocaleString('en-IN')}`
+                              : 'Not Specified'}
+                        </span>
+                        <span className="text-[9px] text-indigo-400 font-bold block">
+                          Incl. {singer.gstPercent ?? 18}% GST
+                        </span>
+                      </div>
+                    </div>
+                    {singer.gstNumber && (
+                      <div className="pt-2 border-t border-slate-850 flex items-center justify-between text-[10px]">
+                        <span className="text-slate-500 font-semibold">GSTIN:</span>
+                        <span className="font-mono font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">{singer.gstNumber}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="border-t border-slate-800/80 pt-4 mt-4 space-y-2">
@@ -675,13 +781,41 @@ export default function AdminSingersPage() {
 
       {/* Add/Edit Singer Modal */}
       {showSingerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <h2 className="text-lg font-black mb-4 flex items-center gap-2 text-white border-b border-slate-800 pb-3">
-              <Sparkles size={16} className="text-indigo-400" />
-              {editingSinger ? 'Edit Singer Profile' : 'Onboard New Singer'}
-            </h2>
-            <form onSubmit={handleSingerSubmit} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5 overflow-hidden">
+          <div className="bg-[#090f1e] border border-slate-800 rounded-3xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header with Back & Close Buttons */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#090f1e] shrink-0">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowSingerModal(false)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-black text-slate-300 hover:text-white transition-all shadow-sm active:scale-95 group"
+                  title="Go Back"
+                >
+                  <ArrowLeft size={14} className="text-indigo-400 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Back</span>
+                </button>
+
+                <div>
+                  <h2 className="text-base sm:text-lg font-black flex items-center gap-2 text-white">
+                    <Sparkles size={16} className="text-indigo-400" />
+                    {editingSinger ? 'Edit Singer Profile' : 'Onboard New Singer'}
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSingerModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Form Body */}
+            <form id="singerProfileForm" onSubmit={handleSingerSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Full Name *</label>
@@ -747,6 +881,108 @@ export default function AdminSingersPage() {
                 </div>
               </div>
 
+              {/* SECTION: Performance Charges (GST & Out of GST) */}
+              <div className="bg-[#050a14] border border-indigo-500/20 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                    <Sparkles size={13} /> Singer Performance Charges & GST
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                    Live Auto-Calculated
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-300 mb-1">
+                      Charge Out of GST (Base Fee) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="e.g. 15000"
+                        className="w-full bg-[#090f1e] border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold placeholder-slate-600"
+                        value={singerForm.chargeWithoutGst}
+                        onChange={e => handleChargeWithoutGstChange(e.target.value)}
+                      />
+                    </div>
+                    <span className="text-[9px] text-slate-500 mt-1 block">Excl. GST / Raw Performance Cost</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-300 mb-1">
+                      GST Rate (%)
+                    </label>
+                    <select
+                      className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold"
+                      value={singerForm.gstPercent}
+                      onChange={e => handleGstPercentChange(e.target.value)}
+                    >
+                      <option value="18" className="bg-[#090f1e] text-white">18% (Standard GST)</option>
+                      <option value="12" className="bg-[#090f1e] text-white">12% GST</option>
+                      <option value="5" className="bg-[#090f1e] text-white">5% GST</option>
+                      <option value="0" className="bg-[#090f1e] text-white">0% (GST Exempt / Unregistered)</option>
+                    </select>
+                    <span className="text-[9px] text-slate-500 mt-1 block">Applicable GST percentage</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-emerald-400 mb-1">
+                      Charge With GST (Total Fee)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="e.g. 17700"
+                        className="w-full bg-[#090f1e] border border-emerald-500/30 rounded-xl pl-8 pr-3 py-2 text-xs text-emerald-300 focus:outline-none focus:border-emerald-500 font-bold placeholder-slate-600"
+                        value={singerForm.chargeWithGst}
+                        onChange={e => handleChargeWithGstChange(e.target.value)}
+                      />
+                    </div>
+                    <span className="text-[9px] text-emerald-500/80 mt-1 block">Final billing amount including GST</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-300 mb-1">
+                      Singer GSTIN / GST Number (Optional)
+                    </label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. 07AAAAA0000A1Z5"
+                      className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono uppercase placeholder-slate-600"
+                      value={singerForm.gstNumber}
+                      onChange={e => setSingerForm({...singerForm, gstNumber: e.target.value.toUpperCase()})}
+                    />
+                    <span className="text-[9px] text-slate-500 mt-1 block">If registered under GST</span>
+                  </div>
+                </div>
+
+                {/* Real-time Calculation Breakdown Callout */}
+                {singerForm.chargeWithoutGst && (
+                  <div className="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-slate-300">
+                      Out of GST: <strong className="text-white">₹{parseFloat(singerForm.chargeWithoutGst || '0').toLocaleString('en-IN')}</strong>
+                    </span>
+                    <span className="text-indigo-400 font-bold">
+                      + GST ({singerForm.gstPercent}%): ₹{(
+                        (parseFloat(singerForm.chargeWithoutGst || '0') * (parseFloat(singerForm.gstPercent) || 0)) / 100
+                      ).toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-emerald-400 font-black">
+                      = Total With GST: ₹{parseFloat(singerForm.chargeWithGst || '0').toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Biography / Bio</label>
                 <textarea 
@@ -757,7 +993,7 @@ export default function AdminSingersPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pt-2">
                 <input 
                   type="checkbox"
                   id="isActive"
@@ -767,35 +1003,55 @@ export default function AdminSingersPage() {
                 />
                 <label htmlFor="isActive" className="text-xs text-slate-300">Active status (allow performances scheduling & login)</label>
               </div>
-
-              <div className="flex gap-3 justify-end border-t border-slate-800/80 pt-4 mt-6">
-                <button 
-                  type="button"
-                  onClick={() => setShowSingerModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-850 text-xs font-black text-slate-400 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-black text-white shadow-md active:scale-95 transition-all"
-                >
-                  Save Profile
-                </button>
-              </div>
             </form>
+
+            {/* Modal Sticky Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-[#090f1e] shrink-0">
+              <button 
+                type="button"
+                onClick={() => setShowSingerModal(false)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-800 hover:border-slate-700 text-xs font-black text-slate-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={14} /> Back / Cancel
+              </button>
+              <button 
+                type="submit"
+                form="singerProfileForm"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-500 hover:to-violet-600 text-xs font-black text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+              >
+                Save Profile
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Add/Edit Schedule Modal */}
       {showScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <h2 className="text-lg font-black mb-4 flex items-center gap-2 text-white border-b border-slate-800 pb-3">
-              <Calendar size={16} className="text-indigo-400" />
-              {editingSchedule ? 'Reschedule Performance' : 'Schedule Performance'}
-            </h2>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-black text-slate-300 hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={12} className="text-indigo-400" /> Back
+                </button>
+                <h2 className="text-sm font-black flex items-center gap-2 text-white">
+                  <Calendar size={16} className="text-indigo-400" />
+                  {editingSchedule ? 'Reschedule Performance' : 'Schedule Performance'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
             <form onSubmit={handleScheduleSubmit} className="space-y-4">
               {!editingSchedule && (
                 <div>
@@ -894,12 +1150,30 @@ export default function AdminSingersPage() {
 
       {/* Invite Performer Modal */}
       {showBookingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <h2 className="text-lg font-black mb-4 flex items-center gap-2 text-white border-b border-slate-800 pb-3">
-              <Briefcase size={16} className="text-indigo-400 animate-pulse" />
-              Invite Performer / Singer
-            </h2>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowBookingModal(false)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-black text-slate-300 hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={12} className="text-indigo-400" /> Back
+                </button>
+                <h2 className="text-sm font-black flex items-center gap-2 text-white">
+                  <Briefcase size={16} className="text-indigo-400 animate-pulse" />
+                  Invite Performer / Singer
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBookingModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
             <form onSubmit={handleBookingSubmit} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Select Singer *</label>

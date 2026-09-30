@@ -391,6 +391,7 @@ model Room {
   discount           Float?
   gstRate            Float?              @default(0)
   isVIP              Boolean             @default(false)
+  isDND              Boolean             @default(false) // Do Not Disturb
   description        String?
   checkIns           CheckIn[]
   housekeepingTasks  HousekeepingTask[]
@@ -2461,6 +2462,10 @@ model Singer {
   coverPhotoUrl String? // Cover/banner photo url
   rating        Float    @default(5.0)
   isActive      Boolean  @default(true)
+  chargeWithoutGst Float?   // Performance charge out of GST (Base / Excl. GST)
+  gstPercent       Float?   @default(18.0) // GST Rate % (e.g. 18%)
+  chargeWithGst    Float?   // Performance charge with GST (Total / Incl. GST)
+  gstNumber        String?  // Singer GSTIN / Registration No.
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -2822,6 +2827,7 @@ model BanquetBooking {
   ratePerPlate        Float    @default(0)
   hallRent            Float    @default(0)
   extraCharges        Float    @default(0)
+  miscCharges         String?  // JSON string: itemized misc extra items [{ id, name, amount }]
   totalAmount         Float    @default(0)
   advancePaid         Float    @default(0)
   dueAmount           Float    @default(0)
@@ -2848,6 +2854,11 @@ model TravelAgent {
   phone          String
   email          String?              @unique
   companyName    String?
+  travelId       String?              // Travel License / IATA / MOTA Reg ID
+  gstNumber      String?              // GSTIN (B2B Tax Compliance)
+  panNumber      String?              // PAN Number (Sec 194H TDS Deduction)
+  idType         String?              // AADHAAR | PAN | PASSPORT | VOTER_ID | LICENSE
+  idNumber       String?              // ID document reference number
   address        String?
   city           String?
   commissionRate Float                @default(10.0) // Default % of totalAmount per booking

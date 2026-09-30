@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
         { phone: { contains: search } },
         { agentCode: { contains: search } },
         { companyName: { contains: search } },
+        { travelId: { contains: search } },
+        { gstNumber: { contains: search } },
+        { panNumber: { contains: search } },
       ];
     }
 
@@ -88,7 +91,23 @@ export async function POST(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { name, phone, email, companyName, address, city, commissionRate = 10, pinCode = '1234', notes, portalPassword } = body;
+    const {
+      name,
+      phone,
+      email,
+      companyName,
+      address,
+      city,
+      commissionRate = 10,
+      pinCode = '1234',
+      notes,
+      portalPassword,
+      travelId,
+      gstNumber,
+      panNumber,
+      idType,
+      idNumber,
+    } = body;
 
     if (!name || !phone) {
       return NextResponse.json({ success: false, message: 'Agent name and phone are required.' }, { status: 400 });
@@ -145,6 +164,11 @@ export async function POST(request: NextRequest) {
         phone,
         email: email || null,
         companyName: companyName || null,
+        travelId: travelId ? String(travelId).trim() : null,
+        gstNumber: gstNumber ? String(gstNumber).trim().toUpperCase() : null,
+        panNumber: panNumber ? String(panNumber).trim().toUpperCase() : null,
+        idType: idType || null,
+        idNumber: idNumber ? String(idNumber).trim() : null,
         address: address || null,
         city: city || null,
         commissionRate: Number(commissionRate),

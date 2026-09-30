@@ -88,7 +88,7 @@ function HotelRoomsContent() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleUpdateStatus = async (roomId: string, updates: { status?: string; housekeepingStatus?: string }) => {
+  const handleUpdateStatus = async (roomId: string, updates: { status?: string; housekeepingStatus?: string; isDND?: boolean }) => {
     setUpdatingId(roomId);
     try {
       const res = await fetch('/api/hotel/rooms', {
@@ -412,10 +412,13 @@ function HotelRoomsContent() {
                     cardBg = 'bg-amber-500/[0.01]';
                   }
 
+                  const isDND = !!room.isDND;
+                  const dndCardStyle = isDND ? 'ring-1 ring-rose-500/50 border-rose-500/40 bg-gradient-to-br from-rose-950/20 via-slate-900/40 to-slate-900/30' : 'border-slate-800/80';
+
                   return (
                     <div
                       key={room.id}
-                      className={`group relative rounded-2xl ${cardBg} border border-slate-800/80 p-4 hover:border-slate-700/60 transition-all flex flex-col justify-between min-h-[185px]`}
+                      className={`group relative rounded-2xl ${cardBg} border ${dndCardStyle} p-4 hover:border-slate-700/60 transition-all flex flex-col justify-between min-h-[185px]`}
                     >
                       <div className="space-y-1.5">
                         {/* Top Room Indicator Row */}
@@ -427,11 +430,23 @@ function HotelRoomsContent() {
                                 <Star size={10} className="fill-amber-400 text-amber-400" />
                               </span>
                             )}
+                            {isDND && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[8px] font-black uppercase tracking-wider flex items-center gap-0.5 shadow-sm shadow-rose-950 animate-pulse" title="Do Not Disturb (Staff strictly do not enter)">
+                                <span>🚫</span> DND
+                              </span>
+                            )}
                             <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider border ${badgeColor}`}>
                               {badgeText}
                             </span>
                           </div>
                         </div>
+
+                        {/* DND Staff Warning Banner */}
+                        {isDND && (
+                          <div className="px-2 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[8px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                            <span>🚫</span> DND Active · Staff Do Not Disturb!
+                          </div>
+                        )}
 
                         {/* Room Number & Category */}
                         <div>
@@ -472,6 +487,20 @@ function HotelRoomsContent() {
                         </button>
 
                         <div className="flex items-center gap-1">
+                          {/* Quick DND Toggle */}
+                          <button
+                            disabled={updatingId === room.id}
+                            onClick={() => handleUpdateStatus(room.id, { isDND: !isDND })}
+                            className={`p-1.5 rounded-lg border transition-colors ${
+                              isDND
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30'
+                                : 'bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-300 hover:border-slate-700'
+                            }`}
+                            title={isDND ? 'Remove DND (Do Not Disturb)' : 'Set DND (Do Not Disturb)'}
+                          >
+                            <span className="text-[10px] leading-none">🚫</span>
+                          </button>
+
                           <button
                             onClick={() => {
                               setEditingRoom(room);

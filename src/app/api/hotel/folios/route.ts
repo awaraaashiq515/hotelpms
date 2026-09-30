@@ -111,14 +111,12 @@ export async function GET(request: NextRequest) {
             include: {
               roomType: true,
               rooms: { include: { room: true } },
-              checkIns: {
-                where: { status: 'ACTIVE' }
-              },
-              property: true
-            }
+              checkIns: true,
+              property: true,
+            },
           },
           transactions: {
-            orderBy: { txnDate: 'desc' }
+            orderBy: { txnDate: 'desc' },
           },
           posOrders: {
             orderBy: { createdAt: 'desc' },
@@ -126,14 +124,86 @@ export async function GET(request: NextRequest) {
               outlet: { select: { name: true, type: true } },
               items: {
                 include: {
-                  product: { select: { name: true } }
-                }
-              }
-            }
-          }
-        }
+                  product: { select: { name: true, isVeg: true } },
+                },
+              },
+            },
+          },
+        },
       });
-      return apiResponse(folio);
+
+      if (!folio) {
+        return apiError(new Error('Folio not found'), 404);
+      }
+
+      // Fetch any unlinked POS Orders for this room or guest during their stay
+      const roomNumber = folio.reservation?.rooms?.[0]?.room?.roomNumber;
+      const assignedRoomId = folio.reservation?.rooms?.[0]?.roomId;
+      const arrival = folio.reservation?.arrivalDate ? new Date(folio.reservation.arrivalDate) : undefined;
+      const propertyId = folio.reservation?.propertyId;
+
+      const existingPosIds = folio.posOrders.map((o) => o.id);
+      let additionalPosOrders: any[] = [];
+      if (propertyId) {
+        additionalPosOrders = await prisma.posOrder.findMany({
+          where: {
+            propertyId,
+            ...(existingPosIds.length > 0 ? { NOT: { id: { in: existingPosIds } } } : {}),
+            OR: [
+              ...(roomNumber ? [{ tableNo: `Room ${roomNumber}` }, { tableNo: String(roomNumber) }] : []),
+              ...(assignedRoomId ? [{ roomId: assignedRoomId }] : []),
+              ...(folio.guestId ? [{ guestId: folio.guestId, ...(arrival ? { createdAt: { gte: arrival } } : {}) }] : []),
+            ],
+          },
+          include: {
+            outlet: { select: { name: true, type: true } },
+            items: {
+              include: {
+                product: { select: { name: true, isVeg: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      // Fetch Spa Bookings for this folio, reservation or guest
+      const spaBookings = await prisma.spaBooking.findMany({
+        where: {
+          OR: [
+            { folioId: folio.id },
+            ...(folio.reservationId ? [{ reservationId: folio.reservationId }] : []),
+            ...(folio.guestId ? [{ guestId: folio.guestId, ...(arrival ? { createdAt: { gte: arrival } } : {}) }] : []),
+          ],
+        },
+        include: {
+          service: true,
+          spa: { select: { name: true } },
+          therapist: { select: { name: true } },
+        },
+        orderBy: { scheduledAt: 'desc' },
+      });
+
+      // Fetch Laundry Requests for this room
+      const laundryRequests = (propertyId && roomNumber) ? await prisma.laundryRequest.findMany({
+        where: {
+          propertyId,
+          roomNumber: String(roomNumber),
+          ...(arrival ? { createdAt: { gte: arrival } } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      }) : [];
+
+      const combinedPosOrders = [...folio.posOrders, ...additionalPosOrders];
+
+      const enrichedFolio = {
+        ...folio,
+        posOrders: combinedPosOrders,
+        spaBookings,
+        laundryRequests,
+      };
+
+      return apiResponse(enrichedFolio);
     }
 
     if (roomId) {

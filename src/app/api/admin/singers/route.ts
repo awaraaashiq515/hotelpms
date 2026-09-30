@@ -34,7 +34,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, password, phone, bio, genre, photoUrl } = await request.json();
+    const { 
+      name, email, password, phone, bio, genre, photoUrl,
+      chargeWithoutGst, gstPercent, chargeWithGst, gstNumber
+    } = await request.json();
 
     if (!name || !email || !password) {
       return NextResponse.json({ success: false, message: 'Name, email and password are required.' }, { status: 400 });
@@ -51,6 +54,15 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password.trim(), 10);
 
+    const parsedChargeWithoutGst = chargeWithoutGst !== undefined && chargeWithoutGst !== '' && chargeWithoutGst !== null ? parseFloat(chargeWithoutGst) : null;
+    const parsedGstPercent = gstPercent !== undefined && gstPercent !== '' && gstPercent !== null ? parseFloat(gstPercent) : 18.0;
+    let parsedChargeWithGst = chargeWithGst !== undefined && chargeWithGst !== '' && chargeWithGst !== null ? parseFloat(chargeWithGst) : null;
+
+    if (parsedChargeWithoutGst !== null && (parsedChargeWithGst === null || isNaN(parsedChargeWithGst))) {
+      const gstAmt = (parsedChargeWithoutGst * (parsedGstPercent || 0)) / 100;
+      parsedChargeWithGst = Math.round(parsedChargeWithoutGst + gstAmt);
+    }
+
     const singer = await prisma.singer.create({
       data: {
         name,
@@ -60,6 +72,10 @@ export async function POST(request: NextRequest) {
         bio: bio || null,
         genre: genre || null,
         photoUrl: photoUrl || null,
+        chargeWithoutGst: parsedChargeWithoutGst,
+        gstPercent: parsedGstPercent,
+        chargeWithGst: parsedChargeWithGst,
+        gstNumber: gstNumber ? gstNumber.trim().toUpperCase() : null,
       }
     });
 
@@ -78,7 +94,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id, name, email, password, phone, bio, genre, photoUrl, isActive } = await request.json();
+    const { 
+      id, name, email, password, phone, bio, genre, photoUrl, isActive,
+      chargeWithoutGst, gstPercent, chargeWithGst, gstNumber
+    } = await request.json();
 
     if (!id) {
       return NextResponse.json({ success: false, message: 'Singer ID is required.' }, { status: 400 });
@@ -93,6 +112,19 @@ export async function PUT(request: NextRequest) {
     if (genre !== undefined) updateData.genre = genre;
     if (photoUrl !== undefined) updateData.photoUrl = photoUrl;
     if (isActive !== undefined) updateData.isActive = isActive;
+
+    if (chargeWithoutGst !== undefined) {
+      updateData.chargeWithoutGst = chargeWithoutGst !== '' && chargeWithoutGst !== null ? parseFloat(chargeWithoutGst) : null;
+    }
+    if (gstPercent !== undefined) {
+      updateData.gstPercent = gstPercent !== '' && gstPercent !== null ? parseFloat(gstPercent) : 18.0;
+    }
+    if (chargeWithGst !== undefined) {
+      updateData.chargeWithGst = chargeWithGst !== '' && chargeWithGst !== null ? parseFloat(chargeWithGst) : null;
+    }
+    if (gstNumber !== undefined) {
+      updateData.gstNumber = gstNumber ? gstNumber.trim().toUpperCase() : null;
+    }
 
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password.trim(), 10);

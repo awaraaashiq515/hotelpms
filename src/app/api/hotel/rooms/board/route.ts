@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
         housekeepingStatus: (r.housekeepingStatus as HousekeepingStatus) || 'CLEAN',
         maintenanceStatus: (r.maintenanceStatus as MaintenanceStatus) || 'OK',
         isVIP: r.isVIP || false,
-        isDND: false,
+        isDND: r.isDND || false,
         keycardIssued: Boolean(activeGuest),
         customRate: r.customRate ? Number(r.customRate) : null,
         roomTypeId: r.roomTypeId,
@@ -196,6 +196,7 @@ export async function PUT(request: NextRequest) {
       housekeepingStatus,
       maintenanceStatus,
       isVIP,
+      isDND,
       bulkAction,
       roomIds,
     } = body;
@@ -232,6 +233,7 @@ export async function PUT(request: NextRequest) {
         housekeepingStatus: housekeepingStatus || undefined,
         maintenanceStatus: maintenanceStatus || undefined,
         isVIP: isVIP !== undefined ? Boolean(isVIP) : undefined,
+        isDND: isDND !== undefined ? Boolean(isDND) : undefined,
       },
     });
 

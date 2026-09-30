@@ -560,6 +560,42 @@ export function ReservationDetailDrawer({
               </div>
             </div>
 
+            {/* Meal Plan, ID Proof & GST details pill row */}
+            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-[11px]">
+              {/* Meal Plan Badge */}
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-medium">
+                <UtensilsCrossed className="w-3 h-3 text-emerald-400" />
+                <span>Plan: <strong>{booking.mealPlan || 'RO (Room Only)'}</strong></span>
+              </div>
+
+              {/* ID Proof Badge */}
+              {(booking.guest?.idType || booking.guestIdType || booking.guest?.idNumber || booking.guestIdNumber) && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/25 text-sky-300 font-medium">
+                  <Shield className="w-3 h-3 text-sky-400" />
+                  <span>
+                    {booking.guest?.idType || booking.guestIdType || 'ID'}:{' '}
+                    <strong>{booking.guest?.idNumber || booking.guestIdNumber || 'Verified'}</strong>
+                  </span>
+                </div>
+              )}
+
+              {/* Corporate GST Badge */}
+              {(booking.gstNumber || booking.guest?.gstNumber) && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-medium">
+                  <Building2 className="w-3 h-3 text-amber-400" />
+                  <span>GSTIN: <strong>{booking.gstNumber || booking.guest?.gstNumber}</strong></span>
+                </div>
+              )}
+
+              {/* Spa Package Badge */}
+              {booking.spaPackage && booking.spaPackage !== 'NONE' && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/25 text-violet-300 font-medium">
+                  <Sparkles className="w-3 h-3 text-violet-400" />
+                  <span>Spa: {booking.spaPackage.replace(/_/g, ' ')}</span>
+                </div>
+              )}
+            </div>
+
             {/* ── Inline Room Upgrade Panel ── */}
             {showUpgradePanel && (
               <div className="mt-3 p-3 rounded-xl bg-slate-900 border border-slate-700/80 space-y-3 animate-in fade-in slide-in-from-top-2">
