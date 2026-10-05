@@ -32,7 +32,14 @@ export async function POST(request: NextRequest) {
 
     // 2. Read Request Body
     const body = await request.json();
-    const { items, notes = '' } = body;
+    const {
+      items,
+      notes = '',
+      scheduleMode,
+      scheduledDate,
+      scheduledTime,
+      packagingType,
+    } = body;
     // items: [{ id / productId, name, sellingPrice / unitPrice, qty }]
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -140,7 +147,16 @@ export async function POST(request: NextRequest) {
     const taxAmount = Math.round(subtotal * 0.05); // 5% standard GST for restaurant room service
     const grandTotal = subtotal + taxAmount;
     const orderNo = `RS-${Date.now().toString().slice(-6)}`;
-    const deliveryInstructions = `SERVE_TIME:ASAP|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
+    const isScheduled = scheduleMode === 'SCHEDULED';
+    const serveTiming = isScheduled
+      ? `${scheduledDate === 'TOMORROW' ? 'Tomorrow' : scheduledDate === 'TODAY' ? 'Today' : scheduledDate || 'Scheduled'} ${scheduledTime || '08:00 AM'}`
+      : 'ASAP';
+    const packaging = packagingType === 'TRAVEL_PACK'
+      ? 'TRAVEL_PACK'
+      : packagingType === 'PACK_IN_ROOM'
+      ? 'PACK_IN_ROOM'
+      : 'SERVE_IN_ROOM';
+    const deliveryInstructions = `SERVE_TIME:${serveTiming}|PACKAGING:${packaging}|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
 
     // 6. Create POS Order in database
     const order = await prisma.posOrder.create({

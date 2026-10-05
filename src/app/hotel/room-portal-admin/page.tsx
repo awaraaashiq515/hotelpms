@@ -18,9 +18,10 @@ export default function RoomPortalAdminPage() {
   const [saving, setSaving] = useState(false);
   const [propertyId, setPropertyId] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = async (pId?: string) => {
+    const idToUse = pId || propertyId;
     try {
-      const res = await fetch(`/api/room-portal/admin${propertyId ? `?propertyId=${propertyId}` : ''}`);
+      const res = await fetch(`/api/room-portal/admin${idToUse ? `?propertyId=${idToUse}` : ''}`);
       const d = await res.json();
       if (d.success) setData(d.data);
     } catch {
@@ -30,30 +31,47 @@ export default function RoomPortalAdminPage() {
     }
   };
 
-  const fetchConfig = async () => {
-    if (!propertyId) return;
+  const fetchConfig = async (pId?: string) => {
+    const idToUse = pId || propertyId;
     try {
-      // We'll use a direct fetch here as admin
-      const res = await fetch(`/api/room-portal/config?adminMode=true&propertyId=${propertyId}`);
+      const res = await fetch(`/api/room-portal/config?adminMode=true${idToUse ? `&propertyId=${idToUse}` : ''}`);
       const d = await res.json();
-      if (d.success) setConfig(d.data);
+      if (d.success && d.data) {
+        setConfig(d.data);
+        if (d.data.propertyId && !propertyId) {
+          setPropertyId(d.data.propertyId);
+        }
+      }
     } catch {}
   };
 
   useEffect(() => {
-    // Get propertyId from session (via API)
-    fetch('/api/hotel/property')
-      .then((r) => r.json())
-      .then((d) => {
+    const loadPropertyAndData = async () => {
+      let resolvedPropId = '';
+      try {
+        const r = await fetch('/api/setup/properties/current');
+        const d = await r.json();
         if (d.success && d.data?.id) {
-          setPropertyId(d.data.id);
+          resolvedPropId = d.data.id;
+        } else {
+          const rAll = await fetch('/api/setup/properties');
+          const dAll = await rAll.json();
+          if (dAll.success && Array.isArray(dAll.data) && dAll.data.length > 0) {
+            resolvedPropId = dAll.data[0].id;
+          }
         }
-      })
-      .catch(() => {})
-      .finally(() => {
-        fetchData();
-        fetchConfig();
-      });
+      } catch (err) {
+        console.warn('Failed to resolve property from API:', err);
+      }
+
+      if (resolvedPropId) {
+        setPropertyId(resolvedPropId);
+      }
+      fetchData(resolvedPropId);
+      fetchConfig(resolvedPropId);
+    };
+
+    loadPropertyAndData();
   }, []);
 
   const handleToggleLock = async (tabletId: string, currentLocked: boolean, roomNumber?: string) => {
@@ -111,17 +129,22 @@ export default function RoomPortalAdminPage() {
   };
 
   const handleServiceToggle = async (key: string, newValue: boolean, serviceLabel: string) => {
-    if (!propertyId) return;
     const updated = { ...(config || {}), [key]: newValue };
     setConfig(updated);
     try {
       const res = await fetch('/api/room-portal/config', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId, ...updated }),
+        body: JSON.stringify({
+          propertyId: propertyId || config?.propertyId || undefined,
+          ...updated,
+        }),
       });
       const d = await res.json();
       if (d.success) {
+        if (d.data?.propertyId && !propertyId) {
+          setPropertyId(d.data.propertyId);
+        }
         toast.success(`${serviceLabel}: turned ${newValue ? 'ON (Enabled) ✅' : 'OFF (Disabled) ⏸️'}`);
       } else {
         toast.error(d.message || 'Failed to update service.');
@@ -132,19 +155,32 @@ export default function RoomPortalAdminPage() {
   };
 
   const handleSaveConfig = async () => {
-    if (!config || !propertyId) return;
+    if (!config) {
+      toast.error('No configuration loaded to save.');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/room-portal/config', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId, ...config }),
+        body: JSON.stringify({
+          propertyId: propertyId || config.propertyId || undefined,
+          ...config,
+        }),
       });
       const d = await res.json();
-      if (d.success) toast.success('Configuration saved successfully!');
-      else toast.error(d.message || 'Failed to save.');
+      if (d.success) {
+        if (d.data?.propertyId && !propertyId) {
+          setPropertyId(d.data.propertyId);
+        }
+        if (d.data) setConfig(d.data);
+        toast.success('Configuration saved successfully! 🚀');
+      } else {
+        toast.error(d.message || 'Failed to save configuration.');
+      }
     } catch {
-      toast.error('Connection error.');
+      toast.error('Connection error while saving configuration.');
     } finally {
       setSaving(false);
     }
@@ -491,9 +527,139 @@ export default function RoomPortalAdminPage() {
           </div>
         )}
 
-        {activeTab === 'config' && config && (
+        {activeTab === 'config' && (
           <div style={{ maxWidth: '750px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Google Reviews & Online Reputation (TOP PRIORITY) */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.08))',
+                border: '1.5px solid rgba(245, 158, 11, 0.5)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: '0 8px 32px rgba(245, 158, 11, 0.2)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '26px' }}>🌟</span>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#fff', fontSize: '18px', fontWeight: 900 }}>
+                      Google Reviews &amp; Reputation Engine
+                    </h3>
+                    <span style={{ fontSize: '12px', color: '#fcd34d', fontWeight: 700 }}>
+                      ⭐ High-Converting Google Review Link for In-Room Tablets &amp; Feedback QR
+                    </span>
+                  </div>
+                </div>
+
+                <p style={{ color: '#cbd5e1', fontSize: '13px', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                  Whenever a guest submits a 4 or 5-star rating on their in-room tablet, the screen will showcase your hotel's direct **QR Code** and **1-Tap Google Review** button so guests can instantly post their review to Google using their personal mobile phone!
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <ConfigInput
+                    label="Google Review Direct URL (Paste Here)"
+                    value={config?.googleReviewUrl || ''}
+                    placeholder="e.g. https://g.page/r/your-hotel/review or https://search.google.com/local/writereview?placeid=..."
+                    onChange={(v) => setConfig((p: any) => ({ ...(p || {}), googleReviewUrl: v }))}
+                  />
+                  <ConfigInput
+                    label="Google Place ID (Optional)"
+                    value={config?.googlePlaceId || ''}
+                    placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+                    onChange={(v) => setConfig((p: any) => ({ ...(p || {}), googlePlaceId: v }))}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                    <button
+                      onClick={handleSaveConfig}
+                      disabled={saving}
+                      style={{
+                        padding: '10px 22px', borderRadius: '12px', border: 'none',
+                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        color: 'white', fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+                      }}
+                    >
+                      {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : '💾 Save Google Review Link'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hotel-Wide Promotional Offers & Deals Banner */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.12), rgba(245, 158, 11, 0.08))',
+                border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: '0 8px 32px rgba(245, 158, 11, 0.15)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '26px' }}>🎁</span>
+                    <div>
+                      <h3 style={{ margin: 0, color: '#fff', fontSize: '18px', fontWeight: 900 }}>
+                        Hotel Promotional Offers &amp; Guest Deals
+                      </h3>
+                      <span style={{ fontSize: '12px', color: '#fcd34d', fontWeight: 700 }}>
+                        Featured Banner on In-Room Tablet Dashboard
+                      </span>
+                    </div>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: config?.showPromotionalOffer !== false ? '#34d399' : '#94a3b8' }}>
+                      {config?.showPromotionalOffer !== false ? 'Banner Active ✅' : 'Disabled ⏸️'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={config?.showPromotionalOffer !== false}
+                      onChange={(e) => setConfig((p: any) => ({ ...(p || {}), showPromotionalOffer: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#f59e0b' }}
+                    />
+                  </label>
+                </div>
+
+                <p style={{ color: '#cbd5e1', fontSize: '13px', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                  This offer displays prominently at the top of guest tablets. If a specific booking already has a personalized offer assigned during check-in, that guest’s specific offer will take priority!
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <ConfigInput
+                    label="Offer Title / Headline"
+                    value={config?.promotionalOfferTitle || ''}
+                    placeholder="e.g. Today's Special Happy Hours: 1+1 Free on Cocktails!"
+                    onChange={(v) => setConfig((p: any) => ({ ...(p || {}), promotionalOfferTitle: v }))}
+                  />
+                  <ConfigInput
+                    label="Offer Details / Terms (Optional)"
+                    value={config?.promotionalOfferDesc || ''}
+                    placeholder="e.g. Valid at Sky Lounge & In-Room Dining from 5:00 PM to 8:00 PM today"
+                    onChange={(v) => setConfig((p: any) => ({ ...(p || {}), promotionalOfferDesc: v }))}
+                  />
+                  <ConfigInput
+                    label="Voucher / Promo Code (Optional)"
+                    value={config?.promotionalOfferCode || ''}
+                    placeholder="e.g. HAPPYHOUR or SPA20"
+                    onChange={(v) => setConfig((p: any) => ({ ...(p || {}), promotionalOfferCode: v }))}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                    <button
+                      onClick={handleSaveConfig}
+                      disabled={saving}
+                      style={{
+                        padding: '10px 22px', borderRadius: '12px', border: 'none',
+                        background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                        color: 'white', fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+                      }}
+                    >
+                      {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : '💾 Save Promotional Offer'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Feature Services On / Off Toggles */}
               <ConfigSection title="In-Room Tablet Services (Instant ON / OFF Toggles)" emoji="🎛️">
                 <p style={{ color: 'rgb(148,163,184)', fontSize: '13px', margin: '0 0 14px 0' }}>
@@ -515,7 +681,7 @@ export default function RoomPortalAdminPage() {
                       emoji={item.emoji}
                       label={item.label}
                       desc={item.desc}
-                      checked={config[item.key] !== false}
+                      checked={config?.[item.key] !== false}
                       onChange={(checked) => handleServiceToggle(item.key, checked, item.label)}
                     />
                   ))}
@@ -585,7 +751,7 @@ function ConfigSection({ title, emoji, children }: { title: string; emoji: strin
   );
 }
 
-function ConfigInput({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+function ConfigInput({ label, value, onChange, type = 'text', placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return (
     <div>
       <label style={{ display: 'block', color: 'rgb(100,116,139)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
@@ -594,6 +760,7 @@ function ConfigInput({ label, value, onChange, type = 'text' }: { label: string;
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         style={{
           width: '100%', padding: '10px 14px', borderRadius: '10px',

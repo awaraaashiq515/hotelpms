@@ -88,7 +88,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const propertyId = searchParams.get('propertyId') || session.propertyId;
+    let propertyId = searchParams.get('propertyId') || session.propertyId || (session as any).currentPropertyId;
+
+    if (!propertyId) {
+      const anyProp = await prisma.property.findFirst({ select: { id: true } });
+      if (anyProp) propertyId = anyProp.id;
+    }
 
     if (!propertyId) {
       return NextResponse.json({ success: false, message: 'Property ID required.' }, { status: 400 });

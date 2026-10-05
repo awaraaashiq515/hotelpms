@@ -31,13 +31,26 @@ export async function GET(request: NextRequest) {
 
     let propertyId: string | null = null;
 
-    if (adminMode && queryPropertyId) {
-      propertyId = queryPropertyId;
+    if (adminMode) {
+      if (queryPropertyId) {
+        propertyId = queryPropertyId;
+      } else {
+        const session = await getSession();
+        if (session) {
+          propertyId = (session as any).currentPropertyId || (session as any).propertyId || null;
+        }
+      }
     } else {
       const payload = await verifyRoomPortalToken(request);
       if (payload) {
         propertyId = payload.propertyId;
       }
+    }
+
+    if (!propertyId) {
+      // Fallback: check if any property exists in database for single-hotel deployment
+      const anyProp = await prisma.property.findFirst({ select: { id: true } });
+      if (anyProp) propertyId = anyProp.id;
     }
 
     if (!propertyId) {
@@ -110,25 +123,50 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { propertyId, id, createdAt, updatedAt, ...rawUpdates } = body;
 
-    if (!propertyId) {
+    let targetPropertyId = propertyId;
+    if (!targetPropertyId && session) {
+      targetPropertyId = (session as any).currentPropertyId || (session as any).propertyId;
+    }
+    if (!targetPropertyId) {
+      const anyProp = await prisma.property.findFirst({ select: { id: true } });
+      if (anyProp) targetPropertyId = anyProp.id;
+    }
+
+    if (!targetPropertyId) {
       return NextResponse.json({ success: false, message: 'Property ID required.' }, { status: 400 });
     }
+
+    const ALLOWED_CONFIG_FIELDS = new Set([
+      'wifiName', 'wifiPassword', 'gymTimings', 'poolTimings', 'spaTimings',
+      'breakfastTimings', 'restaurantTimings', 'dailyMealMenu', 'frontDeskPhone',
+      'emergencyPhone', 'welcomeTitle', 'welcomeSubtitle', 'sessionTimeoutMin',
+      'kioskExitPin', 'googleReviewUrl', 'googlePlaceId', 'showRoomService',
+      'showHousekeeping', 'showWifi', 'showAmenities', 'showBill', 'showContact',
+      'showFeedback', 'showCheckout',
+      'promotionalOfferTitle', 'promotionalOfferDesc', 'promotionalOfferCode', 'showPromotionalOffer',
+    ]);
 
     // Clean boolean toggles & values
     const updates: Record<string, any> = {};
     for (const [k, v] of Object.entries(rawUpdates)) {
-      if (v !== undefined) updates[k] = v;
+      if (ALLOWED_CONFIG_FIELDS.has(k) && v !== undefined) {
+        if (k === 'sessionTimeoutMin') {
+          updates[k] = typeof v === 'number' ? Math.round(v) : parseInt(String(v), 10) || 30;
+        } else {
+          updates[k] = v;
+        }
+      }
     }
 
     const config = await prisma.roomPortalConfig.upsert({
-      where: { propertyId },
+      where: { propertyId: targetPropertyId },
       update: updates,
-      create: { propertyId, ...updates },
+      create: { propertyId: targetPropertyId, ...updates },
     });
 
     return NextResponse.json({ success: true, data: config });
   } catch (error: any) {
     console.error('[Room Portal Config PATCH Error]:', error);
-    return NextResponse.json({ success: false, message: 'Failed to update config.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: error?.message || 'Failed to update config.' }, { status: 500 });
   }
 }

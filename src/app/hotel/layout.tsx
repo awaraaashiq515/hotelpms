@@ -134,8 +134,8 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
           ) : pathname === '/hotel' || pathname === '/hotel/' ? (
             children
-          ) : pathname === '/hotel/calendar' ? (
-            <div className="space-y-4">
+          ) : pathname === '/hotel/calendar' || pathname.startsWith('/hotel/bookings') ? (
+            <div className="space-y-4 min-w-0 w-full">
               <HotelBackButton />
               {children}
             </div>

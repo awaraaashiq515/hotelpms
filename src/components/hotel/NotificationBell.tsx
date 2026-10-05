@@ -101,7 +101,10 @@ export function getNotificationRoute(type: string, title: string, message: strin
   if (text.includes('table') || text.includes('dine-in') || text.includes('waiter call') || text.includes('assistance')) {
     return '/hotel/pos/tables';
   }
-  if (text.includes('room service') || text.includes('room order')) {
+  if (text.includes('room service') || text.includes('room order') || text.includes('room_service')) {
+    return '/hotel/room-service';
+  }
+  if (text.includes('escalated') || text.includes('escalation') || text.includes('unresponded')) {
     return '/hotel/room-service';
   }
   if (text.includes('order') || text.includes('pos order') || text.includes('food') || text.includes('takeaway')) {
@@ -162,10 +165,17 @@ export function getNotificationIcon(type: string, title: string, message: string
       </div>
     );
   }
-  if (text.includes('room service')) {
+  if (text.includes('room service') || text.includes('room order') || text.includes('room_service_order')) {
     return (
       <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
         <ChefHat className="text-violet-400 w-4 h-4" />
+      </div>
+    );
+  }
+  if (text.includes('escalated') || text.includes('escalation') || text.includes('unresponded')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 animate-pulse">
+        <AlertCircle className="text-rose-400 w-4 h-4" />
       </div>
     );
   }

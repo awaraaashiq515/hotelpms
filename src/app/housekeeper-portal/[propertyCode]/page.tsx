@@ -289,6 +289,23 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   const [laundryRoom, setLaundryRoom] = useState('')
   const [laundryModalRoom, setLaundryModalRoom] = useState<HKRoom | null>(null)
 
+  /* ── Extra Laundry Suite State (Rate Card, Soap/Detergent, Daily Wash) ── */
+  const [hkLaundryTab, setHkLaundryTab] = useState<'pickup' | 'menu' | 'detergent' | 'washlog'>('pickup')
+  const [hkLaundryMenu, setHkLaundryMenu] = useState<any[]>([])
+  const [hkDetergentStock, setHkDetergentStock] = useState<any[]>([])
+  const [hkDetergentLogs, setHkDetergentLogs] = useState<any[]>([])
+  const [hkWashLogs, setHkWashLogs] = useState<any[]>([])
+  const [hkSelectedDetergentId, setHkSelectedDetergentId] = useState('')
+  const [hkDetergentQtyUsed, setHkDetergentQtyUsed] = useState(1)
+  const [hkDetergentNotes, setHkDetergentNotes] = useState('')
+  const [hkLoggingDetergent, setHkLoggingDetergent] = useState(false)
+  const [hkWashItem, setHkWashItem] = useState('Double Bed Sheets')
+  const [hkWashPieces, setHkWashPieces] = useState(30)
+  const [hkWashClean, setHkWashClean] = useState(28)
+  const [hkWashDetergent, setHkWashDetergent] = useState('1.2 kg Surf Excel')
+  const [hkWashNotes, setHkWashNotes] = useState('')
+  const [hkLoggingWash, setHkLoggingWash] = useState(false)
+
   // Play a satisfying synthesized chime on successful operations
   const playSuccessChime = () => {
     try {
@@ -996,14 +1013,111 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, wtToken, activeTab])
 
+  const fetchHkLaundryExtras = useCallback(async () => {
+    try {
+      const [mRes, iRes, wRes] = await Promise.all([
+        fetch('/api/hotel/laundry/menu'),
+        fetch('/api/hotel/laundry/inventory'),
+        fetch('/api/hotel/laundry/wash-logs')
+      ]);
+      const mData = await mRes.json();
+      const iData = await iRes.json();
+      const wData = await wRes.json();
+      if (mData.success && Array.isArray(mData.data)) setHkLaundryMenu(mData.data);
+      if (iData.success && iData.data) {
+        setHkDetergentStock(iData.data.items || []);
+        setHkDetergentLogs(iData.data.logs || []);
+        if (iData.data.items?.length > 0 && !hkSelectedDetergentId) {
+          setHkSelectedDetergentId(iData.data.items[0].id);
+        }
+      }
+      if (wData.success && wData.data) {
+        setHkWashLogs(wData.data.logs || []);
+      }
+    } catch { /* silent */ }
+  }, [hkSelectedDetergentId]);
+
+  const submitHkDetergentUsage = async () => {
+    if (!hkSelectedDetergentId || !hkDetergentQtyUsed) {
+      toast.error('Select detergent and quantity');
+      return;
+    }
+    setHkLoggingDetergent(true);
+    try {
+      const res = await fetch('/api/hotel/laundry/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CONSUME',
+          itemId: hkSelectedDetergentId,
+          quantity: Number(hkDetergentQtyUsed),
+          notes: hkDetergentNotes || 'Used for daily wash cycles',
+          loggedBy: user?.fullName || 'Housekeeper',
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message || 'Detergent usage logged!');
+        playSuccessChime();
+        setHkDetergentQtyUsed(1);
+        setHkDetergentNotes('');
+        fetchHkLaundryExtras();
+      } else {
+        toast.error(json.message || 'Failed to log usage');
+      }
+    } catch {
+      toast.error('Error logging detergent usage');
+    } finally {
+      setHkLoggingDetergent(false);
+    }
+  };
+
+  const submitHkWashLog = async () => {
+    if (!hkWashItem || !hkWashPieces) {
+      toast.error('Item name and pieces washed required');
+      return;
+    }
+    setHkLoggingWash(true);
+    try {
+      const res = await fetch('/api/hotel/laundry/wash-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemName: hkWashItem,
+          washType: 'HOTEL_LINEN',
+          piecesWashed: Number(hkWashPieces),
+          cleanCount: Number(hkWashClean),
+          soiledPending: Math.max(0, Number(hkWashPieces) - Number(hkWashClean)),
+          detergentUsed: hkWashDetergent,
+          notes: hkWashNotes,
+          loggedBy: user?.fullName || 'Housekeeper',
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(`Logged ${hkWashPieces} pieces of ${hkWashItem} washed!`);
+        playSuccessChime();
+        setHkWashNotes('');
+        fetchHkLaundryExtras();
+      } else {
+        toast.error(json.message || 'Failed to log wash batch');
+      }
+    } catch {
+      toast.error('Error logging wash cycle');
+    } finally {
+      setHkLoggingWash(false);
+    }
+  };
+
   // Load stock + laundry logs when opening laundry tab
   useEffect(() => {
     if (user && wtToken && activeTab === 'laundry') {
-      fetchStockItems()
-      fetchLaundryLogs()
+      fetchStockItems();
+      fetchLaundryLogs();
+      fetchHkLaundryExtras();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, wtToken, activeTab])
+  }, [user, wtToken, activeTab, fetchHkLaundryExtras]);
 
   /* Pre-configured TTS speech alerts for quick Walkie Talkie announcement */
   const triggerTTSAlert = (messageText: string) => {
@@ -1558,108 +1672,423 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
           </div>
         )}
 
-        {/* ══ LAUNDRY PICKUP TAB ══ */}
+        {/* ══ LAUNDRY SUITE TAB (PICKUP, RATES, DETERGENTS & WASH CYCLES) ══ */}
         {activeTab === 'laundry' && (
           <div style={{ padding: '12px 10px calc(80px + env(safe-area-inset-bottom, 0px))' }}>
-            <div style={{ fontSize: 9, fontWeight: 900, color: '#06b6d4', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>
-              🧺 Laundry Pickup Log
-            </div>
-            <div style={{ fontSize: 9.5, color: '#475569', fontWeight: 600, marginBottom: 12 }}>
-              Log laundry collected from rooms. Auto-deducts from inventory stock.
-            </div>
-
-            {/* Room selector */}
-            <div style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
-              <div style={{ fontSize: 8.5, fontWeight: 900, color: '#22d3ee', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
-                Select Room
-              </div>
-              <select value={laundryRoom} onChange={e => setLaundryRoom(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 8, color: laundryRoom ? '#f1f5f9' : '#475569', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}>
-                <option value="">— Pick a Room —</option>
-                {rooms.map(r => (
-                  <option key={r.id} value={r.id}>Room {r.roomNumber}{r.floor ? ` (Floor ${r.floor})` : ''}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Items picker */}
-            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
-              <div style={{ fontSize: 8.5, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-                <span>Items Collected</span>
-                <span style={{ color: '#475569', fontWeight: 600 }}>From inventory stock</span>
-              </div>
-
-              {stockItemsLoading ? (
-                <div style={{ textAlign: 'center', padding: '14px 0', color: '#475569', fontSize: 10 }}>Loading items…</div>
-              ) : stockItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '14px 0', color: '#64748b', fontSize: 10 }}>
-                  <div style={{ marginBottom: 8 }}>No stock items found in inventory.</div>
-                  <button onClick={seedStockItems} disabled={stockItemsLoading}
-                    style={{ padding: '7px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #06b6d4, #0891b2)', border: 'none', color: '#fff', fontSize: 9.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    ✨ Add Default Housekeeping Stock Items
-                  </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 900, color: '#06b6d4', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                  🧺 Laundry & Linen Suite
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {stockItems.map(item => {
-                    const qty = laundryCounters[item.id] || 0
-                    return (
-                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: qty > 0 ? 'rgba(6,182,212,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${qty > 0 ? 'rgba(6,182,212,0.2)' : 'rgba(255,255,255,0.05)'}`, borderRadius: 10, padding: '8px 10px', transition: 'all 0.15s' }}>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 11, fontWeight: 800, color: qty > 0 ? '#22d3ee' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-                          <div style={{ fontSize: 8.5, color: '#475569', fontWeight: 600 }}>{item.unit || 'pcs'} · Stock: {item.currentStock}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                          <button onClick={() => setLaundryCounters(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
-                            style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                          <span style={{ fontSize: 13, fontWeight: 900, color: qty > 0 ? '#f1f5f9' : '#475569', minWidth: 18, textAlign: 'center' }}>{qty}</span>
-                          <button onClick={() => setLaundryCounters(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
-                            style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.12)', color: '#22d3ee', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                        </div>
-                      </div>
-                    )
-                  })}
+                <div style={{ fontSize: 9.5, color: '#475569', fontWeight: 600 }}>
+                  Pickup from rooms, rate card, detergent usage & wash cycles.
                 </div>
-              )}
-            </div>
-
-            {/* Submit button */}
-            {Object.values(laundryCounters).some(v => v > 0) && (
-              <button onClick={() => submitLaundry()} disabled={submittingLaundry}
-                style={{ width: '100%', marginBottom: 14, padding: '12px', borderRadius: 11, background: 'linear-gradient(135deg,#0891b2,#06b6d4)', border: 'none', color: '#fff', fontSize: 10.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.03em', textTransform: 'uppercase', opacity: submittingLaundry ? 0.6 : 1 }}>
-                {submittingLaundry ? 'Logging…' : `🧺 Log ${Object.values(laundryCounters).reduce((a, b) => a + b, 0)} Laundry Item(s)`}
+              </div>
+              <button
+                onClick={() => {
+                  fetchLaundryLogs();
+                  fetchHkLaundryExtras();
+                  toast.success('Laundry data refreshed');
+                }}
+                style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)', color: '#22d3ee', fontSize: 9, fontWeight: 800, padding: '4px 8px', borderRadius: 8, cursor: 'pointer' }}
+              >
+                ↻ Refresh
               </button>
+            </div>
+
+            {/* 4-Sub-Tab Pill Bar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.03)', padding: 3, borderRadius: 12 }}>
+              <button
+                onClick={() => setHkLaundryTab('pickup')}
+                style={{
+                  padding: '7px 4px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: hkLaundryTab === 'pickup' ? 'linear-gradient(135deg,#06b6d4,#0891b2)' : 'transparent',
+                  color: hkLaundryTab === 'pickup' ? '#fff' : '#64748b',
+                  fontSize: 9.5,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textTransform: 'uppercase',
+                }}
+              >
+                🧺 Pickup
+              </button>
+              <button
+                onClick={() => setHkLaundryTab('menu')}
+                style={{
+                  padding: '7px 4px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: hkLaundryTab === 'menu' ? 'linear-gradient(135deg,#06b6d4,#0891b2)' : 'transparent',
+                  color: hkLaundryTab === 'menu' ? '#fff' : '#64748b',
+                  fontSize: 9.5,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textTransform: 'uppercase',
+                }}
+              >
+                🏷️ Rates
+              </button>
+              <button
+                onClick={() => setHkLaundryTab('detergent')}
+                style={{
+                  padding: '7px 4px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: hkLaundryTab === 'detergent' ? 'linear-gradient(135deg,#06b6d4,#0891b2)' : 'transparent',
+                  color: hkLaundryTab === 'detergent' ? '#fff' : '#64748b',
+                  fontSize: 9.5,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textTransform: 'uppercase',
+                }}
+              >
+                🧼 Soap/Det.
+              </button>
+              <button
+                onClick={() => setHkLaundryTab('washlog')}
+                style={{
+                  padding: '7px 4px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: hkLaundryTab === 'washlog' ? 'linear-gradient(135deg,#06b6d4,#0891b2)' : 'transparent',
+                  color: hkLaundryTab === 'washlog' ? '#fff' : '#64748b',
+                  fontSize: 9.5,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textTransform: 'uppercase',
+                }}
+              >
+                🛏️ Wash Log
+              </button>
+            </div>
+
+            {/* ── SUB-TAB 1: ROOM PICKUP ── */}
+            {hkLaundryTab === 'pickup' && (
+              <div>
+                {/* Room selector */}
+                <div style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#22d3ee', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    Select Room for Laundry Pickup
+                  </div>
+                  <select value={laundryRoom} onChange={e => setLaundryRoom(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 8, color: laundryRoom ? '#f1f5f9' : '#475569', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}>
+                    <option value="">— Pick a Room —</option>
+                    {rooms.map(r => (
+                      <option key={r.id} value={r.id}>Room {r.roomNumber}{r.floor ? ` (Floor ${r.floor})` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Items picker */}
+                <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Items Collected</span>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>From inventory stock</span>
+                  </div>
+
+                  {stockItemsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '14px 0', color: '#475569', fontSize: 10 }}>Loading items…</div>
+                  ) : stockItems.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '14px 0', color: '#64748b', fontSize: 10 }}>
+                      <div style={{ marginBottom: 8 }}>No stock items found in inventory.</div>
+                      <button onClick={seedStockItems} disabled={stockItemsLoading}
+                        style={{ padding: '7px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #06b6d4, #0891b2)', border: 'none', color: '#fff', fontSize: 9.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        ✨ Add Default Housekeeping Stock Items
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {stockItems.map(item => {
+                        const qty = laundryCounters[item.id] || 0
+                        return (
+                          <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: qty > 0 ? 'rgba(6,182,212,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${qty > 0 ? 'rgba(6,182,212,0.2)' : 'rgba(255,255,255,0.05)'}`, borderRadius: 10, padding: '8px 10px', transition: 'all 0.15s' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: qty > 0 ? '#22d3ee' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                              <div style={{ fontSize: 8.5, color: '#475569', fontWeight: 600 }}>{item.unit || 'pcs'} · Stock: {item.currentStock}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                              <button onClick={() => setLaundryCounters(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
+                                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                              <span style={{ fontSize: 13, fontWeight: 900, color: qty > 0 ? '#f1f5f9' : '#475569', minWidth: 18, textAlign: 'center' }}>{qty}</span>
+                              <button onClick={() => setLaundryCounters(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
+                                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.12)', color: '#22d3ee', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Submit button */}
+                {Object.values(laundryCounters).some(v => v > 0) && (
+                  <button onClick={() => submitLaundry()} disabled={submittingLaundry}
+                    style={{ width: '100%', marginBottom: 14, padding: '12px', borderRadius: 11, background: 'linear-gradient(135deg,#0891b2,#06b6d4)', border: 'none', color: '#fff', fontSize: 10.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.03em', textTransform: 'uppercase', opacity: submittingLaundry ? 0.6 : 1 }}>
+                    {submittingLaundry ? 'Logging…' : `🧺 Log ${Object.values(laundryCounters).reduce((a, b) => a + b, 0)} Laundry Item(s)`}
+                  </button>
+                )}
+
+                {/* Today's Laundry Log */}
+                <div>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>📋 Today&apos;s Pickups</span>
+                    <button onClick={fetchLaundryLogs} style={{ background: 'none', border: 'none', color: '#22d3ee', fontSize: 8.5, fontWeight: 800, cursor: 'pointer' }}>↻ Refresh</button>
+                  </div>
+
+                  {laundryLogsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '14px 0', color: '#475569', fontSize: 10 }}>Loading logs…</div>
+                  ) : laundryLogs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '16px 0', color: '#334155', fontSize: 9.5, fontWeight: 700 }}>
+                      No laundry pickups logged today
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {laundryLogs.map((log: any) => (
+                        <div key={log.id} style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.12)', borderRadius: 10, padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.stockItem?.name || 'Item'}</div>
+                            <div style={{ fontSize: 8.5, color: '#475569', fontWeight: 600, marginTop: 2 }}>
+                              Room: {log.referenceId?.slice(-8) || '—'} · {new Date(log.movementDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 900, color: '#22d3ee', flexShrink: 0 }}>×{log.qtyOut}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
-            {/* Today's Laundry Log */}
-            <div>
-              <div style={{ fontSize: 8.5, fontWeight: 900, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>📋 Today&apos;s Pickups</span>
-                <button onClick={fetchLaundryLogs} style={{ background: 'none', border: 'none', color: '#22d3ee', fontSize: 8.5, fontWeight: 800, cursor: 'pointer' }}>↻ Refresh</button>
-              </div>
-
-              {laundryLogsLoading ? (
-                <div style={{ textAlign: 'center', padding: '14px 0', color: '#475569', fontSize: 10 }}>Loading logs…</div>
-              ) : laundryLogs.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#334155', fontSize: 9.5, fontWeight: 700 }}>
-                  No laundry pickups logged today
+            {/* ── SUB-TAB 2: LAUNDRY RATE MENU ── */}
+            {hkLaundryTab === 'menu' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>
+                  Official Hotel Laundry Price List for in-room guest enquiries:
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {laundryLogs.map((log: any) => (
-                    <div key={log.id} style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.12)', borderRadius: 10, padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.stockItem?.name || 'Item'}</div>
-                        <div style={{ fontSize: 8.5, color: '#475569', fontWeight: 600, marginTop: 2 }}>
-                          Room: {log.referenceId?.slice(-8) || '—'} · {new Date(log.movementDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                {hkLaundryMenu.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: '#64748b', fontSize: 10 }}>
+                    Loading laundry rates…
+                  </div>
+                ) : (
+                  hkLaundryMenu.map((m: any) => (
+                    <div key={m.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>{m.name}</div>
+                        <div style={{ fontSize: 8.5, color: '#64748b', marginTop: 2 }}>
+                          {m.serviceType} • <span style={{ color: '#06b6d4' }}>{m.turnaround}</span>
                         </div>
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 900, color: '#22d3ee', flexShrink: 0 }}>×{log.qtyOut}</span>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: '#34d399', flexShrink: 0 }}>
+                        ₹{m.price}
+                      </div>
                     </div>
-                  ))}
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ── SUB-TAB 3: SOAP & DETERGENT USAGE (USE HUA) ── */}
+            {hkLaundryTab === 'detergent' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Current Detergent Balances */}
+                <div style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: 12, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#22d3ee', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Current Chemical & Soap Balances
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                    {hkDetergentStock
+                      .filter((s: any) => s.category === 'DETERGENT')
+                      .map((item: any) => (
+                        <div key={item.id} style={{ background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: '#34d399', marginTop: 2 }}>
+                            {item.currentStock} <span style={{ fontSize: 9, color: '#64748b' }}>{item.unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Log Detergent Used Form */}
+                <div style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                    − Log Detergent / Soap Used Today
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Select Chemical</label>
+                    <select
+                      value={hkSelectedDetergentId}
+                      onChange={e => setHkSelectedDetergentId(e.target.value)}
+                      style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 10.5, fontFamily: 'inherit', outline: 'none' }}
+                    >
+                      {hkDetergentStock
+                        .filter((s: any) => s.category === 'DETERGENT')
+                        .map((s: any) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.currentStock} {s.unit} left)
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6, marginBottom: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Qty Used</label>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="any"
+                        value={hkDetergentQtyUsed}
+                        onChange={e => setHkDetergentQtyUsed(Number(e.target.value))}
+                        style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#f59e0b', fontSize: 12, fontWeight: 900, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Washing Purpose</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. For 25 Bed Sheets"
+                        value={hkDetergentNotes}
+                        onChange={e => setHkDetergentNotes(e.target.value)}
+                        style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 10.5, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={submitHkDetergentUsage}
+                    disabled={hkLoggingDetergent}
+                    style={{ width: '100%', padding: '10px', borderRadius: 9, background: 'linear-gradient(135deg,#d97706,#f59e0b)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase' }}
+                  >
+                    {hkLoggingDetergent ? 'Logging…' : '− Save Soap Usage'}
+                  </button>
+                </div>
+
+                {/* Recent Detergent Usage History */}
+                <div>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    Recent Detergent Logs
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {hkDetergentLogs.slice(0, 5).map((log: any) => (
+                      <div key={log.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{log.itemName}</div>
+                          <div style={{ fontSize: 8, color: '#64748b' }}>{log.notes || 'Wash usage'} • {new Date(log.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: log.type === 'INWARD' ? '#34d399' : '#f59e0b' }}>
+                          {log.type === 'INWARD' ? `+${log.quantity}` : `-${log.quantity}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── SUB-TAB 4: DAILY WASH BATCH ── */}
+            {hkLaundryTab === 'washlog' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Form to Log Wash Cycle */}
+                <div style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                    + Record Daily Linen Wash Batch
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Item Washed</label>
+                    <select
+                      value={hkWashItem}
+                      onChange={e => setHkWashItem(e.target.value)}
+                      style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 10.5, fontFamily: 'inherit', outline: 'none' }}
+                    >
+                      <option value="Double Bed Sheets">Double Bed Sheets</option>
+                      <option value="Single Bed Sheets">Single Bed Sheets</option>
+                      <option value="Bath Towels (Large)">Bath Towels (Large)</option>
+                      <option value="Hand & Face Towels">Hand & Face Towels</option>
+                      <option value="Pillow Covers (Pairs)">Pillow Covers (Pairs)</option>
+                      <option value="Duvet Covers">Duvet Covers</option>
+                      <option value="Staff Uniforms">Staff Uniforms</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Pieces Washed</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={hkWashPieces}
+                        onChange={e => {
+                          const p = Number(e.target.value);
+                          setHkWashPieces(p);
+                          setHkWashClean(p);
+                        }}
+                        style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#10b981', fontSize: 12, fontWeight: 900, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Clean & Ready</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={hkWashClean}
+                        onChange={e => setHkWashClean(Number(e.target.value))}
+                        style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#38bdf8', fontSize: 12, fontWeight: 900, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Detergent Used</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1 kg Surf Excel + 200ml Softener"
+                      value={hkWashDetergent}
+                      onChange={e => setHkWashDetergent(e.target.value)}
+                      style={{ width: '100%', padding: '7px 8px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 10.5, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={submitHkWashLog}
+                    disabled={hkLoggingWash}
+                    style={{ width: '100%', padding: '10px', borderRadius: 9, background: 'linear-gradient(135deg,#059669,#10b981)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase' }}
+                  >
+                    {hkLoggingWash ? 'Logging…' : '✓ Save Wash Batch'}
+                  </button>
+                </div>
+
+                {/* Today's Wash History */}
+                <div>
+                  <div style={{ fontSize: 8.5, fontWeight: 900, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    Recent Wash Batches
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {hkWashLogs.slice(0, 5).map((log: any) => (
+                      <div key={log.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, color: '#fff' }}>{log.itemName}</div>
+                          <div style={{ fontSize: 8, color: '#64748b', marginTop: 1 }}>{log.detergentUsed || 'Standard cycle'} • {log.date}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: 12, fontWeight: 900, color: '#34d399' }}>{log.cleanCount} Clean</span>
+                          <div style={{ fontSize: 8, color: '#64748b' }}>of {log.piecesWashed} pcs</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

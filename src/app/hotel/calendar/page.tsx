@@ -33,7 +33,7 @@ import { toast, Toaster } from 'sonner';
 import { CalendarLegendModal } from '@/components/hotel/calendar/CalendarLegendModal';
 import { ReservationDetailDrawer } from '@/components/hotel/calendar/ReservationDetailDrawer';
 import { RoomAssignmentModal } from '@/components/hotel/calendar/RoomAssignmentModal';
-import { QuickBookModal } from '@/components/hotel/calendar/QuickBookModal';
+import { QuickReservationModal } from '@/components/hotel/operations/QuickReservationModal';
 import { GuestRegistrationCardModal } from '@/components/hotel/operations/GuestRegistrationCardModal';
 import { LearnToUseModal } from '@/components/hotel/operations/LearnToUseModal';
 import { RateDiscountModal } from '@/components/hotel/calendar/RateDiscountModal';
@@ -87,6 +87,17 @@ export default function HotelCalendarPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const formattedRoomsList = useMemo(() => {
+    return (rooms || []).map((r: any) => ({
+      id: r.id,
+      roomNumber: r.roomNumber,
+      roomTypeName: r.roomType?.name || (roomTypes.find((t: any) => t.id === r.roomTypeId)?.name) || 'Standard Room',
+      roomTypeId: r.roomTypeId,
+      baseRate: r.roomType?.baseRate || (roomTypes.find((t: any) => t.id === r.roomTypeId)?.baseRate) || 3500,
+      status: r.status,
+    }));
+  }, [rooms, roomTypes]);
 
   // Timeline view: 15 consecutive days centered around today
   const [startDate, setStartDate] = useState<Date>(() => {
@@ -1256,17 +1267,17 @@ export default function HotelCalendarPage() {
         </div>
       )}
 
-      <QuickBookModal
+      <QuickReservationModal
         isOpen={isAddBookingOpen || !!quickBookCell}
-        prefillRoomId={quickBookCell?.roomId}
-        prefillDate={quickBookCell?.date}
-        roomsList={rooms}
-        roomTypes={roomTypes}
+        initialRoomId={quickBookCell?.roomId}
+        initialArrivalDate={quickBookCell?.date}
+        roomsList={formattedRoomsList}
         onClose={() => {
           setIsAddBookingOpen(false);
           setQuickBookCell(null);
         }}
         onCreated={() => {
+          toast.success('Reservation created successfully!');
           loadData();
           setIsAddBookingOpen(false);
           setQuickBookCell(null);

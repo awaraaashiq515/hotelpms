@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -42,57 +42,12 @@ import {
   BadgeCheck,
   Star,
   ChevronDown,
+  Eye,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
-
-// Separate inner component to use search params safely inside Suspense
-function BookingsContent() {
-  const searchParams = useSearchParams();
-  const paramRoomId = searchParams.get('roomId') || '';
-  const paramArrival = searchParams.get('arr') || '';
-  const paramDeparture = searchParams.get('dep') || '';
-
-  // Tab State: 'list', 'create', or 'agent-bookings'
-  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'agent-bookings'>('list');
-
-  // Agent Bookings State
-  const [agentBookings, setAgentBookings] = useState<any[]>([]);
-  const [agentBookingsLoading, setAgentBookingsLoading] = useState(false);
-  const [agentBookingSearch, setAgentBookingSearch] = useState('');
-  const [agentBookingStatusFilter, setAgentBookingStatusFilter] = useState('ALL');
-  const [updatingAgentBooking, setUpdatingAgentBooking] = useState<string | null>(null);
-
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [roomTypes, setRoomTypes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Form State
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [arrivalDate, setArrivalDate] = useState(paramArrival || new Date().toISOString().split('T')[0]);
-  const [departureDate, setDepartureDate] = useState(paramDeparture || '');
-  const [adults, setAdults] = useState('1');
-  const [children, setChildren] = useState('0');
-  const [roomTypeId, setRoomTypeId] = useState('');
-  const [assignedRoomId, setAssignedRoomId] = useState(paramRoomId || '');
-  const [totalAmount, setTotalAmount] = useState('');
-  const [advanceAmount, setAdvanceAmount] = useState('0');
-  const [gstRate, setGstRate] = useState(0);
-
-  // Corporate / GST Billing Details
-  const [isCorporateBooking, setIsCorporateBooking] = useState(false);
-  const [companyName, setCompanyName] = useState('');
-  const [gstNumber, setGstNumber] = useState('');
-  const [billingAddress, setBillingAddress] = useState('');
-
-  // Booking Form WiFi & Meal Plan States
-  const [wifiPassword, setWifiPassword] = useState('');
-  const [wifiStatus, setWifiStatus] = useState('ACTIVE');
-  const [mealPlan, setMealPlan] = useState('RO');
+import { QuickReservationModal } from '@/components/hotel/operations/QuickReservationModal';
+import { ReservationDetailDrawer } from '@/components/hotel/calendar/ReservationDetailDrawer';
+import { KycUploadModal } from '@/components/hotel/bookings/KycUploadModal';
 
 const DEFAULT_POOL_PASS_OPTIONS = [
   { id: 'p0', name: 'Complimentary / Free Pool Access', category: 'COMPLIMENTARY', price: 0, duration: 'Free / Stay' },
@@ -115,22 +70,42 @@ const DEFAULT_SPA_PACKAGES = [
   { id: 'AYURVEDIC', name: 'Traditional Ayurvedic Rejuvenation (₹3,200)', price: 3200 },
 ];
 
-  // Booking Form Pool & Spa Package States (Collapsible Extras)
-  const [showAddons, setShowAddons] = useState(false);
-  const [poolAccess, setPoolAccess] = useState(false);
-  const [poolPackage, setPoolPackage] = useState('Complimentary / Free Pool Access');
-  const [poolPassCost, setPoolPassCost] = useState('0');
-  const [spaAccess, setSpaAccess] = useState(false);
-  const [spaPackage, setSpaPackage] = useState('NONE');
-  const [spaPackageCost, setSpaPackageCost] = useState('0');
-  const [addOnNotes, setAddOnNotes] = useState('');
-  const [dynamicPoolPasses, setDynamicPoolPasses] = useState<any[]>(DEFAULT_POOL_PASS_OPTIONS);
+// Separate inner component to use search params safely inside Suspense
+function BookingsContent() {
+  const searchParams = useSearchParams();
+  const paramRoomId = searchParams.get('roomId') || '';
+  const paramArrival = searchParams.get('arr') || '';
+  const paramDeparture = searchParams.get('dep') || '';
 
-  // Booking Form KYC States
-  const [createIdType, setCreateIdType] = useState('Aadhaar Card');
-  const [createIdNumber, setCreateIdNumber] = useState('');
-  const [createDocumentUrl, setCreateDocumentUrl] = useState('');
-  const [createUploading, setCreateUploading] = useState(false);
+  // Tab State: 'list' or 'agent-bookings'
+  const [activeTab, setActiveTab] = useState<'list' | 'agent-bookings'>('list');
+  const [isCreateWizardOpen, setIsCreateWizardOpen] = useState(false);
+
+  // Agent Bookings State
+  const [agentBookings, setAgentBookings] = useState<any[]>([]);
+  const [agentBookingsLoading, setAgentBookingsLoading] = useState(false);
+  const [agentBookingSearch, setAgentBookingSearch] = useState('');
+  const [agentBookingStatusFilter, setAgentBookingStatusFilter] = useState('ALL');
+  const [updatingAgentBooking, setUpdatingAgentBooking] = useState<string | null>(null);
+
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [roomTypes, setRoomTypes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const formattedRoomsList = useMemo(() => {
+    return (rooms || []).map((r: any) => ({
+      id: r.id,
+      roomNumber: r.roomNumber,
+      roomTypeName: r.roomType?.name || (roomTypes.find((t: any) => t.id === r.roomTypeId)?.name) || 'Standard Room',
+      roomTypeId: r.roomTypeId,
+      baseRate: r.roomType?.baseRate || (roomTypes.find((t: any) => t.id === r.roomTypeId)?.baseRate) || 3500,
+      status: r.status,
+    }));
+  }, [rooms, roomTypes]);
+
+  const [dynamicPoolPasses, setDynamicPoolPasses] = useState<any[]>(DEFAULT_POOL_PASS_OPTIONS);
 
   // Check-In & KYC modal states for existing bookings
   const [activeCheckInReservation, setActiveCheckInReservation] = useState<any>(null);
@@ -146,7 +121,7 @@ const DEFAULT_SPA_PACKAGES = [
   const [editingBooking, setEditingBooking] = useState<any>(null);
   const [editWifiPassword, setEditWifiPassword] = useState('');
   const [editWifiStatus, setEditWifiStatus] = useState('ACTIVE');
-  const [editMealPlan, setEditMealPlan] = useState('RO');
+  const [editMealPlan, setEditMealPlan] = useState('EP');
   const [editPoolAccess, setEditPoolAccess] = useState(false);
   const [editPoolPackage, setEditPoolPackage] = useState('NONE');
   const [editPoolPassCost, setEditPoolPassCost] = useState('0');
@@ -159,6 +134,10 @@ const DEFAULT_SPA_PACKAGES = [
   const [extendingBooking, setExtendingBooking] = useState<any>(null);
   const [newDepartureDate, setNewDepartureDate] = useState('');
   const [extendSubmitting, setExtendSubmitting] = useState(false);
+
+  // Booking Detail Drawer & Dedicated KYC Modal
+  const [selectedDrawerBooking, setSelectedDrawerBooking] = useState<any>(null);
+  const [kycModalBooking, setKycModalBooking] = useState<any>(null);
 
   const startCheckIn = (b: any) => {
     try {
@@ -190,34 +169,6 @@ const DEFAULT_SPA_PACKAGES = [
     }
   };
 
-  const handleCreateMockUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setCreateUploading(true);
-    setTimeout(() => {
-      setCreateDocumentUrl(`/uploads/kyc/${file.name}`);
-      setCreateUploading(false);
-      
-      // Auto-populate random formatted ID based on document type
-      if (createIdType === 'Aadhaar Card') {
-        const ad1 = Math.floor(1000 + Math.random() * 9000);
-        const ad2 = Math.floor(1000 + Math.random() * 9000);
-        const ad3 = Math.floor(1000 + Math.random() * 9000);
-        setCreateIdNumber(`${ad1}-${ad2}-${ad3}`);
-      } else if (createIdType === 'Passport') {
-        const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-        const num = Math.floor(1000000 + Math.random() * 9000000);
-        setCreateIdNumber(`${char}${num}`);
-      } else {
-        const chars = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
-        const num = Math.floor(100000 + Math.random() * 900000);
-        setCreateIdNumber(`${chars}${num}`);
-      }
-      
-      toast.success('AI OCR Scanner: Identity document verified & scanned successfully!');
-    }, 1500);
-  };
 
   const handleMockUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,17 +269,9 @@ const DEFAULT_SPA_PACKAGES = [
           }
         }
         
-        // If pre-filled parameters were passed, auto-configure room type
+        // If pre-filled parameters were passed, auto-open booking wizard
         if (paramRoomId && roomsRes.success) {
-          const selectedRoom = roomsRes.data.find((r: any) => r.id === paramRoomId);
-          if (selectedRoom) {
-            setRoomTypeId(selectedRoom.roomTypeId);
-            if (paramArrival && paramDeparture) {
-              const nights = Math.max(1, Math.round((new Date(paramDeparture).getTime() - new Date(paramArrival).getTime()) / (1000 * 60 * 60 * 24)));
-              setTotalAmount((selectedRoom.roomType.baseRate * nights).toString());
-            }
-          }
-          setActiveTab('create');
+          setIsCreateWizardOpen(true);
         }
         
         setLoading(false);
@@ -338,6 +281,25 @@ const DEFAULT_SPA_PACKAGES = [
         setLoading(false);
       });
   };
+
+  // Silent background reload for real-time sync with mobile staff uploads
+  const silentReloadBookings = () => {
+    fetch('/api/hotel/bookings')
+      .then((res) => res.json())
+      .then((bookingsRes) => {
+        if (bookingsRes.success && Array.isArray(bookingsRes.data)) {
+          setBookings(bookingsRes.data);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      silentReloadBookings();
+    }, 8000);
+    return () => clearInterval(timer);
+  }, []);
 
   const loadAgentBookings = async () => {
     setAgentBookingsLoading(true);
@@ -377,13 +339,16 @@ const DEFAULT_SPA_PACKAGES = [
   useEffect(() => {
     loadData();
     loadAgentBookings();
-  }, [paramRoomId, paramArrival, paramDeparture]);
+    if (paramRoomId || searchParams.get('create') === 'true' || searchParams.get('wizard') === 'true') {
+      setIsCreateWizardOpen(true);
+    }
+  }, [paramRoomId, paramArrival, paramDeparture, searchParams]);
 
   const startEditingStay = (b: any) => {
     setEditingBooking(b);
     setEditWifiPassword(b.wifiPassword || '');
     setEditWifiStatus(b.wifiStatus || 'ACTIVE');
-    setEditMealPlan(b.mealPlan || 'RO');
+    setEditMealPlan(b.mealPlan === 'RO' ? 'EP' : (b.mealPlan || 'EP'));
     setEditPoolAccess(b.poolAccess || false);
     setEditPoolPackage(b.poolPackage || 'NONE');
     setEditPoolPassCost((b.poolPassCost || 0).toString());
@@ -452,15 +417,6 @@ const DEFAULT_SPA_PACKAGES = [
     setEditWifiPassword(`${roomNumber}-${randomPart}`);
   };
 
-  const generateCreateWifiPassword = (assignedRoomNo?: string) => {
-    const roomNumber = assignedRoomNo || 'WIFI';
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let randomPart = '';
-    for (let i = 0; i < 4; i++) {
-      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setWifiPassword(`${roomNumber}-${randomPart}`);
-  };
 
   const handleSaveStaySettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -498,25 +454,7 @@ const DEFAULT_SPA_PACKAGES = [
     }
   };
 
-  const handleMealPlanChange = (plan: string) => {
-    setMealPlan(plan);
-    if (plan === 'AI') {
-      setShowAddons(true);
-      setPoolAccess(true);
-      setPoolPackage('Complimentary / Free Pool Access');
-      setPoolPassCost('0');
-      setSpaAccess(true);
-      setSpaPackage('COMPLIMENTARY_WELCOME');
-      setSpaPackageCost('0');
-      toast.info('All Inclusive Plan: Complimentary Pool & Spa added automatically!');
-    } else if (plan === 'FB' || plan === 'MAP') {
-      setShowAddons(true);
-      setPoolAccess(true);
-      setPoolPackage('Complimentary / Free Pool Access');
-      setPoolPassCost('0');
-      toast.info(`${plan} Plan: Complimentary Pool Access enabled automatically!`);
-    }
-  };
+
 
   const handleEditMealPlanChange = (plan: string) => {
     setEditMealPlan(plan);
@@ -533,147 +471,6 @@ const DEFAULT_SPA_PACKAGES = [
     }
   };
 
-  const handlePoolPackageChange = (pkg: string) => {
-    setPoolPackage(pkg);
-    const passList = dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS;
-    const matchedPass = passList.find((p: any) => p.name === pkg || p.id === pkg || p.category === pkg);
-    if (matchedPass) {
-      setPoolPassCost(matchedPass.price.toString());
-    } else if (pkg.toLowerCase().includes('complimentary') || pkg.toLowerCase().includes('free') || pkg === 'INCLUDED') {
-      setPoolPassCost('0');
-    } else if (pkg === 'STANDARD') setPoolPassCost('500');
-    else if (pkg === 'VIP_CABANA') setPoolPassCost('1200');
-  };
-
-  const handleSpaPackageChange = (pkg: string) => {
-    setSpaPackage(pkg);
-    const matched = DEFAULT_SPA_PACKAGES.find((s) => s.id === pkg || s.name === pkg);
-    if (matched) {
-      setSpaPackageCost(matched.price.toString());
-    } else if (pkg === 'NONE' || pkg.includes('COMPLIMENTARY') || pkg.toLowerCase().includes('free')) {
-      setSpaPackageCost('0');
-    } else if (pkg === 'RELAXATION_60MIN') setSpaPackageCost('1800');
-    else if (pkg === 'DETOX_SAUNA') setSpaPackageCost('2800');
-    else if (pkg === 'COUPLE_SPA') setSpaPackageCost('4500');
-    else if (pkg === 'AYURVEDIC') setSpaPackageCost('3200');
-  };
-
-  const toggleSpaAccess = () => {
-    const next = !spaAccess;
-    setSpaAccess(next);
-    if (!next) {
-      setSpaPackage('NONE');
-      setSpaPackageCost('0');
-    } else {
-      setSpaPackage('RELAXATION_60MIN');
-      setSpaPackageCost('1800');
-    }
-  };
-
-  // Recalculate rent when dates, roomType, pool access, or spa package changes
-  useEffect(() => {
-    let roomRent = 0;
-    if (arrivalDate && departureDate && roomTypeId) {
-      const type = roomTypes.find((t) => t.id === roomTypeId);
-      if (type) {
-        const nights = Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)));
-        if (!isNaN(nights) && nights > 0) {
-          roomRent = type.baseRate * nights;
-        }
-      }
-    }
-    const poolCost = poolAccess ? Number(poolPassCost || 0) : 0;
-    const spaCost = Number(spaPackageCost || 0);
-    const subTotal = roomRent + poolCost + spaCost;
-    const gstAmt = gstRate > 0 ? Math.round(subTotal * gstRate) / 100 : 0;
-    const grandTotal = subTotal + gstAmt;
-    if (grandTotal > 0 || (roomRent === 0 && (poolCost > 0 || spaCost > 0))) {
-      setTotalAmount(grandTotal.toString());
-    }
-  }, [arrivalDate, departureDate, roomTypeId, roomTypes, poolAccess, poolPassCost, spaPackageCost, gstRate]);
-
-  const handleCreateBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!firstName || !arrivalDate || !departureDate || !roomTypeId) {
-      toast.error('First Name, Check-in / Check-out dates, and Room Type are required.');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/hotel/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          guestData: {
-            firstName,
-            lastName,
-            email,
-            mobile,
-            idType: createIdNumber ? createIdType : null,
-            idNumber: createIdNumber || null,
-            documentUrl: createDocumentUrl || null,
-          },
-          arrivalDate,
-          departureDate,
-          adults: Number(adults),
-          children: Number(children),
-          roomTypeId,
-          assignedRoomId: assignedRoomId || null,
-          totalAmount: Number(totalAmount || 0),
-          advanceAmount: Number(advanceAmount || 0),
-          wifiPassword: wifiPassword || null,
-          wifiStatus: wifiStatus || 'ACTIVE',
-          mealPlan: mealPlan || 'RO',
-          poolAccess,
-          poolPackage: poolAccess ? poolPackage : 'NONE',
-          poolPassCost: poolAccess ? Number(poolPassCost || 0) : 0,
-          spaPackage,
-          spaPackageCost: Number(spaPackageCost || 0),
-          addOnNotes,
-          gstNumber: isCorporateBooking ? gstNumber.trim().toUpperCase() : null,
-          companyName: isCorporateBooking ? companyName.trim() : null,
-          billingAddress: isCorporateBooking ? billingAddress.trim() : null,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Reservation created successfully!');
-        // Reset form fields
-        setFirstName('');
-        setLastName('');
-        setEmail('');
-        setMobile('');
-        setDepartureDate('');
-        setRoomTypeId('');
-        setAssignedRoomId('');
-        setTotalAmount('');
-        setAdvanceAmount('0');
-        setGstRate(0);
-        setIsCorporateBooking(false);
-        setCompanyName('');
-        setGstNumber('');
-        setBillingAddress('');
-        setWifiPassword('');
-        setWifiStatus('ACTIVE');
-        setMealPlan('RO');
-        setPoolAccess(false);
-        setPoolPackage('STANDARD');
-        setPoolPassCost('500');
-        setSpaPackage('NONE');
-        setSpaPackageCost('0');
-        setAddOnNotes('');
-        setCreateIdNumber('');
-        setCreateDocumentUrl('');
-        setActiveTab('list');
-        loadData();
-      } else {
-        toast.error(data.message || 'Booking creation failed.');
-      }
-    } catch (err) {
-      toast.error('Connection error creating booking.');
-    }
-  };
 
   const filteredBookings = bookings.filter((b) => {
     const q = searchQuery.toLowerCase();
@@ -695,42 +492,42 @@ const DEFAULT_SPA_PACKAGES = [
           </h1>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex flex-wrap gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80 self-start">
+        {/* Tab Controls & Wizard Action */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start">
+          <div className="flex gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'list' 
+                  ? 'bg-indigo-600 text-white shadow-md' 
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <CalendarDays size={14} /> Active Bookings
+            </button>
+            <button
+              onClick={() => { setActiveTab('agent-bookings'); loadAgentBookings(); }}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 relative ${
+                activeTab === 'agent-bookings' 
+                  ? 'bg-violet-600 text-white shadow-md' 
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Handshake size={14} /> Agent Bookings
+              {agentBookings.filter(b => b.status === 'PENDING').length > 0 && (
+                <span className="ml-1 bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none">
+                  {agentBookings.filter(b => b.status === 'PENDING').length}
+                </span>
+              )}
+            </button>
+          </div>
+
           <button
-            onClick={() => setActiveTab('list')}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-              activeTab === 'list' 
-                ? 'bg-indigo-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            type="button"
+            onClick={() => setIsCreateWizardOpen(true)}
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30 border border-indigo-400/25 active:scale-95 cursor-pointer"
           >
-            <CalendarDays size={14} /> Active Bookings
-          </button>
-          <button
-            onClick={() => { setActiveTab('agent-bookings'); loadAgentBookings(); }}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 relative ${
-              activeTab === 'agent-bookings' 
-                ? 'bg-violet-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Handshake size={14} /> Agent Bookings
-            {agentBookings.filter(b => b.status === 'PENDING').length > 0 && (
-              <span className="ml-1 bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none">
-                {agentBookings.filter(b => b.status === 'PENDING').length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('create')}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-              activeTab === 'create' 
-                ? 'bg-indigo-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Plus size={14} /> Create Booking Wizard
+            <Plus size={15} /> Create Booking Wizard
           </button>
         </div>
       </div>
@@ -838,17 +635,17 @@ const DEFAULT_SPA_PACKAGES = [
               </div>
             ) : (
               <div className="rounded-3xl bg-[#0f172a]/40 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
+                <div className="w-full">
+                  <table className="w-full table-fixed border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">
-                        <th className="px-5 py-4">Guest Details</th>
-                        <th className="px-5 py-4">Stay Dates</th>
-                        <th className="px-5 py-4">Room Type</th>
-                        <th className="px-5 py-4">Agent</th>
-                        <th className="px-5 py-4">Amount & Commission</th>
-                        <th className="px-5 py-4">Status</th>
-                        <th className="px-5 py-4 text-right">Actions</th>
+                      <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[10px] font-black uppercase tracking-wider text-slate-400 text-left">
+                        <th className="px-3 py-3 w-[18%]">Guest Details</th>
+                        <th className="px-3 py-3 w-[14%]">Stay Dates</th>
+                        <th className="px-3 py-3 w-[15%]">Room Type</th>
+                        <th className="px-3 py-3 w-[15%]">Agent</th>
+                        <th className="px-3 py-3 w-[14%]">Amount & Commission</th>
+                        <th className="px-3 py-3 w-[11%]">Status</th>
+                        <th className="px-3 py-3 w-[13%] text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 text-xs text-slate-200">
@@ -992,8 +789,8 @@ const DEFAULT_SPA_PACKAGES = [
             );
           })()}
         </div>
-      ) : activeTab === 'list' ? (
-        /* List Tab View */
+      ) : (
+        /* Active Bookings Tab View */
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="relative w-full sm:max-w-md">
@@ -1015,18 +812,18 @@ const DEFAULT_SPA_PACKAGES = [
             </div>
           </div>
 
-          <div className="rounded-3xl bg-[#0f172a]/40 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+          <div className="rounded-3xl bg-[#0f172a]/40 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-sm w-full">
+            <div className="w-full">
+              <table className="w-full table-fixed border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">
-                    <th className="px-6 py-4">Booking No</th>
-                    <th className="px-6 py-4">Guest Info</th>
-                    <th className="px-6 py-4">Stay Dates</th>
-                    <th className="px-6 py-4">Room Info</th>
-                    <th className="px-6 py-4">Identity KYC</th>
-                    <th className="px-6 py-4">Reservation Dues</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                  <tr className="border-b border-slate-800/80 bg-slate-900/70 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="px-3 py-3 w-[11%]">Booking No</th>
+                    <th className="px-3 py-3 w-[19%]">Guest Info</th>
+                    <th className="px-3 py-3 w-[13%]">Stay Dates</th>
+                    <th className="px-3 py-3 w-[17%]">Room Info</th>
+                    <th className="px-3 py-3 w-[14%]">Identity KYC</th>
+                    <th className="px-3 py-3 w-[11%]">Reservation Dues</th>
+                    <th className="px-3 py-3 w-[15%] text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 text-xs text-slate-200">
@@ -1038,144 +835,218 @@ const DEFAULT_SPA_PACKAGES = [
                     </tr>
                   ) : (
                     filteredBookings.map((b) => {
-                      const arrStr = new Date(b.arrivalDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-                      const depStr = new Date(b.departureDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-                      const nights = Math.max(1, Math.round((new Date(b.departureDate).getTime() - new Date(b.arrivalDate).getTime()) / (1000 * 60 * 60 * 24)));
+                      const arrDate = new Date(b.arrivalDate);
+                      const depDate = new Date(b.departureDate);
+                      const arrDay = arrDate.getDate();
+                      const arrMonth = arrDate.toLocaleDateString('en-IN', { month: 'short' });
+                      const depDay = depDate.getDate();
+                      const depMonth = depDate.toLocaleDateString('en-IN', { month: 'short' });
+                      const depYear = depDate.getFullYear();
+                      const stayDatesText = arrMonth === depMonth
+                        ? `${arrDay} – ${depDay} ${depMonth} ${depYear}`
+                        : `${arrDay} ${arrMonth} – ${depDay} ${depMonth} ${depYear}`;
+
+                      const nights = Math.max(1, Math.round((depDate.getTime() - arrDate.getTime()) / (1000 * 60 * 60 * 24)));
 
                       // KYC status resolution
                       const hasDocUrl = b.guest.documents && b.guest.documents.length > 0;
                       const hasIdDetails = b.guest.idType && b.guest.idNumber;
                       
                       let kycBadge = (
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold max-w-fit">
-                          <AlertCircle size={12} /> No KYC
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setKycModalBooking(b)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 font-bold max-w-fit cursor-pointer transition-all hover:scale-105 active:scale-95 group text-[11px] shadow-sm shadow-rose-500/10"
+                          title="Click to Upload KYC (File / WebCam / Mobile QR)"
+                        >
+                          <Upload size={12} className="group-hover:-translate-y-0.5 transition-transform text-rose-400" />
+                          <span>Upload KYC</span>
+                        </button>
                       );
                       if (hasDocUrl && hasIdDetails) {
                         kycBadge = (
-                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold max-w-fit">
-                            <ShieldCheck size={12} /> Verified
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setKycModalBooking(b)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 font-bold max-w-fit cursor-pointer transition-all hover:scale-105 active:scale-95 group text-[11px] shadow-sm shadow-emerald-500/10"
+                            title="KYC Verified! Click to View or Re-upload"
+                          >
+                            <ShieldCheck size={12} className="group-hover:scale-110 transition-transform text-emerald-400" />
+                            <span>Verified</span>
+                          </button>
                         );
-                      } else if (hasIdDetails) {
+                      } else if (hasIdDetails || hasDocUrl) {
                         kycBadge = (
-                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold max-w-fit">
-                            <AlertCircle size={12} /> Pending Upload
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setKycModalBooking(b)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 font-bold max-w-fit cursor-pointer transition-all hover:scale-105 active:scale-95 group text-[11px] shadow-sm shadow-amber-500/10"
+                            title="Click to Complete KYC Photo / Details"
+                          >
+                            <Upload size={12} className="group-hover:-translate-y-0.5 transition-transform text-amber-400" />
+                            <span>Pending Upload</span>
+                          </button>
                         );
                       }
 
                       let statusBadge = (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 max-w-fit">
                           {b.status}
                         </span>
                       );
                       if (b.status === 'CHECKED_IN') {
                         statusBadge = (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-fit">
                             CHECKED IN
                           </span>
                         );
                       } else if (b.status === 'CHECKED_OUT') {
                         statusBadge = (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700 max-w-fit">
                             CHECKED OUT
                           </span>
                         );
                       }
 
                       return (
-                        <tr key={b.id} className="hover:bg-slate-900/10 transition-colors">
-                          <td className="px-6 py-3 font-bold text-indigo-400 tracking-wider align-top">
-                            <div className="flex flex-col gap-1">
-                              <span>{b.bookingNo}</span>
+                        <tr key={b.id} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="px-3 py-2.5 font-bold text-indigo-400 tracking-wider align-top">
+                            <div className="flex flex-col gap-1 items-start">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDrawerBooking(b)}
+                                className="font-mono text-xs font-extrabold text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 group cursor-pointer"
+                                title="Click to view full reservation details"
+                              >
+                                <span>{b.bookingNo}</span>
+                                <Eye size={11} className="opacity-60 group-hover:opacity-100 transition-opacity text-indigo-300" />
+                              </button>
                               {statusBadge}
                             </div>
                           </td>
-                          <td className="px-6 py-3 align-top">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-bold text-white text-sm">{b.guest.firstName} {b.guest.lastName}</span>
+                          <td className="px-3 py-2.5 align-top min-w-0 overflow-hidden">
+                            <div className="flex flex-col gap-0.5 truncate">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDrawerBooking(b)}
+                                className="text-left font-bold text-white hover:text-indigo-300 text-xs hover:underline cursor-pointer transition-colors truncate block"
+                                title="Click to view reservation details"
+                              >
+                                {b.guest.firstName} {b.guest.lastName}
+                              </button>
                               {(b.gstNumber || b.guest.gstNumber || b.companyName || b.guest.companyName) && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 max-w-fit my-0.5 font-mono">
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20 truncate max-w-full font-mono" title={b.companyName || b.guest.companyName}>
                                   🏢 {b.companyName || b.guest.companyName || 'B2B'}{b.gstNumber || b.guest.gstNumber ? ` (${b.gstNumber || b.guest.gstNumber})` : ''}
                                 </span>
                               )}
-                              <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
-                                <span className="flex items-center gap-1"><Phone size={10} /> {b.guest.mobile || 'No Mobile'}</span>
-                                {b.guest.email && <span className="flex items-center gap-1"><Mail size={10} /> {b.guest.email}</span>}
+                              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium truncate">
+                                <span className="flex items-center gap-1 truncate"><Phone size={9} /> {b.guest.mobile || 'No Mobile'}</span>
+                                {b.guest.email && <span className="flex items-center gap-1 truncate text-slate-600"><Mail size={9} /> {b.guest.email}</span>}
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-3 align-top">
+                          <td className="px-3 py-2.5 align-top">
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-200">{arrStr} - {depStr}</span>
-                              <span className="text-[10px] text-slate-500 font-semibold">{nights} Nights</span>
+                              <span className="font-bold text-slate-100 text-xs">{stayDatesText}</span>
+                              <span className="text-[10px] text-indigo-400 font-semibold">{nights} Night{nights !== 1 ? 's' : ''}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-3 align-top">
+                          <td className="px-3 py-2.5 align-top min-w-0 overflow-hidden">
                             <div className="flex flex-col gap-1">
-                              <span className="text-slate-300 font-medium">{b.roomType.name}</span>
-                              {b.rooms?.[0]?.room ? (
-                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 max-w-fit">
-                                  Room {b.rooms[0].room.roomNumber}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-100 text-xs truncate max-w-[120px]" title={b.roomType?.name || 'Standard Room'}>
+                                  {b.roomType?.name || 'Standard Room'}
                                 </span>
-                              ) : (
-                                <span className="text-[10px] text-slate-500 italic">Unassigned room</span>
-                              )}
-                              <div className="flex gap-1.5 mt-0.5 flex-wrap items-center">
-                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded">
-                                  🍽️ {b.mealPlan || 'RO'}
+                                {b.rooms?.[0]?.room ? (
+                                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 whitespace-nowrap">
+                                    Rm {b.rooms[0].room.roomNumber}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-500 italic whitespace-nowrap">Unassigned</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 flex-wrap text-[9px] font-bold">
+                                <span className={`px-1.5 py-0.5 rounded whitespace-nowrap border ${
+                                  (b.mealPlan || 'EP').toUpperCase() === 'CP'
+                                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                                    : (b.mealPlan || 'EP').toUpperCase() === 'MAP'
+                                    ? 'bg-sky-500/15 border-sky-500/30 text-sky-300'
+                                    : (b.mealPlan || 'EP').toUpperCase() === 'AP'
+                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                                    : 'bg-slate-800 border-slate-700 text-slate-300'
+                                }`}>
+                                  🍽️ {(b.mealPlan || 'EP').toUpperCase() === 'CP'
+                                    ? 'CP (Breakfast)'
+                                    : (b.mealPlan || 'EP').toUpperCase() === 'MAP'
+                                    ? 'MAP (Bfast+Dinner)'
+                                    : (b.mealPlan || 'EP').toUpperCase() === 'AP'
+                                    ? 'AP (All Meals)'
+                                    : 'EP (Room Only)'}
                                 </span>
                                 {b.poolAccess && (
-                                  <span className="text-[9px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                    <Waves size={9} /> Pool ({b.poolPackage || 'Pass'})
+                                  <span 
+                                    title={b.poolPackage || 'Pool Pass'}
+                                    className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5 whitespace-nowrap"
+                                  >
+                                    <Waves size={9} /> Pool
                                   </span>
                                 )}
                                 {b.spaPackage && b.spaPackage !== 'NONE' && (
-                                  <span className="text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <span 
+                                    title={b.spaPackage}
+                                    className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5 whitespace-nowrap"
+                                  >
                                     <Flower2 size={9} /> Spa
                                   </span>
                                 )}
-                                {b.wifiStatus === 'EXPIRED' ? (
-                                  <span className="text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded">
-                                    📶 OFF
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                                    📶 ON
-                                  </span>
-                                )}
+                                <span className={`px-1.5 py-0.5 rounded whitespace-nowrap ${b.wifiStatus === 'EXPIRED' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                  📶 {b.wifiStatus === 'EXPIRED' ? 'OFF' : 'ON'}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => startEditingStay(b)}
-                                  className="text-indigo-400 hover:text-indigo-300 font-extrabold text-[9px] uppercase tracking-wider hover:underline flex items-center gap-0.5 cursor-pointer"
+                                  className="text-indigo-400 hover:text-indigo-300 font-extrabold hover:underline cursor-pointer ml-0.5 text-[9px]"
                                 >
                                   ⚙️ Edit
                                 </button>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-3 align-top">
-                            <div className="flex flex-col gap-1">
+                          <td className="px-3 py-2.5 align-top">
+                            <div className="flex flex-col gap-1 items-start">
                               {kycBadge}
                               {hasIdDetails && (
-                                <span className="text-[9px] font-mono text-slate-400">{b.guest.idType}: {b.guest.idNumber}</span>
+                                <span className="text-[9px] font-mono text-slate-400 truncate max-w-full block" title={`${b.guest.idType}: ${b.guest.idNumber}`}>
+                                  {b.guest.idType}: {b.guest.idNumber}
+                                </span>
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-3 font-bold align-top">
+                          <td className="px-3 py-2.5 font-bold align-top">
                             <div className="flex flex-col">
-                              <span className="text-rose-400 text-sm">₹{b.dueAmount} Dues</span>
-                              <span className="text-[9px] text-slate-500">Paid: ₹{b.advanceAmount} / Total: ₹{b.totalAmount}</span>
+                              <span className={`text-xs font-black ${Number(b.dueAmount) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                ₹{Number(b.dueAmount || 0).toLocaleString('en-IN')} Dues
+                              </span>
+                              <span className="text-[9px] text-slate-500 font-normal">
+                                Paid: ₹{Number(b.advanceAmount || 0).toLocaleString('en-IN')} / ₹{Number(b.totalAmount || 0).toLocaleString('en-IN')}
+                              </span>
                             </div>
                           </td>
-                          <td className="px-6 py-3 text-right align-top whitespace-nowrap">
-                            <div className="flex items-center gap-1.5 justify-end">
+                          <td className="px-3 py-2.5 text-right align-top">
+                            <div className="flex items-center gap-1 justify-end flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDrawerBooking(b)}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 hover:text-white font-extrabold text-[10px] uppercase tracking-wider transition-all border border-indigo-500/40 cursor-pointer shadow-sm active:scale-95 whitespace-nowrap"
+                                title="View Full Reservation Details"
+                              >
+                                <Eye size={11} className="text-indigo-400" /> View
+                              </button>
                               {b.status === 'CONFIRMED' && (
                                 <button
                                   type="button"
                                   onClick={() => startCheckIn(b)}
-                                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] uppercase tracking-wider transition-all shadow-md shadow-indigo-600/10"
+                                  className="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] uppercase tracking-wider transition-all shadow-md shadow-indigo-600/10 cursor-pointer whitespace-nowrap"
                                 >
                                   Check-In
                                 </button>
@@ -1184,7 +1055,8 @@ const DEFAULT_SPA_PACKAGES = [
                                 <button
                                   type="button"
                                   onClick={() => startExtendStay(b)}
-                                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 text-amber-400 font-bold text-[10px] uppercase tracking-wider transition-all"
+                                  className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 text-amber-400 font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap"
+                                  title="Extend Stay"
                                 >
                                   <CalendarPlus size={10} /> Extend
                                 </button>
@@ -1200,661 +1072,22 @@ const DEFAULT_SPA_PACKAGES = [
             </div>
           </div>
         </div>
-      ) : (
-        /* Create Booking Wizard Tab View */
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <form onSubmit={handleCreateBooking} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Booking & Stay Configuration Form */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* Card 1: Guest Information */}
-              <div className="p-6 rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 space-y-5">
-                <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
-                  <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                    <User size={16} />
-                  </span>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">1. Guest Identification Details</h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">First Name *</label>
-                    <input
-                      type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="e.g. Rahul"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Last Name</label>
-                    <input
-                      type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
-                      placeholder="e.g. Sharma"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mobile Phone *</label>
-                    <input
-                      type="tel" required value={mobile} onChange={(e) => setMobile(e.target.value)}
-                      placeholder="e.g. 9876543210"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
-                    <input
-                      type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. rahul@example.com"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Corporate / GST Billing Collapsible Option */}
-                <div className="pt-3 border-t border-slate-800/80">
-                  <div className="rounded-2xl bg-slate-950/60 border border-slate-800/60 overflow-hidden transition-all duration-200">
-                    <button
-                      type="button"
-                      onClick={() => setIsCorporateBooking(!isCorporateBooking)}
-                      className="w-full p-3 flex items-center justify-between hover:bg-slate-900/60 transition-colors text-left cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
-                          <Building2 size={15} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-slate-200">Corporate / Business Booking (GST Invoice)</span>
-                            <span className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                              Optional
-                            </span>
-                            {isCorporateBooking && (
-                              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                ✓ Active
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {isCorporateBooking && (companyName || gstNumber)
-                              ? `${companyName || 'Company'} • GSTIN: ${gstNumber || 'Required'}`
-                              : 'Enable if the guest wants the bill on their Company GSTIN'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border transition-all ${
-                          isCorporateBooking
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
-                        }`}>
-                          {isCorporateBooking ? 'Hide GST Option' : '+ Add GST Option'}
-                        </span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCorporateBooking ? 'rotate-180' : ''}`} />
-                      </div>
-                    </button>
-
-                    {isCorporateBooking && (
-                      <div className="p-4 pt-1 border-t border-slate-800/80 space-y-3 bg-amber-500/5 animate-in fade-in duration-200">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                              Company / Business Name *
-                            </label>
-                            <input
-                              type="text"
-                              required={isCorporateBooking}
-                              value={companyName}
-                              onChange={(e) => setCompanyName(e.target.value)}
-                              placeholder="e.g. Acme Tech Solutions Pvt Ltd"
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                              Guest GST Number (GSTIN) *
-                            </label>
-                            <input
-                              type="text"
-                              required={isCorporateBooking}
-                              maxLength={15}
-                              value={gstNumber}
-                              onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
-                              placeholder="e.g. 07AAAAA0000A1Z5"
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-amber-300 font-mono font-bold text-xs uppercase focus:outline-none focus:border-amber-500 transition-colors"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                            Company Billing Address (Optional)
-                          </label>
-                          <input
-                            type="text"
-                            value={billingAddress}
-                            onChange={(e) => setBillingAddress(e.target.value)}
-                            placeholder="e.g. 123 Tech Park, Phase 2, New Delhi - 110001"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-amber-500 transition-colors"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Room & Stay Details */}
-              <div className="p-6 rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 space-y-5">
-                <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
-                  <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                    <Building size={16} />
-                  </span>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">2. Stay & Room Allocation</h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Check-in Date *</label>
-                    <input
-                      type="date" required value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Check-out Date *</label>
-                    <input
-                      type="date" required value={departureDate} onChange={(e) => setDepartureDate(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Room Category *</label>
-                    <select
-                      required value={roomTypeId} onChange={(e) => setRoomTypeId(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    >
-                      <option value="">Select Category</option>
-                      {roomTypes.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name} (Rent: ₹{t.baseRate}/night)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Assign Physical Room (Optional)</label>
-                    <select
-                      value={assignedRoomId} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAssignedRoomId(val);
-                        const selectedRoom = rooms.find(r => r.id === val);
-                        generateCreateWifiPassword(selectedRoom?.roomNumber);
-                      }}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    >
-                      <option value="">Auto-Assign Later</option>
-                      {rooms
-                        .filter((r) => r.roomTypeId === roomTypeId && r.status === 'AVAILABLE' && r.housekeepingStatus === 'CLEAN')
-                        .map((r) => (
-                          <option key={r.id} value={r.id}>Room {r.roomNumber} (Clean)</option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Adult Guests</label>
-                    <input
-                      type="number" min="1" value={adults} onChange={(e) => setAdults(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Children (below 12 yrs)</label>
-                    <input
-                      type="number" min="0" value={children} onChange={(e) => setChildren(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-800/80 pt-5 mt-5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Meal Plan</label>
-                    <select
-                      value={mealPlan} onChange={(e) => handleMealPlanChange(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors font-semibold"
-                    >
-                      <option value="RO">Room Only (RO)</option>
-                      <option value="BB">Bed & Breakfast (BB)</option>
-                      <option value="HB">Half Board (HB)</option>
-                      <option value="MAP">Modified American Plan (MAP)</option>
-                      <option value="FB">Full Board (FB)</option>
-                      <option value="AI">All Inclusive (AI)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>WiFi Password</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const selectedRoom = rooms.find(r => r.id === assignedRoomId);
-                          generateCreateWifiPassword(selectedRoom?.roomNumber);
-                        }}
-                        className="text-[9px] text-indigo-400 hover:text-indigo-300 font-extrabold uppercase"
-                      >
-                        Generate
-                      </button>
-                    </label>
-                    <input
-                      type="text"
-                      value={wifiPassword}
-                      onChange={(e) => setWifiPassword(e.target.value)}
-                      placeholder="e.g. 102-XJ3A"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Swimming Pool & Spa Package Add-ons (Collapsible) */}
-              <div className="rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 overflow-hidden transition-all duration-200">
-                <button
-                  type="button"
-                  onClick={() => setShowAddons(!showAddons)}
-                  className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors text-left cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
-                      <Waves size={18} />
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-black text-xs sm:text-sm uppercase tracking-wider text-slate-300">
-                          3. Swimming Pool & Spa Add-ons
-                        </h3>
-                        <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
-                          Optional
-                        </span>
-                        {(poolAccess || spaAccess) && (
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                            ✓ Active
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        {poolAccess || spaAccess
-                          ? `${poolAccess ? 'Swimming Pool Included' : ''}${poolAccess && spaAccess ? ' • ' : ''}${spaAccess ? spaPackage : ''}`
-                          : 'Click to add Swimming Pool access pass, Luxury Spa packages & special requests'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
-                      showAddons
-                        ? 'bg-slate-800 text-slate-300 border-slate-700'
-                        : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20'
-                    }`}>
-                      {showAddons ? 'Hide Options' : '+ Add Options'}
-                    </span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showAddons ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-
-                {showAddons && (
-                  <div className="p-5 sm:p-6 pt-0 border-t border-slate-800/80 space-y-4 animate-in fade-in duration-200 mt-3">
-                    {/* Swimming Pool Section */}
-                    <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
-                            <Droplets size={18} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-bold text-slate-200">Swimming Pool Access Pass</h4>
-                              {poolAccess && Number(poolPassCost || 0) === 0 && (
-                                <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                  ✨ Complimentary / Free
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-400">Include swimming pool access pass & privileges for guests</p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setPoolAccess(!poolAccess)}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                            poolAccess 
-                              ? 'bg-cyan-500 text-cyan-950 shadow-lg shadow-cyan-500/20 font-black' 
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                          }`}
-                        >
-                          {poolAccess ? <CheckCircle2 size={12} /> : null}
-                          {poolAccess ? 'Pool Included' : 'No Pool'}
-                        </button>
-                      </div>
-
-                      {poolAccess && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-cyan-500/15 animate-in fade-in duration-150">
-                          <div>
-                            <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Category</label>
-                            <select
-                              value={poolPackage}
-                              onChange={(e) => handlePoolPackageChange(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
-                            >
-                              {(dynamicPoolPasses.length > 0 ? dynamicPoolPasses : DEFAULT_POOL_PASS_OPTIONS).map((p: any) => (
-                                <option key={p.id || p.name} value={p.name}>
-                                  {p.name} (₹{p.price}{p.price === 0 ? ' - Free' : ` / ${p.duration || 'Stay'}`})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-2">Pool Pass Charge (₹)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={poolPassCost}
-                              onChange={(e) => setPoolPassCost(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl border border-cyan-500/30 bg-slate-950 text-cyan-200 text-xs font-mono font-bold focus:outline-none"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Spa & Wellness Package Section */}
-                    <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
-                            <Flower2 size={18} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-bold text-slate-200">Spa & Wellness Packages</h4>
-                              {spaAccess && Number(spaPackageCost || 0) === 0 && (
-                                <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                  ✨ Complimentary / Free with Plan
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-400">Select luxury spa massage & relaxation packages</p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={toggleSpaAccess}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                            spaAccess
-                              ? 'bg-purple-500 text-purple-950 shadow-lg shadow-purple-500/20 font-black'
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                          }`}
-                        >
-                          {spaAccess ? <CheckCircle2 size={12} /> : null}
-                          {spaAccess ? 'Spa Included' : 'No Spa'}
-                        </button>
-                      </div>
-
-                      {spaAccess && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-purple-500/15 animate-in fade-in duration-150">
-                          <div>
-                            <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Choice</label>
-                            <select
-                              value={spaPackage}
-                              onChange={(e) => handleSpaPackageChange(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-purple-400 font-semibold"
-                            >
-                              {DEFAULT_SPA_PACKAGES.filter(s => s.id !== 'NONE').map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2">Spa Package Charge (₹)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={spaPackageCost}
-                              onChange={(e) => setSpaPackageCost(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl border border-purple-500/30 bg-slate-950 text-purple-200 text-xs font-mono font-bold focus:outline-none"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Add-on Slot / Preferred Time Notes</label>
-                        <input
-                          type="text"
-                          value={addOnNotes}
-                          onChange={(e) => setAddOnNotes(e.target.value)}
-                          placeholder="e.g. Preferred time 5 PM, Essential aroma oil preference"
-                          className="w-full px-4 py-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* KYC & Pricing Cards (Right Column) */}
-            <div className="space-y-6">
-              
-              {/* KYC Document Upload / AI OCR Scanner */}
-              <div className="p-6 rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
-                  <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                    <FileText size={16} />
-                  </span>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">4. Identity Proof (KYC)</h3>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">ID Document Type</label>
-                    <select
-                      value={createIdType}
-                      onChange={(e) => setCreateIdType(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none"
-                    >
-                      <option>Aadhaar Card</option>
-                      <option>Passport</option>
-                      <option>Driving License</option>
-                      <option>Voter ID Card</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Document ID Number</label>
-                    <input
-                      type="text"
-                      placeholder="Input ID or Scan Doc"
-                      value={createIdNumber}
-                      onChange={(e) => setCreateIdNumber(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none font-mono tracking-wider"
-                    />
-                  </div>
-
-                  {/* ID Proof Uploader */}
-                  <div className="pt-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Upload ID Document (Auto OCR)</label>
-                    <div className="relative border-2 border-dashed border-slate-800 hover:border-indigo-500/40 rounded-2xl p-5 transition-colors flex flex-col items-center justify-center text-center cursor-pointer bg-slate-950/40">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleCreateMockUpload}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                      
-                      {createUploading ? (
-                        <div className="space-y-2">
-                          <Loader2 className="animate-spin text-indigo-400 mx-auto" size={24} />
-                          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider animate-pulse">Running AI OCR Scanner...</p>
-                        </div>
-                      ) : createDocumentUrl ? (
-                        <div className="space-y-2">
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto text-emerald-400">
-                            <Check size={18} />
-                          </div>
-                          <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Document Scanned & Locked!</p>
-                          <p className="text-[8px] text-slate-500 font-mono truncate max-w-[180px]">{createDocumentUrl}</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Upload className="text-slate-500 mx-auto" size={24} />
-                          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Upload / Drag Photo</p>
-                          <p className="text-[9px] text-slate-500 leading-normal">Drag image to scan and automatically populate ID Details</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pricing & Billing ledger */}
-              <div className="p-6 rounded-3xl bg-[#0f172a]/50 border border-slate-800/80 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
-                  <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                    <CreditCard size={16} />
-                  </span>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">5. Reservation Billing</h3>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total Amount (₹)</label>
-                    <input
-                      type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-indigo-400 font-black text-sm focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Advance Deposit (₹)</label>
-                    <input
-                      type="number" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-emerald-400 font-black text-sm focus:outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-
-                  {/* GST Rate Selector */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">GST Rate</label>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {[0, 5, 12, 18, 28].map((rate) => (
-                        <button
-                          key={rate}
-                          type="button"
-                          onClick={() => setGstRate(rate)}
-                          className={`py-2 rounded-xl text-xs font-black transition-all ${
-                            gstRate === rate
-                              ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
-                              : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
-                          }`}
-                        >
-                          {rate}%
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Calculation summary */}
-                  {(() => {
-                    const poolCostNum = poolAccess ? Number(poolPassCost || 0) : 0;
-                    const spaCostNum = Number(spaPackageCost || 0);
-                    const roomRentNum = Math.max(0, Number(totalAmount || 0) - poolCostNum - spaCostNum - (gstRate > 0 ? Math.round((Number(totalAmount || 0) - poolCostNum - spaCostNum) * gstRate / (100 + gstRate) * 100) / 100 : 0));
-                    const subTotal = roomRentNum + poolCostNum + spaCostNum;
-                    const gstAmt = gstRate > 0 ? Math.round(subTotal * gstRate) / 100 : 0;
-                    const cgst = gstAmt / 2;
-                    const sgst = gstAmt / 2;
-                    return (
-                      <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 text-xs space-y-2">
-                        <div className="flex justify-between text-slate-400">
-                          <span>Room Rent</span>
-                          <span className="font-bold text-slate-300">₹{Math.max(0, Number(totalAmount || 0) - poolCostNum - spaCostNum - gstAmt).toFixed(0)}</span>
-                        </div>
-                        {poolAccess && (
-                          <div className="flex justify-between text-cyan-400">
-                            <span>🏊 Swimming Pool Pass</span>
-                            <span className="font-bold">
-                              {poolCostNum === 0 ? '₹0 (Complimentary)' : `+ ₹${poolPassCost || 0}`}
-                            </span>
-                          </div>
-                        )}
-                        {spaPackage !== 'NONE' && (
-                          <div className="flex justify-between text-purple-400">
-                            <span>💆‍♀️ Spa Package</span>
-                            <span className="font-bold">
-                              {spaCostNum === 0 ? '₹0 (Complimentary)' : `+ ₹${spaPackageCost || 0}`}
-                            </span>
-                          </div>
-                        )}
-                        {gstRate > 0 && (
-                          <>
-                            <div className="h-px bg-slate-800/60 my-1"></div>
-                            <div className="flex justify-between text-slate-500">
-                              <span>Sub Total (Taxable)</span>
-                              <span className="font-bold text-slate-400">₹{subTotal.toFixed(0)}</span>
-                            </div>
-                            <div className="flex justify-between text-amber-500/80">
-                              <span>CGST @ {gstRate / 2}%</span>
-                              <span className="font-bold">+ ₹{cgst.toFixed(0)}</span>
-                            </div>
-                            <div className="flex justify-between text-amber-500/80">
-                              <span>SGST @ {gstRate / 2}%</span>
-                              <span className="font-bold">+ ₹{sgst.toFixed(0)}</span>
-                            </div>
-                          </>
-                        )}
-                        <div className="flex justify-between text-indigo-300 font-bold border-t border-slate-800/60 pt-1">
-                          <span>Grand Total {gstRate > 0 ? `(Incl. GST @${gstRate}%)` : ''}</span>
-                          <span>₹{totalAmount || 0}</span>
-                        </div>
-                        <div className="flex justify-between text-emerald-400">
-                          <span>Advance Deposit</span>
-                          <span className="font-bold">- ₹{advanceAmount || 0}</span>
-                        </div>
-                        <div className="h-px bg-slate-800/80 my-1"></div>
-                        <div className="flex justify-between font-black text-sm">
-                          <span className="text-slate-300">Net Payable Dues</span>
-                          <span className="text-rose-400">₹{Math.max(0, Number(totalAmount || 0) - Number(advanceAmount || 0))}</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
-                >
-                  <UserPlus size={14} /> Confirm Reservation
-                </button>
-              </div>
-
-            </div>
-
-          </form>
-        </div>
       )}
+
+      {/* Create Booking Wizard Modal - Unified Front Desk Real Reservation */}
+      <QuickReservationModal
+        isOpen={isCreateWizardOpen}
+        roomsList={formattedRoomsList}
+        onClose={() => setIsCreateWizardOpen(false)}
+        onCreated={() => {
+          toast.success('Reservation created successfully!');
+          loadData();
+          loadAgentBookings();
+        }}
+        initialArrivalDate={paramArrival || undefined}
+        initialDepartureDate={paramDeparture || undefined}
+        initialRoomId={paramRoomId || undefined}
+      />
 
       {/* Check-In & KYC Modal */}
       {activeCheckInReservation && (
@@ -1935,7 +1168,18 @@ const DEFAULT_SPA_PACKAGES = [
                         required
                         value={expectedCheckout}
                         onChange={(e) => setExpectedCheckout(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                        onClick={(e) => {
+                          try {
+                            (e.currentTarget as any).showPicker?.();
+                          } catch {}
+                        }}
+                        onFocus={(e) => {
+                          try {
+                            (e.currentTarget as any).showPicker?.();
+                          } catch {}
+                        }}
+                        style={{ colorScheme: 'dark' }}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
                       />
                     </div>
                   </div>
@@ -2068,19 +1312,17 @@ const DEFAULT_SPA_PACKAGES = [
               {/* Meal Plan */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  🍽️ Stay Meal Plan
+                  🍽️ Stay Meal Plan (EP, CP, MAP, AP)
                 </label>
                 <select
-                  value={editMealPlan}
+                  value={editMealPlan === 'RO' ? 'EP' : editMealPlan}
                   onChange={(e) => handleEditMealPlanChange(e.target.value)}
                   className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-semibold"
                 >
-                  <option value="RO">Room Only (RO)</option>
-                  <option value="BB">Bed & Breakfast (BB)</option>
-                  <option value="HB">Half Board (HB)</option>
-                  <option value="MAP">Modified American Plan (MAP)</option>
-                  <option value="FB">Full Board (FB)</option>
-                  <option value="AI">All Inclusive (AI)</option>
+                  <option value="EP">EP — European Plan (Room Only, Meals on consumption)</option>
+                  <option value="CP">CP — Continental Plan (Daily Buffet Breakfast Included)</option>
+                  <option value="MAP">MAP — Modified American Plan (Breakfast + Dinner Included)</option>
+                  <option value="AP">AP — American Plan (All 3 Meals Included: Bfast, Lunch, Dinner)</option>
                 </select>
               </div>
 
@@ -2326,7 +1568,18 @@ const DEFAULT_SPA_PACKAGES = [
                     value={newDepartureDate}
                     min={curDep || undefined}
                     onChange={(e) => setNewDepartureDate(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/40 text-white text-sm font-bold focus:outline-none focus:border-amber-500/50 transition-all"
+                    onClick={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
+                    onFocus={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/40 text-white text-sm font-bold focus:outline-none focus:border-amber-500/50 transition-all cursor-pointer"
                   />
                 </div>
 
@@ -2380,6 +1633,32 @@ const DEFAULT_SPA_PACKAGES = [
           </div>
         );
       })()}
+      {/* Reservation Details Drawer (Click to view booking) */}
+      <ReservationDetailDrawer
+        booking={selectedDrawerBooking}
+        roomsList={formattedRoomsList}
+        onClose={() => setSelectedDrawerBooking(null)}
+        onCheckIn={(b) => {
+          setSelectedDrawerBooking(null);
+          startCheckIn(b);
+        }}
+        onUpdated={() => {
+          loadData();
+        }}
+        onOpenKyc={(b) => {
+          setKycModalBooking(b);
+        }}
+      />
+
+      {/* Dedicated KYC Upload & Staff Mobile Scanner Modal */}
+      <KycUploadModal
+        isOpen={Boolean(kycModalBooking)}
+        booking={kycModalBooking}
+        onClose={() => setKycModalBooking(null)}
+        onKycUpdated={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }

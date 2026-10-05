@@ -27,6 +27,8 @@ export interface RoomPortalReservation {
   advanceAmount: number;
   dueAmount: number;
   checkoutRequested: boolean;
+  specialOffer?: string | null;
+  offerCode?: string | null;
   property: {
     id: string;
     name: string;
@@ -53,6 +55,15 @@ export interface RoomPortalConfig {
   emergencyPhone?: string | null;
   wifiName?: string | null;
   wifiPassword?: string | null;
+  breakfastTimings?: string | null;
+  restaurantTimings?: string | null;
+  dailyMealMenu?: string | null;
+  googleReviewUrl?: string | null;
+  googlePlaceId?: string | null;
+  promotionalOfferTitle?: string | null;
+  promotionalOfferDesc?: string | null;
+  promotionalOfferCode?: string | null;
+  showPromotionalOffer?: boolean;
 }
 
 export interface RoomPortalData {

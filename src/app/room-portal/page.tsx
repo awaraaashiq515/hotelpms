@@ -14,6 +14,8 @@ export default function RoomPortalLogin() {
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [suggestedRoom, setSuggestedRoom] = useState('');
+  const [activeRooms, setActiveRooms] = useState<string[]>([]);
   const [time, setTime] = useState(new Date());
 
   // Hotel Device Pairing State
@@ -22,46 +24,35 @@ export default function RoomPortalLogin() {
   const [propertyCode, setPropertyCode] = useState('');
   const [propertyName, setPropertyName] = useState('');
 
-  // Live clock & property detection from URL / localStorage / staff session
+  const fetchActiveRooms = async (pId?: string, pCode?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (pId) params.set('propertyId', pId);
+      if (pCode) params.set('propertyCode', pCode);
+      const res = await fetch(`/api/room-portal/rooms?${params.toString()}`);
+      const d = await res.json();
+      if (d.success && Array.isArray(d.activeRooms)) {
+        setActiveRooms(d.activeRooms);
+      }
+    } catch {}
+  };
+
+  // Live clock & property detection from staff session / URL / localStorage
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
 
     const initProperty = async () => {
       if (typeof window === 'undefined') return;
 
-      // 1. Check URL query params first (e.g. ?property=RCH001 or ?propertyId=...)
       const params = new URLSearchParams(window.location.search);
       const urlProp = params.get('property') || params.get('propertyCode') || '';
       const urlPropId = params.get('propertyId') || '';
 
-      if (urlPropId) {
-        setPropertyId(urlPropId);
-        localStorage.setItem('room_portal_property_id', urlPropId);
-      }
-      if (urlProp) {
-        setPropertyCode(urlProp);
-        localStorage.setItem('room_portal_property', urlProp);
-      }
-
-      // 2. Check localStorage for already configured/paired property
-      let pId = localStorage.getItem('room_portal_property_id') || urlPropId;
-      let pCode = localStorage.getItem('room_portal_property') || urlProp;
-      let pName = localStorage.getItem('room_portal_property_name') || '';
-
-      if (pId || pCode) {
-        setPropertyId(pId);
-        setPropertyCode(pCode);
-        setPropertyName(pName || pCode);
-        setIsConfigured(true);
-        return;
-      }
-
-      // 3. Tablet NOT yet paired! Check if hotel staff is currently logged in on this browser
+      // 1. If staff is logged in on this browser, ALWAYS sync to their active hotel!
       try {
         const res = await fetch('/api/auth/session');
         const sessionData = await res.json();
         if (sessionData.authenticated && (sessionData.user?.propertyId || sessionData.user?.propertyCode)) {
-          // Staff is logged in! Auto-bind this tablet to their hotel!
           const staffPropId = sessionData.user.propertyId || '';
           const staffPropCode = sessionData.user.propertyCode || '';
           const staffPropName = sessionData.user.propertyName || sessionData.user.propertySlug || staffPropCode || 'Hotel';
@@ -75,10 +66,34 @@ export default function RoomPortalLogin() {
           localStorage.setItem('room_portal_property_name', staffPropName);
 
           setIsConfigured(true);
-          toast.success(`Tablet activated for ${staffPropName} 🏨`);
+          fetchActiveRooms(staffPropId, staffPropCode);
           return;
         }
       } catch {}
+
+      // 2. Check URL query params
+      if (urlPropId) {
+        setPropertyId(urlPropId);
+        localStorage.setItem('room_portal_property_id', urlPropId);
+      }
+      if (urlProp) {
+        setPropertyCode(urlProp);
+        localStorage.setItem('room_portal_property', urlProp);
+      }
+
+      // 3. Check localStorage for already configured/paired property
+      let pId = localStorage.getItem('room_portal_property_id') || urlPropId;
+      let pCode = localStorage.getItem('room_portal_property') || urlProp;
+      let pName = localStorage.getItem('room_portal_property_name') || '';
+
+      if (pId || pCode) {
+        setPropertyId(pId);
+        setPropertyCode(pCode);
+        setPropertyName(pName || pCode);
+        setIsConfigured(true);
+        fetchActiveRooms(pId, pCode);
+        return;
+      }
 
       // 4. Tablet is NOT paired and no hotel staff logged in
       setIsConfigured(false);
@@ -106,10 +121,12 @@ export default function RoomPortalLogin() {
       return;
     }
     setError('');
+    setSuggestedRoom('');
     setStep('mobile');
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (customRoom?: string) => {
+    const targetRoom = (customRoom || roomNumber).trim();
     if (!mobile.trim()) {
       setError('Please enter your mobile number.');
       return;
@@ -121,7 +138,7 @@ export default function RoomPortalLogin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          roomNumber: roomNumber.trim(),
+          roomNumber: targetRoom,
           mobile: mobile.trim(),
           propertyId: propertyId || undefined,
           propertyCode: propertyCode || undefined,
@@ -129,13 +146,29 @@ export default function RoomPortalLogin() {
       });
       const data = await res.json();
       if (data.success) {
+        setRoomNumber(targetRoom);
+        setSuggestedRoom('');
         localStorage.setItem('room_portal_token', data.token);
         if (data.property?.id) localStorage.setItem('room_portal_property_id', data.property.id);
         if (data.property?.code) localStorage.setItem('room_portal_property', data.property.code);
-        if (data.property?.name) localStorage.setItem('room_portal_property_name', data.property.name);
-        toast.success(`Welcome, ${data.guest.firstName}! ✨`);
+        if (data.property?.name) {
+          localStorage.setItem('room_portal_property_name', data.property.name);
+          setPropertyName(data.property.name);
+        }
+        toast.success(`Welcome, ${data.guest?.firstName || 'Guest'}! ✨`);
         setTimeout(() => router.push('/room-portal/dashboard'), 800);
       } else {
+        if (data.suggestedRoom) {
+          setSuggestedRoom(data.suggestedRoom);
+          if (data.suggestedPropertyId) {
+            setPropertyId(data.suggestedPropertyId);
+            localStorage.setItem('room_portal_property_id', data.suggestedPropertyId);
+          }
+          if (data.suggestedPropertyName) {
+            setPropertyName(data.suggestedPropertyName);
+            localStorage.setItem('room_portal_property_name', data.suggestedPropertyName);
+          }
+        }
         setError(data.message || 'Login failed. Please check your details.');
         toast.error(data.message || 'Login failed.');
       }
@@ -350,6 +383,23 @@ export default function RoomPortalLogin() {
               <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 900, margin: 0 }}>
                 {propertyName || 'Hotel Room Portal'}
               </h1>
+              <button
+                type="button"
+                onClick={handleUnpairTablet}
+                title="Change or unlink hotel"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '6px',
+                  color: 'rgb(148,163,184)',
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  marginLeft: '4px',
+                }}
+              >
+                Switch
+              </button>
             </div>
             <p style={{ color: 'rgb(100,116,139)', fontSize: '13px', margin: 0 }}>
               In-Room Guest Tablet • Enter your room &amp; mobile to begin
@@ -381,7 +431,7 @@ export default function RoomPortalLogin() {
           }}>
             {step === 'room' ? (
               <div>
-                <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', color: 'rgb(148,163,184)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
                     <Hash size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
                     Room Number
@@ -393,7 +443,7 @@ export default function RoomPortalLogin() {
                     value={roomNumber}
                     onChange={(e) => { setRoomNumber(e.target.value); setError(''); }}
                     onKeyDown={(e) => e.key === 'Enter' && handleRoomNext()}
-                    placeholder="e.g. 101, 201, 205"
+                    placeholder="e.g. 101, 201, 202"
                     autoFocus
                     style={{
                       width: '100%',
@@ -411,6 +461,41 @@ export default function RoomPortalLogin() {
                       boxSizing: 'border-box',
                     }}
                   />
+
+                  {activeRooms.length > 0 && (
+                    <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                      <span style={{ color: 'rgb(100,116,139)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>
+                        Checked-In Rooms (Click to Select)
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                        {activeRooms.map((rm) => (
+                          <button
+                            key={rm}
+                            type="button"
+                            onClick={() => {
+                              setRoomNumber(rm);
+                              setError('');
+                              setSuggestedRoom('');
+                              setStep('mobile');
+                            }}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '10px',
+                              background: roomNumber === rm ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(99,102,241,0.15)',
+                              border: roomNumber === rm ? '1px solid #818cf8' : '1px solid rgba(99,102,241,0.35)',
+                              color: 'white',
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            Rm {rm}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {error && <ErrorMessage message={error} />}
                 <button
@@ -498,10 +583,49 @@ export default function RoomPortalLogin() {
                     Use the mobile number registered during check-in
                   </p>
                 </div>
+
+                {suggestedRoom && (
+                  <div style={{
+                    background: 'rgba(34, 197, 94, 0.12)',
+                    border: '1px solid rgba(34, 197, 94, 0.35)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    marginBottom: '18px',
+                    textAlign: 'center',
+                  }}>
+                    <p style={{ color: 'rgb(187, 247, 208)', fontSize: '13px', fontWeight: 600, margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                      Guest with this mobile is checked into <strong style={{ color: '#4ade80', fontSize: '15px' }}>Room {suggestedRoom}</strong>!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleLogin(suggestedRoom)}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      👉 Switch to Room {suggestedRoom} &amp; Enter
+                    </button>
+                  </div>
+                )}
+
                 {error && <ErrorMessage message={error} />}
                 <button
                   id="login-btn"
-                  onClick={handleLogin}
+                  onClick={() => handleLogin()}
                   disabled={loading}
                   style={{
                     width: '100%',

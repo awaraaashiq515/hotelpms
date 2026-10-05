@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       advanceAmount = 0,
       wifiPassword,
       wifiStatus = 'ACTIVE',
-      mealPlan = 'RO',
+      mealPlan = 'EP',
       poolAccess = false,
       poolPackage = 'NONE',
       poolPassCost = 0,
@@ -279,13 +279,15 @@ export async function POST(request: NextRequest) {
         dueAmount: due,
         wifiPassword: wifiPassword || null,
         wifiStatus: wifiStatus || 'ACTIVE',
-        mealPlan: mealPlan || 'RO',
+        mealPlan: (mealPlan === 'RO' ? 'EP' : mealPlan) || 'EP',
         poolAccess: Boolean(poolAccess),
         poolPackage: poolPackage || 'NONE',
         poolPassCost: Number(poolPassCost || 0),
         spaPackage: spaPackage || 'NONE',
         spaPackageCost: Number(spaPackageCost || 0),
         addOnNotes: addOnNotes || null,
+        specialOffer: body.specialOffer || null,
+        offerCode: body.offerCode || null,
         gstNumber: resolvedGstNumber,
         companyName: resolvedCompanyName,
         billingAddress: resolvedBillingAddress,
@@ -457,6 +459,8 @@ export async function PATCH(request: NextRequest) {
       spaPackage,
       spaPackageCost,
       addOnNotes,
+      specialOffer,
+      offerCode,
     } = body;
 
     if (!id) {
@@ -475,13 +479,15 @@ export async function PATCH(request: NextRequest) {
     }
     if (wifiPassword !== undefined) updateData.wifiPassword = wifiPassword;
     if (wifiStatus !== undefined) updateData.wifiStatus = wifiStatus;
-    if (mealPlan !== undefined) updateData.mealPlan = mealPlan;
+    if (mealPlan !== undefined) updateData.mealPlan = mealPlan === 'RO' ? 'EP' : mealPlan;
     if (poolAccess !== undefined) updateData.poolAccess = Boolean(poolAccess);
     if (poolPackage !== undefined) updateData.poolPackage = poolPackage;
     if (poolPassCost !== undefined) updateData.poolPassCost = Number(poolPassCost);
     if (spaPackage !== undefined) updateData.spaPackage = spaPackage;
     if (spaPackageCost !== undefined) updateData.spaPackageCost = Number(spaPackageCost);
     if (addOnNotes !== undefined) updateData.addOnNotes = addOnNotes;
+    if (specialOffer !== undefined) updateData.specialOffer = specialOffer;
+    if (offerCode !== undefined) updateData.offerCode = offerCode;
 
     // Handle arrival date modification
     if (arrivalDate) {

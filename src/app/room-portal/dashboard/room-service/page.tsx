@@ -131,18 +131,46 @@ export default function RoomServicePage() {
   const [submitted, setSubmitted] = useState(false);
   const [notes, setNotes] = useState('');
 
+  // Advance Scheduling & Packaging Preferences
+  const [scheduleMode, setScheduleMode] = useState<'ASAP' | 'SCHEDULED'>('ASAP');
+  const [scheduledDate, setScheduledDate] = useState<'TODAY' | 'TOMORROW'>('TODAY');
+  const [scheduledTime, setScheduledTime] = useState<string>('08:00 AM');
+  const [customTimeInput, setCustomTimeInput] = useState<string>('');
+  const [packagingType, setPackagingType] = useState<'SERVE_IN_ROOM' | 'PACK_IN_ROOM' | 'TRAVEL_PACK'>('SERVE_IN_ROOM');
+  const [preorderMealParam, setPreorderMealParam] = useState<string | null>(null);
+
   // Active Order Live Tracking State
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeOrder, setActiveOrder] = useState<ActiveOrderData | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
 
-  // Check existing active order on mount
+  // Check existing active order and pre-order query params on mount
   useEffect(() => {
     const savedOrderId = localStorage.getItem('room_portal_active_order_id');
     if (savedOrderId) {
       setActiveOrderId(savedOrderId);
       setSubmitted(true);
+    }
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const isPre = sp.get('preorder') === 'true';
+      const meal = sp.get('meal');
+      if (isPre || meal) {
+        const m = (meal || 'BREAKFAST').toUpperCase();
+        setPreorderMealParam(m);
+        setScheduleMode('SCHEDULED');
+        if (m === 'BREAKFAST') {
+          setScheduledDate('TOMORROW');
+          setScheduledTime('08:00 AM');
+        } else if (m === 'LUNCH') {
+          setScheduledDate('TODAY');
+          setScheduledTime('01:00 PM');
+        } else if (m === 'DINNER') {
+          setScheduledDate('TODAY');
+          setScheduledTime('08:00 PM');
+        }
+      }
     }
   }, []);
 
@@ -234,6 +262,7 @@ export default function RoomServicePage() {
         product: { name: c.name, isVeg: c.isVeg, image: c.image },
       }));
 
+      const chosenTime = customTimeInput.trim() || scheduledTime;
       const res = await fetch('/api/room-portal/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -242,6 +271,10 @@ export default function RoomServicePage() {
           category: 'FOOD_ORDER',
           items: orderItemsSnapshot,
           notes,
+          scheduleMode,
+          scheduledDate,
+          scheduledTime: chosenTime,
+          packagingType,
         }),
       });
       const data = await res.json();
@@ -293,9 +326,14 @@ export default function RoomServicePage() {
   const currentStatus = activeOrder?.status?.toUpperCase() || 'CONFIRMED';
   const statusInfo = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.CONFIRMED;
 
-  // Extract room number
+  // Extract room number, scheduled timing and packaging
   const roomMatch = activeOrder?.deliveryInstructions?.match(/ROOM:([^|]+)/);
   const displayRoom = roomMatch ? roomMatch[1] : (activeOrder?.tableNo?.replace(/^Room\s*/i, '') || 'Your Room');
+
+  const serveTimeMatch = activeOrder?.deliveryInstructions?.match(/SERVE_TIME:([^|]+)/);
+  const packagingMatch = activeOrder?.deliveryInstructions?.match(/PACKAGING:([^|]+)/);
+  const activeServeTiming = serveTimeMatch ? serveTimeMatch[1] : null;
+  const activePackaging = packagingMatch ? packagingMatch[1] : null;
 
   // Elapsed / time helpers
   const orderDate = activeOrder?.createdAt ? new Date(activeOrder.createdAt) : new Date();
@@ -456,7 +494,7 @@ export default function RoomServicePage() {
                 </div>
               </div>
 
-              {/* Estimated Delivery Time */}
+              {/* Estimated Delivery / Scheduled Time */}
               <div style={{
                 background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px'
@@ -469,9 +507,43 @@ export default function RoomServicePage() {
                   <Clock size={20} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Estimated Prep Time</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '16px', color: '#fff', fontWeight: 900 }}>
-                    {statusInfo.step >= 4 ? 'Delivered 🎉' : statusInfo.step === 3 ? 'Ready now 🛎️' : '20 - 30 mins'}
+                  <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
+                    {activeServeTiming && activeServeTiming !== 'ASAP' ? 'Scheduled Serve Time' : 'Estimated Time'}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: '15px', color: '#fff', fontWeight: 900 }}>
+                    {statusInfo.step >= 4
+                      ? 'Delivered 🎉'
+                      : statusInfo.step === 3
+                      ? 'Ready now 🛎️'
+                      : activeServeTiming && activeServeTiming !== 'ASAP'
+                      ? `⏰ ${activeServeTiming}`
+                      : '20 - 30 mins'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Packaging / Service Style Card */}
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px'
+              }}>
+                <div style={{
+                  width: '42px', height: '42px', borderRadius: '12px',
+                  background: activePackaging === 'TRAVEL_PACK' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(45, 212, 191, 0.15)',
+                  border: `1px solid ${activePackaging === 'TRAVEL_PACK' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(45, 212, 191, 0.3)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '20px'
+                }}>
+                  {activePackaging === 'TRAVEL_PACK' ? '🎒' : activePackaging === 'PACK_IN_ROOM' ? '📦' : '🍽️'}
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Service Style</p>
+                  <p style={{ margin: '2px 0 0', fontSize: '14px', color: '#fff', fontWeight: 800 }}>
+                    {activePackaging === 'TRAVEL_PACK'
+                      ? '🎒 Travel / Departure Pack'
+                      : activePackaging === 'PACK_IN_ROOM'
+                      ? '📦 Packed in Room (Boxed)'
+                      : '🍽️ Plated Table Service'}
                   </p>
                 </div>
               </div>
@@ -724,6 +796,164 @@ export default function RoomServicePage() {
                     </p>
                   </div>
                 ))}
+                {/* ── Advance Timing & Delivery Schedule ── */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '14px', marginBottom: '16px' }}>
+                  <p style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: 800, margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={15} color="#fb923c" /> When would you like this served?
+                  </p>
+
+                  {/* Mode Selector */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleMode('ASAP')}
+                      style={{
+                        padding: '10px 12px', borderRadius: '12px', cursor: 'pointer',
+                        background: scheduleMode === 'ASAP' ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)',
+                        border: `1.5px solid ${scheduleMode === 'ASAP' ? '#f97316' : 'rgba(255,255,255,0.08)'}`,
+                        color: scheduleMode === 'ASAP' ? '#fff' : '#94a3b8',
+                        fontWeight: 800, fontSize: '12px', textAlign: 'center', transition: 'all 0.2s'
+                      }}
+                    >
+                      ⚡ Deliver ASAP (20-30m)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleMode('SCHEDULED')}
+                      style={{
+                        padding: '10px 12px', borderRadius: '12px', cursor: 'pointer',
+                        background: scheduleMode === 'SCHEDULED' ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)',
+                        border: `1.5px solid ${scheduleMode === 'SCHEDULED' ? '#f97316' : 'rgba(255,255,255,0.08)'}`,
+                        color: scheduleMode === 'SCHEDULED' ? '#fff' : '#94a3b8',
+                        fontWeight: 800, fontSize: '12px', textAlign: 'center', transition: 'all 0.2s'
+                      }}
+                    >
+                      ⏰ Pre-Order / Schedule
+                    </button>
+                  </div>
+
+                  {/* Scheduled Date & Time Pickers */}
+                  {scheduleMode === 'SCHEDULED' && (
+                    <div style={{
+                      padding: '12px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)', marginBottom: '12px'
+                    }}>
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledDate('TODAY')}
+                          style={{
+                            flex: 1, padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                            background: scheduledDate === 'TODAY' ? 'rgba(249,115,22,0.25)' : 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${scheduledDate === 'TODAY' ? '#f97316' : 'rgba(255,255,255,0.1)'}`,
+                            color: scheduledDate === 'TODAY' ? '#fff' : '#94a3b8',
+                            fontSize: '12px', fontWeight: 800
+                          }}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledDate('TOMORROW')}
+                          style={{
+                            flex: 1, padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                            background: scheduledDate === 'TOMORROW' ? 'rgba(249,115,22,0.25)' : 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${scheduledDate === 'TOMORROW' ? '#f97316' : 'rgba(255,255,255,0.1)'}`,
+                            color: scheduledDate === 'TOMORROW' ? '#fff' : '#94a3b8',
+                            fontSize: '12px', fontWeight: 800
+                          }}
+                        >
+                          🌅 Tomorrow Morning
+                        </button>
+                      </div>
+
+                      <p style={{ margin: '0 0 6px', color: '#94a3b8', fontSize: '11px', fontWeight: 700 }}>
+                        Select Target Delivery Time:
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                        {(scheduledDate === 'TOMORROW'
+                          ? ['07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM']
+                          : ['01:00 PM', '01:30 PM', '02:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM']
+                        ).map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => { setScheduledTime(slot); setCustomTimeInput(''); }}
+                            style={{
+                              padding: '5px 10px', borderRadius: '8px', cursor: 'pointer',
+                              background: scheduledTime === slot && !customTimeInput ? '#f97316' : 'rgba(255,255,255,0.06)',
+                              border: 'none', color: '#fff', fontSize: '11px', fontWeight: 700
+                            }}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
+
+                      <input
+                        type="text"
+                        value={customTimeInput}
+                        onChange={(e) => setCustomTimeInput(e.target.value)}
+                        placeholder="Or specify custom time (e.g. 06:45 AM)..."
+                        style={{
+                          width: '100%', padding: '8px 12px', borderRadius: '8px',
+                          border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,23,42,0.7)',
+                          color: '#fff', fontSize: '12px', outline: 'none', boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Packaging & Service Style ── */}
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: 800, margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📦</span> Packaging &amp; Service Style
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                    {[
+                      {
+                        key: 'SERVE_IN_ROOM' as const,
+                        icon: '🍽️',
+                        title: 'Serve in Room',
+                        desc: 'Plated table service with cutlery & glassware',
+                      },
+                      {
+                        key: 'PACK_IN_ROOM' as const,
+                        icon: '📦',
+                        title: 'Pack in Room',
+                        desc: 'Sealed hygienic boxes placed in your room',
+                      },
+                      {
+                        key: 'TRAVEL_PACK' as const,
+                        icon: '🎒',
+                        title: 'Travel / Morning Pack',
+                        desc: 'Grab-and-go sealed takeaway for early checkout or road trip',
+                      },
+                    ].map((opt) => {
+                      const isSelected = packagingType === opt.key;
+                      return (
+                        <div
+                          key={opt.key}
+                          onClick={() => setPackagingType(opt.key)}
+                          style={{
+                            padding: '12px', borderRadius: '12px', cursor: 'pointer',
+                            background: isSelected ? 'rgba(249,115,22,0.18)' : 'rgba(255,255,255,0.03)',
+                            border: `1.5px solid ${isSelected ? '#f97316' : 'rgba(255,255,255,0.08)'}`,
+                            transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '4px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '18px' }}>{opt.icon}</span>
+                            <span style={{ color: '#fff', fontSize: '12px', fontWeight: 800 }}>{opt.title}</span>
+                          </div>
+                          <span style={{ color: '#94a3b8', fontSize: '10px', lineHeight: 1.3 }}>{opt.desc}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '8px', marginBottom: '16px' }}>
                   <textarea
                     value={notes}
@@ -744,6 +974,42 @@ export default function RoomServicePage() {
                 >
                   {submitting ? <><Loader2 size={20} className="animate-spin" /> Placing Order...</> : <><Send size={20} /> Place Order</>}
                 </button>
+              </div>
+            )}
+
+            {/* Pre-Order Banner if arrived from Dashboard or meal schedule */}
+            {preorderMealParam && (
+              <div style={{
+                marginBottom: '24px', padding: '16px 20px', borderRadius: '18px',
+                background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(15,23,42,0.9))',
+                border: '1.5px solid rgba(249,115,22,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '42px', height: '42px', borderRadius: '12px',
+                    background: 'rgba(249,115,22,0.2)', border: '1px solid rgba(249,115,22,0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px'
+                  }}>
+                    🌅
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, color: '#fff', fontSize: '15px', fontWeight: 900 }}>
+                      Advance Pre-Order for {preorderMealParam.charAt(0) + preorderMealParam.slice(1).toLowerCase()}
+                    </p>
+                    <p style={{ margin: '2px 0 0', color: '#cbd5e1', fontSize: '12px' }}>
+                      Items will be prepared fresh and delivered at your scheduled time or packed for early travel.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    padding: '6px 14px', borderRadius: '20px', background: 'rgba(249,115,22,0.25)',
+                    border: '1px solid rgba(249,115,22,0.4)', color: '#fdba74', fontSize: '11px', fontWeight: 900
+                  }}>
+                    ⏰ {scheduledDate === 'TOMORROW' ? 'Tomorrow Morning' : 'Today'} · {customTimeInput.trim() || scheduledTime}
+                  </span>
+                </div>
               </div>
             )}
 

@@ -150,6 +150,32 @@ export async function PUT(
        await recordDriverActivity(order.driverId, 'RIDE');
     }
 
+    // --- Stop 3-minute room service escalation if order status was updated by staff ---
+    try {
+      const pendingNotifs = await prisma.notification.findMany({
+        where: { type: 'ROOM_SERVICE_ORDER', status: 'UNREAD' },
+      });
+      const matchingIds = pendingNotifs
+        .filter((n) => {
+          if (!n.metadata) return false;
+          try {
+            const meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
+            return meta.orderId === id || meta.orderNo === order.orderNo;
+          } catch {
+            return false;
+          }
+        })
+        .map((n) => n.id);
+      if (matchingIds.length > 0) {
+        await prisma.notification.updateMany({
+          where: { id: { in: matchingIds } },
+          data: { status: 'READ' },
+        });
+      }
+    } catch (e) {
+      console.error('[ROOM_SERVICE_NOTIFICATION_CLEAR] Error:', e);
+    }
+
     // ─── Delivery WhatsApp + SMS Notifications ────────────────────────────────
     if (isDelivery || order.orderType === 'DELIVERY') {
       const customerPhone = (order as any).deliveryPhone;

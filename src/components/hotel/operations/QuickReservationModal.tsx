@@ -31,6 +31,11 @@ import {
   Sun,
   BedDouble,
   HeartHandshake,
+  Link2,
+  RefreshCw,
+  TrendingUp,
+  Hash,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 export interface RoomOption {
@@ -40,6 +45,7 @@ export interface RoomOption {
   roomTypeId: string;
   baseRate: number;
   status?: string;
+  floor?: string;
 }
 
 interface QuickReservationModalProps {
@@ -48,6 +54,8 @@ interface QuickReservationModalProps {
   onClose: () => void;
   onCreated: () => void;
   initialArrivalDate?: string;
+  initialDepartureDate?: string;
+  initialRoomId?: string;
   initialGuestData?: {
     firstName?: string;
     lastName?: string;
@@ -57,10 +65,13 @@ interface QuickReservationModalProps {
   } | null;
 }
 
+// Room allocation mode
+type RoomAllocMode = 'auto' | 'select' | 'link' | 'replace' | 'upgrade';
+
 // ── Meal Plans ─────────────────────────────────────────────────────────────
 const MEAL_PLANS = [
   {
-    id: 'RO',
+    id: 'EP',
     code: 'EP',
     name: 'EP (European Plan - Room Only)',
     desc: 'Room stay only. Meals charged separately on consumption.',
@@ -121,16 +132,63 @@ const ID_TYPES = [
   'Foreign Citizen ID',
 ];
 
+export const POPULAR_HOTEL_OFFERS = [
+  {
+    id: 'SPA20',
+    title: 'Flat 20% OFF on Spa Treatments & Massages',
+    code: 'SPA20',
+    badge: '💆 SPA DEAL',
+  },
+  {
+    id: 'HAPPYHOUR',
+    title: 'Happy Hours: 1+1 Free on Cocktails & Mocktails (5 PM - 8 PM)',
+    code: 'HAPPYHOUR',
+    badge: '🍹 1+1 DRINKS',
+  },
+  {
+    id: 'DINING15',
+    title: '15% OFF on In-Room Dining & Room Service Orders',
+    code: 'DINE15',
+    badge: '🍽️ FOOD OFFER',
+  },
+  {
+    id: 'WELCOME_VIP',
+    title: 'Complimentary Welcome Drink, Chef’s Special Cake & Fruit Basket',
+    code: 'VIPWELCOME',
+    badge: '🎂 VIP PERK',
+  },
+  {
+    id: 'POOLPASS',
+    title: 'Complimentary Heated Pool & Jacuzzi Pass for 2 Guests',
+    code: 'SPLASHFREE',
+    badge: '🏊 POOL PASS',
+  },
+  {
+    id: 'CAB10',
+    title: 'Flat 10% OFF on Airport Transfers & City Sightseeing Taxi',
+    code: 'AIRPORT10',
+    badge: '🚕 CAB DISCOUNT',
+  },
+  {
+    id: 'CUSTOM',
+    title: 'Custom Offer / Personalized Voucher',
+    code: '',
+    badge: '✨ CUSTOM',
+  },
+];
+
 export function QuickReservationModal({
   isOpen,
   roomsList,
   onClose,
   onCreated,
   initialArrivalDate,
+  initialDepartureDate,
+  initialRoomId,
   initialGuestData,
 }: QuickReservationModalProps) {
   // Navigation tabs for quick jumping
-  const [activeSection, setActiveSection] = useState<'guest' | 'gst' | 'stay' | 'meals' | 'billing'>('guest');
+  const [activeSection, setActiveSection] = useState<'guest' | 'gst' | 'stay' | 'meals' | 'offers' | 'billing'>('guest');
 
   // 1. Guest & ID Proof State
   const [guestFirstName, setGuestFirstName] = useState('');
@@ -153,6 +211,9 @@ export function QuickReservationModal({
 
   // 3. Stay & Room State
   const [selectedRoomId, setSelectedRoomId] = useState(roomsList[0]?.id || '');
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState(roomsList[0]?.roomTypeId || '');
+  const [roomAllocMode, setRoomAllocMode] = useState<RoomAllocMode>('select');
+  const [linkedRoomId, setLinkedRoomId] = useState('');
   const [arrivalDate, setArrivalDate] = useState(new Date().toISOString().split('T')[0]);
   const [departureDate, setDepartureDate] = useState(
     new Date(Date.now() + 86400000).toISOString().split('T')[0]
@@ -161,8 +222,37 @@ export function QuickReservationModal({
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
 
+  // Derived room type list (unique)
+  const roomTypeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return roomsList.reduce<{ id: string; name: string; baseRate: number }[]>((acc, r) => {
+      if (!seen.has(r.roomTypeId)) {
+        seen.add(r.roomTypeId);
+        acc.push({ id: r.roomTypeId, name: r.roomTypeName, baseRate: r.baseRate });
+      }
+      return acc;
+    }, []);
+  }, [roomsList]);
+
+  // Rooms filtered by selected category
+  const roomsForCategory = useMemo(() => {
+    if (!selectedRoomTypeId) return roomsList;
+    return roomsList.filter(r => r.roomTypeId === selectedRoomTypeId);
+  }, [roomsList, selectedRoomTypeId]);
+
+  // Rooms available for upgrade (higher rate than current)
+  const upgradeRooms = useMemo(() => {
+    const currentRate = roomsList.find(r => r.id === selectedRoomId)?.baseRate || 0;
+    return roomsList.filter(r => r.baseRate > currentRate && r.status !== 'OCCUPIED');
+  }, [roomsList, selectedRoomId]);
+
+  // Rooms available for replace/link (not current room, not occupied)
+  const availableOtherRooms = useMemo(() => {
+    return roomsList.filter(r => r.id !== selectedRoomId && r.status !== 'OCCUPIED');
+  }, [roomsList, selectedRoomId]);
+
   // 4. Meal Plan & Complimentary Perks State
-  const [mealPlan, setMealPlan] = useState('RO');
+  const [mealPlan, setMealPlan] = useState('EP');
   const [addMealToTotal, setAddMealToTotal] = useState(true);
 
   // Spa & Pool
@@ -180,7 +270,13 @@ export function QuickReservationModal({
   });
   const [customComplimentaryNotes, setCustomComplimentaryNotes] = useState('');
 
-  // 5. Payment & Notes State
+  // 5. Special Guest Offer & Promo (Shows on In-Room Tablet Dashboard)
+  const [hasSpecialOffer, setHasSpecialOffer] = useState(false);
+  const [selectedOfferPreset, setSelectedOfferPreset] = useState('SPA20');
+  const [specialOfferText, setSpecialOfferText] = useState('Flat 20% OFF on Spa Treatments & Massages');
+  const [specialOfferCode, setSpecialOfferCode] = useState('SPA20');
+
+  // 6. Payment & Notes State
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [advancePaymentMode, setAdvancePaymentMode] = useState('CASH');
   const [guestNotes, setGuestNotes] = useState('');
@@ -201,30 +297,78 @@ export function QuickReservationModal({
 
       if (initialArrivalDate) {
         setArrivalDate(initialArrivalDate);
-        const nextDay = new Date(initialArrivalDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        setDepartureDate(nextDay.toISOString().split('T')[0]);
+        if (initialDepartureDate) {
+          setDepartureDate(initialDepartureDate);
+        } else {
+          const nextDay = new Date(initialArrivalDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          setDepartureDate(nextDay.toISOString().split('T')[0]);
+        }
       } else {
         const todayStr = new Date().toISOString().split('T')[0];
         const nextStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
         setArrivalDate(todayStr);
-        setDepartureDate(nextStr);
+        setDepartureDate(initialDepartureDate || nextStr);
       }
 
-      if (roomsList.length > 0) {
+      if (initialRoomId) {
+        const found = roomsList.find((r) => r.id === initialRoomId);
+        if (found) {
+          setSelectedRoomId(found.id);
+          setRatePerNight(found.baseRate || 3500);
+        } else if (roomsList.length > 0) {
+          setSelectedRoomId(roomsList[0].id);
+          setRatePerNight(roomsList[0].baseRate || 3500);
+        }
+      } else if (roomsList.length > 0) {
         const first = roomsList[0];
         setSelectedRoomId(first.id);
         setRatePerNight(first.baseRate || 3500);
       }
     }
-  }, [isOpen, initialArrivalDate, roomsList, initialGuestData]);
+  }, [isOpen, initialArrivalDate, initialDepartureDate, initialRoomId, roomsList, initialGuestData]);
 
   // Update room rate when room selection changes
   const handleRoomChange = (rId: string) => {
     setSelectedRoomId(rId);
     const room = roomsList.find((r) => r.id === rId);
-    if (room && room.baseRate) {
+    if (room) {
+      if (room.baseRate) setRatePerNight(room.baseRate);
+      setSelectedRoomTypeId(room.roomTypeId);
+    }
+  };
+
+  // Handle room category change → auto-select first room in that category
+  const handleCategoryChange = (typeId: string) => {
+    setSelectedRoomTypeId(typeId);
+    const firstRoom = roomsList.find(r => r.roomTypeId === typeId && r.status !== 'OCCUPIED');
+    if (firstRoom) {
+      setSelectedRoomId(firstRoom.id);
+      setRatePerNight(firstRoom.baseRate);
+    } else {
+      setSelectedRoomId('');
+    }
+  };
+
+  // Apply upgrade
+  const handleApplyUpgrade = (rId: string) => {
+    const room = roomsList.find(r => r.id === rId);
+    if (room) {
+      setSelectedRoomId(room.id);
+      setSelectedRoomTypeId(room.roomTypeId);
       setRatePerNight(room.baseRate);
+      setRoomAllocMode('select');
+    }
+  };
+
+  // Apply replace
+  const handleApplyReplace = (rId: string) => {
+    const room = roomsList.find(r => r.id === rId);
+    if (room) {
+      setSelectedRoomId(room.id);
+      setSelectedRoomTypeId(room.roomTypeId);
+      setRatePerNight(room.baseRate);
+      setRoomAllocMode('select');
     }
   };
 
@@ -260,7 +404,7 @@ export function QuickReservationModal({
 
   // Meal Plan Cost Calculation
   const selectedMealPlanObj = useMemo(() => {
-    return MEAL_PLANS.find((m) => m.id === mealPlan) || MEAL_PLANS[0];
+    return MEAL_PLANS.find((m) => m.id === mealPlan || (mealPlan === 'RO' && m.id === 'EP')) || MEAL_PLANS[0];
   }, [mealPlan]);
 
   const mealPlanTotalCost = useMemo(() => {
@@ -403,7 +547,7 @@ export function QuickReservationModal({
         departureDate,
         adults: Number(adults || 1),
         children: Number(children || 0),
-        mealPlan,
+        mealPlan: mealPlan === 'RO' ? 'EP' : mealPlan,
         spaPackage: selectedSpaObj?.id || 'NONE',
         spaPackageCost: selectedSpaObj?.price || 0,
         poolAccess: poolPackageId !== 'NONE',
@@ -413,6 +557,8 @@ export function QuickReservationModal({
         advanceAmount: Number(advanceAmount || 0),
         dueAmount: balanceDue,
         addOnNotes: fullNotes,
+        specialOffer: hasSpecialOffer && specialOfferText.trim() ? specialOfferText.trim() : null,
+        offerCode: hasSpecialOffer && specialOfferCode.trim() ? specialOfferCode.trim().toUpperCase() : null,
         gstNumber: isCorporateBooking && gstNumber.trim() ? gstNumber.trim().toUpperCase() : null,
         companyName: isCorporateBooking && companyName.trim() ? companyName.trim() : null,
         billingAddress: isCorporateBooking && billingAddress.trim() ? billingAddress.trim() : null,
@@ -443,6 +589,10 @@ export function QuickReservationModal({
         setIsCorporateBooking(false);
         setGuestNotes('');
         setCustomComplimentaryNotes('');
+        setHasSpecialOffer(false);
+        setSelectedOfferPreset('SPA20');
+        setSpecialOfferText('Flat 20% OFF on Spa Treatments & Massages');
+        setSpecialOfferCode('SPA20');
         setAdvanceAmount(0);
         setCustomTotalOverride(null);
       } else {
@@ -549,6 +699,24 @@ export function QuickReservationModal({
 
           <button
             type="button"
+            onClick={() => {
+              setActiveSection('offers');
+              document.getElementById('section-offers')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              activeSection === 'offers'
+                ? 'bg-amber-500 text-white shadow-xs'
+                : hasSpecialOffer
+                ? 'text-amber-300 bg-amber-500/10 border border-amber-500/30'
+                : 'text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>5. Special Guest Offer {hasSpecialOffer ? '(Active 🎁)' : ''}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSection('billing')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'billing'
@@ -557,7 +725,7 @@ export function QuickReservationModal({
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>5. Billing & Advance</span>
+            <span>6. Billing & Advance</span>
           </button>
         </div>
 
@@ -885,13 +1053,27 @@ export function QuickReservationModal({
                   <span>Check-In Date</span>
                   <span className="text-[10px] text-emerald-400 font-normal">12:00 PM</span>
                 </label>
-                <input
-                  type="date"
-                  required
-                  value={arrivalDate}
-                  onChange={(e) => setArrivalDate(e.target.value)}
-                  className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894]"
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    required
+                    value={arrivalDate}
+                    onChange={(e) => setArrivalDate(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
+                    onFocus={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 pr-9 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894] cursor-pointer"
+                  />
+                  <Calendar className="w-4 h-4 text-emerald-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               <div>
@@ -899,14 +1081,28 @@ export function QuickReservationModal({
                   <span>Check-Out Date</span>
                   <span className="text-[10px] text-amber-400 font-normal">11:00 AM</span>
                 </label>
-                <input
-                  type="date"
-                  required
-                  min={arrivalDate}
-                  value={departureDate}
-                  onChange={(e) => setDepartureDate(e.target.value)}
-                  className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894]"
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    required
+                    min={arrivalDate}
+                    value={departureDate}
+                    onChange={(e) => setDepartureDate(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
+                    onFocus={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 pr-9 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894] cursor-pointer"
+                  />
+                  <Calendar className="w-4 h-4 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               <div>
@@ -944,38 +1140,211 @@ export function QuickReservationModal({
               </div>
             </div>
 
-            {/* Room Selection & Rate per Night */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-800/80">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Select Room & Category
-                </label>
-                <select
-                  value={selectedRoomId}
-                  onChange={(e) => handleRoomChange(e.target.value)}
-                  className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894]"
-                >
-                  {roomsList.map((r) => (
-                    <option key={r.id} value={r.id} className="bg-slate-900 text-white">
-                      Room {r.roomNumber} ({r.roomTypeName}) - ₹{r.baseRate}/night {r.status ? `[${r.status}]` : ''}
-                    </option>
-                  ))}
-                </select>
+            {/* Room Category + Physical Room Number — Two-Step Selection */}
+            <div className="space-y-3 pt-2 border-t border-slate-800/80">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Step 1: Room Category */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <Hash className="w-3 h-3 text-amber-400" />
+                    Room Category
+                  </label>
+                  <select
+                    value={selectedRoomTypeId}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894]"
+                  >
+                    <option value="" className="bg-slate-900">— Select Category —</option>
+                    {roomTypeOptions.map((rt) => (
+                      <option key={rt.id} value={rt.id} className="bg-slate-900 text-white">
+                        {rt.name} — ₹{rt.baseRate?.toLocaleString('en-IN')}/night
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Step 2: Physical Room Number */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <BedDouble className="w-3 h-3 text-[#00b894]" />
+                    Assign Physical Room
+                  </label>
+                  <select
+                    value={selectedRoomId}
+                    onChange={(e) => handleRoomChange(e.target.value)}
+                    className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894]"
+                  >
+                    <option value="" className="bg-slate-900">Auto-Assign Later</option>
+                    {roomsForCategory.map((r) => {
+                      const statusColor = r.status === 'AVAILABLE' ? '🟢' : r.status === 'OCCUPIED' ? '🔴' : '🟡';
+                      return (
+                        <option key={r.id} value={r.id} className="bg-slate-900 text-white" disabled={r.status === 'OCCUPIED'}>
+                          {statusColor} Room {r.roomNumber}{r.floor ? ` · Floor ${r.floor}` : ''} [{r.status || 'AVAILABLE'}]
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Rate per Night */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Rate / Night (₹)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Editable</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={ratePerNight}
+                    onChange={(e) => setRatePerNight(Math.max(0, Number(e.target.value)))}
+                    className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-white font-bold focus:outline-none focus:ring-2 focus:ring-[#00b894]"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-                  <span>Rate / Night (₹)</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Editable</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={ratePerNight}
-                  onChange={(e) => setRatePerNight(Math.max(0, Number(e.target.value)))}
-                  className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-white font-bold focus:outline-none focus:ring-2 focus:ring-[#00b894]"
-                />
+              {/* Selected Room Info Badge */}
+              {selectedRoomId && (() => {
+                const room = roomsList.find(r => r.id === selectedRoomId);
+                if (!room) return null;
+                return (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#00b894]/8 border border-[#00b894]/25">
+                    <BedDouble className="w-4 h-4 text-[#00b894] shrink-0" />
+                    <div className="flex-1 text-xs">
+                      <span className="text-white font-bold">Room {room.roomNumber}</span>
+                      <span className="text-slate-400 mx-1.5">·</span>
+                      <span className="text-slate-300">{room.roomTypeName}</span>
+                      {room.floor && <span className="text-slate-500 ml-1.5">Floor {room.floor}</span>}
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                      room.status === 'AVAILABLE' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                      room.status === 'OCCUPIED'  ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' :
+                                                    'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    }`}>{room.status || 'AVAILABLE'}</span>
+                  </div>
+                );
+              })()}
+
+              {/* Link / Replace / Upgrade Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Room Actions:</span>
+                <button
+                  type="button"
+                  onClick={() => setRoomAllocMode(roomAllocMode === 'link' ? 'select' : 'link')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                    roomAllocMode === 'link'
+                      ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-sky-300 hover:border-sky-500/40'
+                  }`}
+                >
+                  <Link2 className="w-3 h-3" /> Link Additional Room
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomAllocMode(roomAllocMode === 'replace' ? 'select' : 'replace')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                    roomAllocMode === 'replace'
+                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
+                  }`}
+                >
+                  <ArrowRightLeft className="w-3 h-3" /> Replace Room
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomAllocMode(roomAllocMode === 'upgrade' ? 'select' : 'upgrade')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                    roomAllocMode === 'upgrade'
+                      ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-violet-300 hover:border-violet-500/40'
+                  }`}
+                >
+                  <TrendingUp className="w-3 h-3" /> Upgrade Room
+                </button>
               </div>
+
+              {/* Link Additional Room Panel */}
+              {roomAllocMode === 'link' && (
+                <div className="p-3 rounded-xl bg-sky-950/20 border border-sky-500/20 space-y-2 animate-in fade-in">
+                  <p className="text-xs font-bold text-sky-400 flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5" /> Link a Second Room to This Reservation</p>
+                  <select
+                    value={linkedRoomId}
+                    onChange={(e) => setLinkedRoomId(e.target.value)}
+                    className="w-full bg-[#1e293b]/70 border border-sky-500/30 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <option value="">— Select Additional Room —</option>
+                    {availableOtherRooms.map(r => (
+                      <option key={r.id} value={r.id} className="bg-slate-900">
+                        Room {r.roomNumber} · {r.roomTypeName} · ₹{r.baseRate}/night
+                      </option>
+                    ))}
+                  </select>
+                  {linkedRoomId && (
+                    <p className="text-[10px] text-sky-300 font-medium">
+                      ✓ Room {roomsList.find(r => r.id === linkedRoomId)?.roomNumber} will be linked to this reservation.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Replace Room Panel */}
+              {roomAllocMode === 'replace' && (
+                <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/20 space-y-2 animate-in fade-in">
+                  <p className="text-xs font-bold text-amber-400 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" /> Replace Current Room with Another Available Room</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {availableOtherRooms.map(r => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => handleApplyReplace(r.id)}
+                        className="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700 hover:border-amber-500/40 hover:bg-amber-500/5 text-left transition-all"
+                      >
+                        <div>
+                          <div className="text-xs font-bold text-white">Room {r.roomNumber}</div>
+                          <div className="text-[10px] text-slate-400">{r.roomTypeName}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-amber-400">₹{r.baseRate?.toLocaleString('en-IN')}/nt</div>
+                          <div className="text-[9px] text-slate-500">{r.status || 'AVAILABLE'}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upgrade Room Panel */}
+              {roomAllocMode === 'upgrade' && (
+                <div className="p-3 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-2 animate-in fade-in">
+                  <p className="text-xs font-bold text-violet-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Upgrade to a Premium Room</p>
+                  {upgradeRooms.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic">No higher-tier rooms available at this time.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {upgradeRooms.map(r => {
+                        const currentRate = roomsList.find(rm => rm.id === selectedRoomId)?.baseRate || 0;
+                        const diff = r.baseRate - currentRate;
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => handleApplyUpgrade(r.id)}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700 hover:border-violet-500/40 hover:bg-violet-500/5 text-left transition-all"
+                          >
+                            <div>
+                              <div className="text-xs font-bold text-white">Room {r.roomNumber}</div>
+                              <div className="text-[10px] text-slate-400">{r.roomTypeName}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs font-bold text-violet-400">₹{r.baseRate?.toLocaleString('en-IN')}/nt</div>
+                              <div className="text-[9px] text-emerald-400">+₹{diff.toLocaleString('en-IN')} upgrade</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Stay Timeline Summary Banner */}
@@ -1177,6 +1546,138 @@ export function QuickReservationModal({
                 className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894] placeholder:text-slate-500"
               />
             </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════════
+              SECTION 6: SPECIAL GUEST OFFER & PROMO (IN-ROOM TABLET)
+             ══════════════════════════════════════════════════════════════════ */}
+          <div
+            id="section-offers"
+            className="p-5 rounded-2xl bg-gradient-to-br from-amber-950/20 via-slate-900/80 to-slate-900/60 border border-amber-500/30 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎁</span>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    In-Room Tablet Special Offer &amp; Guest Deal
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Live on Tablet
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Attach an exclusive offer, discount voucher or perk for this guest to see on their in-room tablet screen.
+                  </p>
+                </div>
+              </div>
+
+              {/* Enable / Disable Switch */}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <span className="text-xs font-semibold text-amber-300">
+                  {hasSpecialOffer ? 'Offer Active ✅' : 'No Offer'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={hasSpecialOffer}
+                  onChange={(e) => setHasSpecialOffer(e.target.checked)}
+                  className="rounded border-amber-500/40 bg-slate-800 text-amber-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                />
+              </label>
+            </div>
+
+            {hasSpecialOffer && (
+              <div className="space-y-4 animate-in fade-in">
+                {/* Popular Offer Presets Grid */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-2">
+                    Select Popular Hotel Deal Preset (or customize below):
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {POPULAR_HOTEL_OFFERS.map((offer) => {
+                      const isSelected = selectedOfferPreset === offer.id;
+                      return (
+                        <button
+                          key={offer.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedOfferPreset(offer.id);
+                            if (offer.id !== 'CUSTOM') {
+                              setSpecialOfferText(offer.title);
+                              setSpecialOfferCode(offer.code);
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-amber-500/15 border-amber-500 text-white shadow-sm ring-1 ring-amber-500'
+                              : 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[10px] font-black uppercase text-amber-400">
+                              {offer.badge}
+                            </span>
+                            {offer.code && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-900 text-amber-300 border border-amber-500/20">
+                                {offer.code}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-bold leading-snug">{offer.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Offer Details Form */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Offer Description (Displayed on Room Tablet)
+                    </label>
+                    <input
+                      type="text"
+                      value={specialOfferText}
+                      onChange={(e) => setSpecialOfferText(e.target.value)}
+                      placeholder="e.g. Flat 20% OFF on Spa Treatments & Massages"
+                      className="w-full bg-[#1e293b]/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Promo / Voucher Code (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={specialOfferCode}
+                      onChange={(e) => setSpecialOfferCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. SPA20"
+                      className="w-full bg-[#1e293b]/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-amber-400 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder:text-slate-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Tablet Preview */}
+                <div className="p-3 rounded-xl bg-slate-950/70 border border-amber-500/25 flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✨</span>
+                    <div>
+                      <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+                        Live Preview on Room {roomsList.find(r => r.id === selectedRoomId)?.roomNumber || 'Display'}:
+                      </span>
+                      <strong className="text-white">
+                        {specialOfferText || 'No offer description entered'}
+                      </strong>
+                    </div>
+                  </div>
+                  {specialOfferCode && (
+                    <span className="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/30">
+                      CODE: {specialOfferCode}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════

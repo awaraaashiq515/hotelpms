@@ -1,4 +1,4 @@
-'use client';
+  'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,11 +6,13 @@ import {
   UtensilsCrossed, Sparkles, Wifi, Dumbbell,
   FileText, Phone, Star, LogOut, Loader2,
   Hotel, LogIn, RefreshCw,
-  Bell, Lock, PhoneCall,
+  Bell, Lock, PhoneCall, Clock, MapPin, ChefHat, CheckCircle2,
+  Sun, Moon, Sunset, Coffee, ArrowRight,
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import KioskWrapper from '@/components/room-portal/KioskWrapper';
 import { RoomPortalData, RoomPortalConfig } from '@/components/room-portal/types';
+import { DEFAULT_DAILY_MEAL_SPREADS, DailyMealSpread } from '@/lib/daily-menus';
 
 interface ServiceCard {
   id: string;
@@ -29,12 +31,23 @@ const SERVICE_CARDS: ServiceCard[] = [
     id: 'room-service',
     icon: UtensilsCrossed,
     label: 'Room Service',
-    sublabel: 'Food & beverages',
+    sublabel: 'Food & in-room dining',
     href: '/room-portal/dashboard/room-service',
     gradient: 'linear-gradient(135deg, rgba(251,146,60,0.2) 0%, rgba(239,68,68,0.1) 100%)',
     glow: 'rgba(251,146,60,0.4)',
     emoji: '🍽️',
     showKey: 'showRoomService',
+  },
+  {
+    id: 'daily-menu',
+    icon: ChefHat,
+    label: "Today's Menu",
+    sublabel: 'Buffet & daily spreads',
+    href: '/room-portal/dashboard/daily-menu',
+    gradient: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(234,88,12,0.1) 100%)',
+    glow: 'rgba(245,158,11,0.4)',
+    emoji: '👨‍🍳',
+    showKey: null,
   },
   {
     id: 'housekeeping',
@@ -288,6 +301,18 @@ export default function RoomPortalDashboard() {
   );
   const checkoutDate = new Date(reservation.departureDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
+  // ── Offer Resolution (Guest Booking Offer has 1st priority, then Hotel-Wide Promo) ──
+  const guestSpecialOffer = reservation.specialOffer;
+  const guestOfferCode = reservation.offerCode;
+  const hotelPromoTitle = data.config?.showPromotionalOffer !== false ? data.config?.promotionalOfferTitle : null;
+  const hotelPromoDesc = data.config?.showPromotionalOffer !== false ? data.config?.promotionalOfferDesc : null;
+  const hotelPromoCode = data.config?.showPromotionalOffer !== false ? data.config?.promotionalOfferCode : null;
+
+  const activeOfferTitle = guestSpecialOffer || hotelPromoTitle;
+  const activeOfferDesc = guestSpecialOffer ? '' : (hotelPromoDesc || '');
+  const activeOfferCode = guestOfferCode || hotelPromoCode;
+  const isGuestSpecific = Boolean(guestSpecialOffer);
+
   return (
     <>
       <Toaster richColors position="top-center" />
@@ -391,7 +416,7 @@ export default function RoomPortalDashboard() {
               border: '1px solid rgba(99,102,241,0.25)',
               borderRadius: '20px',
               padding: '20px 24px',
-              marginBottom: '28px',
+              marginBottom: activeOfferTitle ? '16px' : '28px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -409,21 +434,175 @@ export default function RoomPortalDashboard() {
                   {data.config?.welcomeSubtitle || 'How can we make your stay more comfortable?'}
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <InfoBadge icon="🏨" label="Check-out" value={checkoutDate} />
                 <InfoBadge icon="🌙" label="Nights" value={`${nights} nights`} />
-                <InfoBadge icon="🍽️" label="Meal Plan" value={reservation.mealPlan} />
+                <InfoBadge
+                  icon="🍽️"
+                  label="Meal Plan"
+                  value={
+                    (reservation.mealPlan || 'EP').toUpperCase() === 'CP'
+                      ? 'CP (Breakfast Inc.)'
+                      : (reservation.mealPlan || 'EP').toUpperCase() === 'MAP'
+                      ? 'MAP (Bfast + Dinner)'
+                      : (reservation.mealPlan || 'EP').toUpperCase() === 'AP'
+                      ? 'AP (All Meals Inc.)'
+                      : 'EP (Room Only)'
+                  }
+                />
+                {activeOfferTitle && (
+                  <div
+                    onClick={() => {
+                      if (activeOfferCode) {
+                        navigator.clipboard?.writeText(activeOfferCode);
+                        toast.success(`Promo Code "${activeOfferCode}" copied! 🎉`);
+                      }
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(234,88,12,0.18))',
+                      border: '1px solid rgba(245,158,11,0.5)',
+                      borderRadius: '12px',
+                      padding: '8px 14px',
+                      cursor: activeOfferCode ? 'pointer' : 'default',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(245,158,11,0.2)',
+                    }}
+                    title={activeOfferCode ? 'Click to copy promo code' : undefined}
+                  >
+                    <span style={{ fontSize: '18px' }}>🎁</span>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '9px', color: '#fcd34d', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        {isGuestSpecific ? 'Guest Deal' : 'Hot Offer'}
+                      </span>
+                      <span style={{ display: 'block', fontSize: '12px', color: '#fff', fontWeight: 800 }}>
+                        {activeOfferCode ? `CODE: ${activeOfferCode}` : 'VIP Deal'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Service Grid */}
-            <div style={{ marginBottom: '16px' }}>
+            {/* ━━━ 🎁 Luxury Featured Offer Showcase Banner ━━━ */}
+            {activeOfferTitle && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(234, 88, 12, 0.12) 40%, rgba(99, 102, 241, 0.08) 100%)',
+                border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                borderRadius: '20px',
+                padding: '18px 24px',
+                marginBottom: '26px',
+                boxShadow: '0 10px 32px rgba(245, 158, 11, 0.18)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                {/* Decorative glow background element */}
+                <div style={{
+                  position: 'absolute', top: '-50px', right: '-50px', width: '160px', height: '160px',
+                  background: 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%)',
+                  borderRadius: '50%', pointerEvents: 'none',
+                }} />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: '1 1 320px', zIndex: 1 }}>
+                  <div style={{
+                    width: '54px', height: '54px', borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 6px 20px rgba(245, 158, 11, 0.4)',
+                    flexShrink: 0, fontSize: '26px',
+                  }}>
+                    🎁
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{
+                        padding: '3px 8px', borderRadius: '6px',
+                        background: 'rgba(245, 158, 11, 0.25)', border: '1px solid rgba(245, 158, 11, 0.4)',
+                        color: '#fde68a', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px',
+                      }}>
+                        {isGuestSpecific ? `EXCLUSIVE GUEST DEAL · ROOM ${room.roomNumber}` : 'TODAY’S HOTEL SPECIAL'}
+                      </span>
+                      {activeOfferCode && (
+                        <span style={{
+                          padding: '3px 8px', borderRadius: '6px',
+                          background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(245, 158, 11, 0.35)',
+                          color: '#fbbf24', fontSize: '11px', fontFamily: 'monospace', fontWeight: 800,
+                        }}>
+                          PROMO: {activeOfferCode}
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 style={{ color: 'white', fontSize: '17px', fontWeight: 900, margin: '0 0 2px 0', lineHeight: 1.3 }}>
+                      {activeOfferTitle}
+                    </h3>
+                    {activeOfferDesc && (
+                      <p style={{ color: '#cbd5e1', fontSize: '12px', margin: 0, lineHeight: 1.4 }}>
+                        {activeOfferDesc}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', zIndex: 1 }}>
+                  {activeOfferCode && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(activeOfferCode);
+                        toast.success(`Promo Code "${activeOfferCode}" copied to clipboard! 📋`);
+                      }}
+                      style={{
+                        padding: '10px 16px', borderRadius: '12px',
+                        background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)',
+                        color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                      }}
+                    >
+                      📋 Copy Code
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      const lower = (activeOfferTitle + ' ' + (activeOfferDesc || '')).toLowerCase();
+                      if (lower.includes('spa') || lower.includes('massage')) {
+                        router.push('/room-portal/dashboard/amenities');
+                      } else if (lower.includes('food') || lower.includes('dining') || lower.includes('cocktail') || lower.includes('drink') || lower.includes('room service')) {
+                        router.push('/room-portal/dashboard/room-service');
+                      } else {
+                        router.push('/room-portal/dashboard/contact');
+                      }
+                    }}
+                    style={{
+                      padding: '10px 20px', borderRadius: '12px', border: 'none',
+                      background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                      color: 'white', fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      boxShadow: '0 4px 16px rgba(245, 158, 11, 0.35)',
+                    }}
+                  >
+                    <span>Claim Offer</span>
+                    <ArrowRight size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ━━━ 🛎️ Our Services — Main Action Center ━━━ */}
+            <div style={{ marginBottom: '28px' }}>
               <p style={{ color: 'rgb(100,116,139)', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 16px 0' }}>
                 🛎️ Our Services — Tap to access
               </p>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                 gap: '16px',
               }}>
                 {visibleCards.map((card) => (
@@ -431,6 +610,8 @@ export default function RoomPortalDashboard() {
                 ))}
               </div>
             </div>
+
+
 
             {/* Quick notification banner if checkout requested */}
             {reservation.checkoutRequested && (

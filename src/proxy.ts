@@ -121,7 +121,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'hotel', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal'].includes(parts[0])) {
+  // KYC mobile scanner portal & API bypass (allows instant phone camera photo upload by staff)
+  if (pathname.startsWith('/kyc-scan') || pathname.startsWith('/api/hotel/kyc')) {
+    return NextResponse.next()
+  }
+
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'hotel', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal', 'kyc-scan'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname

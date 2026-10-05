@@ -119,6 +119,8 @@ export async function GET(request: NextRequest) {
         taxAmount: o.taxAmount || 0,
         totalAmount: o.grandTotal || 0,
         specialNote: extractSpecialNoteFromInstructions(o.deliveryInstructions),
+        serveTiming: extractServeTimeFromInstructions(o.deliveryInstructions),
+        packagingType: extractPackagingFromInstructions(o.deliveryInstructions),
         postedToFolio: o.folioId != null,
         folioTxnId: o.folioId,
         staffMember: sm ? { id: sm.id, name: sm.name, designation: sm.designation } : null,
@@ -304,6 +306,36 @@ export async function POST(request: NextRequest) {
       return posOrder;
     });
 
+    // ── Create live notification for hotel staff ──────────────────────────────
+    try {
+      const itemsSummary = items.map((i: any) => `${i.name} x${i.qty}`).join(', ');
+      const escalateAt = new Date(Date.now() + 3 * 60 * 1000).toISOString();
+
+      await prisma.notification.create({
+        data: {
+          propertyId,
+          title: `🛒 Room Service — Room ${roomNumber || 'N/A'}`,
+          message: `${itemsSummary} — ₹${totalAmount}${specialNote ? ` | Note: ${specialNote}` : ''}`,
+          type: 'ROOM_SERVICE_ORDER',
+          priority: 'HIGH',
+          status: 'UNREAD',
+          metadata: JSON.stringify({
+            orderId: order.id,
+            orderNo,
+            roomNumber: roomNumber || '',
+            totalAmount: Number(totalAmount),
+            items: itemsSummary,
+            link: '/hotel/room-service',
+            escalateAt,
+            autoEscalate: true,
+            escalateAfterMinutes: 3,
+          }),
+        },
+      });
+    } catch (notifErr) {
+      console.error('[RoomService] Notification create failed (non-blocking):', notifErr);
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -337,4 +369,16 @@ function extractSpecialNoteFromInstructions(instructions?: string | null): strin
   if (!instructions) return '';
   const match = instructions.match(/NOTE:([^|]+)/);
   return match ? match[1] : '';
+}
+
+function extractServeTimeFromInstructions(instructions?: string | null): string {
+  if (!instructions) return 'ASAP';
+  const match = instructions.match(/SERVE_TIME:([^|]+)/);
+  return match ? match[1] : 'ASAP';
+}
+
+function extractPackagingFromInstructions(instructions?: string | null): string {
+  if (!instructions) return 'SERVE_IN_ROOM';
+  const match = instructions.match(/PACKAGING:([^|]+)/);
+  return match ? match[1] : 'SERVE_IN_ROOM';
 }

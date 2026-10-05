@@ -121,6 +121,53 @@ export async function GET(request: NextRequest) {
       take: 100, // Increase take limit for better visibility
     });
 
+    // ── Auto-escalate overdue room service orders (3-min rule) ─────────────────
+    // Check for ROOM_SERVICE_ORDER notifications that are UNREAD and past escalateAt
+    const now = new Date();
+    const overdueRoomServiceNotifs = notifications.filter((n: any) => {
+      if (n.type !== 'ROOM_SERVICE_ORDER' || n.status !== 'UNREAD') return false;
+      try {
+        const meta = JSON.parse(n.metadata || '{}');
+        if (!meta.escalateAt || !meta.autoEscalate) return false;
+        const escalateAt = new Date(meta.escalateAt);
+        // Only escalate if not already escalated
+        return now > escalateAt && !meta.escalated;
+      } catch { return false; }
+    });
+
+    for (const notif of overdueRoomServiceNotifs) {
+      try {
+        const meta = JSON.parse((notif as any).metadata || '{}');
+        // Mark original as escalated
+        await prisma.notification.update({
+          where: { id: notif.id },
+          data: {
+            metadata: JSON.stringify({ ...meta, escalated: true }),
+            priority: 'URGENT',
+          }
+        });
+        // Create admin escalation notification
+        await prisma.notification.create({
+          data: {
+            propertyId: (notif as any).propertyId,
+            title: `🚨 ESCALATED: Room Service — Room ${meta.roomNumber || 'N/A'} (${meta.escalateAfterMinutes || 3}min unresponded)`,
+            message: `${meta.items || 'Order'} — ₹${meta.totalAmount || 0} — No staff response in 3 minutes!`,
+            type: 'ROOM_SERVICE_ESCALATION',
+            priority: 'URGENT',
+            status: 'UNREAD',
+            metadata: JSON.stringify({
+              ...meta,
+              originalNotifId: notif.id,
+              link: '/hotel/room-service',
+              escalatedAt: now.toISOString(),
+            }),
+          }
+        });
+      } catch (escErr) {
+        console.error('[Notifications] Escalation failed:', escErr);
+      }
+    }
+
     return apiResponse(notifications, 'Notifications fetched successfully');
   } catch (error) {
     return apiError(error);

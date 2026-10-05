@@ -47,12 +47,12 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
   const [showRoomOrderModal, setShowRoomOrderModal] = useState(false);
 
   const CATEGORIES = [
-    { id: 'ALL', label: 'All POS Pages', count: 31 },
+    { id: 'ALL', label: 'All POS Pages', count: 32 },
     { id: 'STATIONS', label: '⚡ Workstations', count: 6 },
     { id: 'ORDERS', label: '🛎️ Orders & KOTs', count: 6 },
     { id: 'DISPLAYS', label: '📺 Live Displays', count: 5 },
     { id: 'DELIVERY', label: '🛵 Delivery Fleet', count: 5 },
-    { id: 'MENU', label: '📋 Menu & Floor', count: 6 },
+    { id: 'MENU', label: '📋 Menu & Floor', count: 7 },
     { id: 'BILLING', label: '💳 Billing & Staff', count: 4 },
   ];
 
@@ -96,6 +96,16 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
           >
             <BedDouble size={14} />
             <span>Room Order</span>
+          </Link>
+
+          {/* Daily Buffet & Menus Direct */}
+          <Link
+            href="/hotel/daily-menus"
+            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-md shadow-orange-500/25 active:scale-95 transition-all shrink-0"
+            title="Today's Meal Menus & Daily Buffet Spreads (Breakfast, Lunch, Dinner)"
+          >
+            <UtensilsCrossed size={14} />
+            <span>Daily Buffet Menus</span>
           </Link>
 
           {/* Live Order Dropdown (Delivery / Pickup / Room Service) */}
@@ -724,9 +734,24 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                   Menu & Floor Operations
                 </span>
               </div>
-              <span className="text-[9px] text-slate-500 font-bold">6 Operations</span>
+              <span className="text-[9px] text-slate-500 font-bold">7 Operations</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/hotel/daily-menus"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/20 transition-all group col-span-2 sm:col-span-1"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <UtensilsCrossed size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-amber-300 group-hover:text-white truncate block flex items-center gap-1.5">
+                    Today's Buffet Menus
+                    <span className="text-[8px] px-1.5 py-0.2 rounded-full bg-amber-500/30 text-amber-200 border border-amber-500/40">BUFFET</span>
+                  </span>
+                  <span className="text-[9px] text-amber-400/80">Breakfast, Lunch & Dinner</span>
+                </div>
+              </Link>
               <Link
                 href="/hotel/pos/products"
                 className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/60 transition-all group"
@@ -969,6 +994,7 @@ const DEPARTMENTS = [
       { name: 'Banquet & Events',     href: '/hotel/banquet',      icon: Calendar },
       { name: 'Live Music & Singers', href: '/hotel/singers',      icon: Sparkles },
       { name: 'Room Service Dining',  href: '/hotel/room-service', icon: ChefHat  },
+      { name: "Today's Meal Menus",   href: '/hotel/daily-menus',  icon: UtensilsCrossed },
       { name: 'Guest CRM Profiles',   href: '/hotel/crm',          icon: Users    },
       { name: 'Guest Directory',      href: '/hotel/guests',       icon: Users    },
       { name: 'Loyalty & Rewards',    href: '/hotel/loyalty',      icon: Crown    },
@@ -1105,6 +1131,7 @@ const DEPARTMENTS = [
       { name: 'Delivery Flyer & Promo',href: '/hotel/pos/delivery-flyer',       icon: FileText },
       { name: 'Menu Items',            href: '/hotel/pos/products',             icon: UtensilsCrossed },
       { name: 'Menu Categories',       href: '/hotel/pos/categories',           icon: Layers },
+      { name: "Today's Meal Menus",    href: '/hotel/daily-menus',              icon: UtensilsCrossed },
       { name: 'Table QR Gallery',      href: '/hotel/pos/tables/qr-gallery',    icon: Printer },
       { name: 'QR Downloads',          href: '/hotel/pos/qr-download',          icon: Download },
       { name: 'Valet Parking',         href: '/hotel/pos/parking',              icon: MapPin },

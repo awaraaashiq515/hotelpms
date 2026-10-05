@@ -31,7 +31,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'guestportal',   emoji: '🛎️', title: 'Guest Portal Settings', desc: 'Self-service portal for guests to view bookings', color: 'text-emerald-400' },
   { id: 'wifirules',     emoji: '📶', title: 'WiFi & House Rules',    desc: 'WiFi network name, password, and stay timings shown to guests', color: 'text-indigo-400' },
   { id: 'roomcharging',  emoji: '🏨', title: 'Restaurant Room Billing', desc: 'Allow restaurant guests to charge food bill to their hotel room', color: 'text-violet-400' },
-  { id: 'tipping',       emoji: '💝', title: 'Staff Tipping',           desc: 'Allow guests to tip waiters & housekeeping via UPI',           color: 'text-amber-400' },
+  { id: 'googlereview',  emoji: '🌟', title: 'Google Reviews & Reputation', desc: 'Hotel Google Maps review direct link for in-room tablets and feedback QR', color: 'text-amber-400' },
   { id: 'demodata',      emoji: '🧹', title: 'Demo & Sample Data',       desc: 'Clear or reset pre-loaded demo rooms, bookings, and sample guests', color: 'text-rose-400' },
 ];
 
@@ -122,6 +122,10 @@ export default function HotelSettingsPage() {
   const [poolTimings, setPoolTimings] = useState('');
   const [gymTimings, setGymTimings] = useState('');
   const [checkoutPolicy, setCheckoutPolicy] = useState('');
+
+  // Google Reviews
+  const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+  const [googlePlaceId, setGooglePlaceId] = useState('');
 
   // Taxes
   const [gstPercent, setGstPercent] = useState('12');
@@ -217,6 +221,17 @@ export default function HotelSettingsPage() {
           setTippingEnabled(p.tippingEnabled === true);
           setTippingStaffRoles(p.tippingStaffRoles || 'Waiter,Housekeeping');
           setTippingPresets(p.tippingPresets || '10,20,50,100');
+
+          // Load Google Review config
+          fetch('/api/room-portal/config?adminMode=true')
+            .then(r => r.json())
+            .then(d => {
+              if (d.success && d.data) {
+                if (d.data.googleReviewUrl) setGoogleReviewUrl(d.data.googleReviewUrl);
+                if (d.data.googlePlaceId) setGooglePlaceId(d.data.googlePlaceId);
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -253,6 +268,18 @@ export default function HotelSettingsPage() {
           restaurantRoomChargingEnabled,
         })
       });
+
+      // Save Google review config
+      await fetch('/api/room-portal/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId,
+          googleReviewUrl,
+          googlePlaceId,
+        })
+      }).catch(() => {});
+
       const data = await res.json();
       if (data.success) {
         setSaved(true);
@@ -841,6 +868,30 @@ export default function HotelSettingsPage() {
                 </div>
               </>
             )}
+          </div>
+        </SectionCard>
+
+        {/* Google Reviews & Reputation */}
+        <SectionCard section={getSection('googlereview')}>
+          <div className="space-y-4">
+            <Field label="Google Review Direct URL" hint="Direct link to your hotel's review dialog on Google Maps">
+              <input
+                type="text"
+                value={googleReviewUrl}
+                onChange={e => setGoogleReviewUrl(e.target.value)}
+                placeholder="https://g.page/r/your-hotel/review or https://search.google.com/local/writereview?placeid=..."
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Google Place ID (Optional)" hint="Your hotel's Google Maps Place ID">
+              <input
+                type="text"
+                value={googlePlaceId}
+                onChange={e => setGooglePlaceId(e.target.value)}
+                placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+                className={inputClass}
+              />
+            </Field>
           </div>
         </SectionCard>
 

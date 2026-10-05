@@ -1,4 +1,3 @@
-import admin from 'firebase-admin'
 import { jwtVerify, SignJWT } from 'jose'
 import { prisma } from './prisma'
 
@@ -30,6 +29,8 @@ export async function verifyFirebaseToken(token: string): Promise<{ phone: strin
   }
 
   try {
+    const adminModule = await import('firebase-admin');
+    const admin = adminModule.default || adminModule;
     if (!admin.apps.length) {
       const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
       if (!serviceAccountStr) {

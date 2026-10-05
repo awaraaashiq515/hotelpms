@@ -85,7 +85,7 @@ export function QuickBookModal({
   const [assignedRoomId, setAssignedRoomId] = useState('');
   const [adults, setAdults] = useState('1');
   const [children, setChildren] = useState('0');
-  const [mealPlan, setMealPlan] = useState('RO');
+  const [mealPlan, setMealPlan] = useState('EP');
   const [wifiPassword, setWifiPassword] = useState('');
   const [wifiStatus, setWifiStatus] = useState('ACTIVE');
 
@@ -376,7 +376,7 @@ export function QuickBookModal({
         advanceAmount: Number(advanceAmount || 0),
         wifiPassword: wifiPassword || null,
         wifiStatus: wifiStatus || 'ACTIVE',
-        mealPlan: mealPlan || 'RO',
+        mealPlan: (mealPlan === 'RO' ? 'EP' : mealPlan) || 'EP',
         poolAccess,
         poolPackage: poolAccess ? poolPackage : 'NONE',
         poolPassCost: poolAccess ? Number(poolPassCost || 0) : 0,
@@ -768,19 +768,17 @@ export function QuickBookModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 border-t border-slate-800/80">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Meal Plan
+                    Meal Plan (EP, CP, MAP, AP)
                   </label>
                   <select
-                    value={mealPlan}
+                    value={mealPlan === 'RO' ? 'EP' : mealPlan}
                     onChange={(e) => handleMealPlanChange(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors font-semibold"
                   >
-                    <option value="RO">Room Only (RO)</option>
-                    <option value="BB">Bed & Breakfast (BB)</option>
-                    <option value="HB">Half Board (HB)</option>
-                    <option value="MAP">Modified American Plan (MAP)</option>
-                    <option value="FB">Full Board (FB)</option>
-                    <option value="AI">All Inclusive (AI)</option>
+                    <option value="EP">EP — European Plan (Room Only)</option>
+                    <option value="CP">CP — Continental Plan (Breakfast Included)</option>
+                    <option value="MAP">MAP — Modified American Plan (Breakfast + Dinner)</option>
+                    <option value="AP">AP — American Plan (All Meals: Bfast, Lunch, Dinner)</option>
                   </select>
                 </div>
                 <div>

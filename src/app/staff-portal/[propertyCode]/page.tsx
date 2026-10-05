@@ -636,16 +636,74 @@ function RoomOrderCard({
   const [marking, setMarking] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  const statusColor = order.status === 'CONFIRMED' ? '#fbbf24' : order.status === 'SERVED' ? '#34d399' : order.status === 'COMPLETED' ? '#818cf8' : '#94a3b8';
-  const statusBg = order.status === 'CONFIRMED' ? 'rgba(251,191,36,0.1)' : order.status === 'SERVED' ? 'rgba(52,211,153,0.1)' : order.status === 'COMPLETED' ? 'rgba(129,140,248,0.1)' : 'rgba(255,255,255,0.04)';
+  const statusColor = order.status === 'CONFIRMED' ? '#fbbf24' : order.status === 'PREPARING' || order.status === 'IN_PROGRESS' ? '#38bdf8' : order.status === 'READY' ? '#2dd4bf' : order.status === 'SERVED' ? '#34d399' : order.status === 'COMPLETED' ? '#818cf8' : '#94a3b8';
+  const statusBg = order.status === 'CONFIRMED' ? 'rgba(251,191,36,0.1)' : order.status === 'PREPARING' || order.status === 'IN_PROGRESS' ? 'rgba(56,189,248,0.1)' : order.status === 'READY' ? 'rgba(45,212,191,0.1)' : order.status === 'SERVED' ? 'rgba(52,211,153,0.1)' : order.status === 'COMPLETED' ? 'rgba(129,140,248,0.1)' : 'rgba(255,255,255,0.04)';
 
   const grandTotal = order.totalAmount || order.grandTotal || 0;
-
   const serverName = order.staffMember?.name || order.servedBy?.name || null;
   const serverDesignation = order.staffMember?.designation || null;
 
+  // Escalation tracking (3-minute rule for staff response)
+  const isPending = ['CONFIRMED', 'NEW', 'PENDING', 'PLACED'].includes(order.status);
+  const elapsedMinutes = order.createdAt ? Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000) : 0;
+  const isEscalated = isPending && elapsedMinutes >= 3;
+
+  const updateOrderStatus = async (newStatus: string) => {
+    setMarking(true);
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
+      const res = await fetch(`/api/hotel/room-service/${order.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          status: newStatus,
+          servedById: user?.id,
+          staffMemberId: user?.staffMember?.id,
+        })
+      });
+      if (!res.ok) {
+        // Fallback to pos-orders route if needed
+        await fetch(`/api/pos-orders/${order.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            status: newStatus,
+            servedById: user?.id,
+            staffMemberId: user?.staffMember?.id,
+          })
+        });
+      }
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    } finally {
+      setMarking(false);
+    }
+  };
+
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px', position: 'relative' }}>
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: isEscalated ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px', position: 'relative' }}>
+      {/* 3-Minute Escalation Banner */}
+      {isEscalated && (
+        <div style={{ marginBottom: 10, fontSize: 10, fontWeight: 800, color: '#fca5a5', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 6, animation: 'pulse 1.5s infinite' }}>
+          <span>🚨</span>
+          <span><strong>3+ MIN OVERDUE:</strong> Escalated to Admin! Accept immediately.</span>
+        </div>
+      )}
+
+      {isPending && !isEscalated && (
+        <div style={{ marginBottom: 10, fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>⏳</span>
+            <span>Awaiting Staff Reply</span>
+          </div>
+          <span style={{ fontSize: 9, color: '#fcd34d', fontWeight: 800 }}>
+            {Math.max(1, 3 - elapsedMinutes)}m to Admin Escalation
+          </span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.1em', fontFamily: 'monospace' }}>{order.orderNo}</div>
@@ -678,7 +736,7 @@ function RoomOrderCard({
       {serverName && (
         <div style={{ marginBottom: 10, fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>✓ Served by:</span>
+            <span>✓ Assigned to:</span>
             <strong style={{ color: '#fff' }}>{serverName}</strong>
             {serverDesignation && <span style={{ color: '#a5b4fc', fontSize: 10 }}>({serverDesignation})</span>}
           </div>
@@ -694,27 +752,39 @@ function RoomOrderCard({
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
-        {/* Step 1: Mark Ready (if not yet ready or served) */}
-        {order.status !== 'READY' && order.status !== 'SERVED' && order.status !== 'COMPLETED' && (
+        {/* Step 1: Accept & Start Preparing (Stops 3-min escalation immediately) */}
+        {isPending && (
           <button
-            onClick={async () => {
-              setMarking(true);
-              try {
-                const headers: HeadersInit = { 'Content-Type': 'application/json' };
-                if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
-                await fetch(`/api/pos-orders/${order.id}`, {
-                  method: 'PUT',
-                  headers,
-                  body: JSON.stringify({
-                    status: 'READY',
-                    servedById: user?.id,
-                    staffMemberId: user?.staffMember?.id,
-                  })
-                });
-                onRefresh();
-              } catch {};
-              setMarking(false);
+            onClick={() => updateOrderStatus('PREPARING')}
+            disabled={marking}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              border: 'none',
+              borderRadius: 10,
+              padding: '11px 0',
+              fontSize: 12,
+              fontWeight: 900,
+              color: '#ffffff',
+              cursor: marking ? 'not-allowed' : 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              fontFamily: 'inherit',
+              boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6
             }}
+          >
+            {marking ? 'Updating...' : '⚡ Accept & Start Prep (Stops Escalation)'}
+          </button>
+        )}
+
+        {/* Step 2: Mark Ready for Delivery */}
+        {(order.status === 'PREPARING' || order.status === 'IN_PROGRESS') && (
+          <button
+            onClick={() => updateOrderStatus('READY')}
             disabled={marking}
             style={{
               width: '100%',
@@ -735,84 +805,61 @@ function RoomOrderCard({
           </button>
         )}
 
-        {/* Step 2: Mark Served */}
-        <button
-          onClick={async () => {
-            setMarking(true);
-            try {
-              const headers: HeadersInit = { 'Content-Type': 'application/json' };
-              if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
-              await fetch(`/api/pos-orders/${order.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({
-                  status: 'SERVED',
-                  servedById: user?.id,
-                  staffMemberId: user?.staffMember?.id,
-                })
-              });
-              onRefresh();
-            } catch {};
-            setMarking(false);
-          }}
-          disabled={marking || order.status === 'SERVED'}
-          style={{
-            width: '100%',
-            background: order.status === 'SERVED' ? 'rgba(52,211,153,0.08)' : 'rgba(52,211,153,0.15)',
-            border: '1px solid rgba(52,211,153,0.4)',
-            borderRadius: 10,
-            padding: '10px 0',
-            fontSize: 12,
-            fontWeight: 800,
-            color: '#6ee7b7',
-            cursor: (marking || order.status === 'SERVED') ? 'not-allowed' : 'pointer',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontFamily: 'inherit',
-          }}
-        >
-          {marking ? '...' : (order.status === 'SERVED' ? '✓ Served to Room' : 'Mark Served')}
-        </button>
+        {/* Step 3: Mark Served */}
+        {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+          <button
+            onClick={() => updateOrderStatus('SERVED')}
+            disabled={marking || order.status === 'SERVED'}
+            style={{
+              width: '100%',
+              background: order.status === 'SERVED' ? 'rgba(52,211,153,0.08)' : 'rgba(52,211,153,0.15)',
+              border: '1px solid rgba(52,211,153,0.4)',
+              borderRadius: 10,
+              padding: '10px 0',
+              fontSize: 12,
+              fontWeight: 800,
+              color: '#6ee7b7',
+              cursor: (marking || order.status === 'SERVED') ? 'not-allowed' : 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              fontFamily: 'inherit',
+            }}
+          >
+            {marking ? '...' : (order.status === 'SERVED' ? '✓ Served to Room' : '🚀 Mark Served')}
+          </button>
+        )}
 
-        {/* Step 2: Billed to Room (Click to Complete & Clear Order) */}
-        <button
-          onClick={async () => {
-            setClearing(true);
-            try {
-              const headers: HeadersInit = { 'Content-Type': 'application/json' };
-              if (wtToken) { headers['Authorization'] = `Bearer ${wtToken}`; }
-              await fetch(`/api/pos-orders/${order.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({
-                  status: 'COMPLETED',
-                  servedById: user?.id,
-                  staffMemberId: user?.staffMember?.id,
-                })
-              });
-              onRefresh();
-            } catch {};
-            setClearing(false);
-          }}
-          disabled={clearing}
-          style={{
-            width: '100%',
-            background: 'rgba(129,140,248,0.18)',
-            border: '1px solid rgba(129,140,248,0.4)',
-            borderRadius: 10,
-            padding: '10px 0',
-            fontSize: 11,
-            fontWeight: 900,
-            color: '#a5b4fc',
-            cursor: clearing ? 'not-allowed' : 'pointer',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontFamily: 'inherit',
-            transition: 'all 0.2s',
-          }}
-        >
-          {clearing ? 'Clearing...' : `📋 Billed to Room ${order.roomNumber || ''} (Clear Order)`}
-        </button>
+        {/* Step 4: Billed to Room (Click to Complete & Clear Order) */}
+        {order.status !== 'COMPLETED' && (
+          <button
+            onClick={async () => {
+              setClearing(true);
+              try {
+                await updateOrderStatus('COMPLETED');
+              } finally {
+                setClearing(false);
+              }
+            }}
+            disabled={clearing}
+            style={{
+              width: '100%',
+              background: 'rgba(129,140,248,0.18)',
+              border: '1px solid rgba(129,140,248,0.4)',
+              borderRadius: 10,
+              padding: '10px 0',
+              fontSize: 11,
+              fontWeight: 900,
+              color: '#a5b4fc',
+              cursor: clearing ? 'not-allowed' : 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              fontFamily: 'inherit',
+              transition: 'all 0.2s',
+            }}
+          >
+            {clearing ? 'Clearing...' : `📋 Billed to Room ${order.roomNumber || ''} (Complete)`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1960,8 +2007,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     }
   }, [wtToken])
 
-  const fetchRoomServiceOrders = useCallback(async () => {
-    setRoomServiceOrdersLoading(true)
+  const fetchRoomServiceOrders = useCallback(async (silent: boolean = false) => {
+    if (!silent) setRoomServiceOrdersLoading(true)
     try {
       const headers: HeadersInit = {}
       const token = wtTokenRef.current || wtToken
@@ -1975,9 +2022,17 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     } catch (err) {
       console.error('Error fetching room service orders:', err)
     } finally {
-      setRoomServiceOrdersLoading(false)
+      if (!silent) setRoomServiceOrdersLoading(false)
     }
   }, [wtToken, propertyCode])
+
+  /* ── Auto-refresh room service orders every 8 seconds in background ── */
+  useEffect(() => {
+    if (!user) return
+    fetchRoomServiceOrders(true)
+    const interval = setInterval(() => fetchRoomServiceOrders(true), 8000)
+    return () => clearInterval(interval)
+  }, [user?.id, fetchRoomServiceOrders])
 
   useEffect(() => {
     if (showRoomOrderModal) {
@@ -2546,6 +2601,32 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                   fontFamily: 'inherit',
                 }}>
                   {unreadOrdersCount > 99 ? '99+' : unreadOrdersCount}
+                </span>
+              )}
+              {/* Unread badge — on Room Svc tab */}
+              {t.key === 'room-order' && roomServiceOrders.filter((o: any) => !['COMPLETED', 'PAID', 'SERVED', 'CANCELLED'].includes(o.status)).length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -7,
+                  minWidth: 15,
+                  height: 15,
+                  borderRadius: 8,
+                  background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+                  color: '#fff',
+                  fontSize: 8,
+                  fontWeight: 900,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                  boxShadow: '0 0 8px rgba(245,158,11,0.7)',
+                  animation: 'pulse 1.2s ease-in-out infinite',
+                  lineHeight: 1,
+                  letterSpacing: 0,
+                  fontFamily: 'inherit',
+                }}>
+                  {roomServiceOrders.filter((o: any) => !['COMPLETED', 'PAID', 'SERVED', 'CANCELLED'].includes(o.status)).length}
                 </span>
               )}
             </span>

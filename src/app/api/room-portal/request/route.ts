@@ -33,7 +33,16 @@ export async function POST(request: NextRequest) {
 
     const { roomId, guestId, reservationId, propertyId } = payload;
     const body = await request.json();
-    const { type, category, notes, priority } = body;
+    const {
+      type,
+      category,
+      notes,
+      priority,
+      scheduleMode,
+      scheduledDate,
+      scheduledTime,
+      packagingType,
+    } = body;
 
     // type: HOUSEKEEPING | FRONT_DESK | LAUNDRY | MAINTENANCE
     // category: CLEANING | TOWELS | AMENITIES | DND | OTHER
@@ -111,19 +120,19 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Resolve or create outlet
+      // Resolve or create outlet for propertyId
       let outlet = await prisma.outlet.findFirst({
-        where: { propertyId: targetPropertyId },
+        where: { propertyId },
       });
-      if (!outlet && propertyId !== targetPropertyId) {
+      if (!outlet && targetPropertyId && propertyId !== targetPropertyId) {
         outlet = await prisma.outlet.findFirst({
-          where: { propertyId },
+          where: { propertyId: targetPropertyId },
         });
       }
       if (!outlet) {
         outlet = await prisma.outlet.create({
           data: {
-            propertyId: targetPropertyId,
+            propertyId,
             name: 'Room Service Dining',
             type: 'RESTAURANT',
           },
@@ -148,11 +157,22 @@ export async function POST(request: NextRequest) {
       const taxAmount = Math.round(subtotal * 0.05);
       const grandTotal = subtotal + taxAmount;
       orderNo = `RS-${Date.now().toString().slice(-6)}`;
-      const deliveryInstructions = `SERVE_TIME:ASAP|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
+
+      const isScheduled = scheduleMode === 'SCHEDULED';
+      const serveTiming = isScheduled
+        ? `${scheduledDate === 'TOMORROW' ? 'Tomorrow' : scheduledDate === 'TODAY' ? 'Today' : scheduledDate || 'Scheduled'} ${scheduledTime || '08:00 AM'}`
+        : 'ASAP';
+      const packaging = packagingType === 'TRAVEL_PACK'
+        ? 'TRAVEL_PACK'
+        : packagingType === 'PACK_IN_ROOM'
+        ? 'PACK_IN_ROOM'
+        : 'SERVE_IN_ROOM';
+
+      const deliveryInstructions = `SERVE_TIME:${serveTiming}|PACKAGING:${packaging}|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
 
       createdPosOrder = await prisma.posOrder.create({
         data: {
-          propertyId: targetPropertyId,
+          propertyId,
           outletId: outlet.id,
           guestId: resolvedGuestId,
           folioId,
@@ -223,6 +243,43 @@ export async function POST(request: NextRequest) {
         },
       });
       taskId = task.id;
+
+      // ── Create live notification for hotel staff & admin ──────────────────────
+      try {
+        const itemsSummary = items.map((i: any) => `${i.name || 'Item'} x${i.qty || 1}`).join(', ');
+        const timingLabel = isScheduled ? `⏰ ${serveTiming}` : '⚡ ASAP';
+        const packLabel = packaging === 'TRAVEL_PACK'
+          ? '🎒 Travel Pack'
+          : packaging === 'PACK_IN_ROOM'
+          ? '📦 Pack in Room'
+          : '🍽️ Room Plated';
+
+        const notificationProps = Array.from(new Set([propertyId, targetPropertyId].filter(Boolean)));
+        for (const pId of notificationProps) {
+          await prisma.notification.create({
+            data: {
+              propertyId: pId,
+              title: `Room ${roomNumber} — ${packLabel} [${timingLabel}]`,
+              message: `${itemsSummary ? `${itemsSummary} — ` : ''}₹${grandTotal} (${packLabel} · ${timingLabel})`,
+              type: 'ROOM_SERVICE_ORDER',
+              priority: isScheduled ? 'NORMAL' : 'HIGH',
+              metadata: JSON.stringify({
+                orderId: createdPosOrder.id,
+                orderNo,
+                roomNumber,
+                totalAmount: grandTotal,
+                serveTiming,
+                packaging,
+                link: '/hotel/room-service',
+                autoEscalate: !isScheduled,
+                escalateAt: !isScheduled ? new Date(Date.now() + 3 * 60 * 1000).toISOString() : null,
+              }),
+            },
+          });
+        }
+      } catch (notifErr) {
+        console.error('[Room Portal] Failed to create live notification:', notifErr);
+      }
     } else if (type === 'HOUSEKEEPING' || type === 'LAUNDRY') {
       const task = await prisma.housekeepingTask.create({
         data: {
@@ -237,6 +294,70 @@ export async function POST(request: NextRequest) {
         },
       });
       taskId = task.id;
+
+      // ── Create live notification for service request ────────────────────────
+      try {
+        let roomNumber = (payload as any).roomNumber;
+        if (!roomNumber && roomId) {
+          const r = await prisma.room.findUnique({ where: { id: roomId }, select: { roomNumber: true } });
+          roomNumber = r?.roomNumber || 'Unknown';
+        }
+        await prisma.notification.create({
+          data: {
+            propertyId,
+            title: `Room ${roomNumber} — ${type.replace('_', ' ')} Request`,
+            message: `${category || type}: ${notes || 'Service requested from room'}`,
+            type: 'ROOM_SERVICE_ORDER',
+            priority: priority === 'URGENT' || priority === 'HIGH' ? 'HIGH' : 'NORMAL',
+            metadata: JSON.stringify({
+              taskId,
+              roomNumber,
+              type,
+              category,
+              link: type === 'LAUNDRY' ? '/hotel/laundry' : '/hotel/housekeeping',
+              autoEscalate: true,
+              escalateAt: new Date(Date.now() + 3 * 60 * 1000).toISOString(),
+            }),
+          },
+        });
+      } catch (notifErr) {
+        console.error('[Room Portal] Failed to create service notification:', notifErr);
+      }
+
+      // When laundry is requested from room portal, create actual LaundryRequest in database
+      if (type === 'LAUNDRY' || category === 'LAUNDRY') {
+        let roomNumber = (payload as any).roomNumber;
+        if (!roomNumber && roomId) {
+          const r = await prisma.room.findUnique({ where: { id: roomId }, select: { roomNumber: true } });
+          roomNumber = r?.roomNumber || 'Unknown';
+        }
+        let guestName = 'In-House Guest';
+        if (guestId) {
+          const g = await prisma.guest.findUnique({ where: { id: guestId }, select: { firstName: true, lastName: true } });
+          if (g) guestName = `${g.firstName} ${g.lastName || ''}`.trim();
+        }
+        const itemsCount = Number(body.itemsCount) || (Array.isArray(body.items) ? body.items.reduce((s: number, i: any) => s + (Number(i.qty) || 1), 0) : 1);
+        const amount = Number(body.amount) || 0;
+        const itemsDetail = body.itemsDetail || (Array.isArray(body.items) ? body.items.map((i: any) => `${i.name || i.title} (x${i.qty || 1})`).join(', ') : '');
+
+        try {
+          await prisma.laundryRequest.create({
+            data: {
+              propertyId,
+              roomNumber: String(roomNumber),
+              guestName,
+              itemsCount,
+              itemsDetail,
+              amount,
+              status: 'COLLECTED',
+              collectedBy: 'Guest App Kiosk',
+              notes: notes ? `${notes}${itemsDetail ? ` | Items: ${itemsDetail}` : ''}` : itemsDetail,
+            },
+          });
+        } catch (e) {
+          console.error('[Room Portal Laundry Request Sync Error]', e);
+        }
+      }
     }
 
     // Audit log

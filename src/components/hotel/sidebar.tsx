@@ -166,6 +166,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Banquet & Events',   path: '/hotel/banquet',         icon: Calendar },
       { name: 'Live Music',         path: '/hotel/singers',         icon: Music },
       { name: 'Room Service',       path: '/hotel/room-service',    icon: ChefHat },
+      { name: "Today's Meal Menus", path: '/hotel/daily-menus',     icon: UtensilsCrossed, badge: 'BUFFET', badgeColor: 'bg-amber-500/20 text-amber-300' },
     ],
   },
 

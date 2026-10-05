@@ -432,6 +432,8 @@ model Reservation {
   spaPackage          String?           @default("NONE")
   spaPackageCost      Float             @default(0)
   addOnNotes          String?
+  specialOffer        String?
+  offerCode           String?
   gstNumber           String?
   companyName         String?
   billingAddress      String?
@@ -1682,6 +1684,7 @@ model RoomPortalConfig {
   spaTimings        String?  @default("09:00 AM - 08:00 PM")
   breakfastTimings  String?  @default("07:00 AM - 10:30 AM")
   restaurantTimings String?  @default("12:00 PM - 11:00 PM")
+  dailyMealMenu     String?  // JSON string storing Breakfast, Lunch, Dinner, Hi-Tea spreads
   // Contact
   frontDeskPhone    String?  @default("+91-000-000-0000")
   emergencyPhone    String?  @default("+91-000-000-0001")
@@ -1691,6 +1694,14 @@ model RoomPortalConfig {
   // Kiosk settings
   sessionTimeoutMin Int      @default(30) // Auto-logout after inactivity
   kioskExitPin      String?  @default("1234") // PIN to exit kiosk mode
+  // Google Reviews & Online Reputation
+  googleReviewUrl   String?
+  googlePlaceId     String?
+  // Promotional Offers & Guest Deals
+  promotionalOfferTitle String?
+  promotionalOfferDesc  String?
+  promotionalOfferCode  String?
+  showPromotionalOffer  Boolean  @default(true)
   // Feature toggles
   showRoomService   Boolean  @default(true)
   showHousekeeping  Boolean  @default(true)

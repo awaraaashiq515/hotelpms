@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find all rooms matching this roomNumber (filtered by property if specified)
-    const matchingRooms = await prisma.room.findMany({
+    let matchingRooms = await prisma.room.findMany({
       where: {
         roomNumber: trimmedRoom,
         ...(targetPropertyId ? { propertyId: targetPropertyId } : {}),
@@ -88,7 +88,52 @@ export async function POST(request: NextRequest) {
       select: { id: true, propertyId: true, roomNumber: true, floor: true },
     });
 
+    // If no room matched with targetPropertyId, fallback to check across all properties
+    if (matchingRooms.length === 0 && targetPropertyId) {
+      const anyMatchingRooms = await prisma.room.findMany({
+        where: { roomNumber: trimmedRoom },
+        select: { id: true, propertyId: true, roomNumber: true, floor: true },
+      });
+      if (anyMatchingRooms.length > 0) {
+        matchingRooms = anyMatchingRooms;
+        targetPropertyId = undefined; // Relax property constraint
+      }
+    }
+
     if (matchingRooms.length === 0) {
+      // Check if this mobile has an active check-in in another room
+      const mobileActiveCheckIn = await prisma.reservation.findFirst({
+        where: {
+          status: { in: ['CHECKED_IN', 'CONFIRMED'] },
+          guest: { mobile: { contains: cleanMobile } },
+        },
+        include: {
+          guest: { select: { firstName: true, lastName: true, mobile: true } },
+          rooms: { include: { room: true } },
+          checkIns: { include: { room: true } },
+          property: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (mobileActiveCheckIn) {
+        const actualRoom =
+          mobileActiveCheckIn.rooms?.[0]?.room?.roomNumber ||
+          mobileActiveCheckIn.checkIns?.[0]?.room?.roomNumber;
+        const guestName = `${mobileActiveCheckIn.guest?.firstName || ''} ${mobileActiveCheckIn.guest?.lastName || ''}`.trim();
+        return NextResponse.json(
+          {
+            success: false,
+            suggestedRoom: actualRoom,
+            suggestedPropertyId: mobileActiveCheckIn.propertyId,
+            suggestedPropertyName: mobileActiveCheckIn.property?.name,
+            canQuickSwitch: true,
+            message: `Room ${trimmedRoom} not found. ${guestName ? guestName + ' is' : 'You are'} registered in Room ${actualRoom}.`,
+          },
+          { status: 404 }
+        );
+      }
+
       await prisma.roomPortalActivityLog.create({
         data: {
           propertyId: 'unknown',
@@ -103,10 +148,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const roomIds = matchingRooms.map((r) => r.id);
+    let roomIds = matchingRooms.map((r) => r.id);
 
     // Find active check-in or confirmed reservation for any matching room
-    const candidateReservations = await prisma.reservation.findMany({
+    let candidateReservations = await prisma.reservation.findMany({
       where: {
         status: { in: ['CHECKED_IN', 'CONFIRMED'] },
         ...(targetPropertyId ? { propertyId: targetPropertyId } : {}),
@@ -150,12 +195,109 @@ export async function POST(request: NextRequest) {
     });
 
     // Match guest by 10-digit mobile number
-    const reservation = candidateReservations.find((r) => {
+    let reservation = candidateReservations.find((r) => {
       const guestMobile = (r.guest?.mobile || '').replace(/\D/g, '').slice(-10);
       return guestMobile === cleanMobile;
     });
 
+    // If not matched and targetPropertyId was specified, fallback across ALL properties for this room & mobile!
+    if (!reservation && targetPropertyId) {
+      const allMatchingRooms = await prisma.room.findMany({
+        where: { roomNumber: trimmedRoom },
+        select: { id: true, propertyId: true, roomNumber: true, floor: true },
+      });
+      const allRoomIds = allMatchingRooms.map((r) => r.id);
+
+      const fallbackCandidates = await prisma.reservation.findMany({
+        where: {
+          status: { in: ['CHECKED_IN', 'CONFIRMED'] },
+          OR: [
+            { rooms: { some: { roomId: { in: allRoomIds } } } },
+            { assignedRoomId: { in: allRoomIds } },
+            { checkIns: { some: { roomId: { in: allRoomIds }, status: 'ACTIVE' } } },
+          ],
+        },
+        include: {
+          guest: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              mobile: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+          property: {
+            select: {
+              id: true,
+              name: true,
+              brandName: true,
+              logoUrl: true,
+              phone: true,
+            },
+          },
+          rooms: {
+            include: {
+              room: { select: { id: true, roomNumber: true, floor: true, propertyId: true } },
+            },
+          },
+          checkIns: {
+            include: {
+              room: { select: { id: true, roomNumber: true, floor: true, propertyId: true } },
+            },
+          },
+        },
+      });
+
+      const fallbackMatch = fallbackCandidates.find((r) => {
+        const guestMobile = (r.guest?.mobile || '').replace(/\D/g, '').slice(-10);
+        return guestMobile === cleanMobile;
+      });
+
+      if (fallbackMatch) {
+        reservation = fallbackMatch;
+        matchingRooms = allMatchingRooms;
+        roomIds = allRoomIds;
+      }
+    }
+
     if (!reservation) {
+      // Guest might have entered wrong room number! Check if their mobile has an active check-in in another room!
+      const mobileActiveCheckIn = await prisma.reservation.findFirst({
+        where: {
+          status: { in: ['CHECKED_IN', 'CONFIRMED'] },
+          guest: { mobile: { contains: cleanMobile } },
+        },
+        include: {
+          guest: { select: { firstName: true, lastName: true, mobile: true } },
+          rooms: { include: { room: true } },
+          checkIns: { include: { room: true } },
+          property: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (mobileActiveCheckIn) {
+        const actualRoom =
+          mobileActiveCheckIn.rooms?.[0]?.room?.roomNumber ||
+          mobileActiveCheckIn.checkIns?.[0]?.room?.roomNumber;
+        if (actualRoom && actualRoom !== trimmedRoom) {
+          const guestName = `${mobileActiveCheckIn.guest?.firstName || ''} ${mobileActiveCheckIn.guest?.lastName || ''}`.trim();
+          return NextResponse.json(
+            {
+              success: false,
+              suggestedRoom: actualRoom,
+              suggestedPropertyId: mobileActiveCheckIn.propertyId,
+              suggestedPropertyName: mobileActiveCheckIn.property?.name,
+              canQuickSwitch: true,
+              message: `Guest ${guestName || ''} (${cleanMobile}) is checked into Room ${actualRoom} (not Room ${trimmedRoom}).`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       await prisma.roomPortalActivityLog.create({
         data: {
           propertyId: matchingRooms[0]?.propertyId || 'unknown',
@@ -167,7 +309,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `No active check-in found for Room ${trimmedRoom} with the provided mobile number.`,
+          message: `No active check-in found for Room ${trimmedRoom} with mobile ${cleanMobile}. Please verify room number or mobile.`,
         },
         { status: 401 }
       );

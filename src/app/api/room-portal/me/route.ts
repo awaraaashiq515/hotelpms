@@ -131,6 +131,8 @@ export async function GET(request: NextRequest) {
           checkoutRequested: true,
           wifiPassword: true,
           wifiStatus: true,
+          specialOffer: true,
+          offerCode: true,
           property: {
             select: {
               id: true,
@@ -215,6 +217,15 @@ export async function GET(request: NextRequest) {
               emergencyPhone: config.emergencyPhone,
               wifiName: effectiveWifiName,
               wifiPassword: effectiveWifiPassword,
+              breakfastTimings: config.breakfastTimings,
+              restaurantTimings: config.restaurantTimings,
+              dailyMealMenu: config.dailyMealMenu,
+              googleReviewUrl: config.googleReviewUrl,
+              googlePlaceId: config.googlePlaceId,
+              promotionalOfferTitle: config.promotionalOfferTitle,
+              promotionalOfferDesc: config.promotionalOfferDesc,
+              promotionalOfferCode: config.promotionalOfferCode,
+              showPromotionalOffer: config.showPromotionalOffer ?? true,
             }
           : null,
       },

@@ -23,11 +23,15 @@ import {
   ArrowRight,
   Clock,
   AlertCircle,
+  Eye,
   ChevronRight,
   Building2,
   UtensilsCrossed,
   Receipt,
   ShoppingBag,
+  Upload,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -40,6 +44,7 @@ interface ReservationDetailDrawerProps {
   onCheckOut?: (b: any) => void;
   onPrint?: (b: any) => void;
   onUpdated?: () => void;
+  onOpenKyc?: (b: any) => void;
 }
 
 export function ReservationDetailDrawer({
@@ -51,9 +56,15 @@ export function ReservationDetailDrawer({
   onCheckOut,
   onPrint,
   onUpdated,
+  onOpenKyc,
 }: ReservationDetailDrawerProps) {
   const [notes, setNotes] = useState(booking?.addOnNotes || booking?.notes || '');
   const [savingNotes, setSavingNotes] = useState(false);
+
+  // In-Room Tablet Special Offer State
+  const [specialOffer, setSpecialOffer] = useState(booking?.specialOffer || '');
+  const [offerCode, setOfferCode] = useState(booking?.offerCode || '');
+  const [savingOffer, setSavingOffer] = useState(false);
 
   // Banner message state
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -131,6 +142,8 @@ export function ReservationDetailDrawer({
   useEffect(() => {
     if (booking) {
       setNotes(booking?.addOnNotes || booking?.notes || '');
+      setSpecialOffer(booking?.specialOffer || '');
+      setOfferCode(booking?.offerCode || '');
       const depIso = booking.departureDate ? new Date(booking.departureDate).toISOString().split('T')[0] : '';
       const arrIso = booking.arrivalDate ? new Date(booking.arrivalDate).toISOString().split('T')[0] : '';
       setNewDepDate(addDays(depIso, 1));
@@ -251,6 +264,34 @@ export function ReservationDetailDrawer({
       console.error(err);
     } finally {
       setSavingNotes(false);
+    }
+  };
+
+  const handleSaveOffer = async () => {
+    if (!booking?.id) return;
+    setSavingOffer(true);
+    try {
+      const res = await fetch('/api/hotel/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: booking.id,
+          specialOffer: specialOffer.trim() || null,
+          offerCode: offerCode.trim() ? offerCode.trim().toUpperCase() : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', text: 'Room tablet offer saved successfully! 🎁' });
+        setTimeout(() => setBanner(null), 3000);
+        onUpdated?.();
+      } else {
+        setBanner({ type: 'error', text: data.message || 'Failed to update offer' });
+      }
+    } catch {
+      setBanner({ type: 'error', text: 'Failed to update offer' });
+    } finally {
+      setSavingOffer(false);
     }
   };
 
@@ -565,7 +606,18 @@ export function ReservationDetailDrawer({
               {/* Meal Plan Badge */}
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-medium">
                 <UtensilsCrossed className="w-3 h-3 text-emerald-400" />
-                <span>Plan: <strong>{booking.mealPlan || 'RO (Room Only)'}</strong></span>
+                <span>
+                  Plan:{' '}
+                  <strong>
+                    {(() => {
+                      const p = (booking.mealPlan || 'EP').toUpperCase();
+                      if (p === 'CP') return 'CP (Breakfast Included)';
+                      if (p === 'MAP') return 'MAP (Breakfast + Dinner)';
+                      if (p === 'AP') return 'AP (All Meals Included)';
+                      return 'EP (Room Only)';
+                    })()}
+                  </strong>
+                </span>
               </div>
 
               {/* ID Proof Badge */}
@@ -595,6 +647,78 @@ export function ReservationDetailDrawer({
                 </div>
               )}
             </div>
+
+            {/* KYC Document preview & Upload Actions */}
+            {booking.guest?.documents && booking.guest.documents.length > 0 ? (
+              <div className="pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <ShieldCheck size={12} className="text-emerald-400" /> KYC Verified Document
+                  </span>
+                  {onOpenKyc && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenKyc(booking)}
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Upload size={10} /> Update / Re-upload KYC
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                  <a
+                    href={booking.guest.documents[0].documentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative group rounded-lg overflow-hidden border border-slate-700 w-16 h-12 shrink-0 bg-black flex items-center justify-center cursor-pointer"
+                    title="Click to view full size"
+                  >
+                    <img
+                      src={booking.guest.documents[0].documentUrl}
+                      alt="KYC Document"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <Eye className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  </a>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-slate-200 block truncate">
+                      {booking.guest.documents[0].documentType || 'Identity Proof'}
+                    </span>
+                    <a
+                      href={booking.guest.documents[0].documentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-indigo-400 hover:underline font-semibold flex items-center gap-1 mt-0.5"
+                    >
+                      View Full Size Document ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/25">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-rose-300 block">Identity KYC Missing</span>
+                      <span className="text-[10px] text-slate-400">Government ID proof not yet attached</span>
+                    </div>
+                  </div>
+                  {onOpenKyc && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenKyc(booking)}
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wider transition-colors shadow-sm cursor-pointer flex items-center gap-1"
+                    >
+                      <Upload size={10} /> Upload KYC
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── Inline Room Upgrade Panel ── */}
             {showUpgradePanel && (
@@ -898,6 +1022,60 @@ export function ReservationDetailDrawer({
               <strong className={`${netDueBalance > 0 ? 'text-rose-400' : 'text-emerald-400'} font-bold text-sm`}>
                 {currency} {netDueBalance.toLocaleString('en-IN')}
               </strong>
+            </div>
+          </div>
+
+          {/* ── In-Room Tablet Special Offer & Perks Card ── */}
+          <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-950/20 via-slate-900/80 to-slate-900/40 border border-amber-500/30 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-base">🎁</span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  In-Room Tablet Special Offer
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Live on Tablet
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">
+                  Offer / Promo Title (Guest Tablet Screen)
+                </label>
+                <input
+                  type="text"
+                  value={specialOffer}
+                  onChange={(e) => setSpecialOffer(e.target.value)}
+                  placeholder="e.g. Flat 20% OFF on Spa Treatments & Massages"
+                  className="w-full bg-[#1e293b]/80 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-slate-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">
+                    Promo Code (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={offerCode}
+                    onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. SPA20"
+                    className="w-full bg-[#1e293b]/80 border border-slate-700 rounded-lg p-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-slate-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveOffer}
+                  disabled={savingOffer}
+                  className="self-end px-3 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {savingOffer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>{savingOffer ? 'Saving...' : 'Save to Tablet'}</span>
+                </button>
+              </div>
             </div>
           </div>
 
