@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 import { SelectRoomOrderModal } from '@/components/hotel/pos/SelectRoomOrderModal';
+import { DailyShortcutsSection } from '@/components/hotel/DailyShortcutsSection';
 
 /* ─── Module sub-card (same as before) ─── */
 function ModuleCard({ name, href, icon: Icon, iconColor, iconBg, cardBorder }: {
@@ -946,11 +947,12 @@ const DEPARTMENTS = [
     iconBg: 'bg-sky-500/15',
     cardBorder: 'border-slate-800 hover:border-sky-500/40',
     modules: [
+      { name: 'Check-In Terminal',   href: '/hotel/checkin',         icon: DoorOpen   },
+      { name: 'Check-Out Terminal',  href: '/hotel/checkout',        icon: DoorOpen   },
       { name: 'Operations Dashboard', href: '/hotel/operations-dashboard', icon: LayoutGrid },
       { name: 'Bookings Manager',   href: '/hotel/bookings',        icon: PlusCircle },
       { name: 'Agent Bookings',      href: '/hotel/agent-bookings',  icon: Handshake  },
       { name: 'Room Availability',   href: '/hotel/calendar',        icon: Calendar   },
-      { name: 'Check-Out Terminal',  href: '/hotel/checkout',        icon: DoorOpen   },
       { name: 'Email Bookings',      href: '/hotel/email-bookings',  icon: ScrollText },
     ],
   },
@@ -1285,10 +1287,10 @@ export default function HotelDashboard() {
   const userName  = session?.fullName || session?.name || 'Admin';
 
   return (
-    <div className="pb-12 max-w-[1500px] mx-auto select-none">
+    <div className="pb-4 max-w-[1500px] mx-auto select-none">
 
-      {/* ── Premium Welcome Header ── */}
-      <div className="relative mb-8 overflow-hidden rounded-3xl" style={{
+      {/* ── Premium Welcome Header (Compact Sleek Bar) ── */}
+      <div className="relative mb-2.5 overflow-hidden rounded-2xl" style={{
         background: 'linear-gradient(135deg, #0d1117 0%, #0f172a 50%, #0d1525 100%)',
         border: '1px solid rgba(99,102,241,0.15)',
       }}>
@@ -1298,52 +1300,35 @@ export default function HotelDashboard() {
         {/* Grid pattern */}
         <div className="pointer-events-none absolute inset-0 opacity-[0.03]"
           style={{ backgroundImage: 'repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 40px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 40px)' }} />
-        {/* Glow orb top-left */}
-        <div className="pointer-events-none absolute -top-16 -left-16 w-72 h-72 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 65%)', filter: 'blur(2px)' }} />
-        {/* Glow orb bottom-right */}
-        <div className="pointer-events-none absolute -bottom-12 -right-12 w-56 h-56 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 65%)', filter: 'blur(2px)' }} />
 
-        {/* ── 3-column grid layout ── */}
-        <div className="relative grid grid-cols-3 items-center px-7 py-6 min-h-[120px]">
+        {/* ── Compact 3-part layout ── */}
+        <div className="relative flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 min-h-[56px]">
 
-          {/* COL 1 — Left: breadcrumb + date/time */}
-          <div className="flex flex-col justify-center gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.25em]">
-                GuestFlow &nbsp;·&nbsp; Hotel PMS
-              </span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-slate-500 font-medium">
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
-            </div>
-            <span className="inline-flex items-center gap-1.5 w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-400"
+          {/* COL 1 — Left: PMS + date + live */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+              GuestFlow PMS
+            </span>
+            <span className="text-slate-600 hidden sm:inline">·</span>
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+              {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold text-emerald-400"
               style={{ background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.20)' }}>
-              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
               <LiveClock className="tabular-nums" />
-              &nbsp;Live
             </span>
           </div>
 
-          {/* COL 2 — CENTER: greeting + hotel name */}
-          <div className="flex flex-col items-center justify-center text-center gap-2">
-            {/* Greeting */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-base leading-none">{greetingEmoji}</span>
-              <span className="text-sm font-semibold" style={{ color: 'rgba(165,180,252,0.85)' }}>
-                {greeting}, <span className="font-black text-indigo-300">{userName}!</span>
-              </span>
-            </div>
-
-            {/* Hotel Name — hero, centered */}
+          {/* COL 2 — CENTER: greeting + hotel name + badge */}
+          <div className="flex items-center justify-center gap-2.5 text-center">
+            <span className="text-xs text-indigo-300 font-medium hidden md:inline">
+              {greetingEmoji} {greeting}, <span className="font-bold text-white">{userName}</span>
+            </span>
+            <span className="text-slate-600 hidden md:inline">·</span>
             <h1
-              className="font-black leading-none tracking-tight"
+              className="font-black tracking-tight text-base sm:text-lg leading-none truncate max-w-xs"
               style={{
-                fontSize: 'clamp(1.8rem, 3.5vw, 2.6rem)',
                 background: 'linear-gradient(110deg, #ffffff 0%, #c7d2fe 45%, #a78bfa 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -1351,17 +1336,15 @@ export default function HotelDashboard() {
               }}>
               {hotelName}
             </h1>
-
-            {/* Gold Premium badge */}
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black text-amber-300"
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-black text-amber-300"
               style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)' }}>
               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-              Premium Hotel
+              Premium
             </span>
           </div>
 
           {/* COL 3 — Right: search + New Booking */}
-          <div className="flex items-center justify-end gap-2.5">
+          <div className="flex items-center justify-end gap-2.5 shrink-0">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
@@ -1370,19 +1353,18 @@ export default function HotelDashboard() {
                 placeholder="Search modules..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-44 pl-9 pr-7 text-[12px] font-medium text-white placeholder-slate-600 rounded-xl outline-none transition-all duration-200"
+                className="h-8 w-40 pl-8 pr-6 text-xs font-medium text-white placeholder-slate-600 rounded-xl outline-none transition-all duration-200"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
                   border: searchQuery ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(255,255,255,0.09)',
-                  boxShadow: searchQuery ? '0 0 0 3px rgba(99,102,241,0.15), inset 0 1px 3px rgba(0,0,0,0.3)' : 'inset 0 1px 3px rgba(0,0,0,0.2)',
                 }}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 transition-colors"
                 >
-                  <X size={11} />
+                  <X size={10} />
                 </button>
               )}
             </div>
@@ -1390,18 +1372,14 @@ export default function HotelDashboard() {
             {/* New Booking */}
             <Link
               href="/hotel/bookings"
-              className="relative group h-10 flex items-center gap-2 px-5 rounded-xl text-[12px] font-black text-white overflow-hidden transition-all duration-200 active:scale-95 flex-shrink-0"
+              className="h-8 flex items-center gap-1.5 px-3.5 rounded-xl text-xs font-black text-white transition-all duration-200 active:scale-95 flex-shrink-0"
               style={{
                 background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)',
-                boxShadow: '0 0 0 1px rgba(99,102,241,0.4), 0 6px 24px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
+                boxShadow: '0 0 0 1px rgba(99,102,241,0.4), 0 4px 12px rgba(99,102,241,0.3)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 0 0 1px rgba(99,102,241,0.6), 0 8px 32px rgba(99,102,241,0.5), inset 0 1px 0 rgba(255,255,255,0.18)')}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 0 0 1px rgba(99,102,241,0.4), 0 6px 24px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.18)')}
             >
-              <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"
-                style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)' }} />
-              <PlusCircle size={14} className="flex-shrink-0 relative z-10" />
-              <span className="relative z-10 tracking-wide">New Booking</span>
+              <PlusCircle size={13} />
+              <span>New Booking</span>
             </Link>
           </div>
         </div>
@@ -1410,31 +1388,24 @@ export default function HotelDashboard() {
         <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.3) 50%, transparent 100%)' }} />
       </div>
 
-      {/* ── Demo Data Active Banner ── */}
+      {/* ── Demo Data Active Banner (Compact Single Row) ── */}
       {hasDemoData && (
-        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
-                Sample Demo Data Loaded
-                {demoInfo && (
-                  <span className="text-[10px] font-semibold text-slate-400 normal-case">
-                    ({demoInfo.demoReservationsCount} Bookings, {demoInfo.demoGuestsCount} Guests, {demoInfo.demoRoomsCount} Rooms)
-                  </span>
-                )}
-              </p>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Your dashboard currently has demo bookings (Tarun Sharma, Priya Patel). You can remove demo data anytime to start clean.
-              </p>
-            </div>
+        <div className="mb-2.5 py-1.5 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/30 flex items-center justify-between gap-2 shadow-sm text-xs">
+          <div className="flex items-center gap-2 truncate">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+            <p className="text-[11.5px] font-bold text-amber-300 flex items-center gap-1.5 truncate">
+              <span>Sample Demo Data Active</span>
+              {demoInfo && (
+                <span className="text-[10px] font-normal text-slate-400 hidden sm:inline">
+                  ({demoInfo.demoReservationsCount} Bookings, {demoInfo.demoGuestsCount} Guests)
+                </span>
+              )}
+            </p>
           </div>
           <button
             type="button"
             onClick={() => setShowClearModal(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0"
+            className="px-3 py-1 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[10.5px] font-bold transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer"
           >
             <span>🗑️</span> Remove Demo Data
           </button>
@@ -1476,36 +1447,44 @@ export default function HotelDashboard() {
         )
       ) : (
         /* ── Normal mode ── */
-        <div className="space-y-3">
+        <div className="space-y-2.5">
 
           {/* Step 1 — Category Boxes in a grid (always visible) */}
-          <div className={`grid grid-cols-2 sm:grid-cols-4 ${departmentsWithRestaurant.length > 8 ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-3 mb-2`}>
+          <div className="flex items-center justify-between px-1 mb-1.5">
+            <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-400">
+              Department Modules &amp; Operations
+            </span>
+            <span className="text-[9.5px] font-semibold text-slate-500">
+              Click any department to explore
+            </span>
+          </div>
+          <div className={`grid grid-cols-2 sm:grid-cols-4 ${departmentsWithRestaurant.length > 8 ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-2.5 mb-1.5`}>
             {departmentsWithRestaurant.map((dept) => {
               const isActive = activeDept === dept.name;
               return (
                 <button
                   key={dept.name}
                   onClick={() => toggle(dept.name)}
-                  className="group relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 text-center cursor-pointer active:scale-95"
+                  className="group relative flex flex-col items-center justify-center gap-1.5 p-2.5 px-2 rounded-2xl transition-all duration-200 text-center cursor-pointer active:scale-95 min-h-[76px]"
                   style={{
                     background: isActive
                       ? `linear-gradient(135deg, ${dept.gradFrom} 0%, ${dept.gradTo} 100%)`
                       : 'rgba(15,23,42,0.85)',
                     border: `1px solid ${isActive ? dept.borderActive : dept.borderIdle}`,
-                    boxShadow: isActive ? `0 0 24px ${dept.glowColor}` : 'none',
+                    boxShadow: isActive ? `0 0 18px ${dept.glowColor}` : 'none',
                   }}
                 >
                   {/* Emoji */}
-                  <span className="text-2xl leading-none">{dept.emoji}</span>
+                  <span className="text-xl leading-none">{dept.emoji}</span>
                   {/* Name */}
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-wide leading-tight transition-colors ${isActive ? dept.labelColor : 'text-slate-500 group-hover:text-slate-300'}`}
+                    className={`text-[10px] font-bold uppercase tracking-wide leading-tight transition-colors line-clamp-1 ${isActive ? dept.labelColor : 'text-slate-400 group-hover:text-slate-200'}`}
                   >
                     {dept.name}
                   </span>
                   {/* Module count badge */}
                   <span
-                    className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
+                    className="text-[8.5px] font-semibold px-2 py-0.5 rounded-full"
                     style={{
                       background: isActive ? dept.gradFrom : 'rgba(255,255,255,0.05)',
                       color: isActive ? 'white' : 'rgb(100,116,139)',
@@ -1517,8 +1496,8 @@ export default function HotelDashboard() {
                   {/* Active indicator dot */}
                   {isActive && (
                     <span
-                      className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${dept.dotColor}`}
-                      style={{ boxShadow: `0 0 6px ${dept.glowColor}` }}
+                      className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${dept.dotColor}`}
+                      style={{ boxShadow: `0 0 4px ${dept.glowColor}` }}
                     />
                   )}
                 </button>
@@ -1585,6 +1564,11 @@ export default function HotelDashboard() {
               </div>
             );
           })}
+
+          {/* ── Daily Shortcuts & Quick Access (Customizable below Department Modules) ── */}
+          <div className="pt-1.5 border-t border-slate-800/50">
+            <DailyShortcutsSection propertyCode={property?.code} />
+          </div>
         </div>
       )}
 
