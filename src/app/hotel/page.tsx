@@ -12,7 +12,7 @@ import {
   UserCheck, Radio, Navigation, UtensilsCrossed, Monitor, Bell,
   Trash2, Download, Eye, Printer, ShoppingCart, Tag, Bike, FileText,
   Phone, Music2, Lock, Plus,
-  Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers, BedDouble,
+  Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers, BedDouble, ConciergeBell,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 import { SelectRoomOrderModal } from '@/components/hotel/pos/SelectRoomOrderModal';
@@ -228,6 +228,13 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                     className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-amber-400 border-t border-slate-800/80 transition-colors"
                   >
                     <span className="text-base">📺</span> Customer Display (CDS)
+                  </Link>
+                  <Link
+                    href="/hotel/meal-and-service-hub"
+                    onClick={() => setShowDisplays(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 border-t border-slate-800/80 transition-colors"
+                  >
+                    <span className="text-base">🛎️</span> Meal &amp; Service Hub (Live)
                   </Link>
                 </div>
               </>
@@ -1114,6 +1121,7 @@ const DEPARTMENTS = [
       { name: 'Table Layout & Floors', href: '/hotel/pos/tables',               icon: LayoutGrid },
       { name: 'Kitchen Display (KDS)', href: '/hotel/pos/kitchen-display',       icon: ChefHat },
       { name: 'Meal Display (Live)',   href: '/hotel/pos/meal-display',          icon: UtensilsCrossed },
+      { name: 'Meal & Service Hub',    href: '/hotel/meal-and-service-hub',      icon: ConciergeBell },
       { name: 'Room Service Orders',   href: '/hotel/pos/room-service',         icon: Bed },
       { name: 'Live Overview',         href: '/hotel/pos/live-overview',        icon: LayoutGrid },
       { name: 'Day Closing',           href: '/hotel/pos/day-closing',          icon: History },
