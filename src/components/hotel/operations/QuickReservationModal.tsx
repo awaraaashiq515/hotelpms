@@ -334,6 +334,10 @@ export function QuickReservationModal({
   // 6. Payment & Notes State
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [advancePaymentMode, setAdvancePaymentMode] = useState('CASH');
+  const [splitCashAmount, setSplitCashAmount] = useState<number>(0);
+  const [splitOnlineAmount, setSplitOnlineAmount] = useState<number>(0);
+  const [splitOnlineMethod, setSplitOnlineMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
+  const [splitOnlineRef, setSplitOnlineRef] = useState<string>('');
   const [guestNotes, setGuestNotes] = useState('');
   const [customTotalOverride, setCustomTotalOverride] = useState<number | null>(null);
 
@@ -545,12 +549,19 @@ export function QuickReservationModal({
 
   // Quick Advance Setter
   const setQuickAdvance = (percentage: number) => {
+    let target = 0;
     if (percentage === 0) {
-      setAdvanceAmount(0);
+      target = 0;
     } else if (percentage === 50) {
-      setAdvanceAmount(Math.round(computedGrandTotal * 0.5));
+      target = Math.round(computedGrandTotal * 0.5);
     } else if (percentage === 100) {
-      setAdvanceAmount(computedGrandTotal);
+      target = computedGrandTotal;
+    }
+    setAdvanceAmount(target);
+    if (advancePaymentMode === 'SPLIT') {
+      const half = Math.round(target / 2);
+      setSplitCashAmount(half);
+      setSplitOnlineAmount(target - half);
     }
   };
 
@@ -596,11 +607,25 @@ export function QuickReservationModal({
           }
         });
 
+      const onlineMethodLabel =
+        splitOnlineMethod === 'UPI'
+          ? 'UPI / QR'
+          : splitOnlineMethod === 'CARD'
+          ? 'Card'
+          : 'Net Banking';
+
+      const advanceNote =
+        advanceAmount > 0
+          ? advancePaymentMode === 'SPLIT'
+            ? `Advance Paid: ₹${advanceAmount.toLocaleString('en-IN')} (Split: ₹${splitCashAmount.toLocaleString('en-IN')} Cash + ₹${splitOnlineAmount.toLocaleString('en-IN')} Online via ${onlineMethodLabel}${splitOnlineRef.trim() ? ` [Ref: ${splitOnlineRef.trim()}]` : ''})`
+            : `Advance Paid: ₹${advanceAmount.toLocaleString('en-IN')} via ${advancePaymentMode}`
+          : '';
+
       const fullNotes = [
         guestNotes.trim() ? `Requests: ${guestNotes.trim()}` : '',
         perksList.length > 0 ? `Complimentary: ${perksList.join(', ')}` : '',
         customComplimentaryNotes.trim() ? `Special Perks: ${customComplimentaryNotes.trim()}` : '',
-        advanceAmount > 0 ? `Advance Paid: ₹${advanceAmount} via ${advancePaymentMode}` : '',
+        advanceNote,
       ]
         .filter(Boolean)
         .join(' | ');
@@ -675,6 +700,11 @@ export function QuickReservationModal({
         setSpecialOfferText('Flat 20% OFF on Spa Treatments & Massages');
         setSpecialOfferCode('SPA20');
         setAdvanceAmount(0);
+        setAdvancePaymentMode('CASH');
+        setSplitCashAmount(0);
+        setSplitOnlineAmount(0);
+        setSplitOnlineRef('');
+        setSplitOnlineMethod('UPI');
         setCustomTotalOverride(null);
       } else {
         alert(data.message || 'Error creating reservation in database.');
@@ -1979,77 +2009,273 @@ export function QuickReservationModal({
             </div>
 
             {/* Advance Deposit & Payment Mode Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-                  <span>Advance Deposit Paid (₹)</span>
-                  <span className="text-[10px] text-emerald-400">Paid Now</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max={computedGrandTotal}
-                  value={advanceAmount}
-                  onChange={(e) => setAdvanceAmount(Math.max(0, Number(e.target.value)))}
-                  className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-emerald-400 font-bold focus:outline-none focus:ring-2 focus:ring-[#00b894]"
-                />
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setQuickAdvance(0)}
-                    className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300"
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Advance Deposit Paid (₹)</span>
+                    <span className="text-[10px] text-emerald-400">Paid Now</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={computedGrandTotal}
+                    value={advanceAmount}
+                    onChange={(e) => {
+                      const val = Math.max(0, Number(e.target.value));
+                      setAdvanceAmount(val);
+                      if (advancePaymentMode === 'SPLIT') {
+                        if (splitCashAmount > 0 && splitCashAmount <= val) {
+                          setSplitOnlineAmount(val - splitCashAmount);
+                        } else {
+                          const half = Math.round(val / 2);
+                          setSplitCashAmount(half);
+                          setSplitOnlineAmount(val - half);
+                        }
+                      }
+                    }}
+                    className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-emerald-400 font-bold focus:outline-none focus:ring-2 focus:ring-[#00b894]"
+                  />
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setQuickAdvance(0)}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    >
+                      ₹0 (Due Later)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickAdvance(50)}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    >
+                      50% Advance
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickAdvance(100)}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300"
+                    >
+                      100% Full
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Payment Mode for Advance</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (advancePaymentMode === 'SPLIT') {
+                          setAdvancePaymentMode('CASH');
+                        } else {
+                          setAdvancePaymentMode('SPLIT');
+                          const target = advanceAmount > 0 ? advanceAmount : Math.round(computedGrandTotal * 0.5);
+                          if (advanceAmount === 0) setAdvanceAmount(target);
+                          const half = Math.round(target / 2);
+                          setSplitCashAmount(half);
+                          setSplitOnlineAmount(target - half);
+                        }
+                      }}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-bold transition-all ${
+                        advancePaymentMode === 'SPLIT'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ {advancePaymentMode === 'SPLIT' ? 'Split Active' : 'Split Cash+Online'}
+                    </button>
+                  </label>
+                  <select
+                    value={advancePaymentMode}
+                    onChange={(e) => {
+                      const newMode = e.target.value;
+                      setAdvancePaymentMode(newMode);
+                      if (newMode === 'SPLIT') {
+                        const target = advanceAmount > 0 ? advanceAmount : Math.round(computedGrandTotal * 0.5);
+                        if (advanceAmount === 0) setAdvanceAmount(target);
+                        if (splitCashAmount === 0 && splitOnlineAmount === 0) {
+                          const half = Math.round(target / 2);
+                          setSplitCashAmount(half);
+                          setSplitOnlineAmount(target - half);
+                        }
+                      }
+                    }}
+                    className={`w-full bg-[#1e293b]/70 border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 ${
+                      advancePaymentMode === 'SPLIT'
+                        ? 'border-amber-500/60 ring-1 ring-amber-500/30 focus:ring-amber-400 text-amber-200'
+                        : 'border-slate-700/80 focus:ring-[#00b894]'
+                    }`}
                   >
-                    ₹0 (Due Later)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setQuickAdvance(50)}
-                    className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    <option value="CASH" className="bg-slate-900 text-white">Cash Only</option>
+                    <option value="UPI" className="bg-slate-900 text-white">UPI / QR Scan</option>
+                    <option value="CARD" className="bg-slate-900 text-white">Credit / Debit Card</option>
+                    <option value="NET_BANKING" className="bg-slate-900 text-white">Net Banking / NEFT</option>
+                    <option value="SPLIT" className="bg-slate-900 text-amber-300 font-bold">⚡ Split Payment (Cash + Online)</option>
+                    <option value="CORPORATE_BILLING" className="bg-slate-900 text-white">Corporate Direct Bill</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Net Balance Due at Checkout
+                  </label>
+                  <div
+                    className={`h-[38px] rounded-xl px-3.5 flex items-center justify-between border font-mono font-bold text-sm ${
+                      balanceDue === 0
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
                   >
-                    50% Advance
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setQuickAdvance(100)}
-                    className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300"
-                  >
-                    100% Full
-                  </button>
+                    <span>{balanceDue === 0 ? '✓ Fully Paid' : 'Balance Due:'}</span>
+                    <span>₹{balanceDue.toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Payment Mode for Advance
-                </label>
-                <select
-                  value={advancePaymentMode}
-                  onChange={(e) => setAdvancePaymentMode(e.target.value)}
-                  className="w-full bg-[#1e293b]/70 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b894]"
-                >
-                  <option value="CASH" className="bg-slate-900 text-white">Cash</option>
-                  <option value="UPI" className="bg-slate-900 text-white">UPI / QR Scan</option>
-                  <option value="CARD" className="bg-slate-900 text-white">Credit / Debit Card</option>
-                  <option value="NET_BANKING" className="bg-slate-900 text-white">Net Banking / NEFT</option>
-                  <option value="CORPORATE_BILLING" className="bg-slate-900 text-white">Corporate Direct Bill</option>
-                </select>
-              </div>
+              {/* Split Payment Breakdown Box (Cash + Online) */}
+              {advancePaymentMode === 'SPLIT' && (
+                <div className="p-3.5 bg-gradient-to-r from-amber-500/10 via-slate-800/70 to-emerald-500/10 border border-amber-500/30 rounded-2xl animate-in fade-in duration-200 shadow-lg">
+                  <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                        ⚡ Split Advance Breakdown: Cash + Online / UPI
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = advanceAmount > 0 ? advanceAmount : computedGrandTotal;
+                          const half = Math.round(target / 2);
+                          setSplitCashAmount(half);
+                          setSplitOnlineAmount(target - half);
+                          setAdvanceAmount(target);
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors"
+                      >
+                        ⚖️ 50 / 50 Split
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = advanceAmount > 0 ? advanceAmount : computedGrandTotal;
+                          setSplitCashAmount(target);
+                          setSplitOnlineAmount(0);
+                          setAdvanceAmount(target);
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                      >
+                        💵 All Cash
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = advanceAmount > 0 ? advanceAmount : computedGrandTotal;
+                          setSplitCashAmount(0);
+                          setSplitOnlineAmount(target);
+                          setAdvanceAmount(target);
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                      >
+                        📱 All Online
+                      </button>
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Net Balance Due at Checkout
-                </label>
-                <div
-                  className={`h-[38px] rounded-xl px-3.5 flex items-center justify-between border font-mono font-bold text-sm ${
-                    balanceDue === 0
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                  }`}
-                >
-                  <span>{balanceDue === 0 ? '✓ Fully Paid' : 'Balance Due:'}</span>
-                  <span>₹{balanceDue.toLocaleString('en-IN')}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-200 mb-1 flex items-center justify-between">
+                        <span>💵 Cash Paid (₹)</span>
+                        <span className="text-[10px] text-amber-400 font-mono">Physical Cash</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={splitCashAmount}
+                        onChange={(e) => {
+                          const cash = Math.max(0, Number(e.target.value));
+                          setSplitCashAmount(cash);
+                          setAdvanceAmount(cash + splitOnlineAmount);
+                        }}
+                        className="w-full bg-slate-900/90 border border-amber-500/40 rounded-xl px-3.5 py-2 text-sm text-amber-300 font-bold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-emerald-300">
+                          📱 Online Paid (₹)
+                        </label>
+                        <select
+                          value={splitOnlineMethod}
+                          onChange={(e) => setSplitOnlineMethod(e.target.value as any)}
+                          className="bg-slate-900 border border-emerald-500/30 text-[10px] text-emerald-300 rounded px-1.5 py-0.5 focus:outline-none"
+                        >
+                          <option value="UPI">UPI / QR Scan</option>
+                          <option value="CARD">Debit / Credit Card</option>
+                          <option value="NET_BANKING">Net Banking</option>
+                        </select>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={splitOnlineAmount}
+                        onChange={(e) => {
+                          const online = Math.max(0, Number(e.target.value));
+                          setSplitOnlineAmount(online);
+                          setAdvanceAmount(splitCashAmount + online);
+                        }}
+                        className="w-full bg-slate-900/90 border border-emerald-500/40 rounded-xl px-3.5 py-2 text-sm text-emerald-300 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        UPI / Txn Reference (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={splitOnlineRef}
+                        onChange={(e) => setSplitOnlineRef(e.target.value)}
+                        placeholder="e.g. UTR / Txn ID / Receipt #"
+                        className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder:text-slate-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Real-time Math Verification Strip */}
+                  <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-xs font-mono flex-wrap gap-2">
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <span>
+                        Cash: <strong className="text-amber-300">₹{splitCashAmount.toLocaleString('en-IN')}</strong>
+                      </span>
+                      <span>+</span>
+                      <span>
+                        {splitOnlineMethod === 'UPI' ? 'UPI' : splitOnlineMethod === 'CARD' ? 'Card' : 'Net Banking'}: <strong className="text-emerald-300">₹{splitOnlineAmount.toLocaleString('en-IN')}</strong>
+                      </span>
+                      <span>=</span>
+                      <span>
+                        Total Advance: <strong className="text-white font-bold">₹{(splitCashAmount + splitOnlineAmount).toLocaleString('en-IN')}</strong>
+                      </span>
+                    </div>
+
+                    {splitCashAmount + splitOnlineAmount !== advanceAmount && (
+                      <button
+                        type="button"
+                        onClick={() => setAdvanceAmount(splitCashAmount + splitOnlineAmount)}
+                        className="text-[11px] text-amber-400 underline hover:text-amber-300 font-semibold cursor-pointer"
+                      >
+                        Sync Total Advance (₹{(splitCashAmount + splitOnlineAmount).toLocaleString('en-IN')})
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Guest Notes & Requests */}
