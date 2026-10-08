@@ -56,7 +56,8 @@ import {
 
   Download,
   BedDouble,
-  Building2
+  Building2,
+  Utensils
 } from 'lucide-react';
 
 import { useRouter } from 'next/navigation';
@@ -339,6 +340,7 @@ export default function RestaurantPosPage() {
     { label: 'Kitchen Display',   perm: 'Kitchen Display', icon: Eye,            path: `/hotel/pos/kitchen-display`,   feature: 'POS' },
     ...(barPosEnabled ? [{ label: 'Bar Display', perm: 'Kitchen Display', icon: Wine, path: `/hotel/pos/bar-display`, feature: 'BARPOS' } as DashboardAction] : []),
     { label: 'Customer Display',  perm: 'POS Terminal',    icon: Monitor,         path: `/order-display`,         feature: 'POS' },
+    { label: 'Meal Display',      perm: 'POS Terminal',    icon: Utensils,        path: `/hotel/pos/meal-display`,     feature: 'POS' },
   ];
 
   const orderControlActions: DashboardAction[] = [
