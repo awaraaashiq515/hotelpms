@@ -165,6 +165,15 @@ export async function POST(request: NextRequest) {
 
     // Create Guest Folio (Billing ledger)
     const folioNo = `FOL-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+    const currentRes = await prisma.reservation.findUnique({
+      where: { id: finalReservationId },
+      select: { extraAdults: true, extraAdultCharge: true, extraBed: true, extraBedCharge: true, advanceAmount: true }
+    });
+
+    const advancePaid = walkInData?.advanceAmount
+      ? Number(walkInData.advanceAmount)
+      : (currentRes?.advanceAmount ? Number(currentRes.advanceAmount) : 0);
+
     const folio = await prisma.folio.create({
       data: {
         reservationId: finalReservationId,
@@ -172,11 +181,15 @@ export async function POST(request: NextRequest) {
         folioNo,
         openingBalance: 0,
         totalCharges: roomRentTotal,
-        totalPayments: walkInData?.advanceAmount ? Number(walkInData.advanceAmount) : 0,
-        closingBalance: roomRentTotal - (walkInData?.advanceAmount ? Number(walkInData.advanceAmount) : 0),
+        totalPayments: advancePaid,
+        closingBalance: roomRentTotal - advancePaid,
         status: 'OPEN',
       }
     });
+
+    const extraAdultCharge = Number(currentRes?.extraAdultCharge || 0);
+    const extraBedCharge = Number(currentRes?.extraBedCharge || 0);
+    const baseRoomRentDebit = Math.max(0, roomRentTotal - extraAdultCharge - extraBedCharge);
 
     // Add initial Room Rent debit transaction to FolioTransaction
     await prisma.folioTransaction.create({
@@ -185,14 +198,45 @@ export async function POST(request: NextRequest) {
         txnType: 'DEBIT',
         sourceModule: 'HMS',
         description: `Room Rent (${room.roomNumber})`,
-        debitAmount: roomRentTotal,
+        debitAmount: (extraAdultCharge > 0 || extraBedCharge > 0) ? baseRoomRentDebit : roomRentTotal,
         creditAmount: 0,
-        netAmount: roomRentTotal,
+        netAmount: (extraAdultCharge > 0 || extraBedCharge > 0) ? baseRoomRentDebit : roomRentTotal,
       }
     });
 
+    // Add Extra Person Charge debit transaction if applicable
+    if (extraAdultCharge > 0) {
+      const extraGuestsCount = currentRes?.extraAdults || 1;
+      await prisma.folioTransaction.create({
+        data: {
+          folioId: folio.id,
+          txnType: 'DEBIT',
+          sourceModule: 'HMS',
+          description: `Extra Person Charge (${extraGuestsCount} Extra Guest${extraGuestsCount > 1 ? 's' : ''})`,
+          debitAmount: extraAdultCharge,
+          creditAmount: 0,
+          netAmount: extraAdultCharge,
+        }
+      });
+    }
+
+    // Add Extra Bed Charge debit transaction if applicable
+    if (extraBedCharge > 0) {
+      await prisma.folioTransaction.create({
+        data: {
+          folioId: folio.id,
+          txnType: 'DEBIT',
+          sourceModule: 'HMS',
+          description: `Extra Bed / Rollaway Mattress Charge`,
+          debitAmount: extraBedCharge,
+          creditAmount: 0,
+          netAmount: extraBedCharge,
+        }
+      });
+    }
+
     // Add Advance Payment credit transaction to FolioTransaction if applicable
-    if (walkInData?.advanceAmount && Number(walkInData.advanceAmount) > 0) {
+    if (advancePaid > 0) {
       await prisma.folioTransaction.create({
         data: {
           folioId: folio.id,
@@ -200,8 +244,8 @@ export async function POST(request: NextRequest) {
           sourceModule: 'HMS',
           description: `Advance Deposit Payment`,
           debitAmount: 0,
-          creditAmount: Number(walkInData.advanceAmount),
-          netAmount: -Number(walkInData.advanceAmount),
+          creditAmount: advancePaid,
+          netAmount: -advancePaid,
         }
       });
     }

@@ -36,6 +36,7 @@ import {
   TrendingUp,
   Hash,
   ArrowRightLeft,
+  Users,
 } from 'lucide-react';
 
 export interface RoomOption {
@@ -44,6 +45,9 @@ export interface RoomOption {
   roomTypeName: string;
   roomTypeId: string;
   baseRate: number;
+  baseOccupancy?: number;
+  extraAdultRate?: number;
+  extraChildRate?: number;
   status?: string;
   floor?: string;
 }
@@ -222,17 +226,68 @@ export function QuickReservationModal({
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
 
+  // Extra Person / Friend Sharing States
+  const [roomTypesData, setRoomTypesData] = useState<any[]>([]);
+  const [customExtraAdultRate, setCustomExtraAdultRate] = useState<number | null>(null);
+  const [includeExtraBed, setIncludeExtraBed] = useState<boolean>(false);
+  const [extraBedRatePerNight, setExtraBedRatePerNight] = useState<number>(500);
+  const [chargeExtraChild, setChargeExtraChild] = useState<boolean>(false);
+  const [customExtraChildRate, setCustomExtraChildRate] = useState<number | null>(null);
+
+  // Fetch complete room types metadata (including baseOccupancy & extra charges)
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/hotel/room-types')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            setRoomTypesData(data.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
   // Derived room type list (unique)
   const roomTypeOptions = useMemo(() => {
     const seen = new Set<string>();
-    return roomsList.reduce<{ id: string; name: string; baseRate: number }[]>((acc, r) => {
+    return roomsList.reduce<{ id: string; name: string; baseRate: number; baseOccupancy?: number; extraAdultRate?: number }[]>((acc, r) => {
       if (!seen.has(r.roomTypeId)) {
         seen.add(r.roomTypeId);
-        acc.push({ id: r.roomTypeId, name: r.roomTypeName, baseRate: r.baseRate });
+        const meta = roomTypesData.find((t) => t.id === r.roomTypeId);
+        acc.push({
+          id: r.roomTypeId,
+          name: r.roomTypeName,
+          baseRate: r.baseRate,
+          baseOccupancy: meta?.baseOccupancy ?? r.baseOccupancy ?? 2,
+          extraAdultRate: meta?.extraAdultRate ?? r.extraAdultRate ?? 500,
+        });
       }
       return acc;
     }, []);
-  }, [roomsList]);
+  }, [roomsList, roomTypesData]);
+
+  // Active room category details
+  const currentRoomType = useMemo(() => {
+    const fromCategory = roomTypesData.find((t) => t.id === selectedRoomTypeId);
+    if (fromCategory) return fromCategory;
+    const selectedRoom = roomsList.find((r) => r.id === selectedRoomId);
+    if (selectedRoom?.roomTypeId) {
+      const fromRoom = roomTypesData.find((t) => t.id === selectedRoom.roomTypeId);
+      if (fromRoom) return fromRoom;
+    }
+    return null;
+  }, [roomTypesData, selectedRoomTypeId, selectedRoomId, roomsList]);
+
+  const baseOccupancy = currentRoomType?.baseOccupancy ?? 2;
+  const configuredExtraAdultRate = currentRoomType?.extraAdultRate ?? 500;
+  const configuredExtraChildRate = currentRoomType?.extraChildRate ?? 250;
+
+  const effectiveExtraAdultRate = customExtraAdultRate !== null ? customExtraAdultRate : configuredExtraAdultRate;
+  const effectiveExtraChildRate = customExtraChildRate !== null ? customExtraChildRate : configuredExtraChildRate;
+
+  const extraAdultsCount = Math.max(0, adults - baseOccupancy);
+  const extraChildrenCount = Math.max(0, children);
 
   // Rooms filtered by selected category
   const roomsForCategory = useMemo(() => {
@@ -427,6 +482,23 @@ export function QuickReservationModal({
     return ratePerNight * nights;
   }, [ratePerNight, nights]);
 
+  // Extra Person / Friend Sharing Charges Calculation
+  const extraAdultChargeTotal = useMemo(() => {
+    return extraAdultsCount * effectiveExtraAdultRate * nights;
+  }, [extraAdultsCount, effectiveExtraAdultRate, nights]);
+
+  const extraBedChargeTotal = useMemo(() => {
+    return includeExtraBed ? extraBedRatePerNight * nights : 0;
+  }, [includeExtraBed, extraBedRatePerNight, nights]);
+
+  const extraChildChargeTotal = useMemo(() => {
+    return (chargeExtraChild && extraChildrenCount > 0) ? extraChildrenCount * effectiveExtraChildRate * nights : 0;
+  }, [chargeExtraChild, extraChildrenCount, effectiveExtraChildRate, nights]);
+
+  const totalExtraSharingCharges = useMemo(() => {
+    return extraAdultChargeTotal + extraBedChargeTotal + extraChildChargeTotal;
+  }, [extraAdultChargeTotal, extraBedChargeTotal, extraChildChargeTotal]);
+
   // Grand Total Calculation
   const computedGrandTotal = useMemo(() => {
     if (customTotalOverride !== null && customTotalOverride >= 0) {
@@ -434,11 +506,14 @@ export function QuickReservationModal({
     }
     return (
       roomTariffSubtotal +
+      extraAdultChargeTotal +
+      extraBedChargeTotal +
+      extraChildChargeTotal +
       mealPlanTotalCost +
       (selectedSpaObj?.price || 0) +
       (selectedPoolObj?.price || 0)
     );
-  }, [roomTariffSubtotal, mealPlanTotalCost, selectedSpaObj, selectedPoolObj, customTotalOverride]);
+  }, [roomTariffSubtotal, extraAdultChargeTotal, extraBedChargeTotal, extraChildChargeTotal, mealPlanTotalCost, selectedSpaObj, selectedPoolObj, customTotalOverride]);
 
   // Net Balance Due
   const balanceDue = useMemo(() => {
@@ -547,6 +622,12 @@ export function QuickReservationModal({
         departureDate,
         adults: Number(adults || 1),
         children: Number(children || 0),
+        extraAdults: extraAdultsCount,
+        extraAdultCharge: extraAdultChargeTotal,
+        extraChildren: extraChildrenCount,
+        extraChildCharge: extraChildChargeTotal,
+        extraBed: includeExtraBed,
+        extraBedCharge: extraBedChargeTotal,
         mealPlan: mealPlan === 'RO' ? 'EP' : mealPlan,
         spaPackage: selectedSpaObj?.id || 'NONE',
         spaPackageCost: selectedSpaObj?.price || 0,
@@ -1106,8 +1187,11 @@ export function QuickReservationModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Adults (12+ Yrs)
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Adults (12+ Yrs)</span>
+                  <span className="text-[10px] text-emerald-400 font-normal">
+                    Base: {baseOccupancy} incl.
+                  </span>
                 </label>
                 <select
                   value={adults}
@@ -1116,15 +1200,20 @@ export function QuickReservationModal({
                 >
                   {[1, 2, 3, 4, 5, 6].map((num) => (
                     <option key={num} value={num} className="bg-slate-900 text-white">
-                      {num} Adult{num > 1 ? 's' : ''}
+                      {num} Adult{num > 1 ? 's' : ''} {num > baseOccupancy ? `(+${num - baseOccupancy} Extra Friend${num - baseOccupancy > 1 ? 's' : ''})` : ''}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Children (0-11 Yrs)
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Children (0-11 Yrs)</span>
+                  {configuredExtraChildRate > 0 && (
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      ₹{configuredExtraChildRate}/nt
+                    </span>
+                  )}
                 </label>
                 <select
                   value={children}
@@ -1139,6 +1228,137 @@ export function QuickReservationModal({
                 </select>
               </div>
             </div>
+
+            {/* ── Extra Person & Room Sharing Surcharge Notice / Card ── */}
+            {(extraAdultsCount > 0 || includeExtraBed || (children > 0 && configuredExtraChildRate > 0)) ? (
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/30 via-slate-900/80 to-teal-950/30 border border-emerald-500/30 space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-emerald-500/20">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        Extra Person / Room Sharing Surcharge
+                        {extraAdultsCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            {extraAdultsCount} Extra Friend{extraAdultsCount > 1 ? 's' : ''} / Guest{extraAdultsCount > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[10px] text-slate-400">
+                        Base room tariff covers {baseOccupancy} adult{baseOccupancy > 1 ? 's' : ''}. Additional guests sharing this room are charged per night.
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-emerald-400 font-mono">
+                    +₹{totalExtraSharingCharges.toLocaleString('en-IN')} Total
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  {/* Extra Adult Rate / Night */}
+                  {extraAdultsCount > 0 && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                        <span>Extra Adult Rate / Night (₹)</span>
+                        <span className="text-[10px] text-emerald-400">Editable</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          value={effectiveExtraAdultRate}
+                          onChange={(e) => setCustomExtraAdultRate(Math.max(0, Number(e.target.value)))}
+                          className="w-full bg-[#1e293b]/90 border border-emerald-500/40 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-12"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">/guest</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-1">
+                        Subtotal: {extraAdultsCount} × ₹{effectiveExtraAdultRate} × {nights} nt = <strong className="text-emerald-400">₹{extraAdultChargeTotal.toLocaleString('en-IN')}</strong>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Extra Rollaway Bed / Mattress Checkbox */}
+                  <div className={`p-2.5 rounded-xl border transition-all ${includeExtraBed ? 'bg-teal-950/20 border-teal-500/40' : 'bg-slate-800/40 border-slate-700/60'}`}>
+                    <label className="flex items-start gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={includeExtraBed}
+                        onChange={(e) => setIncludeExtraBed(e.target.checked)}
+                        className="rounded border-slate-700 bg-slate-800 text-[#00b894] focus:ring-0 w-4 h-4 mt-0.5 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <span className="font-bold text-white text-xs block">Extra Bed / Mattress</span>
+                        <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
+                          Rollaway bed &amp; extra linen set
+                        </span>
+                      </div>
+                    </label>
+                    {includeExtraBed && (
+                      <div className="mt-2 pt-2 border-t border-teal-500/20 flex items-center justify-between gap-1">
+                        <span className="text-[10px] text-slate-400">Rate / Night:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={extraBedRatePerNight}
+                            onChange={(e) => setExtraBedRatePerNight(Math.max(0, Number(e.target.value)))}
+                            className="w-20 bg-[#1e293b] border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold text-right focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Extra Child Surcharge (Optional) */}
+                  {children > 0 && (
+                    <div className={`p-2.5 rounded-xl border transition-all ${chargeExtraChild ? 'bg-amber-950/20 border-amber-500/40' : 'bg-slate-800/40 border-slate-700/60'}`}>
+                      <label className="flex items-start gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={chargeExtraChild}
+                          onChange={(e) => setChargeExtraChild(e.target.checked)}
+                          className="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0 w-4 h-4 mt-0.5 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <span className="font-bold text-white text-xs block">Charge Extra Child ({children})</span>
+                          <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
+                            Additional child sharing fee
+                          </span>
+                        </div>
+                      </label>
+                      {chargeExtraChild && (
+                        <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center justify-between gap-1">
+                          <span className="text-[10px] text-slate-400">₹/child/nt:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={effectiveExtraChildRate}
+                            onChange={(e) => setCustomExtraChildRate(Math.max(0, Number(e.target.value)))}
+                            className="w-20 bg-[#1e293b] border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold text-right focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIncludeExtraBed(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-emerald-300 border border-slate-700 hover:border-emerald-500/30 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>+ Add Extra Bed / Rollaway Mattress</span>
+                </button>
+              </div>
+            )}
 
             {/* Room Category + Physical Room Number — Two-Step Selection */}
             <div className="space-y-3 pt-2 border-t border-slate-800/80">
@@ -1700,9 +1920,36 @@ export function QuickReservationModal({
             {/* Financial Breakdown Table / Card */}
             <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/80 space-y-2 text-xs">
               <div className="flex items-center justify-between text-slate-300">
-                <span>Room Charges ({nights} Night{nights > 1 ? 's' : ''} × ₹{ratePerNight}):</span>
+                <span>Room Base Charges ({nights} Night{nights > 1 ? 's' : ''} × ₹{ratePerNight}):</span>
                 <span className="font-semibold text-white">₹{roomTariffSubtotal.toLocaleString('en-IN')}</span>
               </div>
+
+              {extraAdultChargeTotal > 0 && (
+                <div className="flex items-center justify-between text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-emerald-400" />
+                    Extra Person Surcharge ({extraAdultsCount} Extra Guest{extraAdultsCount > 1 ? 's' : ''} × ₹{effectiveExtraAdultRate}/nt × {nights} nt{nights > 1 ? 's' : ''}):
+                  </span>
+                  <span className="font-semibold text-emerald-400">+₹{extraAdultChargeTotal.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+
+              {extraBedChargeTotal > 0 && (
+                <div className="flex items-center justify-between text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <BedDouble className="w-3.5 h-3.5 text-teal-400" />
+                    Extra Bed / Rollaway Mattress ({nights} Night{nights > 1 ? 's' : ''} × ₹{extraBedRatePerNight}):
+                  </span>
+                  <span className="font-semibold text-teal-400">+₹{extraBedChargeTotal.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+
+              {extraChildChargeTotal > 0 && (
+                <div className="flex items-center justify-between text-slate-300">
+                  <span>Extra Child Surcharge ({extraChildrenCount} Child{extraChildrenCount > 1 ? 'ren' : ''} × ₹{effectiveExtraChildRate}/nt × {nights} nt{nights > 1 ? 's' : ''}):</span>
+                  <span className="font-semibold text-amber-400">+₹{extraChildChargeTotal.toLocaleString('en-IN')}</span>
+                </div>
+              )}
 
               {mealPlanTotalCost > 0 && (
                 <div className="flex items-center justify-between text-slate-300">

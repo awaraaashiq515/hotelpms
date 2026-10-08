@@ -983,6 +983,16 @@ function BookingsContent() {
                                     ? 'AP (All Meals)'
                                     : 'EP (Room Only)'}
                                 </span>
+                                {b.extraAdultCharge > 0 && (
+                                  <span className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5 whitespace-nowrap font-bold" title={`Extra Person Charge: ₹${b.extraAdultCharge}`}>
+                                    👥 +{b.extraAdults || 1} Extra
+                                  </span>
+                                )}
+                                {b.extraBed && (
+                                  <span className="bg-teal-500/10 text-teal-300 border border-teal-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5 whitespace-nowrap font-bold">
+                                    🛏️ Bed
+                                  </span>
+                                )}
                                 {b.poolAccess && (
                                   <span 
                                     title={b.poolPackage || 'Pool Pass'}

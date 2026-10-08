@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('No property context found.'), 400);
     }
 
-    const { name, code, baseRate, maxOccupancy } = body;
+    const { name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate } = body;
 
     const roomType = await prisma.roomType.create({
       data: {
@@ -85,6 +85,9 @@ export async function POST(request: NextRequest) {
         code,
         baseRate: Number(baseRate),
         maxOccupancy: Number(maxOccupancy),
+        baseOccupancy: baseOccupancy !== undefined ? Number(baseOccupancy) : 2,
+        extraAdultRate: extraAdultRate !== undefined ? Number(extraAdultRate) : 0,
+        extraChildRate: extraChildRate !== undefined ? Number(extraChildRate) : 0,
       },
     });
 
@@ -130,7 +133,7 @@ export async function PUT(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { id, name, code, baseRate, maxOccupancy } = body;
+    const { id, name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate } = body;
 
     if (!id) {
       return apiError(new Error('Room Type ID is required'), 400);
@@ -143,6 +146,9 @@ export async function PUT(request: NextRequest) {
         code: code || undefined,
         baseRate: baseRate !== undefined ? Number(baseRate) : undefined,
         maxOccupancy: maxOccupancy !== undefined ? Number(maxOccupancy) : undefined,
+        baseOccupancy: baseOccupancy !== undefined ? Number(baseOccupancy) : undefined,
+        extraAdultRate: extraAdultRate !== undefined ? Number(extraAdultRate) : undefined,
+        extraChildRate: extraChildRate !== undefined ? Number(extraChildRate) : undefined,
       },
       include: { rooms: true },
     });

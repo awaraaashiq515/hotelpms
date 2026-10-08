@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -371,6 +371,9 @@ model RoomType {
   code                String
   baseRate            Float
   maxOccupancy        Int
+  baseOccupancy       Int                  @default(2)
+  extraAdultRate      Float                @default(0)
+  extraChildRate      Float                @default(0)
   reservations        Reservation[]
   rooms               Room[]
   channelRoomMappings ChannelRoomMapping[]
@@ -434,6 +437,12 @@ model Reservation {
   addOnNotes          String?
   specialOffer        String?
   offerCode           String?
+  extraAdults         Int               @default(0)
+  extraAdultCharge    Float             @default(0)
+  extraChildren       Int               @default(0)
+  extraChildCharge    Float             @default(0)
+  extraBed            Boolean           @default(false)
+  extraBedCharge      Float             @default(0)
   gstNumber           String?
   companyName         String?
   billingAddress      String?

@@ -223,9 +223,16 @@ export function QuickBookModal({
       }
     }
 
+    const type = localRoomTypes.find((t) => t.id === roomTypeId);
+    const baseOcc = type?.baseOccupancy || 2;
+    const extraAdRate = type?.extraAdultRate || 0;
+    const extraAdultsCount = Math.max(0, Number(adults || 1) - baseOcc);
+    const nightsCount = Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)));
+    const extraAdultCharge = extraAdultsCount * extraAdRate * nightsCount;
+
     const poolCost = poolAccess ? Number(poolPassCost || 0) : 0;
     const spaCost = Number(spaPackageCost || 0);
-    const subTotal = roomRent + poolCost + spaCost;
+    const subTotal = roomRent + extraAdultCharge + poolCost + spaCost;
     const gstAmt = gstRate > 0 ? Math.round((subTotal * gstRate) / 100) : 0;
     const grandTotal = subTotal + gstAmt;
 
@@ -235,6 +242,7 @@ export function QuickBookModal({
   }, [
     arrivalDate,
     departureDate,
+    adults,
     roomTypeId,
     assignedRoomId,
     localRoomTypes,
@@ -356,6 +364,13 @@ export function QuickBookModal({
         if (r?.roomTypeId) finalRoomTypeId = r.roomTypeId;
       }
 
+      const roomTypeObj = localRoomTypes.find((t) => t.id === finalRoomTypeId);
+      const baseOcc = roomTypeObj?.baseOccupancy || 2;
+      const extraAdRate = roomTypeObj?.extraAdultRate || 0;
+      const extraAdultsCount = Math.max(0, Number(adults || 1) - baseOcc);
+      const nightsCount = Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)));
+      const extraAdultCharge = extraAdultsCount * extraAdRate * nightsCount;
+
       const payload = {
         guestData: {
           firstName: firstName.trim(),
@@ -370,6 +385,8 @@ export function QuickBookModal({
         departureDate,
         adults: Number(adults || 1),
         children: Number(children || 0),
+        extraAdults: extraAdultsCount,
+        extraAdultCharge: extraAdultCharge,
         roomTypeId: finalRoomTypeId,
         assignedRoomId: assignedRoomId || null,
         totalAmount: Number(totalAmount || 0),

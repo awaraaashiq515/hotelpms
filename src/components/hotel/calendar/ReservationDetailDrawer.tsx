@@ -12,6 +12,7 @@ import {
   User,
   Calendar,
   Bed,
+  BedDouble,
   CreditCard,
   Shield,
   Phone,
@@ -644,6 +645,24 @@ export function ReservationDetailDrawer({
                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/25 text-violet-300 font-medium">
                   <Sparkles className="w-3 h-3 text-violet-400" />
                   <span>Spa: {booking.spaPackage.replace(/_/g, ' ')}</span>
+                </div>
+              )}
+
+              {/* Extra Person Sharing Badge */}
+              {booking.extraAdultCharge > 0 && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-medium">
+                  <Users className="w-3 h-3 text-emerald-400" />
+                  <span>
+                    Extra Person: <strong>+{booking.extraAdults || 1} Guest ({currency} {Number(booking.extraAdultCharge).toLocaleString('en-IN')})</strong>
+                  </span>
+                </div>
+              )}
+
+              {/* Extra Bed Badge */}
+              {booking.extraBed && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-500/10 border border-teal-500/25 text-teal-300 font-medium">
+                  <BedDouble className="w-3 h-3 text-teal-400" />
+                  <span>Extra Bed / Mattress</span>
                 </div>
               )}
             </div>

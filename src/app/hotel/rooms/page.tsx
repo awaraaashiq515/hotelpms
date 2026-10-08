@@ -565,8 +565,8 @@ function HotelRoomsContent() {
                 <tr className="border-b border-slate-800/80 bg-slate-900/60 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                   <th className="p-5 pl-6">Category Details</th>
                   <th className="p-5">System Code</th>
-                  <th className="p-5">Max Occupancy</th>
-                  <th className="p-5">Base Pricing Rate</th>
+                  <th className="p-5">Occupancy Policy</th>
+                  <th className="p-5">Base Rate &amp; Extra Person</th>
                   <th className="p-5">Active Inventory</th>
                   <th className="p-5 pr-6 text-right">Actions</th>
                 </tr>
@@ -574,6 +574,9 @@ function HotelRoomsContent() {
               <tbody className="divide-y divide-slate-800/60 text-xs">
                 {roomTypes.map((type) => {
                   const roomsAssigned = rooms.filter((r) => r.roomTypeId === type.id).length;
+                  const baseOcc = type.baseOccupancy || 2;
+                  const extraAdRate = type.extraAdultRate || 0;
+                  const extraChRate = type.extraChildRate || 0;
                   return (
                     <tr key={type.id} className="hover:bg-slate-900/10 transition-colors text-slate-300">
                       <td className="p-5 pl-6">
@@ -584,13 +587,25 @@ function HotelRoomsContent() {
                       </td>
                       <td className="p-5 font-mono text-slate-400 text-[11px] tracking-wider">{type.code}</td>
                       <td className="p-5">
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-300 font-bold border border-slate-800">
-                          {type.maxOccupancy} Guests max
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-200 font-bold border border-slate-800 inline-block w-fit">
+                            Base: {baseOcc} · Max: {type.maxOccupancy} Guests
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {type.maxOccupancy > baseOcc ? `Allows +${type.maxOccupancy - baseOcc} extra sharing` : 'Standard occupancy'}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-5">
-                        <span className="font-black text-indigo-400 text-sm">₹{type.baseRate}</span>
-                        <span className="text-[9px] text-slate-500 font-bold uppercase ml-1">/ Night</span>
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            <span className="font-black text-indigo-400 text-sm">₹{type.baseRate?.toLocaleString('en-IN')}</span>
+                            <span className="text-[9px] text-slate-500 font-bold uppercase">/ Night</span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-medium mt-0.5">
+                            Extra Adult: ₹{extraAdRate}/nt{extraChRate > 0 ? ` · Child: ₹${extraChRate}/nt` : ''}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-5">
                         <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 font-bold border border-indigo-500/20">
