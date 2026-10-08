@@ -1113,6 +1113,7 @@ const DEPARTMENTS = [
       { name: 'POS Billing Terminal',  href: '/hotel/pos/billing',              icon: Monitor },
       { name: 'Table Layout & Floors', href: '/hotel/pos/tables',               icon: LayoutGrid },
       { name: 'Kitchen Display (KDS)', href: '/hotel/pos/kitchen-display',       icon: ChefHat },
+      { name: 'Meal Display (Live)',   href: '/hotel/pos/meal-display',          icon: UtensilsCrossed },
       { name: 'Room Service Orders',   href: '/hotel/pos/room-service',         icon: Bed },
       { name: 'Live Overview',         href: '/hotel/pos/live-overview',        icon: LayoutGrid },
       { name: 'Day Closing',           href: '/hotel/pos/day-closing',          icon: History },
