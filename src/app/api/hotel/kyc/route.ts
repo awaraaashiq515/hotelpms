@@ -9,9 +9,66 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const guestId = searchParams.get('guestId');
     const reservationId = searchParams.get('reservationId');
+    const listActive = searchParams.get('list') === 'true' || (!guestId && !reservationId);
+    const propertyCode = searchParams.get('propertyCode');
 
-    if (!guestId && !reservationId) {
-      return NextResponse.json({ success: false, message: 'guestId or reservationId is required' }, { status: 400 });
+    if (listActive) {
+      let propertyIdFilter: string | undefined = undefined;
+      if (propertyCode) {
+        const prop = await prisma.property.findUnique({
+          where: { code: propertyCode },
+          select: { id: true },
+        });
+        if (prop) propertyIdFilter = prop.id;
+      }
+
+      const activeReservations = await prisma.reservation.findMany({
+        where: {
+          ...(propertyIdFilter ? { propertyId: propertyIdFilter } : {}),
+          status: { in: ['CONFIRMED', 'CHECKED_IN'] },
+        },
+        orderBy: { arrivalDate: 'desc' },
+        take: 100,
+        include: {
+          guest: {
+            include: {
+              documents: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
+          },
+          rooms: {
+            include: { room: true },
+          },
+          roomType: true,
+        },
+      });
+
+      const formatted = activeReservations.map((r) => {
+        const roomNum = r.rooms?.[0]?.room?.roomNumber || r.assignedRoomId || 'Unassigned';
+        const doc = r.guest?.documents?.[0];
+        const isVerified = Boolean(doc?.documentUrl || (r.guest?.idType && r.guest?.idNumber));
+        return {
+          reservationId: r.id,
+          bookingNo: r.bookingNo,
+          status: r.status,
+          guestId: r.guestId,
+          guestName: `${r.guest?.firstName || ''} ${r.guest?.lastName || ''}`.trim() || 'Guest',
+          phone: r.guest?.mobile || '',
+          roomNumber: roomNum,
+          roomType: r.roomType?.name || 'Standard',
+          idType: r.guest?.idType || 'Aadhaar Card',
+          idNumber: r.guest?.idNumber || '',
+          isVerified,
+          documentUrl: doc?.documentUrl || null,
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: formatted,
+      });
     }
 
     if (reservationId) {

@@ -36,6 +36,11 @@ function KycScannerContent() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
+  // Active in-house room list (when opened directly by staff)
+  const [activeList, setActiveList] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showPicker, setShowPicker] = useState(!paramGuestId && !paramReservationId);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,7 +49,7 @@ function KycScannerContent() {
 
   const fetchGuestInfo = async () => {
     if (!paramGuestId && !paramReservationId) {
-      setLoading(false);
+      loadActiveList();
       return;
     }
 
@@ -67,6 +72,45 @@ function KycScannerContent() {
       console.error('Failed to load guest info:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadActiveList = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/hotel/kyc?list=true');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setActiveList(json.data);
+      }
+    } catch (err) {
+      console.error('Failed to load active list:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectRoom = async (item: any) => {
+    setShowPicker(false);
+    if (item.reservationId) {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/hotel/kyc?reservationId=${item.reservationId}`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          setGuestData(json.data.guest);
+          setReservationData(json.data.reservation);
+          if (json.data.guest?.idType) setIdType(json.data.guest.idType);
+          if (json.data.guest?.idNumber) setIdNumber(json.data.guest.idNumber);
+          if (json.data.latestDocument?.documentUrl) {
+            setPreviewUrl(json.data.latestDocument.documentUrl);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -186,37 +230,109 @@ function KycScannerContent() {
 
       {/* Main Body */}
       <main className="py-4 space-y-4 flex-1">
-        {/* Booking Card */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-900/40 border border-slate-800/80 shadow-lg">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                <User size={20} />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                  {bookingCode}
-                </span>
-                <h2 className="text-base font-extrabold text-white">{guestName}</h2>
-                <div className="flex items-center gap-2 mt-0.5 text-xs text-indigo-300 font-semibold">
-                  <Building size={12} /> {roomDisplay}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              {guestData?.documents?.length > 0 ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider">
-                  <ShieldCheck size={12} /> Verified
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase tracking-wider">
-                  <AlertCircle size={12} /> Pending
-                </span>
+        {/* Room / Guest Selection Card */}
+        {showPicker || (!guestData && !loading) ? (
+          <div className="p-4 rounded-2xl bg-slate-900/90 border border-indigo-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-indigo-300">
+                Select In-House Room / Guest
+              </span>
+              {guestData && (
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(false)}
+                  className="text-[10px] text-slate-400 hover:text-white underline"
+                >
+                  Cancel
+                </button>
               )}
             </div>
+
+            <input
+              type="text"
+              placeholder="Search room number or guest name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+
+            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+              {activeList
+                .filter((r) => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    r.roomNumber?.toLowerCase().includes(q) ||
+                    r.guestName?.toLowerCase().includes(q) ||
+                    r.phone?.toLowerCase().includes(q)
+                  );
+                })
+                .map((r) => (
+                  <button
+                    key={r.reservationId}
+                    type="button"
+                    onClick={() => handleSelectRoom(r)}
+                    className="w-full p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left flex items-center justify-between transition-colors"
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span className="text-amber-300 font-mono">Room {r.roomNumber}</span>
+                        <span>· {r.guestName}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400">{r.roomType} {r.phone ? `· ${r.phone}` : ''}</div>
+                    </div>
+                    <span className={`text-[10px] font-bold ${r.isVerified ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {r.isVerified ? '✓ Done' : 'Pending'}
+                    </span>
+                  </button>
+                ))}
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {/* Booking Card */}
+        {guestData && !showPicker && (
+          <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-900/40 border border-slate-800/80 shadow-lg">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <User size={20} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                    {bookingCode}
+                  </span>
+                  <h2 className="text-base font-extrabold text-white">{guestName}</h2>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-indigo-300 font-semibold">
+                    <Building size={12} /> {roomDisplay}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPicker(true);
+                        loadActiveList();
+                      }}
+                      className="ml-2 text-[10px] text-indigo-400 hover:text-indigo-300 underline font-normal"
+                    >
+                      Switch Room
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right">
+                {guestData?.documents?.length > 0 ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider">
+                    <ShieldCheck size={12} /> Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase tracking-wider">
+                    <AlertCircle size={12} /> Pending
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {uploadSuccess ? (
           <div className="p-6 rounded-3xl bg-emerald-950/30 border border-emerald-500/30 text-center space-y-4 animate-in fade-in zoom-in-95">

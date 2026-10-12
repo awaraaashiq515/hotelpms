@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
 import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
+import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
 
 /* ─── Types ─── */
 interface HKUser {
@@ -204,6 +205,8 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRoom, setSelectedRoom] = useState<HKRoom | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [showKycModal, setShowKycModal] = useState(false)
+  const [selectedKycRoom, setSelectedKycRoom] = useState<HKRoom | null>(null)
 
   /* Attendance states */
   const [attendance, setAttendance] = useState<any[]>([])
@@ -1217,6 +1220,16 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <button
+            onClick={() => {
+              setSelectedKycRoom(null)
+              setShowKycModal(true)
+            }}
+            style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 10, padding: '5px 8px', color: '#a5b4fc', fontSize: 10, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+            title="Attach Photo / Scan Guest ID (KYC)"
+          >
+            📸 KYC
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${isOnline ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, borderRadius: 20, padding: '3px 8px', fontSize: 8.5, fontWeight: 800, color: isOnline ? '#34d399' : '#f87171' }}>
             <div style={{ width: 5, height: 5, borderRadius: '50%', background: isOnline ? '#34d399' : '#f87171', boxShadow: isOnline ? '0 0 6px #34d399' : '0 0 6px #f87171' }} />
             {isOnline ? 'LIVE' : 'OFF'}
@@ -1418,8 +1431,13 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                           style={{ flex: 1.4, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: room.housekeepingStatus === 'DIRTY' ? 'linear-gradient(90deg,rgba(16,185,129,0.25),rgba(5,150,105,0.25))' : 'none', border: 'none', color: '#34d399', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
                           ✅ Clean
                         </button>
+                        <button onClick={() => { setSelectedKycRoom(room); setShowKycModal(true) }}
+                          style={{ flex: 0.9, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#a5b4fc', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}
+                          title="Attach Photo / Scan Guest ID">
+                          📸 KYC
+                        </button>
                         <button onClick={() => { setSelectedRoom(room); setActiveMaintTickets([]) }}
-                          style={{ flex: 1, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+                          style={{ flex: 0.9, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
                           ⋯ More
                         </button>
                       </div>
@@ -2754,6 +2772,18 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
           </div>
         )
       })()}
+
+      {/* Staff KYC Scan Modal */}
+      <StaffKycModal
+        isOpen={showKycModal}
+        onClose={() => {
+          setShowKycModal(false)
+          setSelectedKycRoom(null)
+        }}
+        initialRoomNumber={selectedKycRoom?.roomNumber}
+        initialGuestName={selectedKycRoom?.checkIns?.[0]?.guest ? `${selectedKycRoom.checkIns[0].guest.firstName} ${selectedKycRoom.checkIns[0].guest.lastName}`.trim() : undefined}
+        propertyCode={propertyCode}
+      />
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');

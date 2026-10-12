@@ -11,6 +11,7 @@ import AutoPlayNotification from '@/components/staff/walkie-talkie/AutoPlayNotif
 import StaffAttendancePanel from '@/components/staff/StaffAttendancePanel'
 import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
 import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
+import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
 
 /* ─── Types ─── */
 interface StaffUser {
@@ -45,7 +46,7 @@ interface PosOrder {
 }
 interface Contact { id: string; name: string; designation: string; wtStatus: string }
 interface Channel { id: string; name: string; type: string; isEmergency: boolean; membersCount?: number }
-type Tab = 'ptt' | 'messages' | 'pos' | 'room-order' | 'attendance' | 'settings'
+type Tab = 'ptt' | 'messages' | 'pos' | 'room-order' | 'kyc' | 'attendance' | 'settings'
 
 /* ─── Mobile Audio Unlock System ──────────────────────────────────
    Mobile browsers (iOS Safari, Chrome Android) block ALL audio 
@@ -956,6 +957,8 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
 
   /* UI */
   const [activeTab, setActiveTab] = useState<Tab>('ptt')
+  const [showKycModal, setShowKycModal] = useState(false)
+  const [selectedKycGuest, setSelectedKycGuest] = useState<any | null>(null)
 
   /* Keep activeTabRef in sync so socket handlers can read it */
   useEffect(() => { activeTabRef.current = activeTab }, [activeTab])
@@ -2393,6 +2396,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     { key: 'messages', label: 'Messages', emoji: '💬' },
     { key: 'pos', label: 'Orders', emoji: '📋' },
     { key: 'room-order', label: 'Room Svc', emoji: '🏨' },
+    { key: 'kyc', label: 'KYC Scan', emoji: '📸' },
     { key: 'attendance', label: 'Attend', emoji: '📅' },
     { key: 'settings', label: 'Settings', emoji: '⚙️' },
   ]
@@ -2439,6 +2443,29 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
               {socketStatus === 'connected' ? `${latency ?? '?'}ms` : socketStatus}
             </span>
           </div>
+          <button
+            onClick={() => {
+              setSelectedKycGuest(null)
+              setShowKycModal(true)
+            }}
+            style={{
+              background: 'rgba(99,102,241,0.18)',
+              border: '1px solid rgba(99,102,241,0.4)',
+              borderRadius: 7,
+              padding: '4px 8px',
+              cursor: 'pointer',
+              color: '#a5b4fc',
+              fontSize: 10,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              whiteSpace: 'nowrap'
+            }}
+            title="Attach Photo / Scan Guest ID"
+          >
+            📸 KYC
+          </button>
           <button onClick={handleLogout} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 7, padding: '6px 9px', cursor: 'pointer', color: '#f87171', fontSize: 12, lineHeight: 1 }}>⏻</button>
         </div>
       </header>
@@ -2956,6 +2983,69 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ══════════ KYC SCAN TAB ══════════ */}
+        {activeTab === 'kyc' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(16,185,129,0.12))', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 16, padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📸</span> Guest Identity & KYC Scan
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, lineHeight: 1.4 }}>
+                  If a guest comes to you anywhere in the hotel, attach or snap their ID photo (Aadhaar / Passport) to complete their KYC immediately.
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedKycGuest(null)
+                  setShowKycModal(true)
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #4f46e5, #059669)',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(79,70,229,0.4)',
+                  flexShrink: 0,
+                }}
+              >
+                + Scan Any ID
+              </button>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 24, marginBottom: 6 }}>📱 📸</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9' }}>Staff ID Camera & Scanner</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, maxWidth: 320, margin: '4px auto 14px' }}>
+                Open the instant camera modal to choose any room/guest, capture front/back of ID proof, and update the front desk.
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedKycGuest(null)
+                  setShowKycModal(true)
+                }}
+                style={{
+                  background: 'rgba(99,102,241,0.2)',
+                  border: '1px solid rgba(99,102,241,0.4)',
+                  borderRadius: 10,
+                  padding: '9px 18px',
+                  color: '#a5b4fc',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Open Camera & Attach Photo
+              </button>
+            </div>
           </div>
         )}
 
@@ -3864,6 +3954,20 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
           onGoToMessages={() => handleTabChange('messages')}
         />
       )}
+
+      {/* Staff KYC Scan Modal */}
+      <StaffKycModal
+        isOpen={showKycModal}
+        onClose={() => {
+          setShowKycModal(false)
+          setSelectedKycGuest(null)
+        }}
+        initialReservationId={selectedKycGuest?.reservationId}
+        initialGuestId={selectedKycGuest?.guestId}
+        initialRoomNumber={selectedKycGuest?.roomNumber}
+        initialGuestName={selectedKycGuest?.guestName}
+        propertyCode={propertyCode}
+      />
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');

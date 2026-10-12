@@ -35,6 +35,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal';
 
 interface RoomMealInfo {
   id: string;
@@ -145,6 +146,8 @@ export default function MealAndServiceHubLiveDisplay() {
   const [searchQuery, setSearchQuery] = useState('');
   const [planFilter, setPlanFilter] = useState<'ALL' | 'EP' | 'CP' | 'MAP' | 'AP'>('ALL');
   const [updatingCallId, setUpdatingCallId] = useState<string | null>(null);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [selectedKycRoom, setSelectedKycRoom] = useState<any | null>(null);
 
   // Live Clock Ticker
   useEffect(() => {
@@ -538,8 +541,8 @@ export default function MealAndServiceHubLiveDisplay() {
             ))}
           </div>
 
-          {/* Search */}
-          <div className="relative w-48">
+          {/* Search & KYC Scan */}
+          <div className="relative w-44">
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -549,6 +552,18 @@ export default function MealAndServiceHubLiveDisplay() {
               className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-[#00b894]"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedKycRoom(null);
+              setShowKycModal(true);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/40 border border-indigo-500/50 text-indigo-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            title="Attach Photo / Scan Guest ID Proof"
+          >
+            📸 KYC Scan
+          </button>
         </div>
       </div>
 
@@ -634,12 +649,25 @@ export default function MealAndServiceHubLiveDisplay() {
 
                       {/* Guest Info Bar */}
                       <div className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/70 flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-200 truncate max-w-[140px]">
+                        <span className="font-bold text-slate-200 truncate max-w-[130px]">
                           {r.guestName}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {r.adults}A {r.extraAdults > 0 ? `+${r.extraAdults}Ex ` : ''}{r.children > 0 ? `+${r.children}C` : ''}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedKycRoom(r);
+                              setShowKycModal(true);
+                            }}
+                            className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 flex items-center gap-1 cursor-pointer"
+                            title="Attach Photo / Scan Guest ID Proof"
+                          >
+                            📸 KYC
+                          </button>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {r.adults}A {r.extraAdults > 0 ? `+${r.extraAdults}Ex ` : ''}{r.children > 0 ? `+${r.children}C` : ''}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Live Meals Matrix (LED indicators) */}
@@ -845,6 +873,19 @@ export default function MealAndServiceHubLiveDisplay() {
           </div>
         )}
       </div>
+
+      {/* Staff KYC Scan Modal */}
+      <StaffKycModal
+        isOpen={showKycModal}
+        onClose={() => {
+          setShowKycModal(false);
+          setSelectedKycRoom(null);
+        }}
+        initialReservationId={selectedKycRoom?.id}
+        initialRoomNumber={selectedKycRoom?.roomNumber}
+        initialGuestName={selectedKycRoom?.guestName}
+        onSuccess={() => fetchData(true)}
+      />
     </div>
   );
 }

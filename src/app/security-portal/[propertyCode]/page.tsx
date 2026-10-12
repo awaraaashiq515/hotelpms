@@ -33,6 +33,7 @@ import {
   User,
   ArrowRight,
 } from 'lucide-react'
+import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
 
 /* ─────────────── Types ─────────────── */
 interface DashboardData {
@@ -354,6 +355,8 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
   const [propertyCode, setPropertyCode] = useState<string>('')
   const [tab, setTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(true)
+  const [showKycModal, setShowKycModal] = useState(false)
+  const [selectedKycBooking, setSelectedKycBooking] = useState<any | null>(null)
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   
   // Auth state
@@ -968,6 +971,16 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => {
+              setSelectedKycBooking(null)
+              setShowKycModal(true)
+            }}
+            style={{ ...S.btn('primary'), background: 'rgba(99,102,241,0.2)', borderColor: 'rgba(99,102,241,0.4)', color: '#a5b4fc' }}
+            title="Attach Photo / Scan Guest ID"
+          >
+            <Camera size={13} /> KYC Scan
+          </button>
           <button onClick={fetchDashboard} style={S.btn('ghost')} title="Refresh">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -1279,12 +1292,23 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
                           <div style={{ fontSize: 12, color: '#94a3b8' }}>{b.addOnNotes}</div>
                         </div>
                       )}
-                      <button
-                        onClick={() => processQR(b.id)}
-                        style={{ ...S.btn('primary'), marginTop: 10, width: '100%', justifyContent: 'center' }}
-                      >
-                        <QrCode size={14} /> Verify This Booking
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button
+                          onClick={() => processQR(b.id)}
+                          style={{ ...S.btn('primary'), flex: 1, justifyContent: 'center' }}
+                        >
+                          <QrCode size={14} /> Verify Entry
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedKycBooking(b)
+                            setShowKycModal(true)
+                          }}
+                          style={{ ...S.btn('ghost'), flex: 1, justifyContent: 'center', background: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.4)', color: '#a5b4fc' }}
+                        >
+                          <Camera size={14} /> Attach Photo / KYC
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1542,6 +1566,20 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
         )}
 
       </div>
+
+      <StaffKycModal
+        isOpen={showKycModal}
+        onClose={() => {
+          setShowKycModal(false)
+          setSelectedKycBooking(null)
+        }}
+        initialReservationId={selectedKycBooking?.id}
+        initialGuestId={selectedKycBooking?.guest?.id}
+        initialRoomNumber={selectedKycBooking ? roomNo(selectedKycBooking) : undefined}
+        initialGuestName={selectedKycBooking ? `${selectedKycBooking.guest?.firstName || ''} ${selectedKycBooking.guest?.lastName || ''}`.trim() : undefined}
+        propertyCode={propertyCode}
+        onSuccess={() => fetchDashboard()}
+      />
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
