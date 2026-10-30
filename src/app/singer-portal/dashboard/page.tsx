@@ -13,6 +13,7 @@ import { MyContentTab } from '../../../components/singer-portal/MyContentTab';
 import { ScheduleTab } from '../../../components/singer-portal/ScheduleTab';
 import { BookingsTab } from '../../../components/singer-portal/BookingsTab';
 import { ReviewsTab } from '../../../components/singer-portal/ReviewsTab';
+import StaffHRPanel from '../../../components/staff/StaffHRPanel';
 
 interface SingerInfo {
   id: string;
@@ -106,7 +107,7 @@ export default function SingerDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Mobile/Desktop navigation tabs
-  const [activeTab, setActiveTab] = useState<'requests' | 'content' | 'schedule' | 'bookings' | 'feedback'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'content' | 'schedule' | 'bookings' | 'feedback' | 'hr'>('requests');
 
   // Modular upload states for main header (which stays in dashboard layout)
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -398,6 +399,10 @@ export default function SingerDashboard() {
           <Star size={18} />
           <span className="text-[8px] font-black uppercase tracking-wider">Reviews</span>
         </button>
+        <button onClick={() => setActiveTab('hr')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'hr' ? 'text-indigo-400 scale-105' : 'text-slate-500'}`}>
+          <Calendar size={18} />
+          <span className="text-[8px] font-black uppercase tracking-wider">My HR</span>
+        </button>
       </div>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6 pb-28">
@@ -451,6 +456,9 @@ export default function SingerDashboard() {
           <button onClick={() => setActiveTab('feedback')} className={`px-4 py-3 text-xs font-black tracking-wider uppercase border-b-2 transition-all ${activeTab === 'feedback' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-350'}`}>
             Reviews
           </button>
+          <button onClick={() => setActiveTab('hr')} className={`px-4 py-3 text-xs font-black tracking-wider uppercase border-b-2 transition-all ${activeTab === 'hr' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-350'}`}>
+            My HR
+          </button>
         </div>
 
         {/* Tab contents rendered modularly */}
@@ -492,6 +500,20 @@ export default function SingerDashboard() {
             <ReviewsTab 
               feedbacks={feedbacks} 
             />
+          )}
+
+          {activeTab === 'hr' && singer && (
+            <div className="rounded-2xl bg-[#090f1e]/60 border border-slate-800 p-4">
+              <div className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">🎤 My HR Dashboard</div>
+              <div className="text-[10px] text-slate-500 mb-4">Attendance · Leave Applications · Overtime</div>
+              <StaffHRPanel
+                userId={singer.id}
+                accentColor="#6366f1"
+                showClockButton={true}
+                staffName={singer.name}
+                designation="Live Performer / Singer"
+              />
+            </div>
           )}
         </div>
 

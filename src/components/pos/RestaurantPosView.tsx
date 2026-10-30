@@ -31,6 +31,7 @@ import { printerService } from '@/lib/printer-service';
 import { ProductIcon } from '@/components/shared/product-icon';
 import { QRCodeSVG } from 'qrcode.react';
 import { CafeProductCard } from '@/components/tablet/CafeProductCard';
+import { PosDiscountApprovalModal } from '@/components/discounts/PosDiscountApprovalModal';
 
 interface CartItem extends Product {
   quantity: number;
@@ -270,6 +271,15 @@ export default function RestaurantPosView({
   const [manualDiscount, setManualDiscount] = useState<number>(0);
   const [manualDiscountType, setManualDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [showDiscountInput, setShowDiscountInput] = useState(false);
+  
+  // Extra Discount Approval Control
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvedDiscountId, setApprovedDiscountId] = useState<string | null>(null);
+  const [discountRules, setDiscountRules] = useState({
+    enabled: true,
+    maxPercent: 10,
+    maxAmount: 200,
+  });
   
   // Pre-selected room for restaurant → room billing (from tables page)
   const [preSelectedRoomId, setPreSelectedRoomId] = useState<string>('');
@@ -529,6 +539,13 @@ export default function RestaurantPosView({
       if (comboRes.success) setCombos(comboRes.data);
       if (propData.success) {
         setProperty(propData.data);
+        if (propData.data) {
+          setDiscountRules({
+            enabled: propData.data.discountApprovalEnabled ?? true,
+            maxPercent: propData.data.maxStaffDiscountPercent ?? 10.0,
+            maxAmount: propData.data.maxStaffDiscountAmount ?? 200.0,
+          });
+        }
         fetch(`/api/settings/printers?propertyId=${propData.data.id}`)
           .then(res => res.json())
           .then(data => {
@@ -1200,6 +1217,19 @@ export default function RestaurantPosView({
   };
 
   const handleSettleNew = async (paymentModeId: string, guestId?: string, driverId?: string) => {
+    // ── Check Extra Discount Approval ──
+    const discountPercent = grossSubtotal > 0 ? (manualDiscountAmount / grossSubtotal) * 100 : 0;
+    const isExtraDiscount =
+      discountRules.enabled &&
+      manualDiscountAmount > 0 &&
+      (discountPercent > (discountRules.maxPercent + 0.01) || manualDiscountAmount > (discountRules.maxAmount + 0.01));
+
+    if (isExtraDiscount && !approvedDiscountId) {
+      setShowApprovalModal(true);
+      addToast('info', `Discount of ₹${manualDiscountAmount.toFixed(0)} (${discountPercent.toFixed(1)}%) requires Admin approval`);
+      return;
+    }
+
     setSettleLoading(true);
     try {
       const payload = {
@@ -1217,6 +1247,7 @@ export default function RestaurantPosView({
         membershipCardId: membershipCard?.id || null,
         membershipDiscount: membershipDiscountAmount || 0,
         manualDiscount: manualDiscountAmount || 0,
+        discountApprovalId: approvedDiscountId || undefined,
         couponCode: appliedCoupon?.code || undefined,
         loyaltyPointsRedeemed: redeemPointsInput || undefined,
         items: cart.map((item: any) => ({
@@ -1241,6 +1272,7 @@ export default function RestaurantPosView({
         setCart([]);
         setActiveOrder(null);
         setIsProforma(false);
+        setApprovedDiscountId(null);
         // Data for final print is already in billData, but status is now settled
         fetchAllActiveOrders();
 
@@ -3480,12 +3512,18 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                 type="number"
                 placeholder="Amount"
                 value={manualDiscount || ''}
-                onChange={(e) => setManualDiscount(Number(e.target.value))}
+                onChange={(e) => {
+                  setManualDiscount(Number(e.target.value));
+                  setApprovedDiscountId(null);
+                }}
                 className="bg-transparent text-[10px] font-black outline-none text-slate-800 dark:text-slate-100 w-16 px-1.5 py-0.5 border-b border-emerald-500/30 focus:border-emerald-500"
                 autoFocus
               />
               <button
-                onClick={() => setManualDiscountType(manualDiscountType === 'PERCENTAGE' ? 'FIXED' : 'PERCENTAGE')}
+                onClick={() => {
+                  setManualDiscountType(manualDiscountType === 'PERCENTAGE' ? 'FIXED' : 'PERCENTAGE');
+                  setApprovedDiscountId(null);
+                }}
                 className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-md text-[9px] font-black text-emerald-600 dark:text-emerald-400 transition-all border border-emerald-500/20"
               >
                 {manualDiscountType === 'PERCENTAGE' ? '%' : '₹'}
@@ -3498,12 +3536,30 @@ Total Amount: ₹${grandTotal.toFixed(2)}
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => setShowDiscountInput(true)}
-              className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 transition-all hover:gap-2 py-0.5"
-            >
-              <Percent size={10} /> Add Discount {combinedDiscount > 0 && <span className="text-[8px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-md">-₹{combinedDiscount.toFixed(0)}</span>}
-            </button>
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={() => setShowDiscountInput(true)}
+                className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 transition-all hover:gap-2 py-0.5"
+              >
+                <Percent size={10} /> Add Discount {combinedDiscount > 0 && <span className="text-[8px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-md">-₹{combinedDiscount.toFixed(0)}</span>}
+              </button>
+              {manualDiscountAmount > 0 && discountRules.enabled && (
+                ((grossSubtotal > 0 ? (manualDiscountAmount / grossSubtotal) * 100 : 0) > (discountRules.maxPercent + 0.01) || manualDiscountAmount > (discountRules.maxAmount + 0.01)) && (
+                  approvedDiscountId ? (
+                    <span className="text-[8px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      ✓ Admin Approved
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setShowApprovalModal(true)}
+                      className="text-[8px] font-black uppercase tracking-wider bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded flex items-center gap-1 animate-pulse"
+                    >
+                      ⚠️ Request Approval
+                    </button>
+                  )
+                )
+              )}
+            </div>
           )}
         </div>
 
@@ -3775,21 +3831,27 @@ Total Amount: ₹${grandTotal.toFixed(2)}
         )}
       </Modal>
 
-      {/* ── Room Order Selector Modal ── */}
-      <SelectRoomOrderModal
-        isOpen={isRoomModalOpen}
-        onClose={() => setIsRoomModalOpen(false)}
-        onSelectRoom={(room) => {
-          setOrderType('ROOM_SERVICE');
-          setRoomServiceRoomNo(room.roomNumber);
-          setRoomServiceRoomId(room.id);
-          if (room.activeGuest?.guestName) {
-            setSelectedGuestName(room.activeGuest.guestName);
-          }
-          if (room.activeGuest?.guestId) {
-            setSelectedGuestId(room.activeGuest.guestId);
-          }
-          setIsRoomModalOpen(false);
+      {/* ── Extra Discount Approval Modal ── */}
+      <PosDiscountApprovalModal
+        isOpen={showApprovalModal}
+        onClose={() => setShowApprovalModal(false)}
+        billAmount={grossSubtotal}
+        discountType={manualDiscountType}
+        discountValue={manualDiscount}
+        discountAmount={manualDiscountAmount}
+        maxAllowedPercent={discountRules.maxPercent}
+        maxAllowedAmount={discountRules.maxAmount}
+        orderId={activeOrder?.id || undefined}
+        referenceTitle={
+          tableId
+            ? `Table ${tableId}`
+            : (roomServiceRoomNo ? `Room ${roomServiceRoomNo}` : (orderType === 'PICKUP' ? 'Takeaway Order' : 'Counter Order'))
+        }
+        propertyCode={propertyCode || property?.code}
+        source={roomServiceRoomNo ? 'ROOM_SERVICE' : 'RESTAURANT_POS'}
+        onApproved={(app) => {
+          setApprovedDiscountId(app.id);
+          addToast('success', 'Discount approved by Admin! Ready to settle.');
         }}
       />
     </div>

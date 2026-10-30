@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams } from 'next/navigation'
 import { toast, Toaster } from 'sonner'
 import { 
   CheckSquare, 
@@ -20,6 +21,7 @@ import {
 import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
 import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
 import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
+import StaffHRPanel from '@/components/staff/StaffHRPanel'
 
 /* ─── Types ─── */
 interface HKUser {
@@ -75,15 +77,17 @@ interface LostItem {
   status: 'FOUND' | 'CLAIMED'
 }
 
-type HKTab = 'rooms' | 'tasks' | 'lostfound' | 'attendance' | 'supplies' | 'laundry' | 'settings'
+type HKTab = 'rooms' | 'tasks' | 'chat' | 'attendance' | 'lostfound' | 'supplies' | 'laundry' | 'settings'
 
 /* ─── Status Configs ─── */
 const HK_STATUS: Record<string, { label: string; emoji: string; bg: string; color: string; border: string }> = {
   CLEAN:          { label: 'Clean',        emoji: '✅', bg: 'rgba(16,185,129,0.12)', color: '#34d399', border: 'rgba(16,185,129,0.25)' },
   DIRTY:          { label: 'Dirty',        emoji: '🧹', bg: 'rgba(239,68,68,0.12)',  color: '#f87171', border: 'rgba(239,68,68,0.25)'  },
   INSPECTING:     { label: 'Inspecting',   emoji: '🔍', bg: 'rgba(99,102,241,0.12)', color: '#818cf8', border: 'rgba(99,102,241,0.25)' },
+  INSPECTED:      { label: 'Inspected',    emoji: '✔️', bg: 'rgba(6,182,212,0.12)',  color: '#22d3ee', border: 'rgba(6,182,212,0.25)'  },
   DO_NOT_DISTURB: { label: 'DND',          emoji: '🚫', bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
   OUT_OF_ORDER:   { label: 'Out of Order', emoji: '🔧', bg: 'rgba(107,114,128,0.12)',color: '#9ca3af', border: 'rgba(107,114,128,0.25)' },
+  MAINTENANCE:    { label: 'Maintenance',  emoji: '🛠️', bg: 'rgba(239,68,68,0.12)',  color: '#f87171', border: 'rgba(239,68,68,0.3)'  },
 }
 
 const ROOM_STATUS: Record<string, { label: string; emoji: string; color: string }> = {
@@ -94,7 +98,7 @@ const ROOM_STATUS: Record<string, { label: string; emoji: string; color: string 
   CHECKOUT:    { label: 'Checkout',    emoji: '📤', color: '#a78bfa' },
 }
 
-const HK_STATUS_KEYS = ['CLEAN', 'DIRTY', 'INSPECTING', 'DO_NOT_DISTURB', 'OUT_OF_ORDER']
+const HK_STATUS_KEYS = ['CLEAN', 'DIRTY', 'INSPECTING', 'INSPECTED', 'DO_NOT_DISTURB', 'OUT_OF_ORDER', 'MAINTENANCE']
 
 // Standard audit items (used for card progress bar)
 const STANDARD_CHECKLIST = [
@@ -187,9 +191,18 @@ const CLEAN_STEPS: { emoji: string; label: string; sublabel: string; color: stri
   },
 ]
 
-export default function HousekeeperPortalPage({ params }: { params: Promise<{ propertyCode: string }> }) {
-  const [propertyCode, setPropertyCode] = useState('')
-  useEffect(() => { params.then(p => setPropertyCode(p.propertyCode)) }, [params])
+export default function HousekeeperPortalPage({ params }: { params?: Promise<{ propertyCode: string }> }) {
+  const routeParams = useParams()
+  const urlPropertyCode = (routeParams?.propertyCode as string) || ''
+  const [propertyCode, setPropertyCode] = useState(urlPropertyCode)
+
+  useEffect(() => {
+    if (urlPropertyCode) {
+      setPropertyCode(urlPropertyCode)
+    } else if (params) {
+      params.then(p => { if (p?.propertyCode) setPropertyCode(p.propertyCode) })
+    }
+  }, [params, urlPropertyCode])
 
   /* Auth states */
   const [user, setUser] = useState<HKUser | null>(null)
@@ -205,13 +218,47 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRoom, setSelectedRoom] = useState<HKRoom | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [maintenanceNote, setMaintenanceNote] = useState('')
+  const [showMaintenanceInput, setShowMaintenanceInput] = useState(false)
   const [showKycModal, setShowKycModal] = useState(false)
   const [selectedKycRoom, setSelectedKycRoom] = useState<HKRoom | null>(null)
 
-  /* Attendance states */
+  /* Attendance & HR states */
   const [attendance, setAttendance] = useState<any[]>([])
   const [attLoading, setAttLoading] = useState(false)
   const [clockedIn, setClockedIn] = useState(false)
+  const [monthlyStats, setMonthlyStats] = useState<{
+    monthName?: string
+    daysPresent?: number
+    totalWorkedHours?: number
+    totalOvertimeHours?: number
+    shiftHours?: number
+    approvedLeaves?: number
+    pendingLeaves?: number
+  } | null>(null)
+  const [staffShiftHours, setStaffShiftHours] = useState<number>(8.0)
+  const [staffLeaves, setStaffLeaves] = useState<any[]>([])
+  const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const [leaveType, setLeaveType] = useState<'CASUAL' | 'SICK' | 'EARNED' | 'EMERGENCY'>('CASUAL')
+  const [leaveFrom, setLeaveFrom] = useState(() => new Date().toISOString().split('T')[0])
+  const [leaveTo, setLeaveTo] = useState(() => new Date().toISOString().split('T')[0])
+  const [leaveReason, setLeaveReason] = useState('')
+  const [submittingLeave, setSubmittingLeave] = useState(false)
+
+  /* Staff, Group & Admin Live Chat states */
+  const [chatChannelType, setChatChannelType] = useState<'GROUP' | 'ADMIN' | 'DIRECT'>('GROUP')
+  const [chatRecipientStaff, setChatRecipientStaff] = useState<any | null>(null)
+  const [staffContacts, setStaffContacts] = useState<any[]>([])
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [sendingChat, setSendingChat] = useState(false)
+  const [chatUnread, setChatUnread] = useState(0)
+  const [channelUnread, setChannelUnread] = useState<{ group: number; admin: number; total: number; direct?: number; [key: string]: any }>({ group: 0, admin: 0, total: 0, direct: 0 })
+  const chatEndRef = useRef<HTMLDivElement | null>(null)
+  const prevChatMsgCountRef = useRef<number>(0)
+
+  /* More menu bottom sheet state */
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   /* Room checklist audits state */
   const [roomChecklist, setRoomChecklist] = useState<Record<string, boolean[]>>({})
@@ -279,6 +326,15 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
   }
   const [stockItems, setStockItems] = useState<StockItemRecord[]>([])
   const [stockItemsLoading, setStockItemsLoading] = useState(false)
+  const [hkStockRequests, setHkStockRequests] = useState<any[]>([])
+  const [hkRequestsLoading, setHkRequestsLoading] = useState(false)
+  const [submittingHkRequest, setSubmittingHkRequest] = useState(false)
+  const [hkCustomItemName, setHkCustomItemName] = useState('')
+  const [hkCustomItemQty, setHkCustomItemQty] = useState(1)
+  const [hkCustomItemUnit, setHkCustomItemUnit] = useState('pcs')
+  const [hkCustomItemUrgency, setHkCustomItemUrgency] = useState<'NORMAL' | 'URGENT' | 'CRITICAL'>('URGENT')
+  const [hkCustomItemRemarks, setHkCustomItemRemarks] = useState('')
+  const [showHkCustomModal, setShowHkCustomModal] = useState(false)
   const [roomItemCounters, setRoomItemCounters] = useState<Record<string, number>>({})
   const [submittingRoomItems, setSubmittingRoomItems] = useState(false)
   const [cleanReplenishRoom, setCleanReplenishRoom] = useState<HKRoom | null>(null)
@@ -338,6 +394,45 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
       osc1.stop(audioCtx.currentTime + 0.5)
       osc2.stop(audioCtx.currentTime + 0.5)
     } catch { }
+  }
+
+  // Play crisp notification chime for incoming staff & admin messages
+  const playIncomingMessageSound = () => {
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) return;
+      const ctx = new AudioCtxClass();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      const now = ctx.currentTime;
+
+      // Tone 1: 880 Hz
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(880, now);
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.35, now + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.28);
+
+      // Tone 2: 1318.51 Hz
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1318.51, now + 0.09);
+      gain2.gain.setValueAtTime(0, now + 0.09);
+      gain2.gain.linearRampToValueAtTime(0.4, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.09);
+      osc2.stop(now + 0.55);
+    } catch (_) {}
   }
 
   // Web Speech API Voice Recognition Helper
@@ -468,7 +563,10 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
     if (!wtToken) return
     setRoomsLoading(true)
     try {
-      const res = await fetch('/api/housekeeping-rooms', {
+      const url = propertyCode
+        ? `/api/housekeeping-rooms?propertyCode=${propertyCode}`
+        : '/api/housekeeping-rooms'
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${wtToken}` },
       })
       const data = await res.json()
@@ -477,7 +575,7 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
       }
     } catch { toast.error('Failed to load rooms') }
     finally { setRoomsLoading(true); setRoomsLoading(false) }
-  }, [wtToken])
+  }, [wtToken, propertyCode])
 
   useEffect(() => {
     if (user && wtToken && activeTab === 'rooms') {
@@ -487,24 +585,79 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
     }
   }, [user, wtToken, activeTab, fetchRooms])
 
-  /* Fetch attendance */
+  /* Fetch attendance & monthly statistics */
   const fetchAttendance = useCallback(async () => {
     if (!wtToken) return
     setAttLoading(true)
     try {
-      const res = await fetch('/api/staff-attendance', {
+      const q = propertyCode ? `?propertyCode=${encodeURIComponent(propertyCode)}` : ''
+      const res = await fetch(`/api/staff-attendance${q}`, {
         headers: { Authorization: `Bearer ${wtToken}` },
       })
       const data = await res.json()
       if (data.success) {
-        setAttendance(data.data || [])
+        const recs = Array.isArray(data.data) ? data.data : (data.data?.records || [])
+        setAttendance(recs)
+        if (data.data && !Array.isArray(data.data)) {
+          if (data.data.monthlySummary) setMonthlyStats(data.data.monthlySummary)
+          if (data.data.shiftHours) setStaffShiftHours(data.data.shiftHours)
+          if (data.data.leaves) setStaffLeaves(data.data.leaves)
+        }
         const today = new Date().toISOString().split('T')[0]
-        const todayRec = (data.data || []).find((r: any) => r.date?.startsWith(today) || r.clockIn?.startsWith(today))
+        const todayRec = recs.find((r: any) => r.date?.startsWith(today) || r.clockIn?.startsWith(today))
         setClockedIn(!!(todayRec?.clockIn && !todayRec?.clockOut))
       }
     } catch { }
     finally { setAttLoading(false) }
-  }, [wtToken])
+  }, [wtToken, propertyCode])
+
+  /* Apply for Leave handler */
+  const handleApplyLeave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!leaveFrom || !leaveTo) {
+      toast.error('Please select both start and end dates')
+      return
+    }
+    const fromD = new Date(leaveFrom)
+    const toD = new Date(leaveTo)
+    if (toD < fromD) {
+      toast.error('End date cannot be earlier than start date')
+      return
+    }
+    const diffTime = Math.abs(toD.getTime() - fromD.getTime())
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+
+    setSubmittingLeave(true)
+    try {
+      const res = await fetch('/api/leave-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${wtToken}`,
+        },
+        body: JSON.stringify({
+          leaveType,
+          fromDate: leaveFrom,
+          toDate: leaveTo,
+          days,
+          reason: leaveReason || undefined,
+        }),
+      })
+      const resData = await res.json()
+      if (res.ok && resData.success) {
+        toast.success(`Leave request submitted for ${days} day(s)`)
+        setShowLeaveModal(false)
+        setLeaveReason('')
+        fetchAttendance()
+      } else {
+        toast.error(resData.error || 'Failed to submit leave request')
+      }
+    } catch {
+      toast.error('Network error while submitting leave request')
+    } finally {
+      setSubmittingLeave(false)
+    }
+  }
 
   /* ── Auto Clock-In on Location / Portal Access ── */
   const autoClockIn = useCallback(async () => {
@@ -547,6 +700,139 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
       autoClockIn()
     }
   }, [user, wtToken, fetchAttendance, autoClockIn])
+
+  useEffect(() => {
+    if (user && wtToken && activeTab === 'attendance') {
+      fetchAttendance()
+    }
+  }, [user, wtToken, activeTab, fetchAttendance])
+
+  /* Fetch Chat Contacts & Channels */
+  const fetchChatContacts = useCallback(async () => {
+    if (!wtToken && !user) return
+    try {
+      const params = new URLSearchParams()
+      params.set('contacts', 'true')
+      if (propertyCode) params.set('propertyCode', propertyCode)
+      if (user?.id) params.set('staffId', user.id)
+      const res = await fetch(`/api/staff-chat?${params.toString()}`, {
+        headers: wtToken ? { Authorization: `Bearer ${wtToken}` } : {},
+      })
+      const data = await res.json()
+      if (data.success && data.data?.staffList) {
+        setStaffContacts(data.data.staffList)
+        if (data.data.unreadSummary) {
+          setChannelUnread(data.data.unreadSummary)
+          setChatUnread(data.data.unreadSummary.total || 0)
+        }
+        setChatRecipientStaff((prev: any) => prev || (data.data.staffList.length > 0 ? data.data.staffList[0] : null))
+      }
+    } catch (_) {}
+  }, [wtToken, user, propertyCode])
+
+  /* Fetch Chat Messages for selected channel */
+  const fetchChatMessages = useCallback(async () => {
+    if (!wtToken && !user) return
+    try {
+      const params = new URLSearchParams()
+      if (propertyCode) params.set('propertyCode', propertyCode)
+      params.set('channelType', chatChannelType)
+      if (user?.id) params.set('staffId', user.id)
+      if (chatChannelType === 'DIRECT' && chatRecipientStaff?.id) {
+        params.set('recipientId', chatRecipientStaff.id)
+      }
+      const res = await fetch(`/api/staff-chat?${params.toString()}`, {
+        headers: wtToken ? { Authorization: `Bearer ${wtToken}` } : {},
+      })
+      const data = await res.json()
+      if (data.success && Array.isArray(data.data)) {
+        const newMsgs = data.data
+        if (
+          prevChatMsgCountRef.current > 0 &&
+          newMsgs.length > prevChatMsgCountRef.current
+        ) {
+          const lastMsg = newMsgs[newMsgs.length - 1]
+          const isMe = lastMsg.senderRole === 'STAFF' && (lastMsg.staffId === user?.id || lastMsg.senderName === user?.fullName)
+          if (!isMe) {
+            playIncomingMessageSound()
+            toast.info(`💬 ${lastMsg.senderName || 'Hotel Admin'}: ${lastMsg.message?.slice(0, 35) || ''}`)
+          }
+        }
+        prevChatMsgCountRef.current = newMsgs.length
+        setChatMessages(newMsgs)
+      }
+    } catch (_) {}
+  }, [wtToken, user, propertyCode, chatChannelType, chatRecipientStaff?.id])
+
+  /* Send Chat Message */
+  const handleSendChatMessage = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault()
+    const text = (customText || chatInput).trim()
+    if (!text || sendingChat) return
+    if (chatChannelType === 'DIRECT' && !chatRecipientStaff?.id) {
+      toast.error('Please select a staff member to message')
+      return
+    }
+    setSendingChat(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (wtToken) headers['Authorization'] = `Bearer ${wtToken}`
+
+      const res = await fetch('/api/staff-chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          message: text,
+          channelType: chatChannelType,
+          recipientId: chatChannelType === 'DIRECT' ? chatRecipientStaff?.id : undefined,
+          staffId: user?.id,
+          senderRole: 'STAFF',
+          senderName: user?.fullName || 'Housekeeper',
+          propertyCode,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setChatInput('')
+        setChatMessages(prev => [...prev, data.data])
+        playSuccessChime()
+        fetchChatContacts()
+      } else {
+        toast.error(data.error || 'Failed to send message')
+      }
+    } catch {
+      toast.error('Network error sending message')
+    } finally {
+      setSendingChat(false)
+    }
+  }
+
+  /* Chat auto-fetch & live polling */
+  useEffect(() => {
+    if (user && wtToken) {
+      fetchChatContacts()
+      fetchChatMessages()
+      if (activeTab === 'chat') {
+        const iv = setInterval(() => {
+          fetchChatMessages()
+          fetchChatContacts()
+        }, 3500)
+        return () => clearInterval(iv)
+      }
+    }
+  }, [user, wtToken, activeTab, chatChannelType, chatRecipientStaff?.id, fetchChatMessages, fetchChatContacts])
+
+  /* Auto-scroll to bottom of chat when new message arrives */
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatMessages, activeTab])
+
+  useEffect(() => {
+    prevChatMsgCountRef.current = 0
+  }, [chatChannelType, chatRecipientStaff?.id])
+
 
   /* Room status update */
   const updateHKStatus = async (roomId: string, housekeepingStatus: string) => {
@@ -1010,11 +1296,30 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
     finally { setSubmittingLaundry(false) }
   }
 
-  // Load stock items when opening rooms/supplies tab
+  const fetchHkStockRequests = useCallback(async () => {
+    const propParam = user?.property?.id || propertyCode
+    if (!propParam) return
+    setHkRequestsLoading(true)
+    try {
+      const res = await fetch(`/api/inventory/requests?propertyId=${propParam}&department=HOUSEKEEPING`)
+      const data = await res.json()
+      if (data.success && Array.isArray(data.data)) {
+        setHkStockRequests(data.data)
+      }
+    } catch { /* silent */ }
+    finally { setHkRequestsLoading(false) }
+  }, [user, propertyCode])
+
+  // Load stock items and requests when opening rooms/supplies tab
   useEffect(() => {
-    if (user && wtToken && (activeTab === 'supplies' || activeTab === 'rooms')) fetchStockItems()
+    if (activeTab === 'supplies') {
+      if (user && wtToken) fetchStockItems()
+      fetchHkStockRequests()
+    } else if (activeTab === 'rooms') {
+      if (user && wtToken) fetchStockItems()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, wtToken, activeTab])
+  }, [user, wtToken, activeTab, fetchHkStockRequests])
 
   const fetchHkLaundryExtras = useCallback(async () => {
     try {
@@ -1189,14 +1494,24 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
     )
   }
 
-  const tabs: { key: HKTab; label: string; emoji: string }[] = [
+  // Core primary tabs for bottom navigation bar (only 4 clean items + 1 All Views item!)
+  const primaryTabs: { key: HKTab; label: string; emoji: string; badge?: number }[] = [
     { key: 'rooms', label: 'Rooms', emoji: '🏨' },
     { key: 'tasks', label: 'Tasks', emoji: '📋' },
-    { key: 'lostfound', label: 'Lost', emoji: '💼' },
+    { key: 'chat', label: 'Chat', emoji: '💬', badge: chatUnread },
     { key: 'attendance', label: 'Attend', emoji: '📅' },
-    { key: 'supplies', label: 'Stock', emoji: '📦' },
-    { key: 'laundry', label: 'Laundry', emoji: '🧺' },
-    { key: 'settings', label: 'Settings', emoji: '⚙️' },
+  ]
+
+  // All available views for the "More / All Views" sheet
+  const allViews: { key: HKTab; label: string; emoji: string; desc: string; badge?: number }[] = [
+    { key: 'rooms', label: 'Rooms Grid', emoji: '🏨', desc: 'Live room status & guest check-ins' },
+    { key: 'tasks', label: 'Cleaning Tasks', emoji: '📋', desc: 'Step-by-step cleaning checklists & audits' },
+    { key: 'chat', label: 'Staff & Team Chat', emoji: '💬', desc: 'Group broadcast, admin & direct messaging', badge: chatUnread },
+    { key: 'attendance', label: 'Attendance & Roster', emoji: '📅', desc: 'Duty clock-in, shift hours & overtime' },
+    { key: 'lostfound', label: 'Lost & Found', emoji: '💼', desc: 'Register & log items found in rooms' },
+    { key: 'supplies', label: 'Stock & Supplies', emoji: '📦', desc: 'Restock requests for cleaning & amenities' },
+    { key: 'laundry', label: 'Laundry & Linen', emoji: '🧺', desc: 'Room linen pickups, wash log & detergent' },
+    { key: 'settings', label: 'Settings & Broadcast', emoji: '⚙️', desc: 'Walkie-talkie voice alerts & tipping UPI' },
   ]
 
   return (
@@ -1554,137 +1869,657 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
           </div>
         )}
 
-        {/* ══ ATTENDANCE ROSTER TAB ══ */}
+        {/* ══ ATTENDANCE, SHIFT, OVERTIME & 1/2 MONTH PDF REPORT TAB ══ */}
         {activeTab === 'attendance' && (
           <div style={{ padding: '12px 10px calc(80px + env(safe-area-inset-bottom, 0px))' }}>
-            <div style={{ fontSize: 9, fontWeight: 900, color: '#7c3aed', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>
-              📅 Attendance
-            </div>
-            
-            {/* Action Card */}
-            <div style={{ background: clockedIn ? 'rgba(16,185,129,0.07)' : 'rgba(255,255,255,0.02)', border: `1.5px solid ${clockedIn ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.05)'}`, borderRadius: 16, padding: '20px 14px', marginBottom: 14, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 6 }}>{clockedIn ? '🟢' : '⭕'}</div>
-              <div style={{ fontSize: 13, fontWeight: 900, color: clockedIn ? '#34d399' : '#64748b', marginBottom: 3 }}>
-                {clockedIn ? 'ON DUTY' : 'NOT CLOCKED IN'}
+            {user ? (
+              <StaffHRPanel
+                userId={user.id}
+                propertyId={user.property?.id}
+                wtToken={wtToken}
+                accentColor="#7c3aed"
+                showClockButton={true}
+                staffName={user.fullName}
+                designation={user.designation || user.role?.name || 'Housekeeping Staff'}
+                propertyName={user.property?.name}
+                propertyCode={user.property?.code || propertyCode}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontSize: 11 }}>
+                Loading housekeeper attendance & profile…
               </div>
-              <div style={{ fontSize: 9.5, color: '#475569', marginBottom: 14 }}>
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    let locationCoord: string | undefined = undefined;
-                    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-                      try {
-                        locationCoord = await new Promise<string | undefined>((resolve) => {
-                          navigator.geolocation.getCurrentPosition(
-                            (pos) => resolve(`${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`),
-                            () => resolve(undefined),
-                            { timeout: 3000, enableHighAccuracy: true }
-                          );
-                        });
-                      } catch {}
-                    }
-
-                    const endpoint = clockedIn ? '/api/staff-attendance/clock-out' : '/api/staff-attendance/clock-in'
-                    const res = await fetch(endpoint, {
-                      method: 'POST',
-                      headers: { 
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${wtToken}` 
-                      },
-                      body: JSON.stringify(locationCoord ? { location: locationCoord } : {}),
-                    })
-                    if (res.ok) {
-                      setClockedIn(!clockedIn)
-                      toast.success(clockedIn ? 'Clocked out successfully' : 'Clocked in successfully')
-                      fetchAttendance()
-                    } else {
-                      toast.error('Failed to update attendance')
-                    }
-                  } catch { toast.error('Network error') }
-                }}
-                style={{ padding: '11px 28px', borderRadius: 12, background: clockedIn ? 'rgba(239,68,68,0.15)' : 'linear-gradient(135deg,#7c3aed,#db2777)', border: clockedIn ? '1px solid rgba(239,68,68,0.3)' : 'none', color: clockedIn ? '#f87171' : '#fff', fontSize: 11, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {clockedIn ? '⏸ CLOCK OUT' : '▶ CLOCK IN'}
-              </button>
-            </div>
-
-            {/* Attendance list log */}
-            <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Attendance History</div>
-            {attLoading ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#475569', fontSize: 11 }}>Loading attendance records…</div>
-            ) : attendance.slice(0, 10).map(r => (
-              <div key={r.id} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: '10px 12px', marginBottom: 7, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9' }}>{new Date(r.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
-                  <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 2 }}>
-                    In: {r.clockIn ? new Date(r.clockIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                    {r.clockOut ? ` · Out: ${new Date(r.clockOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                  </div>
-                </div>
-                <span style={{ fontSize: 8.5, fontWeight: 900, padding: '3px 8px', borderRadius: 999, background: r.status === 'PRESENT' ? 'rgba(16,185,129,0.1)' : r.status === 'LEAVE' ? 'rgba(251,191,36,0.1)' : 'rgba(239,68,68,0.1)', color: r.status === 'PRESENT' ? '#34d399' : r.status === 'LEAVE' ? '#fbbf24' : '#f87171', flexShrink: 0 }}>
-                  {r.status}
-                </span>
-              </div>
-            ))}
+            )}
           </div>
         )}
+
 
         {/* ══ SUPPLY RESTOCK REQUEST TAB ══ */}
         {activeTab === 'supplies' && (
           <div style={{ padding: '12px 10px calc(80px + env(safe-area-inset-bottom, 0px))' }}>
-            <div style={{ fontSize: 9, fontWeight: 900, color: '#7c3aed', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>
-              📦 Supply Restock Request
-            </div>
-            <div style={{ fontSize: 9.5, color: '#475569', fontWeight: 600, marginBottom: 12 }}>
-              Tap + or − to set quantities needed, then submit to the supply room.
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {Object.entries(suppliesRequest).map(([item, qty]) => (
-                <div key={item} style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${qty > 0 ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.05)'}`, borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, transition: 'border-color 0.2s' }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, color: qty > 0 ? '#c084fc' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item}</div>
-                    {qty > 0 && <div style={{ fontSize: 8.5, color: '#7c3aed', fontWeight: 700, marginTop: 2 }}>Requesting {qty} unit{qty > 1 ? 's' : ''}</div>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => setSuppliesRequest(prev => ({ ...prev, [item]: Math.max(0, (prev[item] || 0) - 1) }))}
-                      style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                    <span style={{ fontSize: 13, fontWeight: 900, color: qty > 0 ? '#f1f5f9' : '#475569', minWidth: 18, textAlign: 'center' }}>{qty}</span>
-                    <button onClick={() => setSuppliesRequest(prev => ({ ...prev, [item]: (prev[item] || 0) + 1 }))}
-                      style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.12)', color: '#c084fc', fontSize: 14, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                  </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 900, color: '#7c3aed', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                  📦 Housekeeping Supplies & Stock
                 </div>
-              ))}
+                <div style={{ fontSize: 9.5, color: '#475569', fontWeight: 600 }}>
+                  Tap + or − to request stock refill, or report out-of-stock items to Admin.
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowHkCustomModal(true)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  background: 'rgba(124,58,237,0.15)',
+                  border: '1px solid rgba(124,58,237,0.3)',
+                  color: '#c084fc',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                + Report Other Item
+              </button>
             </div>
 
-            {/* Summary + Send */}
-            {Object.values(suppliesRequest).some(v => v > 0) && (
-              <div style={{ marginTop: 14, background: 'rgba(124,58,237,0.07)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 14, padding: '12px' }}>
-                <div style={{ fontSize: 9.5, fontWeight: 900, color: '#c084fc', marginBottom: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Order Summary</div>
-                {Object.entries(suppliesRequest).filter(([, qty]) => qty > 0).map(([item, qty]) => (
-                  <div key={item} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: '#94a3b8', fontWeight: 700, marginBottom: 4 }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{item}</span>
-                    <span style={{ color: '#f1f5f9', flexShrink: 0 }}>× {qty}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 10 }}>
+              {Object.entries(suppliesRequest).map(([item, qty]) => {
+                const matchedStock = Array.isArray(stockItems)
+                  ? stockItems.find(
+                      (s) => String(s?.name || '').trim().toLowerCase() === String(item || '').trim().toLowerCase()
+                    )
+                  : undefined;
+                return (
+                  <div
+                    key={item}
+                    style={{
+                      background: 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${
+                        qty > 0 ? 'rgba(124,58,237,0.35)' : 'rgba(255,255,255,0.05)'
+                      }`,
+                      borderRadius: 12,
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      transition: 'border-color 0.2s',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          color: qty > 0 ? '#c084fc' : '#94a3b8',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {item}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        {matchedStock ? (
+                          <span
+                            style={{
+                              fontSize: 8.5,
+                              fontWeight: 700,
+                              color: matchedStock.currentStock <= 0 ? '#f87171' : '#34d399',
+                            }}
+                          >
+                            Store balance: {matchedStock.currentStock} {matchedStock.unit || 'pcs'}
+                          </span>
+                        ) : null}
+                        {qty > 0 && (
+                          <span style={{ fontSize: 8.5, color: '#a855f7', fontWeight: 700 }}>
+                            • Requesting {qty} unit{qty > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <button
+                        onClick={() =>
+                          setSuppliesRequest((prev) => ({
+                            ...prev,
+                            [item]: Math.max(0, (prev[item] || 0) - 1),
+                          }))
+                        }
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 7,
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#94a3b8',
+                          fontSize: 14,
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        −
+                      </button>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 900,
+                          color: qty > 0 ? '#f1f5f9' : '#475569',
+                          minWidth: 18,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {qty}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setSuppliesRequest((prev) => ({ ...prev, [item]: (prev[item] || 0) + 1 }))
+                        }
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 7,
+                          border: '1px solid rgba(124,58,237,0.3)',
+                          background: 'rgba(124,58,237,0.12)',
+                          color: '#c084fc',
+                          fontSize: 14,
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                ))}
-                <button onClick={() => {
-                  const requested = Object.entries(suppliesRequest).filter(([, v]) => v > 0)
-                  const summary = requested.map(([item, qty]) => `${item}: ×${qty}`).join(', ')
-                  triggerTTSAlert(`Supply request submitted: ${summary}`)
-                  toast.success('Supply request sent to supply room! 📦')
-                  playSuccessChime()
-                  setSuppliesRequest(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 0])))
+                );
+              })}
+            </div>
+
+            {/* Summary + Send Request to Real Backend */}
+            {Object.values(suppliesRequest).some((v) => v > 0) && (
+              <div
+                style={{
+                  marginTop: 14,
+                  background: 'rgba(124,58,237,0.07)',
+                  border: '1px solid rgba(124,58,237,0.2)',
+                  borderRadius: 14,
+                  padding: '12px',
                 }}
-                  style={{ width: '100%', marginTop: 10, padding: '11px', borderRadius: 11, background: 'linear-gradient(135deg,#7c3aed,#db2777)', border: 'none', color: '#fff', fontSize: 10.5, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
-                  📦 Send Request to Stock Room
+              >
+                <div
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 900,
+                    color: '#c084fc',
+                    marginBottom: 8,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Order Summary
+                </div>
+                {Object.entries(suppliesRequest)
+                  .filter(([, qty]) => qty > 0)
+                  .map(([item, qty]) => (
+                    <div
+                      key={item}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 9.5,
+                        color: '#94a3b8',
+                        fontWeight: 700,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          paddingRight: 8,
+                        }}
+                      >
+                        {item}
+                      </span>
+                      <span style={{ color: '#f1f5f9', flexShrink: 0 }}>× {qty}</span>
+                    </div>
+                  ))}
+                <button
+                  disabled={submittingHkRequest}
+                  onClick={async () => {
+                    const requested = Object.entries(suppliesRequest).filter(([, v]) => v > 0);
+                    if (requested.length === 0) return;
+                    setSubmittingHkRequest(true);
+                    try {
+                      for (const [itemName, qty] of requested) {
+                        const matched = Array.isArray(stockItems)
+                          ? stockItems.find(
+                              (s) => String(s?.name || '').trim().toLowerCase() === String(itemName || '').trim().toLowerCase()
+                            )
+                          : undefined;
+                        await fetch('/api/inventory/requests', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            propertyId: user?.property?.id,
+                            propertyCode: propertyCode,
+                            stockItemId: matched?.id || null,
+                            itemName,
+                            department: 'HOUSEKEEPING',
+                            requestedBy: user?.fullName || 'Housekeeping Staff',
+                            requestedQty: qty,
+                            unit: matched?.unit || 'pcs',
+                            urgency: 'URGENT',
+                            remarks: 'Requested via Housekeeping Portal',
+                          }),
+                        });
+                      }
+                      const summary = requested.map(([item, qty]) => `${item}: ×${qty}`).join(', ');
+                      triggerTTSAlert(`Supply request submitted: ${summary}`);
+                      toast.success('Supply request logged and sent to Admin & Store! 📦');
+                      playSuccessChime();
+                      setSuppliesRequest(
+                        Object.fromEntries(Object.keys(suppliesRequest).map((k) => [k, 0]))
+                      );
+                      fetchHkStockRequests();
+                    } catch {
+                      toast.error('Network error submitting request');
+                    } finally {
+                      setSubmittingHkRequest(false);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    marginTop: 10,
+                    padding: '11px',
+                    borderRadius: 11,
+                    background: 'linear-gradient(135deg,#7c3aed,#db2777)',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: 10.5,
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    letterSpacing: '0.03em',
+                    textTransform: 'uppercase',
+                    opacity: submittingHkRequest ? 0.6 : 1,
+                  }}
+                >
+                  {submittingHkRequest ? 'Sending to Main Store...' : '📦 Send Request to Stock Room'}
                 </button>
               </div>
             )}
 
-            {!Object.values(suppliesRequest).some(v => v > 0) && (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#334155', fontSize: 9.5, fontWeight: 700 }}>
-                Use the + buttons above to request supplies
+            {/* ══ RECENT REQUESTS LIST ══ */}
+            <div style={{ marginTop: 20 }}>
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 900,
+                  color: '#64748b',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
+                📋 Recent Restock Requisitions ({hkStockRequests.length})
+              </div>
+
+              {hkRequestsLoading ? (
+                <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', padding: '12px' }}>
+                  Loading requests…
+                </div>
+              ) : hkStockRequests.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '16px',
+                    color: '#475569',
+                    fontSize: 10,
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: 10,
+                  }}
+                >
+                  No pending restock requests
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {hkStockRequests.slice(0, 5).map((req) => (
+                    <div
+                      key={req.id}
+                      style={{
+                        padding: '9px 11px',
+                        borderRadius: 10,
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9' }}>
+                          {req.itemName}
+                        </div>
+                        <div style={{ fontSize: 8.5, color: '#64748b' }}>
+                          Qty: {req.requestedQty} {req.unit} •{' '}
+                          {new Date(req.createdAt).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 900,
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          textTransform: 'uppercase',
+                          background:
+                            req.status === 'PENDING'
+                              ? 'rgba(245,158,11,0.15)'
+                              : req.status === 'APPROVED'
+                              ? 'rgba(59,130,246,0.15)'
+                              : 'rgba(16,185,129,0.15)',
+                          color:
+                            req.status === 'PENDING'
+                              ? '#fbbf24'
+                              : req.status === 'APPROVED'
+                              ? '#60a5fa'
+                              : '#34d399',
+                        }}
+                      >
+                        {req.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Custom Item Out-of-Stock Modal */}
+            {showHkCustomModal && (
+              <div
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 9999,
+                  background: 'rgba(0,0,0,0.85)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: 380,
+                    background: '#0f172a',
+                    border: '1px solid #334155',
+                    borderRadius: 18,
+                    padding: 18,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 900, color: '#f1f5f9' }}>
+                      Report Out of Stock Item
+                    </span>
+                    <button
+                      onClick={() => setShowHkCustomModal(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#64748b',
+                        fontSize: 16,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <label
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 800,
+                          color: '#94a3b8',
+                          textTransform: 'uppercase',
+                          display: 'block',
+                          marginBottom: 4,
+                        }}
+                      >
+                        Item Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Harpic 500ml, Colin, Bleach..."
+                        value={hkCustomItemName}
+                        onChange={(e) => setHkCustomItemName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: 36,
+                          padding: '0 10px',
+                          borderRadius: 8,
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: 11,
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 800,
+                            color: '#94a3b8',
+                            textTransform: 'uppercase',
+                            display: 'block',
+                            marginBottom: 4,
+                          }}
+                        >
+                          Quantity Needed
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={hkCustomItemQty}
+                          onChange={(e) => setHkCustomItemQty(parseInt(e.target.value) || 1)}
+                          style={{
+                            width: '100%',
+                            height: 36,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            background: '#1e293b',
+                            border: '1px solid #334155',
+                            color: '#fff',
+                            fontSize: 11,
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 800,
+                            color: '#94a3b8',
+                            textTransform: 'uppercase',
+                            display: 'block',
+                            marginBottom: 4,
+                          }}
+                        >
+                          Unit
+                        </label>
+                        <select
+                          value={hkCustomItemUnit}
+                          onChange={(e) => setHkCustomItemUnit(e.target.value)}
+                          style={{
+                            width: '100%',
+                            height: 36,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            background: '#1e293b',
+                            border: '1px solid #334155',
+                            color: '#fff',
+                            fontSize: 11,
+                          }}
+                        >
+                          <option value="pcs">pcs (Pieces)</option>
+                          <option value="bottles">bottles</option>
+                          <option value="ltr">ltr (Liters)</option>
+                          <option value="box">box (Boxes)</option>
+                          <option value="packet">packet</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 800,
+                          color: '#94a3b8',
+                          textTransform: 'uppercase',
+                          display: 'block',
+                          marginBottom: 4,
+                        }}
+                      >
+                        Urgency
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                        {(['NORMAL', 'URGENT', 'CRITICAL'] as const).map((u) => (
+                          <button
+                            type="button"
+                            key={u}
+                            onClick={() => setHkCustomItemUrgency(u)}
+                            style={{
+                              padding: '6px',
+                              borderRadius: 6,
+                              fontSize: 10,
+                              fontWeight: 800,
+                              border:
+                                hkCustomItemUrgency === u
+                                  ? '1px solid #a855f7'
+                                  : '1px solid #334155',
+                              background:
+                                hkCustomItemUrgency === u
+                                  ? 'rgba(168,85,247,0.2)'
+                                  : 'transparent',
+                              color: hkCustomItemUrgency === u ? '#d8b4fe' : '#64748b',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 8,
+                        marginTop: 10,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setShowHkCustomModal(false)}
+                        style={{
+                          padding: '7px 12px',
+                          borderRadius: 8,
+                          background: '#1e293b',
+                          border: 'none',
+                          color: '#94a3b8',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submittingHkRequest}
+                        onClick={async () => {
+                          if (!hkCustomItemName.trim()) {
+                            toast.error('Please enter item name');
+                            return;
+                          }
+                          setSubmittingHkRequest(true);
+                          try {
+                            const res = await fetch('/api/inventory/requests', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                propertyId: user?.property?.id,
+                                propertyCode: propertyCode,
+                                itemName: hkCustomItemName.trim(),
+                                department: 'HOUSEKEEPING',
+                                requestedBy: user?.fullName || 'Housekeeping Staff',
+                                requestedQty: hkCustomItemQty,
+                                unit: hkCustomItemUnit,
+                                urgency: hkCustomItemUrgency,
+                                remarks: 'Reported via Housekeeping Out-of-Stock Modal',
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              toast.success('Out of stock item reported to Admin! 📦');
+                              playSuccessChime();
+                              setShowHkCustomModal(false);
+                              setHkCustomItemName('');
+                              fetchHkStockRequests();
+                            } else {
+                              toast.error(data.error || 'Failed to submit report');
+                            }
+                          } catch {
+                            toast.error('Network error submitting request');
+                          } finally {
+                            setSubmittingHkRequest(false);
+                          }
+                        }}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: 8,
+                          background: 'linear-gradient(135deg,#7c3aed,#db2777)',
+                          border: 'none',
+                          color: '#fff',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {submittingHkRequest ? 'Submitting…' : 'Submit Report'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -2110,6 +2945,361 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
           </div>
         )}
 
+        {/* ══ LIVE CHAT WITH TEAM GROUP, ADMIN & DIRECT STAFF ══ */}
+        {activeTab === 'chat' && (
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 120px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))', position: 'relative' }}>
+            
+            {/* Channel Switcher Pills */}
+            <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 6 }}>
+              {[
+                { type: 'GROUP' as const, label: 'Team Group', icon: '📢', badge: channelUnread.group },
+                { type: 'ADMIN' as const, label: 'Hotel Admin', icon: '👔', badge: channelUnread.admin },
+                { type: 'DIRECT' as const, label: 'Direct Staff', icon: '👥', badge: channelUnread.direct },
+              ].map(c => {
+                const isSelected = chatChannelType === c.type
+                return (
+                  <button
+                    key={c.type}
+                    onClick={() => setChatChannelType(c.type)}
+                    style={{
+                      flex: 1,
+                      padding: '7px 6px',
+                      borderRadius: 10,
+                      background: isSelected ? 'linear-gradient(135deg, #7c3aed, #6366f1)' : 'rgba(255,255,255,0.04)',
+                      border: isSelected ? '1px solid rgba(167,139,250,0.5)' : '1px solid rgba(255,255,255,0.06)',
+                      color: isSelected ? '#ffffff' : '#94a3b8',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 4,
+                      transition: 'all 0.15s ease',
+                      position: 'relative',
+                    }}
+                  >
+                    <span>{c.icon}</span>
+                    <span>{c.label}</span>
+                    {Boolean(c.badge && c.badge > 0) && (
+                      <span style={{
+                        background: '#ef4444',
+                        color: '#fff',
+                        fontSize: 8,
+                        fontWeight: 900,
+                        padding: '1px 5px',
+                        borderRadius: 999,
+                        marginLeft: 2,
+                      }}>
+                        {c.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* If DIRECT Channel: Colleague Selection Strip */}
+            {chatChannelType === 'DIRECT' && (
+              <div style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 8.5, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                  Select Staff Member to Message:
+                </div>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {staffContacts.filter(s => s.id !== user.id).length === 0 ? (
+                    <div style={{ fontSize: 9.5, color: '#64748b', padding: '6px 0', fontStyle: 'italic' }}>
+                      No other staff members found for direct messaging.
+                    </div>
+                  ) : (
+                    staffContacts.filter(s => s.id !== user.id).map(contact => {
+                      const isPicked = chatRecipientStaff?.id === contact.id
+                      const unread = contact.unreadCount || (channelUnread as any)[contact.id] || 0
+                      return (
+                        <button
+                          key={contact.id}
+                          onClick={() => setChatRecipientStaff(contact)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '5px 10px',
+                            borderRadius: 20,
+                            background: isPicked ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.03)',
+                            border: isPicked ? '1.5px solid #a855f7' : '1px solid rgba(255,255,255,0.07)',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: isPicked ? 'linear-gradient(135deg,#a855f7,#ec4899)' : '#334155',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 10,
+                            fontWeight: 900,
+                            color: '#fff',
+                          }}>
+                            {contact.fullName?.[0]?.toUpperCase() || 'S'}
+                          </div>
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: isPicked ? '#f8fafc' : '#cbd5e1', lineHeight: 1.1 }}>
+                              {contact.fullName}
+                            </div>
+                            <div style={{ fontSize: 8, color: isPicked ? '#c084fc' : '#64748b', textTransform: 'capitalize' }}>
+                              {contact.designation || contact.role?.toLowerCase() || 'Staff'}
+                            </div>
+                          </div>
+                          {unread > 0 && (
+                            <span style={{
+                              background: '#ef4444',
+                              color: '#fff',
+                              fontSize: 7.5,
+                              fontWeight: 900,
+                              padding: '1px 4px',
+                              borderRadius: 999,
+                            }}>
+                              {unread}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Active Channel Header Info */}
+            <div style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 900, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {chatChannelType === 'GROUP' && <span>📢 Team Broadcast Channel</span>}
+                  {chatChannelType === 'ADMIN' && <span>👔 Hotel Admin & Front Desk</span>}
+                  {chatChannelType === 'DIRECT' && (
+                    <span>
+                      💬 {chatRecipientStaff?.fullName ? `Direct: ${chatRecipientStaff.fullName}` : 'Direct Staff Chat'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', display: 'inline-block' }}></span>
+                  {chatChannelType === 'GROUP' && <span>All hotel staff & front desk members</span>}
+                  {chatChannelType === 'ADMIN' && <span>Private channel with Manager & Reception</span>}
+                  {chatChannelType === 'DIRECT' && (
+                    <span>
+                      {chatRecipientStaff?.designation ? `${chatRecipientStaff.designation} · Private 1-on-1` : 'Direct message'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  fetchChatMessages()
+                  fetchChatContacts()
+                }}
+                title="Refresh messages"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  padding: '4px 8px',
+                  color: '#94a3b8',
+                  fontSize: 9.5,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+
+            {/* Quick Template Chips */}
+            <div style={{ padding: '7px 10px', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: 6, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+              {(chatChannelType === 'GROUP'
+                ? [
+                    '🧹 Floor 2 cleaning completed',
+                    '⚠️ Spill on 3rd floor hallway',
+                    '☕ Taking 15m break',
+                    '🤝 Need quick hand in Room',
+                    '📢 Shift handover update',
+                  ]
+                : chatChannelType === 'ADMIN'
+                ? [
+                    '🧹 Room cleaning completed',
+                    '🧺 Need extra towels & linen',
+                    '🔧 Maintenance issue in room',
+                    '🛎️ Guest requested assistance',
+                    '📦 Restock toiletries needed',
+                  ]
+                : [
+                    '👋 Hey, are you on duty?',
+                    '🤝 Can you cover Room 102?',
+                    '🧺 Did you take the linen cart?',
+                    '☕ Lunch break together?',
+                    '👍 Done, thanks!',
+                  ]
+              ).map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleSendChatMessage(undefined, chip)}
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: 20,
+                    background: 'rgba(124,58,237,0.12)',
+                    border: '1px solid rgba(124,58,237,0.25)',
+                    color: '#c084fc',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+
+            {/* Messages Thread Container */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 16px', color: '#64748b' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>
+                    {chatChannelType === 'GROUP' ? '📢' : chatChannelType === 'ADMIN' ? '👔' : '💬'}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#e2e8f0' }}>No messages yet</div>
+                  <div style={{ fontSize: 10, marginTop: 4, maxWidth: 280, margin: '4px auto 0', lineHeight: 1.4 }}>
+                    {chatChannelType === 'GROUP' && 'Broadcast an update to all hotel colleagues and front desk.'}
+                    {chatChannelType === 'ADMIN' && 'Send a private message to Hotel Admin & Front Desk.'}
+                    {chatChannelType === 'DIRECT' && (chatRecipientStaff ? `Start a 1-on-1 private chat with ${chatRecipientStaff.fullName}.` : 'Select a colleague above to start chatting.')}
+                  </div>
+                </div>
+              ) : (
+                chatMessages.map((m) => {
+                  const isStaff = m.senderRole === 'STAFF'
+                  const isMe = isStaff && (m.staffId === user.id || m.senderName === user.fullName || chatChannelType === 'ADMIN')
+                  const timeStr = m.createdAt
+                    ? new Date(m.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                    : ''
+
+                  return (
+                    <div
+                      key={m.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: isMe ? 'flex-end' : 'flex-start',
+                        maxWidth: '82%',
+                        alignSelf: isMe ? 'flex-end' : 'flex-start',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 8.5,
+                          fontWeight: 800,
+                          color: isMe ? '#a78bfa' : m.senderRole === 'ADMIN' ? '#38bdf8' : '#34d399',
+                          marginBottom: 2,
+                          padding: '0 4px',
+                        }}
+                      >
+                        {isMe
+                          ? 'You'
+                          : m.senderRole === 'ADMIN'
+                          ? `👔 ${m.senderName || 'Hotel Admin'}`
+                          : `👤 ${m.senderName || 'Colleague'}`}
+                      </div>
+                      <div
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: 14,
+                          borderTopRightRadius: isMe ? 2 : 14,
+                          borderTopLeftRadius: isMe ? 14 : 2,
+                          background: isMe
+                            ? 'linear-gradient(135deg, #7c3aed, #6366f1)'
+                            : 'rgba(30, 41, 59, 0.85)',
+                          border: isMe ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                          color: '#f8fafc',
+                          fontSize: 11,
+                          lineHeight: 1.4,
+                          wordBreak: 'break-word',
+                          boxShadow: isMe ? '0 2px 10px rgba(124,58,237,0.25)' : 'none',
+                        }}
+                      >
+                        {m.message}
+                      </div>
+                      <div style={{ fontSize: 8, color: '#475569', marginTop: 2, padding: '0 4px', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span>{timeStr}</span>
+                        {isMe && <span style={{ color: m.isRead ? '#38bdf8' : '#64748b' }}>✓✓</span>}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Bottom Input Field */}
+            <form
+              onSubmit={(e) => handleSendChatMessage(e)}
+              style={{
+                padding: '8px 10px',
+                background: 'rgba(10,12,20,0.95)',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+              }}
+            >
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={
+                  chatChannelType === 'GROUP'
+                    ? 'Message entire staff team...'
+                    : chatChannelType === 'ADMIN'
+                    ? 'Type private message to Hotel Admin...'
+                    : chatRecipientStaff
+                    ? `Message ${chatRecipientStaff.fullName}...`
+                    : 'Select staff member above...'
+                }
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12,
+                  padding: '9px 12px',
+                  color: '#fff',
+                  fontSize: 11,
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim() || sendingChat || (chatChannelType === 'DIRECT' && !chatRecipientStaff?.id)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 12,
+                  background: chatInput.trim() ? 'linear-gradient(135deg,#7c3aed,#db2777)' : 'rgba(255,255,255,0.05)',
+                  border: 'none',
+                  color: chatInput.trim() ? '#fff' : '#64748b',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  cursor: chatInput.trim() ? 'pointer' : 'default',
+                  fontFamily: 'inherit',
+                  boxShadow: chatInput.trim() ? '0 2px 10px rgba(124,58,237,0.3)' : 'none',
+                }}
+              >
+                {sendingChat ? '…' : 'Send ✈️'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* ══ WALKIE-TALIE TTS / CONFIG SETTINGS TAB ══ */}
         {activeTab === 'settings' && (
           <div style={{ padding: '12px 10px calc(80px + env(safe-area-inset-bottom, 0px))' }}>
@@ -2204,7 +3394,7 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
         justifyContent: 'space-around',
         zIndex: 40,
       }}>
-        {tabs.map(t => {
+        {primaryTabs.map(t => {
           const isActive = activeTab === t.key
           return (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
@@ -2215,21 +3405,38 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 1,
-                padding: '5px 1px',
-                borderRadius: 9,
+                gap: 2,
+                padding: '6px 2px',
+                borderRadius: 10,
                 border: 'none',
                 cursor: 'pointer',
-                background: isActive ? 'rgba(124,58,237,0.15)' : 'transparent',
+                background: isActive ? 'rgba(124,58,237,0.18)' : 'transparent',
                 color: isActive ? '#c084fc' : '#64748b',
                 fontFamily: 'inherit',
                 transition: 'all 0.15s',
               }}>
-              <span style={{ fontSize: 15, lineHeight: 1 }}>{t.emoji}</span>
+              <span style={{ fontSize: 17, lineHeight: 1, position: 'relative', display: 'inline-block' }}>
+                {t.emoji}
+                {Boolean(t.badge && t.badge > 0) && (
+                  <span style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -8,
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: 8,
+                    fontWeight: 900,
+                    borderRadius: 999,
+                    padding: '1px 4.5px',
+                    border: '1px solid #06070c',
+                  }}>
+                    {t.badge}
+                  </span>
+                )}
+              </span>
               <span style={{
-                fontSize: 7.5,
+                fontSize: 9.5,
                 fontWeight: 800,
-                textTransform: 'uppercase',
                 letterSpacing: '0.01em',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -2239,11 +3446,229 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
               }}>
                 {t.label}
               </span>
-              {isActive && <div style={{ width: 12, height: 2, background: '#a855f7', borderRadius: 1, marginTop: 1 }} />}
+              {isActive && <div style={{ width: 14, height: 2, background: '#a855f7', borderRadius: 1, marginTop: 1 }} />}
             </button>
           )
         })}
+
+        {/* 5th Button: All Views / More */}
+        {(() => {
+          const isSecondaryActive = ['lostfound', 'supplies', 'laundry', 'settings'].includes(activeTab)
+          const currentSecondary = allViews.find(v => v.key === activeTab)
+          const isMoreOpen = showMoreMenu
+          return (
+            <button
+              onClick={() => setShowMoreMenu(prev => !prev)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2,
+                padding: '6px 2px',
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                background: isSecondaryActive || isMoreOpen ? 'rgba(124,58,237,0.18)' : 'transparent',
+                color: isSecondaryActive || isMoreOpen ? '#c084fc' : '#64748b',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ fontSize: 17, lineHeight: 1, position: 'relative', display: 'inline-block' }}>
+                {isSecondaryActive && currentSecondary ? currentSecondary.emoji : '📑'}
+              </span>
+              <span style={{
+                fontSize: 9.5,
+                fontWeight: 800,
+                letterSpacing: '0.01em',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%',
+                lineHeight: 1.1,
+              }}>
+                {isSecondaryActive && currentSecondary ? currentSecondary.label.split(' ')[0] : 'All Views'}
+              </span>
+              {(isSecondaryActive || isMoreOpen) && <div style={{ width: 14, height: 2, background: '#a855f7', borderRadius: 1, marginTop: 1 }} />}
+            </button>
+          )
+        })()}
       </nav>
+
+      {/* ─── ALL VIEWS / MORE BOTTOM SHEET DRAWER ─── */}
+      {showMoreMenu && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 150, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowMoreMenu(false)}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+          />
+
+          {/* Drawer Sheet */}
+          <div
+            style={{
+              position: 'relative',
+              background: '#0d1117',
+              borderRadius: '24px 24px 0 0',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderBottom: 'none',
+              padding: '16px 16px calc(24px + env(safe-area-inset-bottom, 0px))',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              animation: 'slideIn 0.2s ease-out',
+            }}
+          >
+            {/* Drag Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)', margin: '0 auto 14px' }} />
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📑 All Portal Views & Modules</span>
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                  Switch between hotel modules and housekeeping tools
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMoreMenu(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10,
+                  padding: '6px 10px',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  fontFamily: 'inherit',
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Grid of Views */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
+              {allViews.map(view => {
+                const isSelected = activeTab === view.key
+                return (
+                  <button
+                    key={view.key}
+                    onClick={() => {
+                      setActiveTab(view.key)
+                      setShowMoreMenu(false)
+                    }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      padding: '12px 10px',
+                      borderRadius: 14,
+                      background: isSelected
+                        ? 'linear-gradient(135deg, rgba(124,58,237,0.25), rgba(99,102,241,0.15))'
+                        : 'rgba(255,255,255,0.025)',
+                      border: isSelected
+                        ? '1.5px solid #a855f7'
+                        : '1px solid rgba(255,255,255,0.06)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.15s ease',
+                      position: 'relative',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 6 }}>
+                      <span style={{ fontSize: 20 }}>{view.emoji}</span>
+                      {Boolean(view.badge && view.badge > 0) && (
+                        <span style={{
+                          background: '#ef4444',
+                          color: '#fff',
+                          fontSize: 8.5,
+                          fontWeight: 900,
+                          borderRadius: 999,
+                          padding: '1px 6px',
+                        }}>
+                          {view.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, fontWeight: 900, color: isSelected ? '#c084fc' : '#f1f5f9', lineHeight: 1.2 }}>
+                      {view.label}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#64748b', marginTop: 3, lineHeight: 1.3 }}>
+                      {view.desc}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Quick Actions Row */}
+            <div style={{ fontSize: 9, fontWeight: 900, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              Quick Tools
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  setShowMoreMenu(false)
+                  setShowKycModal(true)
+                }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: 'rgba(234,179,8,0.1)',
+                  border: '1px solid rgba(234,179,8,0.25)',
+                  color: '#facc15',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <span>🪪</span>
+                <span>Guest KYC Scan</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMoreMenu(false)
+                  handleLogout()
+                }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                  color: '#f87171',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <span>⏻</span>
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── ROOM SHEET BOTTOM MODAL (Advanced Actions) ─── */}
       {/* ══ SIMPLE ROOM INFO BOTTOM SHEET ══ */}
@@ -2291,6 +3716,7 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                 { key: 'CLEAN',          label: '✅  Mark Clean',        desc: 'Room fully cleaned & ready',      bg: 'rgba(16,185,129,0.12)',  color: '#34d399', border: 'rgba(16,185,129,0.3)' },
                 { key: 'DIRTY',          label: '🧹  Mark Dirty',         desc: 'Room needs cleaning',              bg: 'rgba(239,68,68,0.08)',   color: '#f87171', border: 'rgba(239,68,68,0.25)' },
                 { key: 'INSPECTING',     label: '🔍  Mark Inspecting',    desc: 'Currently being checked',          bg: 'rgba(99,102,241,0.10)',  color: '#818cf8', border: 'rgba(99,102,241,0.25)' },
+                { key: 'INSPECTED',      label: '✔️  Inspected',          desc: 'Inspection complete & passed',     bg: 'rgba(6,182,212,0.10)',   color: '#22d3ee', border: 'rgba(6,182,212,0.25)'  },
                 { key: 'DO_NOT_DISTURB', label: '🚫  Do Not Disturb',     desc: 'Guest requested no entry',         bg: 'rgba(251,191,36,0.10)',  color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
               ].map(btn => {
                 const isCurrent = selectedRoom.housekeepingStatus === btn.key
@@ -2319,6 +3745,57 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
                   </button>
                 )
               })}
+
+              {/* ── Maintenance Option with note ── */}
+              <div style={{ borderRadius: 12, border: `1.5px solid ${selectedRoom.housekeepingStatus === 'MAINTENANCE' ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.07)'}`, background: selectedRoom.housekeepingStatus === 'MAINTENANCE' ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', overflow: 'hidden' }}>
+                <button
+                  disabled={updatingId === selectedRoom.id}
+                  onClick={() => setShowMaintenanceInput(prev => !prev)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                    background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: selectedRoom.housekeepingStatus === 'MAINTENANCE' ? '#f87171' : '#f1f5f9' }}>🛠️  Maintenance</div>
+                    <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 2, fontWeight: 600 }}>What is the issue? — Describe the problem</div>
+                  </div>
+                  {selectedRoom.housekeepingStatus === 'MAINTENANCE'
+                    ? <span style={{ fontSize: 9, fontWeight: 900, color: '#f87171', flexShrink: 0 }}>CURRENT</span>
+                    : <span style={{ fontSize: 11, color: '#475569', flexShrink: 0 }}>{showMaintenanceInput ? '▲' : '▼'}</span>}
+                </button>
+
+                {(showMaintenanceInput || selectedRoom.housekeepingStatus === 'MAINTENANCE') && (
+                  <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <textarea
+                      value={maintenanceNote}
+                      onChange={e => setMaintenanceNote(e.target.value)}
+                      placeholder="e.g. AC not working, bathroom tap leaking, light fused..."
+                      rows={3}
+                      style={{
+                        width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#f1f5f9',
+                        fontSize: 11, fontFamily: 'inherit', padding: '8px 10px', resize: 'none',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      disabled={updatingId === selectedRoom.id}
+                      onClick={() => {
+                        updateHKStatus(selectedRoom.id, `MAINTENANCE${maintenanceNote.trim() ? `:${maintenanceNote.trim()}` : ''}`)
+                        setMaintenanceNote('')
+                        setShowMaintenanceInput(false)
+                        setSelectedRoom(null)
+                      }}
+                      style={{
+                        padding: '9px 14px', borderRadius: 8, border: 'none', fontFamily: 'inherit',
+                        background: 'linear-gradient(90deg, rgba(239,68,68,0.8), rgba(220,38,38,0.8))',
+                        color: '#fff', fontSize: 11.5, fontWeight: 900, cursor: 'pointer',
+                      }}>
+                      🛠️ Mark as Maintenance
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2772,6 +4249,232 @@ export default function HousekeeperPortalPage({ params }: { params: Promise<{ pr
           </div>
         )
       })()}
+
+      {/* Apply Leave Modal */}
+      {showLeaveModal && (
+        <div
+          onClick={() => setShowLeaveModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              background: '#0f172a',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 20,
+              padding: 20,
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
+              animation: 'slideIn 0.2s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🏖️ Apply for Leave
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                  Submit a leave request for supervisor approval
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLeaveModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 28,
+                  height: 28,
+                  color: '#94a3b8',
+                  fontSize: 16,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Leave Type Selector */}
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+                  Leave Type
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                  {(['CASUAL', 'SICK', 'EARNED', 'EMERGENCY'] as const).map((type) => {
+                    const isSelected = leaveType === type
+                    return (
+                      <button
+                        type="button"
+                        key={type}
+                        onClick={() => setLeaveType(type)}
+                        style={{
+                          padding: '9px 10px',
+                          borderRadius: 10,
+                          background: isSelected ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.03)',
+                          border: isSelected ? '1.5px solid #8b5cf6' : '1px solid rgba(255,255,255,0.08)',
+                          color: isSelected ? '#c084fc' : '#94a3b8',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <span>{type === 'CASUAL' ? '🏖️' : type === 'SICK' ? '🤒' : type === 'EARNED' ? '⭐' : '🚨'}</span>
+                        <span>{type}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Dates Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 5, letterSpacing: '0.05em' }}>
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={leaveFrom}
+                    onChange={(e) => setLeaveFrom(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 10,
+                      padding: '9px 10px',
+                      color: '#f8fafc',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 5, letterSpacing: '0.05em' }}>
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={leaveTo}
+                    min={leaveFrom}
+                    onChange={(e) => setLeaveTo(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 10,
+                      padding: '9px 10px',
+                      color: '#f8fafc',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Days duration badge */}
+              {(() => {
+                const f = new Date(leaveFrom)
+                const t = new Date(leaveTo)
+                const count = isNaN(f.getTime()) || isNaN(t.getTime()) || t < f ? 0 : Math.ceil((t.getTime() - f.getTime()) / (1000 * 60 * 60 * 24)) + 1
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)', borderRadius: 10, padding: '7px 12px' }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8' }}>Total Duration:</span>
+                    <span style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8' }}>{count} {count === 1 ? 'Day' : 'Days'}</span>
+                  </div>
+                )
+              })()}
+
+              {/* Reason / Remarks */}
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 5, letterSpacing: '0.05em' }}>
+                  Reason (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={leaveReason}
+                  onChange={(e) => setLeaveReason(e.target.value)}
+                  placeholder="e.g., Medical treatment, personal family matter, out of station..."
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 10,
+                    padding: '9px 10px',
+                    color: '#f8fafc',
+                    fontSize: 11,
+                    outline: 'none',
+                    resize: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 8, marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveModal(false)}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#94a3b8',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingLeave}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    cursor: submittingLeave ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(124,58,237,0.4)',
+                  }}
+                >
+                  {submittingLeave ? 'Submitting…' : 'Submit Leave Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Staff KYC Scan Modal */}
       <StaffKycModal

@@ -12,7 +12,8 @@ import {
   Bed,
   CreditCard,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Shield
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -163,13 +164,22 @@ function CheckInContent() {
   return (
     <div className="space-y-8 max-w-4xl">
       {/* Header */}
-      <div className="space-y-1">
-        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-indigo-400">
-          <Sparkles size={12} /> Front Desk checkin
-        </span>
-        <h1 className="text-2xl md:text-3xl font-black text-white leading-none">
-          Guest Check-in & KYC
-        </h1>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="space-y-1">
+          <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-indigo-400">
+            <Sparkles size={12} /> Front Desk checkin
+          </span>
+          <h1 className="text-2xl md:text-3xl font-black text-white leading-none">
+            Guest Check-in & KYC
+          </h1>
+        </div>
+        <Link
+          href="/security-portal"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all shadow-sm"
+        >
+          <Shield size={14} className="text-cyan-400" />
+          <span>Security Portal & Scanner</span>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

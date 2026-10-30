@@ -67,17 +67,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const STAFF_MANAGEMENT_ROLES = [
+  'SUPER_ADMIN', 
+  'RESTAURANTS_ADMIN', 
+  'HOTEL_ADMIN', 
+  'HOTEL_MANAGER', 
+  'HOTEL_RECEPTIONIST', 
+  'POSSYSTEM', 
+  'Staff'
+];
+
 // POST Create new User
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (
-      session.role !== 'SUPER_ADMIN' && 
-      session.role !== 'RESTAURANTS_ADMIN' && 
-      session.role !== 'POSSYSTEM' && 
-      session.role !== 'Staff' && 
-      session.role !== 'HOTEL_ADMIN'
-    )) {
+    if (!session || !STAFF_MANAGEMENT_ROLES.includes(session.role)) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -89,20 +93,14 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('Missing required fields: fullName, email, password, roleName'), 400);
     }
 
-    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles (HOTEL_ADMIN can also manage HOTEL roles)
-    const allowedRolesForOperator = session.role === 'HOTEL_ADMIN'
-      ? ['DELIVERY_RIDER', 'Staff', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'HOTEL_ADMIN']
-      : ['DELIVERY_RIDER', 'Staff'];
-    if (
-      (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') &&
-      !allowedRolesForOperator.includes(roleName)
-    ) {
-      return apiError(new Error('You do not have permission to create this user role'), 403);
+    // Security: Only SUPER_ADMIN can create SUPER_ADMIN or RESTAURANTS_ADMIN
+    if (session.role !== 'SUPER_ADMIN' && (roleName === 'SUPER_ADMIN' || roleName === 'RESTAURANTS_ADMIN')) {
+      return apiError(new Error('You do not have permission to create this admin role'), 403);
     }
 
-    // Security: Regular Admins cannot create Super Admins
-    if (session.role !== 'SUPER_ADMIN' && roleName === 'SUPER_ADMIN') {
-      return apiError(new Error('You do not have permission to create a Super Admin'), 403);
+    // Security: Receptionist/Staff/POS cannot create HOTEL_ADMIN
+    if (['HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'POSSYSTEM', 'Staff'].includes(session.role) && roleName === 'HOTEL_ADMIN') {
+      return apiError(new Error('You do not have permission to create a Hotel Admin'), 403);
     }
 
     // Check if user already exists
@@ -123,9 +121,6 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // CRITICAL: Multi-Tenant Isolation Logic
-    // If a Super Admin is creating a new ADMIN, we create a fresh ORGANIZATION for them.
-    // Otherwise, they stay in the creator's organization.
     let targetOrgId = session.organizationId;
     
     if (session.role === 'SUPER_ADMIN') {
@@ -137,7 +132,6 @@ export async function POST(request: NextRequest) {
         });
         targetOrgId = newOrg.id;
       } else if (propertyId) {
-        // Automatically link user to the correct tenant organization when assigning an existing property
         const targetProperty = await prisma.property.findUnique({
           where: { id: propertyId }
         });
@@ -161,7 +155,7 @@ export async function POST(request: NextRequest) {
         roleId: role.id,
         isActive: true,
         posPin: body.posPin || null,
-        onboardingCompleted: true, // Bypass onboarding for provisioned users
+        onboardingCompleted: true,
         phone: body.phone || null,
         vehicleNumber: body.vehicleNumber || null,
         vehicleType: body.vehicleType || 'BIKE',
@@ -183,13 +177,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (
-      session.role !== 'SUPER_ADMIN' && 
-      session.role !== 'RESTAURANTS_ADMIN' && 
-      session.role !== 'POSSYSTEM' && 
-      session.role !== 'Staff' && 
-      session.role !== 'HOTEL_ADMIN'
-    )) {
+    if (!session || !STAFF_MANAGEMENT_ROLES.includes(session.role)) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -198,25 +186,27 @@ export async function PATCH(request: NextRequest) {
 
     if (!userId) return apiError(new Error('Missing userId'), 400);
 
-    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only update Staff or DELIVERY_RIDER roles
-    if (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') {
-      const targetUser = await prisma.user.findUnique({ 
-        where: { id: userId }, 
-        include: { role: true } 
-      });
-      if (targetUser && !['DELIVERY_RIDER', 'Staff'].includes(targetUser.role?.name || '')) {
-        return apiError(new Error('You do not have permission to modify this user role'), 403);
-      }
+    const targetUser = await prisma.user.findUnique({ 
+      where: { id: userId }, 
+      include: { role: true } 
+    });
+
+    if (!targetUser) return apiError(new Error('User not found'), 404);
+
+    // Multi-tenant check
+    if (session.role !== 'SUPER_ADMIN' && targetUser.organizationId !== session.organizationId) {
+      return apiError(new Error('Unauthorized to modify user from another organization'), 403);
     }
 
-    // Security: Regular Admins cannot modify Super Admins
-    if (session.role !== 'SUPER_ADMIN') {
-      const targetUser = await prisma.user.findUnique({ 
-        where: { id: userId }, 
-        include: { role: true } 
-      });
-      if (targetUser?.role?.name === 'SUPER_ADMIN') {
-        return apiError(new Error('You do not have permission to modify a Super Admin'), 403);
+    // Security: Regular Admins/Staff cannot modify Super Admins
+    if (session.role !== 'SUPER_ADMIN' && targetUser.role?.name === 'SUPER_ADMIN') {
+      return apiError(new Error('You do not have permission to modify a Super Admin'), 403);
+    }
+
+    // Security: Receptionist / Manager / POS / Staff cannot block Hotel Admin or Restaurant Admin
+    if (['HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'POSSYSTEM', 'Staff'].includes(session.role)) {
+      if (['HOTEL_ADMIN', 'RESTAURANTS_ADMIN'].includes(targetUser.role?.name || '')) {
+        return apiError(new Error('You do not have permission to modify an Admin user'), 403);
       }
     }
 
@@ -236,13 +226,7 @@ export async function PATCH(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (
-      session.role !== 'SUPER_ADMIN' && 
-      session.role !== 'RESTAURANTS_ADMIN' && 
-      session.role !== 'POSSYSTEM' && 
-      session.role !== 'Staff' && 
-      session.role !== 'HOTEL_ADMIN'
-    )) {
+    if (!session || !STAFF_MANAGEMENT_ROLES.includes(session.role)) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -253,25 +237,29 @@ export async function PUT(request: NextRequest) {
       return apiError(new Error('Missing required fields: id, fullName, email, roleName'), 400);
     }
 
-    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only create/update Staff or DELIVERY_RIDER roles (HOTEL_ADMIN can also manage HOTEL roles)
-    const allowedRolesForOperator = session.role === 'HOTEL_ADMIN'
-      ? ['DELIVERY_RIDER', 'Staff', 'HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'HOTEL_ADMIN']
-      : ['DELIVERY_RIDER', 'Staff'];
-    if (
-      (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') &&
-      !allowedRolesForOperator.includes(roleName)
-    ) {
-      return apiError(new Error('You do not have permission to modify this user role'), 403);
+    const targetUser = await prisma.user.findUnique({ 
+      where: { id }, 
+      include: { role: true } 
+    });
+
+    if (!targetUser) return apiError(new Error('User not found'), 404);
+
+    // Multi-tenant check
+    if (session.role !== 'SUPER_ADMIN' && targetUser.organizationId !== session.organizationId) {
+      return apiError(new Error('Unauthorized to modify user from another organization'), 403);
     }
 
-    // Security: Regular Admins cannot modify Super Admins or promote/demote anyone to/from Super Admin
+    // Security: Cannot modify Super Admins or promote anyone to Super Admin unless session is Super Admin
     if (session.role !== 'SUPER_ADMIN') {
-      const targetUser = await prisma.user.findUnique({ 
-        where: { id }, 
-        include: { role: true } 
-      });
       if (targetUser?.role?.name === 'SUPER_ADMIN' || roleName === 'SUPER_ADMIN') {
         return apiError(new Error('You do not have permission for this role action'), 403);
+      }
+    }
+
+    // Security: Staff / Receptionist / POS cannot edit Admin accounts or promote to Admin
+    if (['HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'POSSYSTEM', 'Staff'].includes(session.role)) {
+      if (['HOTEL_ADMIN', 'RESTAURANTS_ADMIN'].includes(targetUser.role?.name || '') || ['HOTEL_ADMIN', 'RESTAURANTS_ADMIN'].includes(roleName)) {
+        return apiError(new Error('You do not have permission to edit Admin accounts'), 403);
       }
     }
 
@@ -302,7 +290,6 @@ export async function PUT(request: NextRequest) {
     };
 
     if (session.role === 'SUPER_ADMIN' && dataToUpdate.propertyId) {
-      // Sync the user's tenant organization to perfectly match their property
       const targetProperty = await prisma.property.findUnique({
         where: { id: dataToUpdate.propertyId }
       });
@@ -319,8 +306,7 @@ export async function PUT(request: NextRequest) {
       dataToUpdate.posPin = body.posPin;
     }
 
-    const existing = await prisma.user.findUnique({ where: { id } });
-    if (existing && existing.email !== email) {
+    if (targetUser.email !== email) {
       const emailCheck = await prisma.user.findUnique({ where: { email } });
       if (emailCheck) return apiError(new Error('User with this email already exists'), 400);
     }
@@ -341,13 +327,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || (
-      session.role !== 'SUPER_ADMIN' && 
-      session.role !== 'RESTAURANTS_ADMIN' && 
-      session.role !== 'POSSYSTEM' && 
-      session.role !== 'Staff' && 
-      session.role !== 'HOTEL_ADMIN'
-    )) {
+    if (!session || !STAFF_MANAGEMENT_ROLES.includes(session.role)) {
       return apiError(new Error('Unauthorized'), 401);
     }
 
@@ -360,30 +340,87 @@ export async function DELETE(request: NextRequest) {
       return apiError(new Error('Cannot delete your own account'), 400);
     }
 
-    // Security: Operators (POSSYSTEM, Staff, HOTEL_ADMIN) can only delete Staff or DELIVERY_RIDER roles
-    if (session.role === 'POSSYSTEM' || session.role === 'Staff' || session.role === 'HOTEL_ADMIN') {
-      const targetUser = await prisma.user.findUnique({ 
-        where: { id }, 
-        include: { role: true } 
-      });
-      if (targetUser && !['DELIVERY_RIDER', 'Staff'].includes(targetUser.role?.name || '')) {
-        return apiError(new Error('You do not have permission to delete this user role'), 403);
+    const targetUser = await prisma.user.findUnique({ 
+      where: { id }, 
+      include: { role: true, staffMember: true } 
+    });
+
+    if (!targetUser) {
+      return apiError(new Error('User not found'), 404);
+    }
+
+    // Security: Non-Super Admins cannot delete Super Admins
+    if (session.role !== 'SUPER_ADMIN' && targetUser.role?.name === 'SUPER_ADMIN') {
+      return apiError(new Error('You do not have permission to delete a Super Admin'), 403);
+    }
+
+    // Multi-tenant check: Cannot delete user from another organization
+    if (session.role !== 'SUPER_ADMIN' && targetUser.organizationId !== session.organizationId) {
+      return apiError(new Error('Unauthorized to delete user from another organization'), 403);
+    }
+
+    // Security: Receptionist / Manager / POS / Staff cannot delete Hotel Admin or Restaurant Admin
+    if (['HOTEL_RECEPTIONIST', 'HOTEL_MANAGER', 'POSSYSTEM', 'Staff'].includes(session.role)) {
+      if (['HOTEL_ADMIN', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'].includes(targetUser.role?.name || '')) {
+        return apiError(new Error('You do not have permission to delete an Admin account'), 403);
       }
     }
 
-    // Security: Regular Admins cannot delete Super Admins
-    if (session.role !== 'SUPER_ADMIN') {
-      const targetUser = await prisma.user.findUnique({ 
-        where: { id }, 
-        include: { role: true } 
-      });
-      if (targetUser?.role?.name === 'SUPER_ADMIN') {
-        return apiError(new Error('You do not have permission to delete a Super Admin'), 403);
-      }
-    }
+    // Clean up or detach all dependent relations safely in a transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Unlink PosOrder records (do not delete financial orders, just unlink)
+      await tx.posOrder.updateMany({
+        where: { servedById: id },
+        data: { servedById: null }
+      }).catch(() => {});
+      await tx.posOrder.updateMany({
+        where: { deliveryRiderId: id },
+        data: { deliveryRiderId: null }
+      }).catch(() => {});
 
-    await prisma.user.delete({
-      where: { id },
+      // 2. Unlink AuditLog records
+      await tx.auditLog.updateMany({
+        where: { userId: id },
+        data: { userId: null }
+      }).catch(() => {});
+
+      // 3. Delete attendance for user and their staffMember
+      await tx.attendance.deleteMany({
+        where: {
+          OR: [
+            { userId: id },
+            ...(targetUser.staffMember ? [{ staffMemberId: targetUser.staffMember.id }] : [])
+          ]
+        }
+      }).catch(() => {});
+
+      // 4. Delete staffMember related leaves, tips, unlink pos orders, and delete the staffMember itself
+      if (targetUser.staffMember) {
+        await tx.leaveRequest.deleteMany({ where: { staffId: targetUser.staffMember.id } }).catch(() => {});
+        await tx.tipTransaction.deleteMany({ where: { staffMemberId: targetUser.staffMember.id } }).catch(() => {});
+        await tx.posOrder.updateMany({
+          where: { staffMemberId: targetUser.staffMember.id },
+          data: { staffMemberId: null }
+        }).catch(() => {});
+        await tx.staffMember.deleteMany({ where: { id: targetUser.staffMember.id } }).catch(() => {});
+      } else {
+        await tx.staffMember.deleteMany({ where: { userId: id } }).catch(() => {});
+      }
+
+      // 5. Clean up delivery trips, handovers, walkie-talkie & table assignments
+      await tx.deliveryTrip.deleteMany({ where: { riderId: id } }).catch(() => {});
+      await tx.riderCashHandover.deleteMany({ where: { riderId: id } }).catch(() => {});
+      await tx.tableAssignment.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.staffLocation.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.wTChannelMember.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.wTSpeakerLock.deleteMany({ where: { speakerId: id } }).catch(() => {});
+      await tx.wTTalkHistory.deleteMany({ where: { speakerId: id } }).catch(() => {});
+      await tx.wTContact.deleteMany({
+        where: { OR: [{ userId: id }, { contactUserId: id }] }
+      }).catch(() => {});
+
+      // 6. Delete user
+      await tx.user.delete({ where: { id } });
     });
 
     return apiResponse(null, 'User deleted successfully');

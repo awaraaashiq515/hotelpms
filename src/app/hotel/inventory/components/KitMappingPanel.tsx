@@ -65,8 +65,8 @@ function ItemPickerRow({
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
-  const filtered = allStock.filter(s =>
-    !query || s.name.toLowerCase().includes(query.toLowerCase())
+  const filtered = (allStock || []).filter(s =>
+    !query || String(s?.name || '').toLowerCase().includes(query.toLowerCase())
   ).slice(0, 10);
 
   const selectItem = (item: StockItem) => {

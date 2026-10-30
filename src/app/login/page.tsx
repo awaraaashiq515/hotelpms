@@ -156,9 +156,11 @@ export default function LoginPage() {
         }
       }
 
-      const role = data.user.role;
-      const isHotelProperty = data.user.propertyType === 'HOTEL';
-      const isHotelRole = role.startsWith('HOTEL_');
+      const rawRole = data.user?.role;
+      const role = (typeof rawRole === 'object' ? rawRole?.name : rawRole) || '';
+      const propertyType = data.user?.propertyType || (typeof data.user?.property === 'object' ? data.user?.property?.type : null);
+      const isHotelProperty = propertyType === 'HOTEL';
+      const isHotelRole = typeof role === 'string' && role.startsWith('HOTEL_');
 
       // ── ROOM TABLET DEVICE: Direct Route to Room Portal ──
       const designation = (data.user.designation || '').toLowerCase();
@@ -224,6 +226,18 @@ export default function LoginPage() {
       ) {
         const propCode = data.user.propertyCode?.toLowerCase();
         router.push(propCode ? `/housekeeper-portal/${propCode}` : '/housekeeper-portal');
+      } else if (
+        role.toLowerCase().includes('kitchen') || 
+        role.toLowerCase().includes('chef') || 
+        role.toLowerCase().includes('cook') ||
+        (data.user.designation && (
+          data.user.designation.toLowerCase().includes('kitchen') || 
+          data.user.designation.toLowerCase().includes('chef') ||
+          data.user.designation.toLowerCase().includes('cook')
+        ))
+      ) {
+        const propCode = data.user.propertyCode?.toLowerCase();
+        router.push(propCode ? `/kitchen-portal/${propCode}` : '/kitchen-portal');
       } else if (role === 'POSSYSTEM') {
         const propCode = data.user.propertyCode;
         router.push(propCode ? `/${propCode}/billing` : '/operations');

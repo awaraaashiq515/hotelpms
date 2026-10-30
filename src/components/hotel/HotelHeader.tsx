@@ -12,11 +12,16 @@ import {
   LogOut,
   Settings,
   LayoutDashboard,
-  Hotel
+  Hotel,
+  ShieldCheck,
+  Shield
 } from 'lucide-react';
 import { useSidebar } from '@/components/hotel/SidebarContext';
 import { NotificationBell } from '@/components/hotel/NotificationBell';
 import { RoomStatusTicker } from '@/components/hotel/navigation/RoomStatusTicker';
+import { AdminDiscountApprovalFloatingAlert } from '@/components/discounts/AdminDiscountApprovalFloatingAlert';
+import { AdminLeaveApprovalFloatingAlert } from '@/components/hotel/staff/AdminLeaveApprovalFloatingAlert';
+import { AdminAgentBookingFloatingAlert } from '@/components/hotel/agent/AdminAgentBookingFloatingAlert';
 
 interface HotelHeaderProps {
   session?: any;
@@ -133,14 +138,44 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
         {/* Owner Hub shortcut button for Hotel Admins & Owners */}
         {(session?.role === 'HOTEL_ADMIN' || session?.role === 'SUPER_ADMIN' || session?.role === 'RESTAURANTS_ADMIN') && (
           <button
-            onClick={() => router.push('/restaurantadmin')}
+            onClick={() => {
+              if (session?.role === 'RESTAURANTS_ADMIN') {
+                router.push('/restaurantadmin');
+              } else {
+                const pCode = session?.propertyCode || selectedProperty?.code || selectedProperty?.propertyCode;
+                router.push(pCode ? `/${pCode}/hoteladmin` : '/hoteladmin');
+              }
+            }}
             title="Switch property or open Hotel Owner Hub"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all shadow-sm"
           >
             <Hotel size={13} className="text-amber-400" />
-            <span>Owner Hub</span>
+            <span>Hotel Admin</span>
           </button>
         )}
+
+        {/* Backup & Restore shortcut button */}
+        <button
+          onClick={() => router.push('/hotel/backup')}
+          title="Open Data Backup & Restore"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          <ShieldCheck size={13} className="text-emerald-400" />
+          <span>Backup</span>
+        </button>
+
+        {/* Security Portal shortcut button */}
+        <button
+          onClick={() => {
+            const pCode = session?.propertyCode || selectedProperty?.code || selectedProperty?.propertyCode;
+            router.push(pCode ? `/security-portal/${pCode.toLowerCase()}` : '/security-portal');
+          }}
+          title="Open Security & Guest ID Verification Portal"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          <Shield size={13} className="text-cyan-400" />
+          <span>Security Portal</span>
+        </button>
 
         {/* Calendar indicator pill */}
         {isCalendar && (
@@ -157,6 +192,17 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
             Live Desk
           </div>
         )}
+
+        {/* Discount Approval Realtime Floating Alert - ONLY for Hotel Admin and Managers */}
+        {['HOTEL_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'HOTEL_MANAGER'].includes(session?.role) && (
+          <AdminDiscountApprovalFloatingAlert />
+        )}
+
+        {/* Staff Leave Approval Realtime Floating Alert */}
+        <AdminLeaveApprovalFloatingAlert />
+
+        {/* Realtime Agent Booking Floating Alert with Sound */}
+        <AdminAgentBookingFloatingAlert />
 
         {/* Notification Bell Dropdown */}
         <NotificationBell />
@@ -191,14 +237,30 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    router.push('/restaurantadmin');
+                    if (session?.role === 'RESTAURANTS_ADMIN') {
+                      router.push('/restaurantadmin');
+                    } else {
+                      const pCode = session?.propertyCode || selectedProperty?.code || selectedProperty?.propertyCode;
+                      router.push(pCode ? `/${pCode}/hoteladmin` : '/hoteladmin');
+                    }
                   }}
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 transition-colors"
                 >
                   <Hotel size={14} className="text-amber-400" />
-                  Hotel Owner Hub
+                  Hotel Admin Hub
                 </button>
               )}
+
+              <button
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  router.push('/hotel/backup');
+                }}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+              >
+                <ShieldCheck size={14} className="text-emerald-400" />
+                Backup & Restore
+              </button>
 
               <button
                 onClick={() => {

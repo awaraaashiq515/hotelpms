@@ -48,6 +48,7 @@ const SECTION_LABELS: Record<string, string> = {
   'lost-found': 'Lost & Found',
   loyalty: 'Loyalty Program',
   'night-audit': 'Night Audit',
+  'daily-report': 'Daily Audit Report',
   notifications: 'Notifications',
   'operations-dashboard': 'Operations',
   products: 'Products & POS',

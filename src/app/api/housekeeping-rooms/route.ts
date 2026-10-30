@@ -21,7 +21,37 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const propertyId = searchParams.get('propertyId') || staff.propertyId || '';
+    let propertyId = searchParams.get('propertyId') || staff.propertyId || '';
+
+    // If propertyCode is provided in the URL, resolve it to a propertyId
+    // SQLite does not support mode:'insensitive' — use JS toUpperCase() instead
+    const propertyCode = searchParams.get('propertyCode');
+    if (propertyCode) {
+      const property = await prisma.property.findFirst({
+        where: { code: propertyCode.toUpperCase() },
+        select: { id: true, organizationId: true, type: true },
+      });
+
+      if (property) {
+        propertyId = property.id;
+
+        // Smart fallback: if this property has no rooms (e.g. Restaurant),
+        // find the HOTEL property in the same organization and use that instead.
+        const roomCount = await prisma.room.count({ where: { propertyId: property.id } });
+        if (roomCount === 0 && property.organizationId) {
+          const hotelProperty = await prisma.property.findFirst({
+            where: {
+              organizationId: property.organizationId,
+              type: 'HOTEL',
+            },
+            select: { id: true },
+          });
+          if (hotelProperty) {
+            propertyId = hotelProperty.id;
+          }
+        }
+      }
+    }
 
     if (!propertyId) {
       return NextResponse.json({ error: 'No property found for this user' }, { status: 400 });

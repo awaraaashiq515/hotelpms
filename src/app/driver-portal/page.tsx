@@ -21,6 +21,7 @@ import { AvailableOrdersTab } from './components/AvailableOrdersTab';
 import { EarningsTab } from './components/EarningsTab';
 import { ChatTab } from './components/ChatTab';
 import { SettingsTab } from './components/SettingsTab';
+import StaffHRPanel from '@/components/staff/StaffHRPanel';
 
 // ─── Dictionary for Multi-language Translation ──────────────────────────────
 const translations = {
@@ -1344,11 +1345,12 @@ export default function DriverPortalPage() {
               </div>
 
               {/* TABS SELECTOR */}
-              <div className="grid grid-cols-5 bg-[#0f172a] p-1 rounded-xl border border-[#1e293b] gap-1">
+              <div className="grid grid-cols-6 bg-[#0f172a] p-1 rounded-xl border border-[#1e293b] gap-1">
                 {[
                   { id: 'MY_DELIVERIES', label: 'Trips', count: assignedOrders.length, icon: <Bike size={11} /> },
                   { id: 'AVAILABLE', label: 'Nearby', count: unassignedOrders.length, icon: <Zap size={11} /> },
                   { id: 'EARNINGS', label: 'Earning', icon: <Wallet size={11} /> },
+                  { id: 'HR', label: 'HR / Shift', icon: <Clock size={11} /> },
                   { id: 'CHAT', label: 'Chat', icon: <MessageSquare size={11} /> },
                   { id: 'SETTINGS', label: 'Settings', icon: <Settings size={11} /> }
                 ].map(tab => (
@@ -1467,6 +1469,19 @@ export default function DriverPortalPage() {
                   savingProfile={savingProfile}
                   handleSaveProfileSettings={handleSaveProfileSettings}
                 />
+              )}
+
+              {portalTab === 'HR' && (
+                <div className="bg-[#0b1120] border border-[#1e293b] rounded-2xl p-3">
+                  <StaffHRPanel
+                    userId={selectedDriver.id}
+                    propertyId={selectedDriver.propertyId || undefined}
+                    accentColor="#f43f5e"
+                    showClockButton={true}
+                    staffName={selectedDriver.name}
+                    designation="Valet / Chauffeur"
+                  />
+                </div>
               )}
 
             </div>

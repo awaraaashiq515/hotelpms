@@ -14,6 +14,8 @@ import { APIError } from '@/lib/api/client';
 import { DriverRegistrationForm } from '@/components/auth/DriverRegistrationForm';
 import { SupplierRegistrationForm } from '@/components/auth/SupplierRegistrationForm';
 import { SingerRegistrationForm } from '@/components/auth/SingerRegistrationForm';
+import { BikeRentalRegistrationForm } from '@/components/auth/BikeRentalRegistrationForm';
+import { TravelAgentRegistrationForm } from '@/components/auth/TravelAgentRegistrationForm';
 
 // ─── Business Types ───────────────────────────────────────────────────────────
 type BusinessType = 'RESTAURANT' | 'HOTEL' | 'BOTH' | 'BOTH_SEPARATE';
@@ -29,7 +31,9 @@ const HOTEL_STEPS = [
 
 // ─── Non-Hotel Roles ──────────────────────────────────────────────────────────
 const OTHER_ROLES = [
-  { id: 'DELIVERY_RIDER', label: 'Driver / Cab / Delivery Rider', icon: Truck,   color: '#22c55e', desc: 'For delivery and cab services' },
+  { id: 'DELIVERY_RIDER', label: 'Driver / Cab / Delivery Rider', icon: Truck,   color: '#22c55e', desc: 'For delivery, taxi cabs and fleet services' },
+  { id: 'BIKE_RENTAL',    label: 'Bike & Scooter Rental Partner',  icon: Bike,    color: '#f43f5e', desc: 'List your bike, scooter & EV rental fleet' },
+  { id: 'TRAVEL_AGENT',   label: 'Travel Agent / Tour Partner',    icon: Hotel,   color: '#8b5cf6', desc: 'Book hotel rooms, buses, cabs & earn commissions' },
   { id: 'B2B_SUPPLIER',   label: 'B2B Vendor / Supplier',         icon: Package, color: '#f59e0b', desc: 'Supply products and raw materials' },
   { id: 'SINGER',         label: 'Singer & Live Artist',           icon: Mic,     color: '#ec4899', desc: 'Live performances and events' },
 ];
@@ -258,6 +262,19 @@ export default function SignupPage() {
   const [idPhoto,          setIdPhoto]          = useState('');
   const [rcPhoto,          setRcPhoto]          = useState('');
 
+  // ── Bike Rental role fields ────────────────────────────────────────────────
+  const [bikeShopName,      setBikeShopName]      = useState('');
+  const [bikeFleetSize,     setBikeFleetSize]     = useState('5-15');
+  const [bikeCategory,      setBikeCategory]      = useState('SCOOTER');
+  const [bikeDeposit,       setBikeDeposit]       = useState('1000');
+  const [bikeHelmets,       setBikeHelmets]       = useState('1');
+
+  // ── Travel Agent role fields ───────────────────────────────────────────────
+  const [agencyCompanyName,   setAgencyCompanyName]   = useState('');
+  const [agentPanNumber,       setAgentPanNumber]       = useState('');
+  const [agentWhatsapp,        setAgentWhatsapp]        = useState('');
+  const [agentSpecialization,  setAgentSpecialization]  = useState('ALL');
+
   // ── UI ─────────────────────────────────────────────────────────────────────
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState<string | null>(null);
@@ -368,10 +385,10 @@ export default function SignupPage() {
         hotelRecepEmail:    (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepEmail))) ? (hotelRecepEmail || null) : null,
         hotelRecepPassword: (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepPassword))) ? (hotelRecepPassword || null) : null,
         hotelRecepPhone:    (businessType !== 'RESTAURANT' && (showHotelRecepForm || (businessType === 'BOTH_SEPARATE' && hotelRecepPhone))) ? (hotelRecepPhone || null) : null,
-        // Restaurant POS User (RESTAURANT / BOTH — not BOTH_SEPARATE, it has its own admin)
-        posFullName: (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posFullName || null) : null,
-        posEmail:    (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posEmail || null) : null,
-        posPassword: (businessType !== 'HOTEL' && businessType !== 'BOTH_SEPARATE' && showPosUserForm) ? (posPassword || null) : null,
+        // Restaurant POS User (only for standalone RESTAURANT)
+        posFullName: (businessType === 'RESTAURANT' && showPosUserForm) ? (posFullName || null) : null,
+        posEmail:    (businessType === 'RESTAURANT' && showPosUserForm) ? (posEmail || null) : null,
+        posPassword: (businessType === 'RESTAURANT' && showPosUserForm) ? (posPassword || null) : null,
         // Services — POS only for RESTAURANT / BOTH / BOTH_SEPARATE
         restaurantPosEnabled: businessType === 'HOTEL' ? false : restaurantPosEnabled,
         barPosEnabled:        businessType === 'HOTEL' ? false : barPosEnabled,
@@ -400,6 +417,46 @@ export default function SignupPage() {
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Singer registration failed.');
         router.push('/login?registered=true');
+        return;
+      }
+      if (topRole === 'BIKE_RENTAL') {
+        const res = await fetch('/api/bike-rentals/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'register',
+            name: fullName,
+            phone,
+            password,
+            email,
+            shopName: bikeShopName || `${fullName}'s Bike Rentals`,
+            city: city || address || 'Local City',
+            state: stateRegion || null,
+            address: address || null,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Bike Rental vendor registration failed.');
+        localStorage.setItem('bike_vendor', JSON.stringify(data.vendor));
+        router.push('/bike-rental-portal');
+        return;
+      }
+      if (topRole === 'TRAVEL_AGENT') {
+        const res = await fetch('/api/agent-portal/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: fullName,
+            email,
+            password,
+            phone,
+            companyName: agencyCompanyName || `${fullName} Travels`,
+            city: city || 'Local City',
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Travel Agent registration failed.');
+        router.push('/agent-portal');
         return;
       }
       await authApi.register({
@@ -640,7 +697,14 @@ export default function SignupPage() {
                     )}
                     <div className="flex items-center gap-3 mb-1.5">
                       <span className="text-2xl">{opt.emoji}</span>
-                      <p className="text-sm font-extrabold text-white">{opt.title}</p>
+                      <div className="flex-1 flex items-center gap-2">
+                        <p className="text-sm font-extrabold text-white">{opt.title}</p>
+                        {opt.badge && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${opt.color}25`, color: opt.color, border: `1px solid ${opt.color}40` }}>
+                            {opt.badge}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-[11px] text-slate-400 mb-1.5">{opt.desc}</p>
                     <p className="text-[10px] font-bold tracking-wider" style={{ color: businessType === opt.type ? opt.color : '#475569' }}>{opt.features}</p>
@@ -808,52 +872,195 @@ export default function SignupPage() {
                       </div>
                     </div>
                   </div>
-                ) : (
-                  /* ── Standard single-account form for all other types ─────── */
-                  <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
-                        <div className="relative">
-                          <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                          <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                            placeholder="John Doe" />
+                ) : businessType === 'BOTH' ? (
+                  /* ── BOTH: Hotel + Restaurant (Attached — 1 Login, 1 Portal) ── */
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-400">
+                      You selected <span className="text-violet-400 font-bold">🏨🍽️ Hotel + Restaurant (Attached)</span>.
+                      Set up your master <span className="text-amber-300 font-bold">Hotel Owner Account</span> below. One login, one portal — hotel and restaurant managed together seamlessly.
+                    </p>
+
+                    {/* Hotel Owner Account (Master Login) */}
+                    <div className="p-4 border border-amber-500/35 rounded-2xl bg-amber-500/5 space-y-3 shadow-lg shadow-amber-500/5">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🏨🍽️</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-extrabold text-amber-300">Hotel Owner Account</p>
+                              <span className="text-[9.5px] font-black uppercase tracking-wider bg-violet-500/25 text-violet-300 border border-violet-500/40 px-2 py-0.5 rounded-full">
+                                ⭐ Popular • One Login • One Portal
+                              </span>
+                            </div>
+                            <p className="text-[10.5px] text-slate-400 mt-1">
+                              One login, one portal — hotel and restaurant managed together seamlessly. Master access to <span className="font-bold text-amber-300">Owner Hub</span>, <span className="font-bold text-cyan-400">Hotel PMS</span> &amp; <span className="font-bold text-pink-400">Restaurant POS</span>.
+                            </p>
+                          </div>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
+                              placeholder="Hotel Owner Full Name" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
+                              placeholder="+91 98765 43210" />
+                          </div>
+                        </div>
+                      </div>
+
                       <div>
-                        <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
+                        <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
                         <div className="relative">
-                          <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                          <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                            placeholder="+91 98765 43210" />
+                          <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
+                            placeholder="hotelowner@example.com" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
+                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-amber-500 outline-none"
+                            placeholder="Min. 6 characters" />
+                          <button type="button" onClick={() => setShowPassword(v => !v)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
                         </div>
                       </div>
                     </div>
-                    <div>
-                      <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
-                      <div className="relative">
-                        <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                          className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                          placeholder="owner@hotel.com" />
+
+                    {/* Sub-Staff Accounts (Optional) */}
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sub-Staff Accounts (Optional)</span>
+                        <span className="text-[10px] text-slate-500">• Can also be added anytime from the dashboard</span>
                       </div>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
-                      <div className="relative">
-                        <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-                          className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
-                          placeholder="Min. 6 characters" />
-                        <button type="button" onClick={() => setShowPassword(v => !v)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+
+                      {/* Optional Front Desk Login Toggle */}
+                      <div className="border border-cyan-500/20 rounded-2xl bg-cyan-500/5 overflow-hidden">
+                        <button type="button" onClick={() => setShowHotelRecepForm(v => !v)}
+                          className="w-full flex items-center gap-3 p-3.5 hover:bg-white/3 transition-all">
+                          <span className="text-lg">🛎️</span>
+                          <div className="text-left flex-1">
+                            <p className="text-xs font-bold text-cyan-300">Add Hotel Receptionist / Front Desk Account</p>
+                            <p className="text-[10px] text-slate-400">Dedicated staff login for check-ins & reservations at /hotel</p>
+                          </div>
+                          <div className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${showHotelRecepForm ? 'bg-cyan-500' : 'bg-slate-700'}`}>
+                            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${showHotelRecepForm ? 'left-4.5' : 'left-0.5'}`} />
+                          </div>
                         </button>
+                        {showHotelRecepForm && (
+                          <div className="px-4 pb-4 space-y-3 border-t border-cyan-500/15 pt-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className={labelCls}>Receptionist Name</label>
+                                <input type="text" value={hotelRecepName} onChange={e => setHotelRecepName(e.target.value)}
+                                  className={inputCls} placeholder="Front Desk / Receptionist Name" />
+                              </div>
+                              <div>
+                                <label className={labelCls}>Receptionist Email</label>
+                                <input type="email" value={hotelRecepEmail} onChange={e => setHotelRecepEmail(e.target.value)}
+                                  className={inputCls} placeholder="reception@hotel.com" />
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <label className={labelCls}>Password</label>
+                              <input type={showHotelRecepPass ? 'text' : 'password'} value={hotelRecepPassword} onChange={e => setHotelRecepPassword(e.target.value)}
+                                className="w-full pl-4 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm text-white placeholder-slate-500 focus:border-cyan-500 outline-none"
+                                placeholder="Min. 6 characters" />
+                              <button type="button" onClick={() => setShowHotelRecepPass(v => !v)} className="absolute right-3.5 top-[34px] text-slate-400 hover:text-white">
+                                {showHotelRecepPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </>
+                  </div>
+                ) : (
+                  /* ── HOTEL or RESTAURANT Dedicated Account Card ─────── */
+                  <div className="space-y-4">
+                    <div className={`p-4 border rounded-2xl space-y-3 ${
+                      businessType === 'HOTEL'
+                        ? 'border-cyan-500/30 bg-cyan-500/5'
+                        : 'border-orange-500/30 bg-orange-500/5'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">{businessType === 'HOTEL' ? '🏨' : '🍽️'}</span>
+                        <div>
+                          <p className={`text-sm font-extrabold ${businessType === 'HOTEL' ? 'text-cyan-300' : 'text-orange-300'}`}>
+                            {businessType === 'HOTEL' ? 'Hotel Owner Account' : 'Restaurant Owner Account'}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {businessType === 'HOTEL'
+                              ? 'Master account for Hotel PMS → Owner Control Center'
+                              : 'Master account for Restaurant Operations & POS'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                              placeholder="Owner Full Name" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Phone Number <span className="text-rose-400">*</span></label>
+                          <div className="relative">
+                            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input id="signup-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
+                              className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                              placeholder="+91 98765 43210" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>Email Address <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                            className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                            placeholder="owner@example.com" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>Password <span className="text-rose-400">*</span></label>
+                        <div className="relative">
+                          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
+                            className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-violet-500 outline-none"
+                            placeholder="Min. 6 characters" />
+                          <button type="button" onClick={() => setShowPassword(v => !v)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -1437,46 +1644,6 @@ export default function SignupPage() {
                         <ServiceToggle label="Cafe POS" desc="Coffee, snacks billing" icon={Coffee} color="#f59e0b" value={cafePosEnabled} onChange={setCafePosEnabled} />
                         <ServiceToggle label="Delivery" desc="Online delivery orders" icon={Bike} color="#22c55e" value={deliveryEnabled} onChange={setDeliveryEnabled} />
                       </div>
-                      {/* Restaurant POS User toggle */}
-                      <div className="border border-orange-500/20 rounded-xl overflow-hidden">
-                        <button type="button" onClick={() => setShowPosUserForm(v => !v)}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-white/3 transition-all">
-                          <User size={14} className="text-orange-400 shrink-0" />
-                          <div className="text-left flex-1">
-                            <p className="text-xs font-bold text-white">Add Restaurant POS User / Cashier</p>
-                            <p className="text-[10px] text-slate-400">Will handle billing, KOT and table management</p>
-                          </div>
-                          <div className={`w-10 h-5 rounded-full transition-all relative shrink-0 ${showPosUserForm ? 'bg-orange-500' : 'bg-slate-700'}`}>
-                            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${showPosUserForm ? 'left-5' : 'left-0.5'}`} />
-                          </div>
-                        </button>
-                        {showPosUserForm && (
-                          <div className="px-4 pb-4 space-y-3 border-t border-white/10 pt-3">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">POS / Cashier Login Details</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className={labelCls}>Full Name</label>
-                                <input type="text" value={posFullName} onChange={e => setPosFullName(e.target.value)}
-                                  className={inputCls} placeholder="POS User Name" />
-                              </div>
-                              <div>
-                                <label className={labelCls}>Email</label>
-                                <input type="email" value={posEmail} onChange={e => setPosEmail(e.target.value)}
-                                  className={inputCls} placeholder="pos@restaurant.com" />
-                              </div>
-                            </div>
-                            <div className="relative">
-                              <label className={labelCls}>Password</label>
-                              <input type={showPosPass ? 'text' : 'password'} value={posPassword} onChange={e => setPosPassword(e.target.value)}
-                                className="w-full pl-4 pr-10 py-3 bg-slate-950/80 border border-white/15 rounded-2xl text-sm text-white placeholder-slate-500 focus:border-orange-500 outline-none"
-                                placeholder="Min. 6 characters" />
-                              <button type="button" onClick={() => setShowPosPass(v => !v)} className="absolute right-3.5 top-[34px] text-slate-400 hover:text-white">
-                                {showPosPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1655,6 +1822,30 @@ export default function SignupPage() {
               {topRole === 'SINGER' && (
                 <SingerRegistrationForm genre={genre} setGenre={setGenre} bio={bio} setBio={setBio} />
               )}
+              {topRole === 'BIKE_RENTAL' && (
+                <BikeRentalRegistrationForm
+                  shopName={bikeShopName} setShopName={setBikeShopName}
+                  city={city} setCity={setCity}
+                  stateRegion={stateRegion} setStateRegion={setStateRegion}
+                  address={address} setAddress={setAddress}
+                  fleetSize={bikeFleetSize} setFleetSize={setBikeFleetSize}
+                  primaryCategory={bikeCategory} setPrimaryCategory={setBikeCategory}
+                  securityDeposit={bikeDeposit} setSecurityDeposit={setBikeDeposit}
+                  helmetsIncluded={bikeHelmets} setHelmetsIncluded={setBikeHelmets}
+                  gstNumber={gstNumber} setGstNumber={setGstNumber}
+                />
+              )}
+              {topRole === 'TRAVEL_AGENT' && (
+                <TravelAgentRegistrationForm
+                  companyName={agencyCompanyName} setCompanyName={setAgencyCompanyName}
+                  city={city} setCity={setCity}
+                  stateRegion={stateRegion} setStateRegion={setStateRegion}
+                  address={address} setAddress={setAddress}
+                  panNumber={agentPanNumber} setPanNumber={setAgentPanNumber}
+                  whatsappNumber={agentWhatsapp} setWhatsappNumber={setAgentWhatsapp}
+                  specialization={agentSpecialization} setSpecialization={setAgentSpecialization}
+                />
+              )}
 
               {/* Captcha */}
               <div className="p-3 bg-slate-950/60 border border-white/10 rounded-2xl flex items-center gap-3">
@@ -1672,7 +1863,7 @@ export default function SignupPage() {
                 className="w-full py-4 bg-gradient-to-r from-violet-600 to-rose-600 hover:from-violet-500 hover:to-rose-500 text-white rounded-2xl font-bold text-sm tracking-wide transition-all shadow-lg shadow-violet-600/30 disabled:opacity-50 flex items-center justify-center gap-2 group mt-2">
                 {loading
                   ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <>{topRole === 'DELIVERY_RIDER' ? 'Submit & Create Driver Account' : 'Create Account & Open Portal'}<ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>}
+                  : <>{topRole === 'DELIVERY_RIDER' ? 'Submit & Create Driver Account' : topRole === 'BIKE_RENTAL' ? 'Register Bike Rental Agency' : topRole === 'TRAVEL_AGENT' ? 'Register Travel Agency' : 'Create Account & Open Portal'}<ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>}
               </button>
             </form>
 

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -133,6 +133,7 @@ model Property {
   stockAdjustments              StockAdjustment[]
   stockItems                    StockItem[]
   stockMovements                StockMovement[]
+  stockRequests                 StockRequest[]
   tables                        Table[]
   tableReservations             TableReservation[]
   tablets                       Tablet[]
@@ -205,6 +206,13 @@ model Property {
   leaveRequests                 LeaveRequest[]
   payrollRuns                   PayrollRun[]
   payrollSetting                PayrollSetting?
+
+  // ── Discount Approval Control ──────────────────────────────
+  discountApprovalEnabled       Boolean                  @default(true)
+  maxStaffDiscountPercent       Float                    @default(10.0) // Discounts above this % require Admin approval
+  maxStaffDiscountAmount        Float                    @default(200.0) // Flat discounts above this amount require Admin approval
+  managerDiscountPin            String?                  @default("1234") // 4-digit PIN for instant on-counter approval
+  discountApprovals             DiscountApproval[]
 
   @@index([organizationId])
 }
@@ -856,6 +864,7 @@ model StockItem {
   property           Property            @relation(fields: [propertyId], references: [id])
   stockMovements     StockMovement[]
   ingredients        ProductIngredient[]
+  stockRequests      StockRequest[]
 }
 
 model StockMovement {
@@ -917,6 +926,31 @@ model InventoryLog {
   note            String?
   createdAt       DateTime      @default(now())
   item            InventoryItem @relation(fields: [inventoryItemId], references: [id])
+}
+
+model StockRequest {
+  id              String      @id @default(cuid())
+  propertyId      String
+  stockItemId     String?
+  itemName        String
+  department      String      // KITCHEN | HOUSEKEEPING | BAR | MAINTENANCE
+  requestedBy     String      // Staff Name / Designation
+  requestedQty    Float?      @default(1)
+  unit            String?     // kg, ltr, pcs, packet, etc.
+  currentStock    Float?      @default(0)
+  urgency         String      @default("NORMAL") // NORMAL | URGENT | CRITICAL
+  status          String      @default("PENDING") // PENDING | APPROVED | DISPATCHED | REJECTED
+  remarks         String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  property        Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  stockItem       StockItem?  @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([department, status])
 }
 
 model Supplier {
@@ -2723,6 +2757,99 @@ model TransportBooking {
   @@index([scheduleId])
 }
 
+// ─── Bike Rental Portal ──────────────────────────────────────────
+
+model BikeRentalVendor {
+  id            String              @id @default(cuid())
+  propertyId    String?
+  name          String
+  phone         String              @unique
+  passwordHash  String?
+  email         String?
+  shopName      String?
+  address       String?
+  city          String?
+  state         String?
+  rating        Float               @default(5.0)
+  isActive      Boolean             @default(true)
+  bikes         RentalBike[]
+  bookings      RentalBikeBooking[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([propertyId])
+}
+
+model RentalBike {
+  id              String              @id @default(cuid())
+  vendorId        String
+  model           String
+  category        String              @default("SCOOTER") // SCOOTER | CRUISER | SPORTS | ELECTRIC
+  plateNumber     String              @unique
+  hourlyRate      Float?
+  dailyRate       Float               @default(500)
+  securityDeposit Float               @default(1000)
+  helmetsProvided Int                 @default(1)
+  fuelIncluded    Boolean             @default(false)
+  photoUrl        String?
+  status          String              @default("AVAILABLE") // AVAILABLE | ON_RENT | MAINTENANCE
+  vendor          BikeRentalVendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bookings        RentalBikeBooking[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([vendorId])
+}
+
+model RentalBikeBooking {
+  id              String            @id @default(cuid())
+  vendorId        String
+  bikeId          String
+  guestName       String
+  guestPhone      String
+  guestEmail      String?
+  aadhaarNumber   String?
+  panNumber       String?
+  licenseNumber   String?
+  startDate       String
+  endDate         String
+  totalAmount     Float             @default(0)
+  securityDeposit Float             @default(1000)
+  depositRefunded Boolean           @default(false)
+  status          String            @default("PENDING") // PENDING | CONFIRMED | ACTIVE | RETURNED | CANCELLED
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  vendor          BikeRentalVendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bike            RentalBike        @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([bikeId])
+}
+
+// ─── Sightseeing & Local Attractions ──────────────────────────
+
+model SightseeingSpot {
+  id           String    @id @default(cuid())
+  propertyId   String?
+  name         String
+  category     String    @default("MONUMENT") // MONUMENT | NATURE | RELIGIOUS | ADVENTURE | MARKET | RESTAURANT
+  distance     String    @default("2 km")
+  timing       String    @default("9:00 AM – 6:00 PM")
+  entryFee     String?
+  rating       Float     @default(4.7)
+  description  String
+  photoUrl     String?
+  tags         String?   // Comma-separated: "History,Photography,UNESCO"
+  contactPhone String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([propertyId])
+}
+
 model SpaService {
   id           String           @id @default(cuid())
   propertyId   String?
@@ -3272,6 +3399,130 @@ model PayrollSetting {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   property              Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+// ── Discount Approvals ──────────────────────────────────────────────────────
+model DiscountApproval {
+  id              String   @id @default(cuid())
+  propertyId      String
+  
+  // Reference
+  orderId         String?
+  bookingId       String?
+  source          String   @default("RESTAURANT_POS") // RESTAURANT_POS | HOTEL_BOOKING | HOTEL_FOLIO | ROOM_SERVICE
+  referenceTitle  String?  // e.g. "Table 4", "Room 102", "Takeaway #108"
+  
+  // Amounts
+  billAmount      Float
+  discountType    String   @default("PERCENTAGE") // PERCENTAGE | FIXED
+  discountValue   Float
+  discountAmount  Float
+  finalAmount     Float
+  reason          String?
+  
+  // Requester
+  requestedById   String
+  requestedByName String
+  
+  // Status: PENDING | APPROVED | REJECTED | EXPIRED
+  status          String   @default("PENDING")
+  approvedById    String?
+  approvedByName  String?
+  approvalMethod  String?  // REMOTE_DASHBOARD | MANAGER_PIN
+  rejectionReason String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  @@index([propertyId, status])
+  @@index([createdAt])
+}
+
+// ── Staff Chat Messages ─────────────────────────────────────────────────────
+model StaffChatMessage {
+  id          String   @id @default(cuid())
+  propertyId  String
+  staffId     String
+  staffName   String?
+  senderRole  String
+  senderName  String
+  message     String
+  isRead      Int      @default(0)
+  createdAt   DateTime @default(now())
+  channelType String   @default("ADMIN")
+  recipientId String?
+
+  @@index([propertyId])
+  @@index([staffId])
+}
+
+// ── Laundry & Linen Management ──────────────────────────────────────────────
+model DailyWashLog {
+  id            String    @id @default(cuid())
+  propertyId    String
+  date          String?
+  itemName      String
+  washType      String?
+  piecesWashed  Int       @default(0)
+  cleanCount    Int       @default(0)
+  soiledPending Int       @default(0)
+  detergentUsed String?
+  washStatus    String?
+  notes         String?
+  loggedBy      String?
+  createdAt     DateTime  @default(now())
+
+  @@index([propertyId])
+}
+
+model LaundryInventoryItem {
+  id           String    @id @default(cuid())
+  propertyId   String
+  name         String
+  category     String?
+  unit         String?
+  currentStock Float     @default(0)
+  minThreshold Float     @default(0)
+  costPerUnit  Float     @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([propertyId])
+}
+
+model LaundryInventoryLog {
+  id            String    @id @default(cuid())
+  propertyId    String
+  itemId        String?
+  itemName      String?
+  category      String?
+  type          String?
+  quantity      Float     @default(0)
+  previousStock Float     @default(0)
+  newStock      Float     @default(0)
+  notes         String?
+  loggedBy      String?
+  createdAt     DateTime  @default(now())
+
+  @@index([propertyId])
+}
+
+model LaundryMenuItem {
+  id          String    @id @default(cuid())
+  propertyId  String
+  name        String
+  category    String?
+  serviceType String?
+  price       Float     @default(0)
+  turnaround  String?
+  description String?
+  isActive    Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([propertyId])
 }

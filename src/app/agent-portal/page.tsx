@@ -7,9 +7,15 @@ import {
   LogOut, Eye, EyeOff, RefreshCw, Bed, Users, ChevronLeft,
   Wallet, MapPin, Search, ArrowRight, Home, Shield, Sparkles,
   Coffee, Waves, Dumbbell, ChevronDown, ChevronUp, Mail,
-  Lock, User, Briefcase, UserPlus,
+  Lock, User, Briefcase, UserPlus, Bus, Car, Bike, Tent, Map,
+  Edit3, CreditCard, FileText, Upload, BedDouble,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
+import GroupEnquiryModal from '@/components/agent-portal/GroupEnquiryModal';
+import LocalServicesTab from '@/components/agent-portal/LocalServicesTab';
+import GuestKycCapture, { type KycData } from '@/components/agent-portal/GuestKycCapture';
+import ProofDocumentsModal, { parseKycFromNotes } from '@/components/agent-portal/ProofDocumentsModal';
+import EditAgentBookingModal from '@/components/agent-portal/EditAgentBookingModal';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -26,9 +32,11 @@ interface HotelProperty {
 }
 
 interface AgentBooking {
-  id: string; guestName: string; guestPhone?: string; checkIn: string; checkOut: string;
+  id: string; guestName: string; guestPhone?: string; guestEmail?: string; guestNationality?: string; checkIn: string; checkOut: string;
   roomType: string; totalAmount: number; commission: number; commissionPaid: boolean;
   status: string; adults: number; children: number; createdAt: string;
+  notes?: string; specialRequests?: string; includePoolAccess?: boolean; includeSpaPackage?: boolean;
+  poolPassCount?: number; spaServiceType?: string; agent?: any;
 }
 
 interface Agent {
@@ -98,10 +106,26 @@ function Field({ label, icon: Icon, ...props }: { label: string; icon?: React.El
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 export default function AgentPortal() {
-  type ViewType = 'auth' | 'home' | 'hotel-detail' | 'book' | 'dashboard';
+  type ViewType = 'auth' | 'home' | 'hotel-detail' | 'book' | 'dashboard' | 'local-services';
   const [view, setView] = useState<ViewType>('auth');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [dashTab, setDashTab] = useState<'overview' | 'today' | 'bookings' | 'commission'>('overview');
+  const [showGroupEnquiry, setShowGroupEnquiry] = useState(false);
+  const [enquiryService, setEnquiryService] = useState<string | null>(null);
+  const [enquiryItem, setEnquiryItem] = useState<any>(null);
+
+  const handleOpenGroupEnquiry = (service?: string, item?: any) => {
+    setEnquiryService(service || 'hotel');
+    setEnquiryItem(item || null);
+    setShowGroupEnquiry(true);
+  };
+  const [guestKyc, setGuestKyc] = useState<KycData | null>(null);
+  const [showKyc, setShowKyc] = useState(false);
+  const [homeTab, setHomeTab] = useState<'hotels' | 'local'>('hotels');
+
+  // Customer Proof Documents & Booking Edit Modals
+  const [selectedBookingForProof, setSelectedBookingForProof] = useState<any | null>(null);
+  const [selectedBookingForEdit, setSelectedBookingForEdit] = useState<any | null>(null);
 
   // ── Auth State ─────────────────────────────────────────────────────────────
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -139,6 +163,8 @@ export default function AgentPortal() {
   const [bookingForm, setBookingForm] = useState({
     guestName: '', guestPhone: '', guestEmail: '', guestNationality: 'Indian',
     adults: '1', children: '0', checkIn: '', checkOut: '', roomType: '', totalAmount: '',
+    numberOfRooms: 1,
+    roomQuantities: {} as Record<string, number>,
     specialRequests: '', notes: '',
     includePoolAccess: false, poolPassCount: '1',
     includeSpaPackage: false, spaServiceType: 'Full Body Ayurvedic Massage (60 min)',
@@ -297,13 +323,135 @@ export default function AgentPortal() {
     setLoadingRooms(false);
   };
 
+  // ── Date & Room Calculation Helpers ───────────────────────────────────────
+  const calcNights = (ci: string, co: string) => {
+    if (!ci || !co) return 1;
+    const d1 = new Date(ci).getTime();
+    const d2 = new Date(co).getTime();
+    return Math.max(1, Math.round((d2 - d1) / 86400000));
+  };
+
+  const handleUpdateRoomQuantity = (rtName: string, delta: number) => {
+    setBookingForm((f) => {
+      const currentQty = f.roomQuantities[rtName] || 0;
+      const newQty = Math.max(0, Math.min(25, currentQty + delta));
+      const nextQuantities = { ...f.roomQuantities, [rtName]: newQty };
+
+      // Calculate total rooms
+      const totalRooms = Object.values(nextQuantities).reduce((a, b) => a + b, 0);
+      const safeRooms = Math.max(1, totalRooms);
+
+      // Construct roomType label
+      const activeEntries = Object.entries(nextQuantities).filter(([_, qty]) => qty > 0);
+      let roomLabel = f.roomType;
+      if (activeEntries.length > 0) {
+        if (activeEntries.length === 1) {
+          const [name, qty] = activeEntries[0];
+          roomLabel = qty === 1 ? name : `${qty}x ${name} (${qty} Rooms)`;
+        } else {
+          const parts = activeEntries.map(([name, qty]) => `${qty}x ${name}`);
+          roomLabel = `${parts.join(', ')} (${totalRooms} Rooms)`;
+        }
+      }
+
+      // Calculate rate per night
+      const nights = calcNights(f.checkIn, f.checkOut);
+      let ratePerNight = 0;
+      Object.entries(nextQuantities).forEach(([name, qty]) => {
+        const rt = selectedHotel?.roomTypes?.find((r) => r.name === name);
+        const rate = rt ? rt.baseRate : 0;
+        ratePerNight += rate * qty;
+      });
+
+      const nextTotal = ratePerNight > 0 ? String(ratePerNight * nights) : f.totalAmount;
+      const suggestedAdults = String(Math.max(1, safeRooms * 2));
+
+      return {
+        ...f,
+        roomQuantities: nextQuantities,
+        numberOfRooms: safeRooms,
+        roomType: roomLabel,
+        totalAmount: nextTotal,
+        adults: f.adults === '1' || f.adults === '2' ? suggestedAdults : f.adults,
+      };
+    });
+  };
+
+  const handleSetQuickRoomCount = (count: number) => {
+    setBookingForm((f) => {
+      let activeType = selectedHotel?.roomTypes?.[0]?.name || 'Standard';
+      const existingActive = Object.entries(f.roomQuantities).find(([_, q]) => q > 0);
+      if (existingActive) activeType = existingActive[0];
+
+      const nextQuantities: Record<string, number> = {};
+      if (selectedHotel?.roomTypes) {
+        selectedHotel.roomTypes.forEach((r) => {
+          nextQuantities[r.name] = r.name === activeType ? count : 0;
+        });
+      } else {
+        nextQuantities[activeType] = count;
+      }
+
+      const roomLabel = count === 1 ? activeType : `${count}x ${activeType} (${count} Rooms)`;
+      const nights = calcNights(f.checkIn, f.checkOut);
+      const rt = selectedHotel?.roomTypes?.find((r) => r.name === activeType);
+      const rate = rt ? rt.baseRate : 0;
+      const nextTotal = rate > 0 ? String(rate * count * nights) : f.totalAmount;
+
+      return {
+        ...f,
+        numberOfRooms: count,
+        roomQuantities: nextQuantities,
+        roomType: roomLabel,
+        totalAmount: nextTotal,
+        adults: String(count * 2),
+      };
+    });
+  };
+
+  const handleDateChange = (type: 'checkIn' | 'checkOut', val: string) => {
+    setBookingForm((f) => {
+      const nextCi = type === 'checkIn' ? val : f.checkIn;
+      const nextCo = type === 'checkOut' ? val : f.checkOut;
+      const nights = calcNights(nextCi, nextCo);
+
+      let ratePerNight = 0;
+      Object.entries(f.roomQuantities).forEach(([name, qty]) => {
+        const rt = selectedHotel?.roomTypes?.find((r) => r.name === name);
+        const rate = rt ? rt.baseRate : 0;
+        ratePerNight += rate * qty;
+      });
+
+      const nextTotal = ratePerNight > 0 ? String(ratePerNight * nights) : f.totalAmount;
+      return {
+        ...f,
+        [type]: val,
+        totalAmount: nextTotal,
+      };
+    });
+  };
+
   // ── Trigger Booking ────────────────────────────────────────────────────────
   const triggerBooking = (roomTypeName?: string, rate?: number, note?: string) => {
-    setBookingForm(f => ({
+    const selectedRt = roomTypeName || selectedHotel?.roomTypes?.[0]?.name || 'Standard';
+    const initRate = rate || selectedHotel?.roomTypes?.find((r) => r.name === selectedRt)?.baseRate || 0;
+    const initialQty: Record<string, number> = {};
+    if (selectedHotel?.roomTypes) {
+      selectedHotel.roomTypes.forEach((r) => {
+        initialQty[r.name] = r.name === selectedRt ? 1 : 0;
+      });
+    } else {
+      initialQty[selectedRt] = 1;
+    }
+
+    setBookingForm((f) => ({
       ...f,
-      roomType: roomTypeName || (selectedHotel?.roomTypes[0]?.name || ''),
-      totalAmount: rate ? String(rate) : '',
+      roomType: selectedRt,
+      numberOfRooms: 1,
+      roomQuantities: initialQty,
+      totalAmount: initRate ? String(initRate) : '',
       notes: note || '',
+      adults: '2',
     }));
     setView('book');
   };
@@ -316,6 +464,26 @@ export default function AgentPortal() {
     }
     setSubmitting(true);
     try {
+      // Build notes including KYC documents if captured
+      let notesWithKyc = bookingForm.notes || '';
+      if (guestKyc?.verified) {
+        const kycItems = [
+          guestKyc.aadhaarNumber ? `Aadhaar: ${guestKyc.aadhaarNumber}` : '',
+          guestKyc.panNumber ? `PAN: ${guestKyc.panNumber}` : '',
+          guestKyc.aadhaarFrontUrl ? `AadhaarFront: ${guestKyc.aadhaarFrontUrl}` : '',
+          guestKyc.aadhaarBackUrl ? `AadhaarBack: ${guestKyc.aadhaarBackUrl}` : '',
+          guestKyc.panCardUrl ? `PanDoc: ${guestKyc.panCardUrl}` : '',
+          guestKyc.selfieUrl ? `Selfie: ${guestKyc.selfieUrl}` : '',
+        ].filter(Boolean).join(' | ');
+        const kycBadge = `[KYC VERIFIED: ${kycItems}]`;
+        notesWithKyc = notesWithKyc ? `${notesWithKyc}\n${kycBadge}` : kycBadge;
+      }
+
+      if (bookingForm.numberOfRooms > 1 && !notesWithKyc.includes('[ROOMS:')) {
+        const roomsTag = `[ROOMS: ${bookingForm.roomType}]`;
+        notesWithKyc = notesWithKyc ? `${notesWithKyc}\n${roomsTag}` : roomsTag;
+      }
+
       const res = await fetch('/api/hotel/agent-bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -326,11 +494,12 @@ export default function AgentPortal() {
           adults: Number(bookingForm.adults), children: Number(bookingForm.children),
           checkIn: bookingForm.checkIn, checkOut: bookingForm.checkOut,
           roomType: bookingForm.roomType, totalAmount: Number(bookingForm.totalAmount) || 0,
-          notes: bookingForm.notes, specialRequests: bookingForm.specialRequests,
+          notes: notesWithKyc, specialRequests: bookingForm.specialRequests,
           includePoolAccess: bookingForm.includePoolAccess,
           includeSpaPackage: bookingForm.includeSpaPackage,
           poolPassCount: Number(bookingForm.poolPassCount) || 1,
           spaServiceType: bookingForm.includeSpaPackage ? bookingForm.spaServiceType : null,
+          kycData: guestKyc?.verified ? guestKyc : null,
         }),
       });
       const j = await res.json();
@@ -341,10 +510,13 @@ export default function AgentPortal() {
         setBookingForm({
           guestName: '', guestPhone: '', guestEmail: '', guestNationality: 'Indian',
           adults: '1', children: '0', checkIn: '', checkOut: '', roomType: '', totalAmount: '',
+          numberOfRooms: 1, roomQuantities: {},
           specialRequests: '', notes: '',
           includePoolAccess: false, poolPassCount: '1',
           includeSpaPackage: false, spaServiceType: 'Full Body Ayurvedic Massage (60 min)',
         });
+        setGuestKyc(null);
+        setShowKyc(false);
         await refreshAgent(agent.id);
         setView('dashboard'); setDashTab('bookings');
       } else {
@@ -396,8 +568,8 @@ export default function AgentPortal() {
 
             {/* Breadcrumb */}
             <div className="hidden sm:flex items-center gap-1 text-[10px] text-slate-500 font-bold">
-              <button onClick={() => setView('home')} className="hover:text-slate-300">Hotels</button>
-              {selectedHotel && <><span className="text-slate-700">›</span><span className="text-slate-400">{selectedHotel.name}</span></>}
+              <button onClick={() => { setSelectedHotel(null); setView('home'); }} className="hover:text-slate-300">Hotels</button>
+              {selectedHotel && view !== 'home' && <><span className="text-slate-700">›</span><span className="text-slate-400">{selectedHotel.name}</span></>}
               {view === 'book' && <><span className="text-slate-700">›</span><span className="text-violet-400">Book Room</span></>}
               {view === 'dashboard' && <><span className="text-slate-700">›</span><span className="text-violet-400">Dashboard</span></>}
             </div>
@@ -583,12 +755,19 @@ export default function AgentPortal() {
           {agent && (
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h1 className="text-2xl font-black text-white">Browse Hotels</h1>
-                <p className="text-sm text-slate-400">Select a hotel to view rooms and submit booking requests.</p>
+                <h1 className="text-2xl font-black text-white">Browse & Book</h1>
+                <p className="text-sm text-slate-400">Hotels, Transport & Local Services</p>
               </div>
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs flex-wrap">
                 <span className="px-3 py-1.5 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-300 font-black">{agent.agentCode}</span>
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 font-black">{agent.commissionRate}% Commission</span>
+                <button
+                  onClick={() => handleOpenGroupEnquiry('hotel')}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black hover:opacity-95 flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                >
+                  <Users size={12} />
+                  <span>Group Enquiry</span>
+                </button>
                 <button onClick={() => setView('dashboard')} className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-black hover:text-white flex items-center gap-1.5">
                   My Bookings <ArrowRight size={11} />
                 </button>
@@ -596,8 +775,24 @@ export default function AgentPortal() {
             </div>
           )}
 
-          {/* Stats Quick View */}
-          {agent && agentStats && (
+          {/* Home Tab Bar: Hotels | Local Services */}
+          <div className="flex gap-1 bg-[#090f1e] border border-slate-800 rounded-2xl p-1">
+            <button onClick={() => setHomeTab('hotels')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black transition-all ${
+                homeTab === 'hotels' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+              }`}>
+              <Building2 size={15} /> Hotels
+            </button>
+            <button onClick={() => setHomeTab('local')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black transition-all ${
+                homeTab === 'local' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+              }`}>
+              <Map size={15} /> Local Services
+            </button>
+          </div>
+
+          {/* Stats Quick View - show only for Hotels tab */}
+          {homeTab === 'hotels' && agent && agentStats && (
             <div className="grid grid-cols-4 gap-3">
               {[
                 { label: 'Bookings', value: agentStats.totalBookings, color: 'text-sky-400', bg: 'bg-sky-950/30 border-sky-500/20' },
@@ -613,6 +808,14 @@ export default function AgentPortal() {
             </div>
           )}
 
+          {/* Local Services Tab Content */}
+          {homeTab === 'local' && (
+            <LocalServicesTab onGroupEnquiry={(svc, item) => handleOpenGroupEnquiry(svc, item)} />
+          )}
+
+          {/* Hotels Tab Content */}
+          {homeTab === 'hotels' && (
+          <>
           {/* Search */}
           <div className="relative">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -697,6 +900,8 @@ export default function AgentPortal() {
                 </div>
               ))}
             </div>
+          )}
+          </>
           )}
         </div>
       )}
@@ -915,41 +1120,232 @@ export default function AgentPortal() {
                 </div>
               </div>
             </div>
-            <div className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 space-y-3">
-              <p className="text-[10px] font-black text-violet-400 uppercase tracking-wider">Stay Details</p>
+
+            {/* ── GUEST KYC SECTION ─────────────────────────────────────────── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  🪪 Guest ID Verification (KYC)
+                </p>
+                {!showKyc && (
+                  <button type="button" onClick={() => setShowKyc(true)}
+                    className="text-[10px] font-black text-amber-400 hover:text-amber-300 border border-amber-500/30 bg-amber-500/10 px-3 py-1 rounded-lg transition-all">
+                    Add KYC Documents
+                  </button>
+                )}
+                {showKyc && (
+                  <button type="button" onClick={() => setShowKyc(false)}
+                    className="text-[10px] font-black text-slate-500 hover:text-white border border-slate-700 bg-slate-900 px-3 py-1 rounded-lg transition-all">
+                    Hide KYC
+                  </button>
+                )}
+              </div>
+              {showKyc && (
+                <GuestKycCapture
+                  guestName={bookingForm.guestName}
+                  onKycComplete={(data) => { setGuestKyc(data); setShowKyc(false); }}
+                  onSkip={() => setShowKyc(false)}
+                />
+              )}
+              {guestKyc?.verified && !showKyc && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2 flex items-center gap-2 text-xs">
+                  <CheckCircle2 size={13} className="text-emerald-400" />
+                  <span className="text-emerald-300 font-black">KYC documents saved</span>
+                  {guestKyc.aadhaarNumber && <span className="text-slate-500">Aadhaar: XXXX {guestKyc.aadhaarNumber.slice(-4)}</span>}
+                  {guestKyc.panNumber && <span className="text-slate-500">PAN: {guestKyc.panNumber}</span>}
+                </div>
+              )}
+            </div>
+            {/* ── STAY & ROOM SELECTION WITH MULTI-ROOM SUPPORT ── */}
+            <div className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar size={12} /> Stay Dates
+                </p>
+                <span className="text-[10px] text-slate-400 font-bold bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
+                  {calcNights(bookingForm.checkIn, bookingForm.checkOut)} {calcNights(bookingForm.checkIn, bookingForm.checkOut) === 1 ? 'Night' : 'Nights'}
+                </span>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1">Check-In *</label>
-                  <input required type="date" className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
-                    value={bookingForm.checkIn} onChange={e => setBookingForm(f => ({ ...f, checkIn: e.target.value }))} />
+                  <input
+                    required
+                    type="date"
+                    className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
+                    value={bookingForm.checkIn}
+                    onChange={(e) => handleDateChange('checkIn', e.target.value)}
+                  />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1">Check-Out *</label>
-                  <input required type="date" className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
-                    value={bookingForm.checkOut} onChange={e => setBookingForm(f => ({ ...f, checkOut: e.target.value }))} />
+                  <input
+                    required
+                    type="date"
+                    className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
+                    value={bookingForm.checkOut}
+                    onChange={(e) => handleDateChange('checkOut', e.target.value)}
+                  />
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1">Room Type</label>
-                <select className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
-                  value={bookingForm.roomType} onChange={e => {
-                    const rt = selectedHotel.roomTypes.find(r => r.name === e.target.value);
-                    setBookingForm(f => ({ ...f, roomType: e.target.value, totalAmount: rt ? String(rt.baseRate) : f.totalAmount }));
-                  }}>
-                  <option value="" className="bg-[#090f1e]">Select Room Type...</option>
-                  {selectedHotel.roomTypes.map(rt => (
-                    <option key={rt.name} value={rt.name} className="bg-[#090f1e]">{rt.name} — ₹{rt.baseRate.toLocaleString('en-IN')}/night</option>
-                  ))}
-                </select>
+
+              {/* ── ROOM QUANTITY & SELECTION ── */}
+              <div className="pt-2 border-t border-slate-800/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <BedDouble size={13} /> Rooms Quantity (Single / Multiple)
+                    </p>
+                    <p className="text-[10px] text-slate-500">Book single or multiple rooms for your guest</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 font-bold">Total:</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-violet-600/30 text-violet-300 font-black text-xs border border-violet-500/40">
+                      {bookingForm.numberOfRooms} {bookingForm.numberOfRooms === 1 ? 'Room' : 'Rooms'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Room Count Shortcuts: 1, 2, 3, 4, 5+ */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Quick Count:</label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[1, 2, 3, 4, 5].map((cnt) => (
+                      <button
+                        key={cnt}
+                        type="button"
+                        onClick={() => handleSetQuickRoomCount(cnt)}
+                        className={`py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                          bookingForm.numberOfRooms === cnt
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30 border border-violet-400/50'
+                            : 'bg-[#050a14] border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {cnt} {cnt === 1 ? 'Room' : 'Rooms'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Available Room Categories with +/- Steppers */}
+                <div className="space-y-2 pt-1">
+                  <p className="text-[10px] font-bold text-slate-400">Select Room Categories & Quantities:</p>
+                  {selectedHotel.roomTypes && selectedHotel.roomTypes.length > 0 ? (
+                    selectedHotel.roomTypes.map((rt) => {
+                      const qty = bookingForm.roomQuantities[rt.name] || 0;
+                      return (
+                        <div
+                          key={rt.name}
+                          className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                            qty > 0
+                              ? 'bg-violet-950/20 border-violet-500/40'
+                              : 'bg-[#050a14] border-slate-800/80 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-black text-white truncate">{rt.name}</span>
+                              {qty > 0 && (
+                                <span className="text-[9px] font-black bg-violet-600 text-white px-1.5 py-0.2 rounded-md">
+                                  {qty}x
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              ₹{rt.baseRate.toLocaleString('en-IN')}/night • Max {rt.maxOccupancy || 2} Pax/room
+                            </p>
+                          </div>
+
+                          {/* Stepper: [-]  [qty]  [+] */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRoomQuantity(rt.name, -1)}
+                              disabled={qty === 0}
+                              className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 flex items-center justify-center font-black text-sm active:scale-95 transition-all cursor-pointer"
+                            >
+                              -
+                            </button>
+                            <span className="w-5 text-center text-xs font-black text-white">{qty}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRoomQuantity(rt.name, 1)}
+                              className="w-7 h-7 rounded-lg bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center font-black text-sm active:scale-95 transition-all cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-3 bg-[#050a14] border border-slate-800 rounded-xl">
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1">Room Type</label>
+                      <input
+                        type="text"
+                        value={bookingForm.roomType}
+                        onChange={(e) => setBookingForm((f) => ({ ...f, roomType: e.target.value }))}
+                        className="w-full bg-[#090f1e] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                        placeholder="e.g. Standard Room"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto Calculated Summary Display */}
+                <div className="bg-[#050a14] border border-violet-500/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Selected Configuration:</span>
+                    <span className="font-bold text-white text-xs">
+                      {bookingForm.roomType || '1 Room'} ({calcNights(bookingForm.checkIn, bookingForm.checkOut)}{' '}
+                      {calcNights(bookingForm.checkIn, bookingForm.checkOut) === 1 ? 'Night' : 'Nights'})
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Amount</span>
+                    <span className="text-base font-black text-emerald-400">
+                      ₹{Number(bookingForm.totalAmount || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Editable Total Amount Field */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                    Room Amount (₹){' '}
+                    {bookingForm.totalAmount && agent
+                      ? `→ Commission: ₹${(
+                          (Number(bookingForm.totalAmount) *
+                            ((selectedHotel as any)?.commissionRate ?? agent.commissionRate)) /
+                          100
+                        ).toFixed(0)} (${
+                          (selectedHotel as any)?.commissionRate ?? agent.commissionRate
+                        }%)`
+                      : ''}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 5000"
+                      className="w-full bg-[#050a14] border border-slate-800 rounded-xl pl-7 pr-3 py-2.5 text-sm font-black text-white focus:outline-none focus:border-violet-500"
+                      value={bookingForm.totalAmount}
+                      onChange={(e) => setBookingForm((f) => ({ ...f, totalAmount: e.target.value }))}
+                    />
+                  </div>
+                  <p className="text-[9.5px] text-slate-500 mt-1">
+                    💡 Amount is auto-calculated based on rooms and nights. You can adjust this if special rates apply.
+                  </p>
+                </div>
+
+                {bookingForm.notes && (
+                  <div className="bg-violet-950/20 border border-violet-500/20 rounded-xl px-3 py-2 text-[10px] text-violet-400 font-bold">
+                    📍 {bookingForm.notes}
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1">
-                  Room Amount (₹){bookingForm.totalAmount && agent ? ` → Commission: ₹${((Number(bookingForm.totalAmount) * ((selectedHotel as any)?.commissionRate ?? agent.commissionRate)) / 100).toFixed(0)} (${(selectedHotel as any)?.commissionRate ?? agent.commissionRate}%)` : ''}
-                </label>
-                <input type="number" min="0" placeholder="e.g. 5000" className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
-                  value={bookingForm.totalAmount} onChange={e => setBookingForm(f => ({ ...f, totalAmount: e.target.value }))} />
-              </div>
-              {bookingForm.notes && <div className="bg-violet-950/20 border border-violet-500/20 rounded-xl px-3 py-2 text-[10px] text-violet-400 font-bold">📍 {bookingForm.notes}</div>}
             </div>
 
             {/* Pool & Spa Add-ons Section */}
@@ -1224,6 +1620,44 @@ export default function AgentPortal() {
                               ₹{b.commission.toLocaleString('en-IN')} {b.commissionPaid ? '✓ Paid' : '(Pending)'}
                             </span>
                           </div>
+
+                          {/* Action Bar: Proof Images & Edit Booking */}
+                          {(() => {
+                            const kyc = parseKycFromNotes(b.notes);
+                            const docCount = kyc.docs.length;
+                            return (
+                              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedBookingForProof(b)}
+                                  className="px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                                  title="View or upload customer ID proof images"
+                                >
+                                  <CreditCard size={13} className="text-violet-400" />
+                                  <span>Customer Proof Images</span>
+                                  {docCount > 0 ? (
+                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full font-black">
+                                      {docCount}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded-full font-black">
+                                      + Add
+                                    </span>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedBookingForEdit(b)}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                                  title="Edit booking (will be sent for hotel approval)"
+                                >
+                                  <Edit3 size={13} className="text-indigo-400" />
+                                  <span>Edit Booking</span>
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -1290,6 +1724,44 @@ export default function AgentPortal() {
                         ₹{b.commission.toLocaleString('en-IN')} {b.commissionPaid ? '✓ Credited' : '(Pending)'}
                       </span>
                     </div>
+
+                    {/* Action Bar: Proof Images & Edit Booking */}
+                    {(() => {
+                      const kyc = parseKycFromNotes(b.notes);
+                      const docCount = kyc.docs.length;
+                      return (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBookingForProof(b)}
+                            className="px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                            title="View or upload customer ID proof images"
+                          >
+                            <CreditCard size={13} className="text-violet-400" />
+                            <span>Customer Proof Images</span>
+                            {docCount > 0 ? (
+                              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full font-black">
+                                {docCount}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded-full font-black">
+                                + Add
+                              </span>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBookingForEdit(b)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                            title="Edit booking (will be sent for hotel approval)"
+                          >
+                            <Edit3 size={13} className="text-indigo-400" />
+                            <span>Edit Booking</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               }))}
@@ -1335,77 +1807,105 @@ export default function AgentPortal() {
           <div className="max-w-md mx-auto flex items-center justify-between">
             {/* 1. Hotels */}
             <button
-              onClick={() => setView('home')}
+              onClick={() => { setSelectedHotel(null); setHomeTab('hotels'); setView('home'); }}
               className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'home' || view === 'hotel-detail' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+                view === 'home' && homeTab === 'hotels' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
               }`}
             >
-              <Building2 size={18} />
+              <Building2 size={17} />
               <span className="text-[9px] mt-0.5">Hotels</span>
             </button>
 
-            {/* 2. Today's Bookings */}
-            {(() => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const todayCount = bookingsList.filter(b => {
-                const cIn = new Date(b.checkIn).toISOString().split('T')[0];
-                const cAt = new Date(b.createdAt).toISOString().split('T')[0];
-                return cIn === todayStr || cAt === todayStr;
-              }).length;
-              const isSelected = view === 'dashboard' && dashTab === 'today';
+            {/* 2. Local Services (Buses, Taxis, Bikes, Sightseeing) */}
+            <button
+              onClick={() => { setSelectedHotel(null); setHomeTab('local'); setView('home'); }}
+              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
+                view === 'home' && homeTab === 'local' ? 'text-sky-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+              }`}
+            >
+              <Bus size={17} />
+              <span className="text-[9px] mt-0.5">Local</span>
+            </button>
 
-              return (
-                <button
-                  onClick={() => { setView('dashboard'); setDashTab('today'); refreshAgent(); }}
-                  className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl relative transition-all ${
-                    isSelected ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
-                  }`}
-                >
-                  <Calendar size={18} />
-                  {todayCount > 0 && (
-                    <span className="absolute top-0 right-3 w-4 h-4 rounded-full bg-violet-600 text-white text-[8px] font-black flex items-center justify-center border border-[#070c18]">
-                      {todayCount}
-                    </span>
-                  )}
-                  <span className="text-[9px] mt-0.5">Today</span>
-                </button>
-              );
-            })()}
+            {/* 3. Group Enquiry */}
+            <button
+              onClick={() => handleOpenGroupEnquiry('hotel')}
+              className="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all text-amber-400 hover:text-amber-300 font-bold"
+            >
+              <div className="w-5 h-5 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                <Users size={12} className="text-amber-400" />
+              </div>
+              <span className="text-[9px] mt-0.5">Group</span>
+            </button>
 
-            {/* 3. My Bookings */}
+            {/* 4. My Bookings */}
             <button
               onClick={() => { setView('dashboard'); setDashTab('bookings'); refreshAgent(); }}
               className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
                 view === 'dashboard' && dashTab === 'bookings' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
               }`}
             >
-              <Bed size={18} />
+              <Bed size={17} />
               <span className="text-[9px] mt-0.5">Bookings</span>
             </button>
 
-            {/* 4. Commission */}
+            {/* 5. Commission */}
             <button
               onClick={() => { setView('dashboard'); setDashTab('commission'); refreshAgent(); }}
               className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'dashboard' && dashTab === 'commission' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+                view === 'dashboard' && dashTab === 'commission' ? 'text-emerald-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
               }`}
             >
-              <IndianRupee size={18} />
+              <IndianRupee size={17} />
               <span className="text-[9px] mt-0.5">Earnings</span>
-            </button>
-
-            {/* 5. Profile */}
-            <button
-              onClick={() => { setView('dashboard'); setDashTab('overview'); refreshAgent(); }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'dashboard' && dashTab === 'overview' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
-              }`}
-            >
-              <User size={18} />
-              <span className="text-[9px] mt-0.5">Profile</span>
             </button>
           </div>
         </div>
+      )}
+
+      {/* ─── GROUP ENQUIRY MODAL (Hotels, Buses, Taxis, Tempo, Bikes, Sightseeing) ─── */}
+      {showGroupEnquiry && (
+        <GroupEnquiryModal
+          agentId={agent?.id || ''}
+          agentName={agent?.name || 'Agent Portal Lead'}
+          agentCode={agent?.agentCode || 'AGT-PORTAL'}
+          preselectedService={enquiryService || undefined}
+          preselectedItem={enquiryItem || undefined}
+          onClose={() => {
+            setShowGroupEnquiry(false);
+            setEnquiryService(null);
+            setEnquiryItem(null);
+          }}
+        />
+      )}
+
+      {/* ─── CUSTOMER PROOF DOCUMENTS MODAL (View & Upload Images) ─── */}
+      {selectedBookingForProof && (
+        <ProofDocumentsModal
+          bookingId={selectedBookingForProof.id}
+          guestName={selectedBookingForProof.guestName}
+          notes={selectedBookingForProof.notes}
+          canUpload={true}
+          onClose={() => setSelectedBookingForProof(null)}
+          onUpdated={async (updatedNotes) => {
+            if (agent?.id) await refreshAgent(agent.id);
+            setSelectedBookingForProof((prev: any) =>
+              prev ? { ...prev, notes: updatedNotes } : null
+            );
+          }}
+        />
+      )}
+
+      {/* ─── EDIT AGENT BOOKING MODAL (Updates & Sends for Hotel Approval) ─── */}
+      {selectedBookingForEdit && (
+        <EditAgentBookingModal
+          booking={selectedBookingForEdit}
+          agentCommissionRate={agent?.commissionRate || 10}
+          onClose={() => setSelectedBookingForEdit(null)}
+          onSuccess={async () => {
+            if (agent?.id) await refreshAgent(agent.id);
+          }}
+        />
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import { usePathname, useParams } from 'next/navigation';
 import {
   LayoutDashboard, BedDouble, CalendarDays, Sparkles, Grid,
   X, Users, CreditCard, TrendingUp, BarChart2, Coffee,
-  BookOpen, Settings, ChevronRight, ShieldCheck, Hotel
+  BookOpen, Settings, ChevronRight, ShieldCheck, Hotel, MessageSquare, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -43,14 +43,17 @@ export const HotelAdminMobileNav: React.FC = () => {
   ];
 
   const moreItems = [
+    { name: 'Staff & Team Chat', path: `${p}/hoteladmin/chat`, icon: MessageSquare, desc: 'Group broadcast & staff 1-on-1' },
     { name: 'Guest Directory', path: `${p}/hoteladmin/guests`, icon: Users, desc: 'Profiles & VIP history' },
     { name: 'Billing & Folios', path: `${p}/hoteladmin/billing`, icon: CreditCard, desc: 'Invoices & dues' },
+    { name: 'Discount Approvals', path: `${p}/hoteladmin/discounts`, icon: ShieldAlert, desc: 'Authorize staff discounts & PIN' },
     { name: 'Revenue Analytics', path: `${p}/hoteladmin/revenue`, icon: TrendingUp, desc: 'ADR, RevPAR & sales' },
     { name: 'Daily Reports', path: `${p}/hoteladmin/reports`, icon: BarChart2, desc: 'Audit & occupancy' },
     { name: 'Restaurant & F&B', path: `${p}/hoteladmin/restaurant`, icon: Coffee, desc: 'Room service orders' },
     { name: 'Staff Attendance', path: `${p}/hoteladmin/staff`, icon: Users, desc: 'Clock-in & shift status' },
     { name: 'Accounts Ledger', path: `${p}/hoteladmin/accounts`, icon: BookOpen, desc: 'Petty cash & expenses' },
     { name: 'Property Settings', path: `${p}/hoteladmin/settings`, icon: Settings, desc: 'Policies & configuration' },
+    { name: 'Backup & Restore', path: `${p}/hoteladmin/backup`, icon: ShieldCheck, desc: 'Desktop & cloud database backup' },
   ];
 
   const isMoreActive = moreItems.some((item) => pathname.startsWith(item.path));

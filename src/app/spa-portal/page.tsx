@@ -8,6 +8,7 @@ import {
   RefreshCw, Star, Scissors, Activity, DollarSign, ChevronRight,
   Phone, Mail, MapPin, Settings, BarChart3, ListChecks,
 } from 'lucide-react';
+import StaffHRPanel from '@/components/staff/StaffHRPanel';
 
 interface Spa {
   id: string;
@@ -81,7 +82,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function SpaPortal() {
   const router = useRouter();
   const [spa, setSpa] = useState<Spa | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bookings' | 'services' | 'therapists'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bookings' | 'services' | 'therapists' | 'hr'>('dashboard');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -304,6 +305,7 @@ export default function SpaPortal() {
             { id: 'bookings', icon: Calendar, label: 'Bookings' },
             { id: 'services', icon: Sparkles, label: 'Services' },
             { id: 'therapists', icon: Users, label: 'Therapists' },
+            { id: 'hr', icon: Clock, label: 'My HR' },
           ].map((item) => (
             <button
               key={item.id}
@@ -592,6 +594,22 @@ export default function SpaPortal() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* HR Tab */}
+        {activeTab === 'hr' && spa && (
+          <div style={{ padding: '24px' }}>
+            <div style={{ fontSize: 9, fontWeight: 900, color: '#14b8a6', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>✨ My HR Dashboard</div>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 20 }}>Attendance · Leave Applications · Overtime</div>
+            <StaffHRPanel
+              userId={spa.id}
+              accentColor="#14b8a6"
+              showClockButton={true}
+              staffName={spa.name}
+              designation="Spa Therapist / Specialist"
+              propertyName="Spa & Wellness Center"
+            />
           </div>
         )}
       </main>

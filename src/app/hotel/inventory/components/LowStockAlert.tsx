@@ -16,8 +16,9 @@ export interface StockItem {
 
 interface LowStockAlertProps { items: StockItem[] }
 
-export function LowStockAlert({ items }: LowStockAlertProps) {
-  const low = items.filter(i => i.currentStock <= i.reorderLevel);
+export function LowStockAlert({ items = [] }: LowStockAlertProps) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const low = safeItems.filter(i => i && Number(i.currentStock) <= Number(i.reorderLevel));
   if (low.length === 0) return null;
 
   return (

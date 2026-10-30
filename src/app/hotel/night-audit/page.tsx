@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { 
   Moon, CheckCircle2, AlertCircle, IndianRupee, FileText, 
   RefreshCw, Loader2, Play, BedDouble, CalendarDays, DollarSign, 
-  ShieldCheck, ArrowRight, Printer, Sparkles, AlertTriangle, Users, Receipt
+  ShieldCheck, ArrowRight, Printer, Sparkles, AlertTriangle, Users, Receipt, BarChart2
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -184,22 +185,28 @@ export default function NightAuditPage() {
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Night Audit Daily Report - ${new Date().toLocaleDateString('en-IN')}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111; line-height: 1.5; }
+            @page { size: A4 portrait; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 24px; color: #111; line-height: 1.5; background: #fff; }
             .header { border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 20px; }
-            .title { font-size: 22px; font-weight: bold; text-transform: uppercase; color: #4f46e5; }
-            .subtitle { font-size: 12px; color: #666; margin-top: 4px; }
+            .title { font-size: 20px; font-weight: bold; text-transform: uppercase; color: #4338ca; }
+            .subtitle { font-size: 11px; color: #666; margin-top: 4px; }
             .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-            .box { border: 1px solid #ddd; padding: 12px; border-radius: 8px; background: #f9fafb; }
-            .box-val { font-size: 18px; font-weight: bold; color: #111; }
-            .box-lbl { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 2px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-            th, td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; }
-            th { background: #f3f4f6; text-transform: uppercase; font-size: 10px; }
-            .footer { margin-top: 30px; font-size: 11px; border-top: 1px solid #ddd; padding-top: 12px; display: flex; justify-content: space-between; color: #666; }
+            .box { border: 1px solid #ddd; padding: 10px 12px; border-radius: 6px; background: #f9fafb; }
+            .box-val { font-size: 16px; font-weight: bold; color: #111; }
+            .box-lbl { font-size: 9px; color: #666; text-transform: uppercase; margin-top: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 11px; }
+            th, td { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; }
+            th { background: #f3f4f6; text-transform: uppercase; font-size: 10px; font-weight: bold; }
+            .footer { margin-top: 26px; font-size: 10px; border-top: 1px solid #ddd; padding-top: 10px; display: flex; justify-content: space-between; color: #666; }
+            @media print {
+              body { padding: 0; }
+            }
           </style>
         </head>
         <body>
@@ -208,7 +215,10 @@ export default function NightAuditPage() {
       </html>
     `);
     w.document.close();
-    w.print();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 350);
   };
 
   const stepsList = data?.steps || [];
@@ -252,6 +262,13 @@ export default function NightAuditPage() {
           >
             <RefreshCw size={13} /> Refresh
           </button>
+
+          <Link
+            href="/hotel/night-audit/daily-report"
+            className="flex items-center gap-2 h-9 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-amber-600/20 transition-all"
+          >
+            <BarChart2 size={14} /> Daily Report
+          </Link>
 
           {!isFullyComplete && (
             <button 
@@ -606,6 +623,12 @@ export default function NightAuditPage() {
                 <h2 className="text-lg font-black text-white">Night Audit & Day-End Closing Summary</h2>
               </div>
               <div className="flex items-center gap-2">
+                <Link
+                  href="/hotel/night-audit/daily-report"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black uppercase tracking-wider transition-all"
+                >
+                  <BarChart2 size={13} /> Daily Ledger Report
+                </Link>
                 <button
                   onClick={handlePrintReport}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition-all"

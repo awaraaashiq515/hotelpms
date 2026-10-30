@@ -8,7 +8,7 @@ import {
   Wifi, WifiOff, AlertTriangle, ChevronDown, ChevronUp,
   Navigation, Ruler, Target, Settings2, Save, Crosshair,
   Eye, EyeOff, CheckCircle, XCircle, UserCheck, Radio,
-  BarChart3, Shield, Tablet, Brush
+  BarChart3, Shield, Tablet, Brush, MessageSquare, Send
 } from 'lucide-react';
 import StaffManagement from '@/components/admin/StaffManagement';
 
@@ -290,9 +290,11 @@ function StaffPortalContent() {
     ? 'location' 
     : searchParams?.get('tab') === 'accounts' 
       ? 'accounts' 
-      : 'attendance';
+      : searchParams?.get('tab') === 'chat'
+        ? 'chat'
+        : 'attendance';
 
-  const [activeSubTab, setActiveSubTab] = useState<'attendance' | 'accounts' | 'location'>(initialTab);
+  const [activeSubTab, setActiveSubTab] = useState<'attendance' | 'accounts' | 'location' | 'chat'>(initialTab);
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('ALL');
   const [properties, setProperties] = useState<any[]>([]);
@@ -312,12 +314,94 @@ function StaffPortalContent() {
   const [gettingBase, setGettingBase] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
+  /* Admin Staff Chat states */
+  const [chatSummaries, setChatSummaries] = useState<any[]>([]);
+  const [selectedStaffChat, setSelectedStaffChat] = useState<any | null>(null);
+  const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
+  const [adminChatInput, setAdminChatInput] = useState('');
+  const [sendingAdminChat, setSendingAdminChat] = useState(false);
+  const [staffChatSearch, setStaffChatSearch] = useState('');
+  const adminChatEndRef = useRef<HTMLDivElement | null>(null);
+
+  const loadChatSummaries = useCallback(async () => {
+    try {
+      const res = await fetch('/api/staff-chat?summary=true');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setChatSummaries(data.data);
+        setSelectedStaffChat((prev: any) => prev || (data.data.length > 0 ? data.data[0].staff : null));
+      }
+    } catch (_) {}
+  }, []);
+
+  const loadAdminMessages = useCallback(async (staffId: string) => {
+    if (!staffId) return;
+    try {
+      const res = await fetch(`/api/staff-chat?staffId=${staffId}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setAdminChatMessages(data.data);
+      }
+    } catch (_) {}
+  }, []);
+
+  const handleAdminSendMessage = async (e?: React.FormEvent, customMsg?: string) => {
+    if (e) e.preventDefault();
+    const text = (customMsg || adminChatInput).trim();
+    if (!text || !selectedStaffChat?.id || sendingAdminChat) return;
+    setSendingAdminChat(true);
+    try {
+      const res = await fetch('/api/staff-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staffId: selectedStaffChat.id,
+          message: text,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminChatInput('');
+        setAdminChatMessages((prev) => [...prev, data.data]);
+        loadChatSummaries();
+      }
+    } catch (_) {} finally {
+      setSendingAdminChat(false);
+    }
+  };
+
   // Update activeSubTab if query param changes
   useEffect(() => {
     const qTab = searchParams?.get('tab');
     if (qTab === 'location') setActiveSubTab('location');
     else if (qTab === 'accounts') setActiveSubTab('accounts');
+    else if (qTab === 'chat') setActiveSubTab('chat');
   }, [searchParams]);
+
+  useEffect(() => {
+    if (activeSubTab === 'chat') {
+      loadChatSummaries();
+      const iv = setInterval(() => {
+        loadChatSummaries();
+        if (selectedStaffChat?.id) {
+          loadAdminMessages(selectedStaffChat.id);
+        }
+      }, 4000);
+      return () => clearInterval(iv);
+    }
+  }, [activeSubTab, selectedStaffChat?.id, loadChatSummaries, loadAdminMessages]);
+
+  useEffect(() => {
+    if (selectedStaffChat?.id) {
+      loadAdminMessages(selectedStaffChat.id);
+    }
+  }, [selectedStaffChat?.id, loadAdminMessages]);
+
+  useEffect(() => {
+    if (activeSubTab === 'chat') {
+      adminChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [adminChatMessages, activeSubTab]);
 
   const fetchStaffData = async () => {
     setLoading(true);
@@ -590,6 +674,26 @@ function StaffPortalContent() {
           }`}
         >
           🔑 Staff Credentials & PMS/POS Roles
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('chat')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeSubTab === 'chat'
+              ? 'bg-purple-600/20 border border-purple-500/30 text-purple-300 font-black'
+              : 'bg-white/[0.02] border border-white/5 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <MessageSquare size={13} />
+          💬 Staff & Housekeeper Chat
+          {(() => {
+            const totalUnread = chatSummaries.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+            return totalUnread > 0 ? (
+              <span className="ml-1 px-1.5 py-0.2 bg-purple-500 text-white text-[9px] font-black rounded-full animate-pulse">
+                {totalUnread}
+              </span>
+            ) : null;
+          })()}
         </button>
       </div>
 
@@ -1019,6 +1123,212 @@ function StaffPortalContent() {
       {/* ══════════ STAFF CREDENTIALS & ROLES TAB ══════════ */}
       {activeSubTab === 'accounts' && (
         <StaffManagement properties={properties} />
+      )}
+
+      {/* ══════════ STAFF & HOUSEKEEPER CHAT TAB ══════════ */}
+      {activeSubTab === 'chat' && (
+        <div className="bg-[#0b0f19] border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[650px]">
+          {/* Left Sidebar — Staff list with last messages */}
+          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-white/5 flex flex-col bg-[#070a12]">
+            <div className="p-3 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Staff Conversations</span>
+                <button
+                  onClick={loadChatSummaries}
+                  className="text-[9px] text-slate-400 hover:text-white bg-white/5 px-2 py-0.5 rounded transition-colors"
+                >
+                  Refresh
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Search staff..."
+                value={staffChatSearch}
+                onChange={(e) => setStaffChatSearch(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs outline-none"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto divide-y divide-white/[0.03]">
+              {chatSummaries.length === 0 ? (
+                <div className="p-6 text-center text-slate-500 text-xs">
+                  No staff members found
+                </div>
+              ) : (
+                chatSummaries
+                  .filter((item) =>
+                    !staffChatSearch ||
+                    item.staff.name.toLowerCase().includes(staffChatSearch.toLowerCase()) ||
+                    (item.staff.designation || '').toLowerCase().includes(staffChatSearch.toLowerCase())
+                  )
+                  .map((item) => {
+                    const isSelected = selectedStaffChat?.id === item.staff.id;
+                    const hasUnread = item.unreadCount > 0;
+                    return (
+                      <button
+                        key={item.staff.id}
+                        onClick={() => setSelectedStaffChat(item.staff)}
+                        className={`w-full text-left p-3 flex items-start gap-3 transition-colors ${
+                          isSelected ? 'bg-purple-950/40 border-l-2 border-purple-500' : 'hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shrink-0 shadow">
+                          {item.staff.avatarUrl ? (
+                            <img src={item.staff.avatarUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                          ) : (
+                            item.staff.name.substring(0, 2).toUpperCase()
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-white truncate">{item.staff.name}</span>
+                            {item.latestMessage && (
+                              <span className="text-[8px] text-slate-500">
+                                {new Date(item.latestMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[9.5px] text-purple-400 font-semibold truncate">{item.staff.designation || 'Housekeeping'}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-[9.5px] text-slate-400 truncate max-w-[150px]">
+                              {item.latestMessage ? item.latestMessage.message : 'No messages yet'}
+                            </p>
+                            {hasUnread && (
+                              <span className="w-4 h-4 bg-purple-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shrink-0 animate-pulse">
+                                {item.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+
+          {/* Right Main — Selected Staff Conversation */}
+          <div className="flex-1 flex flex-col bg-[#0b0f19]">
+            {selectedStaffChat ? (
+              <>
+                {/* Header */}
+                <div className="p-3.5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-black text-sm">
+                      {selectedStaffChat.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">{selectedStaffChat.name}</h4>
+                      <p className="text-[10px] text-slate-400 flex items-center gap-2">
+                        <span>{selectedStaffChat.designation || 'Staff Member'}</span>
+                        <span>•</span>
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-ping" />
+                          Live Staff Portal Connected
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => loadAdminMessages(selectedStaffChat.id)}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white text-[10px] font-bold"
+                    >
+                      Sync 🔄
+                    </button>
+                  </div>
+                </div>
+
+                {/* Messages Box */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {adminChatMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center text-slate-500">
+                      <MessageSquare size={36} className="text-slate-600 mb-2 opacity-50" />
+                      <p className="text-xs font-bold text-slate-400">No message history with {selectedStaffChat.name}</p>
+                      <p className="text-[10px] text-slate-500 mt-1 max-w-xs">
+                        Send a task instruction, room cleaning alert, or reply to staff questions directly here.
+                      </p>
+                    </div>
+                  ) : (
+                    adminChatMessages.map((msg) => {
+                      const isAdmin = msg.senderRole === 'ADMIN';
+                      const timeStr = msg.createdAt
+                        ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : '';
+
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex flex-col max-w-[75%] ${
+                            isAdmin ? 'ml-auto items-end' : 'mr-auto items-start'
+                          }`}
+                        >
+                          <span className="text-[8.5px] font-bold text-slate-500 mb-1 px-1">
+                            {isAdmin ? 'Admin (You)' : `🧹 ${msg.senderName || selectedStaffChat.name}`}
+                          </span>
+                          <div
+                            className={`px-3.5 py-2.5 rounded-2xl text-xs font-medium leading-relaxed ${
+                              isAdmin
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-md shadow-purple-600/20'
+                                : 'bg-[#161f30] text-slate-100 border border-white/10 rounded-tl-none'
+                            }`}
+                          >
+                            {msg.message}
+                          </div>
+                          <span className="text-[7.5px] text-slate-500 mt-1 px-1">{timeStr}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={adminChatEndRef} />
+                </div>
+
+                {/* Quick Presets */}
+                <div className="px-3 py-1.5 bg-black/20 border-t border-white/5 flex gap-1.5 overflow-x-auto">
+                  {[
+                    'Please clean Room #101 next 🧹',
+                    'Guest checked in, inspect room now ⭐',
+                    'Extra bath towels requested at Room #204 🧺',
+                    'Maintenance team dispatched 🔧',
+                    'Great job today, thank you 👍',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleAdminSendMessage(undefined, preset)}
+                      className="px-2 py-0.5 rounded-full bg-white/5 hover:bg-purple-600/20 text-slate-400 hover:text-purple-300 border border-white/5 text-[9px] font-bold shrink-0 transition-colors"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input Bar */}
+                <form onSubmit={handleAdminSendMessage} className="p-3 border-t border-white/5 bg-white/[0.01] flex gap-2">
+                  <input
+                    type="text"
+                    value={adminChatInput}
+                    onChange={(e) => setAdminChatInput(e.target.value)}
+                    placeholder={`Message ${selectedStaffChat.name}...`}
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-xs outline-none focus:border-purple-500/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!adminChatInput.trim() || sendingAdminChat}
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg shadow-purple-600/30"
+                  >
+                    <Send size={12} />
+                    <span>Send</span>
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
+                Select a staff member from the left list to begin chat.
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
     </div>

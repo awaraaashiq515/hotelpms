@@ -34,6 +34,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
+import StaffHRPanel from '@/components/staff/StaffHRPanel'
 
 /* ─────────────── Types ─────────────── */
 interface DashboardData {
@@ -168,7 +169,7 @@ interface SecurityUser {
   property?: { id: string; name: string; code: string } | null
 }
 
-type Tab = 'overview' | 'scan' | 'bookings' | 'inhouse' | 'lostfound' | 'incidents' | 'rooms'
+type Tab = 'overview' | 'scan' | 'bookings' | 'inhouse' | 'lostfound' | 'incidents' | 'rooms' | 'hr'
 
 /* ─────────────── Constants ─────────────── */
 const INCIDENT_TYPES = [
@@ -946,6 +947,7 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
     { id: 'lostfound', label: 'Lost & Found', icon: <Package size={14} /> },
     { id: 'incidents', label: 'Incidents', icon: <AlertTriangle size={14} /> },
     { id: 'rooms', label: 'Rooms', icon: <Home size={14} /> },
+    { id: 'hr', label: 'My HR', icon: <Calendar size={14} /> },
   ]
 
   return (
@@ -1562,6 +1564,26 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ═══════════════ HR (Attendance / Leave / Overtime) ═══════════════ */}
+        {tab === 'hr' && user && (
+          <div style={{ padding: '16px' }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 9, fontWeight: 900, color: '#6366f1', letterSpacing: '0.14em', textTransform: 'uppercase' }}>🛡️ My HR Dashboard</div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>Attendance · Leave Applications · Overtime</div>
+            </div>
+            <StaffHRPanel
+              userId={user.id}
+              propertyId={user.property?.id}
+              wtToken={wtToken}
+              accentColor="#6366f1"
+              staffName={user.fullName}
+              designation={user.designation || 'Security Personnel'}
+              propertyName={user.property?.name}
+              propertyCode={user.property?.code}
+            />
           </div>
         )}
 

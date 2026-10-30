@@ -8,7 +8,7 @@ import {
   Printer, X, Banknote, Smartphone, Building2, Globe, DoorOpen,
   Clock, Phone, Hash, UtensilsCrossed, ShoppingBag, Sparkles,
   Percent, BadgePercent, PlusCircle, RefreshCw, XCircle, Eye, Shirt,
-  ChevronRight, FileText,
+  ChevronRight, FileText, ShieldAlert,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -18,6 +18,7 @@ import BookingDetailModal from '@/components/hotel/checkout/BookingDetailModal';
 import DepartmentalSlipModal, { DepartmentalSlipData } from '@/components/hotel/checkout/DepartmentalSlipModal';
 import { GuestRegistrationCardModal } from '@/components/hotel/operations/GuestRegistrationCardModal';
 import { ReservationItem } from '@/components/hotel/operations/ReservationWidget';
+import { PosDiscountApprovalModal } from '@/components/discounts/PosDiscountApprovalModal';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,25 @@ function CheckoutDetailContent() {
   const [currentAppliedGstRate, setCurrentAppliedGstRate] = useState(0);
   const [addingGst, setAddingGst] = useState(false);
   const [gstPosted, setGstPosted] = useState(false);
+
+  // ── Folio Discount state ─────────────────────────────────────────────────────
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountType, setDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
+  const [discountReason, setDiscountReason] = useState('');
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const [discountPosted, setDiscountPosted] = useState(false);
+  const [showDiscountForm, setShowDiscountForm] = useState(false);
+  const [showDiscountApprovalModal, setShowDiscountApprovalModal] = useState(false);
+  const [approvedDiscountId, setApprovedDiscountId] = useState<string | null>(null);
+  const [discountSettings, setDiscountSettings] = useState<{
+    discountApprovalEnabled: boolean;
+    maxStaffDiscountPercent: number;
+    maxStaffDiscountAmount: number;
+  }>({
+    discountApprovalEnabled: true,
+    maxStaffDiscountPercent: 10,
+    maxStaffDiscountAmount: 200,
+  });
 
   // Corporate / Guest GSTIN details
   const [companyName, setCompanyName] = useState('');
@@ -136,6 +156,16 @@ function CheckoutDetailContent() {
           setCurrentAppliedGstRate(0);
         }
 
+        // Check if discount already posted in this folio
+        const discTxn = res.data.transactions?.find(
+          (t: { sourceModule: string }) => t.sourceModule === 'DISCOUNT'
+        );
+        if (discTxn) {
+          setDiscountPosted(true);
+        } else {
+          setDiscountPosted(false);
+        }
+
         // If folio is already checked out / closed, open receipt modal directly so it auto-prints
         if (res.data.status === 'CLOSED') {
           setCheckedOut(true);
@@ -155,6 +185,25 @@ function CheckoutDetailContent() {
   useEffect(() => {
     loadFolio();
   }, [loadFolio]);
+
+  // Load property discount policy rules
+  useEffect(() => {
+    const prop = folio?.reservation?.property;
+    if (!prop?.id && !prop?.code) return;
+    const query = prop.code ? `propertyCode=${prop.code}` : `propertyId=${prop.id}`;
+    fetch(`/api/discounts/settings?${query}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data) {
+          setDiscountSettings({
+            discountApprovalEnabled: res.data.discountApprovalEnabled ?? true,
+            maxStaffDiscountPercent: res.data.maxStaffDiscountPercent ?? 10,
+            maxStaffDiscountAmount: res.data.maxStaffDiscountAmount ?? 200,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [folio?.reservation?.property]);
 
   // Save / Update Guest GST Details
   const handleSaveGstInfo = async () => {
@@ -259,6 +308,7 @@ function CheckoutDetailContent() {
         setGstPosted(false);
         setCurrentAppliedGstRate(0);
         setGstRate(0);
+        setGstPosted(false);
       }
 
       await loadFolio(); // re-fetch to get updated balances
@@ -412,12 +462,111 @@ function CheckoutDetailContent() {
   const isSettled = dueBalance <= 0;
   const activeCheckIn = folio?.reservation?.checkIns?.[0];
 
+  // ── Discount-related derived values ────────────────────────────────────────
+  const discountTxns = folio?.transactions?.filter((t: any) => t.sourceModule === 'DISCOUNT') || [];
+  const existingDiscountAmount = discountTxns.reduce((sum: number, t: any) => sum + (Number(t.creditAmount) || 0), 0);
+  const discountValueNum = Number(discountValue) || 0;
+  const previewDiscountAmount = discountValueNum > 0
+    ? (discountType === 'PERCENTAGE'
+      ? Math.round((folio?.totalCharges ?? 0) * discountValueNum) / 100
+      : discountValueNum)
+    : 0;
+
+  // ── Apply Discount Handler ──────────────────────────────────────────────────
+  const handleApplyDiscount = async (overrideApprovedId?: string) => {
+    if (!folio || discountValueNum <= 0) return;
+
+    const discAmt = discountType === 'PERCENTAGE'
+      ? Math.round((folio.totalCharges) * discountValueNum) / 100
+      : discountValueNum;
+
+    if (discAmt <= 0) {
+      toast.error('Discount amount must be greater than ₹0');
+      return;
+    }
+
+    const effectivePercent = folio.totalCharges > 0 ? (discAmt / folio.totalCharges) * 100 : 0;
+    const isApprovalNeeded = discountSettings.discountApprovalEnabled &&
+      (discAmt > discountSettings.maxStaffDiscountAmount || effectivePercent > discountSettings.maxStaffDiscountPercent);
+
+    if (isApprovalNeeded && !overrideApprovedId && !approvedDiscountId) {
+      setShowDiscountApprovalModal(true);
+      toast.info(
+        `Discount of ₹${discAmt.toFixed(0)} (${effectivePercent.toFixed(1)}%) requires Admin Approval or Manager PIN.`
+      );
+      return;
+    }
+
+    setApplyingDiscount(true);
+    try {
+      // Remove existing discount first if any
+      if (discountPosted || discountTxns.length > 0) {
+        await fetch(`/api/hotel/folios?folioId=${folio.id}&sourceModule=DISCOUNT`, {
+          method: 'DELETE',
+        });
+      }
+
+      const activeAppId = overrideApprovedId || approvedDiscountId;
+      const approvalBadge = activeAppId ? ' [Authorized]' : '';
+
+      const label = discountType === 'PERCENTAGE'
+        ? `Discount @${discountValueNum}%${discountReason ? ` — ${discountReason}` : ''}${approvalBadge}`
+        : `Discount ₹${discAmt.toFixed(0)}${discountReason ? ` — ${discountReason}` : ''}${approvalBadge}`;
+
+      const res = await fetch('/api/hotel/folios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folioId: folio.id,
+          txnType: 'CREDIT',
+          description: label,
+          amount: discAmt,
+          sourceModule: 'DISCOUNT',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Discount of ₹${discAmt.toFixed(0)} applied to folio!`);
+        setDiscountPosted(true);
+        setShowDiscountForm(false);
+        setApprovedDiscountId(null);
+        await loadFolio();
+      } else {
+        toast.error(data.message || 'Failed to apply discount');
+      }
+    } catch {
+      toast.error('Connection error applying discount');
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
+  const handleRemoveDiscount = async () => {
+    if (!folio) return;
+    setApplyingDiscount(true);
+    try {
+      await fetch(`/api/hotel/folios?folioId=${folio.id}&sourceModule=DISCOUNT`, {
+        method: 'DELETE',
+      });
+      toast.success('Discount removed from bill');
+      setDiscountPosted(false);
+      setDiscountValue('');
+      setDiscountReason('');
+      setShowDiscountForm(false);
+      await loadFolio();
+    } catch {
+      toast.error('Failed to remove discount');
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
   // Departmental Orders & Charges
   const posOrdersList = folio?.posOrders || [];
   const laundryList = folio?.laundryRequests || [];
   const spaList = folio?.spaBookings || [];
   const otherTxns = folio?.transactions?.filter(
-    (t: any) => !['ROOM_CHARGES', 'GST', 'PAYMENT', 'CASH', 'UPI', 'CARD', 'ONLINE', 'BANK_TRANSFER', 'SPLIT'].includes(t.sourceModule)
+    (t: any) => !['ROOM_CHARGES', 'GST', 'PAYMENT', 'CASH', 'UPI', 'CARD', 'ONLINE', 'BANK_TRANSFER', 'SPLIT', 'DISCOUNT'].includes(t.sourceModule)
   ) || [];
 
   const totalPosSpend = posOrdersList.reduce((s: number, o: any) => s + (Number(o.grandTotal) || 0), 0);
@@ -611,6 +760,26 @@ function CheckoutDetailContent() {
           }}
         />
       )}
+
+      {/* Discount Approval Modal */}
+      <PosDiscountApprovalModal
+        isOpen={showDiscountApprovalModal}
+        onClose={() => setShowDiscountApprovalModal(false)}
+        billAmount={folio?.totalCharges || 0}
+        discountType={discountType}
+        discountValue={discountValueNum}
+        discountAmount={previewDiscountAmount}
+        maxAllowedPercent={discountSettings.maxStaffDiscountPercent}
+        maxAllowedAmount={discountSettings.maxStaffDiscountAmount}
+        referenceTitle={`Folio #${folio?.folioNo || checkInId} (${folio?.guest?.firstName || 'Guest'} - Room ${room?.roomNumber || '—'})`}
+        propertyCode={folio?.reservation?.property?.code || undefined}
+        source="HOTEL_FOLIO"
+        onApproved={(app) => {
+          setApprovedDiscountId(app.id);
+          setShowDiscountApprovalModal(false);
+          handleApplyDiscount(app.id);
+        }}
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1342,6 +1511,177 @@ function CheckoutDetailContent() {
             </div>
           )}
 
+          {/* ── Discount Card ─────────────────────────────────────────────────── */}
+          {!checkedOut && (
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
+              <div className="flex items-center gap-2 mb-3">
+                <Percent size={14} className="text-emerald-400" />
+                <h3 className="font-black text-white text-sm">Discount on Bill</h3>
+                {discountPosted ? (
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <CheckCircle2 size={8} /> ₹{existingDiscountAmount.toFixed(0)} Off Applied
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveDiscount}
+                      disabled={applyingDiscount}
+                      className="text-[9px] font-bold text-slate-400 hover:text-rose-400 hover:underline transition-all cursor-pointer disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDiscountForm(!showDiscountForm)}
+                    className="ml-auto text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition-all flex items-center gap-1"
+                  >
+                    {showDiscountForm ? '✕ Cancel' : '+ Add Discount'}
+                  </button>
+                )}
+              </div>
+
+              {/* Current discount summary */}
+              {discountPosted && existingDiscountAmount > 0 && (
+                <div className="mb-3 px-3 py-2 rounded-xl bg-emerald-500/8 border border-emerald-500/20">
+                  {discountTxns.map((t: any) => (
+                    <div key={t.id} className="flex items-center justify-between">
+                      <span className="text-[10px] text-emerald-300 font-bold">{t.description}</span>
+                      <span className="text-sm font-black text-emerald-400">-{fmt(t.creditAmount)}</span>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setShowDiscountForm(true)}
+                    className="mt-1.5 text-[9px] font-bold text-slate-500 hover:text-emerald-400 transition-all"
+                  >
+                    ✏️ Modify Discount
+                  </button>
+                </div>
+              )}
+
+              {/* Discount Form */}
+              {(showDiscountForm || (!discountPosted && false)) && (
+                <div className="space-y-3 animate-in slide-in-from-top-1 duration-200">
+                  {/* Type Toggle */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType('PERCENTAGE')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
+                        discountType === 'PERCENTAGE'
+                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shadow-md'
+                          : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      % Percentage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType('FIXED')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
+                        discountType === 'FIXED'
+                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shadow-md'
+                          : 'bg-slate-800/50 border border-slate-700/40 text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      ₹ Fixed Amount
+                    </button>
+                  </div>
+
+                  {/* Value Input */}
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400 font-black text-sm">
+                      {discountType === 'PERCENTAGE' ? '%' : '₹'}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={discountType === 'PERCENTAGE' ? 100 : undefined}
+                      placeholder={discountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700/40 focus:border-emerald-500/50 text-white font-bold text-sm outline-none transition-all"
+                    />
+                    {previewDiscountAmount > 0 && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-400">
+                        = ₹{previewDiscountAmount.toFixed(0)} off
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Reason Input */}
+                  <input
+                    type="text"
+                    placeholder="Reason (e.g. Loyalty, Complaint, VIP)  optional"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700/40 focus:border-emerald-500/50 text-white font-bold text-xs outline-none transition-all placeholder:text-slate-600"
+                  />
+
+                  {/* Approval requirement indicator */}
+                  {(() => {
+                    const effectivePct = (folio?.totalCharges ?? 0) > 0 ? (previewDiscountAmount / (folio?.totalCharges ?? 1)) * 100 : 0;
+                    const isApprovalRequired = discountSettings.discountApprovalEnabled && (
+                      previewDiscountAmount > discountSettings.maxStaffDiscountAmount ||
+                      effectivePct > discountSettings.maxStaffDiscountPercent
+                    );
+
+                    if (!isApprovalRequired) return null;
+
+                    return (
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2">
+                        <ShieldAlert size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                        <div className="text-[11px] text-amber-200">
+                          <p className="font-bold">Admin Approval Required</p>
+                          <p className="text-amber-400/80 text-[10px]">
+                            Exceeds staff limit ({discountSettings.maxStaffDiscountPercent}% / ₹{discountSettings.maxStaffDiscountAmount}).
+                            Manager PIN or remote Admin approval needed.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Apply Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleApplyDiscount()}
+                    disabled={applyingDiscount || discountValueNum <= 0}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/20 active:scale-95 cursor-pointer"
+                  >
+                    {applyingDiscount ? <Loader2 size={13} className="animate-spin" /> : <Percent size={13} />}
+                    {applyingDiscount
+                      ? 'Applying…'
+                      : (() => {
+                          const effectivePct = (folio?.totalCharges ?? 0) > 0 ? (previewDiscountAmount / (folio?.totalCharges ?? 1)) * 100 : 0;
+                          const isApprovalRequired = discountSettings.discountApprovalEnabled && (
+                            previewDiscountAmount > discountSettings.maxStaffDiscountAmount ||
+                            effectivePct > discountSettings.maxStaffDiscountPercent
+                          );
+                          if (isApprovalRequired) {
+                            return `Request Approval & Apply (${discountType === 'PERCENTAGE' ? `${discountValueNum}%` : `₹${discountValueNum}`})`;
+                          }
+                          return `Apply ${discountType === 'PERCENTAGE' ? `${discountValueNum}%` : `₹${discountValueNum}`} Discount`;
+                        })()}
+                  </button>
+                </div>
+              )}
+
+              {/* Prompt to open form if no discount */}
+              {!showDiscountForm && !discountPosted && (
+                <button
+                  type="button"
+                  onClick={() => setShowDiscountForm(true)}
+                  className="w-full py-3 rounded-xl border border-dashed border-emerald-500/30 text-emerald-500/60 hover:text-emerald-400 hover:border-emerald-500/60 text-xs font-black uppercase tracking-widest transition-all hover:bg-emerald-500/5 flex items-center justify-center gap-2"
+                >
+                  <Percent size={12} /> Click to Add Discount on Folio
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Balance Summary Card */}
           <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
             <div className="flex items-center gap-2 mb-4">
@@ -1369,6 +1709,16 @@ function CheckoutDetailContent() {
                   </div>
                 ))
               }
+
+              {/* Discount breakdown in summary (if posted) */}
+              {discountPosted && existingDiscountAmount > 0 && (
+                <div className="flex items-center justify-between py-1 px-2 rounded-lg bg-emerald-500/8 border border-emerald-500/15">
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                    <Percent size={10} /> Discount Applied
+                  </div>
+                  <span className="text-xs font-black text-emerald-400">-{fmt(existingDiscountAmount)}</span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between py-2 border-b border-slate-800/50">
                 <div className="flex items-center gap-1.5 text-xs text-slate-400">

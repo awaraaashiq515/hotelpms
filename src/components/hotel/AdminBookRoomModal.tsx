@@ -7,6 +7,7 @@ import {
   Sparkles, Loader2, Check, Upload, ShieldCheck, IndianRupee,
   Tag, BadgePercent, Percent,
 } from 'lucide-react';
+import { PosDiscountApprovalModal } from '@/components/discounts/PosDiscountApprovalModal';
 
 export interface RoomTypeOption {
   id: string;
@@ -123,6 +124,10 @@ export function AdminBookRoomModal({
   const [discountReason, setDiscountReason] = useState<string>('Owner Special Concession');
   const [totalAmount, setTotalAmount] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('0');
+
+  // Extra Discount Approval states
+  const [showDiscountApprovalModal, setShowDiscountApprovalModal] = useState(false);
+  const [approvedDiscountId, setApprovedDiscountId] = useState<string | null>(null);
 
   // Submitting
   const [submitting, setSubmitting] = useState(false);
@@ -271,10 +276,19 @@ export function AdminBookRoomModal({
       return;
     }
 
+    const discountPercent = grossSubTotal > 0 ? (discountAmount / grossSubTotal) * 100 : 0;
+    const isExtraDiscount = discountAmount > 200 || discountPercent > 10;
+    if (isExtraDiscount && !approvedDiscountId) {
+      setShowDiscountApprovalModal(true);
+      setErrorMsg(`Discount of ₹${discountAmount.toLocaleString('en-IN')} (${discountPercent.toFixed(1)}%) requires Admin Approval.`);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
         propertyId,
+        discountApprovalId: approvedDiscountId || undefined,
         guestData: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -941,10 +955,27 @@ export function AdminBookRoomModal({
                 </h3>
               </div>
               {discountAmount > 0 && (
-                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <BadgePercent size={11} />
-                  -₹{discountAmount.toLocaleString('en-IN')} Discount Applied
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <BadgePercent size={11} />
+                    -₹{discountAmount.toLocaleString('en-IN')} Discount Applied
+                  </span>
+                  {(discountAmount > 200 || (grossSubTotal > 0 ? (discountAmount / grossSubTotal) * 100 : 0) > 10) && (
+                    approvedDiscountId ? (
+                      <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                        ✓ Approved by Admin
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowDiscountApprovalModal(true)}
+                        className="text-[9px] font-black uppercase tracking-wider bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full animate-pulse cursor-pointer"
+                      >
+                        ⚠️ Request Admin Approval
+                      </button>
+                    )
+                  )}
+                </div>
               )}
             </div>
 
@@ -1205,6 +1236,25 @@ export function AdminBookRoomModal({
           </div>
         </form>
       </div>
+
+      {/* ── Extra Discount Approval Modal ── */}
+      <PosDiscountApprovalModal
+        isOpen={showDiscountApprovalModal}
+        onClose={() => setShowDiscountApprovalModal(false)}
+        billAmount={grossSubTotal}
+        discountType={discountType === 'PERCENT' ? 'PERCENTAGE' : 'FIXED'}
+        discountValue={discountNum}
+        discountAmount={discountAmount}
+        maxAllowedPercent={10}
+        maxAllowedAmount={200}
+        referenceTitle={assignedRoomId ? `Room Reservation` : `New Reservation`}
+        propertyCode={propertyCode}
+        source="HOTEL_BOOKING"
+        onApproved={(app) => {
+          setApprovedDiscountId(app.id);
+          setErrorMsg('');
+        }}
+      />
     </div>
   );
 }

@@ -17,13 +17,23 @@ function StockBar({ current, max, reorder }: { current: number; max: number; reo
   );
 }
 
-export function StockTable({ items, onEdit }: StockTableProps) {
+export function StockTable({ items = [], onEdit }: StockTableProps) {
   const [sort, setSort] = useState<'name' | 'stock' | 'value'>('name');
 
-  const sorted = [...items].sort((a, b) => {
-    if (sort === 'stock')   return a.currentStock - b.currentStock;
-    if (sort === 'value')   return (b.currentStock * b.unitCost) - (a.currentStock * a.unitCost);
-    return a.name.localeCompare(b.name);
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const sorted = [...safeItems].sort((a, b) => {
+    if (!a && !b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+    const aStock = Number(a.currentStock) || 0;
+    const bStock = Number(b.currentStock) || 0;
+    const aCost = Number(a.unitCost) || 0;
+    const bCost = Number(b.unitCost) || 0;
+
+    if (sort === 'stock')   return aStock - bStock;
+    if (sort === 'value')   return (bStock * bCost) - (aStock * aCost);
+    return String(a.name || '').localeCompare(String(b.name || ''));
   });
 
   const headers = [

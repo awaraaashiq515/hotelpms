@@ -18,13 +18,13 @@ export async function PATCH(
       return apiError(new Error('Status must be APPROVED or REJECTED'), 400);
     }
 
-    // Verify it belongs to this property
+    // Verify it belongs to this property or organization
     const existing = await (prisma as any).leaveRequest.findUnique({
       where: { id },
-      select: { propertyId: true },
+      select: { propertyId: true, property: { select: { organizationId: true } } },
     });
     if (!existing) return apiError(new Error('Leave request not found'), 404);
-    if (session.propertyId && existing.propertyId !== session.propertyId) {
+    if (session.organizationId && existing.property?.organizationId !== session.organizationId) {
       return apiError(new Error('Forbidden'), 403);
     }
 
@@ -38,6 +38,25 @@ export async function PATCH(
         staff: { select: { id: true, name: true, designation: true } },
       },
     });
+
+    // Mark related leave notification as read
+    try {
+      const notifs = await prisma.notification.findMany({
+        where: {
+          propertyId: existing.propertyId,
+          type: 'STAFF_LEAVE',
+          status: 'UNREAD',
+        },
+      });
+      for (const n of notifs) {
+        if (n.metadata && n.metadata.includes(id)) {
+          await prisma.notification.update({
+            where: { id: n.id },
+            data: { status: 'READ' },
+          });
+        }
+      }
+    } catch (_) {}
 
     return apiResponse(updated, `Leave request ${status.toLowerCase()}`);
   } catch (err) {

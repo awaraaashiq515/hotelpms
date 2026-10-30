@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, UserPlus, Search, Edit, Trash2, ShieldCheck, 
   ShieldAlert, RefreshCw, X, Check, Plus, Phone, Mail, 
-  Key, Briefcase, Building, Eye, EyeOff, Lock, Tablet
+  Key, Briefcase, Building, Eye, EyeOff, Lock, Tablet, ChefHat
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { StaffMemberForm } from '@/components/forms/staff-member-form';
@@ -54,6 +54,7 @@ interface StaffManagementProps {
 }
 
 export default function StaffManagement({ properties }: StaffManagementProps) {
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [users, setUsers] = useState<UserDetail[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +64,13 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
+
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(d => { if (d.authenticated) setCurrentUser(d.user); })
+      .catch(() => {});
+  }, []);
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
@@ -127,6 +135,27 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
       phone: '',
       posPin: '',
       designation: 'Waiter',
+      vehicleNumber: '',
+      vehicleType: 'BIKE',
+      deliveryLocation: '',
+      deliveryRadius: '5.0',
+    });
+    setModalError('');
+    setShowPassword(false);
+    setShowModal(true);
+  };
+
+  const openKitchenStaffModal = () => {
+    setEditingUser(null);
+    setFormData({
+      fullName: '',
+      email: '',
+      password: '',
+      roleName: 'Kitchen Staff',
+      propertyId: properties[0]?.id || '',
+      phone: '',
+      posPin: '',
+      designation: 'Kitchen Staff',
       vehicleNumber: '',
       vehicleType: 'BIKE',
       deliveryLocation: '',
@@ -279,6 +308,14 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
   };
 
   const handleDeleteUser = async (user: UserDetail) => {
+    if (currentUser?.id && user.id === currentUser.id) {
+      alert('You cannot delete your own account while logged in.');
+      return;
+    }
+    if (['HOTEL_ADMIN', 'RESTAURANTS_ADMIN', 'SUPER_ADMIN'].includes(user.role?.name || '') && currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'HOTEL_ADMIN') {
+      alert('You do not have permission to delete an Admin account.');
+      return;
+    }
     if (!confirm(`Are you sure you want to DELETE user "${user.fullName}"? This action cannot be undone.`)) return;
 
     try {
@@ -290,7 +327,7 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
         toast.success('Staff member deleted successfully!');
         loadData();
       } else {
-        alert(res.error || 'Failed to delete staff member.');
+        alert(res.error || res.message || 'Failed to delete staff member.');
       }
     } catch {
       alert('Network error. Failed to delete user.');
@@ -365,7 +402,15 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
         </div>
 
         {/* Action Buttons: perfectly aligned side-by-side with uniform height */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={openKitchenStaffModal}
+            className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 hover:border-amber-400 text-amber-200 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-[0.98] whitespace-nowrap"
+          >
+            <ChefHat size={15} className="text-amber-400" />
+            <span>Add Kitchen Staff</span>
+          </button>
           <button
             type="button"
             onClick={openCreateTabletModal}
@@ -467,6 +512,8 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
                   <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                     user.role?.name?.includes('Room Tablet') || user.designation?.includes('Room Tablet')
                       ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300 font-black'
+                      : (user.role?.name?.toLowerCase().includes('kitchen') || user.designation?.toLowerCase().includes('kitchen') || user.designation === 'Chef' || user.designation === 'Cook')
+                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 font-black'
                       : user.role?.name?.includes('ADMIN')
                       ? 'bg-violet-500/15 border-violet-500/30 text-violet-400'
                       : user.role?.name === 'DELIVERY_RIDER'
@@ -475,8 +522,23 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
                   }`}>
                     {user.role?.name?.includes('Room Tablet') || user.designation?.includes('Room Tablet')
                       ? '📱 Room Tablet Device'
+                      : (user.role?.name?.toLowerCase().includes('kitchen') || user.designation?.toLowerCase().includes('kitchen'))
+                      ? '🍳 Kitchen Staff'
+                      : user.designation === 'Chef' || user.designation === 'Cook'
+                      ? `👨‍🍳 ${user.designation}`
                       : user.role?.name || 'Staff'}
                   </span>
+                  {(user.role?.name?.toLowerCase().includes('kitchen') || user.designation?.toLowerCase().includes('kitchen') || user.designation === 'Chef' || user.designation === 'Cook') && user.property?.code && (
+                    <a
+                      href={`/kitchen-portal/${user.property.code.toLowerCase()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[9px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 flex items-center gap-0.5"
+                      title="Open Kitchen Staff Portal"
+                    >
+                      Kitchen Portal ↗
+                    </a>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -501,13 +563,15 @@ export default function StaffManagement({ properties }: StaffManagementProps) {
                       <><ShieldAlert size={10} /> Block</>
                     )}
                   </button>
-                  <button
-                    onClick={() => handleDeleteUser(user)}
-                    className="p-1.5 rounded-xl border border-white/8 hover:border-rose-500/20 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all"
-                    title="Delete Account"
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                  {user.id !== currentUser?.id && (
+                    <button
+                      onClick={() => handleDeleteUser(user)}
+                      className="p-1.5 rounded-xl border border-white/8 hover:border-rose-500/20 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition-all"
+                      title="Delete Account"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
 
               </div>

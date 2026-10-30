@@ -4,11 +4,12 @@ import type { StockItem } from './LowStockAlert';
 
 interface StockStatsProps { items: StockItem[] }
 
-export function StockStats({ items }: StockStatsProps) {
-  const totalValue    = items.reduce((s, i) => s + i.currentStock * i.unitCost, 0);
-  const lowStock      = items.filter(i => i.currentStock <= i.reorderLevel).length;
-  const outOfStock    = items.filter(i => i.currentStock === 0).length;
-  const totalItems    = items.length;
+export function StockStats({ items = [] }: StockStatsProps) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const totalValue    = safeItems.reduce((s, i) => s + (Number(i?.currentStock) || 0) * (Number(i?.unitCost) || 0), 0);
+  const lowStock      = safeItems.filter(i => i && Number(i.currentStock) <= Number(i.reorderLevel)).length;
+  const outOfStock    = safeItems.filter(i => i && Number(i.currentStock) <= 0).length;
+  const totalItems    = safeItems.length;
 
   const stats = [
     { label: 'Total Items',   value: totalItems,                                          icon: Package,      color: 'text-indigo-300 border-indigo-500/20 bg-indigo-900/20' },

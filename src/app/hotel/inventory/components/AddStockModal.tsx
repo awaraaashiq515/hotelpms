@@ -29,6 +29,7 @@ interface QtyEntry { item: StockItem; qty: number }
 
 interface AddStockModalProps {
   allItems: StockItem[];
+  existingCategories?: string[];
   onClose: () => void;
   onConfirm: (entries: QtyEntry[], newItems: StockItem[]) => void;
 }
@@ -39,29 +40,34 @@ interface AddStockModalProps {
 function AddNewItemForm({
   onAdd,
   onCancel,
-  existingCategories,
+  existingCategories = [],
 }: {
   onAdd: (item: StockItem) => void;
   onCancel: () => void;
-  existingCategories: string[];
+  existingCategories?: string[];
 }) {
+  const safeCats = Array.isArray(existingCategories) ? existingCategories : [];
   const [form, setForm] = useState({
-    name: '', category: existingCategories[0] ?? 'Linen', unit: 'Pcs',
+    name: '', category: safeCats[0] ?? 'Linen', unit: 'Pcs',
     currentStock: '', maxStock: '', reorderLevel: '', unitCost: '', supplier: '',
   });
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [err, setErr] = useState('');
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleAdd = () => {
     if (!form.name.trim())       return setErr('Product name is required');
+    if (isCustomCategory && !customCategoryInput.trim()) return setErr('Please specify the category name');
     if (!form.maxStock)          return setErr('Max stock is required');
     if (!form.unitCost)          return setErr('Unit cost is required');
     setErr('');
+    const finalCategory = isCustomCategory ? customCategoryInput.trim() : form.category;
     const item: StockItem = {
       id: `new_${Date.now()}`,
       name:         form.name.trim(),
-      category:     form.category,
+      category:     finalCategory,
       unit:         form.unit,
       currentStock: parseInt(form.currentStock) || 0,
       maxStock:     parseInt(form.maxStock) || 100,
@@ -72,7 +78,7 @@ function AddNewItemForm({
     onAdd(item);
   };
 
-  const cats = [...new Set([...ALL_CATEGORIES, ...existingCategories])];
+  const cats = [...new Set([...ALL_CATEGORIES, ...safeCats])];
 
   return (
     <div className="rounded-2xl border-2 border-orange-500/40 bg-orange-500/5 p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
@@ -96,13 +102,47 @@ function AddNewItemForm({
                        placeholder:text-slate-600 focus:outline-none focus:border-orange-500 transition-colors" />
         </div>
         <div>
-          <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1">
-            <Layers size={9} /> Category
-          </label>
-          <select value={form.category} onChange={e => set('category', e.target.value)}
-            className="w-full h-8 px-3 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500">
-            {cats.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <Layers size={9} /> Category
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCustomCategory(!isCustomCategory);
+                if (!isCustomCategory) setCustomCategoryInput('');
+              }}
+              className="text-[9px] font-bold text-orange-400 hover:text-orange-300"
+            >
+              {isCustomCategory ? 'Choose Existing' : '+ New Category'}
+            </button>
+          </div>
+          {isCustomCategory ? (
+            <input
+              type="text"
+              autoFocus
+              placeholder="e.g. Bakery, Beverages, Crockery..."
+              value={customCategoryInput}
+              onChange={e => setCustomCategoryInput(e.target.value)}
+              className="w-full h-8 px-3 bg-slate-800 border border-orange-500/60 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-orange-500"
+            />
+          ) : (
+            <select
+              value={form.category}
+              onChange={e => {
+                if (e.target.value === '__NEW__') {
+                  setIsCustomCategory(true);
+                  setCustomCategoryInput('');
+                } else {
+                  set('category', e.target.value);
+                }
+              }}
+              className="w-full h-8 px-3 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+            >
+              {cats.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="__NEW__">+ Add Custom Category...</option>
+            </select>
+          )}
         </div>
       </div>
 
@@ -177,12 +217,14 @@ function AddNewItemForm({
 ───────────────────────────────────────────── */
 function ProductPicker({
   allItems,
+  existingCategories,
   selected,
   onToggle,
   onNext,
   onNewItemAdded,
 }: {
   allItems: StockItem[];
+  existingCategories?: string[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   onNext: () => void;
@@ -192,13 +234,20 @@ function ProductPicker({
   const [cat,         setCat]         = useState('All');
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const cats = ['All', ...Array.from(new Set(allItems.map(i => i.category)))];
+  const cats = ['All', ...Array.from(new Set([...(existingCategories || []), ...(allItems || []).map(i => i?.category).filter(Boolean)]))];
 
   const visible = useMemo(() =>
-    allItems
-      .filter(i => cat === 'All' || i.category === cat)
-      .filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    (allItems || [])
+      .filter(i => {
+        if (!i) return false;
+        if (cat === 'All') return true;
+        return String(i.category || '').toLowerCase() === String(cat || '').toLowerCase();
+      })
+      .filter(i => {
+        if (!search) return true;
+        return String(i.name || '').toLowerCase().includes(search.toLowerCase());
+      })
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))),
     [allItems, cat, search]
   );
 
@@ -267,7 +316,7 @@ function ProductPicker({
           <AddNewItemForm
             onAdd={handleNewItem}
             onCancel={() => setShowAddForm(false)}
-            existingCategories={Array.from(new Set(allItems.map(i => i.category)))}
+            existingCategories={existingCategories || Array.from(new Set(allItems.map(i => i.category)))}
           />
         )}
 
@@ -496,7 +545,7 @@ function QuantitySetter({
 /* ─────────────────────────────────────────────
    Main Modal
 ───────────────────────────────────────────── */
-export function AddStockModal({ allItems: initialItems, onClose, onConfirm }: AddStockModalProps) {
+export function AddStockModal({ allItems: initialItems, existingCategories, onClose, onConfirm }: AddStockModalProps) {
   const [step,      setStep]      = useState<1 | 2>(1);
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
   const [qtys,      setQtys]      = useState<Record<string, number>>({});
@@ -569,6 +618,7 @@ export function AddStockModal({ allItems: initialItems, onClose, onConfirm }: Ad
         {step === 1 ? (
           <ProductPicker
             allItems={localList}
+            existingCategories={existingCategories}
             selected={selected}
             onToggle={toggle}
             onNext={goToStep2}

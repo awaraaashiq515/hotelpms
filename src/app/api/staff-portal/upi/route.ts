@@ -161,16 +161,25 @@ async function handleUpdateUPI(req: NextRequest) {
 
       // If still no staffMember record exists, create one automatically
       if (!staffMember && user && user.propertyId) {
-        staffMember = await prisma.staffMember.create({
-          data: {
-            propertyId: user.propertyId,
-            userId: user.id,
-            name: user.fullName,
-            phone: user.phone || null,
-            designation: user.designation || 'Staff',
-            isActive: true,
-          },
+        const existingStaff = await prisma.staffMember.findFirst({
+          where: { userId: user.id },
         });
+        if (existingStaff) {
+          staffMember = existingStaff;
+        } else {
+          try {
+            staffMember = await prisma.staffMember.create({
+              data: {
+                propertyId: user.propertyId,
+                userId: user.id,
+                name: user.fullName,
+                phone: user.phone || null,
+                designation: user.designation || 'Staff',
+                isActive: true,
+              },
+            });
+          } catch (_) {}
+        }
       }
     }
 

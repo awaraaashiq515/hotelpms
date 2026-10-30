@@ -60,4 +60,7 @@ menu-scanner/backend/temp_uploads/
 *.empty_backup
 *.old
 wt-settings.json
+*.log
+scripts/backup-log.json
+tsconfig.check.json
 

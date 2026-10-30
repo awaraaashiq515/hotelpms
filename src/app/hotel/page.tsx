@@ -8,11 +8,12 @@ import {
   TrendingUp, Globe, BarChart3, MapPin, BrushIcon, Wrench, Cpu, Shirt,
   Package, Building2, ChefHat, Receipt, Moon, Banknote,
   IndianRupee, Users, Crown, Brain, Wifi, Settings,
-  ChevronDown, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
+  ChevronDown, ChevronRight, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
   UserCheck, Radio, Navigation, UtensilsCrossed, Monitor, Bell,
   Trash2, Download, Eye, Printer, ShoppingCart, Tag, Bike, FileText,
   Phone, Music2, Lock, Plus,
   Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers, BedDouble, ConciergeBell,
+  ShieldCheck,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 import { SelectRoomOrderModal } from '@/components/hotel/pos/SelectRoomOrderModal';
@@ -960,6 +961,7 @@ const DEPARTMENTS = [
       { name: 'Bookings Manager',   href: '/hotel/bookings',        icon: PlusCircle },
       { name: 'Agent Bookings',      href: '/hotel/agent-bookings',  icon: Handshake  },
       { name: 'Room Availability',   href: '/hotel/calendar',        icon: Calendar   },
+      { name: 'Security & Verify',   href: '/security-portal',       icon: ShieldCheck },
       { name: 'Email Bookings',      href: '/hotel/email-bookings',  icon: ScrollText },
     ],
   },
@@ -1005,6 +1007,8 @@ const DEPARTMENTS = [
       { name: 'Room Service Dining',  href: '/hotel/room-service', icon: ChefHat  },
       { name: "Today's Meal Menus",   href: '/hotel/daily-menus',  icon: UtensilsCrossed },
       { name: 'Guest CRM Profiles',   href: '/hotel/crm',          icon: Users    },
+      { name: 'Local Sightseeing',    href: '/hotel/sightseeing',  icon: MapPin   },
+      { name: 'Bike Rentals',         href: '/bike-rental-portal', icon: Bike     },
       { name: 'Guest Directory',      href: '/hotel/guests',       icon: Users    },
       { name: 'Loyalty & Rewards',    href: '/hotel/loyalty',      icon: Crown    },
     ],
@@ -1167,9 +1171,10 @@ const DEPARTMENTS = [
     iconBg: 'bg-slate-700/40',
     cardBorder: 'border-slate-800 hover:border-slate-600/60',
     modules: [
-      { name: 'Staff & Team',         href: '/hotel/staff',       icon: Users    },
-      { name: 'Hotel Settings',       href: '/hotel/settings',          icon: Settings },
-      { name: 'Printer Settings',     href: '/hotel/settings/printers', icon: Printer  },
+      { name: 'Backup & Restore',     href: '/hotel/backup',            icon: ShieldCheck },
+      { name: 'Staff & Team',         href: '/hotel/staff',             icon: Users       },
+      { name: 'Hotel Settings',       href: '/hotel/settings',          icon: Settings    },
+      { name: 'Printer Settings',     href: '/hotel/settings/printers', icon: Printer     },
     ],
   },
 ];
@@ -1187,6 +1192,8 @@ export default function HotelDashboard() {
   const [clearMode, setClearMode]       = useState<'bookings' | 'all'>('bookings');
   const [clearing, setClearing]         = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
+  const [pendingAgentBookings, setPendingAgentBookings] = useState<any[]>([]);
 
   const checkDemoData = () => {
     fetch('/api/hotel/demo-data')
@@ -1231,6 +1238,24 @@ export default function HotelDashboard() {
       .then(d => { if (d.success) setProperty(d.data); })
       .catch(() => {});
     checkDemoData();
+    fetch('/api/leave-requests?status=PENDING')
+      .then(r => r.json())
+      .then(d => { if (d.success && Array.isArray(d.data)) setPendingLeavesCount(d.data.length); })
+      .catch(() => {});
+
+    const loadPendingAgentBookings = () => {
+      fetch('/api/hotel/agent-bookings?status=PENDING')
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && Array.isArray(d.data)) {
+            setPendingAgentBookings(d.data);
+          }
+        })
+        .catch(() => {});
+    };
+    loadPendingAgentBookings();
+    const agentInterval = setInterval(loadPendingAgentBookings, 8000);
+    return () => clearInterval(agentInterval);
   }, []);
 
   const handleClearDemoData = async () => {
@@ -1378,6 +1403,18 @@ export default function HotelDashboard() {
               )}
             </div>
 
+            {/* If Hotel Admin / Owner is viewing Front Desk PMS, provide 1-click button to Hotel Admin Dashboard */}
+            {(session?.role === 'HOTEL_ADMIN' || session?.role === 'SUPER_ADMIN') && (
+              <Link
+                href={session?.propertyCode ? `/${session.propertyCode}/hoteladmin` : property?.code ? `/${property.code}/hoteladmin` : '/hoteladmin'}
+                className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-xs font-black text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 transition-all duration-200 active:scale-95 flex-shrink-0"
+                title="Go to Hotel Executive Admin Dashboard"
+              >
+                <Crown size={13} className="text-amber-400" />
+                <span className="hidden sm:inline">Admin Dashboard</span>
+              </Link>
+            )}
+
             {/* New Booking */}
             <Link
               href="/hotel/bookings"
@@ -1396,6 +1433,40 @@ export default function HotelDashboard() {
         {/* Thin accent line at bottom */}
         <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.3) 50%, transparent 100%)' }} />
       </div>
+
+      {/* ── Pending Agent Bookings Realtime Live Banner ── */}
+      {pendingAgentBookings.length > 0 && (
+        <div className="mb-2.5 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-violet-950/80 via-[#15112e]/90 to-indigo-950/80 border border-violet-500/40 shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300 shrink-0">
+              <Handshake size={18} className="animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  {pendingAgentBookings.length} New Agent {pendingAgentBookings.length === 1 ? 'Booking' : 'Bookings'} Received
+                </span>
+                <span className="text-[9.5px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                  Action Required
+                </span>
+              </div>
+              <p className="text-[11.5px] text-slate-300 mt-0.5 truncate max-w-xl">
+                Guest: <span className="font-bold text-white">{pendingAgentBookings[0]?.guestName}</span> ({pendingAgentBookings[0]?.roomType}) • Agent: <span className="text-violet-300 font-semibold">{pendingAgentBookings[0]?.agent?.name || 'Partner'}</span> • Total: ₹{Number(pendingAgentBookings[0]?.totalAmount || 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/hotel/agent-bookings"
+              className="h-8 px-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-violet-600/30 active:scale-95 transition-all"
+            >
+              <span>Review Bookings</span>
+              <ChevronRight size={13} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── Demo Data Active Banner (Compact Single Row) ── */}
       {hasDemoData && (
@@ -1418,6 +1489,31 @@ export default function HotelDashboard() {
           >
             <span>🗑️</span> Remove Demo Data
           </button>
+        </div>
+      )}
+
+      {/* ── Pending Staff Leave Requests Alert Banner ── */}
+      {pendingLeavesCount > 0 && (
+        <div className="mb-2.5 py-2 px-3.5 rounded-xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-slate-900/40 border border-purple-500/40 flex items-center justify-between gap-2 shadow-lg text-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 truncate">
+            <div className="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0 text-purple-300">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <div className="truncate">
+              <p className="text-[12px] font-bold text-white flex items-center gap-1.5 truncate">
+                <span>{pendingLeavesCount} Staff Leave Request{pendingLeavesCount > 1 ? 's' : ''} Awaiting Approval</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-purple-500 text-white">
+                  Action Required
+                </span>
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/hotel/hr"
+            className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold transition-all shadow-md active:scale-95 flex items-center gap-1 shrink-0"
+          >
+            Review &amp; Approve &rarr;
+          </Link>
         </div>
       )}
 

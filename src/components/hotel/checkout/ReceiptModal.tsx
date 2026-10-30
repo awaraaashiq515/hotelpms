@@ -58,6 +58,7 @@ export interface FolioDetail {
     checkIns: { id: string; status: string; checkedInAt: string; expectedCheckoutAt: string }[];
     property?: {
       id: string;
+      code?: string | null;
       name: string;
       brandName?: string | null;
       logoUrl?: string | null;

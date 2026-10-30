@@ -58,14 +58,16 @@ interface StaffMemberFormProps {
 
 // ── Designation Options ────────────────────────────────────────────────────
 const DESIGNATIONS = [
-  // Restaurant Roles
-  { value: 'Waiter',      emoji: '🍽', color: '#6366F1' },
-  { value: 'Captain',     emoji: '⭐', color: '#F59E0B' },
-  { value: 'Head Waiter', emoji: '👑', color: '#EF4444' },
-  { value: 'Steward',     emoji: '🧹', color: '#8B5CF6' },
-  { value: 'Cashier',     emoji: '💰', color: '#10B981' },
-  { value: 'Chef',        emoji: '👨‍🍳', color: '#F97316' },
-  { value: 'Helper',      emoji: '🤝', color: '#14B8A6' },
+  // Kitchen & Restaurant Roles
+  { value: 'Kitchen Staff', emoji: '🍳', color: '#F97316' },
+  { value: 'Chef',          emoji: '👨‍🍳', color: '#EA580C' },
+  { value: 'Cook',          emoji: '🥘', color: '#FB923C' },
+  { value: 'Waiter',        emoji: '🍽', color: '#6366F1' },
+  { value: 'Captain',       emoji: '⭐', color: '#F59E0B' },
+  { value: 'Head Waiter',   emoji: '👑', color: '#EF4444' },
+  { value: 'Steward',       emoji: '🧹', color: '#8B5CF6' },
+  { value: 'Cashier',       emoji: '💰', color: '#10B981' },
+  { value: 'Helper',        emoji: '🤝', color: '#14B8A6' },
   
   // Hotel PMS Roles
   { value: 'Receptionist',      emoji: '🛎️', color: '#3B82F6' },
@@ -413,6 +415,29 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
                 </p>
                 <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#C7D2FE', lineHeight: 1.4 }}>
                   Set the email and password below. Logging in with this account at <strong>/login</strong> will automatically pair the tablet device to <strong>/room-portal</strong> and launch the guest room login screen.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(selectedDesignations.includes('Kitchen Staff') || selectedDesignations.includes('Chef') || selectedDesignations.includes('Cook')) && (
+            <div style={{
+              marginTop: '12px',
+              padding: '12px 16px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(234, 88, 12, 0.1) 100%)',
+              border: '1px solid rgba(249, 115, 22, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}>
+              <span style={{ fontSize: '22px' }}>🍳</span>
+              <div>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#FB923C' }}>
+                  Kitchen Staff Portal Access
+                </p>
+                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#FED7AA', lineHeight: 1.4 }}>
+                  This staff account can log in directly to the <strong>Kitchen Staff App (/kitchen-portal)</strong> to track incoming KOT food orders, check remaining store inventory, and raise stock refill requisitions.
                 </p>
               </div>
             </div>

@@ -13,8 +13,9 @@ import { ScheduleTab } from '../../../components/transport-portal/ScheduleTab';
 import { BookingsTab } from '../../../components/transport-portal/BookingsTab';
 import { EarningsTab } from '../../../components/transport-portal/EarningsTab';
 import { SettingsTab } from '../../../components/transport-portal/SettingsTab';
+import StaffHRPanel from '../../../components/staff/StaffHRPanel';
 
-type Tab = 'bookings' | 'schedule' | 'vehicles' | 'earnings' | 'settings';
+type Tab = 'bookings' | 'schedule' | 'vehicles' | 'earnings' | 'settings' | 'hr';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; color: string }[] = [
   { id: 'bookings',  label: 'Bookings',     icon: Calendar,      color: 'from-violet-500 to-purple-600' },
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; color: string }[]
   { id: 'vehicles',  label: 'My Vehicles',  icon: Car,           color: 'from-orange-500 to-red-500' },
   { id: 'earnings',  label: 'Earnings',     icon: IndianRupee,   color: 'from-green-500 to-emerald-600' },
   { id: 'settings',  label: 'Settings',     icon: Settings,      color: 'from-slate-500 to-slate-600' },
+  { id: 'hr',        label: 'My HR',        icon: Calendar,      color: 'from-indigo-500 to-purple-600' },
 ];
 
 export default function TransportDashboardPage() {
@@ -160,6 +162,19 @@ export default function TransportDashboardPage() {
             isOnline={isOnline}
             onToggleOnline={handleToggleOnline}
           />
+        )}
+        {activeTab === 'hr' && driver && (
+          <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4">
+            <div className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">🚗 My HR Dashboard</div>
+            <div className="text-[10px] text-slate-500 mb-4">Attendance · Leave Applications · Overtime</div>
+            <StaffHRPanel
+              userId={driver.id}
+              accentColor="#6366f1"
+              showClockButton={true}
+              staffName={driver.name}
+              designation="Transport Driver"
+            />
+          </div>
         )}
       </main>
 

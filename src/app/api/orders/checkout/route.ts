@@ -155,7 +155,44 @@ export async function POST(request: NextRequest) {
       }
 
       const totalDiscount = (membershipDiscount || 0) + (manualDiscount || 0) + (couponDiscountCalculated || 0) + (loyaltyDiscountCalculated || 0);
-      // ----------------------------
+
+      // ── EXTRA DISCOUNT APPROVAL CHECK ──────────────────────
+      if (manualDiscount && manualDiscount > 0) {
+        const prop = await tx.property.findUnique({
+          where: { id: session.propertyId! },
+          select: {
+            discountApprovalEnabled: true,
+            maxStaffDiscountPercent: true,
+            maxStaffDiscountAmount: true,
+          },
+        });
+
+        if (prop?.discountApprovalEnabled) {
+          const discountPercent = totalRaw > 0 ? (manualDiscount / totalRaw) * 100 : 0;
+          const maxPercent = prop.maxStaffDiscountPercent ?? 10.0;
+          const maxAmount = prop.maxStaffDiscountAmount ?? 200.0;
+
+          const isExtraDiscount = discountPercent > (maxPercent + 0.01) || manualDiscount > (maxAmount + 0.01);
+
+          if (isExtraDiscount) {
+            const approvalId = body.discountApprovalId;
+            if (!approvalId) {
+              throw new Error(
+                `Extra discount of ₹${manualDiscount.toFixed(0)} (${discountPercent.toFixed(1)}%) requires Admin approval. Allowed limit is ${maxPercent}% / ₹${maxAmount}.`
+              );
+            }
+
+            const approval = await tx.discountApproval.findUnique({
+              where: { id: approvalId },
+            });
+
+            if (!approval || approval.status !== 'APPROVED') {
+              throw new Error('This extra discount has not been approved by Admin yet.');
+            }
+          }
+        }
+      }
+      // ───────────────────────────────────────────────────────
 
       const itemsWithTax = items.map((item: any) => {
         const detail = productDetails.find((p: any) => p.id === item.id);

@@ -60,4 +60,4 @@ export interface HistoryOrder {
   items: OrderItem[];
 }
 
-export type PortalTab = 'MY_DELIVERIES' | 'AVAILABLE' | 'EARNINGS' | 'CHAT' | 'SETTINGS';
+export type PortalTab = 'MY_DELIVERIES' | 'AVAILABLE' | 'EARNINGS' | 'CHAT' | 'SETTINGS' | 'HR';

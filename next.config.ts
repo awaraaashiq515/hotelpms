@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   serverExternalPackages: ['serialport', 'socket.io', '@serialport/bindings-cpp'],
   typescript: {
     // TypeScript check is already verified locally; skipping here prevents Docker OOM crash

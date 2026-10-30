@@ -1,23 +1,16 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { Users, Plus, Calendar, Award, RefreshCw, X, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { Users, Plus, Calendar, RefreshCw, X, AlertCircle } from 'lucide-react';
 import { LeaveManagement, type LeaveRequest } from './components/LeaveManagement';
 import { StaffKPIs, type StaffKPI } from './components/StaffKPIs';
-
-interface RawStaff {
-  id: string;
-  name: string;
-  designation: string | null;
-  department?: string | null;
-  salary?: number | null;
-  isActive?: boolean;
-}
+import { StaffMonthlyReport, type AttendanceRecord, type StaffItem, type LeaveItem } from './components/StaffMonthlyReport';
 
 export default function HRPage() {
-  const [tab, setTab]                 = useState<'leave' | 'kpi'>('leave');
+  const [tab, setTab]                 = useState<'report' | 'leave' | 'kpi'>('report');
   const [leaves, setLeaves]           = useState<LeaveRequest[]>([]);
-  const [staffList, setStaffList]     = useState<RawStaff[]>([]);
-  const [attendance, setAttendance]   = useState<any[]>([]);
+  const [staffList, setStaffList]     = useState<StaffItem[]>([]);
+  const [attendance, setAttendance]   = useState<AttendanceRecord[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
 
@@ -31,7 +24,7 @@ export default function HRPage() {
   const [newReason, setNewReason]             = useState('');
 
   // Load all real data
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -47,7 +40,7 @@ export default function HRPage() {
         setLeaves(Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []));
       }
 
-      let fetchedStaff: RawStaff[] = [];
+      let fetchedStaff: StaffItem[] = [];
       if (staffRes.ok) {
         const json = await staffRes.json();
         fetchedStaff = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -61,16 +54,17 @@ export default function HRPage() {
         const json = await attRes.json();
         setAttendance(Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []));
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load HR data');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load HR data';
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  }
+  }, [newLeaveStaffId]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Approve leave
   async function handleApprove(id: string) {
@@ -139,8 +133,9 @@ export default function HRPage() {
       setLeaves(prev => [newLeave, ...prev]);
       setShowAddModal(false);
       setNewReason('');
-    } catch (err: any) {
-      alert(err.message || 'Failed to create leave request');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create leave request';
+      alert(msg);
     } finally {
       setSubmitting(false);
     }
@@ -160,7 +155,7 @@ export default function HRPage() {
       id: s.id,
       name: s.name,
       designation: s.designation || 'Staff',
-      dept: (s as any).department || 'General',
+      dept: s.department || 'General',
       attendancePct,
       presentDays,
       totalDays: totalWorkingDays,
@@ -216,12 +211,12 @@ export default function HRPage() {
           >
             <Plus size={12} /> Apply Leave
           </button>
-          <a
+          <Link
             href="/hotel/staff-members"
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-black uppercase tracking-wider transition-colors border border-white/5"
           >
             Manage Staff
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -248,23 +243,36 @@ export default function HRPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {([['leave', 'Leave Requests'], ['kpi', 'Performance & Attendance']] as const).map(([v, l]) => (
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: 'report' as const, label: 'Monthly Shift & Overtime Report', icon: '📊' },
+          { key: 'leave' as const, label: `Leave Requests (${pendingCount})`, icon: '🏖️' },
+          { key: 'kpi' as const, label: 'Performance & Attendance', icon: '🏆' },
+        ].map((t) => (
           <button
-            key={v}
-            onClick={() => setTab(v)}
-            className={`flex items-center gap-1.5 px-4 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors ${
-              tab === v ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 h-9 rounded-xl text-[10.5px] font-black uppercase tracking-wider transition-all ${
+              tab === t.key 
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-1 ring-blue-400/40' 
+                : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700/50'
             }`}
           >
-            {v === 'leave' ? <Calendar size={12} /> : <Award size={12} />}
-            {l}
+            <span>{t.icon}</span>
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
-      {tab === 'leave' ? (
+      {tab === 'report' ? (
+        <StaffMonthlyReport
+          staffList={staffList}
+          attendance={attendance}
+          leaves={leaves as unknown as LeaveItem[]}
+          onApplyLeave={() => setShowAddModal(true)}
+        />
+      ) : tab === 'leave' ? (
         <LeaveManagement
           requests={leaves}
           onApprove={handleApprove}
@@ -322,7 +330,7 @@ export default function HRPage() {
                   </label>
                   <select
                     value={newLeaveType}
-                    onChange={e => setNewLeaveType(e.target.value as any)}
+                    onChange={e => setNewLeaveType(e.target.value as 'CASUAL' | 'SICK' | 'EARNED' | 'EMERGENCY')}
                     className="w-full h-10 px-3 rounded-xl bg-slate-800 border border-white/10 text-white text-xs focus:outline-none focus:border-blue-500"
                   >
                     <option value="CASUAL">Casual Leave</option>

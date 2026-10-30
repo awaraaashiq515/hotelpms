@@ -9,6 +9,7 @@ import { NotificationBell } from '@/components/hotel/NotificationBell';
 import { RoomStatusTicker } from '@/components/hotel/navigation/RoomStatusTicker';
 import { HotelBackButton } from '@/components/hotel/navigation/HotelBackButton';
 import { HotelHeader } from '@/components/hotel/HotelHeader';
+import { setupAudioUnlock } from '@/lib/notification-sound';
 
 // Inner layout that can access sidebar context
 function HotelLayoutInner({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Auto-collapse sidebar to the side across all hotel pages for a clean, full-width layout
   useEffect(() => {
+    setupAudioUnlock();
     setIsOpen(false);
   }, [pathname, setIsOpen]);
 

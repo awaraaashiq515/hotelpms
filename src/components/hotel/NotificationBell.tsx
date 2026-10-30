@@ -18,8 +18,14 @@ import {
   Inbox,
   Utensils,
   Receipt,
-  CreditCard
+  CreditCard,
+  Calendar,
+  Check,
+  X,
+  Handshake
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { playNotificationSound } from '@/lib/notification-sound';
 
 export interface Notification {
   id: string;
@@ -117,16 +123,39 @@ export function getNotificationRoute(type: string, title: string, message: strin
     return '/hotel/inventory';
   }
 
+  if (text.includes('leave') || text.includes('staff_leave')) {
+    return '/hotel/hr';
+  }
+
+  if (type === 'AGENT_BOOKING' || text.includes('agent booking') || text.includes('agent_booking') || text.includes('agent')) {
+    return '/hotel/agent-bookings';
+  }
+
   return '/hotel';
 }
 
 export function getNotificationIcon(type: string, title: string, message: string) {
   const text = `${title} ${message} ${type}`.toLowerCase();
 
+  if (type === 'AGENT_BOOKING' || text.includes('agent booking') || text.includes('agent_booking') || text.includes('agent')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-violet-500/20 border border-violet-500/40 flex items-center justify-center shrink-0">
+        <Handshake className="text-violet-400 w-4 h-4" />
+      </div>
+    );
+  }
+
   if (text.includes('check-out') || text.includes('checkout')) {
     return (
       <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
         <DoorOpen className="text-rose-400 w-4 h-4" />
+      </div>
+    );
+  }
+  if (text.includes('leave') || text.includes('staff_leave')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+        <Calendar className="text-purple-400 w-4 h-4" />
       </div>
     );
   }
@@ -268,7 +297,23 @@ export function NotificationBell() {
 
         // Play sound when any new notification arrives (skip on first page load)
         if (!isFirstLoadRef.current && newCount > prevCountRef.current) {
-          playChime();
+          const hasAgentBooking = newNotifs.some(n => n.type === 'AGENT_BOOKING' || n.title.toLowerCase().includes('agent'));
+          if (hasAgentBooking) {
+            playNotificationSound('agent_booking', 1.3);
+            const latestAgent = newNotifs.find(n => n.type === 'AGENT_BOOKING' || n.title.toLowerCase().includes('agent'));
+            if (latestAgent) {
+              toast.info(latestAgent.title || '🔔 New Agent Booking Received!', {
+                description: latestAgent.message,
+                duration: 8000,
+                action: {
+                  label: 'View Booking',
+                  onClick: () => router.push('/hotel/agent-bookings'),
+                },
+              });
+            }
+          } else {
+            playNotificationSound('ding');
+          }
         }
         prevCountRef.current = newCount;
         isFirstLoadRef.current = false;
@@ -341,6 +386,25 @@ export function NotificationBell() {
     }
   };
 
+  const handleQuickLeaveAction = async (leaveId: string, notifId: string, status: 'APPROVED' | 'REJECTED') => {
+    try {
+      const res = await fetch(`/api/leave-requests/${leaveId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        toast.success(`Leave request ${status.toLowerCase()} successfully`);
+        setNotifications(prev => prev.filter(n => n.id !== notifId));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } else {
+        toast.error(`Failed to ${status.toLowerCase()} leave`);
+      }
+    } catch {
+      toast.error('Network error updating leave');
+    }
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Trigger Icon */}
@@ -387,39 +451,74 @@ export function NotificationBell() {
           {/* List Content */}
           <div className="max-h-[360px] overflow-y-auto no-scrollbar divide-y divide-slate-800/50">
             {notifications.length > 0 ? (
-              notifications.map((notif) => (
-                <div
-                  key={notif.id}
-                  onClick={() => handleNotificationClick(notif)}
-                  className="px-4 py-3 hover:bg-slate-800/40 transition-colors cursor-pointer flex gap-3 group text-left"
-                >
-                  {getNotificationIcon(notif.type, notif.title, notif.message)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-1.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-xs font-bold text-slate-200 truncate group-hover:text-white transition-colors">
-                          {notif.title}
-                        </p>
-                        {notif.property?.type === 'RESTAURANT' && (
-                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
-                            Restaurant
-                          </span>
-                        )}
+              notifications.map((notif) => {
+                let leaveReqId: string | null = null;
+                if (notif.type === 'STAFF_LEAVE' || notif.title.toLowerCase().includes('leave')) {
+                  try {
+                    const meta = notif.metadata ? JSON.parse(notif.metadata) : null;
+                    leaveReqId = meta?.leaveRequestId || null;
+                  } catch (_) {}
+                }
+
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => handleNotificationClick(notif)}
+                    className="px-4 py-3 hover:bg-slate-800/40 transition-colors cursor-pointer flex gap-3 group text-left"
+                  >
+                    {getNotificationIcon(notif.type, notif.title, notif.message)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-xs font-bold text-slate-200 truncate group-hover:text-white transition-colors">
+                            {notif.title}
+                          </p>
+                          {notif.property?.type === 'RESTAURANT' && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                              Restaurant
+                            </span>
+                          )}
+                          {notif.type === 'AGENT_BOOKING' && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30 shrink-0">
+                              Agent Booking
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-semibold text-slate-500 flex items-center gap-1 shrink-0 mt-0.5">
+                          <Clock size={10} />
+                          {formatTimeAgo(notif.createdAt)}
+                        </span>
                       </div>
-                      <span className="text-[9px] font-semibold text-slate-500 flex items-center gap-1 shrink-0 mt-0.5">
-                        <Clock size={10} />
-                        {formatTimeAgo(notif.createdAt)}
-                      </span>
+                      <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 font-medium leading-relaxed">
+                        {notif.message}
+                      </p>
+
+                      {/* Quick Approve / Reject Buttons for Leave */}
+                      {leaveReqId && (
+                        <div className="flex items-center gap-2 mt-2 pt-1 border-t border-slate-800/60" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleQuickLeaveAction(leaveReqId!, notif.id, 'APPROVED')}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 font-bold text-[10px] flex items-center gap-1 transition-all active:scale-95"
+                          >
+                            <Check size={11} strokeWidth={2.5} />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            onClick={() => handleQuickLeaveAction(leaveReqId!, notif.id, 'REJECTED')}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 font-bold text-[10px] flex items-center gap-1 transition-all active:scale-95"
+                          >
+                            <X size={11} strokeWidth={2.5} />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 font-medium leading-relaxed">
-                      {notif.message}
-                    </p>
+                    <div className="flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ChevronRight size={14} className="text-indigo-400" />
+                    </div>
                   </div>
-                  <div className="flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight size={14} className="text-indigo-400" />
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="py-12 flex flex-col items-center justify-center text-center px-4">
                 <div className="w-12 h-12 rounded-full bg-slate-800/40 border border-slate-700/50 flex items-center justify-center mb-3">

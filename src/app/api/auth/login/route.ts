@@ -207,7 +207,17 @@ export async function POST(request: NextRequest) {
     const { passwordHash, ...safeUser } = user
 
     return apiResponse(
-      { user: { ...safeUser, propertyCode }, token },
+      {
+        user: {
+          ...safeUser,
+          role: user.role.name,
+          roleName: user.role.name,
+          propertyCode,
+          propertyType,
+          propertySlug,
+        },
+        token
+      },
       'Logged in successfully'
     )
 

@@ -13,10 +13,12 @@ import {
   Settings, BarChart3, X, Plus, Calendar,
   Phone, User, Loader2, Check, Clock, AlertCircle, ChevronDown,
   Package, ShoppingCart, AlertTriangle, Minus, Search as SearchIcon,
-  Mail, Inbox, Send, ShieldCheck, Download,
+  Mail, Inbox, Send, ShieldCheck, Download, MessageSquare, ShieldAlert
 } from 'lucide-react';
 import { AdminBookRoomModal } from '@/components/hotel/AdminBookRoomModal';
 import { EmailBookingConfigModal } from '@/components/hotel/EmailBookingConfigModal';
+import { AdminDiscountApprovalFloatingAlert } from '@/components/discounts/AdminDiscountApprovalFloatingAlert';
+import { AdminLeaveApprovalFloatingAlert } from '@/components/hotel/staff/AdminLeaveApprovalFloatingAlert';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -847,8 +849,9 @@ export default function HotelAdminDashboard() {
           </div>
         </Link>
       </div>
-      <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
         {[
+          { label: 'Staff Chat', path: `${p}/hoteladmin/chat`, icon: MessageSquare, color: 'text-indigo-400', bg: 'from-indigo-500/15 to-indigo-500/5', border: 'border-indigo-500/20' },
           { label: 'Rooms', path: `${p}/hoteladmin/rooms`, icon: BedDouble, color: 'text-amber-400', bg: 'from-amber-500/15 to-amber-500/5', border: 'border-amber-500/20' },
           { label: 'Bookings', path: `${p}/hoteladmin/bookings`, icon: Hotel, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-500/5', border: 'border-emerald-500/20' },
           { label: 'Guests', path: `${p}/hoteladmin/guests`, icon: UserCheck, color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-500/5', border: 'border-purple-500/20' },
@@ -1036,9 +1039,17 @@ export default function HotelAdminDashboard() {
 
   const StaffSection = () => (
     <div className="space-y-4">
-      <div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">Staff Status</p>
-        <p className="text-base font-black text-white">Who's on duty today</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">Staff Status</p>
+          <p className="text-base font-black text-white">Who's on duty today</p>
+        </div>
+        <Link
+          href={`${p}/hoteladmin/chat`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 text-xs font-black hover:bg-indigo-500/25 transition-all active:scale-95 shadow-sm"
+        >
+          <MessageSquare size={13} /> Staff Chat
+        </Link>
       </div>
 
       <div className="p-4 rounded-3xl bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/15">
@@ -1068,9 +1079,14 @@ export default function HotelAdminDashboard() {
       {/* ON DUTY */}
       {staff.attendanceToday.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-            <p className="text-[11px] font-black text-emerald-400 uppercase tracking-wider">On Duty ({staff.presentNow})</p>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full" />
+              <p className="text-[11px] font-black text-emerald-400 uppercase tracking-wider">On Duty ({staff.presentNow})</p>
+            </div>
+            <Link href={`${p}/hoteladmin/chat`} className="text-[10px] text-indigo-400 font-black hover:underline flex items-center gap-1">
+              Broadcast Message →
+            </Link>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {staff.attendanceToday.map(member => (
@@ -1087,9 +1103,18 @@ export default function HotelAdminDashboard() {
                     {member.hoursWorked > 0 && <span>· {member.hoursWorked.toFixed(1)}h</span>}
                   </div>
                 </div>
-                <span className={`text-[9px] font-black px-2 py-1 rounded-lg whitespace-nowrap ${member.stillPresent ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-slate-800 text-slate-500'}`}>
-                  {member.stillPresent ? '● On Duty' : '✓ Done'}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href={`${p}/hoteladmin/chat?staffId=${member.id}`}
+                    className="p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 transition-all"
+                    title={`Send chat to ${member.name}`}
+                  >
+                    <MessageSquare size={14} />
+                  </Link>
+                  <span className={`text-[9px] font-black px-2 py-1 rounded-lg whitespace-nowrap ${member.stillPresent ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-slate-800 text-slate-500'}`}>
+                    {member.stillPresent ? '● On Duty' : '✓ Done'}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -1586,6 +1611,11 @@ export default function HotelAdminDashboard() {
   // ────────────────────────────────────────────────────────────────────────────
   return (
     <div className="text-white" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      {/* ── Realtime Discount Approval Floating Alert with Chime ── */}
+      <AdminDiscountApprovalFloatingAlert />
+
+      {/* ── Realtime Staff Leave Approval Floating Alert with Chime ── */}
+      <AdminLeaveApprovalFloatingAlert />
 
       {/* ── FOOD ORDER MODAL ── */}
       {showFoodOrderModal && (
@@ -1861,6 +1891,20 @@ export default function HotelAdminDashboard() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-black shadow-lg shadow-amber-500/20 active:scale-95 cursor-pointer">
               <Plus size={13} /> Book Room
             </button>
+            <Link
+              href={`${p}/hoteladmin/chat`}
+              className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 active:scale-95"
+              title="Staff & Team Chat"
+            >
+              <MessageSquare size={15} />
+            </Link>
+            <Link
+              href={`${p}/hoteladmin/discounts`}
+              className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 active:scale-95"
+              title="Discount Approvals"
+            >
+              <ShieldAlert size={15} />
+            </Link>
             <button onClick={() => fetchData(true)} disabled={refreshing}
               className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 disabled:opacity-40">
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
@@ -1947,6 +1991,20 @@ export default function HotelAdminDashboard() {
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
               Refresh
             </button>
+            <Link href={`${p}/hoteladmin/chat`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-black text-sm hover:bg-indigo-500/25 transition-all active:scale-95">
+              <MessageSquare size={15} /> Staff Chat
+            </Link>
+            <Link href={`${p}/hoteladmin/discounts`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 font-black text-sm hover:bg-amber-500/25 transition-all active:scale-95"
+              title="Review Staff Extra Discount Approvals">
+              <ShieldAlert size={15} /> Discounts
+            </Link>
+            <Link href={`${p}/hoteladmin/backup`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-500/15 border border-green-500/30 text-green-300 font-black text-sm hover:bg-green-500/25 transition-all active:scale-95"
+              title="Data Backup & Restore">
+              <ShieldCheck size={15} /> Backup
+            </Link>
             <Link href="/hotel/pos/tables"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 font-black text-sm hover:bg-orange-500/25 transition-all active:scale-95">
               <UtensilsCrossed size={15} /> F&B Order

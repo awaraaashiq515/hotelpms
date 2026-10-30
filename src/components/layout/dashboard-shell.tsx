@@ -89,11 +89,16 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children, sessio
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-64px)] lg:h-[calc(100vh-80px)]">
         {sideBar}
         
-        <main className={`flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-[#090d16] no-scrollbar relative ${isHotelAdminRoute ? 'pb-20 lg:pb-0' : ''}`}>
-          <div className={`h-full w-full ${relativePath === '/billing' || relativePath === '/bar-pos' || relativePath === '/cafe-pos' || relativePath === '/operations/delivery' ? 'p-0' : 'p-3 sm:p-4 md:p-6 lg:p-8'}`}>
-            {children}
-          </div>
-        </main>
+        {(() => {
+          const isChatRoute = pathname.includes('/hoteladmin/chat');
+          return (
+            <main className={`flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-[#090d16] no-scrollbar relative ${isHotelAdminRoute ? (isChatRoute ? 'pb-16 lg:pb-0' : 'pb-20 lg:pb-0') : ''}`}>
+              <div className={`h-full w-full ${isChatRoute || relativePath === '/billing' || relativePath === '/bar-pos' || relativePath === '/cafe-pos' || relativePath === '/operations/delivery' ? 'p-0' : 'p-3 sm:p-4 md:p-6 lg:p-8'}`}>
+                {children}
+              </div>
+            </main>
+          );
+        })()}
       </div>
 
       {/* Mobile App Bottom Bar for Hotel Admin */}

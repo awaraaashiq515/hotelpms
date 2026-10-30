@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Handshake, Search, RefreshCw, Loader2, Phone,
   IndianRupee, Clock, CheckCircle2, X, UserCheck, Star,
   BadgeCheck, AlertCircle, Calendar, Users,
   ArrowUpRight, Sparkles, TrendingUp, Wallet,
-  ChevronDown, Building2,
+  ChevronDown, Building2, Volume2, VolumeX, Bell, CreditCard
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import Link from 'next/link';
+import { setupAudioUnlock, playNotificationSound, isSoundEnabled, setSoundEnabled } from '@/lib/notification-sound';
+import ProofDocumentsModal, { parseKycFromNotes } from '@/components/agent-portal/ProofDocumentsModal';
 
 interface AgentBooking {
   id: string;
@@ -70,18 +72,65 @@ export default function AgentBookingsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [updating, setUpdating] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [selectedBookingForProof, setSelectedBookingForProof] = useState<AgentBooking | null>(null);
 
-  useEffect(() => { load(); }, []);
+  const isInitialLoadRef = useRef(true);
+  const prevCountRef = useRef(0);
 
-  const load = async () => {
-    setLoading(true);
+  useEffect(() => {
+    setupAudioUnlock();
+    setSoundEnabledState(isSoundEnabled());
+    load();
+
+    // Auto-polling every 12 seconds so new agent & group bookings ring the front desk bell in real-time
+    const interval = setInterval(() => {
+      load(true);
+    }, 12000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const load = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const res = await fetch('/api/hotel/agent-bookings');
       const data = await res.json();
-      if (data.success) setBookings(data.data || []);
-      else toast.error('Failed to load agent bookings.');
-    } catch { toast.error('Network error.'); }
-    finally { setLoading(false); }
+      if (data.success) {
+        const newBookings: AgentBooking[] = data.data || [];
+        setBookings(newBookings);
+
+        // Sound alert if new booking/group enquiry arrived
+        if (!isInitialLoadRef.current && newBookings.length > prevCountRef.current) {
+          const latest = newBookings[0];
+          playNotificationSound('booking');
+          const isGroup = latest?.roomType?.includes('[GROUP]') || latest?.notes?.includes('[GROUP');
+          toast.info(isGroup ? `🔔 New Agent Group Booking Received!` : `🔔 New Agent Booking Received!`, {
+            description: `${latest?.guestName || 'Agent Lead'} — ${latest?.roomType || 'Booking'}`,
+            duration: 8000,
+          });
+        }
+        prevCountRef.current = newBookings.length;
+        isInitialLoadRef.current = false;
+      } else {
+        if (!isSilent) toast.error('Failed to load agent bookings.');
+      }
+    } catch {
+      if (!isSilent) toast.error('Network error.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabledState(next);
+    setSoundEnabled(next);
+    if (next) {
+      playNotificationSound('booking');
+      toast.success('🔊 Front Desk Chime Enabled! (Bell tested)');
+    } else {
+      toast.info('🔇 Front Desk Chime Muted');
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -94,6 +143,7 @@ export default function AgentBookingsPage() {
       });
       const data = await res.json();
       if (data.success) {
+        playNotificationSound('success');
         const msgs: Record<string, string> = {
           CONFIRMED: 'Booking confirmed successfully!',
           CANCELLED: 'Booking rejected.',
@@ -101,7 +151,7 @@ export default function AgentBookingsPage() {
           COMPLETED: 'Stay marked as completed!',
         };
         toast.success(msgs[status] || 'Updated.');
-        load();
+        load(true);
       } else toast.error(data.message || 'Update failed.');
     } catch { toast.error('Connection error.'); }
     finally { setUpdating(null); }
@@ -147,8 +197,20 @@ export default function AgentBookingsPage() {
           <h1 className="text-2xl md:text-3xl font-black text-white leading-none">Agent Bookings</h1>
           <p className="text-xs text-slate-500 font-medium">Bookings submitted by travel agents — review, confirm & manage</p>
         </div>
-        <div className="flex items-center gap-2 self-start">
-          <button onClick={load} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition-all">
+        <div className="flex items-center gap-2 self-start flex-wrap">
+          <button
+            onClick={toggleSound}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+              soundEnabled
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-sm'
+                : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+            }`}
+            title={soundEnabled ? 'Front Desk Chime Active (Click to mute/test)' : 'Sound Muted (Click to enable)'}
+          >
+            {soundEnabled ? <Volume2 size={14} className="text-emerald-400 animate-pulse" /> : <VolumeX size={14} />}
+            <span>{soundEnabled ? 'Chime ON' : 'Chime Muted'}</span>
+          </button>
+          <button onClick={() => load(false)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition-all">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
           <Link href="/hotel/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/30">
@@ -258,6 +320,11 @@ export default function AgentBookingsPage() {
                         <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${st.bg} ${st.color} ${st.border}`}>
                           <Icon size={8} /> {st.label}
                         </span>
+                        {(b.roomType.includes('[GROUP]') || b.notes?.includes('[GROUP ENQUIRY')) && (
+                          <span className="text-[9px] font-black text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Users size={9} /> GROUP BOOKING
+                          </span>
+                        )}
                         {b.commissionPaid && (
                           <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">COMM PAID</span>
                         )}
@@ -311,16 +378,43 @@ export default function AgentBookingsPage() {
                         <Row label="Commission" val={`₹${b.commission.toLocaleString()} @ ${b.agent?.commissionRate}%`} />
                         <Row label="Comm Status" val={b.commissionPaid ? '✓ Paid' : '⏳ Pending'} highlight={b.commissionPaid} />
                       </div>
-                      {b.notes && (
-                        <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400">
-                          <span className="font-bold text-slate-300">Note: </span>{b.notes}
+                      {b.notes && b.notes.includes('[KYC VERIFIED:') ? (
+                        <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                            <CheckCircle2 size={12} />
+                            <span>Guest KYC Verified (Aadhaar / PAN)</span>
+                          </div>
+                          <p className="text-[10px] text-emerald-200/80 break-words font-mono">
+                            {b.notes.split('[KYC VERIFIED:')[1]?.replace(']', '') || b.notes}
+                          </p>
                         </div>
-                      )}
+                      ) : b.notes ? (
+                        <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 whitespace-pre-line">
+                          <span className="font-bold text-slate-300 block mb-1">Enquiry Notes:</span>
+                          {b.notes}
+                        </div>
+                      ) : null}
                       {b.specialRequests && (
                         <div className="p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-[11px] text-amber-400">
                           <span className="font-bold">Special Request: </span>{b.specialRequests}
                         </div>
                       )}
+
+                      {/* Customer ID Proof Documents Button */}
+                      {(() => {
+                        const kyc = parseKycFromNotes(b.notes);
+                        const count = kyc.docs.length;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBookingForProof(b)}
+                            className="w-full py-2 px-3 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm"
+                          >
+                            <CreditCard size={13} className="text-violet-400" />
+                            <span>Customer ID Proof Documents ({count})</span>
+                          </button>
+                        );
+                      })()}
                     </div>
 
                     {/* Actions */}
@@ -372,6 +466,20 @@ export default function AgentBookingsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Customer Proof Documents Modal */}
+      {selectedBookingForProof && (
+        <ProofDocumentsModal
+          bookingId={selectedBookingForProof.id}
+          guestName={selectedBookingForProof.guestName}
+          notes={selectedBookingForProof.notes}
+          canUpload={true}
+          onClose={() => setSelectedBookingForProof(null)}
+          onUpdated={() => {
+            load(true);
+          }}
+        />
       )}
     </div>
   );

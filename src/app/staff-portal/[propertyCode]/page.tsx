@@ -9,6 +9,7 @@ import AudioPlayer from '@/components/staff/walkie-talkie/AudioPlayer'
 import { useAutoPlay, globalAudioUnlocker } from '@/components/staff/walkie-talkie/useAutoPlay'
 import AutoPlayNotification from '@/components/staff/walkie-talkie/AutoPlayNotification'
 import StaffAttendancePanel from '@/components/staff/StaffAttendancePanel'
+import StaffHRPanel from '@/components/staff/StaffHRPanel'
 import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
 import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
 import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
@@ -2397,7 +2398,7 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
     { key: 'pos', label: 'Orders', emoji: '📋' },
     { key: 'room-order', label: 'Room Svc', emoji: '🏨' },
     { key: 'kyc', label: 'KYC Scan', emoji: '📸' },
-    { key: 'attendance', label: 'Attend', emoji: '📅' },
+    { key: 'attendance', label: 'HR / Duty', emoji: '📅' },
     { key: 'settings', label: 'Settings', emoji: '⚙️' },
   ]
 
@@ -3049,9 +3050,21 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
           </div>
         )}
 
-        {/* ══════════ ATTENDANCE TAB ══════════ */}
+        {/* ══════════ ATTENDANCE & HR TAB ══════════ */}
         {activeTab === 'attendance' && user && (
-          <StaffAttendancePanel user={user} wtToken={wtToken} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <StaffHRPanel
+              userId={user.id}
+              propertyId={user.propertyId || user.property?.id}
+              wtToken={wtToken}
+              accentColor="#6366f1"
+              showClockButton={true}
+              staffName={user.fullName || user.staffMember?.name}
+              designation={user.designation || user.role?.name || user.staffMember?.designation || 'Staff'}
+              propertyName={user.property?.name}
+              propertyCode={user.property?.code}
+            />
+          </div>
         )}
 
         {/* ══════════ SETTINGS TAB ══════════ */}

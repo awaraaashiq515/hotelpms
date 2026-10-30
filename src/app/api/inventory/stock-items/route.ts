@@ -11,27 +11,52 @@ export async function GET(request: NextRequest) {
     if (!session) {
       staff = await getWTUserFromRequest(request as any);
     }
-    if (!session && !staff) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const lowStockOnly = searchParams.get('lowStock') === 'true';
     const itemType = searchParams.get('itemType');
-    // WT staff must pass propertyId explicitly
+    
+    // WT staff or portal must pass propertyId/propertyCode explicitly
     let propertyIdParam = searchParams.get('propertyId') || searchParams.get('propertyCode');
+    let targetPropertyIds: string[] = [];
     if (propertyIdParam && propertyIdParam !== 'all') {
       const prop = await resolvePropertyIdentifier(propertyIdParam, session);
-      if (prop) propertyIdParam = prop.id;
+      if (prop) {
+        propertyIdParam = prop.id;
+        targetPropertyIds = [prop.id];
+        const fullProp = await prisma.property.findUnique({
+          where: { id: prop.id },
+          select: { organizationId: true },
+        });
+        if (fullProp?.organizationId) {
+          const siblings = await prisma.property.findMany({
+            where: { organizationId: fullProp.organizationId },
+            select: { id: true },
+          });
+          targetPropertyIds = siblings.map((s) => s.id);
+        }
+      }
+    }
+
+    if (!session && !staff && !propertyIdParam) {
+      return apiError(new Error('Unauthorized: propertyId or propertyCode is required'), 401);
     }
 
     let where: any;
     if (session) {
       where = getMultiTenantWhere(session, propertyIdParam);
+      if (targetPropertyIds.length > 1) {
+        where.propertyId = { in: targetPropertyIds };
+      }
     } else {
-      // WT token path — filter by propertyId passed in query
-      const propertyId = propertyIdParam || staff?.propertyId;
-      if (!propertyId) return apiError(new Error('propertyId is required'), 400);
-      where = { propertyId };
+      if (targetPropertyIds.length > 0) {
+        where = { propertyId: { in: targetPropertyIds } };
+      } else {
+        const propertyId = propertyIdParam || staff?.propertyId;
+        if (!propertyId) return apiError(new Error('propertyId is required'), 400);
+        where = { propertyId };
+      }
     }
     if (search) {
       where.name = { contains: search };
@@ -43,6 +68,7 @@ export async function GET(request: NextRequest) {
 
     const warehouseId = searchParams.get('warehouseId');
 
+    // 1. Fetch from StockItem
     const stockItems = await prisma.stockItem.findMany({
       where,
       include: {
@@ -51,8 +77,8 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
-    // Calculate current balance from movements
-    const enriched = await Promise.all(
+    // Calculate current balance from movements for StockItem
+    const enrichedStock = await Promise.all(
       stockItems.map(async (item: any) => {
         const movementWhere: any = { stockItemId: item.id };
         if (warehouseId) {
@@ -64,19 +90,93 @@ export async function GET(request: NextRequest) {
           _sum: { qtyIn: true, qtyOut: true },
         });
 
-        // If filtering by warehouse, opening stock usually applies only to the default warehouse
-        // or we treat it as 0 for other warehouses unless there's an OPENING movement there.
-        // For simplicity, if warehouseId is provided, we only use movements in that warehouse.
         const currentStock = (agg._sum.qtyIn || 0) - (agg._sum.qtyOut || 0);
         const finalStock = currentStock;
-        
         const isLow = finalStock <= item.reorderLevel;
-        return { ...item, currentStock: finalStock, isLow };
+        return {
+          id: item.id,
+          propertyId: item.propertyId,
+          name: item.name,
+          sku: item.sku || item.itemType || 'RESTAURANT',
+          unit: item.unit || 'kg',
+          openingStock: item.openingStock,
+          minimumStock: item.minimumStock,
+          reorderLevel: item.reorderLevel,
+          costPrice: item.costPrice,
+          itemType: item.itemType || 'RESTAURANT',
+          currentStock: finalStock,
+          isLow,
+          products: item.products || [],
+          source: 'STOCK_ITEM',
+        };
       })
     );
 
-    const result = lowStockOnly ? enriched.filter((i) => i.isLow) : enriched;
-    return apiResponse(result);
+    // 2. Fetch existing items from InventoryItem (Hotel & Store Inventory)
+    const activePropertyIds = targetPropertyIds.length > 0
+      ? targetPropertyIds
+      : (where.propertyId?.in ? where.propertyId.in : [where.propertyId].filter(Boolean));
+
+    const inventoryWhere: any = {
+      isActive: true,
+      propertyId: activePropertyIds.length > 1 ? { in: activePropertyIds } : (activePropertyIds[0] ? activePropertyIds[0] : where.propertyId),
+    };
+    if (search) {
+      inventoryWhere.name = { contains: search };
+    }
+
+    const inventoryItems = await prisma.inventoryItem.findMany({
+      where: inventoryWhere,
+      orderBy: [{ sku: 'asc' }, { name: 'asc' }],
+    });
+
+    const enrichedInventory = inventoryItems.map((item) => {
+      const currentStock = Number(item.currentQuantity) || 0;
+      const minThreshold = Number(item.minThreshold) || 0;
+      const isLow = currentStock <= minThreshold;
+      return {
+        id: item.id,
+        propertyId: item.propertyId,
+        name: item.name,
+        sku: item.sku || 'F&B',
+        unit: item.unit || 'pcs',
+        openingStock: 0,
+        minimumStock: minThreshold,
+        reorderLevel: minThreshold,
+        costPrice: Number(item.costPrice) || 0,
+        itemType: item.sku || 'F&B',
+        currentStock,
+        isLow,
+        products: [],
+        source: 'INVENTORY_ITEM',
+      };
+    });
+
+    // Merge without duplicates by lowercase name
+    const existingNames = new Set(enrichedStock.map((i) => i.name.toLowerCase().trim()));
+    const combined = [...enrichedStock];
+
+    for (const inv of enrichedInventory) {
+      if (!existingNames.has(inv.name.toLowerCase().trim())) {
+        existingNames.add(inv.name.toLowerCase().trim());
+        combined.push(inv);
+      }
+    }
+
+    let filtered = combined;
+    if (itemType && itemType !== 'ALL') {
+      filtered = filtered.filter(
+        (i) =>
+          String(i.itemType || '').toUpperCase() === itemType.toUpperCase() ||
+          String(i.sku || '').toUpperCase() === itemType.toUpperCase()
+      );
+    }
+
+    if (lowStockOnly) {
+      filtered = filtered.filter((i) => i.isLow || i.currentStock <= 0);
+    }
+
+    return apiResponse(filtered);
   } catch (error) {
     return apiError(error);
   }

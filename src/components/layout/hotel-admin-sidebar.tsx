@@ -9,7 +9,7 @@ import {
   ClipboardList, TrendingUp, Settings, ChevronDown, ChevronRight,
   Sparkles, CreditCard, PackageSearch, BarChart2, UserCheck,
   BookOpen, Wrench, Coffee, ShieldCheck, Bell, Building2, Receipt,
-  DoorOpen, Moon
+  DoorOpen, Moon, MessageSquare, ShieldAlert
 } from 'lucide-react';
 import { useSidebar } from '@/context/sidebar-context';
 
@@ -114,6 +114,16 @@ export const HotelAdminSidebar: React.FC = () => {
         { name: 'Pending Payments', path: `${p}/hoteladmin/billing?status=PENDING` },
       ],
     },
+    // ── Discount Approvals ──
+    {
+      name: 'Discount Approvals',
+      path: `${p}/hoteladmin/discounts`,
+      icon: ShieldAlert,
+      subItems: [
+        { name: 'Pending Requests', path: `${p}/hoteladmin/discounts` },
+        { name: 'Discount Rules & PIN', path: `${p}/hoteladmin/discounts?tab=settings` },
+      ],
+    },
     // ── Revenue Analytics ──
     {
       name: 'Revenue & Finance',
@@ -154,6 +164,16 @@ export const HotelAdminSidebar: React.FC = () => {
         { name: 'Live Attendance', path: `${p}/hoteladmin/staff?tab=attendance` },
       ],
     },
+    // ── Staff & Team Chat ──
+    {
+      name: 'Staff & Team Chat',
+      path: `${p}/hoteladmin/chat`,
+      icon: MessageSquare,
+      subItems: [
+        { name: 'Group Broadcast', path: `${p}/hoteladmin/chat` },
+        { name: 'Staff 1-on-1 Chat', path: `${p}/hoteladmin/chat` },
+      ],
+    },
     // ── Accounts & Expenses ──
     {
       name: 'Accounts & Expenses',
@@ -169,6 +189,12 @@ export const HotelAdminSidebar: React.FC = () => {
       name: 'Property Settings',
       path: `${p}/hoteladmin/settings`,
       icon: Settings,
+    },
+    // ── Backup & Restore ──
+    {
+      name: 'Backup & Restore',
+      path: `${p}/hoteladmin/backup`,
+      icon: ShieldCheck,
     },
   ];
 

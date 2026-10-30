@@ -88,8 +88,18 @@ export function getMultiTenantWhere(session: any, propertyIdParam?: string | nul
     return {};
   }
 
-  // 2. ADMIN: Organization-wide visibility by default
-  if (role === 'RESTAURANTS_ADMIN') {
+  // 2. ADMIN / HOTEL: Organization-wide visibility by default
+  const isOrgAdmin = [
+    'RESTAURANTS_ADMIN',
+    'HOTEL_ADMIN',
+    'SUPER_ADMIN',
+    'ADMIN',
+    'HOTEL_MANAGER',
+    'HOTEL_RECEPTIONIST',
+    'OWNER'
+  ].includes(role);
+
+  if (isOrgAdmin) {
     if (!organizationId) {
       console.warn('[Security] Admin session missing organizationId. Restricted to home property.');
       // If we don't have organizationId, we can't search "all properties", 
