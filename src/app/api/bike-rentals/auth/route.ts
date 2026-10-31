@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. If not found or password didn't match, check User table (unified login)
+    // 2. If not found or password didn't match, check User table ONLY if user has a Bike role
     if (!isValidPassword) {
       const user = await prisma.user.findFirst({
         where: {
@@ -182,39 +182,49 @@ export async function POST(req: NextRequest) {
           ],
           isActive: true,
         },
-        include: { property: true },
+        include: { property: true, role: true },
       });
 
       if (user && user.passwordHash) {
-        const userPassValid = await comparePassword(password, user.passwordHash);
-        if (userPassValid) {
-          isValidPassword = true;
+        const roleName = (typeof user.role === 'object' ? (user as any).role?.name : (user as any).role) || '';
+        const designation = ((user as any).designation || '').toLowerCase();
+        const isBikeRole = 
+          roleName === 'BIKE_RENTAL' || 
+          roleName === 'BIKE_VENDOR' || 
+          roleName.toLowerCase().includes('bike') ||
+          designation.includes('bike');
 
-          // Find or auto-link vendor record for this user
-          if (!vendor) {
-            vendor = await prisma.bikeRentalVendor.findFirst({
-              where: {
-                OR: [
-                  { email: user.email },
-                  ...(user.propertyId ? [{ propertyId: user.propertyId }] : []),
-                ],
-              },
-            });
+        if (isBikeRole) {
+          const userPassValid = await comparePassword(password, user.passwordHash);
+          if (userPassValid) {
+            isValidPassword = true;
 
+            // Find or auto-link vendor record for this user
             if (!vendor) {
-              vendor = await prisma.bikeRentalVendor.create({
-                data: {
-                  propertyId: user.propertyId || null,
-                  name: user.fullName || 'Fleet Operator',
-                  email: user.email,
-                  phone: user.phone || identifier,
-                  shopName: user.property?.name || 'Two Wheeler Fleet Desk',
-                  city: user.property?.city || 'Local',
-                  state: user.property?.state || null,
-                  passwordHash,
-                  isActive: true,
+              vendor = await prisma.bikeRentalVendor.findFirst({
+                where: {
+                  OR: [
+                    { email: user.email },
+                    ...(user.propertyId ? [{ propertyId: user.propertyId }] : []),
+                  ],
                 },
               });
+
+              if (!vendor) {
+                vendor = await prisma.bikeRentalVendor.create({
+                  data: {
+                    propertyId: user.propertyId || null,
+                    name: user.fullName || 'Fleet Operator',
+                    email: user.email,
+                    phone: user.phone || identifier,
+                    shopName: user.property?.name || 'Two Wheeler Fleet Desk',
+                    city: user.property?.city || 'Local',
+                    state: user.property?.state || null,
+                    passwordHash,
+                    isActive: true,
+                  },
+                });
+              }
             }
           }
         }

@@ -290,27 +290,37 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // ── STEP 1: Try Singer login first (Singer is in a separate table) ──
+      // ── STEP 1: Standard Login (Hotel Owner, Front Desk, Housekeeping, Chef, Admin, Staff etc.) ──
+      // Always authenticate User table accounts first so full session cookie and role-based routing apply.
       try {
-        const singerRes = await fetch('/api/singer/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const singerData = await singerRes.json();
+        const response = await authApi.login({ email, password, captchaText, captchaToken });
 
-        if (singerData.success && singerData.token) {
-          localStorage.setItem('singer_token', singerData.token);
-          localStorage.setItem('singer_info', JSON.stringify(singerData.singer));
-          router.push('/singer-portal/dashboard');
-          router.refresh();
+        if (response.twoFactorRequired) {
+          setTempUserId(response.userId || null);
+          setShow2FA(true);
+          setLoading(false);
           return;
         }
-      } catch (_) {
-        // Singer auth failed — continue to next
+
+        await completeLogin();
+        return;
+      } catch (authErr: any) {
+        const msg = authErr?.message || '';
+        // If it's a captcha error, 2FA required, or account blocked, show it immediately
+        if (
+          msg.toLowerCase().includes('captcha') || 
+          msg.includes('2FA') || 
+          msg.toLowerCase().includes('suspended') || 
+          msg.toLowerCase().includes('deactivated')
+        ) {
+          throw authErr;
+        }
+        // Otherwise (e.g. user not in User table), try external portal logins below
       }
 
-      // ── STEP 1.5: Try Travel Agent login (TravelAgent is in a separate table) ──
+      // ── STEP 2: Dedicated External Portal Logins (Separate Tables Only) ──
+
+      // 2.1: Travel Agent (TravelAgent table)
       try {
         const agentRes = await fetch('/api/agent-portal/auth', {
           method: 'POST',
@@ -328,33 +338,26 @@ export default function LoginPage() {
           router.refresh();
           return;
         }
-      } catch (_) {
-        // Agent auth failed — continue to next
-      }
+      } catch (_) {}
 
-      // ── STEP 1.8: Try Hotel Guest / Customer login (Guest table) ──
+      // 2.2: Bike Rental Vendor (BikeRentalVendor table)
       try {
-        const guestRes = await fetch('/api/guest-portal/login', {
+        const bikeRes = await fetch('/api/bike-rentals/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: email, password }),
+          body: JSON.stringify({ action: 'login', email, password }),
         });
-        const guestData = await guestRes.json();
+        const bikeData = await bikeRes.json();
 
-        if (guestData.success && guestData.token) {
-          localStorage.setItem('guest_token', guestData.token);
-          if (guestData.guest) {
-            localStorage.setItem('guest_info', JSON.stringify(guestData.guest));
-          }
-          router.push('/guest-portal/dashboard');
+        if (bikeData.success && bikeData.vendor) {
+          localStorage.setItem('bike_vendor', JSON.stringify(bikeData.vendor));
+          router.push('/bike-rental-portal');
           router.refresh();
           return;
         }
-      } catch (_) {
-        // Guest auth failed — continue to standard login
-      }
+      } catch (_) {}
 
-      // ── STEP 1.9: Try Spa Owner login (Spa table) ──
+      // 2.3: Spa Owner (Spa table)
       try {
         const spaRes = await fetch('/api/spa/auth', {
           method: 'POST',
@@ -376,40 +379,48 @@ export default function LoginPage() {
           router.refresh();
           return;
         }
-      } catch (_) {
-        // Spa auth failed — continue to standard login
-      }
+      } catch (_) {}
 
-      // ── STEP 1.95: Try Bike Rental Vendor login (BikeRentalVendor table) ──
+      // 2.4: Singer (Singer table)
       try {
-        const bikeRes = await fetch('/api/bike-rentals/auth', {
+        const singerRes = await fetch('/api/singer/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', email, password }),
+          body: JSON.stringify({ email, password }),
         });
-        const bikeData = await bikeRes.json();
+        const singerData = await singerRes.json();
 
-        if (bikeData.success && bikeData.vendor) {
-          localStorage.setItem('bike_vendor', JSON.stringify(bikeData.vendor));
-          router.push('/bike-rental-portal');
+        if (singerData.success && singerData.token) {
+          localStorage.setItem('singer_token', singerData.token);
+          localStorage.setItem('singer_info', JSON.stringify(singerData.singer));
+          router.push('/singer-portal/dashboard');
           router.refresh();
           return;
         }
-      } catch (_) {
-        // Bike auth failed — continue to standard login
-      }
+      } catch (_) {}
 
-      // ── STEP 2: Standard Login (Hotel Owner, Driver, Supplier, Staff etc.) ──
-      const response = await authApi.login({ email, password, captchaText, captchaToken });
+      // 2.5: Hotel Guest / Customer (Guest table)
+      try {
+        const guestRes = await fetch('/api/guest-portal/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: email, password }),
+        });
+        const guestData = await guestRes.json();
 
-      if (response.twoFactorRequired) {
-        setTempUserId(response.userId || null);
-        setShow2FA(true);
-        setLoading(false);
-        return;
-      }
+        if (guestData.success && guestData.token) {
+          localStorage.setItem('guest_token', guestData.token);
+          if (guestData.guest) {
+            localStorage.setItem('guest_info', JSON.stringify(guestData.guest));
+          }
+          router.push('/guest-portal/dashboard');
+          router.refresh();
+          return;
+        }
+      } catch (_) {}
 
-      await completeLogin();
+      // If all failed
+      throw new Error('Invalid email or password. Please try again.');
     } catch (err: any) {
       if (err instanceof APIError) {
         setError(err.message);
