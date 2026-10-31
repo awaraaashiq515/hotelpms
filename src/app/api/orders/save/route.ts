@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 import { createNotification } from '@/lib/notificationService';
 
 /**
@@ -10,14 +11,44 @@ import { createNotification } from '@/lib/notificationService';
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    const wtUser = await getWTUserFromRequest(request);
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { items, restaurantTableId, orderType = 'DINE_IN', staffMemberId, driverId, roomNumber, postToFolio } = body;
+    const { items, restaurantTableId, orderType = 'DINE_IN', staffMemberId, driverId, roomNumber, postToFolio, propertyId: bodyPropertyId, propertyCode } = body;
+
+    let targetPropertyId = session?.propertyId || wtUser?.propertyId || bodyPropertyId;
+    if (!targetPropertyId && propertyCode) {
+      const p = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { code: propertyCode },
+            { code: propertyCode.toUpperCase() },
+            { code: propertyCode.toLowerCase() },
+          ]
+        },
+        select: { id: true }
+      });
+      if (p) targetPropertyId = p.id;
+    }
+
+    if (!targetPropertyId && restaurantTableId) {
+      const tbl = await prisma.table.findUnique({
+        where: { id: restaurantTableId },
+        select: { propertyId: true }
+      });
+      if (tbl) targetPropertyId = tbl.propertyId;
+    }
+
+    if (!targetPropertyId) {
+      return apiError(new Error('Property context could not be determined'), 400);
+    }
 
     if (!restaurantTableId && orderType === 'DINE_IN') {
       return apiError(new Error('Table ID is required for Dine-In orders'), 400);
     }
+
+    const currentUserId = session?.id || wtUser?.id || null;
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 1. Find or create the PosOrder
@@ -30,12 +61,18 @@ export async function POST(request: NextRequest) {
         include: { items: true }
       });
 
-      const outlet = await tx.outlet.findFirst({
-        where: { propertyId: session.propertyId! }
+      let outlet = await tx.outlet.findFirst({
+        where: { propertyId: targetPropertyId }
       });
       
       if (!outlet) {
-        throw new Error('POS Outlet not found for this property.');
+        outlet = await tx.outlet.create({
+          data: {
+            propertyId: targetPropertyId,
+            name: 'Main Outlet',
+            type: 'RESTAURANT',
+          }
+        });
       }
 
       const instructions = roomNumber ? `ROOM:${roomNumber}` : null;
@@ -47,7 +84,7 @@ export async function POST(request: NextRequest) {
         let resolvedFolioId = null;
         if (roomNumber) {
           const room = await tx.room.findFirst({
-            where: { propertyId: session.propertyId!, roomNumber: String(roomNumber) }
+            where: { propertyId: targetPropertyId, roomNumber: String(roomNumber) }
           });
           if (room) {
             const resRoom = await tx.reservationRoom.findFirst({
@@ -63,7 +100,7 @@ export async function POST(request: NextRequest) {
 
         order = await tx.posOrder.create({
           data: {
-            propertyId: session.propertyId!,
+            propertyId: targetPropertyId,
             outletId: outlet.id,
             folioId: resolvedFolioId,
             orderNo: `POS-${Date.now()}`,
@@ -74,7 +111,7 @@ export async function POST(request: NextRequest) {
             deliveryInstructions: instructions,
             staffMemberId: staffMemberId || null,
             driverId: driverId || null,
-            servedById: session.id, // Set the user placing the order
+            servedById: currentUserId, // Set the user placing the order
           },
           include: { items: true }
         });
@@ -189,7 +226,7 @@ export async function POST(request: NextRequest) {
           grandTotal, 
           ...(staffMemberId && { staffMemberId }),
           ...(driverId && { driverId }),
-          servedById: session.id, // Update waiter context
+          servedById: currentUserId, // Update waiter/housekeeper context
         }
       });
 
@@ -205,12 +242,12 @@ export async function POST(request: NextRequest) {
             select: { name: true } 
           });
           staffName = staff?.name;
-        } else if (session.id) {
+        } else if (currentUserId) {
           const u = await tx.user.findUnique({
-            where: { id: session.id },
+            where: { id: currentUserId },
             select: { fullName: true }
           });
-          staffName = u?.fullName || null;
+          staffName = u?.fullName || (wtUser?.fullName as string) || null;
         }
 
 
@@ -218,7 +255,7 @@ export async function POST(request: NextRequest) {
           data: {
             kotNo,
             orderId: order.id,
-            propertyId: session.propertyId!,
+            propertyId: targetPropertyId,
             outletId: outlet.id,
             restaurantTableId: order.restaurantTableId || null,
             parkingSlotId: null,
@@ -252,7 +289,7 @@ export async function POST(request: NextRequest) {
         const hasKitchenItems = addedProducts.some((i: any) => i.product?.menuType !== 'BAR' && i.product?.menuType !== 'CAFE');
 
         await createNotification({
-          propertyId: session.propertyId!,
+          propertyId: targetPropertyId,
           title: 'New KOT Generated',
           message: `New KOT ${kotNo} generated for Table ${order.tableNo || ''}`,
           type: 'KITCHEN',

@@ -21,7 +21,10 @@ export async function GET() {
       'WHATSAPP_PROVIDER',
       'WHATSAPP_API_KEY',
       'WHATSAPP_INSTANCE_ID',
-      'WHATSAPP_TEMPLATE_BILL'
+      'WHATSAPP_TEMPLATE_BILL',
+      'META_ACCESS_TOKEN',
+      'META_PHONE_ID',
+      'META_WABA_ID'
     ];
 
     const settings = await prisma.systemSetting.findMany({
@@ -60,7 +63,10 @@ export async function PUT(req: Request) {
       'WHATSAPP_PROVIDER',
       'WHATSAPP_API_KEY',
       'WHATSAPP_INSTANCE_ID',
-      'WHATSAPP_TEMPLATE_BILL'
+      'WHATSAPP_TEMPLATE_BILL',
+      'META_ACCESS_TOKEN',
+      'META_PHONE_ID',
+      'META_WABA_ID'
     ];
 
     for (const key of keys) {

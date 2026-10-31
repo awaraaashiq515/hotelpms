@@ -13,11 +13,11 @@ import { ActiveRentalsTab } from './components/ActiveRentalsTab';
 import { AddBikeModal } from './components/AddBikeModal';
 import { NewRentalModal } from './components/NewRentalModal';
 import { ReturnInspectionModal } from './components/ReturnInspectionModal';
-import { VendorAuthScreen } from './components/VendorAuthScreen';
 import { setupAudioUnlock, playNotificationSound } from '@/lib/notification-sound';
 
 export default function BikeRentalPortalPage() {
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState<'fleet' | 'enquiries' | 'rentals'>('fleet');
 
   // Core Data
@@ -37,21 +37,6 @@ export default function BikeRentalPortalPage() {
   const [showNewRentalModal, setShowNewRentalModal] = useState(false);
   const [preselectedBike, setPreselectedBike] = useState<BikeItem | null>(null);
   const [bookingForReturn, setBookingForReturn] = useState<BookingItem | null>(null);
-
-  // Load saved session on mount + unlock audio on mobile
-  useEffect(() => {
-    setupAudioUnlock();
-    try {
-      const saved = localStorage.getItem('bike_vendor');
-      if (saved) {
-        const v = JSON.parse(saved);
-        if (v && v.id) {
-          setVendor(v);
-          loadPortalData(v.id, false);
-        }
-      }
-    } catch (_) {}
-  }, []);
 
   const loadPortalData = useCallback(async (vendorId: string, isSilent = false) => {
     if (!vendorId || vendorId === 'undefined' || vendorId === 'null') return;
@@ -126,6 +111,53 @@ export default function BikeRentalPortalPage() {
     }
   }, []);
 
+  // Load session from /login (cookie session) or localStorage
+  useEffect(() => {
+    setupAudioUnlock();
+
+    const verifyAuth = async () => {
+      // 1. Check local storage
+      let currentVendor: VendorProfile | null = null;
+      try {
+        const saved = localStorage.getItem('bike_vendor');
+        if (saved) {
+          const v = JSON.parse(saved);
+          if (v && v.id) {
+            currentVendor = v;
+          }
+        }
+      } catch (_) {}
+
+      // 2. Always verify / auto-link with main session from /login
+      try {
+        const res = await fetch('/api/bike-rentals/auth');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.vendor) {
+            currentVendor = json.vendor;
+            localStorage.setItem('bike_vendor', JSON.stringify(json.vendor));
+          }
+        }
+      } catch (err) {
+        console.error('Session verify error:', err);
+      }
+
+      if (currentVendor && currentVendor.id) {
+        setVendor(currentVendor);
+        setAuthChecking(false);
+        loadPortalData(currentVendor.id, false);
+      } else {
+        // Not authenticated -> redirect to main /login screen
+        setAuthChecking(false);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login?redirect=/bike-rental-portal';
+        }
+      }
+    };
+
+    verifyAuth();
+  }, [loadPortalData]);
+
   // Real-time background auto-polling every 15 seconds so notifications trigger live with sound
   useEffect(() => {
     if (!vendor?.id) return;
@@ -135,13 +167,17 @@ export default function BikeRentalPortalPage() {
     return () => clearInterval(timer);
   }, [vendor?.id, loadPortalData]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('bike_vendor');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (_) {}
     setVendor(null);
     setBikes([]);
     setBookings([]);
     setEnquiries([]);
-    toast.success('Logged out from Bike Rental Portal');
+    toast.success('Logged out successfully');
+    window.location.href = '/login';
   };
 
   // Fleet Actions
@@ -249,15 +285,35 @@ export default function BikeRentalPortalPage() {
     }
   };
 
-  // If vendor is not logged in, render authentication screen
-  if (!vendor) {
+  // If vendor session is being checked or not authenticated, render pleasant redirect loader
+  if (authChecking || !vendor) {
     return (
-      <VendorAuthScreen
-        onAuthSuccess={(v) => {
-          setVendor(v);
-          loadPortalData(v.id);
-        }}
-      />
+      <div className="min-h-screen bg-[#070b14] text-white flex flex-col justify-center items-center px-4 relative overflow-hidden">
+        {/* Glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-rose-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="w-full max-w-sm space-y-5 text-center relative z-10">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-rose-500 to-indigo-600 flex items-center justify-center mx-auto shadow-2xl shadow-rose-500/25 animate-pulse">
+            <Bike size={32} className="text-white" />
+          </div>
+
+          <div>
+            <h2 className="text-lg font-black text-white">Bike & Scooter Rental Portal</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              {authChecking ? 'Verifying session from main login…' : 'Redirecting to login screen…'}
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <a
+              href="/login?redirect=/bike-rental-portal"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-rose-600/30 transition-all cursor-pointer"
+            >
+              Sign In with Email & Password
+            </a>
+          </div>
+        </div>
+      </div>
     );
   }
 

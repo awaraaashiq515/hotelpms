@@ -2,30 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiError, apiResponse, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return apiError(new Error('Unauthorized'), 401);
+    const wtUser = await getWTUserFromRequest(request);
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
 
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
     const floorId = searchParams.get('floorId');
     const showAll = searchParams.get('showAll') === 'true'; // bypass assignment filter for Take Order
 
-    const isWaiter = session.role?.toLowerCase() === 'staff';
+    const isWaiter = (session?.role || (wtUser?.role as any)?.name)?.toLowerCase() === 'staff';
     let assignedTableIds: string[] | null = null;
-    if (isWaiter && !showAll) {
+    const currentUserId = session?.id || wtUser?.id;
+    if (isWaiter && !showAll && currentUserId) {
       const assignments = await prisma.tableAssignment.findMany({
-        where: { userId: session.id },
+        where: { userId: currentUserId },
         select: { tableId: true }
       });
       assignedTableIds = assignments.map((a: { tableId: string }) => a.tableId);
     }
 
+    const whereClause: any = session 
+      ? getMultiTenantWhere(session, propertyIdParam)
+      : { propertyId: propertyIdParam || wtUser?.propertyId || undefined };
+
     const tables = await prisma.table.findMany({
       where: {
-        ...getMultiTenantWhere(session, propertyIdParam),
+        ...whereClause,
         ...(floorId && floorId !== 'all' ? { floorId } : {}),
         ...(assignedTableIds !== null ? { id: { in: assignedTableIds } } : {}),
       },

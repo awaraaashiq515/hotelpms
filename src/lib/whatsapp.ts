@@ -24,24 +24,37 @@ export async function sendWhatsAppMessage({
       });
     }
 
-    if (!property || !property.whatsAppEnabled) {
+    // Load Super Admin Master System Settings
+    const masterSettings = await prisma.systemSetting.findMany({
+      where: {
+        key: { in: ['WHATSAPP_ENABLED', 'WHATSAPP_PROVIDER', 'META_ACCESS_TOKEN', 'META_PHONE_ID', 'WHATSAPP_API_KEY', 'WHATSAPP_INSTANCE_ID'] }
+      }
+    });
+    const masterMap = masterSettings.reduce((acc, s) => { acc[s.key] = s.value; return acc; }, {} as Record<string, string>);
+
+    const isGloballyEnabled = masterMap['WHATSAPP_ENABLED'] === 'true';
+    const isPropEnabled = property?.whatsAppEnabled ?? false;
+
+    if (!isPropEnabled && !isGloballyEnabled) {
       // Fallback to manual wa.me link
       const encodedMessage = encodeURIComponent(message);
       return { success: true, url: `https://wa.me/${mobile}?text=${encodedMessage}`, mode: 'MANUAL' };
     }
 
-    const provider = property.whatsAppProvider || 'META';
+    const provider = property?.whatsAppProvider || masterMap['WHATSAPP_PROVIDER'] || 'META';
 
     if (provider === 'ULTRAMSG') {
-      if (!property.whatsAppApiKey || !property.whatsAppInstanceId) {
+      const apiKey = property?.whatsAppApiKey || masterMap['WHATSAPP_API_KEY'];
+      const instanceId = property?.whatsAppInstanceId || masterMap['WHATSAPP_INSTANCE_ID'];
+      if (!apiKey || !instanceId) {
         throw new Error('UltraMsg credentials not configured');
       }
-      const url = `https://api.ultramsg.com/${property.whatsAppInstanceId}/messages/chat`;
+      const url = `https://api.ultramsg.com/${instanceId}/messages/chat`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          token: property.whatsAppApiKey,
+          token: apiKey,
           to: mobile.startsWith('+') ? mobile : `+${mobile}`,
           body: message
         })
@@ -51,7 +64,7 @@ export async function sendWhatsAppMessage({
     }
 
     if (provider === 'TWILIO') {
-      if (!property.twilioAccountSid || !property.twilioAuthToken || !property.twilioFromNumber) {
+      if (!property?.twilioAccountSid || !property?.twilioAuthToken || !property?.twilioFromNumber) {
         throw new Error('Twilio credentials not configured');
       }
       const url = `https://api.twilio.com/2010-04-01/Accounts/${property.twilioAccountSid}/Messages.json`;
@@ -80,7 +93,7 @@ export async function sendWhatsAppMessage({
     }
 
     if (provider === 'AUTHKEY' || provider === 'META') {
-      const authKey = property?.whatsAppApiKey || process.env.AUTHKEY_API_KEY;
+      const authKey = property?.whatsAppApiKey || masterMap['WHATSAPP_API_KEY'] || process.env.AUTHKEY_API_KEY;
       if (provider === 'AUTHKEY' && authKey) {
         const cleanMobile = mobile.replace(/[^0-9]/g, '').slice(-10);
         const url = `https://api.authkey.io/request?authkey=${authKey}&mobile=${cleanMobile}&country_code=91&sid=guest_booking_confirmation&1=Guest&2=${encodeURIComponent(property?.name || 'Hotel')}&3=${encodeURIComponent(message)}`;
@@ -89,15 +102,24 @@ export async function sendWhatsAppMessage({
         return { success: data.status === 'success' || data.code === 200, data, mode: 'API' };
       }
 
-      if (!property?.metaAccessToken || !property?.metaPhoneId) {
-        throw new Error('Meta Graph credentials not configured');
+      // Meta Cloud API: Use Property credentials if provided; else fallback to Super Admin Master credentials
+      const metaToken = property?.metaAccessToken || masterMap['META_ACCESS_TOKEN'] || process.env.META_ACCESS_TOKEN;
+      const metaPhoneId = property?.metaPhoneId || masterMap['META_PHONE_ID'] || process.env.META_PHONE_ID;
+
+      if (!metaToken || !metaPhoneId) {
+        throw new Error('Meta Graph credentials not configured in Property or Super Admin Master Settings');
       }
-      const url = `https://graph.facebook.com/v20.0/${property.metaPhoneId}/messages`;
-      const cleanMobile = mobile.replace(/[^0-9]/g, ''); // strip leading '+' for Meta API
+
+      const url = `https://graph.facebook.com/v20.0/${metaPhoneId}/messages`;
+      let cleanMobile = mobile.replace(/[^0-9]/g, '');
+      if (cleanMobile.length === 10) {
+        cleanMobile = `91${cleanMobile}`;
+      }
+
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${property.metaAccessToken}`,
+          'Authorization': `Bearer ${metaToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

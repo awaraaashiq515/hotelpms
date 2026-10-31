@@ -184,6 +184,28 @@ export default function LoginPage() {
         return;
       }
 
+      // Check for explicit redirect param e.g. /login?redirect=/bike-rental-portal
+      if (typeof window !== 'undefined') {
+        const p = new URLSearchParams(window.location.search);
+        const redir = p.get('redirect');
+        if (redir) {
+          router.push(redir);
+          router.refresh();
+          return;
+        }
+      }
+
+      if (
+        role === 'BIKE_RENTAL' || 
+        role === 'BIKE_VENDOR' || 
+        role.toLowerCase().includes('bike') ||
+        (data.user.designation && data.user.designation.toLowerCase().includes('bike'))
+      ) {
+        router.push('/bike-rental-portal');
+        router.refresh();
+        return;
+      }
+
       if (role === 'SUPER_ADMIN') {
         router.push('/admin/dashboard');
       } else if (role === 'RESTAURANTS_ADMIN') {
@@ -356,6 +378,25 @@ export default function LoginPage() {
         }
       } catch (_) {
         // Spa auth failed — continue to standard login
+      }
+
+      // ── STEP 1.95: Try Bike Rental Vendor login (BikeRentalVendor table) ──
+      try {
+        const bikeRes = await fetch('/api/bike-rentals/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', email, password }),
+        });
+        const bikeData = await bikeRes.json();
+
+        if (bikeData.success && bikeData.vendor) {
+          localStorage.setItem('bike_vendor', JSON.stringify(bikeData.vendor));
+          router.push('/bike-rental-portal');
+          router.refresh();
+          return;
+        }
+      } catch (_) {
+        // Bike auth failed — continue to standard login
       }
 
       // ── STEP 2: Standard Login (Hotel Owner, Driver, Supplier, Staff etc.) ──

@@ -59,6 +59,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (!products || products.length === 0) {
+      // Fallback: check if the property has a parent organization with products
+      let fallbackOrgId = session?.organizationId || wtUser?.organizationId || (wtUser?.property as any)?.organizationId;
+      if (!fallbackOrgId && propertyIdParam) {
+        const propWithOrg = await prisma.property.findUnique({
+          where: { id: propertyIdParam },
+          select: { organizationId: true }
+        });
+        if (propWithOrg?.organizationId) fallbackOrgId = propWithOrg.organizationId;
+      }
+
+      if (fallbackOrgId) {
+        products = await prisma.product.findMany({
+          where: { property: { organizationId: fallbackOrgId }, isActive: true },
+          include: {
+            category: true,
+            variants: true,
+            property: { select: { name: true, city: true } },
+          },
+          orderBy: { name: 'asc' },
+        });
+      }
+    }
+
     return apiResponse(products);
   } catch (error) {
     return apiError(error);

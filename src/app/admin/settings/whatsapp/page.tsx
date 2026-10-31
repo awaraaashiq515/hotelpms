@@ -17,74 +17,75 @@ import {
   Zap,
   ToggleLeft,
   ToggleRight,
+  Phone,
+  Layers,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-        {label}
-      </label>
-      {children}
-      {hint && <p className="text-[10px] text-slate-400 dark:text-slate-600 leading-relaxed">{hint}</p>}
-    </div>
-  );
-}
 
 export default function AdminWhatsAppSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [showToken, setShowToken] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testMobile, setTestMobile] = useState('');
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Settings state
-  const [whatsAppEnabled, setWhatsAppEnabled] = useState(false);
-  const [provider, setProvider] = useState('AUTHKEY');
-  const [apiKey, setApiKey] = useState('');
-  const [templateId, setTemplateId] = useState('');
-  const [instanceId, setInstanceId] = useState('');
+  const [whatsAppEnabled, setWhatsAppEnabled] = useState(true);
+  const [provider, setProvider] = useState('META');
+
+  // Meta Cloud API Fields
   const [metaAccessToken, setMetaAccessToken] = useState('');
   const [metaPhoneId, setMetaPhoneId] = useState('');
+  const [metaWabaId, setMetaWabaId] = useState('');
+
+  // Alternate Providers
+  const [apiKey, setApiKey] = useState('');
+  const [instanceId, setInstanceId] = useState('');
+  const [templateBill, setTemplateBill] = useState('');
 
   useEffect(() => {
-    fetch('/api/hotel/whatsapp-settings')
-      .then(r => r.json())
-      .then(d => {
+    fetch('/api/super-admin/whatsapp')
+      .then((r) => r.json())
+      .then((d) => {
         if (d.success && d.data) {
-          setWhatsAppEnabled(d.data.whatsAppEnabled ?? false);
-          setProvider(d.data.whatsAppProvider || 'AUTHKEY');
-          setApiKey(d.data.whatsAppApiKey || '');
-          setTemplateId(d.data.whatsAppTemplate || '');
-          setInstanceId(d.data.whatsAppInstanceId || '');
-          setMetaAccessToken(d.data.metaAccessToken || '');
-          setMetaPhoneId(d.data.metaPhoneId || '');
+          setWhatsAppEnabled(d.data.WHATSAPP_ENABLED === 'true' || d.data.WHATSAPP_ENABLED === true);
+          setProvider(d.data.WHATSAPP_PROVIDER || 'META');
+          setMetaAccessToken(d.data.META_ACCESS_TOKEN || '');
+          setMetaPhoneId(d.data.META_PHONE_ID || '');
+          setMetaWabaId(d.data.META_WABA_ID || '');
+          setApiKey(d.data.WHATSAPP_API_KEY || '');
+          setInstanceId(d.data.WHATSAPP_INSTANCE_ID || '');
+          setTemplateBill(d.data.WHATSAPP_TEMPLATE_BILL || '');
         }
       })
-      .catch(() => toast.error('Failed to load WhatsApp settings.'))
+      .catch(() => toast.error('Failed to load Super Admin WhatsApp settings.'))
       .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/hotel/whatsapp-settings', {
+      const res = await fetch('/api/super-admin/whatsapp', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          whatsAppEnabled,
-          whatsAppProvider: provider,
-          whatsAppApiKey: apiKey,
-          whatsAppTemplate: templateId,
-          whatsAppInstanceId: instanceId,
-          metaAccessToken,
-          metaPhoneId,
+          WHATSAPP_ENABLED: whatsAppEnabled,
+          WHATSAPP_PROVIDER: provider,
+          META_ACCESS_TOKEN: metaAccessToken,
+          META_PHONE_ID: metaPhoneId,
+          META_WABA_ID: metaWabaId,
+          WHATSAPP_API_KEY: apiKey,
+          WHATSAPP_INSTANCE_ID: instanceId,
+          WHATSAPP_TEMPLATE_BILL: templateBill,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('WhatsApp settings saved successfully!');
+        toast.success('Master WhatsApp configurations saved successfully!');
       } else {
         toast.error(data.message || 'Failed to save settings.');
       }
@@ -96,36 +97,39 @@ export default function AdminWhatsAppSettingsPage() {
   };
 
   const handleTest = async () => {
-    if (!testMobile || testMobile.length < 10) {
+    if (!testMobile || testMobile.replace(/[^0-9]/g, '').length < 10) {
       toast.error('Please enter a valid 10-digit mobile number.');
       return;
     }
-    if (!apiKey) {
-      toast.error('Please save your API Key first.');
+
+    if (provider === 'META' && (!metaAccessToken || !metaPhoneId)) {
+      toast.error('Please enter your Meta Phone Number ID and Access Token before testing.');
       return;
     }
+
     setTesting(true);
+    setTestResult(null);
     try {
-      const cleanMobile = testMobile.replace(/[^0-9]/g, '').slice(-10);
-      const params = new URLSearchParams({
-        authkey: apiKey,
-        mobile: cleanMobile,
-        country_code: '91',
-        wid: templateId,
-        '1': 'John',
-        '2': '9876543210',
+      const res = await fetch('/api/super-admin/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: testMobile,
+          metaAccessToken,
+          metaPhoneId,
+        }),
       });
-      const res = await fetch(`https://api.authkey.io/request?${params.toString()}`);
       const data = await res.json();
 
-      const isSuccess = data.status === 'success' || data.code === 200 || data.Message === 'Submitted Successfully' || !!data.LogID;
-      
-      if (isSuccess) {
-        toast.success(`✅ Test message sent successfully to +91${cleanMobile}!`);
+      if (data.success) {
+        setTestResult({ success: true, message: data.message });
+        toast.success(`✅ ${data.message}`);
       } else {
-        toast.error(`Error: ${data.message || data.errorMessage || JSON.stringify(data)}`);
+        setTestResult({ success: false, message: data.message || 'Failed to send test message' });
+        toast.error(data.message || 'Error sending test message.', { duration: 6000 });
       }
-    } catch {
+    } catch (err: any) {
+      setTestResult({ success: false, message: err.message || 'Connection error' });
       toast.error('Error sending test message.');
     } finally {
       setTesting(false);
@@ -135,198 +139,328 @@ export default function AdminWhatsAppSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 size={24} className="animate-spin text-green-500" />
+        <Loader2 size={32} className="animate-spin text-emerald-500" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-16">
+    <div className="max-w-4xl mx-auto space-y-8 pb-20 px-4 pt-6">
       <Toaster richColors position="top-right" />
 
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <MessageCircle size={16} className="text-green-500" />
-            <span className="text-xs font-black text-green-500 uppercase tracking-widest">
-              Super Admin · WhatsApp Integration
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
+              Super Admin · Central Multi-Hotel Gateway
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white">WhatsApp Settings</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Automatically send WhatsApp confirmation messages to guests upon new booking creation.
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            WhatsApp Master Gateway
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
+            Configure the central Meta WhatsApp API. All hotels across the entire PMS will use this master number for automated bookings, invoices, and receipts.
           </p>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-5 h-10 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-bold transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-6 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
         >
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-          {saving ? 'Saving...' : 'Save Settings'}
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {saving ? 'Saving...' : 'Save Master Config'}
         </button>
       </div>
 
-      {/* Enable Toggle */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-bold text-slate-800 dark:text-white">Enable WhatsApp Notifications</p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            When enabled, guests will receive automatic WhatsApp messages for new bookings.
+      {/* Status & Master Switch */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 flex items-center justify-between gap-4 shadow-sm">
+        <div className="space-y-1">
+          <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Zap size={16} className={whatsAppEnabled ? 'text-emerald-500' : 'text-slate-400'} />
+            Master WhatsApp Dispatcher
+          </p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            When active, guests across any registered property will automatically receive confirmation & billing alerts.
           </p>
         </div>
         <button
-          onClick={() => setWhatsAppEnabled(v => !v)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+          type="button"
+          onClick={() => setWhatsAppEnabled((v) => !v)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs tracking-wider transition-all shadow-sm ${
             whatsAppEnabled
-              ? 'bg-green-100 text-green-700 border border-green-300'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
               : 'bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:border-slate-700'
           }`}
         >
-          {whatsAppEnabled ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-          {whatsAppEnabled ? 'ON' : 'OFF'}
+          {whatsAppEnabled ? <ToggleRight size={20} className="text-emerald-600" /> : <ToggleLeft size={20} />}
+          {whatsAppEnabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
         </button>
       </div>
 
-      {/* Authkey.io Configuration */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🔑</span>
-            <p className="text-sm font-black text-slate-800 dark:text-white">Authkey.io API Configuration</p>
-          </div>
-          <a
-            href="https://console.authkey.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs font-bold text-green-600 hover:underline"
-          >
-            Open Console <ExternalLink size={11} />
-          </a>
+      {/* Provider Selector */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <Layers size={18} className="text-emerald-600" />
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            WhatsApp Gateway Provider
+          </h2>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            onClick={() => setProvider('META')}
+            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+              provider === 'META'
+                ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm'
+                : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-sm text-slate-900 dark:text-white">Meta Cloud API</span>
+              <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                RECOMMENDED
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Official WhatsApp API directly by Meta. 100% Ban-Proof, lowest per-message cost, zero monthly fee.
+            </p>
+          </div>
 
-        {/* Instructions Box */}
-        <div className="rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-500/20 p-4 space-y-1">
-          <div className="flex gap-2">
-            <Info size={14} className="text-green-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
-              <p>1. Go to <strong>console.authkey.io</strong> → API Keys → Copy your API Key</p>
-              <p>2. Create a WhatsApp Template and submit it for approval</p>
-              <p>3. Copy the <strong className="text-green-600">Template ID (wid)</strong> from Authkey console and paste it below</p>
-              <p>4. Fill in both fields → Click <strong>Save Settings</strong> → Done! ✅</p>
+          <div
+            onClick={() => setProvider('AUTHKEY')}
+            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+              provider === 'AUTHKEY'
+                ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm'
+                : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-sm text-slate-900 dark:text-white">AuthKey.io</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Indian gateway provider for instant SMS and template WhatsApp messages.
+            </p>
+          </div>
+
+          <div
+            onClick={() => setProvider('ULTRAMSG')}
+            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+              provider === 'ULTRAMSG'
+                ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm'
+                : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-sm text-slate-900 dark:text-white">UltraMsg</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              QR code based session. Fast setup but carries WhatsApp number ban risk.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Meta Official Cloud API Config Form */}
+      {provider === 'META' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 space-y-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600">
+                <Shield size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Meta Developer Credentials</h3>
+                <p className="text-xs text-slate-400">Values obtained from developers.facebook.com</p>
+              </div>
+            </div>
+            <a
+              href="https://developers.facebook.com/apps"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-bold text-emerald-600 hover:text-emerald-500 flex items-center gap-1.5"
+            >
+              Open Meta Portal <ExternalLink size={13} />
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Phone Number ID */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Phone size={14} className="text-emerald-600" />
+                Meta Phone Number ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={metaPhoneId}
+                onChange={(e) => setMetaPhoneId(e.target.value.trim())}
+                placeholder="e.g. 1441720925684212"
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
+              />
+              <p className="text-[10px] text-slate-400">Found under Step 1 / API Setup in Meta App Dashboard.</p>
+            </div>
+
+            {/* WABA ID */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers size={14} className="text-emerald-600" />
+                WhatsApp Business Account ID (WABA ID)
+              </label>
+              <input
+                type="text"
+                value={metaWabaId}
+                onChange={(e) => setMetaWabaId(e.target.value.trim())}
+                placeholder="e.g. 1693484855467128"
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
+              />
+              <p className="text-[10px] text-slate-400">Found next to Phone Number ID in Meta Console.</p>
+            </div>
+
+            {/* Permanent Access Token */}
+            <div className="md:col-span-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Key size={14} className="text-emerald-600" />
+                  Meta Access Token (Permanent / System User Token) <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowToken((v) => !v)}
+                  className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 font-medium"
+                >
+                  {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
+                  {showToken ? 'Hide Token' : 'Show Token'}
+                </button>
+              </div>
+              <textarea
+                rows={3}
+                value={metaAccessToken}
+                onChange={(e) => setMetaAccessToken(e.target.value.trim())}
+                placeholder="Paste your EA... Meta Access Token here"
+                className={`w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white ${
+                  !showToken ? 'filter blur-[3px] hover:blur-none transition-all' : ''
+                }`}
+              />
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Use the System User token from Meta Business Manager (Never expires). Testing tokens work for 24 hours.
+              </p>
             </div>
           </div>
         </div>
+      )}
 
-        {/* API Key */}
-        <Field label="Authkey.io API Key" hint="Copy from console.authkey.io → My Account → Profile / API Key">
-          <div className="relative">
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="Paste your Authkey.io API Key here..."
-              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 pr-12"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
-        </Field>
-
-        {/* Template ID (wid) */}
-        <Field
-          label="Template ID (wid)"
-          hint="Found in Authkey Console → WhatsApp → WhatsApp Template → Numeric ID (e.g., 12345)"
-        >
-          <input
-            type="text"
-            value={templateId}
-            onChange={e => setTemplateId(e.target.value.replace(/\D/g, ''))}
-            placeholder="e.g. 12345"
-            className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/30"
-          />
-        </Field>
-
-        {/* Status Indicators */}
-        <div className="flex gap-3 flex-wrap">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${apiKey ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700'}`}>
-            {apiKey ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-            API Key {apiKey ? 'Configured ✓' : 'Not Set'}
-          </div>
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${templateId ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700'}`}>
-            {templateId ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-            Template ID {templateId ? `= ${templateId} ✓` : 'Not Set'}
-          </div>
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${whatsAppEnabled ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700'}`}>
-            {whatsAppEnabled ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-            Status {whatsAppEnabled ? 'Active ✓' : 'Disabled'}
+      {/* AuthKey.io Config Form */}
+      {provider === 'AUTHKEY' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 space-y-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                AuthKey API Key
+              </label>
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Paste AuthKey API Key"
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 text-sm font-mono outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                Template WID
+              </label>
+              <input
+                type="text"
+                value={instanceId}
+                onChange={(e) => setInstanceId(e.target.value)}
+                placeholder="e.g. 10245"
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 text-sm font-mono outline-none"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Message Preview */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
+      {/* UltraMsg Config Form */}
+      {provider === 'ULTRAMSG' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 space-y-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                UltraMsg Token
+              </label>
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="UltraMsg Token"
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 text-sm font-mono outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                Instance ID
+              </label>
+              <input
+                type="text"
+                value={instanceId}
+                onChange={(e) => setInstanceId(e.target.value)}
+                placeholder="e.g. instance12345"
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 text-sm font-mono outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Test Sender Tool */}
+      <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 rounded-3xl p-6 md:p-8 space-y-4">
         <div className="flex items-center gap-2">
-          <MessageCircle size={14} className="text-green-500" />
-          <p className="text-sm font-black text-slate-800 dark:text-white">Message Preview</p>
+          <Sparkles size={20} className="text-emerald-600" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Live WhatsApp Test Dispatcher</h3>
         </div>
-        <div className="bg-[#e5ddd5] rounded-xl p-4 font-sans text-[11px] leading-relaxed text-slate-800 space-y-1">
-          <div className="bg-white rounded-lg p-3 shadow-sm max-w-xs space-y-1">
-            <p>Hi <strong>John</strong>,</p>
-            <p>Your hotel booking has been confirmed successfully!</p>
-            <p>Please use your mobile number <strong>John</strong> as username and <strong>9876543210</strong> as password to log in.</p>
-            <p>Thank you!</p>
-            <p className="text-slate-400 text-[10px] text-right pt-1">✓✓ 11:30 AM</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Test Message */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-amber-200 dark:border-amber-500/20 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <Send size={14} className="text-amber-500" />
-          <p className="text-sm font-black text-slate-800 dark:text-white">Send Test Message</p>
-        </div>
-        <p className="text-xs text-slate-500">
-          Save your settings first, then enter a 10-digit mobile number to send a live test message.
+        <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+          Test your connection right now. Enter any verified WhatsApp mobile number to dispatch a live test notification.
         </p>
-        <div className="flex gap-3">
-          <input
-            type="tel"
-            value={testMobile}
-            onChange={e => setTestMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-            placeholder="Enter 10-digit mobile number"
-            className="flex-1 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-          />
+
+        <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-2">
+          <div className="relative flex-1">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">+91</span>
+            <input
+              type="tel"
+              value={testMobile}
+              onChange={(e) => setTestMobile(e.target.value)}
+              placeholder="Enter 10-digit mobile number"
+              className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
+            />
+          </div>
           <button
             onClick={handleTest}
-            disabled={testing || !apiKey || !templateId}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold transition-all disabled:opacity-40"
+            disabled={testing}
+            className="flex items-center justify-center gap-2 px-6 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 whitespace-nowrap"
           >
-            {testing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            {testing ? 'Sending...' : 'Send Test'}
+            {testing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            {testing ? 'Sending...' : 'Send Test WhatsApp'}
           </button>
         </div>
-        {(!apiKey || !templateId) && (
-          <p className="text-xs text-amber-600 flex items-center gap-1">
-            <AlertCircle size={11} />
-            Please save your API Key and Template ID before testing.
-          </p>
-        )}
-      </div>
 
-      {/* Security Note */}
-      <div className="flex gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
-        <Shield size={14} className="text-slate-400 shrink-0 mt-0.5" />
-        <p className="text-xs text-slate-400 leading-relaxed">
-          Your API Key is stored securely in the database and is never exposed to the client browser. All WhatsApp outbound requests are executed server-side.
-        </p>
+        {testResult && (
+          <div
+            className={`p-4 rounded-2xl text-xs font-medium flex items-start gap-2.5 transition-all ${
+              testResult.success
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-300'
+            }`}
+          >
+            {testResult.success ? (
+              <CheckCircle2 size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
+            )}
+            <div className="flex-1 leading-relaxed break-words">{testResult.message}</div>
+          </div>
+        )}
       </div>
     </div>
   );

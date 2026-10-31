@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-import { sendAuthKeyWhatsAppTemplate } from '@/lib/whatsapp';
+import { sendAuthKeyWhatsAppTemplate, sendWhatsAppMessage } from '@/lib/whatsapp';
 
 export async function GET(request: NextRequest) {
   try {
@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       select: {
+        id: true,
         name: true,
         guestPortalEnabled: true,
         guestPortalPasswordMode: true,
@@ -388,7 +389,7 @@ export async function POST(request: NextRequest) {
       if (guestMobile) {
         try {
           const authKey = property.whatsAppApiKey || process.env.AUTHKEY_API_KEY;
-          if (property.whatsAppProvider === 'AUTHKEY' || authKey) {
+          if (property.whatsAppProvider === 'AUTHKEY' && authKey) {
             await sendAuthKeyWhatsAppTemplate({
               mobile: guestMobile,
               templateId: property.whatsAppTemplate || undefined,  // wid from authkey.io
@@ -402,30 +403,12 @@ export async function POST(request: NextRequest) {
               floor: floorName,
               roomPrice: roomPriceStr,
             });
-          } else if (property.whatsAppProvider === 'ULTRAMSG' && property.whatsAppApiKey && property.whatsAppInstanceId) {
-            await fetch(`https://api.ultramsg.com/${property.whatsAppInstanceId}/messages/chat`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: property.whatsAppApiKey,
-                to: guestMobile.startsWith('+') ? guestMobile : `+91${guestMobile}`,
-                body: message,
-              }),
-            });
-          } else if (property.whatsAppProvider === 'META' && property.metaAccessToken && property.metaPhoneId) {
-            const recipient = guestMobile.startsWith('+') ? guestMobile.replace('+', '') : `91${guestMobile}`;
-            await fetch(`https://graph.facebook.com/v18.0/${property.metaPhoneId}/messages`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${property.metaAccessToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                to: recipient,
-                type: 'text',
-                text: { body: message },
-              }),
+          } else {
+            // Uses Property credentials or Super Admin Master Meta Gateway
+            await sendWhatsAppMessage({
+              mobile: guestMobile,
+              message,
+              propertyId: property.id,
             });
           }
         } catch (waErr) {

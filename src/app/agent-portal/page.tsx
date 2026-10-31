@@ -16,6 +16,8 @@ import LocalServicesTab from '@/components/agent-portal/LocalServicesTab';
 import GuestKycCapture, { type KycData } from '@/components/agent-portal/GuestKycCapture';
 import ProofDocumentsModal, { parseKycFromNotes } from '@/components/agent-portal/ProofDocumentsModal';
 import EditAgentBookingModal from '@/components/agent-portal/EditAgentBookingModal';
+import GroupTripModal from '@/components/agent-portal/GroupTripModal';
+import AgentMasterInvoiceModal, { parseGroupTripData } from '@/components/agent-portal/AgentMasterInvoiceModal';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -149,6 +151,8 @@ export default function AgentPortal() {
   const [loadingHotels, setLoadingHotels] = useState(false);
   const [hotelSearch, setHotelSearch] = useState('');
   const [selectedHotel, setSelectedHotel] = useState<HotelProperty | null>(null);
+  const [showGroupTripModal, setShowGroupTripModal] = useState(false);
+  const [selectedMasterInvoiceBooking, setSelectedMasterInvoiceBooking] = useState<any>(null);
 
   // ── Hotel Detail ───────────────────────────────────────────────────────────
   const [hotelRooms, setHotelRooms] = useState<any[]>([]);
@@ -761,13 +765,6 @@ export default function AgentPortal() {
               <div className="flex items-center gap-2 text-xs flex-wrap">
                 <span className="px-3 py-1.5 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-300 font-black">{agent.agentCode}</span>
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 font-black">{agent.commissionRate}% Commission</span>
-                <button
-                  onClick={() => handleOpenGroupEnquiry('hotel')}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black hover:opacity-95 flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-                >
-                  <Users size={12} />
-                  <span>Group Enquiry</span>
-                </button>
                 <button onClick={() => setView('dashboard')} className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-black hover:text-white flex items-center gap-1.5">
                   My Bookings <ArrowRight size={11} />
                 </button>
@@ -938,10 +935,20 @@ export default function AgentPortal() {
                     <CategoryBadge cat={selectedHotel.hotelCategory} />
                   </div>
                 </div>
-                <button onClick={() => triggerBooking()}
-                  className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-sm font-black text-white shadow-lg active:scale-95 transition-all flex items-center gap-2">
-                  <Plus size={16} /> Book a Room
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={() => setShowGroupTripModal(true)}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-sm font-black text-white shadow-lg shadow-violet-600/30 active:scale-95 transition-all flex items-center gap-2 cursor-pointer">
+                    <Users size={16} /> Book Group Trip
+                  </button>
+                  <button onClick={() => handleOpenGroupEnquiry('hotel', selectedHotel)}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer">
+                    <Users size={16} /> Group Enquiry
+                  </button>
+                  <button onClick={() => triggerBooking()}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-sm font-black text-white shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer">
+                    <Plus size={16} /> Book a Room
+                  </button>
+                </div>
               </div>
               {/* Info chips */}
               <div className="flex flex-wrap gap-2 text-[10px]">
@@ -1087,6 +1094,24 @@ export default function AgentPortal() {
               <p className="text-base font-black text-violet-400">{(selectedHotel as any)?.commissionRate ?? agent.commissionRate}%</p>
             </div>
           </div>
+          {/* Booking Type Switcher */}
+          <div className="flex gap-2 p-1 bg-[#090f1e] border border-slate-800 rounded-2xl">
+            <button
+              type="button"
+              className="flex-1 py-2 rounded-xl text-xs font-black bg-violet-600 text-white shadow-md"
+            >
+              👤 Individual / Family Booking
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGroupTripModal(true)}
+              className="flex-1 py-2 rounded-xl text-xs font-black text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Users size={13} className="text-emerald-400" />
+              <span>👥 Group Trip Package</span>
+            </button>
+          </div>
+
           <form onSubmit={handleSubmitBooking} className="space-y-4">
             <div className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 space-y-3">
               <p className="text-[10px] font-black text-violet-400 uppercase tracking-wider">Guest Information</p>
@@ -1648,6 +1673,16 @@ export default function AgentPortal() {
 
                                 <button
                                   type="button"
+                                  onClick={() => setSelectedMasterInvoiceBooking(b)}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                                  title="View Master Tax Invoice, Member Manifest & WhatsApp Bill"
+                                >
+                                  <FileText size={13} className="text-emerald-400" />
+                                  <span>Master Bill & Manifest</span>
+                                </button>
+
+                                <button
+                                  type="button"
                                   onClick={() => setSelectedBookingForEdit(b)}
                                   className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                                   title="Edit booking (will be sent for hotel approval)"
@@ -1686,7 +1721,14 @@ export default function AgentPortal() {
                   <div key={b.id} className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-sm font-black text-white">{b.guestName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black text-white">{b.guestName}</p>
+                          {b.notes?.includes('[GROUP_TRIP_DATA:') && (
+                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-300 border border-violet-500/40 flex items-center gap-1">
+                              <Users size={10} /> Group Trip ({b.adults} Pax)
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-500">{b.guestPhone || 'No phone'} · {b.adults}A {b.children ? `${b.children}C` : ''}</p>
                       </div>
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
@@ -1748,6 +1790,16 @@ export default function AgentPortal() {
                                 + Add
                               </span>
                             )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMasterInvoiceBooking(b)}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                            title="View Master Tax Invoice, Member Manifest & WhatsApp Bill"
+                          >
+                            <FileText size={13} className="text-emerald-400" />
+                            <span>Master Bill & Manifest</span>
                           </button>
 
                           <button
@@ -1829,7 +1881,7 @@ export default function AgentPortal() {
 
             {/* 3. Group Enquiry */}
             <button
-              onClick={() => handleOpenGroupEnquiry('hotel')}
+              onClick={() => handleOpenGroupEnquiry('hotel', selectedHotel || undefined)}
               className="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all text-amber-400 hover:text-amber-300 font-bold"
             >
               <div className="w-5 h-5 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
@@ -1905,6 +1957,32 @@ export default function AgentPortal() {
           onSuccess={async () => {
             if (agent?.id) await refreshAgent(agent.id);
           }}
+        />
+      )}
+
+      {/* ─── GROUP TRIP & TOUR BOOKING MODAL ─── */}
+      {showGroupTripModal && agent && (selectedHotel || hotels[0]) && (
+        <GroupTripModal
+          agent={agent}
+          selectedHotel={selectedHotel || hotels[0]}
+          onClose={() => setShowGroupTripModal(false)}
+          onSuccess={async (newBooking) => {
+            if (agent?.id) await refreshAgent(agent.id);
+            setView('dashboard');
+            setDashTab('bookings');
+            if (newBooking) {
+              setSelectedMasterInvoiceBooking(newBooking);
+            }
+          }}
+        />
+      )}
+
+      {/* ─── AGENT MASTER INVOICE & MANIFEST MODAL ─── */}
+      {selectedMasterInvoiceBooking && agent && (
+        <AgentMasterInvoiceModal
+          booking={selectedMasterInvoiceBooking}
+          agent={agent}
+          onClose={() => setSelectedMasterInvoiceBooking(null)}
         />
       )}
     </div>

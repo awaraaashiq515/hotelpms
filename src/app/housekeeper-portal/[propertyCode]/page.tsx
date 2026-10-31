@@ -16,12 +16,15 @@ import {
   Activity,
   History,
   FileText,
-  Bookmark
+  Bookmark,
+  UtensilsCrossed,
+  ChefHat
 } from 'lucide-react'
 import StaffUpiSettingCard from '@/components/staff/StaffUpiSettingCard'
 import ProfilePhotoUploader from '@/components/common/ProfilePhotoUploader'
 import { StaffKycModal } from '@/components/hotel/staff/StaffKycModal'
 import StaffHRPanel from '@/components/staff/StaffHRPanel'
+import HousekeeperOrderModal from '@/components/housekeeping/HousekeeperOrderModal'
 
 /* ─── Types ─── */
 interface HKUser {
@@ -77,7 +80,7 @@ interface LostItem {
   status: 'FOUND' | 'CLAIMED'
 }
 
-type HKTab = 'rooms' | 'tasks' | 'chat' | 'attendance' | 'lostfound' | 'supplies' | 'laundry' | 'settings'
+type HKTab = 'rooms' | 'tasks' | 'orders' | 'chat' | 'attendance' | 'lostfound' | 'supplies' | 'laundry' | 'settings'
 
 /* ─── Status Configs ─── */
 const HK_STATUS: Record<string, { label: string; emoji: string; bg: string; color: string; border: string }> = {
@@ -222,6 +225,13 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
   const [showMaintenanceInput, setShowMaintenanceInput] = useState(false)
   const [showKycModal, setShowKycModal] = useState(false)
   const [selectedKycRoom, setSelectedKycRoom] = useState<HKRoom | null>(null)
+
+  /* Order Management states */
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [orderModalInitialRoom, setOrderModalInitialRoom] = useState<string>('')
+  const [hkOrders, setHkOrders] = useState<any[]>([])
+  const [hkOrdersLoading, setHkOrdersLoading] = useState(false)
+  const [orderFilter, setOrderFilter] = useState<'ALL' | 'ACTIVE' | 'READY' | 'COMPLETED'>('ALL')
 
   /* Attendance & HR states */
   const [attendance, setAttendance] = useState<any[]>([])
@@ -584,6 +594,35 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
       return () => clearInterval(iv)
     }
   }, [user, wtToken, activeTab, fetchRooms])
+
+  /* ─── Fetch Room Service & Table Orders ─── */
+  const fetchHkOrders = useCallback(async (silent: boolean = false) => {
+    if (!silent) setHkOrdersLoading(true)
+    try {
+      const headers: HeadersInit = {}
+      if (wtToken) headers['Authorization'] = `Bearer ${wtToken}`
+      const url = propertyCode 
+        ? `/api/hotel/room-service?propertyCode=${encodeURIComponent(propertyCode)}`
+        : '/api/hotel/room-service'
+      const res = await fetch(url, { headers, cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        setHkOrders(data.data || [])
+      }
+    } catch (err) {
+      console.error('Error fetching housekeeper orders:', err)
+    } finally {
+      if (!silent) setHkOrdersLoading(false)
+    }
+  }, [wtToken, propertyCode])
+
+  useEffect(() => {
+    if (user && wtToken && activeTab === 'orders') {
+      fetchHkOrders()
+      const iv = setInterval(() => fetchHkOrders(true), 8000)
+      return () => clearInterval(iv)
+    }
+  }, [user, wtToken, activeTab, fetchHkOrders])
 
   /* Fetch attendance & monthly statistics */
   const fetchAttendance = useCallback(async () => {
@@ -1506,6 +1545,7 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
   const allViews: { key: HKTab; label: string; emoji: string; desc: string; badge?: number }[] = [
     { key: 'rooms', label: 'Rooms Grid', emoji: '🏨', desc: 'Live room status & guest check-ins' },
     { key: 'tasks', label: 'Cleaning Tasks', emoji: '📋', desc: 'Step-by-step cleaning checklists & audits' },
+    { key: 'orders', label: 'Food & Room Orders', emoji: '🍽️', desc: 'Punch Room Service & Table food orders directly to kitchen' },
     { key: 'chat', label: 'Staff & Team Chat', emoji: '💬', desc: 'Group broadcast, admin & direct messaging', badge: chatUnread },
     { key: 'attendance', label: 'Attendance & Roster', emoji: '📅', desc: 'Duty clock-in, shift hours & overtime' },
     { key: 'lostfound', label: 'Lost & Found', emoji: '💼', desc: 'Register & log items found in rooms' },
@@ -1535,6 +1575,16 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <button
+            onClick={() => {
+              setOrderModalInitialRoom('')
+              setShowOrderModal(true)
+            }}
+            style={{ background: 'rgba(234,88,12,0.18)', border: '1px solid rgba(234,88,12,0.4)', borderRadius: 10, padding: '5px 8px', color: '#fb923c', fontSize: 10, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+            title="Place Food / Amenity Order"
+          >
+            🍽️ Order
+          </button>
           <button
             onClick={() => {
               setSelectedKycRoom(null)
@@ -1743,16 +1793,16 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
                           🧹 Dirty
                         </button>
                         <button onClick={() => { setChecklistRoom(room); setChecklistTicks(Array(CLEAN_STEPS.length).fill(false)); setItemStatuses({}); setChecklistStep(0) }}
-                          style={{ flex: 1.4, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: room.housekeepingStatus === 'DIRTY' ? 'linear-gradient(90deg,rgba(16,185,129,0.25),rgba(5,150,105,0.25))' : 'none', border: 'none', color: '#34d399', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+                          style={{ flex: 1.2, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: room.housekeepingStatus === 'DIRTY' ? 'linear-gradient(90deg,rgba(16,185,129,0.25),rgba(5,150,105,0.25))' : 'none', border: 'none', color: '#34d399', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
                           ✅ Clean
                         </button>
-                        <button onClick={() => { setSelectedKycRoom(room); setShowKycModal(true) }}
-                          style={{ flex: 0.9, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#a5b4fc', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}
-                          title="Attach Photo / Scan Guest ID">
-                          📸 KYC
+                        <button onClick={() => { setOrderModalInitialRoom(room.roomNumber); setShowOrderModal(true) }}
+                          style={{ flex: 1.1, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'rgba(234,88,12,0.12)', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#fb923c', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}
+                          title="Place Food / Amenity Order">
+                          🍽️ Order
                         </button>
                         <button onClick={() => { setSelectedRoom(room); setActiveMaintTickets([]) }}
-                          style={{ flex: 0.9, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+                          style={{ flex: 0.8, minWidth: 0, padding: '8px 0', fontSize: 8.5, fontWeight: 900, background: 'none', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
                           ⋯ More
                         </button>
                       </div>
@@ -1811,6 +1861,251 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ══ ORDERS & FOOD SERVICE TAB ══ */}
+        {activeTab === 'orders' && (
+          <div style={{ padding: '12px 12px calc(80px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Header / Hero Banner */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(234,88,12,0.2), rgba(124,58,237,0.1))',
+              border: '1px solid rgba(234,88,12,0.3)',
+              borderRadius: 18,
+              padding: '14px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12
+            }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>🍽️ Food & Service Hub</span>
+                </div>
+                <div style={{ fontSize: 10, color: '#fed7aa', marginTop: 2 }}>
+                  Punch orders for Guest Rooms or Dine-In Tables
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setOrderModalInitialRoom('')
+                  setShowOrderModal(true)
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '8px 14px',
+                  color: '#fff',
+                  fontSize: 11.5,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  boxShadow: '0 4px 14px rgba(249,115,22,0.4)',
+                  flexShrink: 0,
+                  fontFamily: 'inherit'
+                }}
+              >
+                <PlusCircle size={14} />
+                <span>+ Take Order</span>
+              </button>
+            </div>
+
+            {/* Filter Chips & Refresh */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 5, overflowX: 'auto', scrollbarWidth: 'none', flex: 1 }}>
+                {[
+                  { key: 'ALL', label: `All (${hkOrders.length})` },
+                  { key: 'ACTIVE', label: 'In Kitchen 🍳' },
+                  { key: 'READY', label: 'Ready 🛎️' },
+                  { key: 'COMPLETED', label: 'Served ✅' },
+                ].map(f => {
+                  const isSel = orderFilter === f.key
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={() => setOrderFilter(f.key as any)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        border: isSel ? '1px solid #f97316' : '1px solid rgba(255,255,255,0.08)',
+                        background: isSel ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.03)',
+                        color: isSel ? '#fdba74' : '#94a3b8',
+                        fontSize: 9.5,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        fontFamily: 'inherit'
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                onClick={() => fetchHkOrders()}
+                disabled={hkOrdersLoading}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                  padding: '5px 8px',
+                  color: '#94a3b8',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                <span>🔄</span>
+                <span>{hkOrdersLoading ? '…' : 'Sync'}</span>
+              </button>
+            </div>
+
+            {/* Orders List */}
+            {hkOrdersLoading && hkOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 16px', color: '#94a3b8', fontSize: 11 }}>
+                <div style={{ fontSize: 24, marginBottom: 8, animation: 'spin 1s infinite' }}>⏳</div>
+                Fetching active orders…
+              </div>
+            ) : (() => {
+              const filtered = hkOrders.filter(o => {
+                if (orderFilter === 'ALL') return true
+                if (orderFilter === 'ACTIVE') return ['CONFIRMED', 'OPEN', 'IN_KITCHEN', 'ACCEPTED', 'PENDING'].includes(o.status?.toUpperCase())
+                if (orderFilter === 'READY') return o.status?.toUpperCase() === 'READY'
+                if (orderFilter === 'COMPLETED') return ['SERVED', 'DELIVERED', 'COMPLETED', 'PAID', 'SETTLED'].includes(o.status?.toUpperCase())
+                return true
+              })
+
+              if (filtered.length === 0) {
+                return (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '45px 16px',
+                    background: 'rgba(255,255,255,0.015)',
+                    border: '1px dashed rgba(255,255,255,0.08)',
+                    borderRadius: 18
+                  }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🛎️</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9' }}>No Orders Found</div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, maxWidth: 260, margin: '4px auto 14px' }}>
+                      Housekeepers can take food & amenity orders for any guest room or dining table.
+                    </div>
+                    <button
+                      onClick={() => {
+                        setOrderModalInitialRoom('')
+                        setShowOrderModal(true)
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                        border: 'none',
+                        borderRadius: 10,
+                        padding: '8px 16px',
+                        color: '#fff',
+                        fontSize: 11,
+                        fontWeight: 900,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Take First Order
+                    </button>
+                  </div>
+                )
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {filtered.map(order => {
+                    const statusColors: Record<string, { bg: string; color: string; border: string; label: string }> = {
+                      CONFIRMED: { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: 'rgba(59,130,246,0.3)', label: 'Confirmed' },
+                      OPEN: { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: 'rgba(59,130,246,0.3)', label: 'Running' },
+                      IN_KITCHEN: { bg: 'rgba(234,88,12,0.18)', color: '#fb923c', border: 'rgba(234,88,12,0.35)', label: 'In Kitchen 🍳' },
+                      ACCEPTED: { bg: 'rgba(234,88,12,0.18)', color: '#fb923c', border: 'rgba(234,88,12,0.35)', label: 'Accepted 🍳' },
+                      READY: { bg: 'rgba(16,185,129,0.18)', color: '#34d399', border: 'rgba(16,185,129,0.35)', label: 'Ready 🛎️' },
+                      SERVED: { bg: 'rgba(167,139,250,0.15)', color: '#c084fc', border: 'rgba(167,139,250,0.3)', label: 'Served ✅' },
+                      COMPLETED: { bg: 'rgba(16,185,129,0.12)', color: '#34d399', border: 'rgba(16,185,129,0.25)', label: 'Settled' },
+                    }
+                    const st = statusColors[order.status?.toUpperCase()] || { bg: 'rgba(255,255,255,0.06)', color: '#94a3b8', border: 'rgba(255,255,255,0.1)', label: order.status || 'Active' }
+
+                    return (
+                      <div
+                        key={order.id}
+                        style={{
+                          background: 'rgba(255,255,255,0.025)',
+                          border: '1px solid rgba(255,255,255,0.07)',
+                          borderRadius: 16,
+                          padding: '12px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>
+                                {order.orderNo || `#${order.id.slice(-6)}`}
+                              </span>
+                              <span style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                padding: '2px 7px',
+                                borderRadius: 999,
+                                background: st.bg,
+                                color: st.color,
+                                border: `1px solid ${st.border}`
+                              }}>
+                                {st.label}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 10, color: '#f97316', fontWeight: 800, marginTop: 2 }}>
+                              {order.roomNumber ? `🛏️ Room ${order.roomNumber}` : (order.tableNo ? `🍽️ ${order.tableNo}` : 'Room Service')}
+                              {order.guestName ? ` · ${order.guestName}` : ''}
+                            </div>
+                          </div>
+
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: '#38bdf8' }}>
+                              ₹{order.totalAmount || order.grandTotal || 0}
+                            </div>
+                            <div style={{ fontSize: 8.5, color: '#64748b' }}>
+                              {order.postedToFolio ? 'Folio Charged' : 'Bill'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 10, padding: '8px 10px', fontSize: 10.5, color: '#cbd5e1' }}>
+                          {order.items?.map((it: any, idx: number) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+                              <span>{it.quantity || it.qty}x {it.name || it.product?.name}</span>
+                              <span style={{ color: '#94a3b8' }}>₹{it.totalAmount || it.lineTotal || (it.unitPrice * (it.quantity || it.qty))}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Special Note */}
+                        {order.specialNote && (
+                          <div style={{ fontSize: 9.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: '4px 8px' }}>
+                            📝 {order.specialNote}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 9, color: '#64748b', paddingTop: 2 }}>
+                          <span>Taken by: {order.servedBy?.name || order.staffMember?.name || 'Housekeeping'}</span>
+                          <span>{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -3453,7 +3748,7 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
 
         {/* 5th Button: All Views / More */}
         {(() => {
-          const isSecondaryActive = ['lostfound', 'supplies', 'laundry', 'settings'].includes(activeTab)
+          const isSecondaryActive = ['orders', 'lostfound', 'supplies', 'laundry', 'settings'].includes(activeTab)
           const currentSecondary = allViews.find(v => v.key === activeTab)
           const isMoreOpen = showMoreMenu
           return (
@@ -3706,6 +4001,36 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
                 )
               })()}
             </div>
+
+            {/* Direct Room Order Button */}
+            <button
+              onClick={() => {
+                const rNum = selectedRoom.roomNumber
+                setSelectedRoom(null)
+                setOrderModalInitialRoom(rNum)
+                setShowOrderModal(true)
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '12px 14px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(249,115,22,0.25), rgba(234,88,12,0.15))',
+                border: '1.5px solid rgba(249,115,22,0.4)',
+                color: '#fed7aa',
+                fontSize: 12.5,
+                fontWeight: 900,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                marginBottom: 16
+              }}
+            >
+              <UtensilsCrossed size={16} color="#fb923c" />
+              <span>Take Room Order for #{selectedRoom.roomNumber}</span>
+            </button>
 
             {/* Quick action buttons */}
             <div style={{ fontSize: 9, fontWeight: 900, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
@@ -4475,6 +4800,24 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
           </div>
         </div>
       )}
+
+      {/* Housekeeper Order Placement Modal */}
+      <HousekeeperOrderModal
+        isOpen={showOrderModal}
+        onClose={() => {
+          setShowOrderModal(false)
+          setOrderModalInitialRoom('')
+        }}
+        propertyCode={propertyCode}
+        propertyId={user?.property?.id}
+        user={user}
+        wtToken={wtToken}
+        rooms={rooms}
+        initialRoomNumber={orderModalInitialRoom}
+        onOrderPlaced={() => {
+          fetchHkOrders()
+        }}
+      />
 
       {/* Staff KYC Scan Modal */}
       <StaffKycModal

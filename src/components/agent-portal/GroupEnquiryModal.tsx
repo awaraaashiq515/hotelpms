@@ -59,9 +59,9 @@ export default function GroupEnquiryModal({
     toDate: '',
     totalPax: '2',
     children: '0',
-    fromLocation: preselectedItem?.city || preselectedItem?.location || '',
-    toLocation: '',
-    hotelCategory: 'MIDSCALE',
+    fromLocation: preselectedService === 'hotel' ? '' : (preselectedItem?.city || preselectedItem?.location || ''),
+    toLocation: preselectedService === 'hotel' ? (preselectedItem?.city || '') : '',
+    hotelCategory: preselectedItem?.hotelCategory || 'MIDSCALE',
     roomsRequired: '1',
     busType: 'AC',
     busCount: '1',
@@ -72,7 +72,11 @@ export default function GroupEnquiryModal({
     sightseeingDestinations: preselectedItem?.name && preselectedService === 'sightseeing' ? preselectedItem.name : '',
     budget: '',
     mealPlan: 'CP',
-    specialRequests: preselectedItem ? `Enquiring for specific item: ${preselectedItem.name} (${preselectedItem.type || ''})` : '',
+    specialRequests: preselectedItem
+      ? preselectedService === 'hotel'
+        ? `Hotel: ${preselectedItem.name}${preselectedItem.city ? `, ${preselectedItem.city}` : ''}`
+        : `Enquiring for specific item: ${preselectedItem.name}${preselectedItem.type ? ` (${preselectedItem.type})` : ''}`
+      : '',
   });
 
   const [submitting, setSubmitting] = useState(false);
