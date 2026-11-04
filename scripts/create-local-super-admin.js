@@ -45,7 +45,7 @@ async function createLocalSuperAdmin() {
 
   // Step 4: Create or update Super Admin user
   const email = 'superadmin@ordermint.com';
-  const password = 'Admin@123';
+  const password = 'yy7yyuyuuo8..k...//lluppppiu=iu=[[p89p[[[[[[';
   const fullName = 'Super Admin';
 
   const existing = await prisma.user.findUnique({ where: { email } });

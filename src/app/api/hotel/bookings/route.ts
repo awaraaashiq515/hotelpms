@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       children,
       roomTypeId,
       assignedRoomId,
+      linkedRoomId,
       totalAmount,
       advanceAmount = 0,
       wifiPassword,
@@ -138,12 +139,29 @@ export async function POST(request: NextRequest) {
       gstNumber,
       companyName,
       billingAddress,
+      isOwnerGuest = false,
+      ownerVipCode = null,
+      ownerName = null,
+      ownerBillingType = 'COMPLIMENTARY',
+      waiveBill = false,
+      checkInImmediately = false,
     } = body;
 
-    // Extract GST fields from guestData if provided there
-    const resolvedGstNumber = gstNumber || guestData?.gstNumber || null;
-    const resolvedCompanyName = companyName || guestData?.companyName || null;
-    const resolvedBillingAddress = billingAddress || guestData?.billingAddress || null;
+    // Extract GST fields from guestData or root body
+    const resolvedGstNumber = (gstNumber || guestData?.gstNumber || body.guestGstNumber || '').trim().toUpperCase() || null;
+    const resolvedCompanyName = (companyName || guestData?.companyName || body.guestCompanyName || '').trim() || null;
+    const resolvedBillingAddress = (billingAddress || guestData?.billingAddress || body.guestBillingAddress || '').trim() || null;
+
+    // Resolve comprehensive guest fields from either guestData, prefixed or raw body fields
+    const resolvedFirstName = (guestData?.firstName || body.guestFirstName || body.firstName || '').trim();
+    const resolvedLastName = (guestData?.lastName || body.guestLastName || body.lastName || '').trim();
+    const resolvedMobile = (guestData?.mobile || body.guestMobile || body.mobile || body.phone || '').trim();
+    const resolvedEmail = (guestData?.email || body.guestEmail || body.email || '').trim();
+    const resolvedIdType = (guestData?.idType || body.idType || '').trim();
+    const resolvedIdNumber = (guestData?.idNumber || body.idNumber || '').trim();
+    const resolvedAddress = (guestData?.address || body.guestAddress || body.address || '').trim();
+    const resolvedNationality = (guestData?.nationality || body.guestNationality || body.nationality || 'Indian').trim();
+    const resolvedDocumentUrl = guestData?.documentUrl || body.documentUrl || '';
 
     // Load property settings for guest portal
     const property = await prisma.property.findUnique({
@@ -164,46 +182,131 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    let finalGuestId = guestId;
-    let guestMobile = '';
-    let guestEmail = '';
-    let guestFirstName = '';
+    let finalGuestId = guestId || null;
+    let guestMobile = resolvedMobile;
+    let guestEmail = resolvedEmail;
+    let guestFirstName = resolvedFirstName;
 
-    const effectiveGuestData = guestData || (body.guestFirstName ? {
-      firstName: body.guestFirstName,
-      lastName: body.guestLastName || '',
-      mobile: body.guestMobile || '',
-      email: body.guestEmail || '',
-      idType: body.idType || '',
-      idNumber: body.idNumber || '',
-      address: body.address || body.guestAddress || '',
-      nationality: body.nationality || body.guestNationality || '',
-      documentUrl: body.documentUrl || '',
-    } : null);
-
-    if (!finalGuestId && effectiveGuestData) {
-      // Find or create guest
-      const existingGuest = await prisma.guest.findFirst({
-        where: {
-          organizationId: session.organizationId,
-          mobile: effectiveGuestData.mobile || undefined,
-        }
+    if (finalGuestId) {
+      // Guest was specified or selected by ID. Update their record with any new or updated fields.
+      const existingGuest = await prisma.guest.findUnique({
+        where: { id: finalGuestId }
       });
 
       if (existingGuest) {
-        finalGuestId = existingGuest.id;
-        guestMobile = existingGuest.mobile || '';
-        guestEmail = existingGuest.email || '';
-        guestFirstName = existingGuest.firstName || '';
-        // Update guest details if KYC / GST info is provided
         const updateData: any = {};
-        if (effectiveGuestData.idType) updateData.idType = effectiveGuestData.idType;
-        if (effectiveGuestData.idNumber) updateData.idNumber = effectiveGuestData.idNumber;
-        if (effectiveGuestData.address) updateData.address = effectiveGuestData.address;
-        if (effectiveGuestData.nationality) updateData.nationality = effectiveGuestData.nationality;
-        if (resolvedGstNumber) updateData.gstNumber = resolvedGstNumber;
-        if (resolvedCompanyName) updateData.companyName = resolvedCompanyName;
-        if (resolvedBillingAddress) updateData.billingAddress = resolvedBillingAddress;
+        if (resolvedFirstName && resolvedFirstName !== existingGuest.firstName) {
+          updateData.firstName = resolvedFirstName;
+        }
+        if (resolvedLastName && resolvedLastName !== existingGuest.lastName) {
+          updateData.lastName = resolvedLastName;
+        }
+        if (resolvedMobile && resolvedMobile !== existingGuest.mobile) {
+          updateData.mobile = resolvedMobile;
+        }
+        if (resolvedEmail && resolvedEmail !== existingGuest.email) {
+          updateData.email = resolvedEmail;
+        }
+        if (resolvedIdType && resolvedIdType !== existingGuest.idType) {
+          updateData.idType = resolvedIdType;
+        }
+        if (resolvedIdNumber && resolvedIdNumber !== existingGuest.idNumber) {
+          updateData.idNumber = resolvedIdNumber;
+        }
+        if (resolvedAddress && resolvedAddress !== existingGuest.address) {
+          updateData.address = resolvedAddress;
+        }
+        if (resolvedNationality && resolvedNationality !== existingGuest.nationality) {
+          updateData.nationality = resolvedNationality;
+        }
+        if (resolvedGstNumber && resolvedGstNumber !== existingGuest.gstNumber) {
+          updateData.gstNumber = resolvedGstNumber;
+        }
+        if (resolvedCompanyName && resolvedCompanyName !== existingGuest.companyName) {
+          updateData.companyName = resolvedCompanyName;
+        }
+        if (resolvedBillingAddress && resolvedBillingAddress !== existingGuest.billingAddress) {
+          updateData.billingAddress = resolvedBillingAddress;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.guest.update({
+            where: { id: finalGuestId },
+            data: updateData,
+          });
+        }
+
+        if (resolvedDocumentUrl) {
+          await prisma.guestDocument.create({
+            data: {
+              guestId: finalGuestId,
+              documentType: resolvedIdType || 'ID_PROOF',
+              documentUrl: resolvedDocumentUrl,
+              verified: true,
+            }
+          }).catch(() => null);
+        }
+
+        guestMobile = resolvedMobile || existingGuest.mobile || '';
+        guestEmail = resolvedEmail || existingGuest.email || '';
+        guestFirstName = resolvedFirstName || existingGuest.firstName || '';
+      }
+    } else if (resolvedFirstName || resolvedMobile || resolvedEmail || resolvedIdNumber) {
+      // Find or create guest by mobile or email
+      let existingGuest: any = null;
+      if (resolvedMobile) {
+        existingGuest = await prisma.guest.findFirst({
+          where: {
+            organizationId: session.organizationId,
+            mobile: resolvedMobile,
+          }
+        });
+      }
+      if (!existingGuest && resolvedEmail) {
+        existingGuest = await prisma.guest.findFirst({
+          where: {
+            organizationId: session.organizationId,
+            email: resolvedEmail,
+          }
+        });
+      }
+
+      if (existingGuest) {
+        finalGuestId = existingGuest.id;
+        const updateData: any = {};
+        if (resolvedFirstName && (!existingGuest.firstName || resolvedFirstName !== existingGuest.firstName)) {
+          updateData.firstName = resolvedFirstName;
+        }
+        if (resolvedLastName && (!existingGuest.lastName || resolvedLastName !== existingGuest.lastName)) {
+          updateData.lastName = resolvedLastName;
+        }
+        if (resolvedMobile && (!existingGuest.mobile || resolvedMobile !== existingGuest.mobile)) {
+          updateData.mobile = resolvedMobile;
+        }
+        if (resolvedEmail && (!existingGuest.email || resolvedEmail !== existingGuest.email)) {
+          updateData.email = resolvedEmail;
+        }
+        if (resolvedIdType && resolvedIdType !== existingGuest.idType) {
+          updateData.idType = resolvedIdType;
+        }
+        if (resolvedIdNumber && resolvedIdNumber !== existingGuest.idNumber) {
+          updateData.idNumber = resolvedIdNumber;
+        }
+        if (resolvedAddress && resolvedAddress !== existingGuest.address) {
+          updateData.address = resolvedAddress;
+        }
+        if (resolvedNationality && resolvedNationality !== existingGuest.nationality) {
+          updateData.nationality = resolvedNationality;
+        }
+        if (resolvedGstNumber && resolvedGstNumber !== existingGuest.gstNumber) {
+          updateData.gstNumber = resolvedGstNumber;
+        }
+        if (resolvedCompanyName && resolvedCompanyName !== existingGuest.companyName) {
+          updateData.companyName = resolvedCompanyName;
+        }
+        if (resolvedBillingAddress && resolvedBillingAddress !== existingGuest.billingAddress) {
+          updateData.billingAddress = resolvedBillingAddress;
+        }
 
         if (Object.keys(updateData).length > 0) {
           await prisma.guest.update({
@@ -211,35 +314,41 @@ export async function POST(request: NextRequest) {
             data: updateData,
           });
         }
-        if (effectiveGuestData.documentUrl) {
+
+        if (resolvedDocumentUrl) {
           await prisma.guestDocument.create({
             data: {
               guestId: existingGuest.id,
-              documentType: effectiveGuestData.idType || 'ID_PROOF',
-              documentUrl: effectiveGuestData.documentUrl,
+              documentType: resolvedIdType || 'ID_PROOF',
+              documentUrl: resolvedDocumentUrl,
               verified: true,
             }
-          });
+          }).catch(() => null);
         }
+
+        guestMobile = resolvedMobile || existingGuest.mobile || '';
+        guestEmail = resolvedEmail || existingGuest.email || '';
+        guestFirstName = resolvedFirstName || existingGuest.firstName || '';
       } else {
+        // Create a new guest
         const newGuest = await prisma.guest.create({
           data: {
             organizationId: session.organizationId,
-            firstName: effectiveGuestData.firstName,
-            lastName: effectiveGuestData.lastName || '',
-            mobile: effectiveGuestData.mobile || '',
-            email: effectiveGuestData.email || '',
-            idType: effectiveGuestData.idType || '',
-            idNumber: effectiveGuestData.idNumber || '',
-            address: effectiveGuestData.address || '',
-            nationality: effectiveGuestData.nationality || 'Indian',
+            firstName: resolvedFirstName || 'Guest',
+            lastName: resolvedLastName || '',
+            mobile: resolvedMobile || '',
+            email: resolvedEmail || '',
+            idType: resolvedIdType || '',
+            idNumber: resolvedIdNumber || '',
+            address: resolvedAddress || '',
+            nationality: resolvedNationality || 'Indian',
             gstNumber: resolvedGstNumber,
             companyName: resolvedCompanyName,
             billingAddress: resolvedBillingAddress,
-            documents: effectiveGuestData.documentUrl ? {
+            documents: resolvedDocumentUrl ? {
               create: {
-                documentType: effectiveGuestData.idType || 'ID_PROOF',
-                documentUrl: effectiveGuestData.documentUrl,
+                documentType: resolvedIdType || 'ID_PROOF',
+                documentUrl: resolvedDocumentUrl,
                 verified: true,
               }
             } : undefined
@@ -253,7 +362,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!finalGuestId) {
-      return apiError(new Error('Guest information is required.'), 400);
+      return apiError(new Error('Guest information (name, mobile or email) is required.'), 400);
     }
 
     // Generate unique Booking No
@@ -261,7 +370,25 @@ export async function POST(request: NextRequest) {
 
     const total = Number(totalAmount || 0);
     const advance = Number(advanceAmount || 0);
-    const due = total - advance;
+    const effectiveWaiveBill = Boolean(waiveBill);
+    const due = effectiveWaiveBill ? 0 : Math.max(0, total - advance);
+    const initialStatus = (checkInImmediately || body.status === 'CHECKED_IN') ? 'CHECKED_IN' : (body.status || 'CONFIRMED');
+
+    let targetRoomTypeId = roomTypeId;
+    if (assignedRoomId && (!targetRoomTypeId || targetRoomTypeId === 'default')) {
+      const rm = await prisma.room.findUnique({
+        where: { id: assignedRoomId },
+        select: { roomTypeId: true },
+      });
+      if (rm?.roomTypeId) targetRoomTypeId = rm.roomTypeId;
+    }
+    if (!targetRoomTypeId || targetRoomTypeId === 'default') {
+      const anyType = await prisma.roomType.findFirst({
+        where: propertyId ? { propertyId } : {},
+        select: { id: true },
+      });
+      if (anyType) targetRoomTypeId = anyType.id;
+    }
 
     const reservation = await prisma.reservation.create({
       data: {
@@ -272,12 +399,17 @@ export async function POST(request: NextRequest) {
         departureDate: new Date(departureDate),
         adults: Number(adults || 1),
         children: Number(children || 0),
-        roomTypeId,
+        roomTypeId: targetRoomTypeId,
         assignedRoomId: assignedRoomId || null,
-        status: 'CONFIRMED',
+        status: initialStatus,
         totalAmount: total,
-        advanceAmount: advance,
+        advanceAmount: effectiveWaiveBill ? total : advance,
         dueAmount: due,
+        isOwnerGuest: Boolean(isOwnerGuest),
+        ownerVipCode: ownerVipCode ? String(ownerVipCode).trim() : null,
+        ownerName: ownerName ? String(ownerName).trim() : null,
+        ownerBillingType: ownerBillingType || 'COMPLIMENTARY',
+        waiveBill: effectiveWaiveBill,
         wifiPassword: wifiPassword || null,
         wifiStatus: wifiStatus || 'ACTIVE',
         mealPlan: (mealPlan === 'RO' ? 'EP' : mealPlan) || 'EP',
@@ -300,20 +432,76 @@ export async function POST(request: NextRequest) {
         billingAddress: resolvedBillingAddress,
         // Create matching ReservationRoom detail
         rooms: {
-          create: {
-            roomId: assignedRoomId || null,
-            ratePerNight: Number(body.ratePerNight) || (total / Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)))),
-            adults: Number(adults || 1),
-            children: Number(children || 0),
-          }
+          create: [
+            {
+              roomId: assignedRoomId || null,
+              ratePerNight: Number(body.ratePerNight) || (total / Math.max(1, Math.round((new Date(departureDate).getTime() - new Date(arrivalDate).getTime()) / (1000 * 60 * 60 * 24)))),
+              adults: Number(adults || 1),
+              children: Number(children || 0),
+            },
+            ...(linkedRoomId && linkedRoomId !== assignedRoomId ? [{
+              roomId: linkedRoomId,
+              ratePerNight: Number(body.linkedRoomRatePerNight || body.ratePerNight || 0),
+              adults: 1,
+              children: 0,
+            }] : [])
+          ]
         }
       },
       include: {
-        guest: true,
+        guest: {
+          include: {
+            documents: true,
+          }
+        },
         roomType: true,
-        rooms: true,
+        rooms: {
+          include: {
+            room: true,
+          }
+        },
       }
     });
+
+    // ── Instant Check-in & Folio for VIP / Direct Check-in ───────────────────
+    if (initialStatus === 'CHECKED_IN' && assignedRoomId) {
+      await prisma.room.update({
+        where: { id: assignedRoomId },
+        data: { status: 'OCCUPIED' },
+      }).catch(() => null);
+
+      await prisma.checkIn.create({
+        data: {
+          reservationId: reservation.id,
+          guestId: finalGuestId,
+          roomId: assignedRoomId,
+          checkedInAt: new Date(),
+          expectedCheckoutAt: new Date(departureDate),
+          status: 'ACTIVE',
+        },
+      }).catch(() => null);
+
+      const folioNo = `FOL-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+      await prisma.folio.create({
+        data: {
+          reservationId: reservation.id,
+          guestId: finalGuestId,
+          folioNo,
+          openingBalance: 0,
+          totalCharges: total,
+          totalPayments: effectiveWaiveBill ? total : advance,
+          closingBalance: effectiveWaiveBill ? 0 : due,
+          status: 'OPEN',
+        },
+      }).catch(() => null);
+    }
+
+    if (isOwnerGuest && finalGuestId) {
+      await prisma.guest.update({
+        where: { id: finalGuestId },
+        data: { segment: 'VIP' },
+      }).catch(() => null);
+    }
 
     // ── Guest Portal: Auto-set credentials ──────────────────────────────────
     if (property?.guestPortalEnabled && finalGuestId) {
@@ -452,6 +640,22 @@ export async function PATCH(request: NextRequest) {
       addOnNotes,
       specialOffer,
       offerCode,
+      gstNumber,
+      companyName,
+      billingAddress,
+      guestData,
+      guestEmail,
+      email,
+      guestMobile,
+      mobile,
+      guestFirstName,
+      firstName,
+      guestLastName,
+      lastName,
+      guestAddress,
+      address,
+      idType,
+      idNumber,
     } = body;
 
     if (!id) {
@@ -479,6 +683,19 @@ export async function PATCH(request: NextRequest) {
     if (addOnNotes !== undefined) updateData.addOnNotes = addOnNotes;
     if (specialOffer !== undefined) updateData.specialOffer = specialOffer;
     if (offerCode !== undefined) updateData.offerCode = offerCode;
+    if (gstNumber !== undefined) updateData.gstNumber = gstNumber ? String(gstNumber).trim().toUpperCase() : null;
+    if (companyName !== undefined) updateData.companyName = companyName ? String(companyName).trim() : null;
+    if (billingAddress !== undefined) updateData.billingAddress = billingAddress ? String(billingAddress).trim() : null;
+    if (body.adults !== undefined) updateData.adults = Number(body.adults);
+    if (body.children !== undefined) updateData.children = Number(body.children);
+    if (body.isOwnerGuest !== undefined) updateData.isOwnerGuest = Boolean(body.isOwnerGuest);
+    if (body.ownerVipCode !== undefined) updateData.ownerVipCode = body.ownerVipCode ? String(body.ownerVipCode).trim() : null;
+    if (body.ownerName !== undefined) updateData.ownerName = body.ownerName ? String(body.ownerName).trim() : null;
+    if (body.ownerBillingType !== undefined) updateData.ownerBillingType = body.ownerBillingType;
+    if (body.waiveBill !== undefined) {
+      updateData.waiveBill = Boolean(body.waiveBill);
+      if (body.waiveBill) updateData.dueAmount = 0;
+    }
 
     // Handle arrival date modification
     if (arrivalDate) {
@@ -522,6 +739,43 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    // Also update guest details if provided in PATCH
+    const targetRes = await prisma.reservation.findUnique({
+      where: { id },
+      select: { guestId: true }
+    });
+
+    if (targetRes?.guestId) {
+      const gUpdate: any = {};
+      const resEmail = guestEmail || email || guestData?.email;
+      if (resEmail !== undefined) gUpdate.email = String(resEmail).trim();
+      const resMobile = guestMobile || mobile || body.phone || guestData?.mobile;
+      if (resMobile !== undefined) gUpdate.mobile = String(resMobile).trim();
+      const resFn = guestFirstName || firstName || guestData?.firstName;
+      if (resFn !== undefined) gUpdate.firstName = String(resFn).trim();
+      const resLn = guestLastName || lastName || guestData?.lastName;
+      if (resLn !== undefined) gUpdate.lastName = String(resLn).trim();
+      const resAddr = guestAddress || address || guestData?.address;
+      if (resAddr !== undefined) gUpdate.address = String(resAddr).trim();
+      const resIdType = idType || guestData?.idType;
+      if (resIdType !== undefined) gUpdate.idType = String(resIdType).trim();
+      const resIdNum = idNumber || guestData?.idNumber;
+      if (resIdNum !== undefined) gUpdate.idNumber = String(resIdNum).trim();
+      const resGst = gstNumber || guestData?.gstNumber;
+      if (resGst !== undefined) gUpdate.gstNumber = String(resGst).trim().toUpperCase();
+      const resComp = companyName || guestData?.companyName;
+      if (resComp !== undefined) gUpdate.companyName = String(resComp).trim();
+      const resBillAddr = billingAddress || guestData?.billingAddress;
+      if (resBillAddr !== undefined) gUpdate.billingAddress = String(resBillAddr).trim();
+
+      if (Object.keys(gUpdate).length > 0) {
+        await prisma.guest.update({
+          where: { id: targetRes.guestId },
+          data: gUpdate,
+        }).catch((err) => console.error('Failed to update guest in PATCH /api/hotel/bookings:', err));
+      }
+    }
+
     const updated = await prisma.reservation.update({
       where: { id },
       data: updateData,
@@ -532,7 +786,11 @@ export async function PATCH(request: NextRequest) {
           }
         },
         roomType: true,
-        guest: true,
+        guest: {
+          include: {
+            documents: true,
+          }
+        },
       }
     });
 

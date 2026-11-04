@@ -15,7 +15,16 @@ export async function GET(request: NextRequest) {
     const limit   = parseInt(searchParams.get('limit') || '50');
     const skip    = (page - 1) * limit;
 
-    const where: any = { organizationId: session.organizationId };
+    let orgId = session.organizationId;
+    if (!orgId && session.propertyId) {
+      const p = await prisma.property.findUnique({
+        where: { id: session.propertyId },
+        select: { organizationId: true },
+      });
+      if (p) orgId = p.organizationId;
+    }
+
+    const where: any = orgId ? { organizationId: orgId } : {};
     if (segment) where.segment = segment;
     if (search) {
       where.OR = [
@@ -23,13 +32,43 @@ export async function GET(request: NextRequest) {
         { lastName:  { contains: search } },
         { mobile:    { contains: search } },
         { email:     { contains: search } },
+        { idNumber:  { contains: search } },
+        { companyName: { contains: search } },
+        { address:   { contains: search } },
       ];
     }
 
     const [guests, total] = await Promise.all([
       prisma.guest.findMany({
         where,
-        include: { reservations: { select: { id: true, status: true, totalAmount: true } } },
+        include: {
+          reservations: {
+            select: {
+              id: true,
+              bookingNo: true,
+              arrivalDate: true,
+              departureDate: true,
+              status: true,
+              totalAmount: true,
+              advanceAmount: true,
+              dueAmount: true,
+              mealPlan: true,
+              roomType: { select: { name: true } },
+              rooms: {
+                select: {
+                  room: { select: { roomNumber: true } }
+                }
+              }
+            },
+            orderBy: { arrivalDate: 'desc' },
+          },
+          _count: {
+            select: {
+              reservations: true,
+              checkIns: true,
+            }
+          }
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   MapPin,
   RefreshCw,
@@ -18,8 +18,17 @@ import {
   Building2,
   Calendar,
   Key,
+  Crown,
+  Plus,
+  Phone,
+  MessageCircle,
+  ChevronRight,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { RoomActionModal } from '@/components/hotel/rooms/RoomActionModal';
+import { OccupiedRoomDetailModal } from '@/components/hotel/navigation/OccupiedRoomDetailModal';
+import { QuickReservationModal, type RoomOption } from '@/components/hotel/operations/QuickReservationModal';
+import { OwnerVipBookingModal } from '@/components/hotel/bookings/OwnerVipBookingModal';
 import type {
   RoomBoardData,
   RoomBoardItem,
@@ -39,8 +48,16 @@ export default function RoomStatusBoardView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  // Housekeeping status modal
   const [selectedRoom, setSelectedRoom] = useState<RoomBoardItem | null>(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
+
+  // Occupant details modal & booking modals
+  const [selectedRoomForDetail, setSelectedRoomForDetail] = useState<RoomBoardItem | null>(null);
+  const [quickBookingRoomId, setQuickBookingRoomId] = useState<string | null>(null);
+  const [isQuickBookingOpen, setIsQuickBookingOpen] = useState(false);
+  const [vipBookingRoomId, setVipBookingRoomId] = useState<string | null>(null);
+  const [isVipBookingOpen, setIsVipBookingOpen] = useState(false);
 
   const fetchBoardData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -149,6 +166,28 @@ export default function RoomStatusBoardView() {
     return acc;
   }, {} as Record<number, RoomBoardItem[]>);
 
+  // Convert rooms to RoomOption format for QuickReservationModal & OwnerVipBookingModal
+  const roomsListForBooking: RoomOption[] = useMemo(() => {
+    if (!data?.rooms) return [];
+    return data.rooms.map((r) => ({
+      id: r.id,
+      roomNumber: r.roomNumber,
+      roomTypeName: r.roomTypeName || 'Standard Room',
+      roomTypeId: r.roomTypeId || '',
+      baseRate: r.baseRate || 3500,
+      maxOccupancy: r.maxOccupancy || 2,
+      status: r.status,
+      floor: String(r.floor || '1'),
+    }));
+  }, [data?.rooms]);
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
   // PDF Export
   const handleExportPDF = () => {
     if (!rooms.length) return;
@@ -245,6 +284,32 @@ export default function RoomStatusBoardView() {
 
         {/* Header Action Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* VIP Fast Check-In Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setVipBookingRoomId(null);
+              setIsVipBookingOpen(true);
+            }}
+            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+          >
+            <Crown size={14} className="fill-slate-950" />
+            <span>VIP Check-In</span>
+          </button>
+
+          {/* New Quick Booking Wizard Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setQuickBookingRoomId(null);
+              setIsQuickBookingOpen(true);
+            }}
+            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
+          >
+            <Plus size={15} />
+            <span>+ Book Room</span>
+          </button>
+
           {/* Auto Refresh Toggle */}
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
@@ -517,10 +582,17 @@ export default function RoomStatusBoardView() {
                       <div
                         key={room.id}
                         onClick={() => {
-                          setSelectedRoom(room);
-                          setActionModalOpen(true);
+                          if (isOccupied || room.activeGuest) {
+                            setSelectedRoomForDetail(room);
+                          } else if (isClean || room.status === 'AVAILABLE') {
+                            setQuickBookingRoomId(room.id);
+                            setIsQuickBookingOpen(true);
+                          } else {
+                            setSelectedRoom(room);
+                            setActionModalOpen(true);
+                          }
                         }}
-                        className={`p-4 rounded-2xl border ${cardBg} cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl flex flex-col justify-between group`}
+                        className={`p-4 rounded-2xl border ${cardBg} cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl flex flex-col justify-between group relative`}
                       >
                         <div>
                           {/* Card Top: Room Number & Status Badge */}
@@ -540,9 +612,23 @@ export default function RoomStatusBoardView() {
                                 </span>
                               )}
                             </div>
-                            <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusBadgeStyle}`}>
-                              {statusLabel}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRoom(room);
+                                  setActionModalOpen(true);
+                                }}
+                                title="Update Housekeeping Status"
+                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors"
+                              >
+                                <SlidersHorizontal size={13} />
+                              </button>
+                              <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusBadgeStyle}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
                           </div>
 
                           {/* DND Staff Warning Banner */}
@@ -557,37 +643,127 @@ export default function RoomStatusBoardView() {
                           )}
 
                           {/* Room Category */}
-                          <p className="text-[10px] text-slate-400 font-bold mb-3 truncate">
+                          <p className="text-[10px] text-slate-400 font-bold mb-2 truncate">
                             {room.roomTypeName} · ₹{room.baseRate?.toLocaleString('en-IN')}/n
                           </p>
 
-                          {/* Occupied Guest Info */}
-                          {room.activeGuest ? (
-                            <div className="p-2.5 rounded-xl bg-slate-950/50 border border-white/5 space-y-1 mb-2">
-                              <div className="flex items-center gap-1.5 text-xs font-black text-white truncate">
-                                <User size={11} className="text-rose-400 flex-shrink-0" />
-                                <span className="truncate">{room.activeGuest.guestName}</span>
+                          {/* ── CASE 1: OCCUPIED ROOM (SHOW GUEST DETAILS) ── */}
+                          {(isOccupied || room.activeGuest) && room.activeGuest ? (
+                            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-rose-500/30 space-y-1 mb-2">
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5 text-xs font-black text-white truncate min-w-0">
+                                  <User size={12} className="text-rose-400 shrink-0" />
+                                  <span className="truncate">{room.activeGuest.guestName}</span>
+                                </div>
+                                {room.activeGuest.phone && (
+                                  <a
+                                    href={`https://wa.me/${room.activeGuest.phone.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="Chat on WhatsApp"
+                                    className="p-1 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition-colors shrink-0"
+                                  >
+                                    <MessageCircle size={13} />
+                                  </a>
+                                )}
                               </div>
-                              <p className="text-[9px] text-slate-400">
+                              <p className="text-[9.5px] text-slate-400 flex items-center gap-1">
+                                <Calendar size={10} className="text-slate-500" />
                                 {room.activeGuest.arrivalDate} → {room.activeGuest.departureDate}
                               </p>
-                              {room.activeGuest.dueAmount > 0 && (
-                                <p className="text-[9px] font-bold text-amber-400">
-                                  Due: ₹{room.activeGuest.dueAmount.toLocaleString('en-IN')}
-                                </p>
-                              )}
+                              <div className="flex items-center justify-between text-[9.5px] pt-0.5 border-t border-white/5 font-bold">
+                                <span className="text-slate-400">Balance:</span>
+                                <span className={room.activeGuest.dueAmount > 0 ? 'text-amber-400' : 'text-emerald-400'}>
+                                  ₹{room.activeGuest.dueAmount.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            </div>
+                          ) : isClean ? (
+                            <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-[10px] text-emerald-300 font-medium flex items-center justify-between mb-2">
+                              <span className="flex items-center gap-1.5">
+                                <CheckCircle2 size={12} className="text-emerald-400" />
+                                Clean &amp; Ready
+                              </span>
+                              <span className="text-slate-500 text-[9px]">Max {room.maxOccupancy} Pax</span>
                             </div>
                           ) : (
-                            <div className="p-2.5 rounded-xl bg-slate-950/30 border border-white/5 text-[10px] text-slate-500 mb-2">
-                              {isClean ? '✨ Clean & Inspected Ready' : isDirty ? '🧹 Housekeeping Pending' : '🔧 Maintenance'}
+                            <div className="p-2.5 rounded-xl bg-slate-950/40 border border-white/5 text-[10px] text-slate-400 font-medium flex items-center justify-between mb-2">
+                              <span>{isDirty ? '🧹 Housekeeping Pending' : isInProgress ? '🧼 In Cleaning' : isInspection ? '🔍 Inspection Pending' : '🔧 Maintenance'}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRoom(room);
+                                  setActionModalOpen(true);
+                                }}
+                                className="text-[9px] font-bold text-amber-400 hover:underline"
+                              >
+                                Update
+                              </button>
                             </div>
                           )}
                         </div>
 
-                        {/* Card Bottom Meta */}
-                        <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[9px] text-slate-500">
-                          <span>Max {room.maxOccupancy} Guests</span>
-                          <span className="text-indigo-400 font-bold group-hover:underline">Quick Action →</span>
+                        {/* Card Bottom Meta / Actions */}
+                        <div className="pt-2 border-t border-white/5">
+                          {isOccupied || room.activeGuest ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRoomForDetail(room);
+                              }}
+                              className="w-full h-8 px-2.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                            >
+                              <User size={13} />
+                              <span>Occupant &amp; Folio Details</span>
+                              <ChevronRight size={12} />
+                            </button>
+                          ) : isClean || room.status === 'AVAILABLE' ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setQuickBookingRoomId(room.id);
+                                  setIsQuickBookingOpen(true);
+                                }}
+                                className="flex-1 h-8 px-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer shadow-sm shadow-emerald-600/20"
+                              >
+                                <Plus size={13} />
+                                <span>Book Room</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setVipBookingRoomId(room.id);
+                                  setIsVipBookingOpen(true);
+                                }}
+                                className="h-8 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer shadow-sm shadow-amber-500/20"
+                                title="VIP / Owner Fast Check-In"
+                              >
+                                <Crown size={12} className="fill-slate-950" />
+                                <span>VIP</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-[9px] text-slate-500">
+                              <span>Max {room.maxOccupancy} Guests</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRoom(room);
+                                  setActionModalOpen(true);
+                                }}
+                                className="text-indigo-400 font-bold hover:underline"
+                              >
+                                Manage Status →
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -649,6 +825,45 @@ export default function RoomStatusBoardView() {
         room={selectedRoom}
         onUpdateStatus={handleUpdateStatus}
       />
+
+      {/* ── Occupant Details & Live Folio Modal ── */}
+      {selectedRoomForDetail && (
+        <OccupiedRoomDetailModal
+          isOpen={!!selectedRoomForDetail}
+          onClose={() => setSelectedRoomForDetail(null)}
+          room={selectedRoomForDetail}
+        />
+      )}
+
+      {/* ── Front Desk Quick Reservation Modal with Customer Search ── */}
+      {isQuickBookingOpen && (
+        <QuickReservationModal
+          isOpen={isQuickBookingOpen}
+          roomsList={roomsListForBooking}
+          onClose={() => {
+            setIsQuickBookingOpen(false);
+            setQuickBookingRoomId(null);
+          }}
+          onCreated={() => fetchBoardData(true)}
+          initialRoomId={quickBookingRoomId || undefined}
+          initialArrivalDate={todayStr}
+          initialDepartureDate={tomorrowStr}
+        />
+      )}
+
+      {/* ── VIP / Owner Fast Check-In Modal ── */}
+      {isVipBookingOpen && (
+        <OwnerVipBookingModal
+          isOpen={isVipBookingOpen}
+          roomsList={roomsListForBooking}
+          onClose={() => {
+            setIsVipBookingOpen(false);
+            setVipBookingRoomId(null);
+          }}
+          onCreated={() => fetchBoardData(true)}
+          initialRoomId={vipBookingRoomId || undefined}
+        />
+      )}
     </div>
   );
 }

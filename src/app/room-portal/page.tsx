@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Hotel, Smartphone, Hash, ArrowRight, Loader2, AlertCircle, CheckCircle2, ChevronRight, ShieldCheck, Unlink } from 'lucide-react';
+import { Hotel, Smartphone, Hash, ArrowRight, Loader2, AlertCircle, CheckCircle2, ChevronRight, ShieldCheck, Unlink, Crown, KeyRound } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
 type Step = 'room' | 'mobile';
@@ -10,8 +10,10 @@ type Step = 'room' | 'mobile';
 export default function RoomPortalLogin() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('room');
+  const [authMode, setAuthMode] = useState<'vip' | 'mobile'>('vip');
   const [roomNumber, setRoomNumber] = useState('');
   const [mobile, setMobile] = useState('');
+  const [vipCode, setVipCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [suggestedRoom, setSuggestedRoom] = useState('');
@@ -47,6 +49,12 @@ export default function RoomPortalLogin() {
       const params = new URLSearchParams(window.location.search);
       const urlProp = params.get('property') || params.get('propertyCode') || '';
       const urlPropId = params.get('propertyId') || '';
+      const urlRoom = params.get('room') || params.get('roomNumber') || '';
+
+      if (urlRoom) {
+        setRoomNumber(urlRoom);
+        setStep('mobile');
+      }
 
       // 1. If staff is logged in on this browser, ALWAYS sync to their active hotel!
       try {
@@ -127,8 +135,11 @@ export default function RoomPortalLogin() {
 
   const handleLogin = async (customRoom?: string) => {
     const targetRoom = (customRoom || roomNumber).trim();
-    if (!mobile.trim()) {
-      setError('Please enter your mobile number.');
+    const isVip = authMode === 'vip';
+    const authVal = isVip ? vipCode.trim() : mobile.trim();
+
+    if (!authVal) {
+      setError(isVip ? 'Please enter your 4-digit VIP Passcode.' : 'Please enter your mobile number.');
       return;
     }
     setLoading(true);
@@ -139,7 +150,8 @@ export default function RoomPortalLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomNumber: targetRoom,
-          mobile: mobile.trim(),
+          vipCode: isVip ? authVal : (authVal.length === 4 ? authVal : undefined),
+          mobile: !isVip ? authVal : undefined,
           propertyId: propertyId || undefined,
           propertyCode: propertyCode || undefined,
         }),
@@ -155,7 +167,11 @@ export default function RoomPortalLogin() {
           localStorage.setItem('room_portal_property_name', data.property.name);
           setPropertyName(data.property.name);
         }
-        toast.success(`Welcome, ${data.guest?.firstName || 'Guest'}! ✨`);
+        if (data.isOwnerGuest) {
+          toast.success(`👑 Welcome Honored VIP Guest, ${data.guest?.firstName || ''}! ✨`);
+        } else {
+          toast.success(`Welcome, ${data.guest?.firstName || 'Guest'}! ✨`);
+        }
         setTimeout(() => router.push('/room-portal/dashboard'), 800);
       } else {
         if (data.suggestedRoom) {
@@ -548,41 +564,129 @@ export default function RoomPortalLogin() {
                     Room <strong style={{ color: 'white' }}>{roomNumber}</strong> selected
                   </span>
                 </div>
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', color: 'rgb(148,163,184)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                    <Smartphone size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
-                    Registered Mobile Number
-                  </label>
-                  <input
-                    id="mobile-input"
-                    type="tel"
-                    inputMode="numeric"
-                    value={mobile}
-                    onChange={(e) => { setMobile(e.target.value); setError(''); }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                    placeholder="10-digit mobile number"
-                    autoFocus
-                    maxLength={15}
+                {/* Tab Switcher: 4-Digit VIP Code vs Mobile Number */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'rgba(15,23,42,0.8)', padding: '5px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('vip'); setError(''); }}
                     style={{
-                      width: '100%',
-                      padding: '18px 20px',
-                      borderRadius: '16px',
-                      border: error ? '2px solid rgba(239,68,68,0.6)' : '1px solid rgba(99,102,241,0.3)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: 'white',
-                      fontSize: '24px',
-                      fontWeight: 800,
-                      textAlign: 'center',
-                      letterSpacing: '3px',
-                      outline: 'none',
-                      transition: 'border-color 0.2s',
-                      boxSizing: 'border-box',
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: authMode === 'vip' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                      color: authMode === 'vip' ? '#0f172a' : '#94a3b8',
+                      fontSize: '12px',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s',
                     }}
-                  />
-                  <p style={{ color: 'rgb(71,85,105)', fontSize: '12px', marginTop: '8px', textAlign: 'center' }}>
-                    Use the mobile number registered during check-in
-                  </p>
+                  >
+                    <Crown size={14} /> 4-Digit VIP Passcode
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('mobile'); setError(''); }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: authMode === 'mobile' ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
+                      color: authMode === 'mobile' ? 'white' : '#94a3b8',
+                      fontSize: '12px',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <Smartphone size={14} /> Mobile Number
+                  </button>
                 </div>
+
+                {authMode === 'vip' ? (
+                  /* ── 4-Digit VIP Passcode Input ── */
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ display: 'block', color: '#fbbf24', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                      <Crown size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle', color: '#f59e0b' }} />
+                      Owner / VIP Guest 4-Digit Passcode
+                    </label>
+                    <input
+                      id="vip-code-input"
+                      type="text"
+                      inputMode="numeric"
+                      value={vipCode}
+                      onChange={(e) => { setVipCode(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                      placeholder="• • • •"
+                      autoFocus
+                      maxLength={4}
+                      style={{
+                        width: '100%',
+                        padding: '18px 20px',
+                        borderRadius: '16px',
+                        border: error ? '2px solid rgba(239,68,68,0.6)' : '2px solid rgba(245,158,11,0.5)',
+                        background: 'rgba(245,158,11,0.06)',
+                        color: '#fbbf24',
+                        fontSize: '32px',
+                        fontWeight: 900,
+                        textAlign: 'center',
+                        letterSpacing: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <p style={{ color: 'rgb(148,163,184)', fontSize: '12px', marginTop: '10px', textAlign: 'center' }}>
+                      👑 Enter the 4-digit code provided by Hotel Owner / Reception
+                    </p>
+                  </div>
+                ) : (
+                  /* ── Regular Mobile Input ── */
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ display: 'block', color: 'rgb(148,163,184)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                      <Smartphone size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+                      Registered Mobile Number
+                    </label>
+                    <input
+                      id="mobile-input"
+                      type="tel"
+                      inputMode="numeric"
+                      value={mobile}
+                      onChange={(e) => { setMobile(e.target.value); setError(''); }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                      placeholder="10-digit mobile number"
+                      autoFocus
+                      maxLength={15}
+                      style={{
+                        width: '100%',
+                        padding: '18px 20px',
+                        borderRadius: '16px',
+                        border: error ? '2px solid rgba(239,68,68,0.6)' : '1px solid rgba(99,102,241,0.3)',
+                        background: 'rgba(15,23,42,0.6)',
+                        color: 'white',
+                        fontSize: '24px',
+                        fontWeight: 800,
+                        textAlign: 'center',
+                        letterSpacing: '3px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <p style={{ color: 'rgb(71,85,105)', fontSize: '12px', marginTop: '8px', textAlign: 'center' }}>
+                      Use the mobile number registered during check-in
+                    </p>
+                  </div>
+                )}
 
                 {suggestedRoom && (
                   <div style={{
@@ -632,16 +736,22 @@ export default function RoomPortalLogin() {
                     padding: '18px',
                     borderRadius: '16px',
                     border: 'none',
-                    background: loading ? 'rgba(99,102,241,0.5)' : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    color: 'white',
+                    background: loading
+                      ? 'rgba(99,102,241,0.5)'
+                      : authMode === 'vip'
+                      ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                      : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    color: authMode === 'vip' ? '#0f172a' : 'white',
                     fontSize: '16px',
-                    fontWeight: 800,
+                    fontWeight: 900,
                     cursor: loading ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '10px',
-                    boxShadow: '0 8px 32px rgba(99,102,241,0.35)',
+                    boxShadow: authMode === 'vip'
+                      ? '0 8px 32px rgba(245,158,11,0.35)'
+                      : '0 8px 32px rgba(99,102,241,0.35)',
                     transition: 'transform 0.1s, box-shadow 0.2s',
                     marginTop: '8px',
                   }}
@@ -650,6 +760,8 @@ export default function RoomPortalLogin() {
                 >
                   {loading ? (
                     <><Loader2 size={20} className="animate-spin" /> Verifying...</>
+                  ) : authMode === 'vip' ? (
+                    <>👑 Enter as VIP Guest <ArrowRight size={20} /></>
                   ) : (
                     <>Access My Room <ArrowRight size={20} /></>
                   )}

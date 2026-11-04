@@ -42,6 +42,11 @@ export async function GET(request: NextRequest) {
         dueAmount: true,
         mealPlan: true,
         status: true,
+        isOwnerGuest: true,
+        ownerVipCode: true,
+        ownerName: true,
+        ownerBillingType: true,
+        waiveBill: true,
         folios: {
           include: {
             transactions: {
@@ -116,6 +121,10 @@ export async function GET(request: NextRequest) {
       }).catch(() => {});
     }
 
+    const isWaived = Boolean(reservation.waiveBill);
+    const courtesyDiscount = isWaived ? Math.max(0, calculatedTotal - calculatedPaid) : 0;
+    const finalBalanceDue = isWaived ? 0 : calculatedBalanceDue;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -124,7 +133,7 @@ export async function GET(request: NextRequest) {
         departureDate,
         totalAmount: calculatedTotal,
         advanceAmount: calculatedPaid,
-        dueAmount: calculatedBalanceDue,
+        dueAmount: finalBalanceDue,
         mealPlan: reservation.mealPlan || 'RO',
         status: reservation.status,
         charges,
@@ -134,8 +143,13 @@ export async function GET(request: NextRequest) {
         roomServiceCount: roomServiceCharges.length,
         totalCharges: calculatedTotal,
         totalPayments: calculatedPaid,
-        balanceDue: calculatedBalanceDue,
-        folioBalance: folio?.closingBalance ?? calculatedBalanceDue,
+        balanceDue: finalBalanceDue,
+        folioBalance: isWaived ? 0 : (folio?.closingBalance ?? calculatedBalanceDue),
+        isOwnerGuest: Boolean(reservation.isOwnerGuest),
+        ownerName: reservation.ownerName,
+        ownerBillingType: reservation.ownerBillingType,
+        waiveBill: isWaived,
+        courtesyDiscount,
       },
     });
   } catch (error: any) {

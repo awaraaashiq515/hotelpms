@@ -62,26 +62,54 @@ export async function GET(request: NextRequest) {
 
     if (propertyIds.length === 0) return apiError(new Error('No property context'), 400);
 
-    // Date filter — default today (or last 24h)
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Resolve status filter
+    let statusFilter: any = undefined;
+    if (status) {
+      if (status.includes(',')) {
+        statusFilter = { in: status.split(',').map((s) => s.trim()) };
+      } else if (status === 'PENDING' || status === 'active' || status === 'UNFULFILLED') {
+        // Room portal and tablet orders default to CONFIRMED / PENDING / OPEN
+        statusFilter = { in: ['PENDING', 'CONFIRMED', 'OPEN', 'KOT_RUNNING'] };
+      } else {
+        statusFilter = status;
+      }
+    } else {
+      statusFilter = { notIn: ['COMPLETED', 'PAID', 'SETTLED', 'CANCELLED', 'DELIVERED'] };
+    }
 
-    // Query active room service & guest pre-orders (excluding COMPLETED/PAID/SETTLED by default)
+    // Date filter — default today unless date=all or querying active/pending unfulfilled orders
+    const isQueryingPending = status === 'PENDING' || status === 'active' || status === 'UNFULFILLED';
+    let createdAtFilter: any = undefined;
+    if (dateParam !== 'all' && !isQueryingPending) {
+      const targetDate = dateParam ? new Date(dateParam) : new Date();
+      if (!isNaN(targetDate.getTime())) {
+        const startOfDay = new Date(targetDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(targetDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAtFilter = { gte: startOfDay, lte: endOfDay };
+      }
+    }
+
+    // Query active room service & guest pre-orders
     const orders = await prisma.posOrder.findMany({
       where: {
         propertyId: { in: propertyIds },
-        createdAt: { gte: startOfDay, lte: endOfDay },
+        ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
         OR: [
           { orderType: 'ROOM_SERVICE' },
-          { guestId: { not: null } },
+          { tableNo: { contains: 'Room' } },
           { deliveryInstructions: { contains: 'ROOM:' } },
-          { deliveryInstructions: { contains: 'SERVE_TIME' } }
+          { deliveryInstructions: { contains: 'SERVE_TIME' } },
+          { guestId: { not: null } },
         ],
-        ...(roomNumber ? { deliveryInstructions: { contains: `ROOM:${roomNumber}` } } : {}),
-        ...(status ? { status } : { status: { notIn: ['COMPLETED', 'PAID', 'SETTLED', 'CANCELLED'] } }),
+        ...(roomNumber ? {
+          OR: [
+            { deliveryInstructions: { contains: `ROOM:${roomNumber}` } },
+            { tableNo: `Room ${roomNumber}` },
+          ]
+        } : {}),
+        status: statusFilter,
       },
       include: {
         items: {
@@ -348,6 +376,50 @@ export async function POST(request: NextRequest) {
       },
     }, { status: 201 });
 
+  } catch (error) {
+    return apiError(error);
+  }
+}
+
+// ── PATCH — Update room service order status ─────────────────────────────────
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getSession();
+    const wtUser = await getWTUserFromRequest(request);
+    if (!session && !wtUser) return apiError(new Error('Unauthorized'), 401);
+
+    const body = await request.json();
+    const { id, orderId, status } = body;
+    const targetId = id || orderId;
+
+    if (!targetId) {
+      return apiError(new Error('Order ID is required'), 400);
+    }
+
+    const updated = await prisma.posOrder.update({
+      where: { id: targetId },
+      data: {
+        ...(status ? { status } : {}),
+      },
+    });
+
+    // Mark pending notification read
+    try {
+      await prisma.notification.updateMany({
+        where: {
+          type: 'ROOM_SERVICE_ORDER',
+          metadata: { contains: targetId },
+          status: 'UNREAD',
+        },
+        data: { status: 'READ' },
+      });
+    } catch {}
+
+    return NextResponse.json({
+      success: true,
+      message: `Order status updated to ${status || updated.status}`,
+      data: updated,
+    });
   } catch (error) {
     return apiError(error);
   }

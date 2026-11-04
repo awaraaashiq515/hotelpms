@@ -1,18 +1,37 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic';
 
-// /staff-portal → redirect to first property, or show selector
 export default async function StaffPortalIndexPage() {
-  // Get first available property
+  const session = await getSession();
+
+  // 1. If user is currently logged in with a propertyCode in their session
+  if (session?.propertyCode) {
+    redirect(`/staff-portal/${session.propertyCode.toLowerCase()}`);
+  }
+
+  // 2. If user is logged into an organization, find their property
+  if (session?.organizationId) {
+    const orgProp = await prisma.property.findFirst({
+      where: { organizationId: session.organizationId },
+      select: { code: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (orgProp?.code) {
+      redirect(`/staff-portal/${orgProp.code.toLowerCase()}`);
+    }
+  }
+
+  // 3. Fallback: latest property
   const firstProp = await prisma.property.findFirst({
     select: { code: true, name: true },
-    orderBy: { createdAt: 'asc' },
-  })
+    orderBy: { createdAt: 'desc' },
+  });
 
   if (firstProp?.code) {
-    redirect(`/staff-portal/${firstProp.code.toLowerCase()}`)
+    redirect(`/staff-portal/${firstProp.code.toLowerCase()}`);
   }
 
   // Fallback: show message if no properties yet

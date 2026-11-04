@@ -1,16 +1,57 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HousekeeperPortalIndexPage() {
+  const session = await getSession();
+
+  // 1. If user is currently logged in with a propertyCode in their session
+  if (session?.propertyCode) {
+    redirect(`/housekeeper-portal/${session.propertyCode.toLowerCase()}`);
+  }
+
+  // 2. If user is logged into an organization, find their hotel property
+  if (session?.organizationId) {
+    const hotelProp = await prisma.property.findFirst({
+      where: { organizationId: session.organizationId, type: 'HOTEL' },
+      select: { code: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (hotelProp?.code) {
+      redirect(`/housekeeper-portal/${hotelProp.code.toLowerCase()}`);
+    }
+
+    const anyOrgProp = await prisma.property.findFirst({
+      where: { organizationId: session.organizationId },
+      select: { code: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (anyOrgProp?.code) {
+      redirect(`/housekeeper-portal/${anyOrgProp.code.toLowerCase()}`);
+    }
+  }
+
+  // 3. Fallback: find the latest Hotel property
+  const hotelProp = await prisma.property.findFirst({
+    where: { type: 'HOTEL' },
+    select: { code: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (hotelProp?.code) {
+    redirect(`/housekeeper-portal/${hotelProp.code.toLowerCase()}`);
+  }
+
+  // 4. Any active property
   const firstProp = await prisma.property.findFirst({
     select: { code: true },
-    orderBy: { createdAt: 'asc' },
-  })
+    orderBy: { createdAt: 'desc' },
+  });
 
   if (firstProp?.code) {
-    redirect(`/housekeeper-portal/${firstProp.code.toLowerCase()}`)
+    redirect(`/housekeeper-portal/${firstProp.code.toLowerCase()}`);
   }
 
   return (

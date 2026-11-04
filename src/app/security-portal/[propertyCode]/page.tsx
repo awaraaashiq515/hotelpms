@@ -455,6 +455,12 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
             if (wtRes.ok) {
               const wtData = await wtRes.json()
               if (wtData.user) {
+                const userPropCode = wtData.user.property?.code?.toLowerCase()
+                if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+                  localStorage.setItem('security_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
+                  window.location.href = `/security-portal/${userPropCode}`
+                  return
+                }
                 setUser(wtData.user)
                 if (wtData.wtToken) setWtToken(wtData.wtToken)
                 localStorage.setItem('security_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
@@ -495,6 +501,13 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
       const data = await res.json()
       if (!res.ok) {
         setAuthError(data.message || 'Login failed. Please check credentials.')
+        return
+      }
+
+      const userPropCode = data.user.property?.code?.toLowerCase()
+      if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+        localStorage.setItem('security_portal_session', JSON.stringify({ user: data.user, wtToken: data.wtToken }))
+        window.location.href = `/security-portal/${userPropCode}`
         return
       }
 

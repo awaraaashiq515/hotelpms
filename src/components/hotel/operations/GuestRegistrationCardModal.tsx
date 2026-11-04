@@ -265,40 +265,40 @@ export function GuestRegistrationCardModal({
               <div class="grid-3">
                 <div class="field-row">
                   <div class="field-label">Guest Full Name</div>
-                  <div class="field-val">${reservation.guestName || 'N/A'}</div>
+                  <div class="field-val">${reservation.guestName || ((reservation as any).guest ? `${(reservation as any).guest.firstName || ''} ${(reservation as any).guest.lastName || ''}`.trim() : 'N/A')}</div>
                 </div>
                 <div class="field-row">
                   <div class="field-label">Mobile Number</div>
-                  <div class="field-val">${reservation.guestMobile || '+91 - Not provided'}</div>
+                  <div class="field-val">${reservation.guestMobile || (reservation as any).guest?.mobile || '+91 - Not provided'}</div>
                 </div>
                 <div class="field-row">
                   <div class="field-label">Email Address</div>
-                  <div class="field-val">${reservation.guestEmail || 'N/A'}</div>
+                  <div class="field-val">${reservation.guestEmail || (reservation as any).guest?.email || 'N/A'}</div>
                 </div>
               </div>
               <div class="grid-3" style="margin-top: 6px;">
                 <div class="field-row">
                   <div class="field-label">Identity Type</div>
-                  <div class="field-val">${reservation.guestIdType || 'Govt Photo ID / Aadhaar'}</div>
+                  <div class="field-val">${reservation.guestIdType || (reservation as any).guest?.idType || 'Govt Photo ID / Aadhaar'}</div>
                 </div>
                 <div class="field-row">
                   <div class="field-label">ID / Document Number</div>
-                  <div class="field-val">${reservation.guestIdNumber || 'Verified at Desk'}</div>
+                  <div class="field-val">${reservation.guestIdNumber || (reservation as any).guest?.idNumber || 'Verified at Desk'}</div>
                 </div>
                 <div class="field-row">
                   <div class="field-label">Nationality</div>
-                  <div class="field-val">${reservation.guestNationality || 'Indian'}</div>
+                  <div class="field-val">${reservation.guestNationality || (reservation as any).guest?.nationality || 'Indian'}</div>
                 </div>
               </div>
-              ${reservation.companyName || reservation.gstNumber ? `
+              ${reservation.companyName || reservation.gstNumber || (reservation as any).guest?.companyName || (reservation as any).guest?.gstNumber ? `
                 <div class="grid-2" style="margin-top: 6px;">
                   <div class="field-row">
                     <div class="field-label">Company / Corporate Name</div>
-                    <div class="field-val">${reservation.companyName || 'Individual'}</div>
+                    <div class="field-val">${reservation.companyName || (reservation as any).guest?.companyName || 'Individual'}</div>
                   </div>
                   <div class="field-row">
                     <div class="field-label">Company GSTIN</div>
-                    <div class="field-val">${reservation.gstNumber || 'N/A'}</div>
+                    <div class="field-val">${reservation.gstNumber || (reservation as any).guest?.gstNumber || 'N/A'}</div>
                   </div>
                 </div>
               ` : ''}

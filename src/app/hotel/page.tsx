@@ -959,6 +959,7 @@ const DEPARTMENTS = [
       { name: 'Check-Out Terminal',  href: '/hotel/checkout',        icon: DoorOpen   },
       { name: 'Operations Dashboard', href: '/hotel/operations-dashboard', icon: LayoutGrid },
       { name: 'Bookings Manager',   href: '/hotel/bookings',        icon: PlusCircle },
+      { name: 'Customers & Guests',  href: '/hotel/guests',          icon: Users      },
       { name: 'Agent Bookings',      href: '/hotel/agent-bookings',  icon: Handshake  },
       { name: 'Room Availability',   href: '/hotel/calendar',        icon: Calendar   },
       { name: 'Security & Verify',   href: '/security-portal',       icon: ShieldCheck },
@@ -1194,6 +1195,7 @@ export default function HotelDashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
   const [pendingAgentBookings, setPendingAgentBookings] = useState<any[]>([]);
+  const [pendingRoomOrders, setPendingRoomOrders] = useState<any[]>([]);
 
   const checkDemoData = () => {
     fetch('/api/hotel/demo-data')
@@ -1253,9 +1255,37 @@ export default function HotelDashboard() {
         })
         .catch(() => {});
     };
+
+    const loadPendingRoomOrders = () => {
+      fetch('/api/hotel/room-service?date=all&status=PENDING')
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && Array.isArray(d.data)) {
+            setPendingRoomOrders(d.data);
+          }
+        })
+        .catch(() => {});
+    };
+
     loadPendingAgentBookings();
-    const agentInterval = setInterval(loadPendingAgentBookings, 8000);
-    return () => clearInterval(agentInterval);
+    loadPendingRoomOrders();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'hotel_room_service_order_placed') {
+        loadPendingRoomOrders();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    const pollInterval = setInterval(() => {
+      loadPendingAgentBookings();
+      loadPendingRoomOrders();
+    }, 7000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   const handleClearDemoData = async () => {
@@ -1434,37 +1464,110 @@ export default function HotelDashboard() {
         <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.3) 50%, transparent 100%)' }} />
       </div>
 
-      {/* ── Pending Agent Bookings Realtime Live Banner ── */}
-      {pendingAgentBookings.length > 0 && (
-        <div className="mb-2.5 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-violet-950/80 via-[#15112e]/90 to-indigo-950/80 border border-violet-500/40 shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300 shrink-0">
-              <Handshake size={18} className="animate-pulse" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  {pendingAgentBookings.length} New Agent {pendingAgentBookings.length === 1 ? 'Booking' : 'Bookings'} Received
-                </span>
-                <span className="text-[9.5px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
-                  Action Required
-                </span>
+      {/* ── Live Front Desk Notifications (Split 50-50: Agent Bookings & Room Orders) ── */}
+      {(pendingAgentBookings.length > 0 || pendingRoomOrders.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-2.5 animate-in fade-in slide-in-from-top-2">
+          {/* Left Column: Agent Bookings Alert */}
+          {pendingAgentBookings.length > 0 ? (
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-violet-950/80 via-[#15112e]/90 to-indigo-950/80 border border-violet-500/40 shadow-xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300 shrink-0">
+                  <Handshake size={18} className="animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5 truncate">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                      {pendingAgentBookings.length} New Agent {pendingAgentBookings.length === 1 ? 'Booking' : 'Bookings'}
+                    </span>
+                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold shrink-0">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5 truncate">
+                    Guest: <span className="font-bold text-white">{pendingAgentBookings[0]?.guestName}</span> • Agent: <span className="text-violet-300 font-semibold">{pendingAgentBookings[0]?.agent?.name || 'Partner'}</span> • ₹{Number(pendingAgentBookings[0]?.totalAmount || 0).toLocaleString()}
+                  </p>
+                </div>
               </div>
-              <p className="text-[11.5px] text-slate-300 mt-0.5 truncate max-w-xl">
-                Guest: <span className="font-bold text-white">{pendingAgentBookings[0]?.guestName}</span> ({pendingAgentBookings[0]?.roomType}) • Agent: <span className="text-violet-300 font-semibold">{pendingAgentBookings[0]?.agent?.name || 'Partner'}</span> • Total: ₹{Number(pendingAgentBookings[0]?.totalAmount || 0).toLocaleString()}
-              </p>
+              <Link
+                href="/hotel/agent-bookings"
+                className="h-8 px-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-violet-600/30 active:scale-95 transition-all shrink-0"
+              >
+                <span>Review</span>
+                <ChevronRight size={13} />
+              </Link>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/hotel/agent-bookings"
-              className="h-8 px-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-violet-600/30 active:scale-95 transition-all"
-            >
-              <span>Review Bookings</span>
-              <ChevronRight size={13} />
-            </Link>
-          </div>
+          ) : (
+            <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-3 text-slate-400">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-slate-400 shrink-0">
+                  <Handshake size={18} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-300">Agent Bookings Desk</span>
+                  <p className="text-[11px] text-slate-500">All agent enquiries processed</p>
+                </div>
+              </div>
+              <Link
+                href="/hotel/agent-bookings"
+                className="h-8 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all shrink-0"
+              >
+                <span>Portal</span>
+                <ChevronRight size={13} />
+              </Link>
+            </div>
+          )}
+
+          {/* Right Column: Room Service Orders Alert */}
+          {pendingRoomOrders.length > 0 ? (
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/80 via-[#261709]/90 to-orange-950/80 border border-amber-500/40 shadow-xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0 font-bold">
+                  🛎️
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5 truncate">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+                      {pendingRoomOrders.length} New Room {pendingRoomOrders.length === 1 ? 'Order' : 'Orders'}
+                    </span>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold shrink-0">
+                      Room {pendingRoomOrders[0]?.roomNumber || 'Service'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5 truncate">
+                    {pendingRoomOrders[0]?.items?.map((i: any) => `${i.name} x${i.qty}`).join(', ') || 'Room Service order'} • ₹{Number(pendingRoomOrders[0]?.totalAmount || 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/hotel/pos/room-orders"
+                className="h-8 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-amber-600/30 active:scale-95 transition-all shrink-0"
+              >
+                <span>Orders</span>
+                <ChevronRight size={13} />
+              </Link>
+            </div>
+          ) : (
+            <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-3 text-slate-400">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-slate-400 shrink-0">
+                  <UtensilsCrossed size={18} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-300">Room Service Orders</span>
+                  <p className="text-[11px] text-slate-500">No pending room orders</p>
+                </div>
+              </div>
+              <Link
+                href="/hotel/pos/room-orders"
+                className="h-8 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all shrink-0"
+              >
+                <span>View POS</span>
+                <ChevronRight size={13} />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

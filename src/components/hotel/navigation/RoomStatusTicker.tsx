@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BedDouble,
@@ -14,43 +14,49 @@ import {
   ExternalLink,
   RefreshCw,
   Eye,
+  Plus,
+  Search,
+  User,
+  DollarSign,
+  Calendar,
+  AlertCircle,
+  Check,
+  Loader2,
+  Crown,
 } from 'lucide-react';
 import Link from 'next/link';
-
-interface RoomItem {
-  id: string;
-  roomNumber: string;
-  floor?: number | string;
-  status: string;
-  housekeepingStatus: string;
-  maintenanceStatus?: string;
-  roomTypeName?: string;
-  activeGuest?: {
-    guestName?: string;
-    bookingNo?: string;
-  } | null;
-  assignedStaffName?: string | null;
-}
-
-interface BoardSummary {
-  totalRooms: number;
-  occupiedCount: number;
-  occupancyPct: number;
-  vacantCleanCount: number;
-  vacantDirtyCount: number;
-  inProgressCount: number;
-  outOfOrderCount: number;
-  arrivalsTodayCount: number;
-  departuresTodayCount: number;
-}
+import { toast } from 'sonner';
+import { QuickReservationModal, type RoomOption } from '@/components/hotel/operations/QuickReservationModal';
+import { OwnerVipBookingModal } from '@/components/hotel/bookings/OwnerVipBookingModal';
+import { OccupiedRoomDetailModal } from './OccupiedRoomDetailModal';
+import type {
+  RoomBoardItem,
+  RoomBoardGuestInfo,
+  RoomBoardSummary,
+} from '@/types/hotel/room-board.types';
 
 export function RoomStatusTicker() {
-  const [summary, setSummary] = useState<BoardSummary | null>(null);
-  const [rooms, setRooms] = useState<RoomItem[]>([]);
+  const [summary, setSummary] = useState<RoomBoardSummary | null>(null);
+  const [rooms, setRooms] = useState<RoomBoardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'IN_PROGRESS' | 'MAINTENANCE'>('ALL');
+  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'IN_PROGRESS' | 'MAINTENANCE' | 'VIP'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  // Detail Modal for Occupied Rooms
+  const [selectedRoomForDetail, setSelectedRoomForDetail] = useState<RoomBoardItem | null>(null);
+
+  // Quick Booking Modal State
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedBookingRoomId, setSelectedBookingRoomId] = useState<string | undefined>(undefined);
+
+  // VIP / Owner Fast Check-In Modal State
+  const [isVipModalOpen, setIsVipModalOpen] = useState(false);
+  const [selectedVipRoomId, setSelectedVipRoomId] = useState<string | undefined>(undefined);
+
+  // Loading state when updating a room's status (e.g. marking clean)
+  const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -59,11 +65,17 @@ export function RoomStatusTicker() {
   useEffect(() => {
     if (!showModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowModal(false);
+      if (e.key === 'Escape') {
+        if (selectedRoomForDetail) {
+          setSelectedRoomForDetail(null);
+        } else {
+          setShowModal(false);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showModal]);
+  }, [showModal, selectedRoomForDetail]);
 
   const fetchBoardData = useCallback(async () => {
     try {
@@ -96,7 +108,7 @@ export function RoomStatusTicker() {
   );
 
   const occupiedRooms = rooms.filter(
-    (r) => r.status === 'OCCUPIED' || r.activeGuest !== null && r.activeGuest !== undefined
+    (r) => r.status === 'OCCUPIED' || (r.activeGuest !== null && r.activeGuest !== undefined)
   );
 
   const dirtyRooms = rooms.filter(
@@ -110,15 +122,18 @@ export function RoomStatusTicker() {
   const maintenanceRooms = rooms.filter(
     (r) =>
       r.maintenanceStatus === 'UNDER_MAINTENANCE' ||
-      r.status === 'OUT_OF_ORDER' ||
-      r.maintenanceStatus === 'OUT_OF_ORDER'
+      r.status === 'OUT_OF_ORDER'
+  );
+
+  const vipRooms = rooms.filter(
+    (r) => Boolean(r.isVIP) || Boolean(r.activeGuest && (r.activeGuest as any).isVIP)
   );
 
   const totalRoomsCount = summary?.totalRooms || rooms.length || 1;
   const occupancyPct = summary?.occupancyPct ?? Math.round((occupiedRooms.length / totalRoomsCount) * 100);
 
   // Helper string formatter: list first N room numbers
-  const formatRoomList = (roomList: RoomItem[], max = 5) => {
+  const formatRoomList = (roomList: RoomBoardItem[], max = 5) => {
     if (roomList.length === 0) return 'None';
     const nums = roomList.slice(0, max).map((r) => r.roomNumber);
     if (roomList.length > max) {
@@ -127,25 +142,144 @@ export function RoomStatusTicker() {
     return nums.join(', ');
   };
 
-  // Filtered rooms for the detailed modal
+  // Convert rooms to RoomOption format expected by QuickReservationModal
+  const roomsListForBooking: RoomOption[] = useMemo(() => {
+    return rooms.map((r) => ({
+      id: r.id,
+      roomNumber: r.roomNumber,
+      roomTypeName: r.roomTypeName || 'Standard Room',
+      roomTypeId: r.roomTypeId || '',
+      baseRate: r.baseRate || 3500,
+      maxOccupancy: r.maxOccupancy || 2,
+      status: r.status,
+      floor: String(r.floor || '1'),
+    }));
+  }, [rooms]);
+
+  // Today & tomorrow ISO strings for booking pre-selection
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  // Filtered rooms for the detailed modal with search support
   const filteredRooms = rooms.filter((r) => {
+    // Tab category filter
     if (selectedFilter === 'AVAILABLE') {
-      return (r.status === 'AVAILABLE' || !r.status) && (r.housekeepingStatus === 'CLEAN' || !r.housekeepingStatus) && !r.activeGuest;
+      if (!((r.status === 'AVAILABLE' || !r.status) && (r.housekeepingStatus === 'CLEAN' || !r.housekeepingStatus) && !r.activeGuest)) {
+        return false;
+      }
+    } else if (selectedFilter === 'OCCUPIED') {
+      if (!(r.status === 'OCCUPIED' || (r.activeGuest !== null && r.activeGuest !== undefined))) {
+        return false;
+      }
+    } else if (selectedFilter === 'DIRTY') {
+      if (r.housekeepingStatus !== 'DIRTY') return false;
+    } else if (selectedFilter === 'IN_PROGRESS') {
+      if (r.housekeepingStatus !== 'IN_PROGRESS') return false;
+    } else if (selectedFilter === 'MAINTENANCE') {
+      if (!(r.maintenanceStatus === 'UNDER_MAINTENANCE' || r.status === 'OUT_OF_ORDER')) {
+        return false;
+      }
+    } else if (selectedFilter === 'VIP') {
+      if (!(r.isVIP || (r.activeGuest && (r.activeGuest as any).isVIP))) {
+        return false;
+      }
     }
-    if (selectedFilter === 'OCCUPIED') {
-      return r.status === 'OCCUPIED' || (r.activeGuest !== null && r.activeGuest !== undefined);
+
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchRoom = r.roomNumber.toLowerCase().includes(q);
+      const matchType = (r.roomTypeName || '').toLowerCase().includes(q);
+      const matchGuest = (r.activeGuest?.guestName || '').toLowerCase().includes(q);
+      const matchBooking = (r.activeGuest?.bookingNo || '').toLowerCase().includes(q);
+      const matchStaff = (r.assignedStaffName || '').toLowerCase().includes(q);
+      if (!matchRoom && !matchType && !matchGuest && !matchBooking && !matchStaff) {
+        return false;
+      }
     }
-    if (selectedFilter === 'DIRTY') {
-      return r.housekeepingStatus === 'DIRTY';
-    }
-    if (selectedFilter === 'IN_PROGRESS') {
-      return r.housekeepingStatus === 'IN_PROGRESS';
-    }
-    if (selectedFilter === 'MAINTENANCE') {
-      return r.maintenanceStatus === 'UNDER_MAINTENANCE' || r.status === 'OUT_OF_ORDER' || r.maintenanceStatus === 'OUT_OF_ORDER';
-    }
+
     return true;
   });
+
+  // Action: Open Quick Booking form
+  const handleOpenBooking = (roomId?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedBookingRoomId(roomId);
+    setShowModal(false);
+    setIsBookingModalOpen(true);
+  };
+
+  // Action: Open Owner / VIP Fast Check-In
+  const handleOpenVipBooking = (roomId?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedVipRoomId(roomId);
+    setShowModal(false);
+    setIsVipModalOpen(true);
+  };
+
+  // Action: Toggle VIP status for room
+  const handleToggleVip = async (roomId: string, currentVip: boolean, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const res = await fetch('/api/hotel/rooms/board', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, isVIP: !currentVip }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(!currentVip ? 'Room marked as VIP ⭐' : 'VIP status removed');
+        await fetchBoardData();
+      } else {
+        toast.error(data.message || 'Failed to update VIP status');
+      }
+    } catch {
+      toast.error('Network error updating room');
+    }
+  };
+
+  // Action: Handle room card click
+  const handleRoomCardClick = (room: RoomBoardItem) => {
+    const isOccupied = room.status === 'OCCUPIED' || Boolean(room.activeGuest);
+    if (isOccupied) {
+      setSelectedRoomForDetail(room);
+    } else {
+      // Room is available or dirty -> open quick booking form directly
+      handleOpenBooking(room.id);
+    }
+  };
+
+  // Action: Mark room as Clean instantly
+  const handleMarkClean = async (roomId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setUpdatingRoomId(roomId);
+    try {
+      const res = await fetch('/api/hotel/rooms/board', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          housekeepingStatus: 'CLEAN',
+          status: 'AVAILABLE',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Room marked as Clean & Ready');
+        await fetchBoardData();
+      } else {
+        toast.error(data.message || 'Failed to update room');
+      }
+    } catch {
+      toast.error('Network error while updating room');
+    } finally {
+      setUpdatingRoomId(null);
+    }
+  };
 
   // Ticker content items sequence
   const renderTickerPills = () => (
@@ -304,14 +438,14 @@ export function RoomStatusTicker() {
         </div>
       </div>
 
-      {/* ── Detailed Room Status Overview Modal (Portaled to document.body so header backdrop-blur never clips it) ── */}
+      {/* ── Detailed Room Status Overview Modal ── */}
       {mounted && showModal && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-5 animate-in fade-in duration-200 overflow-y-auto"
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-white my-auto relative"
+            className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[88vh] my-auto flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-white relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -328,11 +462,32 @@ export function RoomStatusTicker() {
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Real-time occupancy, housekeeping cleaning status, and room assignments
+                    Real-time occupancy, housekeeping cleaning status, and instant room booking
                   </p>
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
+                {/* Direct New Booking Button */}
+                <button
+                  onClick={() => handleOpenBooking()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-indigo-600/30 cursor-pointer"
+                  title="Create New Reservation"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Book Room</span>
+                </button>
+
+                {/* VIP / Owner Fast Check-In Button */}
+                <button
+                  onClick={() => handleOpenVipBooking()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                  title="VIP / Owner Fast Check-In"
+                >
+                  <Crown className="w-3.5 h-3.5 text-slate-950" />
+                  <span>VIP Check-In</span>
+                </button>
+
                 <button
                   onClick={fetchBoardData}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
@@ -425,87 +580,250 @@ export function RoomStatusTicker() {
                   <span>Maintenance ({maintenanceRooms.length})</span>
                 </button>
               )}
+
+              {/* VIP Rooms Tab */}
+              <button
+                onClick={() => setSelectedFilter('VIP')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
+                  selectedFilter === 'VIP'
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                    : 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10'
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                <span>VIP Rooms ({vipRooms.length})</span>
+              </button>
+            </div>
+
+            {/* Quick Search & Hint Bar */}
+            <div className="px-4 py-2.5 bg-slate-900/70 border-b border-slate-800/80 flex items-center justify-between gap-3 shrink-0">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search room number, type, or guest name..."
+                  className="w-full bg-slate-800/70 border border-slate-700/80 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-400">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Click available room to book
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span> Click occupied room for guest details
+                </span>
+              </div>
             </div>
 
             {/* Room Cards Grid */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5">
               {filteredRooms.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
-                  <p className="text-sm">No rooms found in this category.</p>
+                  <p className="text-sm">No rooms found matching your filters.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                   {filteredRooms.map((r) => {
-                    const isOccupied = r.status === 'OCCUPIED' || r.activeGuest;
+                    const isOccupied = r.status === 'OCCUPIED' || Boolean(r.activeGuest);
                     const isDirty = r.housekeepingStatus === 'DIRTY';
                     const isInProgress = r.housekeepingStatus === 'IN_PROGRESS';
                     const isMaintenance =
                       r.maintenanceStatus === 'UNDER_MAINTENANCE' ||
-                      r.status === 'OUT_OF_ORDER' ||
-                      r.maintenanceStatus === 'OUT_OF_ORDER';
+                      r.status === 'OUT_OF_ORDER';
 
                     return (
                       <div
                         key={r.id}
-                        className={`p-3 rounded-xl border transition-all ${
+                        onClick={() => handleRoomCardClick(r)}
+                        className={`p-3.5 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col justify-between hover:scale-[1.01] hover:shadow-lg relative group ${
                           isOccupied
-                            ? 'bg-sky-950/20 border-sky-500/30'
+                            ? 'bg-sky-950/20 border-sky-500/30 hover:border-sky-400'
                             : isMaintenance
-                            ? 'bg-rose-950/20 border-rose-500/30'
+                            ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-400'
                             : isDirty
-                            ? 'bg-amber-950/20 border-amber-500/30'
+                            ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-400'
                             : isInProgress
-                            ? 'bg-cyan-950/20 border-cyan-500/30'
-                            : 'bg-emerald-950/20 border-emerald-500/30'
+                            ? 'bg-cyan-950/20 border-cyan-500/30 hover:border-cyan-400'
+                            : 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-400'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-black text-white">
-                            Room {r.roomNumber}
-                          </span>
-                          <span
-                            className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                              isOccupied
-                                ? 'bg-sky-500/20 text-sky-300'
-                                : isMaintenance
-                                ? 'bg-rose-500/20 text-rose-300'
-                                : isDirty
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : isInProgress
-                                ? 'bg-cyan-500/20 text-cyan-300'
-                                : 'bg-emerald-500/20 text-emerald-300'
-                            }`}
-                          >
-                            {isOccupied
-                              ? 'Occupied'
-                              : isMaintenance
-                              ? 'Maintenance'
-                              : isDirty
-                              ? 'Dirty'
-                              : isInProgress
-                              ? 'Cleaning'
-                              : 'Available'}
-                          </span>
-                        </div>
+                        <div>
+                          {/* Card Top: Room Number & Status Pill */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-base font-black text-white group-hover:text-indigo-300 transition-colors">
+                                Room {r.roomNumber}
+                              </span>
+                              {r.floor && (
+                                <span className="text-[10px] text-slate-400">
+                                  (F{r.floor})
+                                </span>
+                              )}
+                              {r.isVIP && (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 shadow-xs">
+                                  <Crown className="w-2.5 h-2.5 text-amber-400" />
+                                  <span>VIP</span>
+                                </span>
+                              )}
+                            </div>
 
-                        <div className="mt-1 text-[11px] text-slate-400 truncate">
-                          {r.roomTypeName || 'Standard Room'}
-                        </div>
+                            <div className="flex items-center gap-1">
+                              {/* Quick VIP Toggle Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleVip(r.id, Boolean(r.isVIP), e)}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                  r.isVIP
+                                    ? 'text-amber-400 bg-amber-500/20 hover:bg-amber-500/30'
+                                    : 'text-slate-600 hover:text-amber-400 hover:bg-slate-800'
+                                }`}
+                                title={r.isVIP ? 'VIP Room Active (Click to remove)' : 'Mark room as VIP'}
+                              >
+                                <Crown className="w-3.5 h-3.5" />
+                              </button>
 
-                        {r.activeGuest && (
-                          <div className="mt-2 pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-300 truncate">
-                            <span className="text-slate-500 block">Guest:</span>
-                            <span className="font-semibold text-white truncate block">
-                              {r.activeGuest.guestName || 'In-House Guest'}
+                              <span
+                                className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                                  isOccupied
+                                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                                    : isMaintenance
+                                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                    : isDirty
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                    : isInProgress
+                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                }`}
+                              >
+                                {isOccupied
+                                  ? 'Occupied'
+                                  : isMaintenance
+                                  ? 'Maintenance'
+                                  : isDirty
+                                  ? 'Dirty'
+                                  : isInProgress
+                                  ? 'Cleaning'
+                                  : 'Available'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Room Type & Base Price */}
+                          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+                            <span className="truncate">{r.roomTypeName || 'Standard Room'}</span>
+                            <span className="text-slate-300 font-semibold shrink-0">
+                              ₹{r.baseRate?.toLocaleString('en-IN') || 3500}/n
                             </span>
                           </div>
-                        )}
 
-                        {r.assignedStaffName && (
-                          <div className="mt-1 text-[10px] text-cyan-300 truncate">
-                            Housekeeper: {r.assignedStaffName}
-                          </div>
-                        )}
+                          {/* Occupied: Guest Information */}
+                          {r.activeGuest && (
+                            <div className="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1">
+                              <div className="flex items-center gap-1.5 text-xs text-white font-bold truncate">
+                                <User className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                <span className="truncate">{r.activeGuest.guestName}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                <span>Stay: {r.activeGuest.arrivalDate} → {r.activeGuest.departureDate}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-400">Folio Balance:</span>
+                                <span
+                                  className={`font-extrabold ${
+                                    r.activeGuest.dueAmount > 0 ? 'text-amber-400' : 'text-emerald-400'
+                                  }`}
+                                >
+                                  {r.activeGuest.dueAmount > 0
+                                    ? `₹${r.activeGuest.dueAmount.toLocaleString('en-IN')} Due`
+                                    : 'Paid in Full'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Dirty / Housekeeper info */}
+                          {!r.activeGuest && (
+                            <div className="mt-2 pt-1.5 border-t border-slate-800/60 text-[10px] text-slate-400">
+                              {r.assignedStaffName ? (
+                                <span className="text-cyan-300 truncate block">
+                                  Housekeeper: {r.assignedStaffName}
+                                </span>
+                              ) : isDirty ? (
+                                <span className="text-amber-300/90 block">
+                                  Needs cleaning before check-in
+                                </span>
+                              ) : (
+                                <span className="text-emerald-400/80 block">
+                                  Clean & ready for instant check-in
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card Action Buttons */}
+                        <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center gap-1.5">
+                          {isOccupied ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRoomForDetail(r);
+                              }}
+                              className="w-full py-1.5 px-2 bg-sky-600/90 hover:bg-sky-500 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Guest Details</span>
+                            </button>
+                          ) : (
+                            <>
+                              {isDirty && (
+                                <button
+                                  onClick={(e) => handleMarkClean(r.id, e)}
+                                  disabled={updatingRoomId === r.id}
+                                  className="flex-1 py-1.5 px-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                  title="Mark room as clean"
+                                >
+                                  {updatingRoomId === r.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Check className="w-3 h-3" />
+                                  )}
+                                  <span>Clean</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={(e) => handleOpenBooking(r.id, e)}
+                                className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                title="Standard Front Desk Booking"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Book</span>
+                              </button>
+
+                              <button
+                                onClick={(e) => handleOpenVipBooking(r.id, e)}
+                                className="py-1.5 px-2.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-black rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                title="Fast VIP / Owner Check-In"
+                              >
+                                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                                <span>VIP</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -533,6 +851,15 @@ export function RoomStatusTicker() {
                   <span>Housekeeping Dashboard</span>
                   <ExternalLink className="w-3 h-3" />
                 </Link>
+                <span className="text-slate-700">•</span>
+                <Link
+                  href="/hotel/bookings"
+                  onClick={() => setShowModal(false)}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <span>All Reservations</span>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
               </div>
 
               <button
@@ -545,6 +872,59 @@ export function RoomStatusTicker() {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* ── Occupied Room Details Modal ── */}
+      {selectedRoomForDetail && (
+        <OccupiedRoomDetailModal
+          isOpen={Boolean(selectedRoomForDetail)}
+          onClose={() => setSelectedRoomForDetail(null)}
+          room={selectedRoomForDetail}
+          onOpenBooking={(roomId) => {
+            setSelectedRoomForDetail(null);
+            handleOpenBooking(roomId);
+          }}
+        />
+      )}
+
+      {/* ── Quick Room Booking Wizard Modal ── */}
+      {isBookingModalOpen && (
+        <QuickReservationModal
+          isOpen={isBookingModalOpen}
+          roomsList={roomsListForBooking}
+          initialRoomId={selectedBookingRoomId}
+          initialArrivalDate={todayStr}
+          initialDepartureDate={tomorrowStr}
+          onClose={() => {
+            setIsBookingModalOpen(false);
+            setShowModal(true);
+          }}
+          onCreated={() => {
+            setIsBookingModalOpen(false);
+            setShowModal(true);
+            fetchBoardData();
+            toast.success('Reservation created successfully!');
+          }}
+        />
+      )}
+
+      {/* ── Owner / VIP Fast Check-In Modal ── */}
+      {isVipModalOpen && (
+        <OwnerVipBookingModal
+          isOpen={isVipModalOpen}
+          roomsList={roomsListForBooking}
+          initialRoomId={selectedVipRoomId}
+          onClose={() => {
+            setIsVipModalOpen(false);
+            setShowModal(true);
+          }}
+          onCreated={() => {
+            setIsVipModalOpen(false);
+            setShowModal(true);
+            fetchBoardData();
+            toast.success('VIP Check-In completed successfully!');
+          }}
+        />
       )}
     </>
   );

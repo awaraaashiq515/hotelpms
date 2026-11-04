@@ -9,7 +9,8 @@ import {
   ClipboardList, TrendingUp, Settings, ChevronDown, ChevronRight,
   Sparkles, CreditCard, PackageSearch, BarChart2, UserCheck,
   BookOpen, Wrench, Coffee, ShieldCheck, Bell, Building2, Receipt,
-  DoorOpen, Moon, MessageSquare, ShieldAlert
+  DoorOpen, Moon, MessageSquare, ShieldAlert, ShoppingCart,
+  QrCode, Globe
 } from 'lucide-react';
 import { useSidebar } from '@/context/sidebar-context';
 
@@ -70,6 +71,18 @@ export const HotelAdminSidebar: React.FC = () => {
       subItems: [
         { name: 'All Rooms', path: `${p}/hoteladmin/rooms` },
         { name: 'Occupancy Board', path: `${p}/hoteladmin/rooms?view=board` },
+        { name: 'Room QR Standees', path: '/hotel/rooms/qr-codes' },
+      ],
+    },
+    // ── Guest Self-Service & QR ──
+    {
+      name: 'Guest Portal & QR',
+      path: '/hotel/rooms/qr-codes',
+      icon: QrCode,
+      subItems: [
+        { name: 'Room QR Standees (Print)', path: '/hotel/rooms/qr-codes' },
+        { name: 'Guest Self Portal', path: '/guest-portal' },
+        { name: 'In-Room Live Portal', path: '/room-portal' },
       ],
     },
     // ── Reservations & Bookings ──
@@ -182,6 +195,18 @@ export const HotelAdminSidebar: React.FC = () => {
       subItems: [
         { name: 'Accounts Ledger', path: `${p}/hoteladmin/accounts` },
         { name: 'Hotel Expenses', path: `${p}/hoteladmin/accounts?tab=expenses` },
+      ],
+    },
+    // ── Procurement & Vendors ──
+    {
+      name: 'Purchasing & Vendors',
+      path: '/hotel/purchasing',
+      icon: ShoppingCart,
+      subItems: [
+        { name: 'Purchase Orders (WhatsApp)', path: '/hotel/purchasing' },
+        { name: 'Kitchen Indents', path: '/hotel/purchasing?tab=kitchen' },
+        { name: 'Vendor Directory', path: '/hotel/vendor' },
+        { name: 'Kitchen Staff App', path: '/kitchen-portal' },
       ],
     },
     // ── Settings ──

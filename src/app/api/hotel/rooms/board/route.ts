@@ -11,8 +11,23 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
+    const propertyCodeParam = searchParams.get('propertyCode');
 
     let propertyId = propertyIdParam || session.propertyId;
+
+    if (propertyCodeParam) {
+      const codeProp = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { code: propertyCodeParam },
+            { code: propertyCodeParam.toUpperCase() },
+            { code: propertyCodeParam.toLowerCase() },
+          ],
+        },
+        select: { id: true },
+      });
+      if (codeProp) propertyId = codeProp.id;
+    }
     if (!propertyId && session.role === 'RESTAURANTS_ADMIN') {
       propertyId = await resolveAdminProperty(session, prisma);
     }

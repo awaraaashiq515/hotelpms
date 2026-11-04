@@ -57,7 +57,21 @@ interface StaffMemberFormProps {
 }
 
 // ── Designation Options ────────────────────────────────────────────────────
-const DESIGNATIONS = [
+// Roles hidden from registration form as per request
+const HIDDEN_DESIGNATIONS = new Set([
+  'Maintenance',
+  'Hotel Manager',
+  'Supervisor',
+  'Head Waiter',
+  'Steward',
+  'Cashier',
+  'Helper',
+  'Receptionist',
+  'Other',
+  'Manager',
+]);
+
+const ALL_DESIGNATIONS = [
   // Kitchen & Restaurant Roles
   { value: 'Kitchen Staff', emoji: '🍳', color: '#F97316' },
   { value: 'Chef',          emoji: '👨‍🍳', color: '#EA580C' },
@@ -85,6 +99,9 @@ const DESIGNATIONS = [
   { value: 'Other',       emoji: '👤', color: '#64748B' },
 ];
 
+// Active designations rendered on the form chips
+const DESIGNATIONS = ALL_DESIGNATIONS.filter(d => !HIDDEN_DESIGNATIONS.has(d.value));
+
 // Avatar colors for staff initials
 const AVATAR_COLORS = [
   { bg: '#EF4444', text: '#fff' },
@@ -110,10 +127,11 @@ function getAvatarColor(name: string) {
 export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
   initialData, properties, onSubmit, onCancel, loading
 }) => {
+  const defaultPropertyId = initialData?.propertyId || properties?.find((p: any) => p.type === 'HOTEL')?.id || properties?.[0]?.id || '';
   const [formData, setFormData] = useState({
     name:             initialData?.name || '',
     phone:            initialData?.phone || '',
-    designation:      initialData?.designation || 'Waiter',
+    designation:      initialData?.designation || '',
     salary:           initialData?.salary || 0,
     address:          initialData?.address || '',
     emergencyContact: initialData?.emergencyContact || '',
@@ -123,7 +141,7 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
     isActive: initialData ? initialData.isActive : true,
     email: initialData?.user?.email || '',
     password: '',
-    propertyId: initialData?.propertyId || '',
+    propertyId: defaultPropertyId,
     upiId: initialData?.upiId || '',
     upiName: initialData?.upiName || '',
   });
@@ -171,7 +189,7 @@ export const StaffMemberForm: React.FC<StaffMemberFormProps> = ({
   const avatarColor = getAvatarColor(formData.name);
   const initials    = getInitials(formData.name || '?');
   const selectedDesignations = formData.designation ? formData.designation.split(',').map(s => s.trim()) : [];
-  const selectedList = DESIGNATIONS.filter(d => selectedDesignations.includes(d.value));
+  const selectedList = ALL_DESIGNATIONS.filter(d => selectedDesignations.includes(d.value));
   const totalShiftMins = shiftHrsInput * 60 + shiftMinsInput;
   const shiftLabel = shiftHrsInput > 0
     ? (shiftMinsInput > 0 ? `${shiftHrsInput}h ${shiftMinsInput}m` : `${shiftHrsInput}h`)

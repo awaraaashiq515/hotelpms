@@ -77,6 +77,7 @@ import {
   Bike,
   Activity,
   BedDouble,
+  QrCode,
 } from 'lucide-react';
 
 
@@ -86,6 +87,7 @@ interface NavItem {
   icon: React.FC<{ size?: number; className?: string }>;
   badge?: string;
   badgeColor?: string;
+  target?: string;
 }
 
 interface NavGroup {
@@ -112,6 +114,9 @@ const NAV_GROUPS: NavGroup[] = [
     color: 'text-sky-400',
     items: [
       { name: 'Bookings',           path: '/hotel/bookings',        icon: PlusCircle },
+      { name: 'Room QR Standees',   path: '/hotel/rooms/qr-codes',  icon: QrCode, badge: 'SCAN', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { name: 'Guest Portal',       path: '/guest-portal',          icon: Globe, badge: 'PORTAL', badgeColor: 'bg-indigo-500/20 text-indigo-300', target: '_blank' },
+      { name: 'Customers & Guests', path: '/hotel/guests',          icon: Users, badge: 'KYC', badgeColor: 'bg-rose-500/20 text-rose-300' },
       { name: 'Agent Bookings',     path: '/hotel/agent-bookings', icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
       { name: 'Availability',       path: '/hotel/calendar',       icon: Calendar },
       { name: 'Security Portal',    path: '/security-portal',      icon: Shield, badge: 'VERIFY', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
@@ -137,6 +142,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Rooms & Types',      path: '/hotel/rooms',           icon: Bed },
       { name: 'Room Status Board',  path: '/hotel/rooms?tab=board', icon: MapPin },
+      { name: 'Room QR Standees',   path: '/hotel/rooms/qr-codes',  icon: QrCode, badge: 'SCAN', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { name: 'Room In-Stay Portal',path: '/room-portal',           icon: Tablet, badge: 'ROOM', badgeColor: 'bg-amber-500/20 text-amber-300', target: '_blank' },
     ],
   },
   {
@@ -152,12 +159,15 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Procurement',
+    label: 'Procurement & Kitchen',
     emoji: '🛒',
     color: 'text-orange-400',
     items: [
-      { name: 'Inventory & Stock',  path: '/hotel/inventory',        icon: Package },
-      { name: 'Vendor Management',  path: '/hotel/vendor',           icon: Building2 },
+      { name: 'Purchase Orders',      path: '/hotel/purchasing',             icon: ShoppingCart,    badge: 'WHATSAPP', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { name: 'Kitchen Indents',      path: '/hotel/purchasing?tab=kitchen', icon: UtensilsCrossed, badge: 'CHEF',     badgeColor: 'bg-amber-500/20 text-amber-300' },
+      { name: 'Kitchen Staff App',    path: '/kitchen-portal',               icon: ChefHat,         badge: 'STAFF',    badgeColor: 'bg-orange-500/20 text-orange-300' },
+      { name: 'Inventory & Stock',    path: '/hotel/inventory',              icon: Package },
+      { name: 'Vendor Management',    path: '/hotel/vendor',                 icon: Building2 },
     ],
   },
   {
@@ -204,7 +214,10 @@ const NAV_GROUPS: NavGroup[] = [
     emoji: '👥',
     color: 'text-rose-400',
     items: [
-      { name: 'Guest CRM',          path: '/hotel/crm',             icon: Users, badge: 'CRM', badgeColor: 'bg-purple-500/20 text-purple-300' },
+      { name: 'Customer Directory', path: '/hotel/guests',          icon: Users, badge: 'KYC', badgeColor: 'bg-rose-500/20 text-rose-300' },
+      { name: 'Guest Portal',       path: '/guest-portal',          icon: Globe, badge: 'GUEST', badgeColor: 'bg-indigo-500/20 text-indigo-300', target: '_blank' },
+      { name: 'Room QR Standees',   path: '/hotel/rooms/qr-codes',  icon: QrCode, badge: 'PRINT', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { name: 'Guest CRM',          path: '/hotel/crm',             icon: Heart, badge: 'CRM', badgeColor: 'bg-purple-500/20 text-purple-300' },
       { name: 'Loyalty & Rewards',  path: '/hotel/loyalty',          icon: Crown },
       { name: 'Travel Agents',      path: '/hotel/agents',           icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
     ],
@@ -289,7 +302,7 @@ export const HotelSidebar: React.FC = () => {
   }, []);
 
   // Build the full dynamic restaurant nav group from restaurantCode
-  const restaurantNavGroup = restaurantCode ? {
+  const restaurantNavGroup: NavGroup | null = restaurantCode ? {
     label: 'Restaurant & POS',
     emoji: '🍽️',
     color: 'text-orange-400',
@@ -347,8 +360,9 @@ export const HotelSidebar: React.FC = () => {
   };
 
   const isActive = (path: string) => {
-    if (path === '/hotel') return pathname === '/hotel';
-    return pathname.startsWith(path);
+    const cleanPath = path.split('?')[0];
+    if (cleanPath === '/hotel') return pathname === '/hotel';
+    return pathname === cleanPath || pathname.startsWith(cleanPath + '/');
   };
 
   const handleLogout = async () => {
@@ -433,6 +447,8 @@ export const HotelSidebar: React.FC = () => {
                       <Link
                         key={item.path}
                         href={item.path}
+                        target={item.target}
+                        rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
                         onClick={() => setIsOpen(false)}
                         title={!isOpen ? item.name : undefined}
                         className={`

@@ -73,16 +73,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Update guest KYC details if sent
-    if (kycData) {
-      await prisma.guest.update({
-        where: { id: guestId },
-        data: {
-          idType: kycData.idType || undefined,
-          idNumber: kycData.idNumber || undefined,
-        }
-      });
+    if (kycData || body.guestEmail || body.email || body.guestMobile || body.mobile || body.address) {
+      const gUpdate: any = {};
+      if (kycData?.idType) gUpdate.idType = kycData.idType;
+      if (kycData?.idNumber) gUpdate.idNumber = kycData.idNumber;
+      if (kycData?.address || body.address || body.guestAddress) gUpdate.address = (kycData?.address || body.address || body.guestAddress).trim();
+      if (kycData?.nationality || body.nationality || body.guestNationality) gUpdate.nationality = (kycData?.nationality || body.nationality || body.guestNationality).trim();
+      const em = body.email || body.guestEmail || kycData?.email;
+      if (em) gUpdate.email = String(em).trim();
+      const mb = body.mobile || body.guestMobile || body.phone || kycData?.mobile;
+      if (mb) gUpdate.mobile = String(mb).trim();
 
-      if (kycData.documentUrl) {
+      if (Object.keys(gUpdate).length > 0) {
+        await prisma.guest.update({
+          where: { id: guestId },
+          data: gUpdate,
+        }).catch(() => null);
+      }
+
+      if (kycData?.documentUrl) {
         await prisma.guestDocument.create({
           data: {
             guestId,
@@ -90,7 +99,7 @@ export async function POST(request: NextRequest) {
             documentUrl: kycData.documentUrl,
             verified: true,
           }
-        });
+        }).catch(() => null);
       }
     }
 

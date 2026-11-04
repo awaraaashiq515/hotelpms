@@ -42,21 +42,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { roomNumber, mobile, propertyCode, propertyId } = await request.json();
+    const { roomNumber, mobile, vipCode, propertyCode, propertyId } = await request.json();
 
-    if (!roomNumber || !mobile) {
+    if (!roomNumber) {
       return NextResponse.json(
-        { success: false, message: 'Room number and mobile number are required.' },
+        { success: false, message: 'Room number is required.' },
         { status: 400 }
       );
     }
 
     const trimmedRoom = String(roomNumber).trim();
-    const cleanMobile = String(mobile).replace(/\D/g, '').slice(-10);
+    const rawAuth = String(vipCode || mobile || '').trim();
+    const cleanDigits = rawAuth.replace(/\D/g, '');
 
-    if (cleanMobile.length < 10) {
+    const isVipCodeAuth = cleanDigits.length === 4 || Boolean(vipCode && cleanDigits.length > 0);
+    const cleanMobile = cleanDigits.slice(-10);
+
+    if (!isVipCodeAuth && cleanMobile.length < 10) {
       return NextResponse.json(
-        { success: false, message: 'Please enter a valid 10-digit mobile number.' },
+        { success: false, message: 'Please enter a valid 10-digit mobile number or 4-digit VIP PIN.' },
         { status: 400 }
       );
     }
@@ -194,11 +198,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Match guest by 10-digit mobile number
-    let reservation = candidateReservations.find((r) => {
+    // Match guest by 4-digit VIP Code or 10-digit mobile number
+    let reservation = candidateReservations.find((r: any) => {
+      if (isVipCodeAuth) {
+        return r.ownerVipCode && r.ownerVipCode.trim() === cleanDigits;
+      }
       const guestMobile = (r.guest?.mobile || '').replace(/\D/g, '').slice(-10);
       return guestMobile === cleanMobile;
     });
+
+    // If not found yet, also check if ownerVipCode matched
+    if (!reservation && cleanDigits.length === 4) {
+      reservation = candidateReservations.find((r: any) => r.ownerVipCode && r.ownerVipCode.trim() === cleanDigits);
+    }
 
     // If not matched and targetPropertyId was specified, fallback across ALL properties for this room & mobile!
     if (!reservation && targetPropertyId) {
@@ -250,7 +262,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      const fallbackMatch = fallbackCandidates.find((r) => {
+      const fallbackMatch = fallbackCandidates.find((r: any) => {
+        if (isVipCodeAuth) {
+          return r.ownerVipCode && r.ownerVipCode.trim() === cleanDigits;
+        }
         const guestMobile = (r.guest?.mobile || '').replace(/\D/g, '').slice(-10);
         return guestMobile === cleanMobile;
       });
@@ -366,6 +381,7 @@ export async function POST(request: NextRequest) {
       roomNumber: room.roomNumber,
       reservationId: reservation.id,
       propertyId: room.propertyId,
+      isOwnerGuest: Boolean(reservation.isOwnerGuest),
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -407,6 +423,7 @@ export async function POST(request: NextRequest) {
         mobile: guest.mobile,
         email: guest.email,
         avatarUrl: guest.avatarUrl,
+        segment: (guest as any).segment || (reservation.isOwnerGuest ? 'VIP' : 'REGULAR'),
       },
       room: {
         id: room.id,
@@ -415,6 +432,11 @@ export async function POST(request: NextRequest) {
       },
       property: reservation.property,
       reservationId: reservation.id,
+      isOwnerGuest: Boolean(reservation.isOwnerGuest),
+      ownerVipCode: reservation.ownerVipCode,
+      ownerName: reservation.ownerName,
+      ownerBillingType: reservation.ownerBillingType,
+      waiveBill: Boolean(reservation.waiveBill),
     });
 
     response.cookies.set('room_portal_session', token, {

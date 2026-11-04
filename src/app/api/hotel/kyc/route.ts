@@ -174,12 +174,19 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
+    let extraEmail = '';
+    let extraMobile = '';
+    let extraAddress = '';
+
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       guestId = (formData.get('guestId') as string) || '';
       reservationId = (formData.get('reservationId') as string) || '';
       idType = (formData.get('idType') as string) || 'Aadhaar Card';
       idNumber = (formData.get('idNumber') as string) || '';
+      extraEmail = (formData.get('email') as string) || (formData.get('guestEmail') as string) || '';
+      extraMobile = (formData.get('mobile') as string) || (formData.get('guestMobile') as string) || '';
+      extraAddress = (formData.get('address') as string) || (formData.get('guestAddress') as string) || '';
 
       const file = formData.get('file') as File | null;
       if (file && typeof file !== 'string') {
@@ -201,6 +208,9 @@ export async function POST(request: NextRequest) {
       reservationId = body.reservationId || '';
       idType = body.idType || 'Aadhaar Card';
       idNumber = body.idNumber || '';
+      extraEmail = body.email || body.guestEmail || '';
+      extraMobile = body.mobile || body.guestMobile || '';
+      extraAddress = body.address || body.guestAddress || '';
 
       if (body.base64Image) {
         const matches = body.base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -241,6 +251,9 @@ export async function POST(request: NextRequest) {
     const updateData: any = {};
     if (idType) updateData.idType = idType;
     if (idNumber) updateData.idNumber = idNumber;
+    if (extraEmail) updateData.email = extraEmail.trim();
+    if (extraMobile) updateData.mobile = extraMobile.trim();
+    if (extraAddress) updateData.address = extraAddress.trim();
 
     if (Object.keys(updateData).length > 0) {
       await prisma.guest.update({

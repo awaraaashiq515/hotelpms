@@ -1322,9 +1322,12 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
         const wtData = await wtRes.json()
         if (!wtData.user || !wtData.wtToken) return
 
-        // 4a. Check if this user belongs to a different portal (e.g. Housekeeper)
+        // 4a. Check if this user belongs to a different portal (e.g. Housekeeper, Security)
         if (wtData.portalRedirect) {
-          localStorage.setItem('hk_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
+          const sessionKey = wtData.portalRedirect.includes('security-portal')
+            ? 'security_portal_session'
+            : 'hk_portal_session'
+          localStorage.setItem(sessionKey, JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
           window.location.href = wtData.portalRedirect
           return
         }
@@ -1482,7 +1485,10 @@ export default function StaffPortalPage({ params }: { params: Promise<{ property
       // save their session there and redirect — they never land on this portal.
       if (data.portalRedirect) {
         // Save session for the target portal
-        localStorage.setItem('hk_portal_session', JSON.stringify({ user: data.user, wtToken: data.wtToken }))
+        const sessionKey = data.portalRedirect.includes('security-portal')
+          ? 'security_portal_session'
+          : 'hk_portal_session'
+        localStorage.setItem(sessionKey, JSON.stringify({ user: data.user, wtToken: data.wtToken }))
         window.location.href = data.portalRedirect
         return
       }

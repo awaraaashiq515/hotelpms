@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     // 3. Resolve Reservation and Folio
     let folioId: string | null = null;
     let resolvedGuestId: string | null = guestId || null;
+    let activeReservation: any = null;
 
     if (reservationId) {
       const reservation = await prisma.reservation.findUnique({
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (reservation) {
+        activeReservation = reservation;
         resolvedGuestId = resolvedGuestId || reservation.guestId;
         const openFolio = await prisma.folio.findFirst({
           where: { reservationId: reservation.id, status: 'OPEN' },
@@ -156,7 +158,9 @@ export async function POST(request: NextRequest) {
       : packagingType === 'PACK_IN_ROOM'
       ? 'PACK_IN_ROOM'
       : 'SERVE_IN_ROOM';
-    const deliveryInstructions = `SERVE_TIME:${serveTiming}|PACKAGING:${packaging}|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
+    const isOwnerGuestOrder = Boolean(activeReservation?.isOwnerGuest || payload?.isOwnerGuest);
+    const vipPrefix = isOwnerGuestOrder ? '👑 OWNER VIP GUEST | TOP PRIORITY | ' : '';
+    const deliveryInstructions = `${vipPrefix}SERVE_TIME:${serveTiming}|PACKAGING:${packaging}|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
 
     // 6. Create POS Order in database
     const order = await prisma.posOrder.create({
@@ -207,13 +211,36 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await prisma.folio.update({
-          where: { id: folioId },
-          data: {
-            totalCharges: { increment: grandTotal },
-            closingBalance: { increment: grandTotal },
-          },
-        });
+        if (isOwnerGuestOrder && activeReservation?.waiveBill) {
+          await prisma.folioTransaction.create({
+            data: {
+              folioId,
+              txnType: 'CREDIT',
+              sourceModule: 'ROOM_SERVICE',
+              sourceRefId: order.id,
+              description: `👑 Owner VIP Courtesy Waiver - Order #${orderNo}`,
+              debitAmount: 0,
+              creditAmount: grandTotal,
+              taxAmount: 0,
+              netAmount: grandTotal,
+            },
+          });
+          await prisma.folio.update({
+            where: { id: folioId },
+            data: {
+              totalCharges: { increment: grandTotal },
+              totalPayments: { increment: grandTotal },
+            },
+          });
+        } else {
+          await prisma.folio.update({
+            where: { id: folioId },
+            data: {
+              totalCharges: { increment: grandTotal },
+              closingBalance: { increment: grandTotal },
+            },
+          });
+        }
       } catch (folioErr) {
         console.error('[Room Portal Order] Failed to post charge to folio:', folioErr);
       }

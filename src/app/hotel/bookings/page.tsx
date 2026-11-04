@@ -43,9 +43,14 @@ import {
   Star,
   ChevronDown,
   Eye,
+  Crown,
+  Globe,
+  ExternalLink,
+  QrCode,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { QuickReservationModal } from '@/components/hotel/operations/QuickReservationModal';
+import { OwnerVipBookingModal } from '@/components/hotel/bookings/OwnerVipBookingModal';
 import { ReservationDetailDrawer } from '@/components/hotel/calendar/ReservationDetailDrawer';
 import { KycUploadModal } from '@/components/hotel/bookings/KycUploadModal';
 
@@ -76,10 +81,53 @@ function BookingsContent() {
   const paramRoomId = searchParams.get('roomId') || '';
   const paramArrival = searchParams.get('arr') || '';
   const paramDeparture = searchParams.get('dep') || '';
+  const paramGuestId = searchParams.get('guestId') || '';
+  const paramFirstName = searchParams.get('firstName') || searchParams.get('name') || '';
+  const paramLastName = searchParams.get('lastName') || '';
+  const paramMobile = searchParams.get('mobile') || searchParams.get('phone') || '';
+  const paramEmail = searchParams.get('email') || '';
+  const paramIdType = searchParams.get('idType') || '';
+  const paramIdNumber = searchParams.get('idNumber') || '';
+  const paramAddress = searchParams.get('address') || '';
+  const paramNationality = searchParams.get('nationality') || '';
+  const paramCompanyName = searchParams.get('companyName') || '';
+  const paramGstNumber = searchParams.get('gstNumber') || '';
+
+  const initialGuestFromParams = useMemo(() => {
+    if (paramGuestId || paramMobile || paramFirstName) {
+      return {
+        id: paramGuestId || undefined,
+        firstName: paramFirstName || undefined,
+        lastName: paramLastName || undefined,
+        mobile: paramMobile || undefined,
+        email: paramEmail || undefined,
+        idType: paramIdType || undefined,
+        idNumber: paramIdNumber || undefined,
+        address: paramAddress || undefined,
+        nationality: paramNationality || undefined,
+        companyName: paramCompanyName || undefined,
+        gstNumber: paramGstNumber || undefined,
+      };
+    }
+    return null;
+  }, [
+    paramGuestId,
+    paramFirstName,
+    paramLastName,
+    paramMobile,
+    paramEmail,
+    paramIdType,
+    paramIdNumber,
+    paramAddress,
+    paramNationality,
+    paramCompanyName,
+    paramGstNumber,
+  ]);
 
   // Tab State: 'list' or 'agent-bookings'
   const [activeTab, setActiveTab] = useState<'list' | 'agent-bookings'>('list');
   const [isCreateWizardOpen, setIsCreateWizardOpen] = useState(false);
+  const [isOwnerVipModalOpen, setIsOwnerVipModalOpen] = useState(false);
 
   // Agent Bookings State
   const [agentBookings, setAgentBookings] = useState<any[]>([]);
@@ -339,10 +387,10 @@ function BookingsContent() {
   useEffect(() => {
     loadData();
     loadAgentBookings();
-    if (paramRoomId || searchParams.get('create') === 'true' || searchParams.get('wizard') === 'true') {
+    if (paramRoomId || searchParams.get('create') === 'true' || searchParams.get('wizard') === 'true' || paramGuestId || paramMobile) {
       setIsCreateWizardOpen(true);
     }
-  }, [paramRoomId, paramArrival, paramDeparture, searchParams]);
+  }, [paramRoomId, paramArrival, paramDeparture, paramGuestId, paramMobile, searchParams]);
 
   const startEditingStay = (b: any) => {
     setEditingBooking(b);
@@ -473,10 +521,16 @@ function BookingsContent() {
 
 
   const filteredBookings = bookings.filter((b) => {
-    const q = searchQuery.toLowerCase();
-    const guestName = `${b.guest.firstName} ${b.guest.lastName || ''}`.toLowerCase();
-    const bookingNo = b.bookingNo.toLowerCase();
-    return guestName.includes(q) || bookingNo.includes(q);
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const guestName = `${b.guest?.firstName || ''} ${b.guest?.lastName || ''}`.toLowerCase();
+    const bookingNo = (b.bookingNo || '').toLowerCase();
+    const guestEmail = (b.guest?.email || '').toLowerCase();
+    const guestMobile = (b.guest?.mobile || '').toLowerCase();
+    const roomNumber = (b.rooms?.[0]?.room?.roomNumber || '').toLowerCase();
+    const company = (b.companyName || b.guest?.companyName || '').toLowerCase();
+    const gst = (b.gstNumber || b.guest?.gstNumber || '').toLowerCase();
+    return guestName.includes(q) || bookingNo.includes(q) || guestEmail.includes(q) || guestMobile.includes(q) || roomNumber.includes(q) || company.includes(q) || gst.includes(q);
   });
 
   return (
@@ -522,13 +576,44 @@ function BookingsContent() {
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCreateWizardOpen(true)}
-            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30 border border-indigo-400/25 active:scale-95 cursor-pointer"
-          >
-            <Plus size={15} /> Create Booking Wizard
-          </button>
+          <div className="flex items-center gap-2.5">
+            <a
+              href="/guest-portal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+              title="Open Guest Self-Service Portal in new tab"
+            >
+              <Globe size={14} className="text-indigo-400" />
+              <span>Guest Portal</span>
+              <ExternalLink size={12} className="text-slate-400" />
+            </a>
+
+            <Link
+              href="/hotel/rooms/qr-codes"
+              className="px-3.5 py-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-emerald-300 hover:text-emerald-200 border border-emerald-500/30 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+              title="Print Room QR Standees for Tables & Acrylic Stands"
+            >
+              <QrCode size={14} className="text-emerald-400" />
+              <span>Room QR Codes</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setIsOwnerVipModalOpen(true)}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-white font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-amber-500/25 border border-amber-300/30 active:scale-95 cursor-pointer"
+            >
+              <Crown size={15} /> + Owner / VIP Guest
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateWizardOpen(true)}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30 border border-indigo-400/25 active:scale-95 cursor-pointer"
+            >
+              <Plus size={15} /> Create Booking Wizard
+            </button>
+          </div>
         </div>
       </div>
 
@@ -926,22 +1011,40 @@ function BookingsContent() {
                           </td>
                           <td className="px-3 py-2.5 align-top min-w-0 overflow-hidden">
                             <div className="flex flex-col gap-0.5 truncate">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedDrawerBooking(b)}
-                                className="text-left font-bold text-white hover:text-indigo-300 text-xs hover:underline cursor-pointer transition-colors truncate block"
-                                title="Click to view reservation details"
-                              >
-                                {b.guest.firstName} {b.guest.lastName}
-                              </button>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDrawerBooking(b)}
+                                  className="text-left font-bold text-white hover:text-indigo-300 text-xs hover:underline cursor-pointer transition-colors truncate block"
+                                  title="Click to view reservation details"
+                                >
+                                  {b.guest.firstName} {b.guest.lastName}
+                                </button>
+                                {b.isOwnerGuest && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded-md border border-amber-500/30 whitespace-nowrap">
+                                    <Crown size={10} className="text-amber-400" />
+                                    <span>OWNER VIP {b.ownerVipCode ? `• PIN: ${b.ownerVipCode}` : ''}</span>
+                                  </span>
+                                )}
+                              </div>
                               {(b.gstNumber || b.guest.gstNumber || b.companyName || b.guest.companyName) && (
                                 <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20 truncate max-w-full font-mono" title={b.companyName || b.guest.companyName}>
                                   🏢 {b.companyName || b.guest.companyName || 'B2B'}{b.gstNumber || b.guest.gstNumber ? ` (${b.gstNumber || b.guest.gstNumber})` : ''}
                                 </span>
                               )}
-                              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium truncate">
-                                <span className="flex items-center gap-1 truncate"><Phone size={9} /> {b.guest.mobile || 'No Mobile'}</span>
-                                {b.guest.email && <span className="flex items-center gap-1 truncate text-slate-600"><Mail size={9} /> {b.guest.email}</span>}
+                              <div className="flex items-center gap-2 text-[10px] font-medium truncate mt-0.5">
+                                <span className="flex items-center gap-1 truncate text-slate-300 font-mono">
+                                  <Phone size={9} className="text-emerald-400 shrink-0" /> {b.guest?.mobile || 'No Mobile'}
+                                </span>
+                                {b.guest?.email ? (
+                                  <span className="flex items-center gap-1 truncate text-indigo-300 font-mono" title={b.guest.email}>
+                                    <Mail size={9} className="text-indigo-400 shrink-0" /> {b.guest.email}
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 truncate text-slate-600 italic">
+                                    <Mail size={9} className="shrink-0" /> No Email
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -1034,12 +1137,25 @@ function BookingsContent() {
                           </td>
                           <td className="px-3 py-2.5 font-bold align-top">
                             <div className="flex flex-col">
-                              <span className={`text-xs font-black ${Number(b.dueAmount) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                ₹{Number(b.dueAmount || 0).toLocaleString('en-IN')} Dues
-                              </span>
-                              <span className="text-[9px] text-slate-500 font-normal">
-                                Paid: ₹{Number(b.advanceAmount || 0).toLocaleString('en-IN')} / ₹{Number(b.totalAmount || 0).toLocaleString('en-IN')}
-                              </span>
+                              {b.isOwnerGuest && b.waiveBill ? (
+                                <>
+                                  <span className="text-xs font-black text-emerald-400 flex items-center gap-1">
+                                    <Sparkles size={11} /> ₹0 Due (Waived)
+                                  </span>
+                                  <span className="text-[9px] text-amber-400 font-semibold">
+                                    Tariff: ₹{Number(b.totalAmount || 0).toLocaleString('en-IN')} (Hosted)
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className={`text-xs font-black ${Number(b.dueAmount) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    ₹{Number(b.dueAmount || 0).toLocaleString('en-IN')} Dues
+                                  </span>
+                                  <span className="text-[9px] text-slate-500 font-normal">
+                                    Paid: ₹{Number(b.advanceAmount || 0).toLocaleString('en-IN')} / ₹{Number(b.totalAmount || 0).toLocaleString('en-IN')}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </td>
                           <td className="px-3 py-2.5 text-right align-top">
@@ -1097,7 +1213,22 @@ function BookingsContent() {
         initialArrivalDate={paramArrival || undefined}
         initialDepartureDate={paramDeparture || undefined}
         initialRoomId={paramRoomId || undefined}
+        initialGuestData={initialGuestFromParams}
       />
+
+      {/* Owner / VIP Guest Fast Check-In Modal */}
+      {isOwnerVipModalOpen && (
+        <OwnerVipBookingModal
+          isOpen={isOwnerVipModalOpen}
+          roomsList={formattedRoomsList}
+          onClose={() => setIsOwnerVipModalOpen(false)}
+          onCreated={() => {
+            setIsOwnerVipModalOpen(false);
+            loadData();
+            loadAgentBookings();
+          }}
+        />
+      )}
 
       {/* Check-In & KYC Modal */}
       {activeCheckInReservation && (

@@ -239,6 +239,12 @@ export default function LoginPage() {
       } else if (role === 'SINGER') {
         router.push('/singer-portal/dashboard');
       } else if (
+        role.toLowerCase().includes('security') || 
+        (data.user.designation && data.user.designation.toLowerCase().includes('security'))
+      ) {
+        const propCode = data.user.propertyCode?.toLowerCase();
+        router.push(propCode ? `/security-portal/${propCode}` : '/security-portal');
+      } else if (
         role.toLowerCase().includes('housekeeper') || 
         role.toLowerCase().includes('housekeeping') || 
         (data.user.designation && (

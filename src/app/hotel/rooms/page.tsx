@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Bed, 
   Sparkles, 
@@ -22,7 +23,8 @@ import {
   Compass,
   Star,
   Tag,
-  MapPin
+  MapPin,
+  QrCode
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import RoomAddModal from '@/components/hotel/RoomAddModal';
@@ -380,12 +382,20 @@ function HotelRoomsContent() {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setShowAddRoom(true)}
-                  className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 shrink-0"
-                >
-                  <Plus size={14} /> Add Physical Room
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href="/hotel/rooms/qr-codes"
+                    className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-indigo-500 hover:bg-slate-800 text-slate-200 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
+                  >
+                    <QrCode size={14} className="text-indigo-400" /> Room QR Standees
+                  </Link>
+                  <button
+                    onClick={() => setShowAddRoom(true)}
+                    className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 shrink-0"
+                  >
+                    <Plus size={14} /> Add Physical Room
+                  </button>
+                </div>
               </div>
 
               {/* Room Cards Grid */}

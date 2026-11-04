@@ -8,6 +8,7 @@ import {
   Hotel, LogIn, RefreshCw,
   Bell, Lock, PhoneCall, Clock, MapPin, ChefHat, CheckCircle2,
   Sun, Moon, Sunset, Coffee, ArrowRight,
+  Crown,
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import KioskWrapper from '@/components/room-portal/KioskWrapper';
@@ -424,7 +425,24 @@ export default function RoomPortalDashboard() {
               gap: '12px',
             }}>
               <div>
-                <p style={{ color: 'rgb(99,102,241)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 4px 0' }}>
+                {reservation.isOwnerGuest && (
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.15))',
+                    border: '1px solid rgba(245,158,11,0.5)',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    marginBottom: '8px',
+                  }}>
+                    <Crown size={12} color="#fbbf24" />
+                    <span style={{ color: '#fbbf24', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      Honored VIP Guest {reservation.ownerName ? `• ${reservation.ownerName}` : ''}
+                    </span>
+                  </div>
+                )}
+                <p style={{ color: reservation.isOwnerGuest ? '#fbbf24' : 'rgb(99,102,241)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 4px 0' }}>
                   ✨ {data.config?.welcomeTitle || 'Welcome to Your Stay'}
                 </p>
                 <h2 style={{ color: 'white', fontSize: '22px', fontWeight: 900, margin: 0 }}>

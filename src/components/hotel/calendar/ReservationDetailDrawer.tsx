@@ -33,7 +33,9 @@ import {
   Upload,
   ShieldAlert,
   ShieldCheck,
+  Pencil,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 
 interface ReservationDetailDrawerProps {
@@ -84,6 +86,52 @@ export function ReservationDetailDrawer({
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [upgradeCost, setUpgradeCost] = useState<number | string>(0);
   const [upgrading, setUpgrading] = useState(false);
+
+  // Guest Details Edit State
+  const [isEditingGuest, setIsEditingGuest] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editMobile, setEditMobile] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [savingGuest, setSavingGuest] = useState(false);
+
+  const handleSaveGuest = async () => {
+    if (!booking?.id) return;
+    setSavingGuest(true);
+    try {
+      const res = await fetch('/api/hotel/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: booking.id,
+          guestFirstName: editFirstName.trim(),
+          guestLastName: editLastName.trim(),
+          guestMobile: editMobile.trim(),
+          guestEmail: editEmail.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Guest details updated successfully!');
+        setIsEditingGuest(false);
+        if (booking.guest) {
+          booking.guest.firstName = editFirstName.trim();
+          booking.guest.lastName = editLastName.trim();
+          booking.guest.mobile = editMobile.trim();
+          booking.guest.email = editEmail.trim();
+        }
+        booking.guestMobile = editMobile.trim();
+        booking.guestEmail = editEmail.trim();
+        if (onUpdated) onUpdated();
+      } else {
+        toast.error(data.message || 'Failed to update guest details');
+      }
+    } catch {
+      toast.error('Network error updating guest details');
+    } finally {
+      setSavingGuest(false);
+    }
+  };
 
   // Restaurant & Food Bills State
   const [showRestaurantModal, setShowRestaurantModal] = useState(false);
@@ -145,6 +193,11 @@ export function ReservationDetailDrawer({
       setNotes(booking?.addOnNotes || booking?.notes || '');
       setSpecialOffer(booking?.specialOffer || '');
       setOfferCode(booking?.offerCode || '');
+      setEditFirstName(booking?.guest?.firstName || '');
+      setEditLastName(booking?.guest?.lastName || '');
+      setEditMobile(booking?.guest?.mobile || booking?.guestMobile || '');
+      setEditEmail(booking?.guest?.email || booking?.guestEmail || '');
+      setIsEditingGuest(false);
       const depIso = booking.departureDate ? new Date(booking.departureDate).toISOString().split('T')[0] : '';
       const arrIso = booking.arrivalDate ? new Date(booking.arrivalDate).toISOString().split('T')[0] : '';
       setNewDepDate(addDays(depIso, 1));
@@ -546,30 +599,133 @@ export function ReservationDetailDrawer({
 
           {/* Guest Card */}
           <div className="p-4 rounded-xl bg-[#1e293b]/50 border border-slate-800 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-base shrink-0">
-                {guestName.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-bold text-white truncate">{guestName}</h3>
-                <div className="flex flex-col gap-0.5 mt-0.5 text-xs text-slate-400">
-                  {guestMobile && (
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Phone className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="truncate">{guestMobile}</span>
-                    </div>
-                  )}
-                  {guestEmail && (
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Mail className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="truncate">{guestEmail}</span>
-                    </div>
-                  )}
-                  {!guestMobile && !guestEmail && (
-                    <span className="text-slate-500 text-[11px]">No contact info provided</span>
-                  )}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-base shrink-0">
+                  {guestName.charAt(0).toUpperCase()}
                 </div>
+                {!isEditingGuest ? (
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-bold text-white truncate">{guestName}</h3>
+                    <div className="flex flex-col gap-0.5 mt-0.5 text-xs text-slate-400">
+                      {guestMobile && (
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span className="truncate font-mono">{guestMobile}</span>
+                        </div>
+                      )}
+                      {guestEmail ? (
+                        <div className="flex items-center gap-1.5 truncate text-indigo-300">
+                          <Mail className="w-3 h-3 text-indigo-400 shrink-0" />
+                          <span className="truncate font-mono">{guestEmail}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 truncate text-slate-500 italic">
+                          <Mail className="w-3 h-3 shrink-0" />
+                          <span className="truncate">No Email on record</span>
+                        </div>
+                      )}
+                      {!guestMobile && !guestEmail && (
+                        <span className="text-slate-500 text-[11px]">No contact info provided</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">First Name</label>
+                        <input
+                          type="text"
+                          value={editFirstName}
+                          onChange={(e) => setEditFirstName(e.target.value)}
+                          placeholder="First Name"
+                          className="w-full bg-[#0b1120] border border-slate-700 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Last Name</label>
+                        <input
+                          type="text"
+                          value={editLastName}
+                          onChange={(e) => setEditLastName(e.target.value)}
+                          placeholder="Last Name"
+                          className="w-full bg-[#0b1120] border border-slate-700 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Mobile Number</label>
+                      <input
+                        type="tel"
+                        value={editMobile}
+                        onChange={(e) => setEditMobile(e.target.value)}
+                        placeholder="+91 9876543210"
+                        className="w-full bg-[#0b1120] border border-slate-700 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Email Address</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        placeholder="guest@example.com"
+                        className="w-full bg-[#0b1120] border border-slate-700 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleSaveGuest}
+                        disabled={savingGuest}
+                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+                      >
+                        {savingGuest ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        <span>Save Info</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditFirstName(booking?.guest?.firstName || '');
+                          setEditLastName(booking?.guest?.lastName || '');
+                          setEditMobile(booking?.guest?.mobile || booking?.guestMobile || '');
+                          setEditEmail(booking?.guest?.email || booking?.guestEmail || '');
+                          setIsEditingGuest(false);
+                        }}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {!isEditingGuest && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingGuest(true)}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 flex items-center gap-1 transition-all shrink-0 cursor-pointer"
+                  title="Edit guest profile & email"
+                >
+                  <Pencil className="w-2.5 h-2.5" />
+                  <span>Edit</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[10px]">
+              <span className="text-slate-500 font-medium">Guest Self-Service Access:</span>
+              <a
+                href="/guest-portal"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline"
+              >
+                <span>Open Guest Portal</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-slate-800 text-xs">

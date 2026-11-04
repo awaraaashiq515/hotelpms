@@ -7,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-  
 model Organization {
   id                  String         @id @default(cuid())
   name                String
@@ -454,6 +452,11 @@ model Reservation {
   gstNumber           String?
   companyName         String?
   billingAddress      String?
+  isOwnerGuest        Boolean           @default(false)
+  ownerVipCode        String?
+  ownerName           String?
+  ownerBillingType    String?           @default("COMPLIMENTARY")
+  waiveBill           Boolean           @default(false)
   checkIns            CheckIn[]
   folios              Folio[]
   roomType            RoomType          @relation(fields: [roomTypeId], references: [id])

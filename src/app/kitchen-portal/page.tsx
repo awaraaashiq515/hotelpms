@@ -1,12 +1,53 @@
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
 export default async function KitchenPortalIndexPage() {
+  const session = await getSession();
+
+  // 1. If user is currently logged in with a propertyCode in their session
+  if (session?.propertyCode) {
+    redirect(`/kitchen-portal/${session.propertyCode.toLowerCase()}`);
+  }
+
+  // 2. If user is logged into an organization, find their restaurant or hotel property
+  if (session?.organizationId) {
+    const restaurantProp = await prisma.property.findFirst({
+      where: { organizationId: session.organizationId, type: 'RESTAURANT' },
+      select: { code: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (restaurantProp?.code) {
+      redirect(`/kitchen-portal/${restaurantProp.code.toLowerCase()}`);
+    }
+
+    const anyOrgProp = await prisma.property.findFirst({
+      where: { organizationId: session.organizationId },
+      select: { code: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (anyOrgProp?.code) {
+      redirect(`/kitchen-portal/${anyOrgProp.code.toLowerCase()}`);
+    }
+  }
+
+  // 3. Fallback: find the latest restaurant property
+  const rstProp = await prisma.property.findFirst({
+    where: { type: 'RESTAURANT' },
+    select: { code: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (rstProp?.code) {
+    redirect(`/kitchen-portal/${rstProp.code.toLowerCase()}`);
+  }
+
+  // 4. Any active property
   const firstProp = await prisma.property.findFirst({
     select: { code: true },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (firstProp?.code) {

@@ -368,6 +368,33 @@ export default function KitchenPortalPage() {
     }
   };
 
+  /* ─── Mark Stock Request Received in Kitchen ─── */
+  const handleMarkReceived = async (requestId: string) => {
+    try {
+      const res = await fetch('/api/inventory/requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: requestId,
+          status: 'DISPATCHED',
+          remarks: `Received & verified by ${activeStaffName} in Kitchen`,
+          resolvedBy: activeStaffName,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        playNotificationSound('success');
+        toast.success('Stock verified and received in kitchen!');
+        fetchRequests();
+      } else {
+        toast.error(data.error || 'Failed to update request');
+      }
+    } catch {
+      toast.error('Network error updating stock request');
+    }
+  };
+
   /* ─── Toggle Individual Item Checkbox ─── */
   const toggleItemChecked = (itemId: string) => {
     setCheckedItems((prev) => ({
@@ -523,6 +550,7 @@ export default function KitchenPortalPage() {
             requests={requests}
             requestsLoading={requestsLoading}
             onOpenRequestModal={() => handleOpenRequestModal()}
+            onMarkReceived={handleMarkReceived}
           />
         )}
       </main>

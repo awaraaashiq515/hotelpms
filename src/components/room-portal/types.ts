@@ -6,6 +6,7 @@ export interface RoomPortalGuest {
   mobile?: string | null;
   email?: string | null;
   avatarUrl?: string | null;
+  segment?: string | null;
 }
 
 export interface RoomPortalRoom {
@@ -29,6 +30,11 @@ export interface RoomPortalReservation {
   checkoutRequested: boolean;
   specialOffer?: string | null;
   offerCode?: string | null;
+  isOwnerGuest?: boolean;
+  ownerVipCode?: string | null;
+  ownerName?: string | null;
+  ownerBillingType?: string | null;
+  waiveBill?: boolean;
   property: {
     id: string;
     name: string;

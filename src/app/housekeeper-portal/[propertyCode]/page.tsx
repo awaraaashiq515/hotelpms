@@ -513,6 +513,12 @@ export default function HousekeeperPortalPage({ params }: { params?: Promise<{ p
             if (wtRes.ok) {
               const wtData = await wtRes.json()
               if (wtData.user && wtData.wtToken) {
+                const userPropCode = wtData.user.property?.code?.toLowerCase()
+                if (userPropCode && propertyCode && userPropCode !== propertyCode.toLowerCase()) {
+                  localStorage.setItem('hk_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))
+                  window.location.href = `/housekeeper-portal/${userPropCode}`
+                  return
+                }
                 setUser(wtData.user)
                 setWtToken(wtData.wtToken)
                 localStorage.setItem('hk_portal_session', JSON.stringify({ user: wtData.user, wtToken: wtData.wtToken }))

@@ -298,6 +298,9 @@ export default function RoomServicePage() {
           localStorage.setItem('room_portal_active_order_id', orderId);
           setActiveOrderId(orderId);
         }
+        try {
+          localStorage.setItem('hotel_room_service_order_placed', JSON.stringify({ orderId, orderNo, at: Date.now() }));
+        } catch {}
         setActiveOrder(createdOrder);
         setSubmitted(true);
         setCart([]);

@@ -5,14 +5,25 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { propertyId, supplierId, items, totalAmount } = body;
+    const {
+      propertyId,
+      supplierId,
+      items,
+      totalAmount,
+      deliveryDate,
+      comments,
+      orderNo: customOrderNo,
+      stockRequestIds,
+      assignedStaffName,
+      assignedStaffPhone,
+    } = body;
 
     if (!propertyId || !supplierId || !items || items.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Generate a unique order number
-    const orderNo = `B2B-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const orderNo = customOrderNo || `PO-${Date.now().toString().slice(-6)}`;
 
     // Prepare valid B2BProduct IDs for each item
     const preparedItems = [];
@@ -33,26 +44,55 @@ export async function POST(request: Request) {
 
         if (found) {
           validProductId = found.id;
+          if (item.description && !found.description) {
+            await prisma.b2BProduct.update({
+              where: { id: found.id },
+              data: { description: item.description },
+            }).catch(() => null);
+          }
         } else {
           const createdProduct = await prisma.b2BProduct.create({
             data: {
               supplierId,
               name: productName,
-              price: item.unitPrice || 0,
+              description: item.description || null,
+              price: Number(item.unitPrice) || 0,
               unit: item.unit || 'pcs',
               stockQuantity: 500,
-              category: item.category || 'General',
+              category: item.category || 'Kitchen & Grocery',
             },
           });
           validProductId = createdProduct.id;
+
+          // Also auto-save to hotel StockItem so it appears across hotel inventory
+          try {
+            const existingStockItem = await prisma.stockItem.findFirst({
+              where: { propertyId, name: productName },
+            });
+            if (!existingStockItem) {
+              await prisma.stockItem.create({
+                data: {
+                  propertyId,
+                  name: productName,
+                  unit: item.unit || 'pcs',
+                  costPrice: Number(item.unitPrice) || 0,
+                  itemType: item.category || 'Kitchen & F&B',
+                  minimumStock: 5,
+                  reorderLevel: 5,
+                },
+              });
+            }
+          } catch (stockErr) {
+            console.warn('Auto stock item creation skipped:', stockErr);
+          }
         }
       }
 
       preparedItems.push({
         productId: validProductId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.quantity * item.unitPrice,
+        quantity: Number(item.quantity) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        totalPrice: (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0),
       });
     }
 
@@ -61,15 +101,21 @@ export async function POST(request: Request) {
         propertyId,
         supplierId,
         orderNo,
-        totalAmount,
+        totalAmount: Number(totalAmount) || 0,
         status: 'PENDING',
+        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+        comments: comments || null,
+        buyerPhone: assignedStaffPhone || null,
+        buyerRestaurant: assignedStaffName || null,
         items: {
           create: preparedItems,
         },
         statusLogs: {
           create: {
             status: 'PENDING',
-            note: 'Order placed via Vendor Management Portal',
+            note: assignedStaffName
+              ? `PO Created by Hotel. Assigned Receiver: ${assignedStaffName}${assignedStaffPhone ? ` (${assignedStaffPhone})` : ''}`
+              : (comments ? `PO Created: ${comments}` : 'PO Created via Hotel Purchasing'),
           },
         },
       },
@@ -80,6 +126,22 @@ export async function POST(request: Request) {
         property: true,
       },
     });
+
+    // If stockRequestIds were converted from Kitchen Requisitions, mark them as APPROVED
+    if (Array.isArray(stockRequestIds) && stockRequestIds.length > 0) {
+      try {
+        await prisma.stockRequest.updateMany({
+          where: { id: { in: stockRequestIds } },
+          data: {
+            status: 'APPROVED',
+            remarks: `PO Generated: ${orderNo}`,
+            resolvedAt: new Date(),
+          },
+        });
+      } catch (err) {
+        console.warn('Failed to update linked stock requests:', err);
+      }
+    }
 
     return NextResponse.json(order);
   } catch (error) {
@@ -120,8 +182,24 @@ export async function GET(request: Request) {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        supplier: { select: { name: true } },
-        property: { select: { name: true } },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            category: true,
+            address: true,
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            phone: true,
+          },
+        },
         items: { include: { product: true } }
       }
     });

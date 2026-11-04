@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Hotel, Phone, Lock, Eye, EyeOff, LogIn, Loader2, Sparkles, User } from 'lucide-react';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Hotel, Phone, Lock, Eye, EyeOff, LogIn, Loader2, Sparkles, User, DoorClosed, ArrowRight } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
+import Link from 'next/link';
 
-export default function GuestPortalLogin() {
+function GuestPortalLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roomParam = searchParams?.get('room') || searchParams?.get('roomNumber') || '';
+
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -64,12 +68,35 @@ export default function GuestPortalLogin() {
             </div>
             <h1 className="text-3xl font-black text-white">Guest Portal</h1>
             <p className="text-slate-400 text-sm mt-1.5">Access your booking, billing & stay details</p>
+
+            {roomParam && (
+              <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                <DoorClosed size={14} className="text-emerald-400" />
+                <span>Room {roomParam} • In-Room Access</span>
+              </div>
+            )}
           </div>
+
+          {/* Quick Room Service Switch Banner if scanned from Room */}
+          {roomParam && (
+            <div className="mb-4 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between text-left">
+              <div>
+                <p className="text-xs font-bold text-amber-300">Need Room Service or Food?</p>
+                <p className="text-[11px] text-slate-400">Order directly to Room {roomParam} without password</p>
+              </div>
+              <Link
+                href={`/room-portal?room=${encodeURIComponent(roomParam)}`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition-all whitespace-nowrap"
+              >
+                Order Now <ArrowRight size={12} />
+              </Link>
+            </div>
+          )}
 
           {/* Login Card */}
           <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 shadow-2xl">
             <form onSubmit={handleLogin} className="space-y-5">
-              {/* Phone */}
+              {/* Phone / Name / Email */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                   Your Name, Email or Mobile Number
@@ -146,5 +173,13 @@ export default function GuestPortalLogin() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function GuestPortalLogin() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#050a14] flex items-center justify-center text-slate-400">Loading portal...</div>}>
+      <GuestPortalLoginContent />
+    </Suspense>
   );
 }

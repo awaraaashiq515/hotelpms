@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Plus,
@@ -37,7 +38,10 @@ import {
   Hash,
   ArrowRightLeft,
   Users,
+  Search,
+  UserCheck,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface RoomOption {
   id: string;
@@ -61,11 +65,20 @@ interface QuickReservationModalProps {
   initialDepartureDate?: string;
   initialRoomId?: string;
   initialGuestData?: {
+    id?: string;
     firstName?: string;
     lastName?: string;
     mobile?: string;
     email?: string;
     notes?: string;
+    idType?: string;
+    idNumber?: string;
+    address?: string;
+    nationality?: string;
+    companyName?: string;
+    gstNumber?: string;
+    billingAddress?: string;
+    segment?: string;
   } | null;
 }
 
@@ -191,8 +204,62 @@ export function QuickReservationModal({
   initialRoomId,
   initialGuestData,
 }: QuickReservationModalProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Navigation tabs for quick jumping
   const [activeSection, setActiveSection] = useState<'guest' | 'gst' | 'stay' | 'meals' | 'offers' | 'billing'>('guest');
+  const formRef = useRef<HTMLFormElement>(null);
+  const isProgrammaticScrollRef = useRef(false);
+
+  const scrollToSection = (sectionKey: 'guest' | 'gst' | 'stay' | 'meals' | 'offers' | 'billing') => {
+    setActiveSection(sectionKey);
+    isProgrammaticScrollRef.current = true;
+    const target = document.getElementById(`section-${sectionKey}`);
+    const container = formRef.current;
+    if (target && container) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const scrollOffset = targetRect.top - containerRect.top + container.scrollTop - 12;
+      container.scrollTo({
+        top: Math.max(0, scrollOffset),
+        behavior: 'smooth',
+      });
+    }
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 600);
+  };
+
+  const handleFormScroll = () => {
+    if (isProgrammaticScrollRef.current) return;
+    const container = formRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const probeY = containerRect.top + 140;
+
+    const sectionKeys: ('guest' | 'gst' | 'stay' | 'meals' | 'offers' | 'billing')[] = [
+      'guest',
+      'gst',
+      'stay',
+      'meals',
+      'offers',
+      'billing',
+    ];
+
+    for (let i = sectionKeys.length - 1; i >= 0; i--) {
+      const el = document.getElementById(`section-${sectionKeys[i]}`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= probeY) {
+          setActiveSection(sectionKeys[i]);
+          break;
+        }
+      }
+    }
+  };
 
   // 1. Guest & ID Proof State
   const [guestFirstName, setGuestFirstName] = useState('');
@@ -206,6 +273,82 @@ export function QuickReservationModal({
   const [documentUrl, setDocumentUrl] = useState('');
   const [documentFileName, setDocumentFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Returning Customer / Existing Guest Search State ──
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState<any[]>([]);
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedExistingGuest, setSelectedExistingGuest] = useState<any | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCustomerSearch = (query: string) => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    const trimmed = query.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setCustomerSearchResults([]);
+      setShowCustomerDropdown(false);
+      setIsSearchingCustomer(false);
+      return;
+    }
+
+    setIsSearchingCustomer(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/hotel/guests?search=${encodeURIComponent(trimmed)}&limit=10`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setCustomerSearchResults(json.data);
+          setShowCustomerDropdown(json.data.length > 0);
+        } else {
+          setCustomerSearchResults([]);
+          setShowCustomerDropdown(false);
+        }
+      } catch (err) {
+        console.error('Customer lookup error:', err);
+      } finally {
+        setIsSearchingCustomer(false);
+      }
+    }, 250);
+  };
+
+  const handleSelectCustomer = (guest: any) => {
+    setSelectedExistingGuest(guest);
+    setGuestFirstName(guest.firstName || '');
+    setGuestLastName(guest.lastName || '');
+    setGuestMobile(guest.mobile || '');
+    setGuestEmail(guest.email || '');
+    setGuestAddress(guest.address || '');
+    setGuestNationality(guest.nationality || 'Indian');
+    if (guest.idType) setIdType(guest.idType);
+    if (guest.idNumber) setIdNumber(guest.idNumber);
+
+    // Corporate / GST auto-fill if previously stored
+    if (guest.gstNumber || guest.companyName) {
+      setIsCorporateBooking(true);
+      setCompanyName(guest.companyName || '');
+      setGstNumber(guest.gstNumber || '');
+      setBillingAddress(guest.billingAddress || guest.address || '');
+    }
+
+    setShowCustomerDropdown(false);
+    setCustomerSearchQuery(`${guest.firstName} ${guest.lastName || ''} (${guest.mobile || ''})`.trim());
+    toast.success(`Returning guest ${guest.firstName} selected! Details auto-filled.`);
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedExistingGuest(null);
+    setCustomerSearchQuery('');
+    setCustomerSearchResults([]);
+    setShowCustomerDropdown(false);
+    setGuestFirstName('');
+    setGuestLastName('');
+    setGuestMobile('');
+    setGuestEmail('');
+    setGuestAddress('');
+    setIdNumber('');
+    toast.info('Form cleared for new guest entry.');
+  };
 
   // 2. GST & Corporate Billing State
   const [isCorporateBooking, setIsCorporateBooking] = useState(false);
@@ -351,7 +494,21 @@ export function QuickReservationModal({
         setGuestLastName(initialGuestData.lastName || '');
         setGuestMobile(initialGuestData.mobile || '');
         setGuestEmail(initialGuestData.email || '');
+        if (initialGuestData.idType) setIdType(initialGuestData.idType);
+        if (initialGuestData.idNumber) setIdNumber(initialGuestData.idNumber);
+        if (initialGuestData.address) setGuestAddress(initialGuestData.address);
+        if (initialGuestData.nationality) setGuestNationality(initialGuestData.nationality);
         if (initialGuestData.notes) setGuestNotes(initialGuestData.notes);
+        if (initialGuestData.companyName || initialGuestData.gstNumber) {
+          setIsCorporateBooking(true);
+          if (initialGuestData.companyName) setCompanyName(initialGuestData.companyName);
+          if (initialGuestData.gstNumber) setGstNumber(initialGuestData.gstNumber);
+          if (initialGuestData.billingAddress) setBillingAddress(initialGuestData.billingAddress);
+        }
+        if (initialGuestData.id) {
+          setSelectedExistingGuest(initialGuestData);
+          setCustomerSearchQuery(`${initialGuestData.firstName || ''} ${initialGuestData.lastName || ''}`.trim());
+        }
       }
 
       if (initialArrivalDate) {
@@ -572,12 +729,12 @@ export function QuickReservationModal({
     e.preventDefault();
     if (!guestFirstName.trim()) {
       alert('Please enter guest first name.');
-      setActiveSection('guest');
+      scrollToSection('guest');
       return;
     }
     if (!guestMobile.trim()) {
       alert('Please enter guest mobile number.');
-      setActiveSection('guest');
+      scrollToSection('guest');
       return;
     }
 
@@ -631,16 +788,24 @@ export function QuickReservationModal({
         .join(' | ');
 
       const payload = {
+        guestId: selectedExistingGuest?.id || undefined,
         guestFirstName: guestFirstName.trim(),
+        firstName: guestFirstName.trim(),
         guestLastName: guestLastName.trim(),
+        lastName: guestLastName.trim(),
         guestMobile: guestMobile.trim(),
+        mobile: guestMobile.trim(),
         guestEmail: guestEmail.trim(),
+        email: guestEmail.trim(),
         guestAddress: guestAddress.trim(),
+        address: guestAddress.trim(),
         guestNationality: guestNationality || 'Indian',
+        nationality: guestNationality || 'Indian',
         idType: idType || 'Aadhaar Card',
         idNumber: idNumber.trim(),
         documentUrl: documentUrl || '',
         assignedRoomId: selectedRoom?.id || null,
+        linkedRoomId: roomAllocMode === 'link' && linkedRoomId ? linkedRoomId : null,
         roomTypeId: selectedRoom?.roomTypeId,
         ratePerNight,
         arrivalDate,
@@ -681,6 +846,10 @@ export function QuickReservationModal({
         onCreated();
         onClose();
         // Reset state
+        setSelectedExistingGuest(null);
+        setCustomerSearchQuery('');
+        setCustomerSearchResults([]);
+        setShowCustomerDropdown(false);
         setGuestFirstName('');
         setGuestLastName('');
         setGuestMobile('');
@@ -706,6 +875,8 @@ export function QuickReservationModal({
         setSplitOnlineRef('');
         setSplitOnlineMethod('UPI');
         setCustomTotalOverride(null);
+        setLinkedRoomId('');
+        setRoomAllocMode('select');
       } else {
         alert(data.message || 'Error creating reservation in database.');
       }
@@ -717,9 +888,12 @@ export function QuickReservationModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-[#0f172a] rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-800 text-white overflow-hidden relative">
+  if (!isOpen) return null;
+  if (!mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+      <div className="bg-[#0f172a] rounded-2xl max-w-4xl w-full max-h-[92vh] my-auto flex flex-col shadow-2xl border border-slate-800 text-white overflow-hidden relative">
         {/* ── Modal Header ── */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900/70">
           <div className="flex items-center gap-3">
@@ -756,7 +930,7 @@ export function QuickReservationModal({
         <div className="px-6 py-2.5 bg-slate-900/40 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto shrink-0 scrollbar-none">
           <button
             type="button"
-            onClick={() => setActiveSection('guest')}
+            onClick={() => scrollToSection('guest')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'guest'
                 ? 'bg-[#00b894] text-white shadow-xs'
@@ -769,7 +943,7 @@ export function QuickReservationModal({
 
           <button
             type="button"
-            onClick={() => setActiveSection('gst')}
+            onClick={() => scrollToSection('gst')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'gst'
                 ? 'bg-[#00b894] text-white shadow-xs'
@@ -784,7 +958,7 @@ export function QuickReservationModal({
 
           <button
             type="button"
-            onClick={() => setActiveSection('stay')}
+            onClick={() => scrollToSection('stay')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'stay'
                 ? 'bg-[#00b894] text-white shadow-xs'
@@ -797,7 +971,7 @@ export function QuickReservationModal({
 
           <button
             type="button"
-            onClick={() => setActiveSection('meals')}
+            onClick={() => scrollToSection('meals')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'meals'
                 ? 'bg-[#00b894] text-white shadow-xs'
@@ -810,10 +984,7 @@ export function QuickReservationModal({
 
           <button
             type="button"
-            onClick={() => {
-              setActiveSection('offers');
-              document.getElementById('section-offers')?.scrollIntoView({ behavior: 'smooth' });
-            }}
+            onClick={() => scrollToSection('offers')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'offers'
                 ? 'bg-amber-500 text-white shadow-xs'
@@ -828,7 +999,7 @@ export function QuickReservationModal({
 
           <button
             type="button"
-            onClick={() => setActiveSection('billing')}
+            onClick={() => scrollToSection('billing')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeSection === 'billing'
                 ? 'bg-[#00b894] text-white shadow-xs'
@@ -841,7 +1012,12 @@ export function QuickReservationModal({
         </div>
 
         {/* ── Scrollable Form Body ── */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form
+          ref={formRef}
+          onScroll={handleFormScroll}
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth"
+        >
           {/* ══════════════════════════════════════════════════════════════════
               SECTION 1: GUEST DETAILS & ID PROOF (KYC)
              ══════════════════════════════════════════════════════════════════ */}
@@ -857,6 +1033,157 @@ export function QuickReservationModal({
                 </h3>
               </div>
               <span className="text-[11px] text-slate-400">Mandatory for Hotel Police GRC</span>
+            </div>
+
+            {/* ── Returning Guest Search & Fast Select ── */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-purple-950/30 border border-indigo-500/40 relative">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shrink-0">
+                    <UserCheck size={13} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-white tracking-wide">
+                      Select Existing Customer / Returning Guest:
+                    </span>
+                    <span className="text-[10px] text-indigo-300/80 ml-2 font-medium hidden sm:inline">
+                      (Type mobile number or name to search &amp; auto-fill)
+                    </span>
+                  </div>
+                </div>
+                {selectedExistingGuest && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Returning Customer
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={customerSearchQuery}
+                  onChange={(e) => {
+                    setCustomerSearchQuery(e.target.value);
+                    handleCustomerSearch(e.target.value);
+                  }}
+                  onFocus={() => {
+                    if (customerSearchResults.length > 0) setShowCustomerDropdown(true);
+                  }}
+                  placeholder="🔍 Type mobile number (e.g. 9876543210) or guest name to auto-fill..."
+                  className="w-full bg-[#0b1120] border border-indigo-500/40 focus:border-indigo-400 rounded-xl pl-9 pr-8 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 placeholder:text-slate-500 font-medium"
+                />
+                {customerSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerSearchQuery('');
+                      setCustomerSearchResults([]);
+                      setShowCustomerDropdown(false);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+                {isSearchingCustomer && (
+                  <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                    <Loader2 size={13} className="animate-spin text-indigo-400" />
+                  </div>
+                )}
+              </div>
+
+              {/* Returning Customer Autocomplete Dropdown */}
+              {showCustomerDropdown && customerSearchResults.length > 0 && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowCustomerDropdown(false)}
+                  />
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#090d19] border-2 border-indigo-500/60 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800 animate-in fade-in slide-in-from-top-2 duration-150 max-h-72 overflow-y-auto ring-1 ring-white/10">
+                    <div className="px-3.5 py-1.5 bg-indigo-950/60 text-[10px] font-bold text-indigo-300 uppercase tracking-wider flex items-center justify-between">
+                      <span>Found {customerSearchResults.length} Existing Guest{customerSearchResults.length === 1 ? '' : 's'}</span>
+                      <span className="text-slate-400 font-normal">Click to auto-fill details</span>
+                    </div>
+
+                    {customerSearchResults.map((guest: any) => {
+                      const fullName = `${guest.firstName} ${guest.lastName || ''}`.trim();
+                      const staysCount = guest.reservations?.length || 0;
+                      return (
+                        <div
+                          key={guest.id}
+                          onClick={() => handleSelectCustomer(guest)}
+                          className="p-3 hover:bg-indigo-600/20 cursor-pointer transition-colors flex items-center justify-between gap-3 group"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-white group-hover:text-indigo-200 truncate">
+                                {fullName}
+                              </span>
+                              {guest.segment === 'VIP' && (
+                                <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-black">
+                                  👑 VIP
+                                </span>
+                              )}
+                              {staysCount > 0 && (
+                                <span className="text-[9.5px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-bold">
+                                  {staysCount} {staysCount === 1 ? 'Stay' : 'Stays'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                              {guest.mobile && (
+                                <span className="text-indigo-300 font-medium flex items-center gap-1">
+                                  <Phone size={10} />
+                                  {guest.mobile}
+                                </span>
+                              )}
+                              {guest.email && (
+                                <span className="truncate flex items-center gap-1 text-slate-400">
+                                  <Mail size={10} />
+                                  {guest.email}
+                                </span>
+                              )}
+                              {guest.idNumber && (
+                                <span className="text-slate-500">
+                                  {guest.idType || 'ID'}: {guest.idNumber}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold group-hover:bg-indigo-500 shrink-0 flex items-center gap-1 shadow-sm"
+                          >
+                            <span>Auto-Fill</span>
+                            <ChevronRight size={11} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Selected Customer Notification Banner */}
+              {selectedExistingGuest && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between gap-2 text-xs animate-in fade-in">
+                  <div className="flex items-center gap-2 truncate">
+                    <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                    <span className="text-emerald-200 font-bold truncate">
+                      Profile Auto-Filled: <span className="text-white font-black">{selectedExistingGuest.firstName} {selectedExistingGuest.lastName || ''}</span> ({selectedExistingGuest.mobile || 'No Phone'})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearCustomer}
+                    className="text-[11px] px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 font-bold shrink-0 transition-all"
+                  >
+                    Clear / New Guest
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Name & Contact Grid */}
@@ -2337,6 +2664,7 @@ export function QuickReservationModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

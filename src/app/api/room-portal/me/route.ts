@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
           mobile: true,
           email: true,
           avatarUrl: true,
+          segment: true,
         },
       }),
       prisma.room.findUnique({
@@ -133,6 +134,11 @@ export async function GET(request: NextRequest) {
           wifiStatus: true,
           specialOffer: true,
           offerCode: true,
+          isOwnerGuest: true,
+          ownerVipCode: true,
+          ownerName: true,
+          ownerBillingType: true,
+          waiveBill: true,
           property: {
             select: {
               id: true,

@@ -84,6 +84,36 @@ export default function BillPage() {
       ) : bill ? (
         <div style={{ maxWidth: '720px', margin: '0 auto', paddingBottom: '40px' }}>
 
+          {/* 👑 Owner / VIP Guest Complimentary Banner */}
+          {bill.isOwnerGuest && bill.waiveBill && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(217,119,6,0.1) 100%)',
+              border: '1px solid rgba(245,158,11,0.5)',
+              borderRadius: '18px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+            }}>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '12px',
+                background: 'rgba(245,158,11,0.25)', border: '1px solid rgba(245,158,11,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0,
+              }}>
+                👑
+              </div>
+              <div>
+                <h4 style={{ margin: 0, color: '#fbbf24', fontSize: '15px', fontWeight: 900 }}>
+                  Complimentary VIP Stay — Hosted by {bill.ownerName || 'Management'}
+                </h4>
+                <p style={{ margin: '3px 0 0', color: '#cbd5e1', fontSize: '12px', lineHeight: 1.4 }}>
+                  Your room stay is fully hosted with our compliments. Itemized tariff is shown below for your reference with <strong>₹0.00</strong> net balance due.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Summary Cards: Shows real total with all charges summed */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '24px' }}>
             <BillSummaryCard
@@ -193,6 +223,16 @@ export default function BillPage() {
                 <span>Less: Advance &amp; Payments Received</span>
                 <span>- {formatCurrency(totalPayments)}</span>
               </div>
+
+              {/* VIP Courtesy Waiver if applicable */}
+              {bill.isOwnerGuest && bill.waiveBill && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#fbbf24', fontWeight: 700 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👑</span> Owner VIP Courtesy Waiver
+                  </span>
+                  <span>- {formatCurrency(Math.max(0, totalCharges - totalPayments))}</span>
+                </div>
+              )}
             </div>
 
             {/* Net Balance Due Box */}
