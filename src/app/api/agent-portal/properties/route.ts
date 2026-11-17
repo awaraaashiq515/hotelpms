@@ -16,9 +16,12 @@ export async function GET(request: NextRequest) {
     const relationsMap: Record<string, { commissionRate: number; isBlocked: boolean }> = {};
     const allowedPartnerPropertyIds: string[] = [];
     let organizationId: string | null = null;
+    let hasExplicitPropertyConstraint = false;
+
+    let agent: any = null;
 
     if (agentId) {
-      const agent = await prisma.travelAgent.findUnique({
+      agent = await prisma.travelAgent.findUnique({
         where: { id: agentId },
         include: {
           property: {
@@ -33,6 +36,7 @@ export async function GET(request: NextRequest) {
       if (agent) {
         if (agent.property?.organizationId) {
           organizationId = agent.property.organizationId;
+          hasExplicitPropertyConstraint = true;
         }
         agent.hotelRelations.forEach(r => {
           relationsMap[r.propertyId] = { commissionRate: r.commissionRate, isBlocked: r.isBlocked };
@@ -52,6 +56,7 @@ export async function GET(request: NextRequest) {
       });
       if (prop?.organizationId) {
         organizationId = prop.organizationId;
+        hasExplicitPropertyConstraint = true;
       }
     }
 
@@ -59,18 +64,6 @@ export async function GET(request: NextRequest) {
       const session = await getSession();
       if (session?.organizationId) {
         organizationId = session.organizationId;
-      }
-    }
-
-    // If still no organizationId and agent has no org, fallback to the latest active hotel's org
-    if (!organizationId) {
-      const fallbackHotel = await prisma.property.findFirst({
-        where: { type: 'HOTEL' },
-        orderBy: { createdAt: 'desc' },
-        select: { organizationId: true },
-      });
-      if (fallbackHotel) {
-        organizationId = fallbackHotel.organizationId;
       }
     }
 
@@ -85,8 +78,7 @@ export async function GET(request: NextRequest) {
 
     // Build Prisma query condition:
     // 1. Must be hotel type (exclude restaurants, cafes, bars)
-    // 2. Must belong to the agent's organization OR be an explicitly partnered hotel in hotelRelations
-    // 3. Must not be blocked for this agent
+    // 2. Must not be blocked for this agent
     const whereConditions: Prisma.PropertyWhereInput[] = [
       {
         OR: [
@@ -98,15 +90,6 @@ export async function GET(request: NextRequest) {
         type: { notIn: ['RESTAURANT', 'BAR', 'CAFE'] },
       },
     ];
-
-    if (organizationId) {
-      whereConditions.push({
-        OR: [
-          { organizationId },
-          ...(allowedPartnerPropertyIds.length > 0 ? [{ id: { in: allowedPartnerPropertyIds } }] : []),
-        ],
-      });
-    }
 
     if (blockedPropertyIds.length > 0) {
       whereConditions.push({
@@ -143,10 +126,9 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
-    // Enrich with room stats and custom commission rates, only keep properties with rooms > 0
+    // Enrich with room stats and custom commission rates
     const enriched = await Promise.all(properties.map(async prop => {
       const totalRooms = roomCountMap[prop.id] || 0;
-      if (totalRooms === 0) return null;
 
       const roomStats = await prisma.room.groupBy({
         by: ['status'],
@@ -164,13 +146,14 @@ export async function GET(request: NextRequest) {
       });
 
       const rel = relationsMap[prop.id];
+      const agentCommission = agent?.commissionRate || 10.0;
 
       return {
         ...prop,
         totalRooms,
         availableRooms: statsMap['AVAILABLE'] || 0,
         occupiedRooms: statsMap['OCCUPIED'] || 0,
-        commissionRate: rel ? rel.commissionRate : 10.0,
+        commissionRate: rel ? rel.commissionRate : agentCommission,
         roomTypes,
       };
     }));

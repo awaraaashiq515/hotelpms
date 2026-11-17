@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import QRCode from 'qrcode';
@@ -10,26 +10,24 @@ import {
   Copy,
   ExternalLink,
   Search,
-  Filter,
-  Layers,
-  Sparkles,
   Hotel,
   Wifi,
   Phone,
-  Bed,
   Check,
-  Eye,
   RefreshCw,
   ArrowLeft,
   QrCode,
   Globe,
-  SlidersHorizontal,
-  ChevronRight,
-  FileDown,
   Smartphone,
   UtensilsCrossed,
-  Receipt,
-  Sparkle,
+  KeyRound,
+  DoorOpen,
+  PhoneCall,
+  Sparkles,
+  ShieldCheck,
+  SlidersHorizontal,
+  Layers,
+  FileDown,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -60,20 +58,25 @@ interface PropertyInfo {
   wifiPassword?: string;
 }
 
+type PortalMode = 'door-concierge' | 'room-portal' | 'guest-portal';
+type PlacardStyle = 'door-placard' | 'door-hanger' | 'compact-badge';
+
 export default function RoomQRCodesPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [property, setProperty] = useState<PropertyInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
 
-  // Destination portal mode: 'guest-portal' or 'room-portal'
-  const [portalMode, setPortalMode] = useState<'guest-portal' | 'room-portal'>('guest-portal');
+  // Destination portal mode: default to 'door-concierge' as requested ("room ke bahar lagane ke liye & call for reception / key")
+  const [portalMode, setPortalMode] = useState<PortalMode>('door-concierge');
+
+  // Placard layout style
+  const [placardStyle, setPlacardStyle] = useState<PlacardStyle>('door-placard');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFloor, setSelectedFloor] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [viewStyle, setViewStyle] = useState<'standee' | 'compact'>('standee');
 
   // Print single room state (null = print all filtered)
   const [printSingleRoomId, setPrintSingleRoomId] = useState<string | null>(null);
@@ -85,26 +88,34 @@ export default function RoomQRCodesPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [roomsRes, sessionRes] = await Promise.all([
+      const [roomsRes, sessionRes, portalConfigRes] = await Promise.all([
         fetch('/api/hotel/rooms').then((r) => r.json()),
         fetch('/api/auth/session').then((r) => r.json()).catch(() => null),
+        fetch('/api/room-portal/config').then((r) => r.json()).catch(() => null),
       ]);
 
       if (roomsRes.success && Array.isArray(roomsRes.data)) {
         setRooms(roomsRes.data);
       }
 
-      if (sessionRes?.authenticated && sessionRes.user) {
-        const u = sessionRes.user;
-        setProperty({
-          id: u.propertyId || '',
-          name: u.propertyName || 'Hotel & Luxury Suites',
-          code: u.propertyCode || 'HOTEL',
-          phone: u.phone || '+91 98765 43210',
-          wifiSsid: `${u.propertyName || 'Hotel'}-Guest-WiFi`,
-          wifiPassword: 'ConnectInRoom',
-        });
-      }
+      const u = sessionRes?.authenticated ? sessionRes.user : null;
+      const cfg = portalConfigRes?.config || null;
+
+      const propName = u?.propertyName || 'Grand Luxury Hotel';
+      const propCode = u?.propertyCode || 'HOTEL';
+      const propPhone = cfg?.frontDeskPhone || u?.phone || '+91 98765 43210';
+      const wifiSsid = cfg?.wifiName || `${propName.replace(/\s+/g, '-')}-Guest-WiFi`;
+      const wifiPassword = cfg?.wifiPassword || 'Welcome@Stay';
+
+      setProperty({
+        id: u?.propertyId || '',
+        name: propName,
+        code: propCode,
+        phone: propPhone,
+        address: u?.propertyAddress || '',
+        wifiSsid,
+        wifiPassword,
+      });
     } catch (err) {
       console.error('Error loading room QR data:', err);
       toast.error('Failed to load rooms list.');
@@ -143,9 +154,15 @@ export default function RoomQRCodesPage() {
   const filteredRooms = useMemo(() => {
     return rooms.filter((r) => {
       const q = searchQuery.toLowerCase().trim();
-      const matchSearch = !q || r.roomNumber.toLowerCase().includes(q) || (r.roomType?.name || '').toLowerCase().includes(q);
+      const matchSearch =
+        !q ||
+        r.roomNumber.toLowerCase().includes(q) ||
+        (r.roomType?.name || '').toLowerCase().includes(q);
       const matchFloor = selectedFloor === 'all' || r.floor === selectedFloor;
-      const matchCategory = selectedCategory === 'all' || r.roomTypeId === selectedCategory || r.roomType?.id === selectedCategory;
+      const matchCategory =
+        selectedCategory === 'all' ||
+        r.roomTypeId === selectedCategory ||
+        r.roomType?.id === selectedCategory;
       return matchSearch && matchFloor && matchCategory;
     });
   }, [rooms, searchQuery, selectedFloor, selectedCategory]);
@@ -153,7 +170,11 @@ export default function RoomQRCodesPage() {
   // Generate QR URL for a room
   const getRoomQRUrl = (room: Room) => {
     const base = origin || 'http://localhost:3000';
-    const propCode = property?.code || 'HOTEL';
+    const propCode = (property?.code || 'HOTEL').toLowerCase();
+
+    if (portalMode === 'door-concierge') {
+      return `${base}/door/${encodeURIComponent(propCode)}/${encodeURIComponent(room.roomNumber)}`;
+    }
     if (portalMode === 'room-portal') {
       return `${base}/room-portal?room=${encodeURIComponent(room.roomNumber)}&propertyCode=${encodeURIComponent(propCode)}`;
     }
@@ -165,21 +186,21 @@ export default function RoomQRCodesPage() {
     try {
       const qrUrl = getRoomQRUrl(room);
       const dataUrl = await QRCode.toDataURL(qrUrl, {
-        width: 600,
+        width: 800,
         margin: 2,
         color: {
-          dark: '#0f172a',
+          dark: '#0a0f1d',
           light: '#ffffff',
         },
       });
       const link = document.createElement('a');
       link.href = dataUrl;
-      link.download = `Room-${room.roomNumber}-GuestPortal-QR.png`;
+      link.download = `Room-${room.roomNumber}-DoorQR.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success(`Room ${room.roomNumber} QR Code downloaded!`);
-    } catch (err) {
+      toast.success(`Room ${room.roomNumber} Door QR downloaded!`);
+    } catch {
       toast.error('Failed to download QR code image.');
     }
   };
@@ -189,7 +210,7 @@ export default function RoomQRCodesPage() {
     const url = getRoomQRUrl(room);
     navigator.clipboard.writeText(url);
     setCopiedId(room.id);
-    toast.success(`Room ${room.roomNumber} portal link copied!`);
+    toast.success(`Room ${room.roomNumber} Door Concierge link copied!`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -213,7 +234,7 @@ export default function RoomQRCodesPage() {
     <>
       <Toaster richColors position="top-center" />
 
-      {/* ── Print Specific Stylesheet ── */}
+      {/* ── Print Stylesheet ── */}
       <style jsx global>{`
         @media print {
           body {
@@ -222,30 +243,32 @@ export default function RoomQRCodesPage() {
             margin: 0 !important;
             padding: 0 !important;
           }
-          /* Hide app layout header, sidebar, filters and buttons */
           header,
           nav,
           aside,
           .no-print {
             display: none !important;
           }
-
-          /* Show only the print container */
           .print-area {
             display: block !important;
             padding: 0 !important;
             background: #ffffff !important;
           }
-
-          /* Force page-break between standee cards */
-          .standee-print-card {
+          .placard-card {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             margin-bottom: 24px !important;
             box-shadow: none !important;
-            border: 2px solid #cbd5e1 !important;
+            border: 2px solid #0f172a !important;
             background: #ffffff !important;
             color: #0f172a !important;
+          }
+          .placard-card * {
+            color: #0f172a !important;
+          }
+          .placard-dark-badge {
+            background: #0f172a !important;
+            color: #ffffff !important;
           }
         }
       `}</style>
@@ -264,30 +287,30 @@ export default function RoomQRCodesPage() {
                   <span>Rooms Management</span>
                 </Link>
                 <span className="text-slate-600">/</span>
-                <span className="text-xs font-bold text-indigo-400 flex items-center gap-1">
-                  <QrCode size={13} /> Room QR Standees
+                <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                  <DoorOpen size={13} /> Room Door QR Codes &amp; Placards
                 </span>
               </div>
               <h1 className="text-2xl font-black text-white flex items-center gap-2.5">
-                <span>Room QR Standees &amp; Guest Portal</span>
-                <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                <span>Room Door QR Placards &amp; Concierge Studio</span>
+                <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
                   {filteredRooms.length} Rooms
                 </span>
               </h1>
-              <p className="text-slate-400 text-xs mt-1">
-                Generate and print luxury acrylic table-tent QR standees for each hotel room. When guests scan with their phone camera, their in-room portal opens instantly.
+              <p className="text-slate-400 text-xs mt-1 max-w-3xl">
+                Generate, download, and print separate QR placards to place outside each room door. When a guest arrives or gets locked out, scanning the QR opens the <strong className="text-white">Instant Door Concierge</strong>: 1-tap call to Reception, key assistance alerts, room service &amp; housekeeping.
               </p>
             </div>
 
             {/* Quick Action Buttons */}
             <div className="flex items-center gap-2.5 flex-wrap">
               <Link
-                href="/guest-portal"
+                href={filteredRooms[0] ? getRoomQRUrl(filteredRooms[0]) : '/door'}
                 target="_blank"
-                className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 text-indigo-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
               >
-                <Globe size={13} className="text-indigo-400" />
-                <span>Test Guest Portal</span>
+                <Smartphone size={13} />
+                <span>Preview Mobile Scan</span>
                 <ExternalLink size={11} className="text-slate-500" />
               </Link>
 
@@ -295,41 +318,58 @@ export default function RoomQRCodesPage() {
                 type="button"
                 onClick={handlePrintAll}
                 disabled={filteredRooms.length === 0}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/25 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <Printer size={15} />
-                <span>Print All Standees ({filteredRooms.length})</span>
+                <span>Print All Door Placards ({filteredRooms.length})</span>
               </button>
             </div>
           </div>
 
           {/* ── Mode & Filter Bar ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-            {/* 1. Target Portal Selector */}
-            <div className="p-2.5 rounded-2xl bg-slate-900/80 border border-slate-800">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                QR Target Destination
+            {/* 1. Target Portal Mode Selector */}
+            <div className="p-2.5 rounded-2xl bg-[#090f1d] border border-amber-500/30 shadow-md">
+              <label className="block text-[10px] font-black text-amber-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>QR Placard Purpose:</span>
+                <span className="text-[9px] bg-amber-500/20 px-1.5 py-0.2 rounded text-amber-300">Outside Door</span>
               </label>
-              <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+              <div className="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setPortalMode('guest-portal')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${portalMode === 'guest-portal'
-                      ? 'bg-indigo-600 text-white shadow-xs'
+                  onClick={() => setPortalMode('door-concierge')}
+                  className={`py-1.5 px-1.5 rounded-lg text-[10.5px] font-black transition-all truncate ${
+                    portalMode === 'door-concierge'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
-                    }`}
+                  }`}
+                  title="Door Concierge: Call reception, key assistance, locked out help"
                 >
-                  Guest Portal
+                  🚪 Door Placard
                 </button>
                 <button
                   type="button"
                   onClick={() => setPortalMode('room-portal')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${portalMode === 'room-portal'
-                      ? 'bg-indigo-600 text-white shadow-xs'
+                  className={`py-1.5 px-1.5 rounded-lg text-[10.5px] font-black transition-all truncate ${
+                    portalMode === 'room-portal'
+                      ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
-                    }`}
+                  }`}
+                  title="Tablet Kiosk inside the room"
                 >
-                  In-Room Portal
+                  📺 In-Room TV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPortalMode('guest-portal')}
+                  className={`py-1.5 px-1.5 rounded-lg text-[10.5px] font-black transition-all truncate ${
+                    portalMode === 'guest-portal'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Guest Self-Service login"
+                >
+                  📱 Guest Login
                 </button>
               </div>
             </div>
@@ -345,8 +385,8 @@ export default function RoomQRCodesPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="e.g. 101, 202, Deluxe..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                  placeholder="e.g. 101, 204, Deluxe..."
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>
@@ -359,7 +399,7 @@ export default function RoomQRCodesPage() {
               <select
                 value={selectedFloor}
                 onChange={(e) => setSelectedFloor(e.target.value)}
-                className="w-full py-1.5 px-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full py-1.5 px-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
               >
                 <option value="all">All Floors ({rooms.length} Rooms)</option>
                 {floorsList.map((f) => (
@@ -370,45 +410,48 @@ export default function RoomQRCodesPage() {
               </select>
             </div>
 
-            {/* 4. Category & Style Filter */}
+            {/* 4. Placard Format & Category */}
             <div className="p-2.5 rounded-2xl bg-slate-900/80 border border-slate-800">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Room Category &amp; View
+                Placard Template Format
               </label>
               <div className="flex items-center gap-1.5">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="flex-1 py-1.5 px-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 truncate"
+                <button
+                  type="button"
+                  onClick={() => setPlacardStyle('door-placard')}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
+                    placardStyle === 'door-placard'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                  title="Standard wall or door mount luxury card"
                 >
-                  <option value="all">All Room Types</option>
-                  {categoriesList.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setViewStyle('standee')}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold ${viewStyle === 'standee' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    title="Standee Tent Card View"
-                  >
-                    🪧 Card
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewStyle('compact')}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold ${viewStyle === 'compact' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    title="Compact Gallery View"
-                  >
-                    📑 Grid
-                  </button>
-                </div>
+                  <span>🏷️ Wall Card</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlacardStyle('door-hanger')}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
+                    placardStyle === 'door-hanger'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                  title="Door handle hanger cutout"
+                >
+                  <span>🔖 Hanger</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlacardStyle('compact-badge')}
+                  className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition ${
+                    placardStyle === 'compact-badge'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                  title="Compact plaque sticker"
+                >
+                  🔲 Sticker
+                </button>
               </div>
             </div>
           </div>
@@ -417,15 +460,15 @@ export default function RoomQRCodesPage() {
         {/* ── Loading Spinner ── */}
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
-            <p className="text-slate-400 text-xs font-semibold">Generating QR Codes for hotel rooms...</p>
+            <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
+            <p className="text-slate-400 text-xs font-semibold">Generating Door QR Placards for hotel rooms...</p>
           </div>
         ) : filteredRooms.length === 0 ? (
           <div className="py-16 text-center rounded-3xl bg-slate-900/50 border border-slate-800 p-8 space-y-3">
-            <QrCode className="w-12 h-12 text-slate-600 mx-auto" />
-            <h3 className="text-base font-bold text-white">No rooms matched your filter</h3>
+            <DoorOpen className="w-12 h-12 text-slate-600 mx-auto" />
+            <h3 className="text-base font-bold text-white">No rooms match your filter</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Try resetting your search query or floor selection above to view room QR codes.
+              Reset your search query or floor selection above to view room door placards.
             </p>
             <button
               onClick={() => {
@@ -439,18 +482,18 @@ export default function RoomQRCodesPage() {
             </button>
           </div>
         ) : (
-          /* ── Room Cards / Standees Grid ── */
+          /* ── Placards Grid ── */
           <div
             className={
-              viewStyle === 'standee'
-                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-                : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'
+              placardStyle === 'compact-badge'
+                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'
+                : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
             }
           >
             {filteredRooms.map((room) => {
               const qrUrl = getRoomQRUrl(room);
-              const roomTypeName = room.roomType?.name || 'Standard Room';
-              const floorLabel = room.floor ? `Floor ${room.floor}` : 'Ground Floor';
+              const roomTypeName = room.roomType?.name || 'Deluxe Room';
+              const floorLabel = room.floor ? `${room.floor} Floor` : 'Guest Floor';
               const isOnlyThisOnePrinting = printSingleRoomId === room.id;
 
               if (printSingleRoomId && !isOnlyThisOnePrinting) {
@@ -460,38 +503,81 @@ export default function RoomQRCodesPage() {
               return (
                 <div
                   key={room.id}
-                  className={`standee-print-card relative flex flex-col justify-between rounded-3xl transition-all border ${viewStyle === 'standee'
-                      ? 'bg-gradient-to-b from-[#0e1629] via-[#090e1a] to-[#060a12] border-slate-800 shadow-2xl p-6 overflow-hidden group hover:border-indigo-500/50'
-                      : 'bg-slate-900/80 border-slate-800 p-3.5 hover:border-slate-700'
-                    }`}
+                  className={`placard-card relative flex flex-col justify-between rounded-3xl transition-all border ${
+                    placardStyle === 'compact-badge'
+                      ? 'bg-slate-900/80 border-slate-800 p-3.5 hover:border-slate-700'
+                      : 'bg-gradient-to-b from-[#0e1629] via-[#090e1a] to-[#060a12] border-slate-800 shadow-2xl p-6 overflow-hidden group hover:border-amber-500/50'
+                  }`}
                 >
-                  {viewStyle === 'standee' ? (
+                  {placardStyle === 'compact-badge' ? (
+                    /* ── 1. COMPACT STICKER VIEW ── */
+                    <div className="space-y-2 text-center">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-white text-xs">Room {room.roomNumber}</span>
+                        <span className="text-[9px] text-amber-400 font-bold">{floorLabel}</span>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-2xl inline-block shadow-md">
+                        <QRCodeSVG value={qrUrl} size={110} level="H" />
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 truncate font-semibold">Scan for Reception &amp; Key</p>
+                      <div className="no-print pt-1 flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintSingle(room.id)}
+                          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold"
+                        >
+                          Print
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPNG(room)}
+                          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold"
+                        >
+                          PNG
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── 2. EXECUTIVE WALL PLACARD & DOOR HANGER ── */
                     <>
                       {/* Ambient Accent Light */}
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-indigo-500/10 blur-3xl pointer-events-none rounded-full" />
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-amber-500/10 blur-3xl pointer-events-none rounded-full" />
 
-                      {/* Top Header Strip */}
+                      {/* Optional Door Hanger Cutout Marker */}
+                      {placardStyle === 'door-hanger' && (
+                        <div className="mb-3 text-center">
+                          <div className="w-14 h-14 rounded-full border-2 border-dashed border-amber-500/40 mx-auto flex items-center justify-center text-[9px] text-amber-400 font-bold bg-amber-500/5">
+                            DOOR HOOK
+                          </div>
+                          <span className="text-[8.5px] text-slate-500 uppercase tracking-widest block mt-0.5">
+                            Cut out circle to hang on door handle
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Header Crest */}
                       <div className="text-center relative z-10 space-y-1">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-widest">
-                          <Hotel size={11} className="text-indigo-400" />
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                          <Hotel size={11} className="text-amber-400" />
                           <span>{property?.name || 'Grand Palace Hotel'}</span>
                         </div>
+
                         <div className="pt-2">
-                          <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 block">
-                            WELCOME TO
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                            ROOM DOOR CONCIERGE
                           </span>
-                          <h2 className="text-3xl font-black text-white tracking-tight leading-none mt-0.5">
+                          <h2 className="text-4xl font-black text-white tracking-tight leading-none mt-1">
                             ROOM {room.roomNumber}
                           </h2>
-                          <p className="text-[11px] text-indigo-300/80 font-medium mt-1">
-                            {roomTypeName} · {floorLabel}
+                          <p className="text-[11px] text-amber-300/80 font-bold mt-1">
+                            {roomTypeName} • {floorLabel}
                           </p>
                         </div>
                       </div>
 
                       {/* High-Resolution QR Code Frame */}
-                      <div className="my-5 flex flex-col items-center justify-center relative z-10">
-                        <div className="p-4 bg-white rounded-2xl shadow-xl ring-4 ring-white/10 flex items-center justify-center">
+                      <div className="my-4 flex flex-col items-center justify-center relative z-10">
+                        <div className="p-4 bg-white rounded-2xl shadow-2xl ring-4 ring-amber-500/20 flex items-center justify-center">
                           <QRCodeSVG
                             value={qrUrl}
                             size={180}
@@ -501,57 +587,59 @@ export default function RoomQRCodesPage() {
                         </div>
 
                         <div className="mt-3 text-center space-y-1">
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-slate-800/90 px-3 py-1 rounded-full border border-slate-700/80 shadow-xs">
-                            <Smartphone size={12} className="text-indigo-400" />
-                            <span>Scan with Camera to Open</span>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-slate-900 px-3.5 py-1.2 rounded-full border border-amber-500/30 shadow-md">
+                            <Smartphone size={13} className="text-amber-400" />
+                            <span>Scan with Camera to Open Help Desk</span>
                           </span>
-                          <p className="text-[10px] text-slate-400 block">
-                            Point your mobile camera to scan — no app download required.
+                          <p className="text-[10px] text-slate-400 block font-medium">
+                            No app needed • Instant Reception Call &amp; Key Assistance
                           </p>
                         </div>
                       </div>
 
-                      {/* Guest Perks Available on Portal Strip */}
-                      <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-2xl grid grid-cols-2 gap-2 text-[11px] text-slate-300 relative z-10">
+                      {/* Highlights Strip on Placard */}
+                      <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-2xl grid grid-cols-2 gap-2 text-[10.5px] text-slate-300 relative z-10 font-bold">
                         <div className="flex items-center gap-1.5">
-                          <UtensilsCrossed size={12} className="text-amber-400 shrink-0" />
-                          <span className="truncate">24/7 Room Service</span>
+                          <PhoneCall size={12} className="text-emerald-400 shrink-0" />
+                          <span className="truncate">Call Front Desk</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Wifi size={12} className="text-emerald-400 shrink-0" />
-                          <span className="truncate">Free Wi-Fi Login</span>
+                          <KeyRound size={12} className="text-amber-400 shrink-0" />
+                          <span className="truncate">Locked Out / Keycard</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Receipt size={12} className="text-sky-400 shrink-0" />
-                          <span className="truncate">Live Bill &amp; Folio</span>
+                          <UtensilsCrossed size={12} className="text-orange-400 shrink-0" />
+                          <span className="truncate">Room Service Menu</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Sparkles size={12} className="text-violet-400 shrink-0" />
+                          <Sparkles size={12} className="text-cyan-400 shrink-0" />
                           <span className="truncate">Housekeeping Call</span>
                         </div>
                       </div>
 
-                      {/* Footer Info: WiFi & Front Desk */}
-                      <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 relative z-10">
+                      {/* Footer Info: WiFi & Front Desk Hotline */}
+                      <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 relative z-10">
                         <div>
-                          <span className="font-semibold block text-slate-500 uppercase tracking-wider text-[9px]">Wi-Fi Network</span>
-                          <span className="text-slate-300 font-bold font-mono">
+                          <span className="font-semibold block text-slate-500 uppercase tracking-wider text-[8.5px]">Wi-Fi Network</span>
+                          <span className="text-slate-200 font-bold font-mono">
                             {property?.wifiSsid || 'Hotel-Guest'}
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="font-semibold block text-slate-500 uppercase tracking-wider text-[9px]">Front Desk Ext.</span>
-                          <span className="text-indigo-400 font-bold font-mono">Dial 9</span>
+                          <span className="font-semibold block text-slate-500 uppercase tracking-wider text-[8.5px]">Front Desk 24x7</span>
+                          <span className="text-amber-400 font-bold font-mono">
+                            {property?.phone || '+91 98765 43210'}
+                          </span>
                         </div>
                       </div>
 
-                      {/* ── Standee Card Interactive Action Buttons (Hidden on Print) ── */}
+                      {/* ── Action Buttons (Hidden on Print) ── */}
                       <div className="no-print mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-1.5">
                         <button
                           type="button"
                           onClick={() => handlePrintSingle(room.id)}
-                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
-                          title="Print this card only"
+                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                          title="Print this door placard only"
                         >
                           <Printer size={12} />
                           <span>Print</span>
@@ -560,8 +648,8 @@ export default function RoomQRCodesPage() {
                         <button
                           type="button"
                           onClick={() => handleDownloadPNG(room)}
-                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
-                          title="Download QR as high-res PNG"
+                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                          title="Download high-resolution PNG for printing sticker"
                         >
                           <Download size={12} />
                           <span>PNG</span>
@@ -571,7 +659,7 @@ export default function RoomQRCodesPage() {
                           type="button"
                           onClick={() => handleCopyLink(room)}
                           className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-                          title="Copy QR Destination URL"
+                          title="Copy QR destination link"
                         >
                           {copiedId === room.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                         </button>
@@ -580,59 +668,13 @@ export default function RoomQRCodesPage() {
                           href={qrUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white transition-colors"
-                          title="Test open scan page in new tab"
+                          className="p-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 hover:text-white transition-colors"
+                          title="Open live door page in new tab"
                         >
                           <ExternalLink size={13} />
                         </a>
                       </div>
                     </>
-                  ) : (
-                    /* ── Compact Grid View ── */
-                    <div className="space-y-2 text-center">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-white text-xs">Rm {room.roomNumber}</span>
-                        <span className="text-[9px] text-indigo-400 font-bold">{floorLabel}</span>
-                      </div>
-                      <div className="p-2 bg-white rounded-xl inline-block shadow-sm">
-                        <QRCodeSVG value={qrUrl} size={110} level="M" />
-                      </div>
-                      <p className="text-[10px] text-slate-400 truncate">{roomTypeName}</p>
-                      <div className="no-print flex items-center justify-center gap-1 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handlePrintSingle(room.id)}
-                          className="p-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-                          title="Print"
-                        >
-                          <Printer size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadPNG(room)}
-                          className="p-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-                          title="Download PNG"
-                        >
-                          <Download size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyLink(room)}
-                          className="p-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-                          title="Copy Link"
-                        >
-                          <Copy size={11} />
-                        </button>
-                        <a
-                          href={qrUrl}
-                          target="_blank"
-                          className="p-1 rounded-lg bg-indigo-600/20 text-indigo-300 hover:text-white"
-                          title="Open"
-                        >
-                          <ExternalLink size={11} />
-                        </a>
-                      </div>
-                    </div>
                   )}
                 </div>
               );

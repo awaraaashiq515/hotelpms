@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ShoppingCart,
   Plus,
@@ -16,7 +18,17 @@ import {
   Sparkles,
   Building2,
   Calendar,
-  Filter
+  Filter,
+  ArrowLeft,
+  Package,
+  Layers,
+  TrendingUp,
+  Clock,
+  Boxes,
+  ChevronRight,
+  ExternalLink,
+  Store,
+  DollarSign
 } from 'lucide-react';
 import { POList } from './components/POList';
 import {
@@ -28,10 +40,12 @@ import {
 } from './components/PurchaseOrderForm';
 import { PODetailsModal, type DetailedPO } from './components/PODetailsModal';
 import { KitchenRequisitionsList, type KitchenRequisitionItem } from './components/KitchenRequisitionsList';
+import { ShopProcurementHub } from './components/ShopProcurementHub';
 import { openWhatsAppPO } from '@/lib/whatsapp-po';
 import { toast } from 'sonner';
 
 export default function PurchasingPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'KITCHEN_REQS'>('ORDERS');
   const [showForm, setShowForm] = useState(false);
   const [selectedPO, setSelectedPO] = useState<DetailedPO | null>(null);
@@ -41,6 +55,11 @@ export default function PurchasingPage() {
   const [formInitialNotes, setFormInitialNotes] = useState('');
   const [formStockRequestIds, setFormStockRequestIds] = useState<string[]>([]);
 
+  // Filtering & Search
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DELIVERED' | 'CANCELLED'>('ALL');
+  const [vendorFilter, setVendorFilter] = useState<string>('ALL');
+  const [search, setSearch] = useState('');
+
   // Core Data
   const [orders, setOrders] = useState<DetailedPO[]>([]);
   const [vendors, setVendors] = useState<VendorOption[]>([]);
@@ -49,7 +68,6 @@ export default function PurchasingPage() {
   const [kitchenRequests, setKitchenRequests] = useState<KitchenRequisitionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [reqsLoading, setReqsLoading] = useState(false);
-  const [search, setSearch] = useState('');
 
   // Property Details
   const [propertyId, setPropertyId] = useState<string>('');
@@ -242,17 +260,46 @@ export default function PurchasingPage() {
     fetchKitchenRequests();
   }, [fetchData, fetchKitchenRequests]);
 
-  const filteredOrders = orders.filter(
-    (o) =>
-      !search ||
-      o.vendor.toLowerCase().includes(search.toLowerCase()) ||
-      o.poNumber.toLowerCase().includes(search.toLowerCase()) ||
-      (o.vendorPhone && o.vendorPhone.includes(search))
-  );
+  // Combined Filters (Search, Status, Vendor)
+  const filteredOrders = orders.filter((o) => {
+    // 1. Status Filter
+    if (statusFilter === 'PENDING') {
+      if (o.status !== 'SENT' && o.status !== 'CONFIRMED' && o.status !== 'DRAFT') return false;
+    } else if (statusFilter === 'DELIVERED') {
+      if (o.status !== 'DELIVERED') return false;
+    } else if (statusFilter === 'CANCELLED') {
+      if (o.status !== 'CANCELLED') return false;
+    }
 
-  const totalPending = orders
-    .filter((o) => o.status === 'DRAFT' || o.status === 'SENT' || o.status === 'CONFIRMED')
-    .reduce((s, o) => s + o.totalAmount, 0);
+    // 2. Vendor Filter
+    if (vendorFilter !== 'ALL' && o.vendorId !== vendorFilter) {
+      return false;
+    }
+
+    // 3. Search Query
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      const matchVendor = o.vendor.toLowerCase().includes(q);
+      const matchPO = o.poNumber.toLowerCase().includes(q);
+      const matchPhone = o.vendorPhone && o.vendorPhone.includes(q);
+      const matchItem = o.items.some((i) => i.name.toLowerCase().includes(q));
+      if (!matchVendor && !matchPO && !matchPhone && !matchItem) return false;
+    }
+
+    return true;
+  });
+
+  // Calculate Metrics
+  const totalOrdersCount = orders.length;
+  const totalOrdersValue = orders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+
+  const pendingOrders = orders.filter(
+    (o) => o.status === 'SENT' || o.status === 'CONFIRMED' || o.status === 'DRAFT'
+  );
+  const totalPendingValue = pendingOrders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+
+  const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED');
+  const totalDeliveredValue = deliveredOrders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
 
   const pendingReqCount = kitchenRequests.filter((r) => r.status === 'PENDING').length;
 
@@ -275,7 +322,7 @@ export default function PurchasingPage() {
     }
   };
 
-  // Mark Goods Delivered & update stock
+  // Mark Goods Delivered & update stock in Inventory
   const handleDeliver = async (id: string) => {
     try {
       const res = await fetch('/api/b2b/orders', {
@@ -288,14 +335,15 @@ export default function PurchasingPage() {
         }),
       });
       if (res.ok) {
-        toast.success('Goods Received! Inventory stock updated.');
+        toast.success('Goods Received! Stock automatically added to Inventory. 📦');
         setOrders((prev) =>
           prev.map((o) => (o.id === id ? { ...o, status: 'DELIVERED' } : o))
         );
+        fetchData();
         fetchKitchenRequests();
       }
     } catch {
-      toast.error('Failed to mark delivered');
+      toast.error('Failed to receive goods');
     }
   };
 
@@ -328,6 +376,8 @@ export default function PurchasingPage() {
     items: POFormItem[];
     totalAmount: number;
     sendWhatsAppImmediately: boolean;
+    receiveImmediately: boolean;
+    assignToKitchenRunner?: boolean;
     stockRequestIds?: string[];
     assignedStaffName?: string;
     assignedStaffPhone?: string;
@@ -345,10 +395,13 @@ export default function PurchasingPage() {
           deliveryDate: data.expectedDate || null,
           comments: data.notes || null,
           stockRequestIds: data.stockRequestIds || [],
-          assignedStaffName: data.assignedStaffName || null,
+          assignedStaffName: data.assignedStaffName || (data.assignToKitchenRunner ? 'Kitchen Staff / Runner' : null),
           assignedStaffPhone: data.assignedStaffPhone || null,
+          status: data.receiveImmediately ? 'DELIVERED' : 'PENDING',
+          autoReceive: data.receiveImmediately,
           items: data.items.map((i) => ({
             name: i.name,
+            category: i.category || 'Kitchen & F&B',
             description: i.description || null,
             quantity: Number(i.qty) || 1,
             unitPrice: Number(i.price) || 0,
@@ -363,7 +416,14 @@ export default function PurchasingPage() {
         return;
       }
 
-      toast.success(`Purchase Order created for ${data.vendorName}!`);
+      if (data.receiveImmediately) {
+        toast.success(`Purchase Order received & ${data.items.length} items added to Inventory Stock! 📦`);
+      } else if (data.assignToKitchenRunner) {
+        toast.success(`Sent to Kitchen Runner! 🏃‍♂️ Order is live on Kitchen Portal Market Buying List.`);
+      } else {
+        toast.success(`Purchase Order created for ${data.vendorName}!`);
+      }
+
       setShowForm(false);
       setFormInitialItems([]);
       setFormInitialNotes('');
@@ -413,7 +473,10 @@ export default function PurchasingPage() {
       stockRequestId: s.id,
     }));
 
-    const combinedNotes = `Requisition by Kitchen Staff (${selected.map((s) => s.requestedBy).filter((v, i, a) => a.indexOf(v) === i).join(', ')}). High priority fresh stock.`;
+    const combinedNotes = `Kitchen indent conversion (${selected
+      .map((s) => s.requestedBy)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .join(', ')}). High priority raw materials.`;
 
     setFormInitialItems(prefilledItems);
     setFormInitialNotes(combinedNotes);
@@ -422,38 +485,152 @@ export default function PurchasingPage() {
     setActiveTab('ORDERS');
   };
 
+  // Quick Shop Order Execution (Kitchen Runner, Direct Inward or WhatsApp PO from Shop Hub)
+  const handleQuickShopOrder = async (data: {
+    vendorId: string;
+    vendorName: string;
+    vendorPhone?: string;
+    items: POFormItem[];
+    totalAmount: number;
+    receiveImmediately: boolean;
+    sendWhatsAppImmediately: boolean;
+    assignToKitchenRunner?: boolean;
+    notes: string;
+  }) => {
+    try {
+      const resolvedPropId = propertyId || 'cmoy7oxso0002ay70x6zmbtvj';
+      const payload = {
+        propertyId: resolvedPropId,
+        supplierId: data.vendorId,
+        buyerRestaurant: data.assignToKitchenRunner ? 'Kitchen Staff / Runner' : hotelName,
+        buyerPhone: hotelPhone,
+        items: data.items.map((it) => ({
+          name: it.name,
+          quantity: it.qty,
+          unit: it.unit,
+          unitPrice: it.price || 0,
+        })),
+        totalAmount: data.totalAmount,
+        comments: data.notes,
+        status: data.receiveImmediately ? 'DELIVERED' : 'PENDING',
+        autoReceive: data.receiveImmediately,
+      };
+
+      const res = await fetch('/api/b2b/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to create order');
+      }
+
+      if (data.receiveImmediately) {
+        toast.success('Stock Inward Successful! Items added directly to Hotel Inventory. 📦');
+      } else if (data.assignToKitchenRunner) {
+        toast.success('Sent to Kitchen Runner! 🏃‍♂️ Order is live on Kitchen Portal Market Buying List.');
+      } else {
+        toast.success(`Purchase Order created successfully for ${data.vendorName}!`);
+      }
+
+      if (data.sendWhatsAppImmediately) {
+        const orderNo = json.orderNo || `PO-${json.id ? json.id.substring(0, 6) : 'NEW'}`;
+        openWhatsAppPO({
+          hotelName,
+          hotelPhone,
+          poNumber: orderNo,
+          orderDate: new Date().toISOString().split('T')[0],
+          vendorName: data.vendorName,
+          vendorPhone: data.vendorPhone,
+          items: data.items.map((i) => ({
+            name: i.name,
+            quantity: Number(i.qty) || 1,
+            unit: i.unit,
+            unitPrice: Number(i.price) || 0,
+          })),
+          totalAmount: data.totalAmount,
+          notes: data.notes,
+        });
+        toast.success(`WhatsApp opened for ${data.vendorName}`);
+      }
+
+      fetchData();
+      fetchKitchenRequests();
+    } catch (err: any) {
+      console.error('Quick shop order error:', err);
+      toast.error(err.message || 'Failed to execute shop order');
+    }
+  };
+
+  const handleOpenFullFormWithShopItems = (
+    items: POFormItem[],
+    vendorId?: string,
+    notes?: string
+  ) => {
+    setFormInitialItems(items);
+    setFormInitialNotes(notes || '');
+    setFormStockRequestIds([]);
+    setShowForm(true);
+  };
+
   return (
-    <div className="space-y-6 pb-12 max-w-[1400px] mx-auto px-4 sm:px-6">
-      {/* Top Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4 pt-2">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <ShoppingCart size={15} className="text-cyan-400" />
-            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">
-              Procurement · Purchase Orders
-            </span>
-            <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <MessageCircle size={10} /> WhatsApp Enabled
-            </span>
+    <div className="space-y-3.5 pb-16 max-w-[1440px] mx-auto px-2 sm:px-4 text-slate-100">
+      {/* 1. Sleek Compact Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 p-3 sm:p-3.5 rounded-xl border border-slate-800 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <ShoppingCart size={16} />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Purchase Orders & Vendor Dispatch
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Create vendor orders, send instant itemized WhatsApp messages, and fulfill Kitchen Staff requisitions.
-          </p>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base sm:text-lg font-black text-white tracking-tight">
+                Purchasing & Stock Inward (GRN)
+              </h1>
+              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Truck size={11} /> Auto-Stock Inward
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 hidden sm:block">
+              Order materials by shop, inward items directly to inventory, or dispatch POs via WhatsApp.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        {/* Action Controls */}
+        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
           <button
             onClick={() => {
               fetchData();
               fetchKitchenRequests();
             }}
-            className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            title="Refresh All"
+            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition"
+            title="Refresh Orders & Indents"
           >
-            <RefreshCw size={15} className={loading || reqsLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={loading || reqsLoading ? 'animate-spin' : ''} />
+          </button>
+
+          <Link
+            href="/hotel/inventory"
+            className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 text-xs font-semibold flex items-center gap-1 border border-slate-700 transition"
+            title="View Real-Time Hotel Stock Inventory"
+          >
+            <Boxes size={13} className="text-cyan-400" />
+            <span className="hidden md:inline">Live Stock</span>
+          </Link>
+
+          <button
+            onClick={() => {
+              setFormInitialItems([]);
+              setFormInitialNotes('');
+              setFormStockRequestIds([]);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm active:scale-95"
+          >
+            <Truck size={13} />
+            <span>Direct Inward 📦</span>
           </button>
 
           <button
@@ -463,61 +640,141 @@ export default function PurchasingPage() {
               setFormStockRequestIds([]);
               setShowForm(!showForm);
             }}
-            className="flex items-center gap-2 h-10 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-cyan-600/25 transition"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-sm active:scale-95"
           >
-            <Plus size={14} />
-            <span>{showForm ? 'Close Form' : 'New Purchase Order'}</span>
+            <Plus size={13} />
+            <span>{showForm ? 'Close Form' : 'New PO'}</span>
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+      {/* 2. Compact Performance / Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+        {/* Card 1: Total Orders */}
+        <div className="rounded-xl p-2.5 sm:p-3 bg-slate-900/70 border border-slate-800 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Orders</span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-lg sm:text-xl font-black text-white font-mono">{totalOrdersCount}</span>
+              <span className="text-[11px] text-slate-400 font-mono">₹{totalOrdersValue.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+            <FileText size={13} />
+          </div>
+        </div>
+
+        {/* Card 2: Awaiting Delivery / Pending */}
+        <div className="rounded-xl p-2.5 sm:p-3 bg-amber-950/15 border border-amber-500/20 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">Awaiting Delivery</span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-lg sm:text-xl font-black text-amber-300 font-mono">{pendingOrders.length}</span>
+              <span className="text-[11px] text-amber-400/80 font-mono">₹{totalPendingValue.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Clock size={13} />
+          </div>
+        </div>
+
+        {/* Card 3: Stock Received & Added to Inventory */}
+        <div className="rounded-xl p-2.5 sm:p-3 bg-emerald-950/15 border border-emerald-500/20 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">Stock Received (GRN)</span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-lg sm:text-xl font-black text-emerald-300 font-mono">{deliveredOrders.length}</span>
+              <span className="text-[11px] text-emerald-400/80 font-mono">₹{totalDeliveredValue.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={13} />
+          </div>
+        </div>
+
+        {/* Card 4: Kitchen Indents Pending */}
+        <div
+          onClick={() => setActiveTab('KITCHEN_REQS')}
+          className="rounded-xl p-2.5 sm:p-3 bg-orange-950/15 border border-orange-500/20 shadow-sm flex items-center justify-between cursor-pointer hover:border-orange-500/40 transition"
+        >
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400 block">Kitchen Indents</span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-lg sm:text-xl font-black text-orange-300 font-mono">{pendingReqCount}</span>
+              <span className="text-[11px] text-orange-400/80">Pending indents</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
+            <UtensilsCrossed size={13} />
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Interactive Shop & Store Procurement Hub (Box-by-Box Market Purchasing) */}
+      <ShopProcurementHub
+        vendors={vendors}
+        onQuickOrder={handleQuickShopOrder}
+        onOpenFullFormWithItems={handleOpenFullFormWithShopItems}
+        onAddVendorClick={() => {
+          setFormInitialItems([]);
+          setFormInitialNotes('');
+          setShowForm(true);
+        }}
+        onFilterByShop={(shopName) => {
+          // Keep search flexible
+        }}
+      />
+
+      {/* 4. Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5">
         <button
           onClick={() => setActiveTab('ORDERS')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition ${
             activeTab === 'ORDERS'
-              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <FileText size={14} />
-          <span>Purchase Orders ({orders.length})</span>
+          <FileText size={15} />
+          <span>Purchase Orders & Goods Inward ({orders.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('KITCHEN_REQS')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition ${
             activeTab === 'KITCHEN_REQS'
-              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30 shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <UtensilsCrossed size={14} />
-          <span>Kitchen Indents / Staff Needs</span>
+          <UtensilsCrossed size={15} />
+          <span>Kitchen Indents & Staff Needs</span>
           {pendingReqCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-black">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-black animate-pulse">
               {pendingReqCount}
             </span>
           )}
         </button>
       </div>
 
-      {/* Form Drawer / Container */}
+      {/* 5. Purchase Order Creation Form Drawer */}
       {showForm && (
-        <div className="rounded-2xl bg-slate-900 border border-cyan-500/30 p-5 sm:p-6 shadow-2xl">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+        <div className="rounded-2xl bg-slate-900 border border-cyan-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
-              <p className="text-base font-black text-white">Create Purchase Order</p>
-              <p className="text-xs text-slate-400">
-                Generate an order slip and send directly to the Vendor&apos;s WhatsApp.
+              <p className="text-base font-black text-white flex items-center gap-2">
+                <Truck size={18} className="text-emerald-400" />
+                <span>Create Purchase Order & Inward Stock</span>
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Items can be saved as pending PO or instantly inwarded to update hotel inventory immediately.
               </p>
             </div>
             <button
               onClick={() => setShowForm(false)}
-              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center"
+              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
 
@@ -533,59 +790,120 @@ export default function PurchasingPage() {
             initialNotes={formInitialNotes}
             stockRequestIds={formStockRequestIds}
             onClose={() => setShowForm(false)}
+            onVendorCreated={(newV) => setVendors((prev) => [newV, ...prev])}
             onSubmit={handleCreatePO}
           />
         </div>
       )}
 
-      {/* Active Tab: ORDERS */}
+      {/* 6. Active Tab: ORDERS */}
       {activeTab === 'ORDERS' && (
-        <div className="space-y-5">
-          {/* Stats Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {(['DRAFT', 'SENT', 'CONFIRMED', 'DELIVERED', 'CANCELLED'] as const).map((s) => {
-              const count = orders.filter((o) => o.status === s).length;
-              const colors: Record<string, string> = {
-                DRAFT: 'text-slate-300 border-slate-700 bg-slate-800/40',
-                SENT: 'text-sky-300 border-sky-500/20 bg-sky-950/20',
-                CONFIRMED: 'text-amber-300 border-amber-500/20 bg-amber-950/20',
-                DELIVERED: 'text-emerald-300 border-emerald-500/20 bg-emerald-950/20',
-                CANCELLED: 'text-rose-300 border-rose-500/20 bg-rose-950/20',
-              };
-              return (
-                <div key={s} className={`rounded-2xl border p-4 ${colors[s]}`}>
-                  <p className="text-2xl font-black text-white">{count}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mt-1">{s}</p>
-                </div>
-              );
-            })}
-          </div>
+        <div className="space-y-4">
+          {/* Filter & Search Bar */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/80">
+            {/* Status Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                  statusFilter === 'ALL'
+                    ? 'bg-cyan-500 text-black shadow-md'
+                    : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                All ({orders.length})
+              </button>
 
-          {/* Search Bar */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="relative max-w-sm w-full">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by PO number, vendor, or phone..."
-                className="w-full h-10 pl-9 pr-4 bg-slate-800/70 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
-              />
+              <button
+                type="button"
+                onClick={() => setStatusFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                  statusFilter === 'PENDING'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
+                }`}
+              >
+                <span>Awaiting Delivery</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-black/20 text-[10px]">
+                  {pendingOrders.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter('DELIVERED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                  statusFilter === 'DELIVERED'
+                    ? 'bg-emerald-500 text-black shadow-md'
+                    : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
+                }`}
+              >
+                <span>Stock Inwarded (GRN)</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-black/20 text-[10px]">
+                  {deliveredOrders.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter('CANCELLED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                  statusFilter === 'CANCELLED'
+                    ? 'bg-rose-500 text-black shadow-md'
+                    : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
+                }`}
+              >
+                Cancelled ({orders.filter((o) => o.status === 'CANCELLED').length})
+              </button>
             </div>
 
-            <p className="text-xs text-slate-400">
-              Total Active Value:{' '}
-              <span className="font-mono font-bold text-white">
-                ₹{totalPending.toLocaleString('en-IN')}
-              </span>
-            </p>
+            {/* Vendor Filter + Search Box */}
+            <div className="flex items-center gap-2.5 flex-1 lg:max-w-xl justify-end">
+              {/* Vendor Selector */}
+              {vendors.length > 0 && (
+                <div className="w-48 shrink-0">
+                  <select
+                    value={vendorFilter}
+                    onChange={(e) => setVendorFilter(e.target.value)}
+                    className="w-full h-10 px-3 bg-slate-800/90 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  >
+                    <option value="ALL">All Vendors ({vendors.length})</option>
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Search Box */}
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by PO #, vendor, phone or item..."
+                  className="w-full h-10 pl-9 pr-4 bg-slate-800/90 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* PO List Component */}
           {loading ? (
-            <div className="flex items-center justify-center py-24 gap-3 text-slate-500">
-              <Loader2 size={22} className="animate-spin text-cyan-400" />
-              <span className="text-sm font-bold">Loading purchase orders...</span>
+            <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-500 rounded-2xl bg-slate-900/40 border border-slate-800">
+              <Loader2 size={24} className="animate-spin text-cyan-400" />
+              <span className="text-sm font-bold text-slate-400">Loading purchase orders & stock records...</span>
             </div>
           ) : (
             <POList
@@ -599,7 +917,7 @@ export default function PurchasingPage() {
         </div>
       )}
 
-      {/* Active Tab: KITCHEN REQUISITIONS */}
+      {/* 7. Active Tab: KITCHEN REQUISITIONS */}
       {activeTab === 'KITCHEN_REQS' && (
         <KitchenRequisitionsList
           requests={kitchenRequests}
@@ -609,7 +927,7 @@ export default function PurchasingPage() {
         />
       )}
 
-      {/* Modal: Full PO Details & Printable Slip */}
+      {/* 8. Full PO Details & Printable Slip Modal */}
       <PODetailsModal
         isOpen={Boolean(selectedPO)}
         order={selectedPO}

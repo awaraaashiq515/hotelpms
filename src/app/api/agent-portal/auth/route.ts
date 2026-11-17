@@ -8,19 +8,27 @@ import bcrypt from 'bcryptjs';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const rawIdentifier = (body.email || body.identifier || body.agentCode || body.phone || '').trim();
+    const password = String(body.password || body.pinCode || '').trim();
 
-    if (!email || !password) {
+    if (!rawIdentifier || !password) {
       return NextResponse.json(
-        { success: false, message: 'Email and password are required.' },
+        { success: false, message: 'Email/Agent Code/Phone and password are required.' },
         { status: 400 }
       );
     }
 
+    const cleanCode = rawIdentifier.toUpperCase().replace(/\s+/g, '');
+    const cleanPhone = rawIdentifier.replace(/[^0-9+]/g, '');
+
     const agent = await prisma.travelAgent.findFirst({
       where: {
-        email: email.toLowerCase().trim(),
-        isActive: true,
+        OR: [
+          { email: { equals: rawIdentifier.toLowerCase() } },
+          { agentCode: { equals: cleanCode } },
+          { agentCode: { equals: cleanCode.replace(/^AGT-?/, 'AGT-') } },
+          ...(cleanPhone && cleanPhone.length >= 6 ? [{ phone: { contains: cleanPhone.slice(-10) } }] : []),
+        ],
       },
       include: {
         property: { select: { id: true, name: true, city: true, phone: true, logoUrl: true } },
@@ -56,17 +64,31 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!agent || !agent.passwordHash) {
+    if (!agent) {
       return NextResponse.json(
-        { success: false, message: 'Invalid email or password. Please check your credentials.' },
+        { success: false, message: 'No travel agent account found with these credentials.' },
         { status: 401 }
       );
     }
 
-    const valid = await bcrypt.compare(password, agent.passwordHash);
-    if (!valid) {
+    if (!agent.isActive || agent.agentStatus === 'REJECTED') {
       return NextResponse.json(
-        { success: false, message: 'Invalid email or password.' },
+        { success: false, message: 'Your agent account is deactivated or suspended. Please contact the hotel.' },
+        { status: 403 }
+      );
+    }
+
+    let isValid = false;
+    if (agent.passwordHash) {
+      isValid = await bcrypt.compare(password, agent.passwordHash);
+    }
+    if (!isValid && agent.pinCode && String(agent.pinCode).trim() === String(password).trim()) {
+      isValid = true;
+    }
+
+    if (!isValid) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid password or PIN.' },
         { status: 401 }
       );
     }

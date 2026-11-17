@@ -125,6 +125,7 @@ export async function GET(request: NextRequest) {
 
       return {
         checkInId: ci.id,
+        reservationId: ci.reservation?.id,
         roomId: ci.roomId,
         roomNumber: ci.room?.roomNumber || '',
         roomType: ci.room?.roomType?.name || '',

@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ChefHat, User, Volume2, VolumeX, RefreshCw, Menu, Utensils, Package, Layers } from 'lucide-react';
+import Link from 'next/link';
+import { ChefHat, User, Volume2, VolumeX, RefreshCw, Menu, Utensils, Package, Layers, Tv, ShoppingCart } from 'lucide-react';
 import { TabType } from './types';
 
 interface KitchenHeaderProps {
@@ -19,6 +20,7 @@ interface KitchenHeaderProps {
   };
   lowStockCount: number;
   pendingRequestsCount: number;
+  marketPendingCount?: number;
   onToggleSound: () => void;
   onOpenStaffModal: () => void;
   onOpenMobileMenu: () => void;
@@ -35,6 +37,7 @@ export const KitchenHeader: React.FC<KitchenHeaderProps> = ({
   orderCounts,
   lowStockCount,
   pendingRequestsCount,
+  marketPendingCount = 0,
   onToggleSound,
   onOpenStaffModal,
   onOpenMobileMenu,
@@ -162,6 +165,33 @@ export const KitchenHeader: React.FC<KitchenHeaderProps> = ({
             </span>
           )}
         </button>
+
+        {/* 🛒 Market Buying List Tab */}
+        <button
+          onClick={() => onTabChange('market')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === 'market'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+        >
+          <ShoppingCart size={14} className={activeTab === 'market' ? 'text-white' : 'text-emerald-400'} />
+          <span>🛒 Market Buying List</span>
+          {marketPendingCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 text-[10px] rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black animate-pulse">
+              {marketPendingCount} To Buy
+            </span>
+          )}
+        </button>
+
+        <Link
+          href={`/master-order-display/${propertyCode}`}
+          target="_blank"
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/30 transition"
+          title="Open Big-Screen Master TV Display"
+        >
+          <Tv size={14} />
+          <span>📺 Master TV Display (Rooms • Rest. • Bar)</span>
+        </Link>
       </div>
     </header>
   );

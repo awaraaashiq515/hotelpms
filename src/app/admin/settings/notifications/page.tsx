@@ -11,6 +11,7 @@ interface NotificationSettings {
   TEMPLATE_KOT: string;
   TEMPLATE_WELCOME: string;
   GEMINI_API_KEY: string;
+  ANTHROPIC_API_KEY: string;
   WHATSAPP_ENABLED: boolean;
   WHATSAPP_PROVIDER: string;
   WHATSAPP_API_KEY: string;
@@ -28,6 +29,7 @@ export default function NotificationSettingsPage() {
     TEMPLATE_KOT: '',
     TEMPLATE_WELCOME: '',
     GEMINI_API_KEY: '',
+    ANTHROPIC_API_KEY: '',
     WHATSAPP_ENABLED: false,
     WHATSAPP_PROVIDER: 'ULTRAMSG',
     WHATSAPP_API_KEY: '',
@@ -49,6 +51,7 @@ export default function NotificationSettingsPage() {
             TEMPLATE_KOT: fetchedData.TEMPLATE_KOT || '',
             TEMPLATE_WELCOME: fetchedData.TEMPLATE_WELCOME || '',
             GEMINI_API_KEY: fetchedData.GEMINI_API_KEY || '',
+            ANTHROPIC_API_KEY: fetchedData.ANTHROPIC_API_KEY || '',
             WHATSAPP_ENABLED: fetchedData.WHATSAPP_ENABLED === 'true',
             WHATSAPP_PROVIDER: fetchedData.WHATSAPP_PROVIDER || 'ULTRAMSG',
             WHATSAPP_API_KEY: fetchedData.WHATSAPP_API_KEY || '',
@@ -311,16 +314,30 @@ Thank you! Visit again.`}
 
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 flex flex-row items-center gap-2">
-                <Key size={14} /> Mint AI API Key
+                <Key size={14} /> Mint AI API Key (Gemini)
               </label>
               <input
                 type="password"
                 value={settings.GEMINI_API_KEY}
                 onChange={e => setSettings({ ...settings, GEMINI_API_KEY: e.target.value })}
                 className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-pos-primary outline-none transition-all font-mono text-sm dark:text-white"
-                placeholder="Paste your Mint AI API key here..."
+                placeholder="Paste your Mint AI / Gemini API key here..."
               />
-              <p className="mt-2 text-[10px] text-slate-400 italic">This key is used globally for all property menu scanning tasks.</p>
+              <p className="mt-2 text-[10px] text-slate-400 italic">This key is used globally for menu scanning & fast content generation tasks.</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-xs font-bold text-purple-600 dark:text-purple-400 mb-2 flex flex-row items-center gap-2">
+                <Key size={14} /> Claude API Key (Anthropic)
+              </label>
+              <input
+                type="password"
+                value={settings.ANTHROPIC_API_KEY}
+                onChange={e => setSettings({ ...settings, ANTHROPIC_API_KEY: e.target.value })}
+                className="w-full p-4 bg-slate-50 rounded-2xl border border-purple-200 dark:border-purple-800 focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm dark:text-white"
+                placeholder="sk-ant-api03-..."
+              />
+              <p className="mt-2 text-[10px] text-slate-400 italic">Used by AI Security Monitor to detect hacker attacks, system errors, and audit runtime bugs.</p>
             </div>
           </div>
         </div>

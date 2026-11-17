@@ -63,6 +63,7 @@ export async function proxy(request: NextRequest) {
     'expenses', 'accounts', 'manage-properties', 'manage-users', 'manage-roles',
     'pos', 'vouchers', 'orders', 'all-bills', 'categories', 'products', 'day-closing',
     'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display', 'bar-display',
+    'master-order-display', 'master-display',
     'staff', 'cafe-pos', 'hoteladmin', 'restaurantadmin'
   ]
 
@@ -86,6 +87,16 @@ export async function proxy(request: NextRequest) {
 
   // guest-portal is a public self-service portal — no auth required
   if (pathname.startsWith('/guest-portal')) {
+    return NextResponse.next()
+  }
+
+  // door is a public guest concierge portal accessed via room door QR codes
+  if (pathname.startsWith('/door') || pathname.startsWith('/room-door')) {
+    return NextResponse.next()
+  }
+
+  // room-door API routes are public for guests outside their room
+  if (pathname.startsWith('/api/room-door')) {
     return NextResponse.next()
   }
 
@@ -126,7 +137,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'hotel', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal', 'kyc-scan'].includes(parts[0])) {
+  if (parts.length > 0 && !['admin', 'restaurantadmin', 'hoteladmin', 'hotel', 'login', 'register', 'expired', 'payment-pending', 'api', '_next', 'images', 'downloads', 'driver-portal', 'staff-portal', 'housekeeper-portal', 'singer-portal', 'room-portal', 'guest-portal', 'kyc-scan', 'kitchen-portal', 'master-order-display'].includes(parts[0])) {
     if (dashboardRoots.includes(parts[0])) {
       // Legacy access without propertyCode
       strippedPathname = pathname

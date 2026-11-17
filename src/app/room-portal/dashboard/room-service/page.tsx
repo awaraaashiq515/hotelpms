@@ -130,6 +130,7 @@ export default function RoomServicePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [notes, setNotes] = useState('');
+  const [guestMobile, setGuestMobile] = useState('');
 
   // Advance Scheduling & Packaging Preferences
   const [scheduleMode, setScheduleMode] = useState<'ASAP' | 'SCHEDULED'>('ASAP');
@@ -151,6 +152,10 @@ export default function RoomServicePage() {
     if (savedOrderId) {
       setActiveOrderId(savedOrderId);
       setSubmitted(true);
+    }
+    const savedPhone = localStorage.getItem('room_portal_guest_mobile') || '';
+    if (savedPhone) {
+      setGuestMobile(savedPhone);
     }
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search);
@@ -247,6 +252,14 @@ export default function RoomServicePage() {
 
   const handleOrder = async () => {
     if (cart.length === 0) return;
+
+    const cleanPhone = guestMobile.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error('Please enter your 10-digit mobile number so our team can reach you for delivery.');
+      return;
+    }
+    localStorage.setItem('room_portal_guest_mobile', cleanPhone);
+
     setSubmitting(true);
     try {
       const token = localStorage.getItem('room_portal_token') || '';
@@ -275,6 +288,8 @@ export default function RoomServicePage() {
           scheduledDate,
           scheduledTime: chosenTime,
           packagingType,
+          guestMobile: cleanPhone,
+          contactPhone: cleanPhone,
         }),
       });
       const data = await res.json();
@@ -957,7 +972,41 @@ export default function RoomServicePage() {
                   </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '8px', marginBottom: '16px' }}>
+                {/* ── Contact Phone Number (Required for Order Delivery Call) ── */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '8px', marginBottom: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fb923c', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                    <span>📱 Contact Mobile Number</span>
+                    <span style={{ fontSize: '10px', color: guestMobile.replace(/\D/g, '').length === 10 ? '#4ade80' : '#94a3b8' }}>
+                      {guestMobile.replace(/\D/g, '').length}/10 digits
+                    </span>
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    value={guestMobile}
+                    onChange={(e) => setGuestMobile(e.target.value)}
+                    placeholder="Enter 10-digit mobile number for delivery updates"
+                    maxLength={15}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: guestMobile.replace(/\D/g, '').length === 10 ? '1.5px solid #22c55e' : '1.5px solid rgba(249,115,22,0.4)',
+                      background: 'rgba(15,23,42,0.9)',
+                      color: 'white',
+                      fontSize: '15px',
+                      fontWeight: 800,
+                      letterSpacing: '1px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '6px 0 0' }}>
+                    Kitchen &amp; room service staff will call this number when arriving at your room door.
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}

@@ -8,9 +8,11 @@ import {
   Wifi, WifiOff, AlertTriangle, ChevronDown, ChevronUp,
   Navigation, Ruler, Target, Settings2, Save, Crosshair,
   Eye, EyeOff, CheckCircle, XCircle, UserCheck, Radio,
-  BarChart3, Shield, Tablet, Brush, MessageSquare, Send
+  BarChart3, Shield, Tablet, Brush, MessageSquare, Send,
+  UserPlus, X
 } from 'lucide-react';
 import StaffManagement from '@/components/admin/StaffManagement';
+import { StaffMemberForm } from '@/components/forms/staff-member-form';
 
 /* ─── Location types ─── */
 interface Ping {
@@ -44,10 +46,19 @@ interface LocSettings {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  PRESENT: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-  ABSENT:  'text-rose-300 bg-rose-500/10 border-rose-500/20',
-  LATE:    'text-amber-300 bg-amber-500/10 border-amber-500/20',
-  LEAVE:   'text-slate-400 bg-slate-800 border-slate-700',
+  PRESENT:      'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  OUT_OF_RANGE: 'text-rose-300 bg-rose-500/15 border-rose-500/30 animate-pulse',
+  CLOCKED_OUT:  'text-sky-300 bg-sky-500/15 border-sky-500/30',
+  ABSENT:       'text-slate-400 bg-slate-800/80 border-slate-700',
+  LEAVE:        'text-amber-300 bg-amber-500/15 border-amber-500/30',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PRESENT:      '🟢 On Duty (In Hotel)',
+  OUT_OF_RANGE: '🚨 Checked In (Away)',
+  CLOCKED_OUT:  '⏱️ Shift Ended',
+  ABSENT:       '⚪ Off Duty (Not Checked In)',
+  LEAVE:        '🟡 On Leave / Inactive',
 };
 
 /* ─── Helpers ─── */
@@ -300,6 +311,9 @@ function StaffPortalContent() {
   const [properties, setProperties] = useState<any[]>([]);
   const [staffMembers, setStaffMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [addStaffLoading, setAddStaffLoading] = useState(false);
+  const [addStaffError, setAddStaffError] = useState('');
 
   /* Location tracking states */
   const [locRows, setLocRows] = useState<LocRow[]>([]);
@@ -440,8 +454,11 @@ function StaffPortalContent() {
     finally { setLocLoading(false); }
   }, []);
 
+  const [clockingId, setClockingId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchStaffData();
+    loadLocData();
   }, []);
 
   useEffect(() => {
@@ -450,7 +467,7 @@ function StaffPortalContent() {
       loadLocData();
     }
     const iv = setInterval(() => {
-      if (activeSubTab === 'location') loadLocData();
+      loadLocData();
     }, 10000);
     return () => clearInterval(iv);
   }, [activeSubTab, loadLocData]);
@@ -492,9 +509,66 @@ function StaffPortalContent() {
     );
   };
 
-  const getStatus = (s: any) => {
+  // ── Strict Attendance Check (Never auto-marks present without check-in & hotel location) ──
+  const getStaffAttendanceStatus = (s: any) => {
     if (!s.isActive) return 'LEAVE';
-    return s.isActive ? 'PRESENT' : 'ABSENT';
+
+    const todayAtt = s.attendance?.[0] || s.user?.attendance?.[0];
+    
+    // 1. Not clocked in today -> Off Duty / Absent
+    if (!todayAtt) {
+      return 'ABSENT';
+    }
+
+    // 2. Already clocked out -> Shift Completed
+    if (todayAtt.clockOut) {
+      return 'CLOCKED_OUT';
+    }
+
+    // 3. Clocked in -> Check GPS location telemetry
+    const locRow = locRows.find(r => (s.userId && r.userId === s.userId) || r.userId === s.id);
+    const latestPing = s.user?.staffLocationPings?.[0] || locRow?.latestPing;
+    
+    if (latestPing && latestPing.isOutOfRange) {
+      return 'OUT_OF_RANGE';
+    }
+
+    return 'PRESENT';
+  };
+
+  const handleToggleAttendance = async (s: any, currentStatus: string) => {
+    setClockingId(s.id);
+    try {
+      if (currentStatus === 'PRESENT' || currentStatus === 'OUT_OF_RANGE') {
+        const res = await fetch('/api/staff-attendance/clock-out', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffMemberId: s.id, location: 'Hotel Reception Check-Out' }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          await fetchStaffData();
+        } else {
+          alert(data.message || 'Failed to clock out');
+        }
+      } else {
+        const res = await fetch('/api/staff-attendance/clock-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffMemberId: s.id, location: 'Hotel Reception Clock-In' }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          await fetchStaffData();
+        } else {
+          alert(data.message || 'Failed to clock in');
+        }
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error updating attendance');
+    } finally {
+      setClockingId(null);
+    }
   };
 
   const getShiftHoursLabel = (hours: number | null | undefined) => {
@@ -511,9 +585,13 @@ function StaffPortalContent() {
     .filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()));
 
   const totalCount = staffMembers.length;
-  const present = staffMembers.filter(s => getStatus(s) === 'PRESENT').length;
-  const absent  = staffMembers.filter(s => getStatus(s) === 'ABSENT').length;
-  const leave   = staffMembers.filter(s => getStatus(s) === 'LEAVE').length;
+  const present = staffMembers.filter(s => getStaffAttendanceStatus(s) === 'PRESENT').length;
+  const away = staffMembers.filter(s => getStaffAttendanceStatus(s) === 'OUT_OF_RANGE').length;
+  const absent  = staffMembers.filter(s => {
+    const st = getStaffAttendanceStatus(s);
+    return st === 'ABSENT' || st === 'CLOCKED_OUT';
+  }).length;
+  const leave   = staffMembers.filter(s => getStaffAttendanceStatus(s) === 'LEAVE').length;
 
   const outOfRange = locRows.filter(r => r.isOutOfRange);
   const trackingCount = locRows.filter(r => r.isTracking).length;
@@ -528,38 +606,29 @@ function StaffPortalContent() {
       
 
       {/* Header section */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-4 p-5 rounded-3xl bg-gradient-to-r from-slate-900/90 via-[#0d1627]/90 to-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Users size={14} className="text-blue-400" />
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">HR · Staff Management</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-[10.5px] font-black text-blue-400 uppercase tracking-widest">Hotel Team & Operations</span>
           </div>
-          <h1 className="text-2xl font-black text-white">Staff & Attendance Portal</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Manage live GPS tracking, daily attendance, geofences and PMS/POS credentials</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Staff & Team Management</h1>
+          <p className="text-xs text-slate-400 mt-1 max-w-xl">
+            Comprehensive management of employee directory, attendance, live GPS duty tracking, and system roles.
+          </p>
         </div>
         
-        <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href="/room-portal"
-            target="_blank"
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-bold transition-all"
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button 
+            onClick={() => {
+              setAddStaffError('');
+              setShowAddStaffModal(true);
+            }}
+            className="flex items-center gap-2 h-10 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 active:scale-95 cursor-pointer"
           >
-            <Tablet size={13} /> Room Tablet ↗
-          </a>
-          <a
-            href="/housekeeper-portal"
-            target="_blank"
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-bold transition-all"
-          >
-            <Brush size={13} /> Housekeeper ↗
-          </a>
-          <a
-            href="/security-portal"
-            target="_blank"
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold transition-all"
-          >
-            <Shield size={13} /> Security ↗
-          </a>
+            <UserPlus size={15} />
+            <span>Add New Staff</span>
+          </button>
           <button 
             onClick={() => {
               if (activeSubTab === 'location') {
@@ -569,127 +638,129 @@ function StaffPortalContent() {
                 fetchStaffData();
               }
             }}
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-all"
+            className="flex items-center gap-2 h-10 px-4 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all active:scale-95 cursor-pointer"
           >
-            <RefreshCw size={12} className={loading || locLoading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={13} className={loading || locLoading ? 'animate-spin' : ''} />
+            <span>Sync & Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Quick Navigation Cards: Dedicated Attendance Portals */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Link
-          href="/hotel/staff/attendance"
-          className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-950/40 to-slate-900/60 border border-blue-500/20 hover:border-blue-500/40 transition-all group"
-        >
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
+      {/* ── Top Level 4 Big KPI Overview Cards (Always visible) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="rounded-2xl border border-blue-500/25 bg-blue-950/20 p-4 shadow-md backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">Total Staff</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-400">
+              <Users size={16} />
+            </div>
+          </div>
+          <p className="text-3xl font-black text-white">{totalCount}</p>
+          <p className="text-[10.5px] text-slate-400 font-medium mt-1">Total Registered Employees</p>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-4 shadow-md backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">On-Duty Today</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
               <UserCheck size={16} />
             </div>
-            <span className="text-[9px] font-black uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md">HUB</span>
           </div>
-          <p className="text-xs font-black text-white group-hover:text-blue-300 transition-colors">Staff Attendance Hub</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Live kiosk clock-in/out & duty status</p>
-        </Link>
+          <p className="text-3xl font-black text-emerald-300">{present}</p>
+          <p className="text-[10.5px] text-slate-400 font-medium mt-1">Active & Working Shifts</p>
+        </div>
 
-        <Link
-          href="/hotel/staff/attendance-location"
-          className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/40 to-slate-900/60 border border-emerald-500/20 hover:border-emerald-500/40 transition-all group"
-        >
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-              <Navigation size={16} />
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-950/20 p-4 shadow-md backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">Off-Duty / Leave</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/15 flex items-center justify-center text-rose-400">
+              <Clock size={16} />
             </div>
-            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">GPS VERIFY</span>
           </div>
-          <p className="text-xs font-black text-white group-hover:text-emerald-300 transition-colors">Punch Locations</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Geofence coordinate logs & maps</p>
-        </Link>
+          <p className="text-3xl font-black text-rose-300">{absent + leave}</p>
+          <p className="text-[10.5px] text-slate-400 font-medium mt-1">{leave} on Leave · {absent} Inactive</p>
+        </div>
 
-        <Link
-          href="/hotel/staff/location"
-          className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-950/40 to-slate-900/60 border border-violet-500/20 hover:border-violet-500/40 transition-all group"
-        >
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover:scale-105 transition-transform">
-              <Radio size={16} />
+        <div className="rounded-2xl border border-violet-500/25 bg-violet-950/20 p-4 shadow-md backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-violet-400">Live GPS Telemetry</span>
+            <div className="w-8 h-8 rounded-xl bg-violet-500/15 flex items-center justify-center text-violet-400">
+              <MapPin size={16} />
             </div>
-            <span className="text-[9px] font-black uppercase tracking-wider text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-md">RADAR</span>
           </div>
-          <p className="text-xs font-black text-white group-hover:text-violet-300 transition-colors">Proximity Radar</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Interactive proximity & radius radar</p>
-        </Link>
-
-        <Link
-          href="/hotel/reports/attendance"
-          className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/20 hover:border-amber-500/40 transition-all group"
-        >
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
-              <BarChart3 size={16} />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">ANALYTICS</span>
-          </div>
-          <p className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">Attendance Reports</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Shift logs, monthly hours & exports</p>
-        </Link>
+          <p className="text-3xl font-black text-violet-300">{trackingCount}</p>
+          <p className="text-[10.5px] text-slate-400 font-medium mt-1">
+            {outOfRange.length > 0 ? (
+              <span className="text-rose-400 font-bold">🚨 {outOfRange.length} Out of Hotel</span>
+            ) : (
+              'All Within Hotel Range'
+            )}
+          </p>
+        </div>
       </div>
 
-      {/* Tab selection */}
-      <div className="flex gap-2 border-b border-white/5 pb-3 flex-wrap">
+      {/* ── Main Tab Selection Bar ── */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setActiveSubTab('location')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeSubTab === 'location'
-              ? 'bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 font-black'
-              : 'bg-white/[0.02] border border-white/5 text-slate-400 hover:text-slate-200'
+          onClick={() => setActiveSubTab('attendance')}
+          className={`flex-1 min-w-[160px] h-11 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeSubTab === 'attendance'
+              ? 'bg-blue-600 text-white font-black shadow-md shadow-blue-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
-          <MapPin size={13} />
-          📍 Live GPS Tracking & Geofence
+          <Users size={15} />
+          <span>👥 Staff Directory</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+            activeSubTab === 'attendance' ? 'bg-black/20 text-white' : 'bg-slate-800 text-slate-400'
+          }`}>
+            {totalCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('location')}
+          className={`flex-1 min-w-[170px] h-11 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeSubTab === 'location'
+              ? 'bg-emerald-600 text-white font-black shadow-md shadow-emerald-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <MapPin size={15} />
+          <span>📍 Live GPS Radar</span>
           {outOfRange.length > 0 && (
-            <span className="ml-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center animate-pulse">
+            <span className="w-5 h-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
               {outOfRange.length}
             </span>
           )}
         </button>
 
         <button
-          onClick={() => setActiveSubTab('attendance')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeSubTab === 'attendance'
-              ? 'bg-blue-600/20 border border-blue-500/30 text-blue-300 font-black'
-              : 'bg-white/[0.02] border border-white/5 text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          📅 Daily Attendance & Roster
-        </button>
-
-        <button
           onClick={() => setActiveSubTab('accounts')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`flex-1 min-w-[170px] h-11 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeSubTab === 'accounts'
-              ? 'bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-black'
-              : 'bg-white/[0.02] border border-white/5 text-slate-400 hover:text-slate-200'
+              ? 'bg-indigo-600 text-white font-black shadow-md shadow-indigo-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
-          🔑 Staff Credentials & PMS/POS Roles
+          <Shield size={15} />
+          <span>🔑 PMS Logins &amp; Roles</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('chat')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`flex-1 min-w-[160px] h-11 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeSubTab === 'chat'
-              ? 'bg-purple-600/20 border border-purple-500/30 text-purple-300 font-black'
-              : 'bg-white/[0.02] border border-white/5 text-slate-400 hover:text-slate-200'
+              ? 'bg-purple-600 text-white font-black shadow-md shadow-purple-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
-          <MessageSquare size={13} />
-          💬 Staff & Housekeeper Chat
+          <MessageSquare size={15} />
+          <span>💬 Staff Chat</span>
           {(() => {
             const totalUnread = chatSummaries.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
             return totalUnread > 0 ? (
-              <span className="ml-1 px-1.5 py-0.2 bg-purple-500 text-white text-[9px] font-black rounded-full animate-pulse">
+              <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full animate-pulse">
                 {totalUnread}
               </span>
             ) : null;
@@ -1010,114 +1081,199 @@ function StaffPortalContent() {
         </div>
       )}
 
-      {/* ══════════ DAILY ATTENDANCE TAB ══════════ */}
+      {/* ══════════ STAFF DIRECTORY & TEAM TAB ══════════ */}
       {activeSubTab === 'attendance' && (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label:'Total Staff Members', value: totalCount, color:'text-blue-300 border-blue-500/20 bg-blue-900/20' },
-              { label:'Active / On-Duty', value: present, color:'text-emerald-300 border-emerald-500/20 bg-emerald-900/20' },
-              { label:'Inactive / Off', value: absent, color:'text-rose-300 border-rose-500/20 bg-rose-900/20' },
-              { label:'On Leave', value: leave, color:'text-slate-400 border-slate-700 bg-slate-800/40' },
-            ].map(s => (
-              <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-                <p className="text-3xl font-black text-white">{s.value}</p>
-                <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <div className="space-y-4">
+          {/* Filters & Search Bar */}
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 shadow-md">
+            <div className="relative w-full md:w-96">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search staff by name or designation…"
-                className="w-full h-10 pl-9 pr-4 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                placeholder="Search staff by name or role..."
+                className="w-full h-10 pl-10 pr-4 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
               />
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {departments.map(d => (
+              {search && (
                 <button
-                  key={d || 'Staff'}
-                  onClick={() => setDept(d || 'ALL')}
-                  className={`px-3 h-10 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors ${
-                    dept === (d || 'ALL') ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  }`}
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
                 >
-                  {d || 'Staff'}
+                  ×
                 </button>
-              ))}
+              )}
+            </div>
+
+            {/* Department Filter Pills */}
+            <div className="flex gap-1.5 flex-wrap w-full md:w-auto overflow-x-auto no-scrollbar py-0.5">
+              {departments.map(d => {
+                const label = d || 'ALL';
+                const isSelected = dept === label;
+                const count = label === 'ALL' 
+                  ? staffMembers.length 
+                  : staffMembers.filter(s => s.designation === label).length;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setDept(label)}
+                    className={`h-9 px-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-600 text-white font-black shadow-md shadow-blue-600/30'
+                        : 'bg-slate-800/70 hover:bg-slate-700/70 text-slate-300 hover:text-white border border-slate-700/60'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                      isSelected ? 'bg-black/20 text-white' : 'bg-slate-700 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Staff Grid */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <div className="flex flex-col items-center justify-center py-20 gap-3 bg-slate-900/30 rounded-2xl border border-slate-800">
               <RefreshCw className="animate-spin text-blue-500" size={24} />
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Loading staff directory...</p>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading staff directory...</p>
             </div>
           ) : filteredStaff.length === 0 ? (
-            <div className="text-center py-20 bg-white/[0.01] border border-white/5 rounded-2xl">
-              <Users size={32} className="text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No matching staff accounts found</p>
+            <div className="text-center py-20 bg-slate-900/30 border border-dashed border-slate-800 rounded-2xl">
+              <Users size={36} className="text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">No matching staff members found</p>
+              <p className="text-slate-500 text-[11px] mt-1">Try clearing your search query or department filter.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredStaff.map(s => {
-                const status = getStatus(s);
+                const status = getStaffAttendanceStatus(s);
+                const isOnline = status === 'PRESENT';
+                const todayAtt = s.attendance?.[0] || s.user?.attendance?.[0];
                 return (
-                  <div key={s.id} className="rounded-2xl bg-slate-900/50 border border-white/5 p-4 hover:border-blue-500/30 transition-all duration-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-sm font-black text-white shrink-0">
-                        {s.name.split(' ').map((n: string) => n[0]).join('')}
-                      </div>
-                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${STATUS_COLOR[status]}`}>
-                        {status}
-                      </span>
-                    </div>
-                    <p className="text-xs font-black text-white">{s.name}</p>
-                    <p className="text-[9px] text-slate-500 mt-0.5">{s.designation || 'Staff Member'}</p>
-                    
-                    {s.user?.role?.name && (
-                      <span className="inline-block mt-1 text-[8px] font-black px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 uppercase tracking-wider">
-                        👤 {s.user.role.name}
-                      </span>
-                    )}
+                  <div key={s.id} className="rounded-2xl bg-[#0d1627]/90 border border-slate-800 hover:border-blue-500/40 p-4 transition-all duration-200 shadow-md group hover:bg-[#111c33] flex flex-col justify-between">
+                    <div>
+                      {/* Top Row: Avatar + Status */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-md shadow-blue-600/30">
+                              {s.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                            </div>
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0d1627] ${
+                              isOnline ? 'bg-emerald-400' : status === 'OUT_OF_RANGE' ? 'bg-rose-400 animate-ping' : 'bg-slate-500'
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-white group-hover:text-blue-300 transition-colors line-clamp-1">{s.name}</p>
+                            <p className="text-[10px] text-slate-400 font-semibold">{s.designation || 'Staff Member'}</p>
+                          </div>
+                        </div>
 
-                    {s.property?.name && (
-                      <span className="inline-block mt-1 ml-1 text-[8px] font-black px-2 py-0.5 rounded-full bg-slate-700/60 border border-white/10 text-slate-400">
-                        🏨 {s.property.name}
-                      </span>
-                    )}
-
-                    <p className="text-[9px] text-slate-600 mt-1">
-                      Shift: {getShiftHoursLabel(s.shiftHours)} {s.salary > 0 && `· ₹${s.salary}/mo`}
-                    </p>
-
-                    <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
-                      {s.user?.email ? (
-                        <span className="text-[9px] text-slate-400 flex items-center gap-1">
-                          <Clock size={9} className="text-slate-600" /> credentials linked
+                        <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full border ${STATUS_COLOR[status] || STATUS_COLOR.ABSENT}`}>
+                          {STATUS_LABEL[status] || status}
                         </span>
+                      </div>
+
+                      {/* Today's check-in / clock-in timestamp */}
+                      {todayAtt ? (
+                        <div className="mb-2 px-2 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-[9.5px] text-slate-300 flex items-center justify-between">
+                          <span className="text-slate-500">Today Clock-in:</span>
+                          <span className="font-mono font-bold text-white">
+                            {new Date(todayAtt.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {todayAtt.clockOut ? ` → ${new Date(todayAtt.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                          </span>
+                        </div>
                       ) : (
-                        <span className="text-[9px] text-slate-600">no login credentials</span>
+                        <div className="mb-2 px-2 py-0.5 text-[9px] text-slate-500 italic">
+                          Not checked in today yet
+                        </div>
                       )}
-                      {s.phone && (
-                        <a href={`tel:${s.phone}`} className="text-[9px] text-blue-400 hover:text-blue-300">
-                          <Phone size={10} />
-                        </a>
-                      )}
+
+                      {/* Role & Property Tags */}
+                      <div className="flex flex-wrap gap-1 mb-2.5">
+                        {s.user?.role?.name && (
+                          <span className="text-[8.5px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300">
+                            🛡️ {s.user.role.name}
+                          </span>
+                        )}
+                        {s.property?.name && (
+                          <span className="text-[8.5px] font-bold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300">
+                            🏨 {s.property.name}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Shift & Salary details */}
+                      <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/80 text-[10px] text-slate-300 space-y-1 mb-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Shift Timing:</span>
+                          <span className="font-bold">{getShiftHoursLabel(s.shiftHours)}</span>
+                        </div>
+                        {s.salary > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Monthly Salary:</span>
+                            <span className="font-bold text-emerald-400">₹{s.salary.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Actions Row */}
+                    <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        {s.phone ? (
+                          <a
+                            href={`tel:${s.phone}`}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/25 transition-colors"
+                            title="Call Staff"
+                          >
+                            <Phone size={10} />
+                            <span>Call</span>
+                          </a>
+                        ) : null}
+
+                        <button
+                          onClick={() => {
+                            setSelectedStaffChat(s);
+                            setActiveSubTab('chat');
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/25 transition-colors cursor-pointer"
+                          title="Send Message"
+                        >
+                          <MessageSquare size={10} />
+                          <span>Chat</span>
+                        </button>
+                      </div>
+
+                      {/* 1-Click Check In / Clock Out button */}
+                      <button
+                        onClick={() => handleToggleAttendance(s, status)}
+                        disabled={clockingId === s.id}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider border transition-all cursor-pointer ${
+                          status === 'PRESENT' || status === 'OUT_OF_RANGE'
+                            ? 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/30'
+                            : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30'
+                        }`}
+                        title={status === 'PRESENT' || status === 'OUT_OF_RANGE' ? 'Clock Out Staff' : 'Check In Staff'}
+                      >
+                        {clockingId === s.id ? (
+                          <RefreshCw size={9} className="animate-spin" />
+                        ) : status === 'PRESENT' || status === 'OUT_OF_RANGE' ? (
+                          <span>Clock Out</span>
+                        ) : (
+                          <span>Check In</span>
+                        )}
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* ══════════ STAFF CREDENTIALS & ROLES TAB ══════════ */}
@@ -1327,6 +1483,132 @@ function StaffPortalContent() {
                 Select a staff member from the left list to begin chat.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick Attendance & Reports Shortcuts ── */}
+      <div className="pt-4 border-t border-slate-800/80">
+        <div className="flex items-center justify-between px-1 mb-2.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            ⚡ Quick Attendance &amp; Reports Portals
+          </span>
+          <span className="text-[9.5px] font-semibold text-slate-500">
+            Dedicated Kiosks &amp; Analytics
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Link
+            href="/hotel/staff/attendance"
+            className="p-3.5 rounded-2xl bg-[#0d1627]/80 hover:bg-[#132038] border border-blue-500/20 hover:border-blue-500/40 transition-all group flex items-center gap-3.5"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition-transform">
+              <UserCheck size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-black text-white group-hover:text-blue-300 transition-colors">Staff Attendance Hub</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Live kiosk clock-in/out &amp; duty status</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/hotel/staff/attendance-location"
+            className="p-3.5 rounded-2xl bg-[#0d1627]/80 hover:bg-[#132038] border border-emerald-500/20 hover:border-emerald-500/40 transition-all group flex items-center gap-3.5"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition-transform">
+              <Navigation size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-black text-white group-hover:text-emerald-300 transition-colors">Punch Locations</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Geofence coordinate logs &amp; maps</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/hotel/staff/location"
+            className="p-3.5 rounded-2xl bg-[#0d1627]/80 hover:bg-[#132038] border border-violet-500/20 hover:border-violet-500/40 transition-all group flex items-center gap-3.5"
+          >
+            <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center text-violet-400 shrink-0 group-hover:scale-105 transition-transform">
+              <Radio size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-black text-white group-hover:text-violet-300 transition-colors">Proximity Radar</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Interactive proximity &amp; radius radar</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/hotel/reports/attendance"
+            className="p-3.5 rounded-2xl bg-[#0d1627]/80 hover:bg-[#132038] border border-amber-500/20 hover:border-amber-500/40 transition-all group flex items-center gap-3.5"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-105 transition-transform">
+              <BarChart3 size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">Attendance Reports</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Shift logs, monthly hours &amp; exports</p>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Direct Add Staff Form Modal ── */}
+      {showAddStaffModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-[#0d0d1a] border border-white/10 rounded-3xl shadow-2xl overflow-hidden my-8">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+              <div>
+                <p className="text-base font-black text-white">
+                  Register New Staff Member
+                </p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                  Set user login credentials, POS permissions, shift targets and roles
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddStaffModal(false)}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-6 py-5 max-h-[75vh] overflow-y-auto text-slate-800">
+              <StaffMemberForm
+                properties={properties}
+                onSubmit={async (data) => {
+                  setAddStaffLoading(true);
+                  setAddStaffError('');
+                  try {
+                    const res = await fetch('/api/staff-members', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(data),
+                    }).then(r => r.json());
+
+                    if (res.success) {
+                      setShowAddStaffModal(false);
+                      await fetchStaffData();
+                    } else {
+                      setAddStaffError(res.error || res.message || 'Failed to register staff member');
+                    }
+                  } catch (err: any) {
+                    setAddStaffError(err.message || 'An error occurred while saving.');
+                  } finally {
+                    setAddStaffLoading(false);
+                  }
+                }}
+                onCancel={() => setShowAddStaffModal(false)}
+                loading={addStaffLoading}
+              />
+              {addStaffError && (
+                <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
+                  {addStaffError}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

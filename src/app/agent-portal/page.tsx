@@ -8,7 +8,7 @@ import {
   Wallet, MapPin, Search, ArrowRight, Home, Shield, Sparkles,
   Coffee, Waves, Dumbbell, ChevronDown, ChevronUp, Mail,
   Lock, User, Briefcase, UserPlus, Bus, Car, Bike, Tent, Map,
-  Edit3, CreditCard, FileText, Upload, BedDouble,
+  Edit3, CreditCard, FileText, Upload, BedDouble, CalendarDays, List,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import GroupEnquiryModal from '@/components/agent-portal/GroupEnquiryModal';
@@ -150,6 +150,7 @@ export default function AgentPortal() {
   const [hotels, setHotels] = useState<HotelProperty[]>([]);
   const [loadingHotels, setLoadingHotels] = useState(false);
   const [hotelSearch, setHotelSearch] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('ALL');
   const [selectedHotel, setSelectedHotel] = useState<HotelProperty | null>(null);
   const [showGroupTripModal, setShowGroupTripModal] = useState(false);
   const [selectedMasterInvoiceBooking, setSelectedMasterInvoiceBooking] = useState<any>(null);
@@ -162,6 +163,18 @@ export default function AgentPortal() {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedFloor, setSelectedFloor] = useState('ALL');
   const [expandedFloors, setExpandedFloors] = useState<Record<string, boolean>>({});
+
+  // ── 1-Month Room Availability Calendar ─────────────────────────────────────
+  const [hotelDetailTab, setHotelDetailTab] = useState<'calendar' | 'floormap'>('calendar');
+  const [calendarViewMode, setCalendarViewMode] = useState<'list' | 'grid'>('list');
+  const [availabilityData, setAvailabilityData] = useState<{
+    allowedDaysAhead: number;
+    daysToShow: number;
+    commissionRate: number;
+    days: any[];
+  } | null>(null);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [expandedDateBreakdown, setExpandedDateBreakdown] = useState<Record<string, boolean>>({});
 
   // ── Booking ────────────────────────────────────────────────────────────────
   const [bookingForm, setBookingForm] = useState({
@@ -305,12 +318,32 @@ export default function AgentPortal() {
     } catch {}
   };
 
+  // ── Availability Data Loader ──────────────────────────────────────────────
+  const loadAvailability = async (propertyId: string) => {
+    setLoadingAvailability(true);
+    try {
+      const agentId = agent?.id;
+      const url = `/api/agent-portal/availability?propertyId=${propertyId}${agentId ? `&agentId=${agentId}` : ''}`;
+      const res = await fetch(url);
+      const j = await res.json();
+      if (j.success) {
+        setAvailabilityData(j);
+      }
+    } catch {
+      toast.error('Failed to load room calendar.');
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
   // ── Open Hotel ─────────────────────────────────────────────────────────────
-  const openHotel = async (hotel: HotelProperty) => {
+  const openHotel = async (hotel: HotelProperty, defaultTab: 'calendar' | 'floormap' = 'calendar') => {
     setSelectedHotel(hotel);
     setView('hotel-detail');
+    setHotelDetailTab(defaultTab);
     setSelectedFloor('ALL');
     setLoadingRooms(true);
+    loadAvailability(hotel.id);
     try {
       const res = await fetch(`/api/agent-portal/rooms?propertyId=${hotel.id}`);
       const j = await res.json();
@@ -436,7 +469,13 @@ export default function AgentPortal() {
   };
 
   // ── Trigger Booking ────────────────────────────────────────────────────────
-  const triggerBooking = (roomTypeName?: string, rate?: number, note?: string) => {
+  const triggerBooking = (
+    roomTypeName?: string,
+    rate?: number,
+    note?: string,
+    checkInDate?: string,
+    checkOutDate?: string
+  ) => {
     const selectedRt = roomTypeName || selectedHotel?.roomTypes?.[0]?.name || 'Standard';
     const initRate = rate || selectedHotel?.roomTypes?.find((r) => r.name === selectedRt)?.baseRate || 0;
     const initialQty: Record<string, number> = {};
@@ -448,12 +487,24 @@ export default function AgentPortal() {
       initialQty[selectedRt] = 1;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tmrw = new Date();
+    tmrw.setDate(tmrw.getDate() + 1);
+    const tmrwStr = tmrw.toISOString().split('T')[0];
+
+    const finalCi = checkInDate || bookingForm.checkIn || todayStr;
+    const finalCo = checkOutDate || bookingForm.checkOut || tmrwStr;
+    const nights = calcNights(finalCi, finalCo);
+    const totalAmount = initRate > 0 ? String(initRate * nights) : '';
+
     setBookingForm((f) => ({
       ...f,
+      checkIn: finalCi,
+      checkOut: finalCo,
       roomType: selectedRt,
       numberOfRooms: 1,
       roomQuantities: initialQty,
-      totalAmount: initRate ? String(initRate) : '',
+      totalAmount,
       notes: note || '',
       adults: '2',
     }));
@@ -532,9 +583,38 @@ export default function AgentPortal() {
     }
   };
 
+  // Extract unique sorted cities with hotel count for location filtering
+  const locationStats = React.useMemo(() => {
+    const stats: Record<string, number> = {};
+    hotels.forEach(h => {
+      const city = (h.city || 'Other').trim();
+      stats[city] = (stats[city] || 0) + 1;
+    });
+    return stats;
+  }, [hotels]);
+
+  const uniqueLocations = React.useMemo(() => {
+    return Object.keys(locationStats).sort((a, b) => a.localeCompare(b));
+  }, [locationStats]);
+
   const filteredHotels = hotels.filter(h => {
-    const q = hotelSearch.toLowerCase();
-    return !q || h.name.toLowerCase().includes(q) || (h.city || '').toLowerCase().includes(q) || (h.state || '').toLowerCase().includes(q);
+    const q = hotelSearch.toLowerCase().trim();
+    const city = (h.city || 'Other').trim();
+
+    // Location / City filter
+    if (selectedLocation !== 'ALL' && city.toLowerCase() !== selectedLocation.toLowerCase()) {
+      return false;
+    }
+
+    // Search query filter
+    if (!q) return true;
+    return (
+      h.name.toLowerCase().includes(q) ||
+      (h.city || '').toLowerCase().includes(q) ||
+      (h.state || '').toLowerCase().includes(q) ||
+      (h.address || '').toLowerCase().includes(q) ||
+      (h.hotelCategory || '').toLowerCase().includes(q)
+    );
   });
 
   const bookingsList = agent?.bookings || [];
@@ -765,6 +845,9 @@ export default function AgentPortal() {
               <div className="flex items-center gap-2 text-xs flex-wrap">
                 <span className="px-3 py-1.5 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-300 font-black">{agent.agentCode}</span>
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 font-black">{agent.commissionRate}% Commission</span>
+                <button onClick={() => loadHotels()} className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-violet-500/40 transition-all cursor-pointer" title="Refresh Hotels">
+                  <RefreshCw size={13} className={loadingHotels ? 'animate-spin text-violet-400' : ''} />
+                </button>
                 <button onClick={() => setView('dashboard')} className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-black hover:text-white flex items-center gap-1.5">
                   My Bookings <ArrowRight size={11} />
                 </button>
@@ -813,12 +896,128 @@ export default function AgentPortal() {
           {/* Hotels Tab Content */}
           {homeTab === 'hotels' && (
           <>
-          {/* Search */}
-          <div className="relative">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input type="text" value={hotelSearch} onChange={e => setHotelSearch(e.target.value)}
-              placeholder="Search hotel by name, city or state..."
-              className="w-full bg-[#090f1e] border border-slate-800 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-white focus:outline-none focus:border-violet-500 placeholder-slate-600" />
+          {/* Location Filter & Search Hub */}
+          <div className="space-y-3 bg-[#090f1e] border border-slate-800 rounded-3xl p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <MapPin size={18} className="text-violet-400" />
+                  <h2 className="text-base font-black text-white">Find Hotels by Location</h2>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Select a destination city or search hotel properties below
+                </p>
+              </div>
+
+              {/* Location Select Dropdown */}
+              {uniqueLocations.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 hidden sm:inline">Destination:</span>
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    className="bg-[#050a14] border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                  >
+                    <option value="ALL">All Destinations ({hotels.length})</option>
+                    {uniqueLocations.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc} ({locationStats[loc] || 0})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={hotelSearch}
+                onChange={(e) => setHotelSearch(e.target.value)}
+                placeholder="Search hotel by name, city, state or address..."
+                className="w-full bg-[#050a14] border border-slate-800 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-white focus:outline-none focus:border-violet-500 placeholder-slate-600 transition-colors"
+              />
+              {hotelSearch && (
+                <button
+                  type="button"
+                  onClick={() => setHotelSearch('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Location Tabs / Pills Bar */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setSelectedLocation('ALL')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all ${
+                  selectedLocation === 'ALL'
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30 border border-violet-500'
+                    : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+                }`}
+              >
+                <Building2 size={13} className={selectedLocation === 'ALL' ? 'text-white' : 'text-slate-500'} />
+                <span>All Locations</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                  selectedLocation === 'ALL' ? 'bg-violet-800 text-violet-100' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  {hotels.length}
+                </span>
+              </button>
+
+              {uniqueLocations.map((loc) => {
+                const count = locationStats[loc] || 0;
+                const isSelected = selectedLocation.toLowerCase() === loc.toLowerCase();
+                return (
+                  <button
+                    key={loc}
+                    type="button"
+                    onClick={() => setSelectedLocation(loc)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 border border-violet-500'
+                        : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+                    }`}
+                  >
+                    <MapPin size={13} className={isSelected ? 'text-white' : 'text-violet-400'} />
+                    <span>{loc}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                      isSelected ? 'bg-violet-900 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active filter summary line if city or search is active */}
+            {(selectedLocation !== 'ALL' || hotelSearch) && (
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60 text-slate-400">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span>Showing <b className="text-white">{filteredHotels.length}</b> hotel{filteredHotels.length === 1 ? '' : 's'}</span>
+                  {selectedLocation !== 'ALL' && (
+                    <span>in <span className="text-violet-300 font-bold">📍 {selectedLocation}</span></span>
+                  )}
+                  {hotelSearch && (
+                    <span>matching "<span className="text-slate-200 font-bold">{hotelSearch}</span>"</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedLocation('ALL'); setHotelSearch(''); }}
+                  className="text-violet-400 hover:text-violet-300 font-bold text-[11px] underline underline-offset-2 cursor-pointer ml-auto"
+                >
+                  Reset filters
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Hotels Grid */}
@@ -827,9 +1026,28 @@ export default function AgentPortal() {
               <Loader2 className="animate-spin text-violet-500" size={36} />
             </div>
           ) : filteredHotels.length === 0 ? (
-            <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl">
-              <Building2 size={40} className="mx-auto text-slate-700 mb-3" />
-              <p className="text-lg font-black text-slate-400">No Hotels Found</p>
+            <div className="py-16 text-center border-2 border-dashed border-slate-800 rounded-3xl bg-[#090f1e]/40 p-8 space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mx-auto text-violet-400">
+                <MapPin size={32} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-black text-white">
+                  {selectedLocation !== 'ALL'
+                    ? `No hotels found in "${selectedLocation}"`
+                    : 'No hotels found matching your search'}
+                </p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Try selecting another destination city or clearing filters to view all available hotels.
+                </p>
+              </div>
+              {(selectedLocation !== 'ALL' || hotelSearch) && (
+                <button
+                  onClick={() => { setSelectedLocation('ALL'); setHotelSearch(''); }}
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-black text-white transition-all shadow-lg shadow-violet-600/30"
+                >
+                  Show All Hotels ({hotels.length})
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -854,11 +1072,12 @@ export default function AgentPortal() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="text-sm font-black text-white group-hover:text-violet-200">{hotel.name}</h3>
-                        {(hotel.city || hotel.state) && (
-                          <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
-                            <MapPin size={9} /> {[hotel.city, hotel.state].filter(Boolean).join(', ')}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-300">
+                            <MapPin size={10} className="text-violet-400" />
+                            {[hotel.city, hotel.state].filter(Boolean).join(', ') || 'Location Unspecified'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <StarRating count={hotel.starRating || 0} />
@@ -889,9 +1108,29 @@ export default function AgentPortal() {
                         {hotel.roomTypes.length > 3 && <span className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-500">+{hotel.roomTypes.length - 3}</span>}
                       </div>
                     )}
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                      <p className="text-[10px] text-slate-500">{hotel.phone && <span className="flex items-center gap-1"><Phone size={9} />{hotel.phone}</span>}</p>
-                      <span className="text-xs font-black text-violet-400 group-hover:text-violet-300 flex items-center gap-1">View Rooms <ArrowRight size={12} /></span>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800 gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openHotel(hotel, 'calendar');
+                        }}
+                        className="flex-1 py-2 px-3 rounded-xl bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 text-[11px] font-black transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <Calendar size={13} className="text-violet-400" />
+                        <span>1-Month Calendar</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openHotel(hotel, 'floormap');
+                        }}
+                        className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition-all flex items-center gap-1"
+                      >
+                        <Building2 size={13} />
+                        <span>Live Rooms</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -962,116 +1201,475 @@ export default function AgentPortal() {
             </div>
           </div>
 
-          {/* Room Stats */}
-          <div className="grid grid-cols-4 gap-3 text-center">
-            {[
-              { label: 'Total', value: roomSummary?.total || hotelRooms.length, color: 'text-white', bg: 'bg-[#090f1e] border-slate-800' },
-              { label: 'Available', value: roomSummary?.available || 0, color: 'text-emerald-400', bg: 'bg-emerald-950/30 border-emerald-500/20' },
-              { label: 'Occupied', value: roomSummary?.occupied || 0, color: 'text-rose-400', bg: 'bg-rose-950/30 border-rose-500/20' },
-              { label: 'Dirty/Maint', value: (roomSummary?.maintenance || 0) + (roomSummary?.dirty || 0), color: 'text-amber-400', bg: 'bg-amber-950/30 border-amber-500/20' },
-            ].map(s => (
-              <div key={s.label} className={`rounded-2xl border p-3 ${s.bg}`}>
-                <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-                <p className="text-[9px] text-slate-500 uppercase font-bold mt-0.5">{s.label}</p>
+          {/* Sub Navigation: 1-Month Calendar vs Floor Map */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHotelDetailTab('calendar')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+                  hotelDetailTab === 'calendar'
+                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <Calendar size={14} />
+                <span>1-Month Room Availability Calendar</span>
+                <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                  {availabilityData?.daysToShow || 30} Days
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHotelDetailTab('floormap')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+                  hotelDetailTab === 'floormap'
+                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <Building2 size={14} />
+                <span>Live Floor Map</span>
+              </button>
+            </div>
+
+            {hotelDetailTab === 'calendar' && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMode('list')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      calendarViewMode === 'list' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <List size={13} /> Day List / Matrix
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMode('grid')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      calendarViewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <CalendarDays size={13} /> Month Grid
+                  </button>
+                </div>
               </div>
-            ))}
+            )}
           </div>
 
-          {/* Room Categories */}
-          {roomTypes.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-black text-white flex items-center gap-2"><Sparkles size={14} className="text-violet-400" /> Room Categories & Pricing</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {roomTypes.map((rt: any) => (
-                  <div key={rt.name} className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-violet-500/30 transition-colors">
-                    <div>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-black text-white">{rt.name}</p>
-                          <p className="text-[9px] text-slate-500 font-bold">{rt.code}</p>
+          {/* ── TAB 1: 1-MONTH CALENDAR & AVAILABILITY ────────────────────── */}
+          {hotelDetailTab === 'calendar' && (
+            <div className="space-y-4">
+              {/* Hotel Permission & Commission Info Banner */}
+              <div className="bg-gradient-to-r from-violet-950/40 via-indigo-950/30 to-slate-900 border border-violet-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-black uppercase text-violet-400 tracking-wider">
+                      <Shield size={12} className="text-violet-400" /> Hotel Policy Permission Active
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-bold border border-violet-500/30">
+                      {availabilityData?.allowedDaysAhead || 30} Days Forward View
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    The hotel management has permitted you to view live room availability and book dates for the next <b className="text-white">{availabilityData?.daysToShow || 30} days</b>.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                    <span className="text-[9px] text-slate-500 block uppercase font-bold">Your Commission</span>
+                    <span className="text-sm font-black text-emerald-400">
+                      {availabilityData?.commissionRate || (selectedHotel as any)?.commissionRate || agent?.commissionRate || 10}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {loadingAvailability ? (
+                <div className="h-64 flex flex-col items-center justify-center gap-3 bg-[#090f1e] border border-slate-800 rounded-3xl">
+                  <Loader2 className="animate-spin text-violet-500" size={32} />
+                  <p className="text-xs text-slate-400 font-bold">Loading real-time 30-day room availability...</p>
+                </div>
+              ) : !availabilityData?.days || availabilityData.days.length === 0 ? (
+                <div className="py-12 text-center bg-[#090f1e] border border-slate-800 rounded-3xl space-y-2">
+                  <Calendar size={32} className="text-slate-600 mx-auto" />
+                  <p className="text-sm font-bold text-slate-300">No availability data available for this hotel</p>
+                </div>
+              ) : calendarViewMode === 'list' ? (
+                /* ── LIST / MATRIX VIEW ─────────────────────────────────────── */
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 px-2 font-bold">
+                    <span>Showing forward room availability for {availabilityData.days.length} days</span>
+                    <span className="flex items-center gap-3">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Available</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Few Left</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-400 inline-block" /> Sold Out</span>
+                    </span>
+                  </div>
+
+                  {availabilityData.days.map((day) => {
+                    const isSoldOut = day.status === 'SOLD_OUT' || day.availableRooms === 0;
+                    const isFew = day.status === 'FEW_LEFT';
+                    const isExpanded = expandedDateBreakdown[day.date];
+                    const commRate = availabilityData.commissionRate || 10;
+                    const earnedCommission = Math.round((day.lowestRate * commRate) / 100);
+
+                    return (
+                      <div
+                        key={day.date}
+                        className={`bg-[#090f1e] border rounded-2xl transition-all overflow-hidden ${
+                          isSoldOut
+                            ? 'border-slate-800/60 opacity-70'
+                            : day.isToday
+                            ? 'border-violet-500/60 shadow-lg shadow-violet-950/30'
+                            : 'border-slate-800 hover:border-violet-500/30'
+                        }`}
+                      >
+                        <div className="p-3.5 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                          {/* Date Block */}
+                          <div className="flex items-center gap-3 min-w-[150px]">
+                            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-black shrink-0 ${
+                              day.isToday
+                                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                                : day.isWeekend
+                                ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-500/20'
+                                : 'bg-slate-900 text-white border border-slate-800'
+                            }`}>
+                              <span className="text-sm leading-none">{day.day}</span>
+                              <span className="text-[9px] uppercase tracking-wider opacity-80">{day.month}</span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black text-white">{day.dayOfWeek}</span>
+                                {day.isToday && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30 uppercase">
+                                    Today
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-mono">{day.date}</span>
+                            </div>
+                          </div>
+
+                          {/* Availability Progress & Count */}
+                          <div className="flex-1 min-w-[180px]">
+                            <div className="flex items-center justify-between text-xs mb-1.5">
+                              <span className="font-bold flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isSoldOut ? 'bg-rose-500' : isFew ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
+                                }`} />
+                                <span className={isSoldOut ? 'text-rose-400 font-black' : isFew ? 'text-amber-300 font-bold' : 'text-emerald-300 font-bold'}>
+                                  {isSoldOut ? 'Sold Out' : `${day.availableRooms} of ${day.totalRooms} Rooms Free`}
+                                </span>
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-bold">
+                                {day.bookedRooms} Booked
+                              </span>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all rounded-full ${
+                                  isSoldOut
+                                    ? 'bg-rose-500 w-full'
+                                    : isFew
+                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                                    : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                                }`}
+                                style={{
+                                  width: `${Math.min(100, Math.round((day.bookedRooms / (day.totalRooms || 1)) * 100))}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Rates & Commission */}
+                          <div className="text-right min-w-[130px] shrink-0">
+                            <span className="text-[10px] text-slate-500 block">Starting From</span>
+                            <div className="text-base font-black text-white">
+                              ₹{day.lowestRate.toLocaleString('en-IN')}
+                              <span className="text-[9px] font-normal text-slate-400">/nt</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-emerald-400">
+                              Earn ₹{earnedCommission.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {day.roomTypes && day.roomTypes.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedDateBreakdown(p => ({ ...p, [day.date]: !isExpanded }))}
+                                className="px-2.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-bold text-slate-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>Rooms</span>
+                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              disabled={isSoldOut}
+                              onClick={() => {
+                                const availRt = day.roomTypes.find((r: any) => r.available > 0) || day.roomTypes[0];
+                                triggerBooking(
+                                  availRt?.name,
+                                  availRt?.baseRate || day.lowestRate,
+                                  `Agent direct booking for ${day.date}`,
+                                  day.date,
+                                  day.nextDate
+                                );
+                              }}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md ${
+                                isSoldOut
+                                  ? 'bg-slate-800/80 text-slate-600 cursor-not-allowed border border-slate-700/60'
+                                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-900/30 active:scale-95 cursor-pointer'
+                              }`}
+                            >
+                              <Plus size={13} />
+                              <span>{isSoldOut ? 'Sold Out' : 'Book Date'}</span>
+                            </button>
+                          </div>
                         </div>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${rt.available > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
-                          {rt.available}/{rt.total} Free
-                        </span>
+
+                        {/* Room Type Breakdown Accordion */}
+                        {isExpanded && day.roomTypes && day.roomTypes.length > 0 && (
+                          <div className="px-4 py-3 bg-slate-950/70 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                            {day.roomTypes.map((rt: any) => {
+                              const rtAvail = rt.available > 0;
+                              return (
+                                <div
+                                  key={rt.id || rt.name}
+                                  className={`rounded-xl p-2.5 border flex items-center justify-between gap-2 ${
+                                    rtAvail
+                                      ? 'bg-[#090f1e] border-slate-800 hover:border-violet-500/40'
+                                      : 'bg-slate-900/30 border-slate-900 opacity-60'
+                                  }`}
+                                >
+                                  <div>
+                                    <p className="font-bold text-white text-[11px]">{rt.name}</p>
+                                    <p className="text-[10px] text-slate-400">
+                                      ₹{rt.baseRate.toLocaleString('en-IN')}/nt ·{' '}
+                                      <span className={rtAvail ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                                        {rt.available} Free
+                                      </span>
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    disabled={!rtAvail}
+                                    onClick={() => triggerBooking(rt.name, rt.baseRate, '', day.date, day.nextDate)}
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-black ${
+                                      rtAvail
+                                        ? 'bg-violet-600/30 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 cursor-pointer'
+                                        : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    {rtAvail ? 'Select →' : 'Full'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-lg font-black text-violet-300">₹{rt.baseRate.toLocaleString('en-IN')}</p>
-                      <p className="text-[9px] text-slate-500">per night</p>
-                    </div>
-                    <button onClick={() => triggerBooking(rt.name, rt.baseRate)} disabled={rt.available === 0}
-                      className={`mt-3 w-full py-2 rounded-xl text-[10px] font-black transition-all ${rt.available > 0 ? 'bg-violet-600/30 border border-violet-500/30 text-violet-300 hover:bg-violet-600 hover:text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'}`}>
-                      {rt.available > 0 ? `Book ${rt.name} →` : 'Not Available'}
-                    </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* ── MONTH GRID VIEW ────────────────────────────────────────── */
+                <div className="bg-[#090f1e] border border-slate-800 rounded-3xl p-4 space-y-4">
+                  <div className="grid grid-cols-7 gap-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                      <div key={d} className="text-center text-[10px] font-black uppercase text-slate-500 py-1">
+                        {d}
+                      </div>
+                    ))}
+                    {availabilityData.days.map((day) => {
+                      const isSoldOut = day.status === 'SOLD_OUT' || day.availableRooms === 0;
+                      const isFew = day.status === 'FEW_LEFT';
+                      return (
+                        <div
+                          key={day.date}
+                          className={`rounded-2xl p-2.5 border flex flex-col justify-between transition-all min-h-[95px] ${
+                            isSoldOut
+                              ? 'bg-rose-950/10 border-rose-500/10 opacity-60'
+                              : day.isToday
+                              ? 'bg-violet-950/30 border-violet-500/50 shadow-md shadow-violet-950/40'
+                              : 'bg-slate-900/60 border-slate-800/80 hover:border-violet-500/40 hover:bg-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-black ${day.isToday ? 'text-violet-300' : 'text-white'}`}>
+                              {day.day} {day.month}
+                            </span>
+                            {day.isToday && (
+                              <span className="text-[7px] font-black px-1 rounded bg-violet-600 text-white">
+                                TODAY
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-0.5 my-1">
+                            <div className={`text-[10px] font-bold ${
+                              isSoldOut ? 'text-rose-400' : isFew ? 'text-amber-400' : 'text-emerald-400'
+                            }`}>
+                              {isSoldOut ? '0 Free' : `${day.availableRooms} Free`}
+                            </div>
+                            <div className="text-[11px] font-black text-white">
+                              ₹{day.lowestRate.toLocaleString('en-IN')}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isSoldOut}
+                            onClick={() => {
+                              const availRt = day.roomTypes.find((r: any) => r.available > 0) || day.roomTypes[0];
+                              triggerBooking(
+                                availRt?.name,
+                                availRt?.baseRate || day.lowestRate,
+                                `Agent booking for ${day.date}`,
+                                day.date,
+                                day.nextDate
+                              );
+                            }}
+                            className={`w-full py-1 rounded-lg text-[9px] font-black text-center transition-all ${
+                              isSoldOut
+                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-sm'
+                            }`}
+                          >
+                            {isSoldOut ? 'Full' : 'Book'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB 2: LIVE FLOOR MAP & ROOM STATS ─────────────────────────── */}
+          {hotelDetailTab === 'floormap' && (
+            <div className="space-y-6">
+              {/* Room Stats */}
+              <div className="grid grid-cols-4 gap-3 text-center">
+                {[
+                  { label: 'Total', value: roomSummary?.total || hotelRooms.length, color: 'text-white', bg: 'bg-[#090f1e] border-slate-800' },
+                  { label: 'Available', value: roomSummary?.available || 0, color: 'text-emerald-400', bg: 'bg-emerald-950/30 border-emerald-500/20' },
+                  { label: 'Occupied', value: roomSummary?.occupied || 0, color: 'text-rose-400', bg: 'bg-rose-950/30 border-rose-500/20' },
+                  { label: 'Dirty/Maint', value: (roomSummary?.maintenance || 0) + (roomSummary?.dirty || 0), color: 'text-amber-400', bg: 'bg-amber-950/30 border-amber-500/20' },
+                ].map(s => (
+                  <div key={s.label} className={`rounded-2xl border p-3 ${s.bg}`}>
+                    <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-bold mt-0.5">{s.label}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
 
-          {/* Floor Filter */}
-          {!loadingRooms && Object.keys(roomsByFloor).length > 1 && (
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase shrink-0">Floor:</span>
-              <button onClick={() => setSelectedFloor('ALL')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedFloor === 'ALL' ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>All</button>
-              {Object.keys(roomsByFloor).map(fl => (
-                <button key={fl} onClick={() => setSelectedFloor(fl)} className={`px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition-all ${selectedFloor === fl ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>Floor {fl}</button>
-              ))}
-            </div>
-          )}
-
-          {/* Floor Rooms */}
-          {loadingRooms ? (
-            <div className="h-48 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" size={32} /></div>
-          ) : (
-            <div className="space-y-4">
-              <h3 className="text-sm font-black text-white flex items-center gap-2"><Building2 size={14} className="text-violet-400" /> Live Room Status — Floor Map</h3>
-              {Object.entries(roomsByFloor).filter(([fl]) => selectedFloor === 'ALL' || selectedFloor === fl).map(([fl, rooms]) => {
-                const avail = rooms.filter((r: any) => r.status === 'AVAILABLE').length;
-                const isExp = expandedFloors[fl] !== false;
-                return (
-                  <div key={fl} className="bg-[#090f1e] border border-slate-800 rounded-2xl overflow-hidden">
-                    <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-900/50 transition-colors"
-                      onClick={() => setExpandedFloors(p => ({ ...p, [fl]: !isExp }))}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-violet-900/40 border border-violet-500/20 flex items-center justify-center">
-                          <span className="text-xs font-black text-violet-300">{fl}</span>
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-black text-white">Floor {fl}</p>
-                          <p className="text-[10px] text-slate-500">{rooms.length} rooms</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">{avail} free</span>
-                        <span className="text-[9px] font-bold text-rose-400 bg-rose-950/40 border border-rose-500/20 px-2 py-0.5 rounded-full">{rooms.length - avail} busy</span>
-                        {isExp ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
-                      </div>
-                    </button>
-                    {isExp && (
-                      <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                        {rooms.map((r: any) => {
-                          const isAvail = r.status === 'AVAILABLE';
-                          const isOcc = r.status === 'OCCUPIED';
-                          return (
-                            <div key={r.id} onClick={() => isAvail && triggerBooking(r.roomType?.name, r.customRate || r.roomType?.baseRate, `Room ${r.roomNumber} (Floor ${r.floor || fl})`)}
-                              className={`rounded-xl border p-3 transition-all ${isAvail ? 'bg-emerald-950/20 border-emerald-500/30 cursor-pointer hover:border-emerald-400 hover:bg-emerald-950/40' : isOcc ? 'bg-rose-950/10 border-rose-500/10 opacity-70' : 'bg-slate-900/40 border-slate-800 opacity-50'}`}>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-sm font-black text-white">#{r.roomNumber}</span>
-                                {r.isVIP && <span className="text-[7px] font-black px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/20">VIP</span>}
-                              </div>
-                              <p className="text-[9px] text-slate-400 font-bold truncate">{r.roomType?.name}</p>
-                              <p className="text-[10px] font-black text-violet-300 mt-0.5">₹{(r.customRate || r.roomType?.baseRate || 0).toLocaleString('en-IN')}</p>
-                              <div className={`mt-1.5 text-[8px] font-black px-1.5 py-0.5 rounded-full inline-block ${isAvail ? 'bg-emerald-500/20 text-emerald-300' : isOcc ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-700 text-slate-400'}`}>
-                                {isAvail ? '✓ AVAILABLE' : isOcc ? '● OCCUPIED' : r.status}
-                              </div>
-                              {isAvail && <p className="text-[7px] text-emerald-500 mt-1 font-bold">Tap to Book →</p>}
+              {/* Room Categories */}
+              {roomTypes.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2"><Sparkles size={14} className="text-violet-400" /> Room Categories & Pricing</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {roomTypes.map((rt: any) => (
+                      <div key={rt.name} className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-violet-500/30 transition-colors">
+                        <div>
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <p className="text-sm font-black text-white">{rt.name}</p>
+                              <p className="text-[9px] text-slate-500 font-bold">{rt.code}</p>
                             </div>
-                          );
-                        })}
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${rt.available > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                              {rt.available}/{rt.total} Free
+                            </span>
+                          </div>
+                          <p className="text-lg font-black text-violet-300">₹{rt.baseRate.toLocaleString('en-IN')}</p>
+                          <p className="text-[9px] text-slate-500">per night</p>
+                        </div>
+                        <button onClick={() => triggerBooking(rt.name, rt.baseRate)} disabled={rt.available === 0}
+                          className={`mt-3 w-full py-2 rounded-xl text-[10px] font-black transition-all ${rt.available > 0 ? 'bg-violet-600/30 border border-violet-500/30 text-violet-300 hover:bg-violet-600 hover:text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'}`}>
+                          {rt.available > 0 ? `Book ${rt.name} →` : 'Not Available'}
+                        </button>
                       </div>
-                    )}
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Floor Filter */}
+              {!loadingRooms && Object.keys(roomsByFloor).length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase shrink-0">Floor:</span>
+                  <button onClick={() => setSelectedFloor('ALL')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedFloor === 'ALL' ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>All</button>
+                  {Object.keys(roomsByFloor).map(fl => (
+                    <button key={fl} onClick={() => setSelectedFloor(fl)} className={`px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition-all ${selectedFloor === fl ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>Floor {fl}</button>
+                  ))}
+                </div>
+              )}
+
+              {/* Floor Rooms */}
+              {loadingRooms ? (
+                <div className="h-48 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" size={32} /></div>
+              ) : (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2"><Building2 size={14} className="text-violet-400" /> Live Room Status — Floor Map</h3>
+                  {Object.entries(roomsByFloor).filter(([fl]) => selectedFloor === 'ALL' || selectedFloor === fl).map(([fl, rooms]) => {
+                    const avail = rooms.filter((r: any) => r.status === 'AVAILABLE').length;
+                    const isExp = expandedFloors[fl] !== false;
+                    return (
+                      <div key={fl} className="bg-[#090f1e] border border-slate-800 rounded-2xl overflow-hidden">
+                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-900/50 transition-colors"
+                          onClick={() => setExpandedFloors(p => ({ ...p, [fl]: !isExp }))}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-violet-900/40 border border-violet-500/20 flex items-center justify-center">
+                              <span className="text-xs font-black text-violet-300">{fl}</span>
+                            </div>
+                            <div className="text-left">
+                              <p className="text-sm font-black text-white">Floor {fl}</p>
+                              <p className="text-[10px] text-slate-500">{rooms.length} rooms</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">{avail} free</span>
+                            <span className="text-[9px] font-bold text-rose-400 bg-rose-950/40 border border-rose-500/20 px-2 py-0.5 rounded-full">{rooms.length - avail} busy</span>
+                            {isExp ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+                          </div>
+                        </button>
+                        {isExp && (
+                          <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                            {rooms.map((r: any) => {
+                              const isAvail = r.status === 'AVAILABLE';
+                              const isOcc = r.status === 'OCCUPIED';
+                              return (
+                                <div key={r.id} onClick={() => isAvail && triggerBooking(r.roomType?.name, r.customRate || r.roomType?.baseRate, `Room ${r.roomNumber} (Floor ${r.floor || fl})`)}
+                                  className={`rounded-xl border p-3 transition-all ${isAvail ? 'bg-emerald-950/20 border-emerald-500/30 cursor-pointer hover:border-emerald-400 hover:bg-emerald-950/40' : isOcc ? 'bg-rose-950/10 border-rose-500/10 opacity-70' : 'bg-slate-900/40 border-slate-800 opacity-50'}`}>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-sm font-black text-white">#{r.roomNumber}</span>
+                                    {r.isVIP && <span className="text-[7px] font-black px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/20">VIP</span>}
+                                  </div>
+                                  <p className="text-[9px] text-slate-400 font-bold truncate">{r.roomType?.name}</p>
+                                  <p className="text-[10px] font-black text-violet-300 mt-0.5">₹{(r.customRate || r.roomType?.baseRate || 0).toLocaleString('en-IN')}</p>
+                                  <div className={`mt-1.5 text-[8px] font-black px-1.5 py-0.5 rounded-full inline-block ${isAvail ? 'bg-emerald-500/20 text-emerald-300' : isOcc ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-700 text-slate-400'}`}>
+                                    {isAvail ? '✓ AVAILABLE' : isOcc ? '● OCCUPIED' : r.status}
+                                  </div>
+                                  {isAvail && <p className="text-[7px] text-emerald-500 mt-1 font-bold">Tap to Book →</p>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

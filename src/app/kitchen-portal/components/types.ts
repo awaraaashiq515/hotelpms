@@ -69,6 +69,6 @@ export interface StockRequest {
   resolvedBy?: string | null;
 }
 
-export type TabType = 'orders' | 'store' | 'requests';
+export type TabType = 'orders' | 'store' | 'requests' | 'market';
 export type OrderSourceType = 'ALL' | 'ROOMS' | 'RESTAURANT' | 'TAKEAWAY';
 

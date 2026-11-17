@@ -168,7 +168,17 @@ export async function POST(request: NextRequest) {
         ? 'PACK_IN_ROOM'
         : 'SERVE_IN_ROOM';
 
-      const deliveryInstructions = `SERVE_TIME:${serveTiming}|PACKAGING:${packaging}|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${notes ? `|NOTE:${notes}` : ''}`;
+      const contactMobile = body.guestMobile || body.contactPhone || '';
+      const deliveryInstructions = `SERVE_TIME:${serveTiming}|PACKAGING:${packaging}|TYPE:ROOM_SERVICE|ROOM:${roomNumber || 'Unknown'}${contactMobile ? `|PHONE:${contactMobile}` : ''}${notes ? `|NOTE:${notes}` : ''}`;
+
+      if (contactMobile && resolvedGuestId) {
+        try {
+          await prisma.guest.update({
+            where: { id: resolvedGuestId },
+            data: { mobile: contactMobile },
+          });
+        } catch {}
+      }
 
       createdPosOrder = await prisma.posOrder.create({
         data: {

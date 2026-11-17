@@ -31,10 +31,18 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('User or Property ID missing'), 400);
     }
 
-    // Resolve staff member record (may be null for direct users)
-    const staffMember = await prisma.staffMember.findFirst({
-      where: { OR: [{ userId }, { id: userId }] },
-    });
+    // Resolve staff member record (supports direct staffMemberId from admin/manager)
+    const targetStaffMemberId = body.staffMemberId;
+    let staffMember = null;
+    if (targetStaffMemberId) {
+      staffMember = await prisma.staffMember.findUnique({
+        where: { id: targetStaffMemberId },
+      });
+    } else {
+      staffMember = await prisma.staffMember.findFirst({
+        where: { OR: [{ userId }, { id: userId }] },
+      });
+    }
 
     // Resolve the staff's display name for notification
     let staffName = 'A staff member';

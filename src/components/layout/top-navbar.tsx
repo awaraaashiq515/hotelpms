@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Sun, Moon, Lock, X, Wine, AlertTriangle, Music2 } from 'lucide-react';
+import { Search, Plus, Power, Monitor, Clock, History, Bell, Menu, Phone, Lock, X, Wine, AlertTriangle, Music2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useSidebar } from '@/context/sidebar-context';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -479,35 +479,34 @@ export const TopNavbar: React.FC = () => {
             <span className="hidden md:block text-[9px] font-bold uppercase tracking-tighter text-center text-gray-400 group-hover:text-gray-900">Music</span>
           </button>
 
-          <NavbarAction icon={<Lock size={18} />} label="Lock" onClick={manuallyLock} />
-          <NavbarAction 
-            icon={
-              <div className="relative">
-                <Bell size={18} className={unreadCount > 0 ? 'animate-bounce text-pos-primary' : ''} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-pos-primary text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-950">
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-            } 
-            label="Alerts" 
+          {/* Notification Bell */}
+          <button
             onClick={() => {
               setUnreadCount(0);
               router.push(`${p}/operations/notifications`);
             }}
-          />
+            title="Alerts & Notifications"
+            className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-pos-primary dark:hover:text-pos-primary transition-all border border-gray-100 dark:border-slate-700 shadow-sm"
+          >
+            <Bell size={17} className={unreadCount > 0 ? 'text-pos-primary' : ''} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-pos-primary text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-950 animate-pulse">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Quick Lock */}
+          <button
+            onClick={manuallyLock}
+            title="Lock Terminal"
+            className="h-9 w-9 flex items-center justify-center rounded-xl bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-all border border-gray-100 dark:border-slate-700 shadow-sm"
+          >
+            <Lock size={16} />
+          </button>
         </div>
         
         <div className="flex items-center gap-3">
-          <button
-            onClick={toggleTheme}
-            className="h-9 w-9 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all border border-gray-100 dark:border-slate-700"
-            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-          >
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-
           <div className="flex items-center gap-2.5 px-3 py-1.5 border border-pos-primary/10 rounded-lg bg-pos-primary/5 hidden lg:flex group hover:bg-pos-primary/10 transition-colors cursor-pointer">
              <div className="p-1 bg-pos-primary rounded text-white group-hover:scale-110 transition-transform">
                <Phone size={12} />
@@ -554,10 +553,3 @@ export const TopNavbar: React.FC = () => {
     </header>
   );
 };
-
-const NavbarAction = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
-  <button onClick={onClick} title={label} className="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl hover:bg-gray-50 transition-colors group min-w-[36px] md:min-w-[60px]">
-    <span className="text-gray-400 group-hover:text-pos-primary md:mb-1 transition-colors">{icon}</span>
-    <span className="hidden md:block text-[9px] font-bold text-gray-400 group-hover:text-gray-900 uppercase tracking-tighter text-center">{label}</span>
-  </button>
-);

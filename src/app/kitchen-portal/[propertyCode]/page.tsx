@@ -13,6 +13,7 @@ import { MobileDrawer } from '../components/MobileDrawer';
 import { KitchenOrdersTab } from '../components/KitchenOrdersTab';
 import { KitchenStoreTab } from '../components/KitchenStoreTab';
 import { KitchenRequestsTab } from '../components/KitchenRequestsTab';
+import { KitchenMarketListTab, MarketOrder } from '../components/KitchenMarketListTab';
 import { StockRequestModal } from '../components/StockRequestModal';
 import { StaffProfileModal } from '../components/StaffProfileModal';
 
@@ -51,6 +52,10 @@ export default function KitchenPortalPage() {
   const [requests, setRequests] = useState<StockRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
 
+  // Market Procurement / Daily Buying List State
+  const [marketOrders, setMarketOrders] = useState<MarketOrder[]>([]);
+  const [marketLoading, setMarketLoading] = useState(false);
+
   // Out of Stock / Restock Modal
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedStockItem, setSelectedStockItem] = useState<StockItem | null>(null);
@@ -78,7 +83,7 @@ export default function KitchenPortalPage() {
             localStorage.setItem('kitchen_staff_name', name);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, []);
 
@@ -160,19 +165,46 @@ export default function KitchenPortalPage() {
     }
   }, [rawPropertyCode]);
 
+  /* ─── Fetch Market Buying Orders ─── */
+  const fetchMarketOrders = useCallback(async () => {
+    if (!rawPropertyCode) return;
+    setMarketLoading(true);
+    try {
+      const res = await fetch(
+        `/api/kitchen-portal/market-orders?propertyCode=${encodeURIComponent(rawPropertyCode)}`
+      );
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setMarketOrders(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch market orders:', err);
+    } finally {
+      setMarketLoading(false);
+    }
+  }, [rawPropertyCode]);
+
   // Initial load and periodic refresh
   useEffect(() => {
     fetchOrders(true);
     fetchStockItems();
     fetchRequests();
+    fetchMarketOrders();
 
-    // Live polling every 7 seconds
+    // Live polling every 7 seconds for orders, 15 seconds for market buying list
     const interval = setInterval(() => {
       fetchOrders(false);
     }, 7000);
 
-    return () => clearInterval(interval);
-  }, [fetchOrders, fetchStockItems, fetchRequests]);
+    const marketInterval = setInterval(() => {
+      fetchMarketOrders();
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(marketInterval);
+    };
+  }, [fetchOrders, fetchStockItems, fetchRequests, fetchMarketOrders]);
 
   /* ─── Helper: Determine Order Source ─── */
   const getOrderSource = useCallback((kot: KotTicket): 'ROOMS' | 'RESTAURANT' | 'TAKEAWAY' => {
@@ -395,6 +427,108 @@ export default function KitchenPortalPage() {
     }
   };
 
+  /* ─── Market Orders Handlers ─── */
+  const handleToggleMarketItem = async (orderId: string, itemId: string, isDone: boolean) => {
+    // Optimistic UI update
+    setMarketOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id !== orderId) return ord;
+        const updatedItems = ord.items.map((it) => (it.id === itemId ? { ...it, isDone } : it));
+        const doneCount = updatedItems.filter((i) => i.isDone).length;
+        return {
+          ...ord,
+          items: updatedItems,
+          doneItems: doneCount,
+          isFullyPurchased: doneCount === updatedItems.length && updatedItems.length > 0,
+        };
+      })
+    );
+
+    try {
+      const res = await fetch('/api/kitchen-portal/market-orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'TOGGLE_ITEM',
+          orderId,
+          itemId,
+          isPurchased: isDone,
+          staffName: activeStaffName,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        fetchMarketOrders();
+        toast.error('Failed to update item status');
+      } else {
+        if (isDone) playNotificationSound('success');
+      }
+    } catch {
+      fetchMarketOrders();
+      toast.error('Network error updating item status');
+    }
+  };
+
+  const handleReceiveOrderStock = async (orderId: string) => {
+    try {
+      const res = await fetch('/api/kitchen-portal/market-orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'RECEIVE_ORDER',
+          orderId,
+          staffName: activeStaffName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        playNotificationSound('success');
+        toast.success('Stock Inwarded to Kitchen! 📦', {
+          description: data.message || 'Items added directly to Kitchen Inventory stock.',
+        });
+        fetchMarketOrders();
+        fetchStockItems();
+      } else {
+        toast.error(data.error || 'Failed to inward stock');
+      }
+    } catch {
+      toast.error('Network error inwarding stock');
+    }
+  };
+
+  const handleAddNewMarketItem = async (data: {
+    shopId: string;
+    itemName: string;
+    quantity: number;
+    unit: string;
+    estimatedPrice: number;
+    notes?: string;
+  }) => {
+    try {
+      const res = await fetch('/api/kitchen-portal/market-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyCode: rawPropertyCode,
+          ...data,
+          staffName: activeStaffName,
+        }),
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        playNotificationSound('success');
+        toast.success(`Added ${data.itemName} to Buying List!`, {
+          description: `Order ${resData.orderNo || ''} updated for staff market runner.`,
+        });
+        fetchMarketOrders();
+      } else {
+        toast.error(resData.error || 'Failed to add item');
+      }
+    } catch {
+      toast.error('Network error adding market item');
+    }
+  };
+
   /* ─── Toggle Individual Item Checkbox ─── */
   const toggleItemChecked = (itemId: string) => {
     setCheckedItems((prev) => ({
@@ -478,6 +612,19 @@ export default function KitchenPortalPage() {
     return { total, outOfStock, lowStock, healthy };
   }, [stockItems]);
 
+  /* ─── Pending Items to Buy in Market ─── */
+  const marketPendingCount = useMemo(() => {
+    let count = 0;
+    marketOrders.forEach((o) => {
+      if (!o.isDeliveredToKitchen) {
+        o.items.forEach((item) => {
+          if (!item.isDone) count++;
+        });
+      }
+    });
+    return count;
+  }, [marketOrders]);
+
   return (
     <div className="min-h-screen bg-[#080d1a] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 pb-20 md:pb-6">
       <Toaster position="top-right" richColors />
@@ -492,6 +639,7 @@ export default function KitchenPortalPage() {
         orderCounts={orderCounts}
         lowStockCount={stockMetrics.outOfStock + stockMetrics.lowStock}
         pendingRequestsCount={requests.filter((r) => r.status === 'PENDING').length}
+        marketPendingCount={marketPendingCount}
         onToggleSound={toggleSound}
         onOpenStaffModal={() => {
           setStaffRoleInput(activeStaffName);
@@ -502,6 +650,7 @@ export default function KitchenPortalPage() {
           fetchOrders(false);
           fetchStockItems();
           fetchRequests();
+          fetchMarketOrders();
           toast.success('Kitchen synced');
         }}
         onTabChange={setActiveTab}
@@ -553,6 +702,19 @@ export default function KitchenPortalPage() {
             onMarkReceived={handleMarkReceived}
           />
         )}
+
+        {activeTab === 'market' && (
+          <KitchenMarketListTab
+            propertyCode={rawPropertyCode}
+            activeStaffName={activeStaffName}
+            orders={marketOrders}
+            loading={marketLoading}
+            onRefresh={fetchMarketOrders}
+            onToggleItemDone={handleToggleMarketItem}
+            onReceiveOrderStock={handleReceiveOrderStock}
+            onAddNewItem={handleAddNewMarketItem}
+          />
+        )}
       </main>
 
       {/* ─── Mobile Bottom App Bar ─── */}
@@ -561,6 +723,7 @@ export default function KitchenPortalPage() {
         newOrdersCount={orderCounts.new}
         lowStockCount={stockMetrics.outOfStock + stockMetrics.lowStock}
         pendingRequestsCount={requests.filter((r) => r.status === 'PENDING').length}
+        marketPendingCount={marketPendingCount}
         onTabChange={setActiveTab}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
       />

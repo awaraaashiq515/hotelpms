@@ -185,6 +185,7 @@ model Property {
   dynamicPricingRules           DynamicPricingRule[]
   channelConnections            ChannelConnection[]
   channelSyncLogs               ChannelSyncLog[]
+  agentVisibilityDays           Int                      @default(30) // How many days of room availability shown to agents
 
   // ── Tipping Feature ───────────────────────────────────────
   tippingEnabled    Boolean          @default(false)
@@ -3035,6 +3036,7 @@ model AgentHotelRelation {
   commissionRate Float       @default(10.0) // Hotel-specific commission rate
   isBlocked      Boolean     @default(false) // Whether this hotel blocked the agent
   blockedReason  String?
+  allowedDaysAhead Int       @default(30) // How many days of forward room availability this agent can view
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   agent          TravelAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
@@ -3528,4 +3530,27 @@ model LaundryMenuItem {
   updatedAt   DateTime  @updatedAt
 
   @@index([propertyId])
+}
+
+model SecurityAlert {
+  id          String   @id @default(cuid())
+  type        String   // BRUTE_FORCE | SQL_INJECTION | XSS | RATE_LIMIT | SUSPICIOUS_IP | AUTH_FAIL | SCAN_DETECTED | DATA_BREACH_ATTEMPT
+  severity    String   // critical | high | medium | low
+  ip          String?
+  userAgent   String?
+  path        String?
+  method      String?
+  payload     String?
+  userId      String?
+  propertyId  String?
+  message     String
+  isResolved  Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+  @@index([severity])
+  @@index([isResolved])
 }

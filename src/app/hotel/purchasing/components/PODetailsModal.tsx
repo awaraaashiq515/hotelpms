@@ -75,6 +75,20 @@ export const PODetailsModal: React.FC<PODetailsModalProps> = ({
 }) => {
   if (!isOpen || !order) return null;
 
+  let purchasedIds: string[] = [];
+  if (order.notes && order.notes.includes('__PURCHASED_IDS:')) {
+    try {
+      const match = order.notes.match(/__PURCHASED_IDS:(\[[^\]]*\])/);
+      if (match && match[1]) {
+        purchasedIds = JSON.parse(match[1]);
+      }
+    } catch {}
+  }
+
+  const isKitchenRunner =
+    Boolean(order.notes && order.notes.includes('[ASSIGNED_TO_KITCHEN_RUNNER]')) ||
+    Boolean(order.assignedStaffName && order.assignedStaffName.toLowerCase().includes('kitchen'));
+
   const handleWhatsApp = () => {
     openWhatsAppPO({
       hotelName: order.hotelName || 'Grand Hotel PMS',
@@ -273,16 +287,21 @@ export const PODetailsModal: React.FC<PODetailsModalProps> = ({
                   <th className="py-2.5 px-3 text-right">Quantity</th>
                   <th className="py-2.5 px-3 text-right">Unit Rate (₹)</th>
                   <th className="py-2.5 px-3 text-right">Amount (₹)</th>
+                  <th className="py-2.5 px-3 text-center print:hidden">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 print:divide-black/10 text-xs">
                 {order.items.map((item, idx) => {
                   const lineTotal = item.totalPrice || item.quantity * item.unitPrice;
+                  const isItemBought = item.id ? purchasedIds.includes(item.id) : false;
+
                   return (
                     <tr key={idx} className="hover:bg-slate-800/20 print:hover:bg-transparent">
                       <td className="py-2.5 px-3 text-center text-slate-500 print:text-slate-600 font-mono">{idx + 1}</td>
                       <td className="py-2.5 px-3 font-semibold text-white print:text-black">
-                        <div>{item.name}</div>
+                        <div className={isItemBought && order.status !== 'DELIVERED' ? 'line-through text-slate-400' : ''}>
+                          {item.name}
+                        </div>
                         {item.description && (
                           <div className="text-[10px] text-cyan-400/90 print:text-slate-600 italic font-normal">
                             Specs: {item.description}
@@ -297,6 +316,27 @@ export const PODetailsModal: React.FC<PODetailsModalProps> = ({
                       </td>
                       <td className="py-2.5 px-3 text-right font-bold font-mono text-cyan-300 print:text-black">
                         {lineTotal && lineTotal > 0 ? `₹${lineTotal.toLocaleString('en-IN')}` : 'On Bill'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center print:hidden">
+                        {order.status === 'DELIVERED' ? (
+                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                            ✓ Inwarded
+                          </span>
+                        ) : isKitchenRunner ? (
+                          isItemBought ? (
+                            <span className="text-[10px] text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                              ✓ Bought
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                              ⏳ To Buy
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[10px] text-slate-400">
+                            Pending
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -360,7 +400,7 @@ export const PODetailsModal: React.FC<PODetailsModalProps> = ({
                 className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition"
               >
                 <Truck size={13} />
-                <span>Mark Delivered & Receive Stock</span>
+                <span>Receive Goods & Add to Stock 📦</span>
               </button>
             )}
           </div>

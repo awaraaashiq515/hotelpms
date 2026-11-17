@@ -60,6 +60,7 @@ import {
   Tablet,
   Radio,
   Navigation,
+  Tv,
   Monitor,
   Eye,
   Printer,
@@ -315,6 +316,7 @@ export const HotelSidebar: React.FC = () => {
       { name: 'Bar POS',                path: '/hotel/pos/bar-pos',                           icon: Wine },
       { name: 'Cafe POS',               path: '/hotel/pos/cafe-pos',                          icon: Coffee },
       // ── Displays ──
+      { name: 'Master Order Display',   path: '/master-order-display',                        icon: Tv, badge: 'ALL-IN-1', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { name: 'Kitchen Staff App',      path: '/kitchen-portal',                              icon: ChefHat, badge: 'STAFF', badgeColor: 'bg-orange-500/20 text-orange-300' },
       { name: 'Kitchen Display',        path: '/hotel/pos/kitchen-display',                   icon: Eye },
       { name: 'Bar Display',            path: '/hotel/pos/bar-display',                       icon: Wine },

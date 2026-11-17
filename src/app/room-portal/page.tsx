@@ -1,30 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Hotel, Smartphone, Hash, ArrowRight, Loader2, AlertCircle, CheckCircle2, ChevronRight, ShieldCheck, Unlink, Crown, KeyRound } from 'lucide-react';
+import {
+  Hotel,
+  Hash,
+  ArrowRight,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+  Wifi,
+  UtensilsCrossed,
+  PhoneCall,
+  Bed,
+  Tv,
+} from 'lucide-react';
 import { toast, Toaster } from 'sonner';
-
-type Step = 'room' | 'mobile';
 
 export default function RoomPortalLogin() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('room');
-  const [authMode, setAuthMode] = useState<'vip' | 'mobile'>('vip');
   const [roomNumber, setRoomNumber] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [vipCode, setVipCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [suggestedRoom, setSuggestedRoom] = useState('');
   const [activeRooms, setActiveRooms] = useState<string[]>([]);
   const [time, setTime] = useState(new Date());
 
-  // Hotel Device Pairing State
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+  // Hotel state
   const [propertyId, setPropertyId] = useState('');
   const [propertyCode, setPropertyCode] = useState('');
   const [propertyName, setPropertyName] = useState('');
+
+  const roomInputRef = useRef<HTMLInputElement>(null);
 
   const fetchActiveRooms = async (pId?: string, pCode?: string) => {
     try {
@@ -33,13 +40,20 @@ export default function RoomPortalLogin() {
       if (pCode) params.set('propertyCode', pCode);
       const res = await fetch(`/api/room-portal/rooms?${params.toString()}`);
       const d = await res.json();
-      if (d.success && Array.isArray(d.activeRooms)) {
-        setActiveRooms(d.activeRooms);
+      if (d.success) {
+        if (Array.isArray(d.activeRooms)) {
+          setActiveRooms(d.activeRooms);
+        }
+        if (d.property && (!propertyName || propertyName === 'Hotel Room Portal')) {
+          setPropertyName(d.property.brandName || d.property.name || 'Hotel Room Portal');
+          if (d.property.id && !pId) setPropertyId(d.property.id);
+          if (d.property.code && !pCode) setPropertyCode(d.property.code);
+        }
       }
     } catch {}
   };
 
-  // Live clock & property detection from staff session / URL / localStorage
+  // Live clock & auto-detect property
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
 
@@ -53,10 +67,11 @@ export default function RoomPortalLogin() {
 
       if (urlRoom) {
         setRoomNumber(urlRoom);
-        setStep('mobile');
+        // Direct auto-open if room provided in query param!
+        setTimeout(() => handleOpenPortal(urlRoom), 200);
       }
 
-      // 1. If staff is logged in on this browser, ALWAYS sync to their active hotel!
+      // Check staff session
       try {
         const res = await fetch('/api/auth/session');
         const sessionData = await res.json();
@@ -69,42 +84,26 @@ export default function RoomPortalLogin() {
           setPropertyCode(staffPropCode);
           setPropertyName(staffPropName);
 
-          if (staffPropId) localStorage.setItem('room_portal_property_id', staffPropId);
-          if (staffPropCode) localStorage.setItem('room_portal_property', staffPropCode);
-          localStorage.setItem('room_portal_property_name', staffPropName);
-
-          setIsConfigured(true);
           fetchActiveRooms(staffPropId, staffPropCode);
           return;
         }
       } catch {}
 
-      // 2. Check URL query params
-      if (urlPropId) {
-        setPropertyId(urlPropId);
-        localStorage.setItem('room_portal_property_id', urlPropId);
-      }
-      if (urlProp) {
-        setPropertyCode(urlProp);
-        localStorage.setItem('room_portal_property', urlProp);
-      }
-
-      // 3. Check localStorage for already configured/paired property
-      let pId = localStorage.getItem('room_portal_property_id') || urlPropId;
-      let pCode = localStorage.getItem('room_portal_property') || urlProp;
-      let pName = localStorage.getItem('room_portal_property_name') || '';
+      // Check localStorage
+      const pId = localStorage.getItem('room_portal_property_id') || urlPropId;
+      const pCode = localStorage.getItem('room_portal_property') || urlProp;
+      const pName = localStorage.getItem('room_portal_property_name') || '';
 
       if (pId || pCode) {
         setPropertyId(pId);
         setPropertyCode(pCode);
         setPropertyName(pName || pCode);
-        setIsConfigured(true);
         fetchActiveRooms(pId, pCode);
         return;
       }
 
-      // 4. Tablet is NOT paired and no hotel staff logged in
-      setIsConfigured(false);
+      // Auto-load default
+      fetchActiveRooms();
     };
 
     initProperty();
@@ -118,74 +117,54 @@ export default function RoomPortalLogin() {
     if (token) {
       fetch('/api/room-portal/me', { headers: { Authorization: `Bearer ${token}` } })
         .then((r) => r.json())
-        .then((d) => { if (d.success) router.replace('/room-portal/dashboard'); })
+        .then((d) => {
+          if (d.success) router.replace('/room-portal/dashboard');
+        })
         .catch(() => {});
     }
   }, [router]);
 
-  const handleRoomNext = () => {
-    if (!roomNumber.trim()) {
-      setError('Please enter your room number.');
-      return;
-    }
-    setError('');
-    setSuggestedRoom('');
-    setStep('mobile');
-  };
-
-  const handleLogin = async (customRoom?: string) => {
+  // 1-Click Open Portal
+  const handleOpenPortal = async (customRoom?: string) => {
     const targetRoom = (customRoom || roomNumber).trim();
-    const isVip = authMode === 'vip';
-    const authVal = isVip ? vipCode.trim() : mobile.trim();
-
-    if (!authVal) {
-      setError(isVip ? 'Please enter your 4-digit VIP Passcode.' : 'Please enter your mobile number.');
+    if (!targetRoom) {
+      setError('Please enter your room number.');
+      roomInputRef.current?.focus();
       return;
     }
+
     setLoading(true);
     setError('');
+
     try {
       const res = await fetch('/api/room-portal/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomNumber: targetRoom,
-          vipCode: isVip ? authVal : (authVal.length === 4 ? authVal : undefined),
-          mobile: !isVip ? authVal : undefined,
           propertyId: propertyId || undefined,
           propertyCode: propertyCode || undefined,
         }),
       });
+
       const data = await res.json();
       if (data.success) {
-        setRoomNumber(targetRoom);
-        setSuggestedRoom('');
         localStorage.setItem('room_portal_token', data.token);
+        if (data.guest?.mobile) {
+          localStorage.setItem('room_portal_guest_mobile', data.guest.mobile);
+        }
         if (data.property?.id) localStorage.setItem('room_portal_property_id', data.property.id);
         if (data.property?.code) localStorage.setItem('room_portal_property', data.property.code);
         if (data.property?.name) {
           localStorage.setItem('room_portal_property_name', data.property.name);
           setPropertyName(data.property.name);
         }
-        if (data.isOwnerGuest) {
-          toast.success(`👑 Welcome Honored VIP Guest, ${data.guest?.firstName || ''}! ✨`);
-        } else {
-          toast.success(`Welcome, ${data.guest?.firstName || 'Guest'}! ✨`);
-        }
-        setTimeout(() => router.push('/room-portal/dashboard'), 800);
+
+        const guestName = data.guest?.firstName || 'Guest';
+        toast.success(`Welcome to Room ${targetRoom}, ${guestName}! ✨`);
+        setTimeout(() => router.push('/room-portal/dashboard'), 400);
       } else {
-        if (data.suggestedRoom) {
-          setSuggestedRoom(data.suggestedRoom);
-          if (data.suggestedPropertyId) {
-            setPropertyId(data.suggestedPropertyId);
-            localStorage.setItem('room_portal_property_id', data.suggestedPropertyId);
-          }
-          if (data.suggestedPropertyName) {
-            setPropertyName(data.suggestedPropertyName);
-            localStorage.setItem('room_portal_property_name', data.suggestedPropertyName);
-          }
-        }
-        setError(data.message || 'Login failed. Please check your details.');
+        setError(data.message || 'Could not open room portal. Please check the room number.');
         toast.error(data.message || 'Login failed.');
       }
     } catch {
@@ -195,122 +174,9 @@ export default function RoomPortalLogin() {
     }
   };
 
-  const handleUnpairTablet = () => {
-    if (confirm(`Disconnect this tablet from ${propertyName || 'this hotel'}?\n\nYou will need to log in with hotel staff credentials to reconnect it.`)) {
-      localStorage.removeItem('room_portal_property_id');
-      localStorage.removeItem('room_portal_property');
-      localStorage.removeItem('room_portal_property_name');
-      localStorage.removeItem('room_portal_token');
-      setPropertyId('');
-      setPropertyCode('');
-      setPropertyName('');
-      setIsConfigured(false);
-      toast.info('Tablet disconnected.');
-    }
-  };
-
   const timeStr = time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const dateStr = time.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // ── 1. Loading state while verifying configuration ──
-  if (isConfigured === null) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #030712 0%, #0a0f1e 50%, #030712 100%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px',
-      }}>
-        <Loader2 size={40} color="rgb(99,102,241)" className="animate-spin" />
-        <p style={{ color: 'rgb(148,163,184)', fontSize: '14px', fontWeight: 600 }}>Checking tablet setup...</p>
-      </div>
-    );
-  }
-
-  // ── 2. Unconfigured state: Prompt hotel staff login ──
-  if (isConfigured === false) {
-    return (
-      <>
-        <Toaster richColors position="top-center" />
-        <div style={{
-          minHeight: '100vh',
-          background: 'linear-gradient(135deg, #030712 0%, #0a0f1e 50%, #030712 100%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '32px 24px', position: 'relative', overflow: 'hidden',
-        }}>
-          {/* Background ambience */}
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-            <div style={{
-              position: 'absolute', top: '-10%', left: '20%',
-              width: '600px', height: '600px',
-              background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)',
-              borderRadius: '50%',
-            }} />
-            <div style={{
-              position: 'absolute', bottom: '-5%', right: '15%',
-              width: '500px', height: '500px',
-              background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
-              borderRadius: '50%',
-            }} />
-          </div>
-
-          <div style={{
-            width: '100%', maxWidth: '460px',
-            background: 'rgba(15, 23, 42, 0.9)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-            borderRadius: '28px',
-            padding: '44px 36px',
-            textAlign: 'center',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.5)',
-            position: 'relative', zIndex: 1,
-          }}>
-            <div style={{
-              width: '72px', height: '72px', borderRadius: '22px',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 20px auto',
-              boxShadow: '0 8px 30px rgba(99, 102, 241, 0.4)',
-            }}>
-              <Hotel size={36} color="white" />
-            </div>
-            <span style={{
-              display: 'inline-block',
-              padding: '5px 14px', borderRadius: '8px',
-              background: 'rgba(99, 102, 241, 0.15)',
-              border: '1px solid rgba(99, 102, 241, 0.35)',
-              color: 'rgb(165, 180, 252)', fontSize: '12px', fontWeight: 800,
-              letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '14px',
-            }}>
-              Tablet Setup Required
-            </span>
-            <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 900, margin: '0 0 12px 0' }}>
-              Hotel Staff Login
-            </h1>
-            <p style={{ color: 'rgb(148, 163, 184)', fontSize: '14px', lineHeight: 1.6, margin: '0 0 28px 0' }}>
-              To connect this tablet to your hotel, please sign in with a hotel staff account. Once connected, this device will remain permanently active for your hotel.
-            </p>
-            <button
-              onClick={() => router.push('/login?callbackUrl=/room-portal')}
-              style={{
-                width: '100%', padding: '18px',
-                borderRadius: '16px', border: 'none',
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                color: 'white', fontSize: '16px', fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: '10px',
-                boxShadow: '0 8px 32px rgba(99,102,241,0.35)',
-              }}
-            >
-              Sign In with Hotel Staff Account <ArrowRight size={20} />
-            </button>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // ── 3. Configured state: Guest Room Login Screen ──
   return (
     <>
       <Toaster richColors position="top-center" />
@@ -322,477 +188,312 @@ export default function RoomPortalLogin() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '32px 24px',
+          padding: '24px 20px',
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        {/* Background ambience */}
+        {/* Ambient background glow */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-          <div style={{
-            position: 'absolute', top: '-10%', left: '20%',
-            width: '600px', height: '600px',
-            background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)',
-            borderRadius: '50%',
-          }} />
-          <div style={{
-            position: 'absolute', bottom: '-5%', right: '15%',
-            width: '500px', height: '500px',
-            background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
-            borderRadius: '50%',
-          }} />
-          {/* Decorative grid */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: 'linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px)',
-            backgroundSize: '60px 60px',
-          }} />
+          <div
+            style={{
+              position: 'absolute',
+              top: '-15%',
+              left: '15%',
+              width: '650px',
+              height: '650px',
+              background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
+              borderRadius: '50%',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-10%',
+              right: '15%',
+              width: '550px',
+              height: '550px',
+              background: 'radial-gradient(circle, rgba(249,115,22,0.10) 0%, transparent 70%)',
+              borderRadius: '50%',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage:
+                'linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px)',
+              backgroundSize: '60px 60px',
+            }}
+          />
         </div>
 
-        {/* Clock & Date — top section */}
-        <div style={{ textAlign: 'center', marginBottom: '36px', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            fontSize: '64px',
-            fontWeight: 900,
-            color: 'white',
-            letterSpacing: '-2px',
-            lineHeight: 1,
-            marginBottom: '8px',
-            textShadow: '0 0 60px rgba(99,102,241,0.3)',
-          }}>
+        {/* Live Clock & Date */}
+        <div style={{ textAlign: 'center', marginBottom: '26px', position: 'relative', zIndex: 1 }}>
+          <div
+            style={{
+              fontSize: '56px',
+              fontWeight: 900,
+              color: 'white',
+              letterSpacing: '-2px',
+              lineHeight: 1,
+              marginBottom: '6px',
+              textShadow: '0 0 50px rgba(99,102,241,0.3)',
+            }}
+          >
             {timeStr}
           </div>
-          <div style={{ fontSize: '15px', color: 'rgb(100,116,139)', fontWeight: 500 }}>
+          <div style={{ fontSize: '14px', color: 'rgb(148,163,184)', fontWeight: 500 }}>
             {dateStr}
           </div>
         </div>
 
-        {/* Login Card */}
-        <div style={{
-          width: '100%',
-          maxWidth: '440px',
-          position: 'relative',
-          zIndex: 1,
-        }}>
-          {/* Hotel logo / brand */}
-          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '68px', height: '68px',
-              borderRadius: '20px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              boxShadow: '0 20px 60px rgba(99,102,241,0.35)',
-              marginBottom: '14px',
-            }}>
-              <Hotel size={34} color="white" />
+        {/* Central Card */}
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '460px',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {/* Hotel brand */}
+          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '64px',
+                height: '64px',
+                borderRadius: '20px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                boxShadow: '0 16px 50px rgba(99,102,241,0.35)',
+                marginBottom: '12px',
+              }}
+            >
+              <Hotel size={32} color="white" />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span style={{
-                padding: '2px 8px', borderRadius: '6px',
-                background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)',
-                color: 'rgb(134,239,172)', fontSize: '11px', fontWeight: 800,
-              }}>
-                ● ONLINE
-              </span>
-              <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 900, margin: 0 }}>
-                {propertyName || 'Hotel Room Portal'}
-              </h1>
-              <button
-                type="button"
-                onClick={handleUnpairTablet}
-                title="Change or unlink hotel"
+              <span
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
+                  padding: '2px 8px',
                   borderRadius: '6px',
-                  color: 'rgb(148,163,184)',
-                  fontSize: '10px',
-                  padding: '2px 6px',
-                  cursor: 'pointer',
-                  marginLeft: '4px',
+                  background: 'rgba(34,197,94,0.15)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  color: 'rgb(134,239,172)',
+                  fontSize: '11px',
+                  fontWeight: 800,
                 }}
               >
-                Switch
-              </button>
+                ● IN-ROOM TABLET
+              </span>
+              <h1 style={{ color: 'white', fontSize: '22px', fontWeight: 900, margin: 0 }}>
+                {propertyName || 'Hotel Room Portal'}
+              </h1>
             </div>
-            <p style={{ color: 'rgb(100,116,139)', fontSize: '13px', margin: 0 }}>
-              In-Room Guest Tablet • Enter your room &amp; mobile to begin
+            <p style={{ color: 'rgb(148,163,184)', fontSize: '13px', margin: 0 }}>
+              Enter your room number to open your in-room tablet &amp; services
             </p>
           </div>
 
-          {/* Step indicator */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            marginBottom: '24px',
-          }}>
-            <StepDot active={step === 'room'} done={step === 'mobile'} label="Room" number={1} />
-            <div style={{ width: '48px', height: '2px', background: step === 'mobile' ? 'rgba(99,102,241,0.6)' : 'rgba(100,116,139,0.3)', borderRadius: '2px', transition: 'background 0.3s' }} />
-            <StepDot active={step === 'mobile'} done={false} label="Mobile" number={2} />
-          </div>
-
-          {/* Card */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.9)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(99,102,241,0.2)',
-            borderRadius: '28px',
-            padding: '36px',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.05) inset',
-          }}>
-            {step === 'room' ? (
-              <div>
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', color: 'rgb(148,163,184)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                    <Hash size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
-                    Room Number
-                  </label>
-                  <input
-                    id="room-number-input"
-                    type="text"
-                    inputMode="numeric"
-                    value={roomNumber}
-                    onChange={(e) => { setRoomNumber(e.target.value); setError(''); }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleRoomNext()}
-                    placeholder="e.g. 101, 201, 202"
-                    autoFocus
-                    style={{
-                      width: '100%',
-                      padding: '18px 20px',
-                      borderRadius: '16px',
-                      border: error ? '2px solid rgba(239,68,68,0.6)' : '1px solid rgba(99,102,241,0.3)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: 'white',
-                      fontSize: '28px',
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      letterSpacing: '4px',
-                      outline: 'none',
-                      transition: 'border-color 0.2s',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-
-                  {activeRooms.length > 0 && (
-                    <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                      <span style={{ color: 'rgb(100,116,139)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>
-                        Checked-In Rooms (Click to Select)
-                      </span>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                        {activeRooms.map((rm) => (
-                          <button
-                            key={rm}
-                            type="button"
-                            onClick={() => {
-                              setRoomNumber(rm);
-                              setError('');
-                              setSuggestedRoom('');
-                              setStep('mobile');
-                            }}
-                            style={{
-                              padding: '6px 14px',
-                              borderRadius: '10px',
-                              background: roomNumber === rm ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(99,102,241,0.15)',
-                              border: roomNumber === rm ? '1px solid #818cf8' : '1px solid rgba(99,102,241,0.35)',
-                              color: 'white',
-                              fontSize: '13px',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            Rm {rm}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {error && <ErrorMessage message={error} />}
-                <button
-                  id="room-next-btn"
-                  onClick={handleRoomNext}
-                  style={{
-                    width: '100%',
-                    padding: '18px',
-                    borderRadius: '16px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    color: 'white',
-                    fontSize: '16px',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    boxShadow: '0 8px 32px rgba(99,102,241,0.35)',
-                    transition: 'transform 0.1s, box-shadow 0.2s',
-                    marginTop: '8px',
-                  }}
-                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
-                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                >
-                  Continue <ChevronRight size={20} />
-                </button>
-              </div>
-            ) : (
-              <div>
-                <button
-                  onClick={() => { setStep('room'); setError(''); }}
-                  style={{ color: 'rgb(99,102,241)', fontSize: '13px', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  ← Back
-                </button>
-                <div style={{
-                  background: 'rgba(99,102,241,0.1)',
-                  border: '1px solid rgba(99,102,241,0.25)',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  marginBottom: '20px',
+          {/* Main Card */}
+          <div
+            style={{
+              background: 'rgba(15, 23, 42, 0.92)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid rgba(99,102,241,0.25)',
+              borderRadius: '26px',
+              padding: '32px 28px',
+              boxShadow: '0 40px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
+            }}
+          >
+            <div style={{ marginBottom: '22px' }}>
+              <label
+                style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
-                }}>
-                  <CheckCircle2 size={16} color="rgb(99,102,241)" />
-                  <span style={{ color: 'rgb(148,163,184)', fontSize: '14px' }}>
-                    Room <strong style={{ color: 'white' }}>{roomNumber}</strong> selected
+                  justifyContent: 'space-between',
+                  color: 'rgb(148,163,184)',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  marginBottom: '12px',
+                }}
+              >
+                <span>
+                  <Hash size={13} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+                  Enter Room Number
+                </span>
+                <span style={{ color: 'rgb(99,102,241)', fontWeight: 700, fontSize: '11px' }}>
+                  Press Enter to Open
+                </span>
+              </label>
+
+              <input
+                ref={roomInputRef}
+                id="room-number-input"
+                type="text"
+                inputMode="numeric"
+                value={roomNumber}
+                onChange={(e) => {
+                  setRoomNumber(e.target.value);
+                  setError('');
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleOpenPortal()}
+                placeholder="e.g. 101, 102, 103"
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '18px 20px',
+                  borderRadius: '18px',
+                  border: error ? '2px solid rgba(239,68,68,0.6)' : '2px solid rgba(99,102,241,0.4)',
+                  background: 'rgba(15,23,42,0.7)',
+                  color: 'white',
+                  fontSize: '32px',
+                  fontWeight: 900,
+                  textAlign: 'center',
+                  letterSpacing: '4px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                  boxSizing: 'border-box',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+                }}
+              />
+
+              {/* Quick Select Checked-In Rooms */}
+              {activeRooms.length > 0 && (
+                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                  <span
+                    style={{
+                      color: 'rgb(148,163,184)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      display: 'block',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    ⚡ Tap to Open Instantly:
                   </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                    {activeRooms.map((rm) => (
+                      <button
+                        key={rm}
+                        type="button"
+                        onClick={() => {
+                          setRoomNumber(rm);
+                          handleOpenPortal(rm);
+                        }}
+                        style={{
+                          padding: '9px 18px',
+                          borderRadius: '14px',
+                          background: roomNumber === rm ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(99,102,241,0.15)',
+                          border: roomNumber === rm ? '1px solid #818cf8' : '1px solid rgba(99,102,241,0.35)',
+                          color: 'white',
+                          fontSize: '14px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                          boxShadow: roomNumber === rm ? '0 4px 14px rgba(99,102,241,0.4)' : 'none',
+                        }}
+                      >
+                        Room {rm}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                {/* Tab Switcher: 4-Digit VIP Code vs Mobile Number */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'rgba(15,23,42,0.8)', padding: '5px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('vip'); setError(''); }}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: authMode === 'vip' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-                      color: authMode === 'vip' ? '#0f172a' : '#94a3b8',
-                      fontSize: '12px',
-                      fontWeight: 900,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Crown size={14} /> 4-Digit VIP Passcode
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('mobile'); setError(''); }}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: authMode === 'mobile' ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                      color: authMode === 'mobile' ? 'white' : '#94a3b8',
-                      fontSize: '12px',
-                      fontWeight: 900,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Smartphone size={14} /> Mobile Number
-                  </button>
-                </div>
+              )}
+            </div>
 
-                {authMode === 'vip' ? (
-                  /* ── 4-Digit VIP Passcode Input ── */
-                  <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', color: '#fbbf24', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                      <Crown size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle', color: '#f59e0b' }} />
-                      Owner / VIP Guest 4-Digit Passcode
-                    </label>
-                    <input
-                      id="vip-code-input"
-                      type="text"
-                      inputMode="numeric"
-                      value={vipCode}
-                      onChange={(e) => { setVipCode(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                      placeholder="• • • •"
-                      autoFocus
-                      maxLength={4}
-                      style={{
-                        width: '100%',
-                        padding: '18px 20px',
-                        borderRadius: '16px',
-                        border: error ? '2px solid rgba(239,68,68,0.6)' : '2px solid rgba(245,158,11,0.5)',
-                        background: 'rgba(245,158,11,0.06)',
-                        color: '#fbbf24',
-                        fontSize: '32px',
-                        fontWeight: 900,
-                        textAlign: 'center',
-                        letterSpacing: '14px',
-                        outline: 'none',
-                        transition: 'border-color 0.2s',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                    <p style={{ color: 'rgb(148,163,184)', fontSize: '12px', marginTop: '10px', textAlign: 'center' }}>
-                      👑 Enter the 4-digit code provided by Hotel Owner / Reception
-                    </p>
-                  </div>
-                ) : (
-                  /* ── Regular Mobile Input ── */
-                  <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', color: 'rgb(148,163,184)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                      <Smartphone size={12} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
-                      Registered Mobile Number
-                    </label>
-                    <input
-                      id="mobile-input"
-                      type="tel"
-                      inputMode="numeric"
-                      value={mobile}
-                      onChange={(e) => { setMobile(e.target.value); setError(''); }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                      placeholder="10-digit mobile number"
-                      autoFocus
-                      maxLength={15}
-                      style={{
-                        width: '100%',
-                        padding: '18px 20px',
-                        borderRadius: '16px',
-                        border: error ? '2px solid rgba(239,68,68,0.6)' : '1px solid rgba(99,102,241,0.3)',
-                        background: 'rgba(15,23,42,0.6)',
-                        color: 'white',
-                        fontSize: '24px',
-                        fontWeight: 800,
-                        textAlign: 'center',
-                        letterSpacing: '3px',
-                        outline: 'none',
-                        transition: 'border-color 0.2s',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                    <p style={{ color: 'rgb(71,85,105)', fontSize: '12px', marginTop: '8px', textAlign: 'center' }}>
-                      Use the mobile number registered during check-in
-                    </p>
-                  </div>
-                )}
+            {error && <ErrorMessage message={error} />}
 
-                {suggestedRoom && (
-                  <div style={{
-                    background: 'rgba(34, 197, 94, 0.12)',
-                    border: '1px solid rgba(34, 197, 94, 0.35)',
-                    borderRadius: '16px',
-                    padding: '16px',
-                    marginBottom: '18px',
-                    textAlign: 'center',
-                  }}>
-                    <p style={{ color: 'rgb(187, 247, 208)', fontSize: '13px', fontWeight: 600, margin: '0 0 10px 0', lineHeight: 1.4 }}>
-                      Guest with this mobile is checked into <strong style={{ color: '#4ade80', fontSize: '15px' }}>Room {suggestedRoom}</strong>!
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleLogin(suggestedRoom)}
-                      disabled={loading}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: '12px',
-                        border: 'none',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        color: 'white',
-                        fontSize: '14px',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      👉 Switch to Room {suggestedRoom} &amp; Enter
-                    </button>
-                  </div>
-                )}
-
-                {error && <ErrorMessage message={error} />}
-                <button
-                  id="login-btn"
-                  onClick={() => handleLogin()}
-                  disabled={loading}
-                  style={{
-                    width: '100%',
-                    padding: '18px',
-                    borderRadius: '16px',
-                    border: 'none',
-                    background: loading
-                      ? 'rgba(99,102,241,0.5)'
-                      : authMode === 'vip'
-                      ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-                      : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    color: authMode === 'vip' ? '#0f172a' : 'white',
-                    fontSize: '16px',
-                    fontWeight: 900,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    boxShadow: authMode === 'vip'
-                      ? '0 8px 32px rgba(245,158,11,0.35)'
-                      : '0 8px 32px rgba(99,102,241,0.35)',
-                    transition: 'transform 0.1s, box-shadow 0.2s',
-                    marginTop: '8px',
-                  }}
-                  onMouseDown={(e) => !loading && (e.currentTarget.style.transform = 'scale(0.98)')}
-                  onMouseUp={(e) => !loading && (e.currentTarget.style.transform = 'scale(1)')}
-                >
-                  {loading ? (
-                    <><Loader2 size={20} className="animate-spin" /> Verifying...</>
-                  ) : authMode === 'vip' ? (
-                    <>👑 Enter as VIP Guest <ArrowRight size={20} /></>
-                  ) : (
-                    <>Access My Room <ArrowRight size={20} /></>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Help & Device Info */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '20px', padding: '0 8px' }}>
-            <span style={{ color: 'rgb(71,85,105)', fontSize: '12px' }}>
-              Having trouble? Contact front desk.
-            </span>
+            {/* Instant Open Button */}
             <button
-              onClick={handleUnpairTablet}
-              title="Staff: Disconnect tablet from this property"
+              id="open-portal-btn"
+              onClick={() => handleOpenPortal()}
+              disabled={loading}
               style={{
-                background: 'none', border: 'none', color: 'rgb(71,85,105)',
-                fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                width: '100%',
+                padding: '18px',
+                borderRadius: '16px',
+                border: 'none',
+                background: loading
+                  ? 'rgba(99,102,241,0.5)'
+                  : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 900,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                boxShadow: '0 8px 32px rgba(99,102,241,0.4)',
+                transition: 'transform 0.1s, box-shadow 0.2s',
+              }}
+              onMouseDown={(e) => !loading && (e.currentTarget.style.transform = 'scale(0.98)')}
+              onMouseUp={(e) => !loading && (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" /> Opening Room Portal...
+                </>
+              ) : (
+                <>
+                  Open In-Room Portal <ArrowRight size={20} />
+                </>
+              )}
+            </button>
+
+            {/* Feature preview badges */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '6px',
+                marginTop: '22px',
+                paddingTop: '18px',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                textAlign: 'center',
               }}
             >
-              <Unlink size={11} /> Unlink Device
-            </button>
+              <div style={{ color: 'rgb(148,163,184)', fontSize: '10px', fontWeight: 700 }}>
+                <span style={{ display: 'block', fontSize: '16px', marginBottom: '4px' }}>🍽️</span>
+                Room Service
+              </div>
+              <div style={{ color: 'rgb(148,163,184)', fontSize: '10px', fontWeight: 700 }}>
+                <span style={{ display: 'block', fontSize: '16px', marginBottom: '4px' }}>📶</span>
+                High-Speed Wi-Fi
+              </div>
+              <div style={{ color: 'rgb(148,163,184)', fontSize: '10px', fontWeight: 700 }}>
+                <span style={{ display: 'block', fontSize: '16px', marginBottom: '4px' }}>🧹</span>
+                Housekeeping
+              </div>
+              <div style={{ color: 'rgb(148,163,184)', fontSize: '10px', fontWeight: 700 }}>
+                <span style={{ display: 'block', fontSize: '16px', marginBottom: '4px' }}>🛎️</span>
+                Front Desk
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <p style={{
-          position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-          color: 'rgb(51,65,85)', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap',
-        }}>
+        <p
+          style={{
+            position: 'absolute',
+            bottom: '18px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            color: 'rgb(71,85,105)',
+            fontSize: '11px',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}
+        >
           Powered by <span style={{ color: 'rgb(99,102,241)' }}>GuestFlow HMS</span>
         </p>
       </div>
@@ -800,34 +501,20 @@ export default function RoomPortalLogin() {
   );
 }
 
-function StepDot({ active, done, label, number }: { active: boolean; done: boolean; label: string; number: number }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-      <div style={{
-        width: '32px', height: '32px', borderRadius: '50%',
-        background: done ? 'rgba(34,197,94,0.2)' : active ? 'rgba(99,102,241,0.25)' : 'rgba(100,116,139,0.15)',
-        border: done ? '2px solid rgba(34,197,94,0.6)' : active ? '2px solid rgba(99,102,241,0.7)' : '2px solid rgba(100,116,139,0.3)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.3s',
-        color: done ? 'rgb(34,197,94)' : active ? 'rgb(99,102,241)' : 'rgb(100,116,139)',
-        fontSize: '13px', fontWeight: 900,
-      }}>
-        {done ? '✓' : number}
-      </div>
-      <span style={{ fontSize: '10px', fontWeight: 700, color: active ? 'rgb(148,163,184)' : 'rgb(71,85,105)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '8px',
-      background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-      borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        background: 'rgba(239,68,68,0.1)',
+        border: '1px solid rgba(239,68,68,0.3)',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        marginBottom: '16px',
+      }}
+    >
       <AlertCircle size={16} color="rgb(239,68,68)" />
       <span style={{ color: 'rgb(252,165,165)', fontSize: '13px', fontWeight: 600 }}>{message}</span>
     </div>

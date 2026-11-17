@@ -33,6 +33,7 @@ export default function HousekeepingPage() {
   const [selected, setSelected] = useState<string>('');
   const [priority, setPriority] = useState<'URGENT' | 'NORMAL'>('NORMAL');
   const [notes, setNotes] = useState('');
+  const [contactMobile, setContactMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -40,6 +41,11 @@ export default function HousekeepingPage() {
   const [laundryMenu, setLaundryMenu] = useState<any[]>(DEFAULT_LAUNDRY_MENU);
   const [laundrySelections, setLaundrySelections] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('room_portal_guest_mobile') || '';
+    if (saved) setContactMobile(saved);
+  }, []);
 
   useEffect(() => {
     fetch('/api/hotel/laundry/menu')
@@ -96,6 +102,11 @@ export default function HousekeepingPage() {
         itemsDetail = itemsPayload.map((i) => `${i.name} (x${i.qty})`).join(', ');
       }
 
+      const cleanPhone = contactMobile.replace(/\D/g, '').slice(-10);
+      if (cleanPhone) {
+        localStorage.setItem('room_portal_guest_mobile', cleanPhone);
+      }
+
       const res = await fetch('/api/room-portal/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -104,6 +115,8 @@ export default function HousekeepingPage() {
           category: selected,
           notes,
           priority,
+          guestMobile: cleanPhone || undefined,
+          contactPhone: cleanPhone || undefined,
           itemsCount: totalLaundryItems > 0 ? totalLaundryItems : 1,
           amount: totalLaundryCost,
           items: itemsPayload,
@@ -419,6 +432,31 @@ export default function HousekeepingPage() {
                   resize: 'none',
                   outline: 'none',
                   fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Optional contact phone */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: 'rgb(148,163,184)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                📱 Contact Phone (Optional)
+              </label>
+              <input
+                type="tel"
+                value={contactMobile}
+                onChange={(e) => setContactMobile(e.target.value)}
+                placeholder="Enter mobile number if you want staff to call before arriving"
+                maxLength={15}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(99,102,241,0.25)',
+                  background: 'rgba(15,23,42,0.7)',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none',
                   boxSizing: 'border-box',
                 }}
               />

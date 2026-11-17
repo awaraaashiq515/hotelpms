@@ -23,6 +23,7 @@
     "build-win": "electron-builder --projectDir electron --config electron-builder.json --win --x64 --publish never"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.5.0",
     "@capacitor/android": "^8.4.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",

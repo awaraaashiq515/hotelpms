@@ -32,18 +32,47 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     const staffMembers = await (prisma as any).staffMember.findMany({
       where: getMultiTenantWhere(session, propertyIdParam),
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
           select: {
+            id: true,
             email: true,
             role: { select: { name: true } },
+            staffLocationPings: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                lat: true,
+                lng: true,
+                distanceFromBase: true,
+                isOutOfRange: true,
+                createdAt: true,
+              }
+            },
+            attendance: {
+              where: {
+                clockIn: { gte: startOfToday },
+              },
+              orderBy: { clockIn: 'desc' },
+              take: 1,
+            }
           }
         },
         property: {
           select: { id: true, name: true, code: true }
+        },
+        attendance: {
+          where: {
+            clockIn: { gte: startOfToday },
+          },
+          orderBy: { clockIn: 'desc' },
+          take: 1,
         }
       }
     });

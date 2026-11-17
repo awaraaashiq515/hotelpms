@@ -10,10 +10,10 @@ import {
   IndianRupee, Users, Crown, Brain, Wifi, Settings,
   ChevronDown, ChevronRight, Hotel, LayoutGrid, Star, Handshake, BookOpen, Tablet,
   UserCheck, Radio, Navigation, UtensilsCrossed, Monitor, Bell,
-  Trash2, Download, Eye, Printer, ShoppingCart, Tag, Bike, FileText,
+  Trash2, Download, Eye, Printer, ShoppingCart, ShoppingBag, Tag, Bike, FileText,
   Phone, Music2, Lock, Plus,
   Wine, Coffee, Store, ClipboardList, CalendarDays, History, Layers, BedDouble, ConciergeBell,
-  ShieldCheck,
+  ShieldCheck, Tv, Waves, ShieldAlert, QrCode, Heart,
 } from 'lucide-react';
 import { LiveClock } from '@/components/hotel/ui/LiveClock';
 import { SelectRoomOrderModal } from '@/components/hotel/pos/SelectRoomOrderModal';
@@ -23,6 +23,7 @@ import { DailyShortcutsSection } from '@/components/hotel/DailyShortcutsSection'
 function ModuleCard({ name, href, icon: Icon, iconColor, iconBg, cardBorder }: {
   name: string; href: string; icon: React.ComponentType<any>;
   iconColor: string; iconBg: string; cardBorder: string;
+  key?: any;
 }) {
   return (
     <Link
@@ -39,6 +40,106 @@ function ModuleCard({ name, href, icon: Icon, iconColor, iconBg, cardBorder }: {
   );
 }
 
+/* ─── Dedicated Daily Operations & Frequent Routine Workspace (Used Daily or Every 2-4 Days) ─── */
+function DailyOperationsWorkspace({ modules, dept }: { modules: any[]; dept: any }) {
+  const [activeCategory, setActiveCategory] = useState<string>('ALL');
+  const [filterText, setFilterText] = useState<string>('');
+
+  const CATEGORIES = [
+    { id: 'ALL', label: 'All Daily & Routine', emoji: '⚡' },
+    { id: 'FRONT_DESK', label: 'Front Desk & Arrival', emoji: '🏨' },
+    { id: 'ROOMS_HK', label: 'Rooms & Housekeeping', emoji: '🛏️' },
+    { id: 'DINING_POS', label: 'Dining, Kitchen & POS', emoji: '🍽️' },
+    { id: 'FINANCE', label: 'Cash & Night Audit', emoji: '💰' },
+    { id: 'STAFF', label: 'Staff & Attendance', emoji: '📍' },
+  ];
+
+  const filtered = modules.filter((m) => {
+    const matchesCat = activeCategory === 'ALL' || m.category === activeCategory;
+    const matchesSearch = !filterText.trim() || m.name.toLowerCase().includes(filterText.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
+
+  return (
+    <div className="space-y-4 pt-1">
+      {/* ── Sub-header Banner & Quick Filters ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-[#080d19]/95 border border-amber-500/35 shadow-xl backdrop-blur-md">
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          {CATEGORIES.map((cat) => {
+            const count = cat.id === 'ALL' ? modules.length : modules.filter((m) => m.category === cat.id).length;
+            if (count === 0) return null;
+            const isSelected = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategory(cat.id)}
+                className={`h-8 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black shadow-md shadow-amber-500/25 scale-[1.02]'
+                    : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/60'
+                }`}
+              >
+                <span>{cat.emoji}</span>
+                <span>{cat.label}</span>
+                <span
+                  className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-black ${
+                    isSelected ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Quick Search inside Daily Operations */}
+        <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder="Search daily routine pages..."
+            className="w-full h-8 pl-8 pr-7 text-xs rounded-xl bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+          />
+          {filterText && (
+            <button
+              onClick={() => setFilterText('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Filtered Module Cards Grid ── */}
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-slate-500 text-xs rounded-2xl border border-slate-800/80 bg-slate-900/40">
+          No daily operations match &quot;{filterText}&quot; in this category.
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 relative z-10">
+          {filtered.map((mod) => (
+            <ModuleCard
+              key={mod.name}
+              name={mod.name}
+              href={mod.href}
+              icon={mod.icon}
+              iconColor={dept.iconColor}
+              iconBg={dept.iconBg}
+              cardBorder={dept.cardBorder}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Distinct Premium Restaurant & POS Workspace Component (All POS Pages Integrated) ─── */
 function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | null }) {
   const router = useRouter();
@@ -49,12 +150,11 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
   const [showRoomOrderModal, setShowRoomOrderModal] = useState(false);
 
   const CATEGORIES = [
-    { id: 'ALL', label: 'All POS Pages', count: 32 },
+    { id: 'ALL', label: 'All POS Pages', count: 31 },
     { id: 'STATIONS', label: '⚡ Workstations', count: 6 },
     { id: 'ORDERS', label: '🛎️ Orders & KOTs', count: 6 },
-    { id: 'DISPLAYS', label: '📺 Live Displays', count: 5 },
-    { id: 'DELIVERY', label: '🛵 Delivery Fleet', count: 5 },
-    { id: 'MENU', label: '📋 Menu & Floor', count: 7 },
+    { id: 'DISPLAYS', label: '📺 Live Displays', count: 7 },
+    { id: 'MENU', label: '📋 Menu & Floor', count: 8 },
     { id: 'BILLING', label: '💳 Billing & Staff', count: 4 },
   ];
 
@@ -110,7 +210,7 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
             <span>Daily Buffet Menus</span>
           </Link>
 
-          {/* Live Order Dropdown (Delivery / Pickup / Room Service) */}
+          {/* Live Order Dropdown (Pickup / Room Service) */}
           <div className="relative shrink-0">
             <button
               type="button"
@@ -119,10 +219,10 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                 setShowDisplays(false);
               }}
               className="h-9 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-md shadow-violet-600/25 active:scale-95 transition-all"
-              title="Live Order Channels (Delivery, Pickup, Room Service)"
+              title="Live Order Channels (Pickup, Room Service)"
             >
-              <Bike size={14} />
-              <span>Live Channels</span>
+              <ShoppingBag size={14} />
+              <span>Channels</span>
               <ChevronDown size={12} className={`transition-transform duration-200 ${showLiveOrder ? 'rotate-180' : ''}`} />
             </button>
             {showLiveOrder && (
@@ -136,18 +236,11 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                     Select Channel
                   </div>
                   <Link
-                    href="/hotel/pos/billing?type=DELIVERY"
-                    onClick={() => setShowLiveOrder(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 transition-colors"
-                  >
-                    <span className="text-base">🏍️</span> Delivery Order
-                  </Link>
-                  <Link
                     href="/hotel/pos/billing?type=PICKUP"
                     onClick={() => setShowLiveOrder(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors border-t border-slate-800/80"
+                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
                   >
-                    <span className="text-base">🛍️</span> Counter Pick Up
+                    <span className="text-base">🛍️</span> Counter Pick Up / Takeaway
                   </Link>
                   <Link
                     href="/hotel/pos/room-orders"
@@ -192,10 +285,10 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                 setShowDisplays(!showDisplays);
                 setShowLiveOrder(false);
               }}
-              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl transition-all border ${showDisplays ? 'bg-slate-800 text-white border-slate-600' : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'}`}
-              title="Kitchen, Bar, & Customer Displays"
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl transition-all border ${showDisplays ? 'bg-indigo-950 text-indigo-300 border-indigo-500/50 shadow-md shadow-indigo-600/20' : 'bg-slate-900/90 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'}`}
+              title="Kitchen, Bar, Master TV & Customer Displays"
             >
-              <Monitor size={14} className="text-sky-400" />
+              <Monitor size={14} className="text-indigo-400" />
               <span className="text-[11px] font-bold">Displays</span>
               <ChevronDown size={11} className={`transition-transform duration-200 ${showDisplays ? 'rotate-180' : ''}`} />
             </button>
@@ -205,37 +298,94 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
                   className="fixed inset-0 z-40"
                   onClick={() => setShowDisplays(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-60 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-3.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
-                    Live Kitchen & Displays
+                <div className="absolute left-0 top-full mt-2 w-72 max-w-[90vw] bg-[#0c1322] border border-slate-700/90 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1 flex items-center justify-between">
+                    <span>Live Kitchen &amp; Displays</span>
+                    <span className="text-[9px] text-indigo-400 font-bold">6 Screens</span>
                   </div>
+
+                  {/* 1. Master Order Display (TV) */}
+                  <Link
+                    href="/master-order-display"
+                    onClick={() => setShowDisplays(false)}
+                    className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-indigo-600/20 hover:text-indigo-300 transition-colors bg-indigo-950/40 border-b border-slate-800/80"
+                  >
+                    <span className="text-base">📺</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black text-white">Master Order Display (TV)</span>
+                        <span className="px-1.5 py-0.2 rounded bg-indigo-600 text-[8px] font-black text-white">50/50 TV</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block truncate">Room dining + Staff delivery tracker</span>
+                    </div>
+                  </Link>
+
+                  {/* 2. Kitchen Staff App (KDS) */}
+                  <Link
+                    href="/kitchen-portal"
+                    onClick={() => setShowDisplays(false)}
+                    className="flex items-center gap-3 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                  >
+                    <span className="text-base">👨‍🍳</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold">Kitchen Staff App (KDS)</span>
+                        <span className="px-1.5 py-0.2 rounded bg-orange-600/30 text-orange-300 border border-orange-500/30 text-[8px] font-black">CHEF</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block truncate">Chef order checklist &amp; stock portal</span>
+                    </div>
+                  </Link>
+
+                  {/* 3. Station Kitchen Display */}
                   <Link
                     href="/hotel/pos/kitchen-display"
                     onClick={() => setShowDisplays(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                    className="flex items-center gap-3 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-rose-400 border-t border-slate-800/80 transition-colors"
                   >
-                    <span className="text-base">🍳</span> Kitchen Display (KDS)
+                    <span className="text-base">🍳</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold">Station Kitchen Display</span>
+                      <span className="text-[10px] text-slate-400 block truncate">Station line cooking tickets</span>
+                    </div>
                   </Link>
+
+                  {/* 4. Bar Display (BDS) */}
                   <Link
                     href="/hotel/pos/bar-display"
                     onClick={() => setShowDisplays(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-sky-400 border-t border-slate-800/80 transition-colors"
+                    className="flex items-center gap-3 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-amber-400 border-t border-slate-800/80 transition-colors"
                   >
-                    <span className="text-base">🍸</span> Bar Display (BDS)
+                    <span className="text-base">🍸</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold">Bar Display (BDS)</span>
+                      <span className="text-[10px] text-slate-400 block truncate">Beverages, cocktails &amp; drinks</span>
+                    </div>
                   </Link>
+
+                  {/* 5. Customer Display (CDS) */}
                   <Link
                     href="/order-display"
                     onClick={() => setShowDisplays(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-amber-400 border-t border-slate-800/80 transition-colors"
+                    className="flex items-center gap-3 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 border-t border-slate-800/80 transition-colors"
                   >
-                    <span className="text-base">📺</span> Customer Display (CDS)
+                    <span className="text-base">📢</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold">Customer Display (CDS)</span>
+                      <span className="text-[10px] text-slate-400 block truncate">Audio chime &amp; guest TV pickup board</span>
+                    </div>
                   </Link>
+
+                  {/* 6. Meal & Service Hub */}
                   <Link
                     href="/hotel/meal-and-service-hub"
                     onClick={() => setShowDisplays(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-emerald-400 border-t border-slate-800/80 transition-colors"
+                    className="flex items-center gap-3 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-sky-400 border-t border-slate-800/80 transition-colors"
                   >
-                    <span className="text-base">🛎️</span> Meal &amp; Service Hub (Live)
+                    <span className="text-base">🛎️</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold">Meal &amp; Service Hub (Live)</span>
+                      <span className="text-[10px] text-slate-400 block truncate">Floor runners &amp; service timing</span>
+                    </div>
                   </Link>
                 </div>
               </>
@@ -556,14 +706,50 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
           <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
             <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-sky-400">
-                  Live Displays & Monitoring
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">
+                  Live Displays &amp; Kitchen Monitoring
                 </span>
               </div>
-              <span className="text-[9px] text-slate-500 font-bold">5 Screens</span>
+              <span className="text-[9px] text-slate-500 font-bold">7 Screens</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/master-order-display"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/40 hover:border-indigo-400 hover:bg-indigo-900/40 transition-all group col-span-2 shadow-sm"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                  <Tv size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11.5px] font-black text-white group-hover:text-indigo-300 truncate">
+                      Master Order Display (TV)
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-600 text-[8px] font-black text-white uppercase">
+                      50/50 Dual TV
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] text-indigo-300/80 truncate block">
+                    All-in-one Room service dining &amp; Staff delivery tracker
+                  </span>
+                </div>
+              </Link>
+
+              <Link
+                href="/kitchen-portal"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/50 hover:bg-slate-800/60 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 group-hover:scale-110 transition-transform">
+                  <ChefHat size={15} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
+                    Kitchen Staff App
+                  </span>
+                  <span className="text-[9px] text-slate-500">Chef KDS Portal</span>
+                </div>
+              </Link>
               <Link
                 href="/hotel/pos/kitchen-display"
                 className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 hover:bg-slate-800/60 transition-all group"
@@ -642,96 +828,7 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
           </div>
         )}
 
-        {/* Domain 3: Delivery Fleet & Channels */}
-        {(activeCategory === 'ALL' || activeCategory === 'DELIVERY') && (
-          <div className="p-3.5 rounded-2xl bg-[#090e1a]/85 border border-slate-800/90 space-y-2.5">
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                  Delivery Fleet & Online Channels
-                </span>
-              </div>
-              <span className="text-[9px] text-slate-500 font-bold">5 Modules</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Link
-                href="/hotel/pos/delivery"
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <Bike size={15} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
-                    Delivery Orders
-                  </span>
-                  <span className="text-[9px] text-slate-500">Dispatch Hub</span>
-                </div>
-              </Link>
 
-              <Link
-                href="/hotel/pos/delivery/riders"
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <Users size={15} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
-                    Delivery Riders
-                  </span>
-                  <span className="text-[9px] text-slate-500">Live GPS</span>
-                </div>
-              </Link>
-
-              <Link
-                href="/hotel/pos/delivery/zones"
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <MapPin size={15} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
-                    Delivery Zones
-                  </span>
-                  <span className="text-[9px] text-slate-500">Rates & Radius</span>
-                </div>
-              </Link>
-
-              <Link
-                href="/hotel/pos/delivery/analytics"
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <BarChart3 size={15} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
-                    Sales Analytics
-                  </span>
-                  <span className="text-[9px] text-slate-500">Trends & GMV</span>
-                </div>
-              </Link>
-
-              <Link
-                href="/hotel/pos/delivery-flyer"
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all group col-span-2"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <FileText size={15} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-white truncate block">
-                    Delivery Flyer & Menu Promo
-                  </span>
-                  <span className="text-[9px] text-slate-500">Social promo & printable menu</span>
-                </div>
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Domain 4: Menu, QR Standees & Floor Operations */}
         {(activeCategory === 'ALL' || activeCategory === 'MENU') && (
@@ -942,6 +1039,65 @@ function RestaurantPosWorkspace({ restaurantCode }: { restaurantCode: string | n
 
 const DEPARTMENTS = [
   {
+    name: 'Daily Operations & Routine',
+    shortName: 'Daily Routine',
+    badge: 'DAILY USE',
+    emoji: '⚡',
+    labelColor: 'text-amber-400',
+    dotColor: 'bg-amber-400',
+    glowColor: 'rgba(251,191,36,0.35)',
+    borderActive: 'rgba(251,191,36,0.6)',
+    borderIdle: 'rgba(251,191,36,0.22)',
+    gradFrom: 'rgba(251,191,36,0.18)',
+    gradTo: 'rgba(251,191,36,0.05)',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/15',
+    cardBorder: 'border-slate-800 hover:border-amber-500/40',
+    modules: [
+      // ── Front Desk & Guest Arrival (Daily) ──
+      { name: 'Check-Out Terminal',       href: '/hotel/checkout',             icon: DoorOpen,        category: 'FRONT_DESK' },
+      { name: 'Room Availability Matrix', href: '/hotel/calendar',             icon: Calendar,        category: 'FRONT_DESK' },
+      { name: 'Bookings Manager',         href: '/hotel/bookings',             icon: PlusCircle,      category: 'FRONT_DESK' },
+      { name: 'Customers & Guests',       href: '/hotel/guests',               icon: Users,           category: 'FRONT_DESK' },
+      { name: 'Room Door QR Placards',    href: '/hotel/rooms/qr-codes',       icon: QrCode,          category: 'FRONT_DESK' },
+      { name: 'Agent Bookings',           href: '/hotel/agent-bookings',       icon: Handshake,       category: 'FRONT_DESK' },
+      { name: 'Live Notifications',       href: '/hotel/notifications',        icon: Bell,            category: 'FRONT_DESK' },
+
+      // ── Rooms, Housekeeping & Floor Routine (Daily / 2-4 Days) ──
+      { name: 'Room Status Board',        href: '/hotel/rooms?tab=board',      icon: MapPin,          category: 'ROOMS_HK' },
+      { name: 'Housekeeping Console',     href: '/hotel/housekeeping',         icon: BrushIcon,       category: 'ROOMS_HK' },
+      { name: 'Lost & Found Registry',    href: '/hotel/lost-found',           icon: MapPin,          category: 'ROOMS_HK' },
+      { name: 'Maintenance Control',      href: '/hotel/maintenance',          icon: Wrench,          category: 'ROOMS_HK' },
+      { name: 'Laundry Service',          href: '/hotel/laundry',              icon: Shirt,           category: 'ROOMS_HK' },
+
+      // ── Dining, Kitchen & POS Routine (Daily) ──
+      { name: 'POS Billing Terminal',      href: '/hotel/pos/billing',          icon: Monitor,         category: 'DINING_POS', isPosOnly: true },
+      { name: 'Table Layout & Floors',     href: '/hotel/pos/tables',           icon: LayoutGrid,      category: 'DINING_POS', isPosOnly: true },
+      { name: 'Room Service Orders',       href: '/hotel/pos/room-orders',      icon: Bed,             category: 'DINING_POS', isPosOnly: true },
+      { name: "Today's Meal Menus",        href: '/hotel/daily-menus',          icon: UtensilsCrossed, category: 'DINING_POS' },
+      { name: 'Master Order Display (TV)', href: '/master-order-display',       icon: Tv,              category: 'DINING_POS', isPosOnly: true },
+      { name: 'Kitchen Display (KDS)',     href: '/hotel/pos/kitchen-display',  icon: ChefHat,         category: 'DINING_POS', isPosOnly: true },
+      { name: 'Counter Payments',          href: '/hotel/pos/counter-payments', icon: Store,           category: 'DINING_POS', isPosOnly: true },
+      { name: 'Day Closing',               href: '/hotel/pos/day-closing',      icon: History,         category: 'DINING_POS', isPosOnly: true },
+
+      // ── Finance, Cash & Night Audit Routine (Daily / 2-4 Days) ──
+      { name: 'Night Audit Console',       href: '/hotel/night-audit',             icon: Moon,        category: 'FINANCE' },
+      { name: 'Daily Audit Report',        href: '/hotel/night-audit/daily-report', icon: BarChart3,   category: 'FINANCE' },
+      { name: 'Add New Expense',           href: '/hotel/expenses/new',            icon: PlusCircle,  category: 'FINANCE' },
+      { name: 'Expenses Controller',       href: '/hotel/expenses',                icon: Banknote,    category: 'FINANCE' },
+      { name: 'Cash Book',                 href: '/hotel/accounts/cash-book',      icon: Banknote,    category: 'FINANCE' },
+      { name: 'Day Book',                  href: '/hotel/accounts/day-book',       icon: BookOpen,    category: 'FINANCE' },
+      { name: 'Financial Vouchers',        href: '/hotel/vouchers',                icon: Receipt,     category: 'FINANCE' },
+      { name: 'Folios & Billing',          href: '/hotel/billing',                 icon: Receipt,     category: 'FINANCE' },
+      { name: 'Discount Approvals',        href: '/hotel/discounts',               icon: ShieldAlert, category: 'FINANCE' },
+
+      // ── Staff, Attendance & Daily Tracking ──
+      { name: 'Staff Attendance Hub',      href: '/hotel/staff/attendance',        icon: UserCheck,   category: 'STAFF' },
+      { name: 'Live GPS Tracking',         href: '/hotel/staff?tab=location',      icon: MapPin,      category: 'STAFF' },
+      { name: 'Operations Reports',        href: '/hotel/reports',                 icon: ScrollText,  category: 'STAFF' },
+    ],
+  },
+  {
     name: 'Front Office & Desk',
     emoji: '🏨',
     labelColor: 'text-sky-400',
@@ -955,15 +1111,17 @@ const DEPARTMENTS = [
     iconBg: 'bg-sky-500/15',
     cardBorder: 'border-slate-800 hover:border-sky-500/40',
     modules: [
-      { name: 'Check-In Terminal',   href: '/hotel/checkin',         icon: DoorOpen   },
-      { name: 'Check-Out Terminal',  href: '/hotel/checkout',        icon: DoorOpen   },
-      { name: 'Operations Dashboard', href: '/hotel/operations-dashboard', icon: LayoutGrid },
-      { name: 'Bookings Manager',   href: '/hotel/bookings',        icon: PlusCircle },
-      { name: 'Customers & Guests',  href: '/hotel/guests',          icon: Users      },
-      { name: 'Agent Bookings',      href: '/hotel/agent-bookings',  icon: Handshake  },
-      { name: 'Room Availability',   href: '/hotel/calendar',        icon: Calendar   },
-      { name: 'Security & Verify',   href: '/security-portal',       icon: ShieldCheck },
-      { name: 'Email Bookings',      href: '/hotel/email-bookings',  icon: ScrollText },
+      { name: 'Check-In Terminal',     href: '/hotel/checkin',              icon: DoorOpen },
+      { name: 'Check-Out Terminal',    href: '/hotel/checkout',             icon: DoorOpen },
+      { name: 'Room Door QR Placards', href: '/hotel/rooms/qr-codes',       icon: QrCode },
+      { name: 'Operations Dashboard',  href: '/hotel/operations-dashboard', icon: LayoutGrid },
+      { name: 'Bookings Manager',      href: '/hotel/bookings',             icon: PlusCircle },
+      { name: 'Customers & Guests',    href: '/hotel/guests',               icon: Users },
+      { name: 'Agent Bookings',        href: '/hotel/agent-bookings',       icon: Handshake },
+      { name: 'Room Availability',     href: '/hotel/calendar',             icon: Calendar },
+      { name: 'Email Bookings',        href: '/hotel/email-bookings',       icon: ScrollText },
+      { name: 'Booking Engine',        href: '/hotel/booking-engine',       icon: Globe },
+      { name: 'Live Notifications',    href: '/hotel/notifications',        icon: Bell },
     ],
   },
   {
@@ -980,12 +1138,14 @@ const DEPARTMENTS = [
     iconBg: 'bg-violet-500/15',
     cardBorder: 'border-slate-800 hover:border-violet-500/40',
     modules: [
-      { name: 'Rooms & Types',         href: '/hotel/rooms',        icon: Bed       },
-      { name: 'Housekeeping Console',  href: '/hotel/housekeeping', icon: BrushIcon },
-      { name: 'Maintenance Control',   href: '/hotel/maintenance',  icon: Wrench    },
-      { name: 'Lost & Found Registry', href: '/hotel/lost-found',   icon: MapPin    },
-      { name: 'Laundry Service',       href: '/hotel/laundry',      icon: Shirt     },
-      { name: 'Engineering Center',    href: '/hotel/engineering',  icon: Cpu       },
+      { name: 'Rooms & Types',         href: '/hotel/rooms',           icon: Bed },
+      { name: 'Room Status Board',     href: '/hotel/rooms?tab=board', icon: MapPin },
+      { name: 'Room Door QR Placards', href: '/hotel/rooms/qr-codes',  icon: QrCode },
+      { name: 'Housekeeping Console',  href: '/hotel/housekeeping',    icon: BrushIcon },
+      { name: 'Maintenance Control',   href: '/hotel/maintenance',     icon: Wrench },
+      { name: 'Lost & Found Registry', href: '/hotel/lost-found',      icon: MapPin },
+      { name: 'Laundry Service',       href: '/hotel/laundry',         icon: Shirt },
+      { name: 'Engineering Center',    href: '/hotel/engineering',     icon: Cpu },
     ],
   },
   {
@@ -1003,15 +1163,18 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-rose-500/40',
     modules: [
       { name: 'Spa & Wellness',       href: '/hotel/spa',          icon: Sparkles },
+      { name: 'Spa Owners (B2B)',     href: '/hotel/spa-owners',   icon: Store },
+      { name: 'Swimming Pool',        href: '/hotel/pool',         icon: Waves },
       { name: 'Banquet & Events',     href: '/hotel/banquet',      icon: Calendar },
-      { name: 'Live Music & Singers', href: '/hotel/singers',      icon: Sparkles },
-      { name: 'Room Service Dining',  href: '/hotel/room-service', icon: ChefHat  },
+      { name: 'Live Music & Singers', href: '/hotel/singers',      icon: Music2 },
+      { name: 'Room Service Dining',  href: '/hotel/room-service', icon: ChefHat },
       { name: "Today's Meal Menus",   href: '/hotel/daily-menus',  icon: UtensilsCrossed },
-      { name: 'Guest CRM Profiles',   href: '/hotel/crm',          icon: Users    },
-      { name: 'Local Sightseeing',    href: '/hotel/sightseeing',  icon: MapPin   },
-      { name: 'Bike Rentals',         href: '/bike-rental-portal', icon: Bike     },
-      { name: 'Guest Directory',      href: '/hotel/guests',       icon: Users    },
-      { name: 'Loyalty & Rewards',    href: '/hotel/loyalty',      icon: Crown    },
+      { name: 'Guest CRM Profiles',   href: '/hotel/crm',          icon: Heart },
+      { name: 'Local Sightseeing',    href: '/hotel/sightseeing',  icon: MapPin },
+      { name: 'Bike Rentals',         href: '/bike-rental-portal', icon: Bike },
+      { name: 'Travel Agents',        href: '/hotel/agents',       icon: Handshake },
+      { name: 'Guest Directory',      href: '/hotel/guests',       icon: Users },
+      { name: 'Loyalty & Rewards',    href: '/hotel/loyalty',      icon: Crown },
     ],
   },
   {
@@ -1028,10 +1191,12 @@ const DEPARTMENTS = [
     iconBg: 'bg-emerald-500/15',
     cardBorder: 'border-slate-800 hover:border-emerald-500/40',
     modules: [
-      { name: 'AI Revenue Advisor', href: '/hotel/revenue',         icon: TrendingUp },
-      { name: 'Channel Manager',    href: '/hotel/channel-manager', icon: Globe      },
-      { name: 'Analytics & BI',     href: '/hotel/analytics',       icon: BarChart3  },
-      { name: 'Operations Reports', href: '/hotel/reports',         icon: ScrollText },
+      { name: 'AI Revenue Advisor', href: '/hotel/revenue',                  icon: TrendingUp },
+      { name: 'Channel Manager',    href: '/hotel/channel-manager',          icon: Globe },
+      { name: 'Analytics & BI',     href: '/hotel/analytics',                icon: BarChart3 },
+      { name: 'Operations Reports', href: '/hotel/reports',                  icon: ScrollText },
+      { name: 'Attendance Reports', href: '/hotel/reports/attendance',       icon: ScrollText },
+      { name: 'Daily Audit Report', href: '/hotel/night-audit/daily-report', icon: BarChart3 },
     ],
   },
   {
@@ -1048,20 +1213,25 @@ const DEPARTMENTS = [
     iconBg: 'bg-amber-500/15',
     cardBorder: 'border-slate-800 hover:border-amber-500/40',
     modules: [
-      { name: 'Folios & Billing',    href: '/hotel/billing',           icon: Receipt     },
-      { name: 'Invoices Registry',   href: '/hotel/billing/invoices',  icon: ScrollText  },
-      { name: 'Night Audit Console', href: '/hotel/night-audit',       icon: Moon        },
-      { name: 'Expenses Controller', href: '/hotel/expenses',          icon: Banknote    },
-      { name: 'Add New Expense',     href: '/hotel/expenses/new',      icon: PlusCircle  },
-      { name: 'Payroll Structures',  href: '/hotel/payroll',           icon: IndianRupee },
-      { name: 'Inventory & Stock',   href: '/hotel/inventory',         icon: Package     },
-      { name: 'Vendor Directory',    href: '/hotel/vendor',            icon: Building2   },
-      { name: 'Accounting Hub',      href: '/hotel/accounts',          icon: BookOpen    },
-      { name: 'Cash Book',           href: '/hotel/accounts/cash-book', icon: Banknote   },
-      { name: 'Day Book',            href: '/hotel/accounts/day-book',  icon: BookOpen   },
-      { name: 'Ledger',              href: '/hotel/accounts/ledger',    icon: BookOpen   },
-      { name: 'Vouchers',            href: '/hotel/vouchers',           icon: Receipt    },
-      { name: 'New Voucher',         href: '/hotel/vouchers/new',       icon: PlusCircle },
+      { name: 'Folios & Billing',    href: '/hotel/billing',                 icon: Receipt },
+      { name: 'Invoices Registry',   href: '/hotel/billing/invoices',        icon: ScrollText },
+      { name: 'Night Audit Console', href: '/hotel/night-audit',             icon: Moon },
+      { name: 'Daily Audit Report',  href: '/hotel/night-audit/daily-report', icon: BarChart3 },
+      { name: 'Discount Approvals',  href: '/hotel/discounts',               icon: ShieldAlert },
+      { name: 'Expenses Controller', href: '/hotel/expenses',                icon: Banknote },
+      { name: 'Add New Expense',     href: '/hotel/expenses/new',            icon: PlusCircle },
+      { name: 'Expense Categories',  href: '/hotel/expenses/categories',     icon: Layers },
+      { name: 'Purchase Orders',     href: '/hotel/purchasing',              icon: ShoppingCart },
+      { name: 'Kitchen Indents',     href: '/hotel/purchasing?tab=kitchen',  icon: UtensilsCrossed },
+      { name: 'Payroll Structures',  href: '/hotel/payroll',                 icon: IndianRupee },
+      { name: 'Inventory & Stock',   href: '/hotel/inventory',               icon: Package },
+      { name: 'Vendor Directory',    href: '/hotel/vendor',                  icon: Building2 },
+      { name: 'Accounting Hub',      href: '/hotel/accounts',                icon: BookOpen },
+      { name: 'Cash Book',           href: '/hotel/accounts/cash-book',      icon: Banknote },
+      { name: 'Day Book',            href: '/hotel/accounts/day-book',       icon: BookOpen },
+      { name: 'Ledger',              href: '/hotel/accounts/ledger',         icon: BookOpen },
+      { name: 'Vouchers List',       href: '/hotel/vouchers',                icon: Receipt },
+      { name: 'New Voucher',         href: '/hotel/vouchers/new',            icon: PlusCircle },
     ],
   },
   {
@@ -1078,10 +1248,10 @@ const DEPARTMENTS = [
     iconBg: 'bg-indigo-500/15',
     cardBorder: 'border-slate-800 hover:border-indigo-500/40',
     modules: [
-      { name: 'AI Concierge Desk', href: '/hotel/ai-concierge',   icon: Brain },
-      { name: 'Room Tablet Portal', href: '/hotel/room-portal-admin', icon: Tablet },
-      { name: 'Smart Hotel IoT',   href: '/hotel/smart-hotel',    icon: Wifi  },
-      { name: 'Booking Engine',    href: '/hotel/booking-engine', icon: Globe },
+      { name: 'AI Concierge Desk',   href: '/hotel/ai-concierge',     icon: Brain },
+      { name: 'Room Tablet Manager', href: '/hotel/room-portal-admin', icon: Tablet },
+      { name: 'Smart Hotel IoT',     href: '/hotel/smart-hotel',      icon: Wifi },
+      { name: 'Booking Engine',      href: '/hotel/booking-engine',   icon: Globe },
     ],
   },
   {
@@ -1098,14 +1268,15 @@ const DEPARTMENTS = [
     iconBg: 'bg-emerald-500/15',
     cardBorder: 'border-slate-800 hover:border-emerald-500/40',
     modules: [
-      { name: 'Live GPS Tracking',        href: '/hotel/staff?tab=location',        icon: MapPin       },
-      { name: 'Staff Attendance Hub',     href: '/hotel/staff/attendance',          icon: UserCheck    },
-      { name: 'Punch Locations Verifier', href: '/hotel/staff/attendance-location', icon: Navigation   },
-      { name: 'Live Proximity Radar',     href: '/hotel/staff/location',            icon: Radio        },
-      { name: 'Staff Directory & Roster', href: '/hotel/staff',                     icon: Users        },
-      { name: 'Attendance Reports',       href: '/hotel/reports/attendance',        icon: ScrollText   },
-      { name: 'HR & Leaves Hub',          href: '/hotel/hr',                        icon: Calendar     },
-      { name: 'Payroll Structures',       href: '/hotel/payroll',                   icon: IndianRupee  },
+      { name: 'Live GPS Tracking',        href: '/hotel/staff?tab=location',        icon: MapPin },
+      { name: 'Staff Attendance Hub',     href: '/hotel/staff/attendance',          icon: UserCheck },
+      { name: 'Punch Locations Verifier', href: '/hotel/staff/attendance-location', icon: Navigation },
+      { name: 'Live Proximity Radar',     href: '/hotel/staff/location',            icon: Radio },
+      { name: 'Staff Directory & Roster', href: '/hotel/staff',                     icon: Users },
+      { name: 'Staff Mobile Portal',      href: '/staff-portal',                    icon: Tablet },
+      { name: 'Attendance Reports',       href: '/hotel/reports/attendance',        icon: ScrollText },
+      { name: 'HR & Leaves Hub',          href: '/hotel/hr',                        icon: Calendar },
+      { name: 'Payroll Structures',       href: '/hotel/payroll',                   icon: IndianRupee },
     ],
   },
   {
@@ -1122,40 +1293,37 @@ const DEPARTMENTS = [
     iconBg: 'bg-orange-500/15',
     cardBorder: 'border-slate-800 hover:border-orange-500/40',
     modules: [
-      { name: 'POS Billing Terminal',  href: '/hotel/pos/billing',              icon: Monitor },
-      { name: 'Table Layout & Floors', href: '/hotel/pos/tables',               icon: LayoutGrid },
-      { name: 'Kitchen Display (KDS)', href: '/hotel/pos/kitchen-display',       icon: ChefHat },
-      { name: 'Meal Display (Live)',   href: '/hotel/pos/meal-display',          icon: UtensilsCrossed },
-      { name: 'Meal & Service Hub',    href: '/hotel/meal-and-service-hub',      icon: ConciergeBell },
-      { name: 'Room Service Orders',   href: '/hotel/pos/room-service',         icon: Bed },
-      { name: 'Live Overview',         href: '/hotel/pos/live-overview',        icon: LayoutGrid },
-      { name: 'Day Closing',           href: '/hotel/pos/day-closing',          icon: History },
-      { name: 'Orders Control',        href: '/hotel/pos/orders',               icon: ShoppingCart },
-      { name: 'KOTs List',             href: '/hotel/pos/kots',                 icon: ClipboardList },
-      { name: 'Table Bookings',        href: '/hotel/pos/table-reservations',   icon: CalendarDays },
-      { name: 'Counter Payments',      href: '/hotel/pos/counter-payments',     icon: Store },
-      { name: 'Bar POS Terminal',      href: '/hotel/pos/bar-pos',              icon: Wine },
-      { name: 'Cafe POS Terminal',     href: '/hotel/pos/cafe-pos',             icon: Coffee },
-      { name: 'Bar Display (BDS)',     href: '/hotel/pos/bar-display',          icon: Wine },
-      { name: 'Customer Display (CDS)',href: '/order-display',                  icon: Monitor },
-      { name: 'Live Occupancy Radar',  href: '/hotel/pos/occupancy',            icon: Eye },
-      { name: 'Live Notifications',    href: '/hotel/pos/notifications',        icon: Bell },
-      { name: 'Delivery Dispatch',     href: '/hotel/pos/delivery',             icon: Bike },
-      { name: 'Delivery Riders GPS',   href: '/hotel/pos/delivery/riders',      icon: Users },
-      { name: 'Delivery Zones & Rates',href: '/hotel/pos/delivery/zones',       icon: MapPin },
-      { name: 'Delivery Analytics',    href: '/hotel/pos/delivery/analytics',   icon: BarChart3 },
-      { name: 'Delivery Flyer & Promo',href: '/hotel/pos/delivery-flyer',       icon: FileText },
-      { name: 'Menu Items',            href: '/hotel/pos/products',             icon: UtensilsCrossed },
-      { name: 'Menu Categories',       href: '/hotel/pos/categories',           icon: Layers },
-      { name: "Today's Meal Menus",    href: '/hotel/daily-menus',              icon: UtensilsCrossed },
-      { name: 'Table QR Gallery',      href: '/hotel/pos/tables/qr-gallery',    icon: Printer },
-      { name: 'QR Downloads',          href: '/hotel/pos/qr-download',          icon: Download },
-      { name: 'Valet Parking',         href: '/hotel/pos/parking',              icon: MapPin },
-      { name: 'Waste Management',      href: '/hotel/pos/waste-management',     icon: Trash2 },
-      { name: 'Restaurant Invoices',   href: '/hotel/invoices',                 icon: FileText },
-      { name: 'Payments & Billing',    href: '/hotel/billing',                  icon: Receipt },
-      { name: 'Staff Portal',          href: '/staff-portal',                   icon: Tablet },
-      { name: 'Restaurant POS Hub',    href: '/hotel/pos',                      icon: UtensilsCrossed },
+      { name: 'POS Billing Terminal',   href: '/hotel/pos/billing',              icon: Monitor },
+      { name: 'Table Layout & Floors',  href: '/hotel/pos/tables',               icon: LayoutGrid },
+      { name: 'Master Order Display',   href: '/master-order-display',           icon: Tv },
+      { name: 'Kitchen Staff App',      href: '/kitchen-portal',                 icon: ChefHat },
+      { name: 'Kitchen Display (KDS)',  href: '/hotel/pos/kitchen-display',       icon: ChefHat },
+      { name: 'Meal Display (Live)',    href: '/hotel/pos/meal-display',          icon: UtensilsCrossed },
+      { name: 'Meal & Service Hub',     href: '/hotel/meal-and-service-hub',      icon: ConciergeBell },
+      { name: 'Room Service Orders',    href: '/hotel/pos/room-orders',          icon: Bed },
+      { name: 'Live Overview',          href: '/hotel/pos/live-overview',        icon: LayoutGrid },
+      { name: 'Day Closing',            href: '/hotel/pos/day-closing',          icon: History },
+      { name: 'Orders Control',         href: '/hotel/pos/orders',               icon: ShoppingCart },
+      { name: 'KOTs List',              href: '/hotel/pos/kots',                 icon: ClipboardList },
+      { name: 'Table Bookings',         href: '/hotel/pos/table-reservations',   icon: CalendarDays },
+      { name: 'Counter Payments',       href: '/hotel/pos/counter-payments',     icon: Store },
+      { name: 'Bar POS Terminal',       href: '/hotel/pos/bar-pos',              icon: Wine },
+      { name: 'Cafe POS Terminal',      href: '/hotel/pos/cafe-pos',             icon: Coffee },
+      { name: 'Bar Display (BDS)',      href: '/hotel/pos/bar-display',          icon: Wine },
+      { name: 'Customer Display (CDS)', href: '/order-display',                  icon: Monitor },
+      { name: 'Live Occupancy Radar',   href: '/hotel/pos/occupancy',            icon: Eye },
+      { name: 'Live Notifications',     href: '/hotel/pos/notifications',        icon: Bell },
+      { name: 'Menu Items',             href: '/hotel/pos/products',             icon: UtensilsCrossed },
+      { name: 'Menu Categories',        href: '/hotel/pos/categories',           icon: Layers },
+      { name: "Today's Meal Menus",     href: '/hotel/daily-menus',              icon: UtensilsCrossed },
+      { name: 'Table QR Gallery',       href: '/hotel/pos/tables/qr-gallery',    icon: Printer },
+      { name: 'QR Downloads',           href: '/hotel/pos/qr-download',          icon: Download },
+      { name: 'Valet Parking',          href: '/hotel/pos/parking',              icon: MapPin },
+      { name: 'Waste Management',       href: '/hotel/pos/waste-management',     icon: Trash2 },
+      { name: 'Restaurant Invoices',    href: '/hotel/invoices',                 icon: FileText },
+      { name: 'Payments & Billing',     href: '/hotel/billing',                  icon: Receipt },
+      { name: 'Staff Portal',           href: '/staff-portal',                   icon: Tablet },
+      { name: 'Restaurant POS Hub',     href: '/hotel/pos',                      icon: UtensilsCrossed },
     ],
   },
   {
@@ -1173,9 +1341,11 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-slate-600/60',
     modules: [
       { name: 'Backup & Restore',     href: '/hotel/backup',            icon: ShieldCheck },
-      { name: 'Staff & Team',         href: '/hotel/staff',             icon: Users       },
-      { name: 'Hotel Settings',       href: '/hotel/settings',          icon: Settings    },
-      { name: 'Printer Settings',     href: '/hotel/settings/printers', icon: Printer     },
+      { name: 'My Subscription',      href: '/hotel/subscription',      icon: Sparkles },
+      { name: 'Hotel Settings',       href: '/hotel/settings',          icon: Settings },
+      { name: 'Printer Settings',     href: '/hotel/settings/printers', icon: Printer },
+      { name: 'Staff & Team',         href: '/hotel/staff',             icon: Users },
+      { name: 'Tablet Devices',       href: '/hotel/room-portal-admin', icon: Tablet },
     ],
   },
 ];
@@ -1319,6 +1489,14 @@ export default function HotelDashboard() {
       return isAttached && !!restaurantCode;
     }
     return true;
+  }).map(dept => {
+    if (dept.name === 'Daily Operations & Routine' && (!isAttached || !restaurantCode)) {
+      return {
+        ...dept,
+        modules: dept.modules.filter((m: any) => !m.isPosOnly),
+      };
+    }
+    return dept;
   });
 
   const departmentsWithRestaurant = visibleDepartments.map((dept) => {
@@ -1444,6 +1622,36 @@ export default function HotelDashboard() {
                 <span className="hidden sm:inline">Admin Dashboard</span>
               </Link>
             )}
+
+            {/* Purchase Orders & Stock Inward Button */}
+            <Link
+              href="/hotel/purchasing"
+              className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-xs font-black text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 transition-all duration-200 active:scale-95 flex-shrink-0 shadow-sm"
+              title="Purchase Orders, Vendor Bills & Stock Inward (GRN)"
+            >
+              <ShoppingCart size={13} className="text-cyan-400" />
+              <span>Purchase Orders 📦</span>
+            </Link>
+
+            {/* Daily Menus & Customer Meal Plans Button */}
+            <Link
+              href="/hotel/daily-menus"
+              className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-xs font-black text-orange-300 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/35 transition-all duration-200 active:scale-95 flex-shrink-0 shadow-sm"
+              title="Today's Meal & Buffet Menus, Customer Meal Plans (CP, MAP, AP, EP)"
+            >
+              <ChefHat size={13} className="text-orange-400" />
+              <span>Daily Menus 🍽️</span>
+            </Link>
+
+            {/* Room Door QR Placards & Studio */}
+            <Link
+              href="/hotel/rooms/qr-codes"
+              className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-xs font-black text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 transition-all duration-200 active:scale-95 flex-shrink-0 shadow-sm"
+              title="Generate & Print Room Door QR Placards (Outside Door Concierge, Key Assistance & Reception Call)"
+            >
+              <DoorOpen size={13} className="text-amber-400" />
+              <span>Door QR Placards</span>
+            </Link>
 
             {/* New Booking */}
             <Link
@@ -1666,7 +1874,7 @@ export default function HotelDashboard() {
               Click any department to explore
             </span>
           </div>
-          <div className={`grid grid-cols-2 sm:grid-cols-4 ${departmentsWithRestaurant.length > 8 ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-2.5 mb-1.5`}>
+          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 ${departmentsWithRestaurant.length >= 10 ? 'xl:grid-cols-10 lg:grid-cols-5' : departmentsWithRestaurant.length > 8 ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-2.5 mb-1.5`}>
             {departmentsWithRestaurant.map((dept) => {
               const isActive = activeDept === dept.name;
               return (
@@ -1682,13 +1890,19 @@ export default function HotelDashboard() {
                     boxShadow: isActive ? `0 0 18px ${dept.glowColor}` : 'none',
                   }}
                 >
+                  {/* Badge (e.g. DAILY USE) */}
+                  {(dept as any).badge && (
+                    <span className="absolute -top-2.5 px-2 py-0.5 rounded-full text-[7.5px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-amber-500/30 border border-amber-300/40 z-10 animate-pulse">
+                      {(dept as any).badge}
+                    </span>
+                  )}
                   {/* Emoji */}
                   <span className="text-xl leading-none">{dept.emoji}</span>
                   {/* Name */}
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-wide leading-tight transition-colors line-clamp-1 ${isActive ? dept.labelColor : 'text-slate-400 group-hover:text-slate-200'}`}
+                    className={`text-[10px] font-bold uppercase tracking-wide leading-tight transition-colors line-clamp-2 ${isActive ? dept.labelColor : 'text-slate-400 group-hover:text-slate-200'}`}
                   >
-                    {dept.name}
+                    {(dept as any).shortName || dept.name}
                   </span>
                   {/* Module count badge */}
                   <span
@@ -1721,7 +1935,7 @@ export default function HotelDashboard() {
                 key={dept.name}
                 style={{
                   maxHeight: isActive ? '2500px' : '0px',
-                  overflow: 'hidden',
+                  overflow: isActive ? 'visible' : 'hidden',
                   transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1)',
                   marginTop: isActive ? '4px' : '0px',
                 }}
@@ -1750,9 +1964,11 @@ export default function HotelDashboard() {
                     </button>
                   </div>
 
-                  {/* Custom Workspace for Restaurant & POS, Standard Grid for other departments */}
+                  {/* Custom Workspace for Restaurant & POS, Daily Operations, Standard Grid for other departments */}
                   {dept.name === 'Restaurant & POS' ? (
                     <RestaurantPosWorkspace restaurantCode={restaurantCode} />
+                  ) : dept.name === 'Daily Operations & Routine' ? (
+                    <DailyOperationsWorkspace modules={dept.modules} dept={dept} />
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 relative z-10">
                       {dept.modules.map((mod) => (

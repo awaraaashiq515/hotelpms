@@ -296,3 +296,32 @@ input[type=number] {
 .leaflet-tooltip::before {
   display: none !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PRINT STYLES FOR CLEAN INVOICES, ROSTERS & REPORTS
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: auto;
+    margin: 10mm 12mm;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Force display of print elements */
+  .print-only,
+  [data-print-only="true"] {
+    display: block !important;
+  }
+
+  /* Avoid breaking table rows across pages awkwardly */
+  tr, .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+

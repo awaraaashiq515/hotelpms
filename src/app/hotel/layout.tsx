@@ -113,42 +113,52 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   const isPosModule = pathname.startsWith('/hotel/pos');
 
   return (
-    <div className="dark min-h-screen flex bg-[#090d16] text-slate-100 selection:bg-indigo-600 selection:text-white">
+    <div className="dark min-h-screen flex bg-[#090d16] text-slate-100 selection:bg-indigo-600 selection:text-white print:bg-white print:text-black print:min-h-0 print:block">
       {/* Collapsible Hotel Navigation Sidebar */}
-      <HotelSidebar />
+      <div className="print:hidden">
+        <HotelSidebar />
+      </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
         {/* Portal Header */}
-        <HotelHeader session={session} property={selectedProperty} />
+        <div className="print:hidden">
+          <HotelHeader session={session} property={selectedProperty} />
+        </div>
 
         {/* Scrollable View Area */}
         <main
           className={`flex-1 ${
             isPosTerminal
-              ? 'p-0 overflow-hidden flex flex-col min-h-0 h-full w-full'
-              : 'overflow-y-auto no-scrollbar bg-[#090d16] p-4 md:p-6 lg:p-8'
+              ? 'p-0 overflow-hidden flex flex-col min-h-0 h-full w-full print:overflow-visible print:h-auto'
+              : 'overflow-y-auto no-scrollbar bg-[#090d16] p-4 md:p-6 lg:p-8 print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto'
           }`}
         >
           {isPosTerminal ? (
-            <div className="flex-1 h-full w-full overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 h-full w-full overflow-hidden flex flex-col min-h-0 print:overflow-visible print:h-auto">
               {children}
             </div>
           ) : pathname === '/hotel' || pathname === '/hotel/' ? (
             children
           ) : pathname === '/hotel/calendar' || pathname.startsWith('/hotel/bookings') ? (
-            <div className="space-y-4 min-w-0 w-full">
-              <HotelBackButton />
+            <div className="space-y-4 min-w-0 w-full print:space-y-0">
+              <div className="print:hidden">
+                <HotelBackButton />
+              </div>
               {children}
             </div>
           ) : isPosModule ? (
-            <div className="space-y-4 min-h-full">
-              <HotelBackButton />
+            <div className="space-y-4 min-h-full print:space-y-0">
+              <div className="print:hidden">
+                <HotelBackButton />
+              </div>
               {children}
             </div>
           ) : (
-            <div className="bg-[#0f172a]/45 border border-slate-800/80 rounded-[24px] p-6 md:p-8 shadow-xl min-h-full">
-              <HotelBackButton />
+            <div className="bg-[#0f172a]/45 border border-slate-800/80 rounded-[24px] p-6 md:p-8 shadow-xl min-h-full print:bg-white print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none">
+              <div className="print:hidden">
+                <HotelBackButton />
+              </div>
               {children}
             </div>
           )}

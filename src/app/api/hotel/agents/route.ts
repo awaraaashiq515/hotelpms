@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
         commissionRate: rel ? rel.commissionRate : agent.commissionRate,
         isBlocked: rel ? rel.isBlocked : false,
         blockedReason: rel ? rel.blockedReason : null,
+        allowedDaysAhead: rel ? (rel.allowedDaysAhead || 30) : 30,
       };
     });
 
@@ -107,6 +108,7 @@ export async function POST(request: NextRequest) {
       panNumber,
       idType,
       idNumber,
+      allowedDaysAhead = 30,
     } = body;
 
     if (!name || !phone) {
@@ -179,6 +181,7 @@ export async function POST(request: NextRequest) {
           create: {
             propertyId: session.propertyId!,
             commissionRate: Number(commissionRate),
+            allowedDaysAhead: Number(allowedDaysAhead),
           },
         },
       },

@@ -355,10 +355,7 @@ export default function RestaurantPosPage() {
     { label: 'Waste Management',  perm: 'POS Terminal',    icon: Trash2,         path: `/hotel/pos/waste-management`, feature: 'POS' },
   ];
 
-  const deliveryActions: DashboardAction[] = [
-    { label: 'Delivery Dispatch', perm: 'POS Terminal', icon: Bike, path: `/hotel/pos/delivery`, feature: 'POS' },
-    { label: 'Delivery Flyer', perm: 'POS Terminal', icon: FileText, path: `/hotel/pos/delivery-flyer`, feature: 'POS' },
-  ];
+  const deliveryActions: DashboardAction[] = [];
 
   const staffActions: DashboardAction[] = [
     { label: 'Staff Portal',      perm: 'POS Terminal',    icon: Tablet,         path: `/staff-portal`,      feature: 'POS' },
@@ -627,14 +624,6 @@ export default function RestaurantPosPage() {
             propertyCodePrefix={pc}
           />
 
-          {/* 7. Delivery & Logistics */}
-          <OperationsCategorySection
-            configKey="delivery"
-            actions={visibleDelivery}
-            getBadgeForAction={getBadgeForAction}
-            getLateStatusForAction={getLateStatusForAction}
-            propertyCodePrefix={pc}
-          />
 
           {/* 9. Reports & Analytics */}
           <OperationsCategorySection

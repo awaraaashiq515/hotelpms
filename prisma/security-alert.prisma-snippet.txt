@@ -1,0 +1,24 @@
+
+model SecurityAlert {
+  id          String   @id @default(cuid())
+  type        String   // BRUTE_FORCE | SQL_INJECTION | XSS | RATE_LIMIT | SUSPICIOUS_IP | AUTH_FAIL | SCAN_DETECTED | DATA_BREACH_ATTEMPT
+  severity    String   // critical | high | medium | low
+  ip          String?
+  userAgent   String?
+  path        String?
+  method      String?
+  payload     String?  // what suspicious data was sent
+  userId      String?
+  propertyId  String?
+  message     String
+  isResolved  Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+  @@index([severity])
+  @@index([isResolved])
+}
+

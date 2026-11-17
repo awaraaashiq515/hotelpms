@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChefHat, X, Volume2, VolumeX, Building2, Utensils, Package, BedDouble, ExternalLink } from 'lucide-react';
+import { ChefHat, X, Volume2, VolumeX, Building2, Utensils, Package, BedDouble, ExternalLink, Tv, ShoppingCart } from 'lucide-react';
 
 interface MobileDrawerProps {
   isOpen: boolean;
@@ -92,6 +92,17 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
             </span>
 
             <Link
+              href={`/master-order-display/${propertyCode}`}
+              onClick={onClose}
+              className="flex items-center justify-between p-2.5 rounded-xl text-xs font-bold bg-indigo-950/60 border border-indigo-700/40 text-indigo-300 hover:text-white transition"
+            >
+              <span className="flex items-center gap-2">
+                <Tv size={15} className="text-emerald-400" /> 📺 Master TV Order Display
+              </span>
+              <ExternalLink size={12} className="text-slate-500" />
+            </Link>
+
+            <Link
               href="/hotel"
               onClick={onClose}
               className="flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 transition"
@@ -109,6 +120,17 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
             >
               <span className="flex items-center gap-2">
                 <Utensils size={15} className="text-emerald-400" /> Restaurant POS Billing
+              </span>
+              <ExternalLink size={12} className="text-slate-500" />
+            </Link>
+
+            <Link
+              href="/hotel/purchasing"
+              onClick={onClose}
+              className="flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold text-emerald-300 hover:text-white bg-emerald-950/30 border border-emerald-800/40 hover:bg-emerald-900/40 transition"
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingCart size={15} className="text-emerald-400" /> 🛒 Hotel Purchasing Hub
               </span>
               <ExternalLink size={12} className="text-slate-500" />
             </Link>

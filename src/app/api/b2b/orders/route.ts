@@ -1,6 +1,163 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Helper to automatically sync received purchase order items to hotel InventoryItem & StockItem
+export async function syncOrderToInventory(tx: any, orderId: string) {
+  const fullOrder = await tx.b2BOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { include: { product: true } },
+      supplier: true,
+    },
+  });
+
+  if (!fullOrder || !fullOrder.propertyId) return;
+
+  const propertyId = fullOrder.propertyId;
+  const supplierName = fullOrder.supplier?.name || 'Vendor';
+
+  // Ensure default warehouse exists for stock movements
+  let warehouse = await tx.warehouse.findFirst({
+    where: { propertyId },
+  });
+  if (!warehouse) {
+    warehouse = await tx.warehouse.create({
+      data: {
+        propertyId,
+        name: 'Main Store',
+        code: 'MAIN',
+      },
+    });
+  }
+
+  for (const item of fullOrder.items) {
+    const rawName = (item.product?.name || item.name || '').trim();
+    if (!rawName) continue;
+
+    const qty = Number(item.quantity) || 1;
+    const unitPrice = Number(item.unitPrice) || 0;
+    const unit = item.product?.unit || item.unit || 'pcs';
+    const category = item.product?.category || 'F&B & Kitchen';
+
+    // 1. Sync to InventoryItem (powers /hotel/inventory & inventory-summary)
+    const existingInvItem = await tx.inventoryItem.findFirst({
+      where: {
+        propertyId,
+        name: rawName,
+      },
+    });
+
+    if (existingInvItem) {
+      const prevQty = Number(existingInvItem.currentQuantity) || 0;
+      const newQty = prevQty + qty;
+
+      await tx.inventoryItem.update({
+        where: { id: existingInvItem.id },
+        data: {
+          currentQuantity: newQty,
+          costPrice: unitPrice > 0 ? unitPrice : existingInvItem.costPrice,
+          unit: unit || existingInvItem.unit,
+          isActive: true,
+        },
+      });
+
+      await tx.inventoryLog.create({
+        data: {
+          inventoryItemId: existingInvItem.id,
+          type: 'IN',
+          quantity: qty,
+          previousQty: prevQty,
+          newQty: newQty,
+          reference: fullOrder.orderNo,
+          note: `PO Inward: ${fullOrder.orderNo} from ${supplierName}`,
+        },
+      });
+    } else {
+      const newInvItem = await tx.inventoryItem.create({
+        data: {
+          propertyId,
+          name: rawName,
+          sku: category,
+          unit: unit,
+          currentQuantity: qty,
+          minThreshold: 5,
+          costPrice: unitPrice,
+          isActive: true,
+        },
+      });
+
+      await tx.inventoryLog.create({
+        data: {
+          inventoryItemId: newInvItem.id,
+          type: 'IN',
+          quantity: qty,
+          previousQty: 0,
+          newQty: qty,
+          reference: fullOrder.orderNo,
+          note: `Initial inward from PO: ${fullOrder.orderNo} from ${supplierName}`,
+        },
+      });
+    }
+
+    // 2. Sync to StockItem & StockMovement
+    let stockItem = await tx.stockItem.findFirst({
+      where: {
+        propertyId,
+        name: rawName,
+      },
+    });
+
+    if (!stockItem) {
+      stockItem = await tx.stockItem.create({
+        data: {
+          propertyId,
+          name: rawName,
+          unit: unit,
+          costPrice: unitPrice,
+          itemType: category,
+          minimumStock: 5,
+          reorderLevel: 5,
+        },
+      });
+    }
+
+    const agg = await tx.stockMovement.aggregate({
+      where: { stockItemId: stockItem.id, warehouseId: warehouse.id },
+      _sum: { qtyIn: true, qtyOut: true },
+    });
+    const currentBal = (agg._sum.qtyIn || 0) - (agg._sum.qtyOut || 0);
+
+    await tx.stockMovement.create({
+      data: {
+        propertyId,
+        warehouseId: warehouse.id,
+        stockItemId: stockItem.id,
+        movementType: 'IN',
+        qtyIn: qty,
+        qtyOut: 0,
+        balanceQty: currentBal + qty,
+        unitCost: unitPrice,
+        referenceModule: 'B2B_ORDER',
+        referenceId: fullOrder.id,
+      },
+    });
+
+    // 3. Auto-fulfill any pending Kitchen StockRequest for this item
+    await tx.stockRequest.updateMany({
+      where: {
+        propertyId,
+        itemName: rawName,
+        status: { in: ['PENDING', 'APPROVED'] },
+      },
+      data: {
+        status: 'COMPLETED',
+        remarks: `Fulfilled via PO: ${fullOrder.orderNo}`,
+        resolvedAt: new Date(),
+      },
+    }).catch(() => null);
+  }
+}
+
 // Place a new B2B Order
 export async function POST(request: Request) {
   try {
@@ -16,11 +173,16 @@ export async function POST(request: Request) {
       stockRequestIds,
       assignedStaffName,
       assignedStaffPhone,
+      status: requestedStatus,
+      autoReceive,
     } = body;
 
     if (!propertyId || !supplierId || !items || items.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    const isInstantDelivery = requestedStatus === 'DELIVERED' || autoReceive === true;
+    const initialStatus = isInstantDelivery ? 'DELIVERED' : 'PENDING';
 
     // Generate a unique order number
     const orderNo = customOrderNo || `PO-${Date.now().toString().slice(-6)}`;
@@ -63,28 +225,6 @@ export async function POST(request: Request) {
             },
           });
           validProductId = createdProduct.id;
-
-          // Also auto-save to hotel StockItem so it appears across hotel inventory
-          try {
-            const existingStockItem = await prisma.stockItem.findFirst({
-              where: { propertyId, name: productName },
-            });
-            if (!existingStockItem) {
-              await prisma.stockItem.create({
-                data: {
-                  propertyId,
-                  name: productName,
-                  unit: item.unit || 'pcs',
-                  costPrice: Number(item.unitPrice) || 0,
-                  itemType: item.category || 'Kitchen & F&B',
-                  minimumStock: 5,
-                  reorderLevel: 5,
-                },
-              });
-            }
-          } catch (stockErr) {
-            console.warn('Auto stock item creation skipped:', stockErr);
-          }
         }
       }
 
@@ -102,7 +242,7 @@ export async function POST(request: Request) {
         supplierId,
         orderNo,
         totalAmount: Number(totalAmount) || 0,
-        status: 'PENDING',
+        status: initialStatus,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         comments: comments || null,
         buyerPhone: assignedStaffPhone || null,
@@ -112,10 +252,12 @@ export async function POST(request: Request) {
         },
         statusLogs: {
           create: {
-            status: 'PENDING',
-            note: assignedStaffName
-              ? `PO Created by Hotel. Assigned Receiver: ${assignedStaffName}${assignedStaffPhone ? ` (${assignedStaffPhone})` : ''}`
-              : (comments ? `PO Created: ${comments}` : 'PO Created via Hotel Purchasing'),
+            status: initialStatus,
+            note: isInstantDelivery
+              ? `PO Created & Received immediately into Inventory by Hotel.`
+              : (assignedStaffName
+                ? `PO Created by Hotel. Assigned Receiver: ${assignedStaffName}${assignedStaffPhone ? ` (${assignedStaffPhone})` : ''}`
+                : (comments ? `PO Created: ${comments}` : 'PO Created via Hotel Purchasing')),
           },
         },
       },
@@ -127,13 +269,18 @@ export async function POST(request: Request) {
       },
     });
 
-    // If stockRequestIds were converted from Kitchen Requisitions, mark them as APPROVED
+    // If stock was received immediately, sync to InventoryItem and StockItem right away!
+    if (isInstantDelivery) {
+      await syncOrderToInventory(prisma, order.id);
+    }
+
+    // If stockRequestIds were converted from Kitchen Requisitions, mark them as APPROVED/COMPLETED
     if (Array.isArray(stockRequestIds) && stockRequestIds.length > 0) {
       try {
         await prisma.stockRequest.updateMany({
           where: { id: { in: stockRequestIds } },
           data: {
-            status: 'APPROVED',
+            status: isInstantDelivery ? 'COMPLETED' : 'APPROVED',
             remarks: `PO Generated: ${orderNo}`,
             resolvedAt: new Date(),
           },
@@ -211,7 +358,7 @@ export async function GET(request: Request) {
   }
 }
 
-// Update order status (used by supplier)
+// Update order status (used by hotel receiver or supplier)
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
@@ -247,68 +394,13 @@ export async function PATCH(request: Request) {
         data: {
           orderId,
           status,
-          note
+          note: note || `Status updated to ${status}`
         }
       });
 
-      // Logic for inventory sync if DELIVERED
+      // Synchronize full inventory when DELIVERED
       if (status === 'DELIVERED') {
-        const fullOrder = await tx.b2BOrder.findUnique({
-          where: { id: orderId },
-          include: { items: { include: { product: true } } }
-        });
-
-        if (fullOrder) {
-          // Get a default warehouse for the property
-          let warehouse = await tx.warehouse.findFirst({
-            where: { propertyId: fullOrder.propertyId }
-          });
-
-          if (!warehouse) {
-            warehouse = await tx.warehouse.create({
-              data: {
-                propertyId: fullOrder.propertyId,
-                name: 'Main Store',
-                code: 'MAIN'
-              }
-            });
-          }
-
-          for (const item of fullOrder.items) {
-            // Find a stock item with matching name in this property
-            const stockItem = await tx.stockItem.findFirst({
-              where: {
-                propertyId: fullOrder.propertyId,
-                name: { contains: item.product.name } // Fuzzy name match
-              }
-            });
-
-            if (stockItem) {
-              // Get current balance
-              const agg = await tx.stockMovement.aggregate({
-                where: { stockItemId: stockItem.id, warehouseId: warehouse.id },
-                _sum: { qtyIn: true, qtyOut: true }
-              });
-              const currentBal = (agg._sum.qtyIn || 0) - (agg._sum.qtyOut || 0);
-
-              // Create Stock IN Movement
-              await tx.stockMovement.create({
-                data: {
-                  propertyId: fullOrder.propertyId,
-                  warehouseId: warehouse.id,
-                  stockItemId: stockItem.id,
-                  movementType: 'IN',
-                  qtyIn: item.quantity,
-                  qtyOut: 0,
-                  balanceQty: currentBal + item.quantity,
-                  unitCost: item.unitPrice,
-                  referenceModule: 'B2B_ORDER',
-                  referenceId: fullOrder.id
-                }
-              });
-            }
-          }
-        }
+        await syncOrderToInventory(tx, orderId);
       }
 
       return order;

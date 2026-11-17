@@ -22,7 +22,8 @@ import {
   Calendar,
   Check,
   X,
-  Handshake
+  Handshake,
+  KeyRound
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationSound } from '@/lib/notification-sound';
@@ -89,6 +90,10 @@ export function getNotificationRoute(type: string, title: string, message: strin
 
   const text = `${title} ${message} ${type}`.toLowerCase();
 
+  if (type === 'DOOR_ASSISTANCE' || text.includes('locked out') || text.includes('key assistance') || text.includes('door alert')) {
+    return '/hotel/rooms';
+  }
+
   if (text.includes('check-out') || text.includes('checkout') || text.includes('checking out')) {
     return '/hotel/checkout';
   }
@@ -136,6 +141,14 @@ export function getNotificationRoute(type: string, title: string, message: strin
 
 export function getNotificationIcon(type: string, title: string, message: string) {
   const text = `${title} ${message} ${type}`.toLowerCase();
+
+  if (type === 'DOOR_ASSISTANCE' || text.includes('locked out') || text.includes('key assistance') || text.includes('door alert')) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+        <KeyRound className="text-amber-400 w-4 h-4" />
+      </div>
+    );
+  }
 
   if (type === 'AGENT_BOOKING' || text.includes('agent booking') || text.includes('agent_booking') || text.includes('agent')) {
     return (

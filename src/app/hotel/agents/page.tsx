@@ -45,6 +45,7 @@ interface TravelAgent {
   isBlocked?: boolean;
   totalEarnings: number;
   pinCode: string;
+  allowedDaysAhead?: number;
   bookings: AgentBooking[];
 }
 
@@ -78,6 +79,7 @@ export default function AgentsPage() {
     city: '', travelId: '', gstNumber: '', panNumber: '',
     idType: 'PAN Card', idNumber: '',
     commissionRate: '10', pinCode: '1234', notes: '',
+    allowedDaysAhead: '30',
   });
 
   useEffect(() => { loadData(); }, []);
@@ -120,7 +122,7 @@ export default function AgentsPage() {
           name: '', phone: '', email: '', companyName: '',
           city: '', travelId: '', gstNumber: '', panNumber: '',
           idType: 'PAN Card', idNumber: '',
-          commissionRate: '10', pinCode: '1234', notes: '',
+          commissionRate: '10', pinCode: '1234', notes: '', allowedDaysAhead: '30',
         });
         loadData();
       } else {
@@ -355,6 +357,55 @@ export default function AgentsPage() {
       {/* ─── Tab 1: Agent Directory ─────────────────────────────── */}
       {tab === 'agents' && (
         <div className="space-y-4">
+          {/* Hotel-wide Room Calendar Visibility Permission Policy */}
+          <div className="bg-gradient-to-r from-violet-950/50 via-slate-900 to-indigo-950/40 border border-violet-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                <Calendar size={18} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-white">Default Room Calendar Visibility Permission</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                    Hotel Policy
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Controls how many days forward travel agents are permitted to see vacant rooms and book dates on <span className="text-violet-300 font-bold">/agent-portal</span>.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400 font-bold hidden sm:inline">Default Window:</span>
+              <select
+                onChange={async (e) => {
+                  const newDays = parseInt(e.target.value, 10);
+                  try {
+                    const res = await fetch('/api/hotel/agent-visibility', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ days: newDays }),
+                    });
+                    if (res.ok) {
+                      setAgents(agents.map(a => ({ ...a, allowedDaysAhead: newDays })));
+                      toast.success(`Default visibility permission set to ${newDays} days for all agents!`);
+                    }
+                  } catch {
+                    toast.error('Failed to update visibility permission.');
+                  }
+                }}
+                defaultValue="30"
+                className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer shadow-sm"
+              >
+                <option value="7">7 Days (1 Week Forward)</option>
+                <option value="15">15 Days (2 Weeks Forward)</option>
+                <option value="30">30 Days (1 Month Forward - Standard)</option>
+                <option value="60">60 Days (2 Months Forward)</option>
+                <option value="90">90 Days (3 Months Forward)</option>
+              </select>
+            </div>
+          </div>
+
           <div className="relative w-full max-w-sm">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
@@ -449,6 +500,43 @@ export default function AgentsPage() {
                         )}
                       </div>
                     )}
+
+                    {/* Calendar Visibility Permission Badge & Selector */}
+                    <div
+                      className="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold">
+                        <Calendar size={12} className="text-violet-400" />
+                        <span>Room Visibility:</span>
+                      </div>
+                      <select
+                        value={agent.allowedDaysAhead || 30}
+                        onChange={async (e) => {
+                          const newDays = parseInt(e.target.value, 10);
+                          try {
+                            const res = await fetch(`/api/hotel/agents/${agent.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ allowedDaysAhead: newDays }),
+                            });
+                            if (res.ok) {
+                              setAgents(agents.map(a => a.id === agent.id ? { ...a, allowedDaysAhead: newDays } : a));
+                              toast.success(`Calendar visibility updated to ${newDays} days for ${agent.name}!`);
+                            }
+                          } catch {
+                            toast.error('Failed to update visibility.');
+                          }
+                        }}
+                        className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-[10px] font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer shrink-0"
+                      >
+                        <option value="7">7 Days (1 Wk)</option>
+                        <option value="15">15 Days (2 Wks)</option>
+                        <option value="30">30 Days (1 Mo)</option>
+                        <option value="60">60 Days (2 Mos)</option>
+                        <option value="90">90 Days (3 Mos)</option>
+                      </select>
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-1 border-t border-slate-800">
@@ -738,6 +826,20 @@ export default function AgentsPage() {
                     className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500"
                     value={form.pinCode} onChange={e => setForm({ ...form, pinCode: e.target.value })} />
                 </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Calendar Days Visibility</label>
+                  <select
+                    className="w-full bg-[#050a14] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                    value={form.allowedDaysAhead}
+                    onChange={e => setForm({ ...form, allowedDaysAhead: e.target.value })}
+                  >
+                    <option value="7">7 Days (1 Week)</option>
+                    <option value="15">15 Days (2 Weeks)</option>
+                    <option value="30">30 Days (1 Month - Default)</option>
+                    <option value="60">60 Days (2 Months)</option>
+                    <option value="90">90 Days (3 Months)</option>
+                  </select>
+                </div>
               </div>
 
               {/* ID Proof & Tax Compliance Section */}
@@ -872,6 +974,50 @@ export default function AgentsPage() {
               <button onClick={() => setSelectedAgent(null)} className="p-1 text-slate-400 hover:text-white"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-3 text-xs max-h-[80vh] overflow-y-auto">
+              {/* Room Availability Visibility Permission */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                  <span className="text-[10px] text-slate-300 uppercase font-bold flex items-center gap-1.5">
+                    <Calendar size={12} className="text-violet-400" /> Room Calendar Visibility Permission
+                  </span>
+                  <span className="text-[9px] text-violet-400 font-bold bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                    {selectedAgent.allowedDaysAhead || 30} Days Active
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 pt-0.5">
+                  <span className="text-slate-400 text-[11px]">
+                    Days of forward room availability agent can view & book:
+                  </span>
+                  <select
+                    value={selectedAgent.allowedDaysAhead || 30}
+                    onChange={async (e) => {
+                      const newDays = parseInt(e.target.value, 10);
+                      try {
+                        const res = await fetch(`/api/hotel/agents/${selectedAgent.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ allowedDaysAhead: newDays }),
+                        });
+                        if (res.ok) {
+                          setSelectedAgent({ ...selectedAgent, allowedDaysAhead: newDays });
+                          setAgents(agents.map(a => a.id === selectedAgent.id ? { ...a, allowedDaysAhead: newDays } : a));
+                          toast.success(`Visibility updated to ${newDays} days for ${selectedAgent.name}.`);
+                        }
+                      } catch {
+                        toast.error('Failed to update visibility permission.');
+                      }
+                    }}
+                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer shrink-0"
+                  >
+                    <option value="7">7 Days (1 Week)</option>
+                    <option value="15">15 Days (2 Weeks)</option>
+                    <option value="30">30 Days (1 Month - Default)</option>
+                    <option value="60">60 Days (2 Months)</option>
+                    <option value="90">90 Days (3 Months)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-950 rounded-xl p-3">
                   <span className="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Mobile</span>
@@ -936,6 +1082,50 @@ export default function AgentsPage() {
                       {selectedAgent.idNumber || 'Not Provided'}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Room Availability Visibility Permission */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                  <span className="text-[10px] text-slate-300 uppercase font-bold flex items-center gap-1.5">
+                    <Calendar size={12} className="text-violet-400" /> Room Calendar Visibility Permission
+                  </span>
+                  <span className="text-[9px] text-violet-400 font-bold bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                    {selectedAgent.allowedDaysAhead || 30} Days Active
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 pt-0.5">
+                  <span className="text-slate-400 text-[11px]">
+                    Days of forward room availability agent can view & book:
+                  </span>
+                  <select
+                    value={selectedAgent.allowedDaysAhead || 30}
+                    onChange={async (e) => {
+                      const newDays = parseInt(e.target.value, 10);
+                      try {
+                        const res = await fetch(`/api/hotel/agents/${selectedAgent.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ allowedDaysAhead: newDays }),
+                        });
+                        if (res.ok) {
+                          setSelectedAgent({ ...selectedAgent, allowedDaysAhead: newDays });
+                          setAgents(agents.map(a => a.id === selectedAgent.id ? { ...a, allowedDaysAhead: newDays } : a));
+                          toast.success(`Visibility updated to ${newDays} days for ${selectedAgent.name}.`);
+                        }
+                      } catch {
+                        toast.error('Failed to update visibility permission.');
+                      }
+                    }}
+                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer shrink-0"
+                  >
+                    <option value="7">7 Days (1 Week)</option>
+                    <option value="15">15 Days (2 Weeks)</option>
+                    <option value="30">30 Days (1 Month - Default)</option>
+                    <option value="60">60 Days (2 Months)</option>
+                    <option value="90">90 Days (3 Months)</option>
+                  </select>
                 </div>
               </div>
 

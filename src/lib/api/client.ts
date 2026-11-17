@@ -15,7 +15,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
   const data = text ? JSON.parse(text) : null;
   
   if (!response.ok) {
-    if (response.status === 401 && typeof window !== 'undefined') {
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      window.location.pathname !== '/login' &&
+      !response.url?.includes('/api/auth/login')
+    ) {
       window.location.href = '/login';
     }
     // Safely extract string message — error field may be array/object (e.g. ZodError)

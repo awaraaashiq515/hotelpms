@@ -14,7 +14,15 @@ import {
   LayoutDashboard,
   Hotel,
   ShieldCheck,
-  Shield
+  Shield,
+  Tv,
+  UtensilsCrossed,
+  BedDouble,
+  Wine,
+  ChefHat,
+  Sparkles,
+  ChevronRight,
+  ShoppingCart
 } from 'lucide-react';
 import { useSidebar } from '@/components/hotel/SidebarContext';
 import { NotificationBell } from '@/components/hotel/NotificationBell';
@@ -35,6 +43,17 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
   const [session, setSession] = useState<any>(propSession || null);
   const [selectedProperty, setSelectedProperty] = useState<any>(propProperty || null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setShowProfileMenu(false);
+    };
+    if (showProfileMenu) {
+      document.addEventListener('click', handleOutsideClick);
+    }
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [showProfileMenu]);
 
   useEffect(() => {
     if (!propSession) {
@@ -154,6 +173,26 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
           </button>
         )}
 
+        {/* Purchasing & Stock Inward shortcut button */}
+        <button
+          onClick={() => router.push('/hotel/purchasing')}
+          title="Open Purchase Orders, Vendor Inward & Stock"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          <ShoppingCart size={13} className="text-cyan-400" />
+          <span>Purchasing 📦</span>
+        </button>
+
+        {/* Daily Menus & Customer Meal Plans shortcut button */}
+        <button
+          onClick={() => router.push('/hotel/daily-menus')}
+          title="Open Today's Meal Menus & Customer Meal Plans (CP, MAP, AP, EP)"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-400 hover:text-orange-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          <ChefHat size={13} className="text-orange-400" />
+          <span>Daily Menus 🍽️</span>
+        </button>
+
         {/* Backup & Restore shortcut button */}
         <button
           onClick={() => router.push('/hotel/backup')}
@@ -185,13 +224,18 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
           </div>
         )}
 
-        {/* Live Desk Pill */}
-        {!isCalendar && (
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-[10px] font-black uppercase tracking-widest text-indigo-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            Live Desk
-          </div>
-        )}
+        {/* Live Desk Button (Direct access to Master Order Display) */}
+        <button
+          onClick={() => {
+            const pCode = session?.propertyCode || selectedProperty?.code || selectedProperty?.propertyCode;
+            router.push(pCode ? `/master-order-display/${pCode.toLowerCase()}` : '/master-order-display');
+          }}
+          title="Open Live Master Order Display (Rooms • Restaurant • Bar)"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-[10px] font-black uppercase tracking-widest text-indigo-300 hover:text-white transition-all shadow-sm cursor-pointer select-none active:scale-95"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span>Live Desk</span>
+        </button>
 
         {/* Discount Approval Realtime Floating Alert - ONLY for Hotel Admin and Managers */}
         {['HOTEL_ADMIN', 'SUPER_ADMIN', 'ADMIN', 'HOTEL_MANAGER'].includes(session?.role) && (

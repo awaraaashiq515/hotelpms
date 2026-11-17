@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const {
       name, phone, email, companyName, address, city,
       commissionRate, pinCode, isActive, isBlocked, blockedReason, notes, portalPassword,
-      travelId, gstNumber, panNumber, idType, idNumber
+      travelId, gstNumber, panNumber, idType, idNumber, allowedDaysAhead
     } = body;
 
     const agent = await prisma.travelAgent.findUnique({
@@ -49,8 +49,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const updated = await prisma.travelAgent.update({ where: { id }, data: updateData });
 
-    // Handle hotel-specific relation (commission rate & block status)
-    if (commissionRate !== undefined || isBlocked !== undefined) {
+    // Handle hotel-specific relation (commission rate, block status & allowed calendar days ahead)
+    if (commissionRate !== undefined || isBlocked !== undefined || allowedDaysAhead !== undefined) {
       await prisma.agentHotelRelation.upsert({
         where: {
           agentId_propertyId: {
@@ -64,11 +64,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           commissionRate: commissionRate !== undefined ? Number(commissionRate) : agent.commissionRate,
           isBlocked: isBlocked !== undefined ? Boolean(isBlocked) : false,
           blockedReason: blockedReason || null,
+          allowedDaysAhead: allowedDaysAhead !== undefined ? Number(allowedDaysAhead) : 30,
         },
         update: {
           ...(commissionRate !== undefined && { commissionRate: Number(commissionRate) }),
           ...(isBlocked !== undefined && { isBlocked: Boolean(isBlocked) }),
           ...(blockedReason !== undefined && { blockedReason }),
+          ...(allowedDaysAhead !== undefined && { allowedDaysAhead: Number(allowedDaysAhead) }),
         },
       });
     }

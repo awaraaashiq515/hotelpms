@@ -67,28 +67,40 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, address, category, gstNumber } = body;
 
-    if (!name || !email) {
-      return NextResponse.json({ error: 'Name and Email are required' }, { status: 400 });
+    if (!name?.trim()) {
+      return NextResponse.json({ error: 'Vendor Name is required' }, { status: 400 });
     }
 
-    const existing = await prisma.b2BSupplier.findUnique({ where: { email } });
+    // Auto-generate a clean email if not provided
+    const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const vendorEmail = (email && email.trim()) || `${cleanName || 'vendor'}_${Date.now().toString().slice(-4)}@vendor.local`;
+
+    const existing = await prisma.b2BSupplier.findFirst({
+      where: {
+        OR: [
+          { email: vendorEmail },
+          ...(phone ? [{ phone: String(phone).trim() }] : []),
+        ],
+      },
+    });
+
     if (existing) {
-      return NextResponse.json({ error: 'A vendor with this email already exists' }, { status: 400 });
+      return NextResponse.json({ success: true, data: existing, message: 'Vendor already exists' });
     }
 
     const qrToken = 'sup_' + Math.random().toString(36).substring(2, 15);
 
     const supplier = await prisma.b2BSupplier.create({
       data: {
-        name,
-        email,
-        phone:     phone     || null,
-        address:   address   || null,
-        category:  category  || null,
-        gstNumber: gstNumber || null,
+        name: name.trim(),
+        email: vendorEmail,
+        phone: phone ? String(phone).trim() : null,
+        address: address?.trim() || null,
+        category: category?.trim() || 'General',
+        gstNumber: gstNumber?.trim() || null,
         qrToken,
         qrEnabled: true,
-        isActive:  true,
+        isActive: true,
       },
     });
 

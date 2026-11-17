@@ -165,6 +165,8 @@ export const HotelAdminSidebar: React.FC = () => {
       subItems: [
         { name: 'Room Service & F&B', path: `${p}/hoteladmin/restaurant` },
         { name: 'Restaurant Orders', path: `${p}/hoteladmin/restaurant?tab=orders` },
+        { name: 'Master Order Display (TV)', path: p ? `${p}/master-order-display` : '/master-order-display' },
+        { name: 'Kitchen Portal (Staff)', path: p ? `/kitchen-portal/${p.slice(1)}` : '/kitchen-portal' },
       ],
     },
     // ── Staff Management ──

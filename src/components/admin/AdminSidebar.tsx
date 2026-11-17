@@ -28,6 +28,7 @@ import {
   Bike,
   MessageCircle,
   Tag,
+  ShieldAlert,
 } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSidebar } from '@/context/sidebar-context';
@@ -62,6 +63,7 @@ export const AdminSidebar = () => {
     { name: 'WhatsApp Settings', path: '/admin/settings/whatsapp', icon: MessageCircle },
     { name: 'Blog', path: '/admin/blogs', icon: MessageSquare },
     { name: 'Contact Enquiries', path: '/admin/enquiries', icon: Mail },
+    { name: 'Security Monitor', path: '/admin/security-monitor', icon: ShieldAlert },
   ];
 
   return (

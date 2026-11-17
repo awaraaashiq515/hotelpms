@@ -257,12 +257,11 @@ export async function DELETE(request: NextRequest) {
       let deletedTypesCount = 0;
 
       if (mode === 'all' && targetPropertyId) {
-        // Find rooms with no active reservations
+        // Find rooms with target demo numbers
         const demoRoomsToDelete = await tx.room.findMany({
           where: {
             propertyId: targetPropertyId,
-            roomNumber: { in: ['101', '102', '103', '201', '202', '203'] },
-            rooms: { none: {} }
+            roomNumber: { in: ['101', '102', '103', '201', '202', '203'] }
           },
           select: { id: true }
         });
@@ -273,7 +272,27 @@ export async function DELETE(request: NextRequest) {
           await tx.housekeepingTask.deleteMany({ where: { roomId: { in: roomIds } } });
           await tx.maintenanceTicket.deleteMany({ where: { roomId: { in: roomIds } } });
           await tx.reservationRoom.deleteMany({ where: { roomId: { in: roomIds } } });
+
+          // Delete check-outs linked to room check-ins before deleting check-ins
+          const roomCheckIns = await tx.checkIn.findMany({
+            where: { roomId: { in: roomIds } },
+            select: { id: true }
+          });
+          const roomCheckInIds = roomCheckIns.map((c: any) => c.id);
+          if (roomCheckInIds.length > 0) {
+            await tx.checkOut.deleteMany({
+              where: { checkInId: { in: roomCheckInIds } }
+            });
+          }
+
           await tx.checkIn.deleteMany({ where: { roomId: { in: roomIds } } });
+
+          // Unassign from any reservations that might reference these roomIds
+          await tx.reservation.updateMany({
+            where: { assignedRoomId: { in: roomIds } },
+            data: { assignedRoomId: null }
+          });
+
           const delRes = await tx.room.deleteMany({
             where: { id: { in: roomIds } }
           });
@@ -285,7 +304,8 @@ export async function DELETE(request: NextRequest) {
           where: {
             propertyId: targetPropertyId,
             code: { in: ['DELUXE', 'SDELUXE', 'SUITE'] },
-            rooms: { none: {} }
+            rooms: { none: {} },
+            reservations: { none: {} }
           },
           select: { id: true }
         });

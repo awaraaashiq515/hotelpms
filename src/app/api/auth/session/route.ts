@@ -9,6 +9,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
+    if (session.role === 'TRAVEL_AGENT') {
+      return NextResponse.json({
+        authenticated: true,
+        user: {
+          id: session.id,
+          email: session.email,
+          role: 'TRAVEL_AGENT',
+          roleName: 'TRAVEL_AGENT',
+          propertyId: session.propertyId || null,
+        },
+      });
+    }
+
     // Fetch latest permissions directly from DB so changes take effect without relogging
     const [roleWithPerms, dbUser] = await Promise.all([
       prisma.role.findUnique({

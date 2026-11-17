@@ -206,6 +206,12 @@ export default function LoginPage() {
         return;
       }
 
+      if (role === 'TRAVEL_AGENT') {
+        router.push('/agent-portal');
+        router.refresh();
+        return;
+      }
+
       if (role === 'SUPER_ADMIN') {
         router.push('/admin/dashboard');
       } else if (role === 'RESTAURANTS_ADMIN') {
@@ -299,7 +305,18 @@ export default function LoginPage() {
       // ── STEP 1: Standard Login (Hotel Owner, Front Desk, Housekeeping, Chef, Admin, Staff etc.) ──
       // Always authenticate User table accounts first so full session cookie and role-based routing apply.
       try {
-        const response = await authApi.login({ email, password, captchaText, captchaToken });
+        const response: any = await authApi.login({ email, password, captchaText, captchaToken });
+
+        // Travel Agent login directly supported via /api/auth/login
+        if (response?.isAgent && response?.agent) {
+          localStorage.setItem('agent_info', JSON.stringify(response.agent));
+          if (response.stats) {
+            localStorage.setItem('agent_stats', JSON.stringify(response.stats));
+          }
+          router.push(response.redirectUrl || '/agent-portal');
+          router.refresh();
+          return;
+        }
 
         if (response.twoFactorRequired) {
           setTempUserId(response.userId || null);
@@ -616,7 +633,7 @@ export default function LoginPage() {
                   }`}
                 />
                 <input
-                  type="email"
+                  type="text"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -624,6 +641,7 @@ export default function LoginPage() {
                   onBlur={() => setFocusedField(null)}
                   className="w-full pl-11 pr-4 py-3.5 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-rose-500 outline-none transition-all"
                   placeholder="name@example.com"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -659,6 +677,7 @@ export default function LoginPage() {
                     onBlur={() => setFocusedField(null)}
                     className="w-full pl-11 pr-12 py-3.5 bg-slate-950/80 border border-white/15 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:border-rose-500 outline-none transition-all"
                     placeholder="••••••••"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
