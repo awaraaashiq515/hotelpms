@@ -1,6 +1,8 @@
 {
   "name": "gustflow",
   "version": "0.1.0",
+  "description": "GuestFlow PMS Desktop Application",
+  "author": "GuestFlow PMS",
   "private": true,
   "repository": {
     "type": "git",
