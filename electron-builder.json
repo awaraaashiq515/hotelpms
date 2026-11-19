@@ -3,8 +3,7 @@
   "productName": "GuestFlow PMS",
   "electronVersion": "41.3.0",
   "directories": {
-    "output": "../dist",
-    "app": "../"
+    "output": "dist"
   },
   "files": [
     "electron/main.js",
