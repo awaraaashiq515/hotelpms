@@ -62,5 +62,6 @@ menu-scanner/backend/temp_uploads/
 wt-settings.json
 *.log
 scripts/backup-log.json
+scripts/backup-settings.json
 tsconfig.check.json
 

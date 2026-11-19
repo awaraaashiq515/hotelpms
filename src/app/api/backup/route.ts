@@ -4,11 +4,80 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { getSession } from '@/lib/session';
 
-const PROJECT_DIR   = process.cwd();
-const BACKUP_FOLDER = 'Hotel-PMS-Backups';
-const DESKTOP_BASE  = path.join(os.homedir(), 'Desktop', BACKUP_FOLDER);
-const DB_PATH       = path.join(PROJECT_DIR, 'prisma', 'dev.db');
-const LOG_PATH      = path.join(PROJECT_DIR, 'scripts', 'backup-log.json');
+const PROJECT_DIR    = process.cwd();
+const BACKUP_FOLDER  = 'Hotel-PMS-Backups';
+const DESKTOP_BASE   = path.join(os.homedir(), 'Desktop', BACKUP_FOLDER);
+const DB_PATH        = path.join(PROJECT_DIR, 'prisma', 'dev.db');
+const LOG_PATH       = path.join(PROJECT_DIR, 'scripts', 'backup-log.json');
+const SETTINGS_PATH  = path.join(PROJECT_DIR, 'scripts', 'backup-settings.json');
+
+// ── Backup Path Settings Helpers ──────────────────────────────────────────────
+interface BackupPathSettings {
+  customDesktopPath: string | null;   // null = use default Desktop
+  customGdrivePath:  string | null;   // null = auto-detect Google Drive
+  enableDesktop:     boolean;
+  enableGdrive:      boolean;
+  enableCustomPath:  boolean;
+  customPaths:       string[];        // extra paths to also save backup
+}
+
+function loadBackupSettings(): BackupPathSettings {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) {
+      const parsed = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
+      if (parsed.customDesktopPath) {
+        parsed.customDesktopPath = parsed.customDesktopPath.trim();
+      }
+      return { ...defaultSettings(), ...parsed };
+    }
+  } catch (_) {}
+  return defaultSettings();
+}
+
+function defaultSettings(): BackupPathSettings {
+  return {
+    customDesktopPath: null,
+    customGdrivePath:  null,
+    enableDesktop:     true,
+    enableGdrive:      true,
+    enableCustomPath:  false,
+    customPaths:       [],
+  };
+}
+
+function saveBackupSettings(settings: BackupPathSettings) {
+  if (settings.customDesktopPath) {
+    settings.customDesktopPath = settings.customDesktopPath.trim();
+  }
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+}
+
+function getEffectiveDesktopBase(settings: BackupPathSettings): string {
+  if (settings.customDesktopPath && settings.customDesktopPath.trim()) {
+    const p = settings.customDesktopPath.trim();
+    try { fs.mkdirSync(p, { recursive: true }); } catch (_) {}
+    return p;
+  }
+  return DESKTOP_BASE;
+}
+
+// ── Helper: Find Backup Folder across candidate locations ─────────────────────
+function findBackupFolder(backupName: string, propCode: string): string | null {
+  const settings = loadBackupSettings();
+  const effectiveBase = getEffectiveDesktopBase(settings);
+
+  const candidates = [
+    path.join(effectiveBase, backupName),
+    path.join(effectiveBase, propCode, backupName),
+    path.join(DESKTOP_BASE, propCode, backupName),
+    path.join(DESKTOP_BASE, backupName),
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
 
 interface PropertyRecord {
   code: string;
@@ -219,17 +288,31 @@ function exportPropertyToJson(prop: PropertyRecord) {
 
 // ── Helper: List backups for this property ONLY ───────────────────────────────
 function listBackupsForProperty(propCode: string) {
-  const propDir = path.join(DESKTOP_BASE, propCode);
+  const settings = loadBackupSettings();
+  const effectiveBase = getEffectiveDesktopBase(settings);
+
+  const candidateDirs = [
+    effectiveBase,
+    path.join(effectiveBase, propCode),
+    path.join(DESKTOP_BASE, propCode),
+    DESKTOP_BASE,
+  ];
+
   const backups: any[] = [];
+  const seenNames = new Set<string>();
 
-  const readDir = fs.existsSync(propDir) ? propDir : (fs.existsSync(DESKTOP_BASE) ? DESKTOP_BASE : null);
-  if (!readDir) return backups;
+  for (const readDir of candidateDirs) {
+    if (!fs.existsSync(readDir)) continue;
 
-  try {
-    fs.readdirSync(readDir)
-      .filter((f) => f.startsWith('backup-') && fs.statSync(path.join(readDir, f)).isDirectory())
-      .sort().reverse()
-      .forEach((entry) => {
+    try {
+      const entries = fs.readdirSync(readDir)
+        .filter((f) => f.startsWith('backup-') && fs.statSync(path.join(readDir, f)).isDirectory())
+        .sort().reverse();
+
+      for (const entry of entries) {
+        if (seenNames.has(entry)) continue;
+        seenNames.add(entry);
+
         let info: Record<string, unknown> = {};
         const entryDir = path.join(readDir, entry);
         const infoFile = path.join(entryDir, 'backup-info.json');
@@ -263,9 +346,11 @@ function listBackupsForProperty(propCode: string) {
           hasJson:        fs.existsSync(jsonFile),
           hasGoogleDrive: !!(info.locations && (info.locations as Record<string, unknown>).googleDrive),
         });
-      });
-  } catch (_) {}
+      }
+    } catch (_) {}
+  }
 
+  backups.sort((a, b) => b.name.localeCompare(a.name));
   return backups;
 }
 
@@ -277,6 +362,10 @@ function createBackupForProperty(prop: PropertyRecord) {
   const timeStr   = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const bkpName   = `backup-${timestamp}`;
 
+  // Load path settings
+  const settings = loadBackupSettings();
+  const effectiveDesktopBase = getEffectiveDesktopBase(settings);
+
   const result: Record<string, unknown> = {
     backupName:   bkpName,
     propertyCode: prop.code,
@@ -285,6 +374,7 @@ function createBackupForProperty(prop: PropertyRecord) {
     timestamp:    now.toISOString(),
     dateStr, timeStr,
     desktopPath:  null, gdrivePath: null, gdriveEmail: null,
+    customPaths:  [] as string[],
     jsonSize:     '0 KB',
     dbSizeMB:     '0 KB',
     success:      false, error: null, googleDriveInstalled: false,
@@ -300,22 +390,7 @@ function createBackupForProperty(prop: PropertyRecord) {
     result.recordsCount = exported.totalRecords;
     result.tablesCount  = exported.tablesCount;
 
-    // 2. Desktop: Dedicated folder for this property
-    const propDir = path.join(DESKTOP_BASE, prop.code);
-    fs.mkdirSync(propDir, { recursive: true });
-    const desktopBkpPath = path.join(propDir, bkpName);
-    fs.mkdirSync(desktopBkpPath, { recursive: true });
-
-    // Save primary JSON backup file
-    const jsonDest = path.join(desktopBkpPath, 'hotel-data-backup.json');
-    fs.writeFileSync(jsonDest, exported.jsonStr, 'utf-8');
-
-    // Also save SQLite .db snapshot as secondary clone
-    fs.copyFileSync(DB_PATH, path.join(desktopBkpPath, 'hotel-pms-data.db'));
-    if (fs.existsSync(DB_PATH + '-wal')) fs.copyFileSync(DB_PATH + '-wal', path.join(desktopBkpPath, 'hotel-pms-data.db-wal'));
-    if (fs.existsSync(DB_PATH + '-shm')) fs.copyFileSync(DB_PATH + '-shm', path.join(desktopBkpPath, 'hotel-pms-data.db-shm'));
-
-    // Info JSON strictly isolated for THIS property
+    // Info object base
     const infoObj = {
       system:       'Hotel PMS — GustFlow',
       format:       'JSON',
@@ -331,37 +406,81 @@ function createBackupForProperty(prop: PropertyRecord) {
       recordsCount: exported.totalRecords,
       tablesCount:  exported.tablesCount,
       howToRestore: 'Restore directly via PMS interface or restoreFromJson helper.',
-      locations:    { desktop: desktopBkpPath } as Record<string, string>,
+      locations:    {} as Record<string, string>,
     };
-    fs.writeFileSync(path.join(desktopBkpPath, 'backup-info.json'), JSON.stringify(infoObj, null, 2));
-    result.desktopPath = desktopBkpPath;
 
-    // 3. Google Drive: Dedicated folder for this property
-    const gdrive = findGoogleDriveFolder();
-    if (gdrive) {
-      result.googleDriveInstalled = true;
+    // ── Helper to write backup files to a destination directory ──
+    const writeBackupTo = (destBase: string) => {
+      // Ensure folder exists on disk
+      fs.mkdirSync(destBase, { recursive: true });
+
+      // Save directly into the selected folder
+      const bkpPath = path.join(destBase, bkpName);
+      fs.mkdirSync(bkpPath, { recursive: true });
+
+      fs.writeFileSync(path.join(bkpPath, 'hotel-data-backup.json'), exported.jsonStr, 'utf-8');
+      fs.copyFileSync(DB_PATH, path.join(bkpPath, 'hotel-pms-data.db'));
+      if (fs.existsSync(DB_PATH + '-wal')) fs.copyFileSync(DB_PATH + '-wal', path.join(bkpPath, 'hotel-pms-data.db-wal'));
+      if (fs.existsSync(DB_PATH + '-shm')) fs.copyFileSync(DB_PATH + '-shm', path.join(bkpPath, 'hotel-pms-data.db-shm'));
+      fs.writeFileSync(path.join(bkpPath, 'backup-info.json'), JSON.stringify(infoObj, null, 2));
+
+      // Also maintain property-subfolder structure if needed
+      const propDir = path.join(destBase, prop.code);
       try {
-        const gdrivePropDir = path.join(gdrive.path, prop.code);
-        fs.mkdirSync(gdrivePropDir, { recursive: true });
-        const gdriveBkpPath = path.join(gdrivePropDir, bkpName);
-        fs.mkdirSync(gdriveBkpPath, { recursive: true });
-
-        // Save JSON on Google Drive
-        fs.writeFileSync(path.join(gdriveBkpPath, 'hotel-data-backup.json'), exported.jsonStr, 'utf-8');
-        fs.copyFileSync(DB_PATH, path.join(gdriveBkpPath, 'hotel-pms-data.db'));
-        if (fs.existsSync(DB_PATH + '-wal')) fs.copyFileSync(DB_PATH + '-wal', path.join(gdriveBkpPath, 'hotel-pms-data.db-wal'));
-        if (fs.existsSync(DB_PATH + '-shm')) fs.copyFileSync(DB_PATH + '-shm', path.join(gdriveBkpPath, 'hotel-pms-data.db-shm'));
-
-        infoObj.locations.googleDrive = gdriveBkpPath;
-        fs.writeFileSync(path.join(gdriveBkpPath, 'backup-info.json'), JSON.stringify(infoObj, null, 2));
-        result.gdrivePath  = gdriveBkpPath;
-        result.gdriveEmail = gdrive.email;
-
-        cleanOldBackups(gdrivePropDir, 30);
+        fs.mkdirSync(propDir, { recursive: true });
+        const propBkpPath = path.join(propDir, bkpName);
+        fs.mkdirSync(propBkpPath, { recursive: true });
+        fs.writeFileSync(path.join(propBkpPath, 'hotel-data-backup.json'), exported.jsonStr, 'utf-8');
+        fs.copyFileSync(DB_PATH, path.join(propBkpPath, 'hotel-pms-data.db'));
+        fs.writeFileSync(path.join(propBkpPath, 'backup-info.json'), JSON.stringify(infoObj, null, 2));
+        cleanOldBackups(propDir, 30);
       } catch (_) {}
+
+      cleanOldBackups(destBase, 30);
+      return bkpPath;
+    };
+
+    // 2. Desktop / Custom Primary Path
+    if (settings.enableDesktop) {
+      const desktopBkpPath = writeBackupTo(effectiveDesktopBase);
+      infoObj.locations.desktop = desktopBkpPath;
+      result.desktopPath = desktopBkpPath;
     }
 
-    cleanOldBackups(propDir, 30);
+    // 3. Google Drive (auto-detect or custom path)
+    if (settings.enableGdrive) {
+      let gdriveBase: { path: string; email: string } | null = null;
+      if (settings.customGdrivePath) {
+        gdriveBase = { path: settings.customGdrivePath, email: 'Custom Path' };
+      } else {
+        gdriveBase = findGoogleDriveFolder();
+      }
+      if (gdriveBase) {
+        result.googleDriveInstalled = true;
+        try {
+          const gdriveBkpPath = writeBackupTo(gdriveBase.path);
+          infoObj.locations.googleDrive = gdriveBkpPath;
+          result.gdrivePath  = gdriveBkpPath;
+          result.gdriveEmail = gdriveBase.email;
+        } catch (_) {}
+      }
+    }
+
+    // 4. Additional custom paths
+    if (settings.enableCustomPath && settings.customPaths.length > 0) {
+      const savedCustomPaths: string[] = [];
+      for (const customBase of settings.customPaths) {
+        try {
+          if (customBase && customBase.trim()) {
+            const customBkpPath = writeBackupTo(customBase.trim());
+            infoObj.locations[`custom_${savedCustomPaths.length}`] = customBkpPath;
+            savedCustomPaths.push(customBkpPath);
+          }
+        } catch (_) {}
+      }
+      result.customPaths = savedCustomPaths;
+    }
+
     result.success = true;
   } catch (err) {
     result.error = (err as Error).message;
@@ -434,6 +553,8 @@ export async function GET(req: NextRequest) {
   const session = await getSession();
   const prop = resolveProperty(req, session);
   const gdrive = findGoogleDriveFolder();
+  const settings = loadBackupSettings();
+  const effectiveDesktopBase = getEffectiveDesktopBase(settings);
   const backups = listBackupsForProperty(prop.code);
 
   let logs: any[] = [];
@@ -449,7 +570,8 @@ export async function GET(req: NextRequest) {
     }
   } catch (_) {}
 
-  const propDesktopDir = path.join(DESKTOP_BASE, prop.code);
+  const propDesktopDir = path.join(effectiveDesktopBase, prop.code);
+  const defaultDesktopPath = path.join(os.homedir(), 'Desktop', BACKUP_FOLDER);
 
   return NextResponse.json({
     property: {
@@ -469,7 +591,45 @@ export async function GET(req: NextRequest) {
     },
     backups,
     recentLogs: logs.slice(0, 10),
+    pathSettings: {
+      ...settings,
+      defaultDesktopPath,
+      homedir: os.homedir(),
+    },
   });
+}
+
+// ── PATCH /api/backup → Save backup path settings ─────────────────────────────
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const current = loadBackupSettings();
+    const updated: BackupPathSettings = {
+      customDesktopPath: body.customDesktopPath !== undefined 
+        ? (body.customDesktopPath ? body.customDesktopPath.trim() : null) 
+        : current.customDesktopPath,
+      customGdrivePath:  body.customGdrivePath  !== undefined 
+        ? (body.customGdrivePath ? body.customGdrivePath.trim() : null) 
+        : current.customGdrivePath,
+      enableDesktop:     body.enableDesktop     !== undefined ? !!body.enableDesktop     : current.enableDesktop,
+      enableGdrive:      body.enableGdrive      !== undefined ? !!body.enableGdrive      : current.enableGdrive,
+      enableCustomPath:  body.enableCustomPath  !== undefined ? !!body.enableCustomPath  : current.enableCustomPath,
+      customPaths:       Array.isArray(body.customPaths)      
+        ? body.customPaths.map((p: string) => p.trim()).filter(Boolean) 
+        : current.customPaths,
+    };
+
+    if (updated.customDesktopPath) {
+      try {
+        fs.mkdirSync(updated.customDesktopPath, { recursive: true });
+      } catch (_) {}
+    }
+
+    saveBackupSettings(updated);
+    return NextResponse.json({ success: true, settings: updated });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: (err as Error).message }, { status: 500 });
+  }
 }
 
 // ── POST /api/backup → Create JSON backup or restore ──────────────────────────
@@ -481,9 +641,7 @@ export async function POST(req: NextRequest) {
   // Restore mode
   if (body.action === 'restore' && body.backupName) {
     const backupName = body.backupName as string;
-    const propDir    = path.join(DESKTOP_BASE, prop.code, backupName);
-    const rootDir    = path.join(DESKTOP_BASE, backupName);
-    const targetDir  = fs.existsSync(propDir) ? propDir : (fs.existsSync(rootDir) ? rootDir : null);
+    const targetDir  = findBackupFolder(backupName, prop.code);
 
     if (!targetDir) {
       return NextResponse.json({ success: false, error: 'Backup not found for property: ' + backupName }, { status: 404 });
@@ -514,9 +672,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'backupName is required' }, { status: 400 });
   }
 
-  const propDir   = path.join(DESKTOP_BASE, prop.code, backupName);
-  const rootDir   = path.join(DESKTOP_BASE, backupName);
-  const targetDir = fs.existsSync(propDir) ? propDir : (fs.existsSync(rootDir) ? rootDir : null);
+  const targetDir = findBackupFolder(backupName, prop.code);
 
   if (!targetDir) {
     return NextResponse.json({ success: false, error: 'Backup not found for property: ' + backupName }, { status: 404 });
@@ -540,9 +696,7 @@ export async function DELETE(req: NextRequest) {
   const backupName = searchParams.get('name');
   if (!backupName) return NextResponse.json({ error: 'name required' }, { status: 400 });
 
-  const propBackupPath = path.join(DESKTOP_BASE, prop.code, backupName);
-  const rootBackupPath = path.join(DESKTOP_BASE, backupName);
-  const targetPath     = fs.existsSync(propBackupPath) ? propBackupPath : (fs.existsSync(rootBackupPath) ? rootBackupPath : null);
+  const targetPath = findBackupFolder(backupName, prop.code);
 
   if (!targetPath) {
     return NextResponse.json({ error: 'Backup not found' }, { status: 404 });

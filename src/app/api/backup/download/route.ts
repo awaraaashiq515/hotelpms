@@ -4,6 +4,22 @@ import * as fs from 'fs';
 import * as os from 'os';
 
 const PROJECT_DIR = process.cwd();
+const DEFAULT_BASE_DIR = path.join(os.homedir(), 'Desktop', 'Hotel-PMS-Backups');
+const SETTINGS_PATH = path.join(PROJECT_DIR, 'scripts', 'backup-settings.json');
+
+function getEffectiveDesktopBase(): string {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) {
+      const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
+      if (settings.customDesktopPath && settings.customDesktopPath.trim()) {
+        const p = settings.customDesktopPath.trim();
+        try { fs.mkdirSync(p, { recursive: true }); } catch (_) {}
+        return p;
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_BASE_DIR;
+}
 
 // ── Helper: Dynamically build JSON for property if not present ────────────────
 function generateJsonOnTheFly(propCode: string): string | null {
@@ -95,6 +111,20 @@ function generateJsonOnTheFly(propCode: string): string | null {
   }
 }
 
+function locateBackupFolder(safeName: string, propCode: string): string | null {
+  const base = getEffectiveDesktopBase();
+  const candidateList = [
+    propCode ? path.join(base, propCode, safeName) : '',
+    path.join(base, safeName),
+    propCode ? path.join(DEFAULT_BASE_DIR, propCode, safeName) : '',
+    path.join(DEFAULT_BASE_DIR, safeName),
+  ];
+  for (const target of candidateList) {
+    if (target && fs.existsSync(target)) return target;
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const name = searchParams.get('name');
@@ -106,12 +136,7 @@ export async function GET(req: NextRequest) {
   }
 
   const safeName = path.basename(name);
-  const baseDir  = path.join(os.homedir(), 'Desktop', 'Hotel-PMS-Backups');
-
-  // Candidate paths
-  const propFolder = propertyCode ? path.join(baseDir, propertyCode, safeName) : null;
-  const rootFolder = path.join(baseDir, safeName);
-  const targetFolder = (propFolder && fs.existsSync(propFolder)) ? propFolder : (fs.existsSync(rootFolder) ? rootFolder : null);
+  const targetFolder = locateBackupFolder(safeName, propertyCode);
 
   if (!targetFolder) {
     return new NextResponse('Backup folder not found', { status: 404 });

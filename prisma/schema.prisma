@@ -3554,3 +3554,25 @@ model SecurityAlert {
   @@index([severity])
   @@index([isResolved])
 }
+
+// ─────────────────────────────────────────────────────────────
+// OFFLINE SYNC QUEUE
+// Jab internet na ho tab ye model actions store karta hai
+// Jab internet aaye tab ye cloud pe sync ho jata hai
+// ─────────────────────────────────────────────────────────────
+model OfflineSyncQueue {
+  id         Int      @id @default(autoincrement())
+  type       String   // e.g. CREATE_ORDER, UPDATE_ORDER_STATUS, etc.
+  endpoint   String   // API endpoint jo call karni hai
+  method     String   // POST, PUT, PATCH
+  payload    String   // JSON string of request body
+  timestamp  DateTime @default(now())
+  synced     Boolean  @default(false)
+  syncedAt   DateTime?
+  retries    Int      @default(0)
+  error      String?
+  propertyId String?
+
+  @@index([synced])
+  @@index([timestamp])
+}

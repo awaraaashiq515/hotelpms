@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 // Handler for status update & staff acknowledgment
 async function handleUpdate(
@@ -50,6 +51,49 @@ async function handleUpdate(
         staffMember: { select: { name: true, designation: true } },
       },
     });
+
+    // ── Generate KOT ticket for Kitchen Display when order is accepted/preparing ──
+    if (['PREPARING', 'CONFIRMED', 'IN_PROGRESS', 'KOT_RUNNING'].includes(targetStatus)) {
+      try {
+        const existingKot = await (prisma as any).kotTicket.findFirst({
+          where: { orderId: updated.id }
+        });
+
+        if (!existingKot) {
+          const kotNo = await getNextKotNumber(updated.propertyId);
+
+          await (prisma as any).kotTicket.create({
+            data: {
+              kotNo,
+              orderId: updated.id,
+              propertyId: updated.propertyId,
+              outletId: updated.outletId,
+              tableNo: updated.tableNo || 'Room Service',
+              status: 'NEW', // arrives in NEW ORDERS on Kitchen Display!
+              items: {
+                create: (updated.items || []).map((it: any) => ({
+                  orderItemId: it.id,
+                  productId: it.productId,
+                  itemName: it.product?.name || 'Dish Item',
+                  quantity: it.quantity,
+                  status: 'NEW',
+                }))
+              },
+              statusLogs: {
+                create: {
+                  oldStatus: 'PENDING',
+                  newStatus: 'NEW',
+                  changedBy: (session as any)?.user?.name || (session as any)?.name || (wtUser as any)?.name || 'Front Desk',
+                  remarks: 'Order accepted and sent to Kitchen Display',
+                }
+              }
+            }
+          });
+        }
+      } catch (kotErr) {
+        console.error('[ROOM_SERVICE_UPDATE] Failed to create KOT ticket for kitchen display:', kotErr);
+      }
+    }
 
     // ── Stop 3-minute escalation: mark pending notifications for this order as read ──
     try {

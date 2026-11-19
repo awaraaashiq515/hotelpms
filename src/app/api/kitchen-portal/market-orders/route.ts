@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolvePropertyIdentifier } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-import { syncOrderToInventory } from '@/app/api/b2b/orders/route';
+import { syncOrderToInventory } from '@/lib/b2b-inventory-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -284,8 +284,22 @@ export async function PATCH(request: NextRequest) {
       return apiError(new Error('Order not found'), 404);
     }
 
-    // ACTION 1: Toggle Item Purchased / Done
+    // ACTION 1: Toggle Item Purchased / Done & Update Quantity
     if (action === 'TOGGLE_ITEM') {
+      const { purchasedQty } = body;
+      if (purchasedQty !== undefined && itemId) {
+        try {
+          await prisma.b2BOrderItem.update({
+            where: { id: itemId },
+            data: {
+              quantity: Number(purchasedQty),
+            },
+          });
+        } catch (e) {
+          console.warn('[Market Item Update] Failed to update item quantity:', e);
+        }
+      }
+
       let purchasedIds: string[] = [];
       try {
         if (order.comments && order.comments.includes('__PURCHASED_IDS:')) {

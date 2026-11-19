@@ -13,7 +13,7 @@ import {
 import { toast, Toaster } from 'sonner';
 
 // ─── Modular Component Imports ──────────────────────────────────────────────
-import ReceiptModal, { FolioDetail } from '@/components/hotel/checkout/ReceiptModal';
+import ReceiptModal, { FolioDetail, computeGstBreakdown } from '@/components/hotel/checkout/ReceiptModal';
 import BookingDetailModal from '@/components/hotel/checkout/BookingDetailModal';
 import DepartmentalSlipModal, { DepartmentalSlipData } from '@/components/hotel/checkout/DepartmentalSlipModal';
 import { GuestRegistrationCardModal } from '@/components/hotel/operations/GuestRegistrationCardModal';
@@ -323,33 +323,103 @@ function CheckoutDetailContent() {
   const printHotelBill = useCallback(async (folioToPrint: FolioDetail) => {
     toast.loading('🖨️ Printing bill on connected printer...', { id: 'checkout-bill-print' });
     try {
-      const debitItems = folioToPrint.transactions
-        ?.filter((t) => t.debitAmount > 0)
-        ?.map((t) => ({
-          description: t.description || t.sourceModule || 'Charge',
+      const roomNum =
+        folioToPrint.reservation?.rooms?.[0]?.room?.roomNumber ||
+        (folioToPrint.reservation as any)?.checkIns?.[0]?.room?.roomNumber ||
+        (folioToPrint as any)?.room?.roomNumber ||
+        (folioToPrint.reservation as any)?.assignedRoom?.roomNumber ||
+        '101';
+
+      const itemsForPrinter: any[] = [];
+
+      // 1. Room Stay & Accommodation charges
+      const stayTxns = folioToPrint.transactions?.filter(
+        (t) => t.debitAmount > 0 && t.sourceModule !== 'POS' && t.sourceModule !== 'ROOM_SERVICE' && t.sourceModule !== 'GST'
+      ) || [];
+      if (stayTxns.length > 0) {
+        stayTxns.forEach((t) => {
+          itemsForPrinter.push({
+            description: t.description || `Room ${roomNum} Stay`,
+            quantity: 1,
+            amount: t.debitAmount,
+          });
+        });
+      } else {
+        itemsForPrinter.push({
+          description: `Room ${roomNum} Stay`,
           quantity: 1,
-          amount: t.debitAmount,
-        })) || [];
+          amount: Number(folioToPrint.reservation?.totalAmount || 0),
+        });
+      }
 
-      const gstTxns = folioToPrint.transactions?.filter((t) => t.sourceModule === 'GST') || [];
-      const totalGst = gstTxns.reduce((sum, t) => sum + t.debitAmount, 0);
+      // 2. Individual Food & Beverage items from all orders
+      if (folioToPrint.posOrders && folioToPrint.posOrders.length > 0) {
+        folioToPrint.posOrders.forEach((order) => {
+          if (order.items && order.items.length > 0) {
+            order.items.forEach((it) => {
+              const itName = it.product?.name || (it as any).name || 'Food Item';
+              itemsForPrinter.push({
+                description: itName,
+                quantity: it.quantity || 1,
+                amount: Number(it.totalAmount || (it.unitPrice * it.quantity) || 0),
+              });
+            });
+          } else {
+            itemsForPrinter.push({
+              description: `F&B Order #${order.orderNo}`,
+              quantity: 1,
+              amount: order.grandTotal,
+            });
+          }
+        });
+      } else {
+        const posTxns = folioToPrint.transactions?.filter(
+          (t) => t.debitAmount > 0 && (t.sourceModule === 'POS' || t.sourceModule === 'ROOM_SERVICE')
+        ) || [];
+        posTxns.forEach((t) => {
+          itemsForPrinter.push({
+            description: t.description || 'Food & Beverage',
+            quantity: 1,
+            amount: t.debitAmount,
+          });
+        });
+      }
 
+      const gstDetails = computeGstBreakdown(folioToPrint, nights);
       const prop = folioToPrint.reservation?.property;
-      const r = folioToPrint.reservation?.rooms?.[0]?.room;
+      const propertyGstin = prop?.taxDetails || (folioToPrint.reservation?.property as any)?.taxDetails || '02AABCG1234A1Z5';
+      const guestGstin = folioToPrint.reservation?.gstNumber || folioToPrint.guest?.gstNumber || '';
 
       const hotelBillPayload = {
         invoiceNo: `INV-${folioToPrint.folioNo.replace(/\D/g, '') || Date.now()}`,
         folioNo: folioToPrint.folioNo,
         guestName: `${folioToPrint.guest.firstName} ${folioToPrint.guest.lastName || ''}`.trim(),
-        roomNumber: r?.roomNumber ? `Room ${r.roomNumber}` : '—',
+        guestGstin: guestGstin || undefined,
+        guestCompany: folioToPrint.reservation?.companyName || folioToPrint.guest?.companyName || undefined,
+        hotelGstin: propertyGstin,
+        placeOfSupply: gstDetails.placeOfSupply,
+        roomNumber: `Room ${roomNum}`,
         checkIn: folioToPrint.reservation?.arrivalDate ? new Date(folioToPrint.reservation.arrivalDate).toLocaleDateString('en-GB') : '',
         checkOut: folioToPrint.reservation?.departureDate ? new Date(folioToPrint.reservation.departureDate).toLocaleDateString('en-GB') : '',
-        subtotal: folioToPrint.totalCharges - totalGst,
-        taxAmount: totalGst,
+        subtotal: gstDetails.totalTaxable || (folioToPrint.totalCharges - gstDetails.grandTax),
+        taxAmount: gstDetails.grandTax,
         grandTotal: folioToPrint.totalCharges,
         totalPayments: folioToPrint.totalPayments,
         closingBalance: folioToPrint.closingBalance,
-        items: debitItems.length > 0 ? debitItems : [
+        taxInWords: gstDetails.taxInWords,
+        gstRows: gstDetails.rows.map((r) => ({
+          sac: r.sac,
+          category: r.category,
+          taxable: r.taxableAmount,
+          cgstRate: r.cgstRate,
+          cgstAmt: r.cgstAmount,
+          sgstRate: r.sgstRate,
+          sgstAmt: r.sgstAmount,
+          igstRate: r.igstRate,
+          igstAmt: r.igstAmount,
+          totalTax: r.totalTax,
+        })),
+        items: itemsForPrinter.length > 0 ? itemsForPrinter : [
           { description: 'Room Stay & Charges', quantity: 1, amount: folioToPrint.totalCharges }
         ],
       };
@@ -453,7 +523,11 @@ function CheckoutDetailContent() {
   };
 
   // ── Derived values ──────────────────────────────────────────────────────────
-  const room = folio?.reservation?.rooms?.[0]?.room;
+  const room =
+    folio?.reservation?.rooms?.[0]?.room ||
+    (folio?.reservation?.checkIns?.[0] as any)?.room ||
+    (folio as any)?.room ||
+    { roomNumber: '101' };
   const nights =
     folio?.reservation
       ? nightsBetween(folio.reservation.arrivalDate, folio.reservation.departureDate)

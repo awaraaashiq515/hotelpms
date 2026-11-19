@@ -24,7 +24,8 @@ import {
   Waves,
   HeartHandshake,
   UtensilsCrossed,
-  ChefHat
+  ChefHat,
+  MessageSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -84,12 +85,21 @@ interface RoomOrder {
   createdAt: string;
 }
 
+interface GuestMessageAlert {
+  id: string;
+  roomNumber: string;
+  guestName: string;
+  content: string;
+  time: string;
+}
+
 export const AdminAgentBookingFloatingAlert: React.FC = () => {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [pendingBookings, setPendingBookings] = useState<AgentBooking[]>([]);
   const [pendingOrders, setPendingOrders] = useState<RoomOrder[]>([]);
-  const [activeTab, setActiveTab] = useState<'orders' | 'agent'>('orders');
+  const [pendingMessages, setPendingMessages] = useState<GuestMessageAlert[]>([]);
+  const [activeTab, setActiveTab] = useState<'orders' | 'messages' | 'agent'>('orders');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -101,6 +111,9 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
 
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const isFirstOrdersLoadRef = useRef(true);
+
+  const knownMessageIdsRef = useRef<Set<string>>(new Set());
+  const isFirstMessagesLoadRef = useRef(true);
 
   useEffect(() => {
     setMounted(true);
@@ -213,9 +226,116 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
     } catch {}
   }, [router]);
 
+  const handleNewGuestMessage = useCallback((msg: {
+    id: string;
+    roomNumber: string;
+    guestName: string;
+    content: string;
+    time?: string;
+  }) => {
+    if (knownMessageIdsRef.current.has(msg.id)) return;
+    knownMessageIdsRef.current.add(msg.id);
+
+    playNotificationSound('agent_booking', 1.4);
+    setIsExpanded(true);
+    setIsDismissed(false);
+    setActiveTab('messages');
+
+    setPendingMessages(prev => {
+      if (prev.some(m => m.id === msg.id)) return prev;
+      return [{
+        id: msg.id,
+        roomNumber: String(msg.roomNumber),
+        guestName: msg.guestName || `Room ${msg.roomNumber} Guest`,
+        content: msg.content,
+        time: msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }, ...prev];
+    });
+
+    toast.info(`💬 New Guest Message — Room ${msg.roomNumber}!`, {
+      description: `"${msg.content.slice(0, 60)}" • From ${msg.guestName || 'Guest'}`,
+      duration: 9000,
+      action: {
+        label: 'Open Chat',
+        onClick: () => router.push('/hotel/ai-concierge'),
+      },
+    });
+
+    const originalTitle = document.title;
+    document.title = `(1) 💬 Room ${msg.roomNumber} Message! - Hotel PMS`;
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 10000);
+  }, [router]);
+
+  const fetchPendingMessages = useCallback(async () => {
+    try {
+      const res = await fetch('/api/hotel/ai-concierge');
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success && Array.isArray(json.recentGuestMessages)) {
+        const msgs = json.recentGuestMessages;
+
+        if (!isFirstMessagesLoadRef.current) {
+          const newMsgs = msgs.filter((m: any) => !knownMessageIdsRef.current.has(m.id));
+          if (newMsgs.length > 0) {
+            newMsgs.forEach((nm: any) => {
+              handleNewGuestMessage({
+                id: nm.id,
+                roomNumber: nm.roomNumber || '101',
+                guestName: nm.guest || 'In-House Guest',
+                content: nm.content,
+                time: nm.time,
+              });
+            });
+          }
+        }
+
+        msgs.forEach((m: any) => knownMessageIdsRef.current.add(m.id));
+        isFirstMessagesLoadRef.current = false;
+      }
+    } catch {}
+  }, [handleNewGuestMessage]);
+
+  const handleQuickSendStaffReply = async (roomNumber: string, messageText: string, alertId: string) => {
+    try {
+      await fetch('/api/hotel/ai-concierge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'STAFF_MESSAGE',
+          isStaffReply: true,
+          roomNumber,
+          message: messageText,
+          senderName: 'Front Desk Associate',
+        }),
+      });
+
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const channel = new BroadcastChannel('concierge_chat_channel');
+        channel.postMessage({
+          type: 'STAFF_REPLY',
+          room: String(roomNumber),
+          roomNumber: String(roomNumber),
+          message: messageText,
+          senderName: 'Front Desk Associate',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+        setTimeout(() => channel.close(), 1000);
+      }
+
+      playNotificationSound('success');
+      toast.success(`✅ Reply sent to Room ${roomNumber}!`);
+      setPendingMessages(prev => prev.filter(m => m.id !== alertId));
+    } catch (err) {
+      toast.error('Failed to send reply');
+    }
+  };
+
   useEffect(() => {
     fetchPendingBookings();
     fetchPendingOrders();
+    fetchPendingMessages();
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'hotel_room_service_order_placed') {
@@ -224,25 +344,48 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
     };
     window.addEventListener('storage', handleStorage);
 
+    // BroadcastChannel for instant 0ms guest message alert across tabs!
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('concierge_chat_channel');
+      bc.onmessage = (event) => {
+        const payload = event.data;
+        if (!payload) return;
+        if (payload.type === 'GUEST_MESSAGE') {
+          handleNewGuestMessage({
+            id: `msg-${Date.now()}-${Math.random()}`,
+            roomNumber: String(payload.room || payload.roomNumber || '101'),
+            guestName: payload.guest || payload.guestName || 'In-House Guest',
+            content: payload.content || payload.message || '',
+            time: payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+      };
+    }
+
     const interval = setInterval(() => {
       fetchPendingBookings();
       fetchPendingOrders();
-    }, 7000);
+      fetchPendingMessages();
+    }, 6000);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
+      if (bc) bc.close();
       clearInterval(interval);
     };
-  }, [fetchPendingBookings, fetchPendingOrders]);
+  }, [fetchPendingBookings, fetchPendingOrders, fetchPendingMessages, handleNewGuestMessage]);
 
   // Adjust default tab when items update
   useEffect(() => {
-    if (pendingOrders.length > 0 && pendingBookings.length === 0) {
+    if (pendingMessages.length > 0 && pendingOrders.length === 0) {
+      setActiveTab('messages');
+    } else if (pendingOrders.length > 0 && pendingMessages.length === 0 && pendingBookings.length === 0) {
       setActiveTab('orders');
-    } else if (pendingBookings.length > 0 && pendingOrders.length === 0) {
+    } else if (pendingBookings.length > 0 && pendingOrders.length === 0 && pendingMessages.length === 0) {
       setActiveTab('agent');
     }
-  }, [pendingOrders.length, pendingBookings.length]);
+  }, [pendingOrders.length, pendingBookings.length, pendingMessages.length]);
 
   // Quick confirm agent booking
   const handleQuickConfirmBooking = async (e: React.MouseEvent, bookingId: string, guestName: string) => {
@@ -281,6 +424,18 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
       });
       const data = await res.json();
       if (data.success) {
+        // Instant 0ms Kitchen Display sync across tabs & windows
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('kds_order_updated', Date.now().toString());
+            if ('BroadcastChannel' in window) {
+              const kdsChannel = new BroadcastChannel('kds_orders_sync');
+              kdsChannel.postMessage({ type: 'ORDER_ACCEPTED', orderId, roomNumber });
+              setTimeout(() => kdsChannel.close(), 1000);
+            }
+          } catch {}
+        }
+
         playNotificationSound('success');
         toast.success(`Room ${roomNumber} order accepted & kitchen notified!`);
         setPendingOrders(prev => prev.filter(o => o.id !== orderId));
@@ -294,7 +449,7 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
     }
   };
 
-  const totalCount = pendingBookings.length + pendingOrders.length;
+  const totalCount = pendingBookings.length + pendingOrders.length + pendingMessages.length;
 
   if (!mounted || totalCount === 0 || isDismissed) {
     return null;
@@ -302,6 +457,7 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
 
   const latestBooking = pendingBookings[0];
   const latestOrder = pendingOrders[0];
+  const latestMessage = pendingMessages[0];
 
   const content = (
     <div className="fixed bottom-5 right-5 z-[9999] max-w-sm sm:max-w-md w-full animate-in fade-in slide-in-from-bottom-5 duration-300 pointer-events-auto">
@@ -318,7 +474,8 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
           <Bell size={15} className="text-violet-300 group-hover:rotate-12 transition-transform" />
           <span className="text-xs font-black tracking-wide">
             {totalCount} New Alert{totalCount === 1 ? '' : 's'}
-            {pendingOrders.length > 0 && ` (${pendingOrders.length} Room Orders)`}
+            {pendingOrders.length > 0 && ` (${pendingOrders.length} Orders)`}
+            {pendingMessages.length > 0 && ` (${pendingMessages.length} Messages)`}
             {pendingBookings.length > 0 && ` (${pendingBookings.length} Agents)`}
           </span>
           <span className="text-[10px] bg-violet-500/30 text-violet-200 px-2 py-0.5 rounded-full font-bold">
@@ -334,45 +491,77 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
 
           {/* Header */}
           <div className="px-4 py-2.5 bg-violet-950/40 border-b border-violet-500/20 flex items-center justify-between gap-2">
-            {/* Tab switchers if both exist */}
-            {pendingOrders.length > 0 && pendingBookings.length > 0 ? (
-              <div className="flex items-center gap-1.5 bg-slate-900/80 p-0.5 rounded-xl border border-slate-700/60">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('orders')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'orders'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <UtensilsCrossed size={12} className="text-amber-400" />
-                  <span>Room Orders ({pendingOrders.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('agent')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'agent'
-                      ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Handshake size={12} className="text-violet-400" />
-                  <span>Enquiries ({pendingBookings.length})</span>
-                </button>
+            {/* Tab switchers if multiple types exist */}
+            {(Number(pendingOrders.length > 0) + Number(pendingMessages.length > 0) + Number(pendingBookings.length > 0)) > 1 ? (
+              <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-xl border border-slate-700/60 overflow-x-auto no-scrollbar">
+                {pendingOrders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('orders')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      activeTab === 'orders'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <UtensilsCrossed size={12} className="text-amber-400" />
+                    <span>Orders ({pendingOrders.length})</span>
+                  </button>
+                )}
+                {pendingMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('messages')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      activeTab === 'messages'
+                        ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <MessageSquare size={12} className="text-violet-400" />
+                    <span>Messages ({pendingMessages.length})</span>
+                  </button>
+                )}
+                {pendingBookings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('agent')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      activeTab === 'agent'
+                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Handshake size={12} className="text-indigo-400" />
+                    <span>Enquiries ({pendingBookings.length})</span>
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                  activeTab === 'orders' ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                  activeTab === 'orders' 
+                    ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' 
+                    : activeTab === 'messages'
+                    ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                    : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300'
                 }`}>
-                  {activeTab === 'orders' ? <UtensilsCrossed size={14} className="animate-bounce" /> : <Bell size={14} className="animate-bounce" />}
+                  {activeTab === 'orders' ? (
+                    <UtensilsCrossed size={14} className="animate-bounce" />
+                  ) : activeTab === 'messages' ? (
+                    <MessageSquare size={14} className="animate-bounce" />
+                  ) : (
+                    <Bell size={14} className="animate-bounce" />
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-black uppercase tracking-wider text-slate-200">
-                      {activeTab === 'orders' ? 'Room Order Alert' : (latestBooking?.roomType?.includes('[GROUP]') ? 'Group Enquiry' : 'Agent Booking')}
+                      {activeTab === 'orders' 
+                        ? 'Room Order Alert' 
+                        : activeTab === 'messages'
+                        ? 'Guest Message Alert'
+                        : (latestBooking?.roomType?.includes('[GROUP]') ? 'Group Enquiry' : 'Agent Booking')}
                     </span>
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -382,6 +571,8 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
                   <p className="text-[10px] text-slate-400 font-medium">
                     {activeTab === 'orders'
                       ? `${pendingOrders.length} active room order awaiting kitchen / prep`
+                      : activeTab === 'messages'
+                      ? `${pendingMessages.length} active guest message awaiting reply`
                       : `${pendingBookings.length} booking awaiting front-desk confirmation`}
                   </p>
                 </div>
@@ -422,6 +613,103 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* ── TAB: GUEST CHAT MESSAGES ── */}
+          {activeTab === 'messages' && latestMessage && (
+            <div className="p-4 space-y-3 animate-in fade-in duration-200">
+              {/* Room & Guest Badge Card */}
+              <div className="p-2.5 rounded-xl bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-slate-900 border border-violet-500/30 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300 shrink-0 font-black text-xs">
+                    💬
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-black">
+                        Room {latestMessage.roomNumber}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        #{latestMessage.time}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-semibold text-slate-200 mt-0.5 truncate">
+                      Guest: <span className="text-white font-bold">{latestMessage.guestName}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Status</span>
+                  <span className="text-xs font-black text-violet-300">NEW CHAT</span>
+                </div>
+              </div>
+
+              {/* Message Content Box */}
+              <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Guest Inquiry:
+                  </span>
+                  <span className="text-[9px] text-violet-300 font-medium">
+                    {latestMessage.time}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-800/90 border border-violet-500/25 text-xs text-slate-100 font-medium leading-relaxed italic whitespace-pre-line shadow-inner">
+                  "{latestMessage.content}"
+                </div>
+
+                {/* 1-Click Quick Front Desk Reply Chips */}
+                <div className="pt-1 space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 block flex items-center gap-1">
+                    <span>⚡ Quick Front Desk Reply:</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      '✅ Housekeeping Sent!',
+                      '🍽️ Dining Order Confirmed',
+                      '👨‍🔧 Technician on the way',
+                      '🛎️ Bellboy Arriving',
+                    ].map((replyText, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleQuickSendStaffReply(latestMessage.roomNumber, replyText, latestMessage.id)}
+                        className="px-2 py-1 rounded-md bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/30 text-[10px] font-semibold text-amber-200 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+                      >
+                        {replyText}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push('/hotel/ai-concierge');
+                    setIsExpanded(false);
+                  }}
+                  className="flex-1 h-9 px-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-violet-600/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  <MessageSquare size={14} />
+                  <span>Open Chat & Reply</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingMessages((prev) => prev.filter((m) => m.id !== latestMessage.id));
+                  }}
+                  className="h-9 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                  title="Mark handled and dismiss"
+                >
+                  <span>Dismiss</span>
+                  <CheckCircle2 size={13} className="text-emerald-400" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── TAB 1: ROOM ORDERS ── */}
           {activeTab === 'orders' && latestOrder && (

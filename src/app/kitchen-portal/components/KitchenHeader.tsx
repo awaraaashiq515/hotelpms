@@ -21,6 +21,8 @@ interface KitchenHeaderProps {
   lowStockCount: number;
   pendingRequestsCount: number;
   marketPendingCount?: number;
+  language?: 'hi' | 'en';
+  onLanguageChange?: (lang: 'hi' | 'en') => void;
   onToggleSound: () => void;
   onOpenStaffModal: () => void;
   onOpenMobileMenu: () => void;
@@ -38,6 +40,8 @@ export const KitchenHeader: React.FC<KitchenHeaderProps> = ({
   lowStockCount,
   pendingRequestsCount,
   marketPendingCount = 0,
+  language = 'hi',
+  onLanguageChange,
   onToggleSound,
   onOpenStaffModal,
   onOpenMobileMenu,
@@ -69,6 +73,38 @@ export const KitchenHeader: React.FC<KitchenHeaderProps> = ({
 
         {/* Action Header Items */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* 2-Option Language Switcher (Hindi / English) */}
+          {onLanguageChange && (
+            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5 text-[11px] font-black">
+              <button
+                type="button"
+                onClick={() => onLanguageChange('hi')}
+                className={`px-2 sm:px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                  language === 'hi'
+                    ? 'bg-amber-500 text-black shadow-sm font-black'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="हिंदी / Hinglish Mode"
+              >
+                <span>🇮🇳</span>
+                <span className="hidden xs:inline">हिंदी</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onLanguageChange('en')}
+                className={`px-2 sm:px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                  language === 'en'
+                    ? 'bg-indigo-600 text-white shadow-sm font-black'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="English Mode"
+              >
+                <span>🇬🇧</span>
+                <span className="hidden xs:inline">English</span>
+              </button>
+            </div>
+          )}
+
           {/* Active Staff Button */}
           <button
             onClick={onOpenStaffModal}

@@ -4,6 +4,8 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { PWAInstallBanner } from "@/components/website/PWAInstallBanner";
+import { OfflineSyncStatus } from "@/components/common/OfflineSyncStatus";
+import { ConflictBadge } from "@/components/common/ConflictBadge";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -139,6 +141,10 @@ export default function RootLayout({
               <>
                 {children}
                 <PWAInstallBanner />
+                <div className="fixed top-4 right-4 z-[99998]">
+                  <ConflictBadge />
+                </div>
+                <OfflineSyncStatus />
               </>
             )}
           </ToastProvider>

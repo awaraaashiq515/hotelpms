@@ -10,6 +10,8 @@ import {
   HotelSession, ChatMessage, HotelKnowledge, 
   processHotelConciergeQuery, ChatAction 
 } from '@/lib/ai-concierge-engine';
+import { playNotificationSound } from '@/lib/notification-sound';
+import { toast } from 'sonner';
 
 interface ChatWindowProps {
   session: HotelSession;
@@ -37,12 +39,15 @@ export function ChatWindow({
   const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only scroll the inner messages container, never the entire page
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, [session?.history, loading]);
 
   // Handle external prompts (from QuickRequests or parent)
@@ -107,93 +112,160 @@ export function ChatWindow({
     }
   };
 
+  // Quick staff response templates
+  const QUICK_STAFF_TEMPLATES = [
+    `✅ Noted sir! Housekeeping has been dispatched to Room ${session.room}.`,
+    `🍽️ Your in-room dining order is being prepared and will arrive in 20 mins.`,
+    `👨‍🔧 Engineering technician is on their way to inspect Room ${session.room}.`,
+    `🛎️ A bellboy is arriving at your door to assist with your luggage.`,
+    `📞 Our Duty Manager will contact your room phone shortly.`
+  ];
+
+  // Send manual staff reply from Reception to Room Portal
+  const handleSendStaffReply = async (customText?: string) => {
+    const textToSend = (customText || input).trim();
+    if (!textToSend || loading) return;
+    await sendManualStaffReply(textToSend);
+    setInput('');
+  };
+
+  // Direct manual reply from Receptionist / Front Desk to Guest
+  async function sendManualStaffReply(content: string) {
+    if (!content.trim()) return;
+    const currentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const staffMessage: ChatMessage = {
+      id: `msg-staff-${Date.now()}`,
+      role: 'assistant',
+      content: content.trim(),
+      time: currentTimeStr,
+      senderName: 'Front Desk Associate',
+      isStaffReply: true
+    };
+
+    onUpdateSessionHistory(session.id, [...session.history, staffMessage], 'ACTIVE');
+    setInput('');
+    playNotificationSound('success');
+    toast.success(`✅ Staff reply sent to Room ${session.room}!`);
+
+    // Persist to database and broadcast to guest room portal
+    try {
+      fetch('/api/hotel/ai-concierge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'STAFF_MESSAGE',
+          isStaffReply: true,
+          roomNumber: session.room,
+          message: content.trim(),
+          senderName: 'Front Desk Associate'
+        })
+      }).catch((err) => {
+        console.error('[Send Staff Message Error]:', err);
+      });
+
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('concierge_chat_channel');
+        bc.postMessage({
+          type: 'STAFF_REPLY',
+          room: String(session.room),
+          roomNumber: String(session.room),
+          message: content.trim(),
+          senderName: 'Front Desk Associate',
+          time: currentTimeStr,
+        });
+        setTimeout(() => bc.close(), 1000);
+      }
+    } catch (e) {}
+  }
+
   // Dispatch AI or Staff message
   async function sendMessage(textToSend?: string) {
     const rawText = (textToSend || input).trim();
     if (!rawText || loading) return;
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'user',
-      content: rawText,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      senderName: session.guest
-    };
+    // If textToSend is provided from 1-click test buttons: simulate guest inquiry
+    if (textToSend) {
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        role: 'user',
+        content: rawText,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        senderName: session.guest
+      };
 
-    const updatedHistory = [...session.history, userMessage];
-    onUpdateSessionHistory(session.id, updatedHistory, 'ACTIVE');
-    setInput('');
-    setLoading(true);
+      const updatedHistory = [...session.history, userMessage];
+      onUpdateSessionHistory(session.id, updatedHistory, 'ACTIVE');
+      setInput('');
+      setLoading(true);
 
-    try {
-      // 1. Try to fetch from API route first
-      let aiResult: any = null;
       try {
-        const res = await fetch('/api/hotel/ai-concierge', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: rawText,
-            guestName: session.guest,
-            roomNumber: session.room,
-            language,
-            knowledgeSettings: knowledge
-          })
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            aiResult = json.data;
+        let aiResult: any = null;
+        try {
+          const res = await fetch('/api/hotel/ai-concierge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: rawText,
+              guestName: session.guest,
+              roomNumber: session.room,
+              language,
+              knowledgeSettings: knowledge
+            })
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && json.data) {
+              aiResult = json.data;
+            }
           }
+        } catch (e) {}
+
+        if (!aiResult) {
+          await new Promise(r => setTimeout(r, 650 + Math.random() * 400));
+          aiResult = processHotelConciergeQuery(rawText, session.guest, session.room, knowledge, language);
         }
-      } catch (e) {
-        // Fallback gracefully to offline engine
-      }
 
-      // 2. If API didn't return (e.g., 404 in production build mode), use shared engine
-      if (!aiResult) {
-        await new Promise(r => setTimeout(r, 650 + Math.random() * 400));
-        aiResult = processHotelConciergeQuery(rawText, session.guest, session.room, knowledge, language);
-      }
+        if (isCoPilotMode) {
+          setCoPilotDraft(aiResult.reply);
+          setLoading(false);
+        } else {
+          const aiMessage: ChatMessage = {
+            id: `msg-ai-${Date.now()}`,
+            role: 'assistant',
+            content: aiResult.reply,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            action: aiResult.action,
+            quickReplies: aiResult.quickReplies
+          };
 
-      if (isCoPilotMode) {
-        // In Co-Pilot mode, store draft for staff approval instead of sending immediately
-        setCoPilotDraft(aiResult.reply);
+          const finalStatus = aiResult.sentiment === 'URGENT' ? 'URGENT' : 'ACTIVE';
+          onUpdateSessionHistory(session.id, [...updatedHistory, aiMessage], finalStatus);
+          setLoading(false);
+
+          // Broadcast to Guest Room Portal tab
+          try {
+            if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+              const bc = new BroadcastChannel('concierge_chat_channel');
+              bc.postMessage({
+                type: 'STAFF_REPLY',
+                roomNumber: String(session.room),
+                message: aiResult.reply,
+                senderName: 'AI Concierge',
+                time: aiMessage.time,
+              });
+              setTimeout(() => bc.close(), 500);
+            }
+          } catch (e) {}
+        }
+      } catch (err) {
+        console.error('[Chat Error]:', err);
         setLoading(false);
-      } else {
-        const aiMessage: ChatMessage = {
-          id: `msg-ai-${Date.now()}`,
-          role: 'assistant',
-          content: aiResult.reply,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          action: aiResult.action,
-          quickReplies: aiResult.quickReplies
-        };
-
-        const finalStatus = aiResult.sentiment === 'URGENT' ? 'URGENT' : 'ACTIVE';
-        onUpdateSessionHistory(session.id, [...updatedHistory, aiMessage], finalStatus);
-        setLoading(false);
       }
-    } catch (err) {
-      console.error('[Chat Error]:', err);
-      setLoading(false);
+    } else {
+      // 💬 Receptionist typed in bottom input -> Direct Manual Staff Reply to Guest!
+      await sendManualStaffReply(rawText);
     }
   }
-
-  // Staff approves or sends co-pilot draft
-  const sendCoPilotReply = (content: string) => {
-    if (!content.trim()) return;
-    const staffMessage: ChatMessage = {
-      id: `msg-staff-${Date.now()}`,
-      role: 'assistant',
-      content: content,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      senderName: 'Front Desk Associate',
-      isStaffReply: true
-    };
-    onUpdateSessionHistory(session.id, [...session.history, staffMessage]);
-    setCoPilotDraft('');
-  };
 
   // Quick Action Buttons
   const handleTriggerAction = (prompt: string) => {
@@ -303,7 +375,7 @@ export function ChatWindow({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3.5">
         {session.history.map(msg => (
           <div 
             key={msg.id} 
@@ -413,8 +485,6 @@ export function ChatWindow({
             ))}
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
 
       {/* Staff Co-Pilot Review Box */}
@@ -440,7 +510,7 @@ export function ChatWindow({
           />
           <div className="flex justify-end gap-2">
             <button
-              onClick={() => sendCoPilotReply(coPilotDraft)}
+              onClick={() => handleSendStaffReply(coPilotDraft)}
               className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-[10px] transition-colors flex items-center gap-1"
             >
               <Send size={11} />
@@ -449,6 +519,24 @@ export function ChatWindow({
           </div>
         </div>
       )}
+
+      {/* Quick Staff Canned Replies */}
+      <div className="px-4 py-2 border-t border-white/5 bg-slate-900/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 shrink-0 flex items-center gap-1 mr-1">
+          <UserCheck size={11} />
+          <span>Staff Quick Replies:</span>
+        </span>
+        {QUICK_STAFF_TEMPLATES.map((tmpl, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => handleSendStaffReply(tmpl)}
+            className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-950/40 hover:bg-amber-900/60 text-amber-200 border border-amber-500/30 shrink-0 transition-all hover:scale-105 active:scale-95 shadow-sm"
+          >
+            {tmpl}
+          </button>
+        ))}
+      </div>
 
       {/* Input Footer */}
       <div className="px-4 py-3 border-t border-white/10 bg-slate-900/90">
@@ -470,17 +558,25 @@ export function ChatWindow({
             ref={inputRef}
             value={input} 
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendMessage(input)}
-            placeholder={isListening ? 'Listening… speak now' : `Type a message for Room ${session.room}…`}
-            className="flex-1 h-9 px-3.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition-colors" 
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSendStaffReply();
+              }
+            }}
+            placeholder={isListening ? 'Listening… speak now' : `Type manual reply from Front Desk to Room ${session.room} (${session.guest})…`}
+            className="flex-1 h-10 px-3.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-500 transition-colors" 
           />
 
           <button 
-            onClick={() => sendMessage(input)} 
+            type="button"
+            onClick={() => handleSendStaffReply()} 
             disabled={!input.trim() || loading}
-            className="w-9 h-9 rounded-xl bg-violet-600 hover:bg-violet-500 flex items-center justify-center text-white transition-all disabled:opacity-40 shadow-lg shadow-violet-600/20 active:scale-95"
+            className="h-10 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 flex items-center gap-1.5 text-slate-950 text-xs font-black transition-all disabled:opacity-40 shadow-lg shadow-amber-600/30 active:scale-95 cursor-pointer flex-shrink-0"
+            title="Send manual reply from Front Desk to Guest"
           >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            <span>Send Staff Reply</span>
+            {loading ? <Loader2 size={13} className="animate-spin text-slate-950" /> : <Send size={13} className="text-slate-950" />}
           </button>
         </div>
       </div>

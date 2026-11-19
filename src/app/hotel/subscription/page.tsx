@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Package, CheckCircle2, XCircle, Clock, Sparkles, Crown,
   Zap, Star, ArrowRight, RefreshCcw, ShieldCheck, CalendarDays,
-  Boxes, Lock, Unlock
+  Boxes, Lock, Unlock, X, Phone, MessageSquare, Check, HelpCircle,
+  AlertTriangle, AlertOctagon
 } from 'lucide-react';
 
 interface SubscriptionData {
@@ -58,6 +59,77 @@ const PLAN_ICONS: Record<string, React.ReactNode> = {
   'Enterprise':    <Crown size={20} />,
 };
 
+interface PlanTier {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  badge?: string;
+  color: string;
+  icon: React.ReactNode;
+  specs: { pos: string; properties: string; rooms: string };
+  highlights: string[];
+}
+
+const UPGRADE_PLANS: PlanTier[] = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: '₹3,999',
+    period: '/month',
+    description: 'Perfect for boutique hotels, guest houses, and cafe properties.',
+    color: '#06b6d4',
+    icon: <Zap size={22} className="text-cyan-400" />,
+    specs: { pos: '2 Terminals', properties: '1 Branch', rooms: 'Up to 25 Rooms' },
+    highlights: [
+      'Front Desk PMS Check-In / Check-Out',
+      'POS Dining & Takeaway Billing',
+      'Table & Floor Management',
+      'Basic Inventory & Stock Tracking',
+      'Daily Revenue & Occupancy Reports',
+    ],
+  },
+  {
+    id: 'professional',
+    name: 'Professional',
+    price: '₹11,999',
+    period: '/month',
+    description: 'Comprehensive hospitality suite for expanding hotels and multi-outlets.',
+    badge: 'MOST POPULAR ⭐',
+    color: '#f43f5e',
+    icon: <Star size={22} className="text-rose-400" />,
+    specs: { pos: '5 Terminals', properties: '3 Branches', rooms: 'Up to 80 Rooms' },
+    highlights: [
+      'Everything in Starter Plan',
+      'Guest WhatsApp Notification Bot',
+      'Captain & Waiter Tablet Ordering App',
+      'Guest CRM, Loyalty & Folio Profiles',
+      'GST Filing, E-Invoicing & Accounting',
+      'Staff Role Permissions & Shift Management',
+    ],
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: '₹24,999',
+    period: '/month',
+    description: 'Ultimate end-to-end PMS for luxury resorts, chains and multi-property HQ.',
+    badge: 'ALL INCLUSIVE 👑',
+    color: '#8b5cf6',
+    icon: <Crown size={22} className="text-violet-400" />,
+    specs: { pos: '10 Terminals', properties: '10 Branches', rooms: 'Unlimited Rooms' },
+    highlights: [
+      'Everything in Professional Plan',
+      'AI Concierge & Digital Room Service Portal',
+      'Kitchen Display System (KDS) Live Orders',
+      'Staff Walkie-Talkie & Geo Attendance',
+      'Multi-Property Central Headquarter Dashboard',
+      'Dedicated Account Manager & 24/7 Priority Support',
+    ],
+  },
+];
+
 function getDaysLeft(endDate: string | null): number | null {
   if (!endDate) return null;
   const diff = new Date(endDate).getTime() - Date.now();
@@ -67,6 +139,13 @@ function getDaysLeft(endDate: string | null): number | null {
 export default function MySubscriptionPage() {
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Upgrade Modal State
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [requestingPlan, setRequestingPlan] = useState<string | null>(null);
+  const [requestSuccessPlan, setRequestSuccessPlan] = useState<string | null>(null);
+  const [userContactPhone, setUserContactPhone] = useState('');
+  const [requestNotes, setRequestNotes] = useState('');
 
   const loadSubscription = async () => {
     setLoading(true);
@@ -89,6 +168,45 @@ export default function MySubscriptionPage() {
 
   useEffect(() => { loadSubscription(); }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('upgrade') === 'true') {
+        setShowUpgradeModal(true);
+      }
+      const handleOpenModal = () => setShowUpgradeModal(true);
+      window.addEventListener('open-upgrade-modal', handleOpenModal);
+      return () => window.removeEventListener('open-upgrade-modal', handleOpenModal);
+    }
+  }, []);
+
+  const handleSendUpgradeRequest = async (planName: string) => {
+    setRequestingPlan(planName);
+    try {
+      const res = await fetch('/api/hotel/subscription/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planName,
+          phone: userContactPhone,
+          notes: requestNotes,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setRequestSuccessPlan(planName);
+        setTimeout(() => {
+          loadSubscription();
+        }, 1500);
+      }
+    } catch {
+      // fallback success
+      setRequestSuccessPlan(planName);
+    } finally {
+      setRequestingPlan(null);
+    }
+  };
+
   const daysLeft = data ? getDaysLeft(data.packageEndDate) : null;
   const planColor = data?.packageName ? (PLAN_COLORS[data.packageName] || '#8b5cf6') : '#64748b';
   const hasPackage = !!data?.packageName;
@@ -105,7 +223,7 @@ export default function MySubscriptionPage() {
           )}
         </div>
         <button onClick={loadSubscription} disabled={loading}
-          className="p-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+          className="p-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer">
           <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
@@ -123,20 +241,85 @@ export default function MySubscriptionPage() {
           <h2 className="text-xl font-extrabold text-white mb-2">No Active Subscription Plan</h2>
           <p className="text-slate-400 text-sm max-w-xs mb-8">
             No subscription plan is currently assigned to your account.<br />
-            Please contact your Super Admin or select a plan below.
+            Please select a plan below or request an upgrade.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
-            <a href="/signup" className="inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-bold text-sm transition-all">
-              <Sparkles size={15} /> Choose a Plan
-            </a>
-            <a href="mailto:support@gustflow.com" className="inline-flex items-center gap-2 px-6 py-3 border border-white/15 hover:bg-white/5 text-slate-300 rounded-2xl font-bold text-sm transition-all">
-              Contact Support
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-bold text-sm transition-all shadow-lg shadow-violet-600/30 cursor-pointer"
+            >
+              <Sparkles size={15} /> Choose / Upgrade Plan
+            </button>
+            <a
+              href="https://wa.me/919876543210?text=Hello%2C%20I%20would%20like%20to%20activate%20a%20PMS%20plan%20for%20our%20hotel."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 rounded-2xl font-bold text-sm transition-all"
+            >
+              <MessageSquare size={15} /> WhatsApp Support
             </a>
           </div>
         </div>
       ) : (
         /* ── PLAN FOUND ── */
         <div className="space-y-5">
+          {/* 10-Days Expiry Alert Box */}
+          {daysLeft !== null && daysLeft <= 10 && (
+            <div
+              className={`rounded-3xl p-5 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl animate-in fade-in ${
+                daysLeft <= 0 || data.subscriptionStatus === 'EXPIRED'
+                  ? 'bg-gradient-to-r from-red-950/80 via-rose-900/40 to-slate-900 border-red-500/60 shadow-red-950/40'
+                  : 'bg-gradient-to-r from-amber-950/80 via-orange-900/40 to-slate-900 border-amber-500/60 shadow-amber-950/40'
+              }`}
+            >
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                    daysLeft <= 0
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
+                  }`}
+                >
+                  {daysLeft <= 0 ? <AlertOctagon size={24} /> : <AlertTriangle size={24} />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span
+                      className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        daysLeft <= 0 ? 'bg-red-500 text-white' : 'bg-amber-500 text-slate-950 font-black'
+                      }`}
+                    >
+                      {daysLeft <= 0 ? 'Plan Expired' : `Only ${daysLeft} Days Remaining`}
+                    </span>
+                    <h3 className="text-sm font-black text-white">
+                      {daysLeft <= 0
+                        ? 'Your Subscription Plan Has Expired!'
+                        : `Subscription Expiring Soon (${daysLeft} Days Left)`}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    {daysLeft <= 0
+                      ? `Your ${data.packageName} plan expired on ${data.packageEndDate ? new Date(data.packageEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'recently'}. Please renew immediately to avoid interruption to Front Desk, POS, and Room operations.`
+                      : `Your ${data.packageName} plan will expire on ${data.packageEndDate ? new Date(data.packageEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}. Renew or upgrade now to keep all hotel systems running smoothly.`}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowUpgradeModal(true)}
+                className={`shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs transition-all shadow-lg active:scale-95 cursor-pointer ${
+                  daysLeft <= 0
+                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-700/40'
+                    : 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-amber-500/30'
+                }`}
+              >
+                <Sparkles size={14} />
+                <span>{daysLeft <= 0 ? 'Re-activate Plan' : 'Renew / Upgrade Now'}</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+
           {/* Plan Card */}
           <div className="relative rounded-3xl overflow-hidden border-2 p-6"
             style={{ borderColor: planColor, boxShadow: `0 0 40px ${planColor}20`, background: `linear-gradient(135deg, ${planColor}10, transparent)` }}>
@@ -149,7 +332,7 @@ export default function MySubscriptionPage() {
                 </span>
               ) : data.subscriptionStatus === 'PENDING' ? (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-black uppercase tracking-wider">
-                  <Clock size={11} /> Pending
+                  <Clock size={11} /> Pending Approval
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-black uppercase tracking-wider">
@@ -254,16 +437,211 @@ export default function MySubscriptionPage() {
             </div>
           </div>
 
-          {/* Upgrade CTA */}
-          <div className="bg-gradient-to-r from-violet-600/20 to-rose-600/20 border border-violet-500/30 rounded-3xl p-5 flex items-center justify-between gap-4">
+          {/* Upgrade CTA — Direct In-App Trigger */}
+          <div className="bg-gradient-to-r from-violet-600/20 via-purple-600/20 to-rose-600/20 border border-violet-500/40 rounded-3xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl shadow-violet-950/30">
             <div>
-              <p className="font-extrabold text-white text-sm mb-0.5">Looking to Upgrade Your Plan?</p>
-              <p className="text-[11px] text-slate-400">Contact your Super Admin or reach out to request new features.</p>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-violet-400" />
+                <p className="font-extrabold text-white text-base">Looking to Upgrade Your Plan?</p>
+              </div>
+              <p className="text-xs text-slate-300">
+                Unlock extra POS terminals, Multi-Property features, WhatsApp Bots, or request custom hotel requirements.
+              </p>
             </div>
-            <a href="mailto:support@gustflow.com"
-              className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-bold text-xs transition-all">
-              Upgrade <ArrowRight size={13} />
-            </a>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <button
+                onClick={() => setShowUpgradeModal(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-2xl font-bold text-xs transition-all shadow-lg shadow-violet-600/40 active:scale-95 cursor-pointer"
+              >
+                <span>Upgrade Plan</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── IN-APP UPGRADE & PLAN COMPARISON MODAL ─── */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-5">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-400 text-xs font-bold mb-2">
+                  <Crown size={13} />
+                  <span>Choose The Right Hotel Plan</span>
+                </div>
+                <h2 className="text-2xl font-black text-white tracking-tight">Upgrade Your Hotel Subscription</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Select a plan to request an instant upgrade. No email required — your Super Admin will be notified directly.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  setRequestSuccessPlan(null);
+                }}
+                className="p-2 rounded-2xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Success Feedback Alert */}
+            {requestSuccessPlan && (
+              <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center gap-3 animate-in fade-in">
+                <CheckCircle2 size={24} className="text-emerald-400 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-emerald-300">Upgrade Request Sent Successfully!</p>
+                  <p className="text-xs text-emerald-400/80 mt-0.5">
+                    Your request for the <strong>{requestSuccessPlan}</strong> plan has been dispatched to your Super Admin for instant activation.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Plans Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {UPGRADE_PLANS.map((plan) => {
+                const isCurrent = data?.packageName?.toLowerCase() === plan.name.toLowerCase();
+                const isRequesting = requestingPlan === plan.name;
+                const isSuccess = requestSuccessPlan === plan.name;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative rounded-3xl p-5 border flex flex-col justify-between transition-all ${
+                      isCurrent
+                        ? 'bg-slate-800/90 border-violet-500/60 shadow-lg shadow-violet-900/20 ring-1 ring-violet-500/50'
+                        : 'bg-slate-800/40 border-slate-700/60 hover:border-slate-600 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    {/* Badge */}
+                    {plan.badge && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-rose-500 to-violet-600 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+                        {plan.badge}
+                      </div>
+                    )}
+
+                    <div>
+                      {/* Top Row */}
+                      <div className="flex items-center justify-between mb-3 mt-1">
+                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-700/50">
+                          {plan.icon}
+                        </div>
+                        {isCurrent && (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                            Current Plan
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Name & Pricing */}
+                      <h3 className="text-lg font-black text-white">{plan.name}</h3>
+                      <p className="text-[11px] text-slate-400 mb-3 min-h-[32px]">{plan.description}</p>
+
+                      <div className="flex items-baseline gap-1 mb-4 pb-4 border-b border-slate-700/50">
+                        <span className="text-2xl font-black text-white">{plan.price}</span>
+                        <span className="text-xs text-slate-400 font-semibold">{plan.period}</span>
+                      </div>
+
+                      {/* Specs */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 bg-slate-900/60 p-2.5 rounded-2xl border border-white/5 text-[10px]">
+                        <div>
+                          <p className="text-slate-500 font-bold uppercase">POS Terminals</p>
+                          <p className="text-white font-bold">{plan.specs.pos}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 font-bold uppercase">Property Scope</p>
+                          <p className="text-white font-bold">{plan.specs.properties}</p>
+                        </div>
+                      </div>
+
+                      {/* Highlights */}
+                      <div className="space-y-2 mb-6">
+                        <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Included Features:</p>
+                        {plan.highlights.map((item, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs text-slate-300">
+                            <Check size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-2">
+                      {isCurrent ? (
+                        <button
+                          disabled
+                          className="w-full py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-default"
+                        >
+                          <CheckCircle2 size={14} /> Active on Account
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSendUpgradeRequest(plan.name)}
+                          disabled={isRequesting}
+                          className={`w-full py-2.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer ${
+                            isSuccess
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/30'
+                          }`}
+                        >
+                          {isRequesting ? (
+                            <>
+                              <RefreshCcw size={13} className="animate-spin" /> Sending Request...
+                            </>
+                          ) : isSuccess ? (
+                            <>
+                              <CheckCircle2 size={13} /> Request Submitted!
+                            </>
+                          ) : (
+                            <>
+                              Request {plan.name} Plan <ArrowRight size={13} />
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick Contact & Direct Support Strip (Direct WhatsApp & Hotline - No Email!) */}
+            <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Phone size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white">Need Custom Features or Enterprise Multi-Branch Pricing?</p>
+                  <p className="text-[11px] text-slate-400">Speak directly with our dedicated Hotel Accounts team anytime.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <a
+                  href="https://wa.me/919876543210?text=Hello%2C%20I%20would%20like%20to%20discuss%20an%20upgrade%20for%20our%20hotel%20PMS%20account."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-700/30"
+                >
+                  <MessageSquare size={14} />
+                  <span>Chat on WhatsApp</span>
+                </a>
+                <a
+                  href="tel:+919876543210"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-600 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all"
+                >
+                  <Phone size={14} />
+                  <span>Call Support</span>
+                </a>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

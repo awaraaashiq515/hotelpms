@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Sparkles, Brain, MessageSquare, BarChart3, Settings, 
   Search, Globe, Phone, Calendar, ShieldCheck, UserCheck,
-  Plus, CheckCircle2, AlertCircle, Clock, Zap
+  Plus, CheckCircle2, AlertCircle, Clock, Zap, Volume2, Bell, X, ArrowUpRight
 } from 'lucide-react';
 import { ChatWindow } from './components/ChatWindow';
 import { QuickRequests } from './components/QuickRequests';
@@ -13,6 +13,16 @@ import {
   INITIAL_SESSIONS, DEFAULT_KNOWLEDGE, HotelSession, 
   HotelKnowledge, ChatMessage 
 } from '@/lib/ai-concierge-engine';
+import { playNotificationSound, setupAudioUnlock } from '@/lib/notification-sound';
+
+interface IncomingMessageAlert {
+  id: string;
+  room: string;
+  guest: string;
+  content: string;
+  time: string;
+  sessionId?: string;
+}
 
 export default function AIConcierge() {
   const [sessions, setSessions] = useState<HotelSession[]>(INITIAL_SESSIONS);
@@ -24,30 +34,245 @@ export default function AIConcierge() {
   const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState(false);
   const [externalPrompt, setExternalPrompt] = useState<string>('');
 
-  // Fetch live sessions from API or localStorage
-  useEffect(() => {
-    // Try localStorage first
-    try {
-      const savedSessions = localStorage.getItem('guestflow_ai_sessions');
-      if (savedSessions) {
-        setSessions(JSON.parse(savedSessions));
-      }
-      const savedKnowledge = localStorage.getItem('guestflow_ai_knowledge');
-      if (savedKnowledge) {
-        setKnowledge(JSON.parse(savedKnowledge));
-      }
-    } catch (e) {}
+  // 🔔 Incoming Message Notification Popup Alert state
+  const [incomingAlert, setIncomingAlert] = useState<IncomingMessageAlert | null>(null);
+  const knownMessageIdsRef = useRef<Set<string>>(new Set());
+  const isInitialFetchRef = useRef<boolean>(true);
 
-    // Try API fetch
+  // Trigger popup alert and play bell sound
+  const triggerNewMessageAlert = (msg: {
+    id: string;
+    room: string;
+    guest: string;
+    content: string;
+    time?: string;
+    sessionId?: string;
+  }) => {
+    // 🛎️ Play realistic Hotel Front Desk Bell Sound!
+    playNotificationSound('booking');
+
+    // Display Popup Alert
+    setIncomingAlert({
+      id: msg.id || String(Date.now()),
+      room: msg.room,
+      guest: msg.guest,
+      content: msg.content,
+      time: msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      sessionId: msg.sessionId,
+    });
+
+    // Auto dismiss after 10 seconds
+    setTimeout(() => {
+      setIncomingAlert((current) => (current?.id === msg.id ? null : current));
+    }, 10000);
+  };
+
+  // 1. Initial Load & Setup
+  useEffect(() => {
+    setupAudioUnlock();
+
+    // Initial API fetch
     fetch('/api/hotel/ai-concierge')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sessions?.length) {
           setSessions(data.sessions);
           if (data.knowledge) setKnowledge(data.knowledge);
+          // Mark existing messages so we don't alert for old ones on load
+          if (data.recentGuestMessages) {
+            data.recentGuestMessages.forEach((m: any) => knownMessageIdsRef.current.add(m.id));
+          }
+          // Automatically focus on the first session (which has the latest live message!)
+          setActiveSessionId((curr) => {
+            if (!curr || curr === 'sess-204' || !data.sessions.some((s: any) => s.id === curr)) {
+              return data.sessions[0].id;
+            }
+            return curr;
+          });
         }
+        isInitialFetchRef.current = false;
       })
-      .catch(() => {});
+      .catch(() => {
+        isInitialFetchRef.current = false;
+      });
+  }, []);
+
+  // 2. Cross-Tab Live BroadcastChannel for 0ms instant sync with room portal
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      channel = new BroadcastChannel('concierge_chat_channel');
+      channel.onmessage = (event) => {
+        const payload = event.data;
+        if (!payload) return;
+
+        if (payload.type === 'GUEST_MESSAGE') {
+          const roomNo = String(payload.room || payload.roomNumber);
+          const guestName = payload.guest || payload.guestName || `Guest Room ${roomNo}`;
+          const content = payload.content || payload.message;
+          const timeStr = payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const msgId = `bc-${Date.now()}`;
+
+          knownMessageIdsRef.current.add(msgId);
+          let targetSessionId = '';
+
+          // Update or prepend session in list
+          setSessions((prev) => {
+            const existingIndex = prev.findIndex((s) => s.room === roomNo);
+            const newMsgObj: ChatMessage = {
+              id: msgId,
+              role: 'user',
+              content,
+              time: timeStr,
+              senderName: guestName,
+            };
+
+            let updatedList: HotelSession[];
+            if (existingIndex >= 0) {
+              const target = prev[existingIndex];
+              targetSessionId = target.id;
+              const updatedSession: HotelSession = {
+                ...target,
+                history: [...target.history, newMsgObj],
+                lastMsg: content.slice(0, 60),
+                time: timeStr,
+                unreadCount: (target.unreadCount || 0) + 1,
+                status: 'ACTIVE',
+              };
+              const remaining = prev.filter((_, idx) => idx !== existingIndex);
+              updatedList = [updatedSession, ...remaining];
+            } else {
+              const newSessionId = `portal-room-${roomNo}`;
+              targetSessionId = newSessionId;
+              const newSession: HotelSession = {
+                id: newSessionId,
+                room: roomNo,
+                roomType: 'In-Room Guest',
+                guest: guestName,
+                guestPhone: '+91 98000 00000',
+                tier: 'Gold Loyalty',
+                checkIn: 'Today',
+                checkOut: 'Active',
+                status: 'ACTIVE',
+                lastMsg: content.slice(0, 60),
+                time: timeStr,
+                unreadCount: 1,
+                history: [newMsgObj],
+              };
+              updatedList = [newSession, ...prev];
+            }
+
+            return updatedList;
+          });
+
+          // Auto-select this session in the main chat window so the receptionist sees it!
+          if (targetSessionId) {
+            setActiveSessionId(targetSessionId);
+          }
+
+          // Play Sound & Show Popup Alert!
+          triggerNewMessageAlert({
+            id: msgId,
+            room: roomNo,
+            guest: guestName,
+            content,
+            time: timeStr,
+            sessionId: targetSessionId,
+          });
+        } else if (payload.type === 'AI_REPLY_SYNC') {
+          // Live sync of AI's response to the guest
+          const roomNo = String(payload.room || payload.roomNumber);
+          const content = payload.message || payload.content;
+          const timeStr = payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          setSessions((prev) => {
+            return prev.map((s) => {
+              if (s.room === roomNo) {
+                const aiMsgObj: ChatMessage = {
+                  id: `ai-sync-${Date.now()}`,
+                  role: 'assistant',
+                  content,
+                  time: timeStr,
+                  action: payload.action,
+                  quickReplies: payload.quickReplies,
+                  senderName: 'AI Concierge',
+                };
+                const last = s.history[s.history.length - 1];
+                if (last && last.role === 'assistant' && last.content === content) {
+                  return s;
+                }
+                return {
+                  ...s,
+                  history: [...s.history, aiMsgObj],
+                  lastMsg: content.slice(0, 60),
+                  time: timeStr,
+                };
+              }
+              return s;
+            });
+          });
+        }
+      };
+    }
+
+    return () => {
+      if (channel) channel.close();
+    };
+  }, []);
+
+  // 3. Background Polling Loop (every 2.5s) to detect messages from tablet/other browsers
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      fetch('/api/hotel/ai-concierge')
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.success) return;
+
+          // Check if any new guest message arrived
+          if (data.recentGuestMessages && Array.isArray(data.recentGuestMessages)) {
+            data.recentGuestMessages.forEach((gm: any) => {
+              if (!knownMessageIdsRef.current.has(gm.id)) {
+                knownMessageIdsRef.current.add(gm.id);
+
+                // If not initial fetch, trigger sound, popup, and focus!
+                if (!isInitialFetchRef.current) {
+                  triggerNewMessageAlert({
+                    id: gm.id,
+                    room: gm.room,
+                    guest: gm.guest,
+                    content: gm.content,
+                    time: gm.time,
+                  });
+
+                  // Switch active session to this room
+                  if (data.sessions) {
+                    const match = data.sessions.find((s: any) => s.room === gm.room);
+                    if (match) {
+                      setActiveSessionId(match.id);
+                    }
+                  }
+                }
+              }
+            });
+          }
+
+          if (data.sessions?.length) {
+            setSessions(data.sessions);
+            // If activeSessionId is not in the list, set to the first one
+            setActiveSessionId((curr) => {
+              if (!curr || curr === 'sess-204' || !data.sessions.some((s: any) => s.id === curr)) {
+                return data.sessions[0].id;
+              }
+              return curr;
+            });
+          }
+
+          isInitialFetchRef.current = false;
+        })
+        .catch(() => {});
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   // Save sessions to localStorage when updated
@@ -124,7 +349,7 @@ export default function AIConcierge() {
   }, [sessions]);
 
   return (
-    <div className="space-y-5 pb-10 max-w-[1440px] mx-auto px-4 sm:px-6">
+    <div className="space-y-5 pb-10 max-w-[1440px] mx-auto px-4 sm:px-6 relative">
       {/* Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -142,6 +367,19 @@ export default function AIConcierge() {
 
         {/* Header Tools */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Sound Notification Test Button */}
+          <button
+            onClick={() => {
+              setupAudioUnlock();
+              playNotificationSound('booking');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-500/20 bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all"
+            title="Click to test concierge notification bell sound"
+          >
+            <Volume2 size={13} className="text-violet-400" />
+            <span>Sound Alert: Active</span>
+          </button>
+
           {/* Language Selector */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 text-xs">
             <Globe size={13} className="text-violet-400" />

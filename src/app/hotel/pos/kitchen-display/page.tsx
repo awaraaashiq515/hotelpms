@@ -10,7 +10,6 @@ import { kotsApi, KotTicket } from '@/lib/api/kots';
 import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useSidebar } from '@/context/sidebar-context';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const POLL_INTERVAL = 10; // seconds
@@ -115,6 +114,81 @@ const URGENCY_STYLES = {
   high: 'text-red-400 bg-red-900/40 border-red-700/30 animate-pulse',
 };
 
+// ─── HIGH VISIBILITY ORDER LOCATION RESOLVER (Room Service / Dine-in / Takeaway) ─
+function getLocationBadgeInfo(kot: KotTicket) {
+  const rawTable = String(kot.tableNo || kot.order?.tableNo || '').trim();
+  const rawRoom = String(
+    kot.roomId ||
+    (kot as any).room?.roomNumber ||
+    (kot as any).order?.room?.roomNumber ||
+    (kot as any).order?.roomId ||
+    ''
+  ).trim();
+  const orderType = String(kot.order?.orderType || '').toUpperCase();
+
+  const isRoomService =
+    orderType === 'ROOM_SERVICE' ||
+    Boolean(rawRoom) ||
+    rawTable.toUpperCase().startsWith('ROOM');
+
+  if (isRoomService) {
+    let roomNum = rawRoom;
+    if (!roomNum && rawTable) {
+      roomNum = rawTable.replace(/table/i, '').replace(/room/i, '').trim();
+    }
+    return {
+      type: 'ROOM' as const,
+      title: roomNum ? `ROOM ${roomNum}` : 'ROOM SERVICE',
+      badgeLabel: 'Room Service',
+      icon: '🛏️',
+      colorClass: 'bg-indigo-600/35 text-indigo-100 border-indigo-400/60 shadow-lg shadow-indigo-950/60 font-black',
+      pillClass: 'bg-indigo-900/70 text-indigo-200 border-indigo-500/50',
+      bgGlow: 'from-indigo-950/50 via-slate-900/20 to-transparent',
+    };
+  }
+
+  const isTakeaway = orderType === 'TAKEAWAY' || rawTable.toUpperCase().includes('TAKEAWAY');
+  if (isTakeaway) {
+    return {
+      type: 'TAKEAWAY' as const,
+      title: 'TAKEAWAY',
+      badgeLabel: 'Parcel / Pick-up',
+      icon: '🛍️',
+      colorClass: 'bg-amber-600/35 text-amber-100 border-amber-400/60 shadow-lg shadow-amber-950/60 font-black',
+      pillClass: 'bg-amber-900/70 text-amber-200 border-amber-500/50',
+      bgGlow: 'from-amber-950/50 via-slate-900/20 to-transparent',
+    };
+  }
+
+  const isDelivery = orderType === 'DELIVERY' || rawTable.toUpperCase().includes('DELIVERY');
+  if (isDelivery) {
+    return {
+      type: 'DELIVERY' as const,
+      title: 'DELIVERY',
+      badgeLabel: 'Home Delivery',
+      icon: '🛵',
+      colorClass: 'bg-sky-600/35 text-sky-100 border-sky-400/60 shadow-lg shadow-sky-950/60 font-black',
+      pillClass: 'bg-sky-900/70 text-sky-200 border-sky-500/50',
+      bgGlow: 'from-sky-950/50 via-slate-900/20 to-transparent',
+    };
+  }
+
+  // Restaurant Dine-In Table
+  let tableNum = rawTable;
+  if (tableNum.toLowerCase().startsWith('table')) {
+    tableNum = tableNum.replace(/table/i, '').trim();
+  }
+  return {
+    type: 'DINE_IN' as const,
+    title: tableNum ? `TABLE ${tableNum}` : 'DINE-IN',
+    badgeLabel: 'Restaurant Dine-In',
+    icon: '🍽️',
+    colorClass: 'bg-emerald-600/35 text-emerald-100 border-emerald-400/60 shadow-lg shadow-emerald-950/60 font-black',
+    pillClass: 'bg-emerald-900/70 text-emerald-200 border-emerald-500/50',
+    bgGlow: 'from-emerald-950/50 via-slate-900/20 to-transparent',
+  };
+}
+
 const AUTO_ACCEPT_OPTIONS = [
   { label: 'Manual', value: 0 },
   { label: '5s', value: 5 },
@@ -158,19 +232,6 @@ export default function KitchenDisplayPage() {
   const params = useParams();
   const propertyCode = params?.propertyCode as string | undefined;
   const p = propertyCode ? `/${propertyCode}` : '';
-
-  const { setHidden, isOpen, setOpen } = useSidebar();
-
-  useEffect(() => {
-    if (!isOpen) setHidden(true);
-    else setHidden(false);
-  }, [isOpen, setHidden]);
-
-  useEffect(() => {
-    setOpen(false);
-    setHidden(true);
-    return () => { setOpen(true); setHidden(false); };
-  }, [setOpen, setHidden]);
 
   const { showToast } = useToast();
   const [kots, setKots] = useState<KotTicket[]>([]);
@@ -609,10 +670,30 @@ export default function KitchenDisplayPage() {
     setMounted(true);
     fetchKots(false);
     startCountdown();
+
+    // Listen for storage events (e.g. from Front Desk Accept or order placed)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'kds_order_updated' || e.key === 'hotel_room_service_order_placed') {
+        fetchKots(true);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    // Instant cross-tab BroadcastChannel for 0ms Kitchen Display sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('kds_orders_sync');
+      bc.onmessage = () => {
+        fetchKots(true);
+      };
+    }
+
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
+      window.removeEventListener('storage', handleStorage);
+      if (bc) bc.close();
     };
-  }, []);
+  }, [fetchKots, startCountdown]);
 
   const handleManualRefresh = () => {
     fetchKots(false);
@@ -890,13 +971,9 @@ export default function KitchenDisplayPage() {
                     const activeItems = kot.items.filter((i) => i.status !== 'CANCELLED');
                     const readyItems = activeItems.filter((i) => i.status === 'READY' || i.status === 'SERVED');
                     const allReady = activeItems.length > 0 && readyItems.length === activeItems.length;
-                    const source = kot.tableNo
-                      ? `Table ${kot.tableNo}`
-                      : kot.order?.tableNo
-                      ? `Table ${kot.order.tableNo}`
-                      : kot.roomId
-                      ? `Room ${kot.roomId}`
-                      : kot.order?.orderType || 'Takeaway';
+                    
+                    // High visibility location resolver (Room Service vs Table vs Takeaway)
+                    const loc = getLocationBadgeInfo(kot);
 
                     const prepLimit = kot.order?.preparationTime || 15;
                     const isLate = (kot.status === 'PREPARING' || kot.status === 'NEW') && waitMin >= prepLimit;
@@ -921,43 +998,60 @@ export default function KitchenDisplayPage() {
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
                           </div>
                         )}
-                        {/* Card Header */}
-                        <div className="px-4 py-3 border-b border-slate-700/50 flex items-start gap-2">
-                          <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${isLate ? 'bg-rose-500 animate-pulse shadow-rose-450/50' : isPickupLate ? 'bg-blue-500 animate-pulse shadow-blue-450/50' : col.dotColor}`} />
+                        {/* Card Header with Prominent BADA BADA Room / Table info */}
+                        <div className={`px-4 py-3.5 border-b border-slate-700/60 flex items-start gap-2.5 bg-gradient-to-r ${loc.bgGlow}`}>
+                          <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-2 ${isLate ? 'bg-rose-500 animate-pulse shadow-rose-450/50' : isPickupLate ? 'bg-blue-500 animate-pulse shadow-blue-450/50' : col.dotColor}`} />
                           <div className="flex-1 min-w-0">
+                            {/* TOP ROW: KOT number + BADA BADA Room Number / Table highlight */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-black tracking-tight">{kot.kotNo}</span>
+                              <span className="text-base sm:text-lg font-black tracking-tight text-white font-mono shrink-0">
+                                {kot.kotNo}
+                              </span>
+
+                              {/* 🌟 BADA BADA ROOM NUMBER / TABLE HIGHLIGHT 🌟 */}
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider border shadow-md ${loc.colorClass}`}>
+                                <span className="text-base">{loc.icon}</span>
+                                <span>{loc.title}</span>
+                              </span>
+
+                              {/* Source Sublabel */}
+                              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border ${loc.pillClass}`}>
+                                {loc.badgeLabel}
+                              </span>
+
                               {allReady && col.status === 'PREPARING' && (
-                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-emerald-700 text-white rounded-full">
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 bg-emerald-600 text-white rounded-xl shadow-md animate-pulse">
                                   All Ready!
                                 </span>
                               )}
                               {isLate && (
-                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-rose-700 text-white rounded-full animate-pulse">
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 bg-rose-600 text-white rounded-xl animate-pulse">
                                   Late Kitchen
                                 </span>
                               )}
                               {isPickupLate && (
-                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-blue-700 text-white rounded-full animate-pulse">
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 bg-blue-600 text-white rounded-xl animate-pulse">
                                   Late Pickup
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                {source}
-                              </span>
-                              {kot.order?.orderType && (
-                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded">
-                                  {kot.order.orderType}
+
+                            {/* Guest Name if available */}
+                            {Boolean((kot as any).order?.guest || (kot as any).customerName) && (
+                              <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+                                <span className="text-slate-400">👤 Guest:</span>
+                                <span className="text-white font-bold">
+                                  {(kot as any).order?.guest?.firstName
+                                    ? `${(kot as any).order.guest.firstName} ${(kot as any).order.guest.lastName || ''}`.trim()
+                                    : (kot as any).customerName}
                                 </span>
-                              )}
-                            </div>
+                              </div>
+                            )}
                             
                             {/* Prep Limit Selector */}
                             {kot.status === 'PREPARING' && (
                               <div className="flex items-center gap-1.5 mt-2">
-                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Prep Limit:</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Prep Limit:</span>
                                 <input
                                   type="number"
                                   min="1"
@@ -983,18 +1077,18 @@ export default function KitchenDisplayPage() {
                                   }}
                                   className="w-10 h-5 bg-slate-900 border border-slate-700 rounded text-center text-[9px] font-bold text-white outline-none focus:border-pos-primary"
                                 />
-                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">mins</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">mins</span>
                               </div>
                             )}
                           </div>
                           {/* Wait time badge */}
-                          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-black shrink-0 ${
+                          <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[10px] sm:text-xs font-black shrink-0 ${
                             isLate 
-                              ? 'text-rose-450 bg-rose-950/40 border-rose-700/30 animate-pulse' 
+                              ? 'text-rose-400 bg-rose-950/60 border-rose-600/40 animate-pulse' 
                               : URGENCY_STYLES[urgency]
                           }`}>
-                            {(isLate || urgency === 'high') && <AlertTriangle size={9} />}
-                            <Clock size={9} />
+                            {(isLate || urgency === 'high') && <AlertTriangle size={11} />}
+                            <Clock size={11} />
                             {waitMin}m / {prepLimit}m
                           </div>
                         </div>

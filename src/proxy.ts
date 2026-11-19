@@ -5,14 +5,101 @@ import { jwtVerify } from 'jose'
 const secretKey = process.env.JWT_SECRET || 'super-secret-default-key-change-it-in-prod'
 const key = new TextEncoder().encode(secretKey)
 
+// ─── Security Attack Detection Patterns ─────────────────────────
+const SQL_PATTERNS = [
+  /(\bUNION\s+SELECT|\bUNION\s+ALL\s+SELECT)/i,
+  /(--\s*$|\/\*[\s\S]*?\*\/)/,
+  /(\bEXEC\b|\bEXECUTE\b|\bxp_|\bsp_)/i,
+  /(['";](\s*)(DROP|DELETE|TRUNCATE))/i,
+];
+
+const XSS_PATTERNS = [
+  /<script[\s\S]*?>[\s\S]*?<\/script>/i,
+  /javascript\s*:/i,
+  /eval\s*\(/i,
+];
+
+const SUSPICIOUS_PATHS = [
+  '/wp-admin', '/wp-login', '/phpmyadmin', '/.env',
+  '/shell', '/cmd', '/eval', '/etc/passwd', '/.git',
+  '/config.php', '/phpinfo', '/backup.zip', '/install.php',
+];
+
+const SUSPICIOUS_AGENTS = [
+  'sqlmap', 'nikto', 'nmap', 'masscan', 'acunetix',
+  'dirbuster', 'hydra', 'burpsuite', 'havij', 'nessus',
+];
+
+function getClientIP(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    '0.0.0.0'
+  );
+}
+
 /**
  * Next.js 16 Proxy (formerly middleware).
- * Handles auth, paywalls, subscription expiry, dynamic slug routing,
+ * Handles security scanning, auth, paywalls, subscription expiry, dynamic slug routing,
  * and role/permission-based access control.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const origin = request.headers.get('origin') || '*'
+
+  // ── 0. Security Attack Protection Check ──
+  const ua = (request.headers.get('user-agent') || '').toLowerCase();
+  const query = request.nextUrl.search;
+  const ip = getClientIP(request);
+  const method = request.method;
+
+  let threatType: string | null = null;
+  let severity: string = 'medium';
+
+  for (const bot of SUSPICIOUS_AGENTS) {
+    if (ua.includes(bot)) {
+      threatType = 'BOT_DETECTED';
+      severity = 'critical';
+      break;
+    }
+  }
+
+  if (!threatType) {
+    for (const suspicious of SUSPICIOUS_PATHS) {
+      if (pathname.toLowerCase().includes(suspicious)) {
+        threatType = 'PATH_SCAN';
+        severity = 'high';
+        break;
+      }
+    }
+  }
+
+  if (!threatType && query) {
+    for (const pattern of SQL_PATTERNS) {
+      if (pattern.test(query)) {
+        threatType = 'SQL_INJECTION';
+        severity = 'critical';
+        break;
+      }
+    }
+  }
+
+  if (!threatType && query) {
+    for (const pattern of XSS_PATTERNS) {
+      if (pattern.test(query)) {
+        threatType = 'XSS';
+        severity = 'high';
+        break;
+      }
+    }
+  }
+
+  if (threatType && severity === 'critical') {
+    return new NextResponse(
+      JSON.stringify({ success: false, message: 'Request blocked' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
   // Handle preflight OPTIONS request
   if (pathname.startsWith('/api/')) {
@@ -63,7 +150,6 @@ export async function proxy(request: NextRequest) {
     'expenses', 'accounts', 'manage-properties', 'manage-users', 'manage-roles',
     'pos', 'vouchers', 'orders', 'all-bills', 'categories', 'products', 'day-closing',
     'table-reservations', 'memberships', 'customers', 'b2b', 'kitchen-display', 'bar-display',
-    'master-order-display', 'master-display',
     'staff', 'cafe-pos', 'hoteladmin', 'restaurantadmin'
   ]
 
@@ -269,8 +355,8 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL(userRole === 'HOTEL_ADMIN' ? (pKey ? `/${pKey}/hoteladmin` : '/hoteladmin') : '/hotel', request.url))
     }
 
-    // Skip redirect for /b2b/* — these are standalone supplier portal routes (no propertyCode needed)
-    if (isDashboardRoute && !hasPropertyCode && payload.propertyCode && !pathname.startsWith('/b2b/')) {
+    // Skip redirect for /b2b/* and /master-order-display — these are standalone portal routes (no propertyCode prefix needed)
+    if (isDashboardRoute && !hasPropertyCode && payload.propertyCode && !pathname.startsWith('/b2b/') && !pathname.startsWith('/master-order-display') && !pathname.startsWith('/master-display')) {
       if (isHotelRole && (strippedPathname === '/dashboard' || strippedPathname === '/operations')) {
         const pKey = payload.propertySlug || payload.propertyCode
         return NextResponse.redirect(new URL(userRole === 'HOTEL_ADMIN' ? (pKey ? `/${pKey}/hoteladmin` : '/hoteladmin') : '/hotel', request.url))

@@ -355,9 +355,10 @@ export default function RestaurantPosView({
     return () => clearInterval(ordersInterval);
   }, []);
 
-  // Effect to handle table switching
+  // Effect to handle table switching or room service order loading
   useEffect(() => {
-    if (tableId || orderIdParam || parkingSlotId) {
+    const isRoomService = orderType === 'ROOM_SERVICE' && Boolean(roomServiceRoomNo || roomServiceRoomId || preSelectedBookingId);
+    if (tableId || orderIdParam || parkingSlotId || isRoomService) {
       // Clear current cart and order when switching parameters to avoid showing stale data
       setCart([]);
       setActiveOrder(null);
@@ -366,7 +367,7 @@ export default function RestaurantPosView({
       setActiveOrder(null);
       setCart([]);
     }
-  }, [tableId, orderIdParam, parkingSlotId]);
+  }, [tableId, orderIdParam, parkingSlotId, orderType, roomServiceRoomNo, roomServiceRoomId, preSelectedBookingId]);
 
   useEffect(() => {
     const type = searchParams.get('type');
@@ -442,9 +443,11 @@ export default function RestaurantPosView({
           } else {
             setRoomServiceFolioId('');
           }
+          fetchActiveOrder();
         })
         .catch(() => {
           setRoomServiceFolioId('');
+          fetchActiveOrder();
         });
     } else if (orderType !== 'ROOM_SERVICE') {
       setRoomServiceRoomId('');
@@ -603,14 +606,22 @@ export default function RestaurantPosView({
   };
 
   const fetchActiveOrder = async () => {
-    if (!tableId && !orderIdParam && !parkingSlotId) return;
+    const isRoomService = orderType === 'ROOM_SERVICE' && Boolean(roomServiceRoomNo || roomServiceRoomId || preSelectedBookingId || roomServiceFolioId);
+    if (!tableId && !orderIdParam && !parkingSlotId && !isRoomService) return;
     try {
-      // Priority: Specific orderId -> Parking Slot -> Table
+      // Priority: Specific orderId -> Parking Slot -> Room Service -> Table
       let query = '';
       if (orderIdParam) {
         query = `orderId=${orderIdParam}`;
       } else if (parkingSlotId) {
         query = `parkingSlotId=${parkingSlotId}&status=in_progress`;
+      } else if (isRoomService) {
+        const qp = new URLSearchParams({ status: 'in_progress', orderType: 'ROOM_SERVICE' });
+        if (roomServiceRoomId) qp.set('roomId', roomServiceRoomId);
+        if (roomServiceRoomNo) qp.set('roomNo', roomServiceRoomNo);
+        if (roomServiceFolioId) qp.set('folioId', roomServiceFolioId);
+        if (preSelectedBookingId) qp.set('bookingId', preSelectedBookingId);
+        query = qp.toString();
       } else {
         query = `restaurantTableId=${tableId}&status=in_progress`;
       }
@@ -630,8 +641,17 @@ export default function RestaurantPosView({
         if (firstOrder.orderType) {
           setOrderType(firstOrder.orderType === 'TAKEAWAY' ? 'PICKUP' : firstOrder.orderType);
         }
+        if (firstOrder.roomId) {
+          setRoomServiceRoomId(firstOrder.roomId);
+        }
+        if (firstOrder.folioId) {
+          setRoomServiceFolioId(firstOrder.folioId);
+        }
         if (firstOrder.guestId) {
           setSelectedGuestId(firstOrder.guestId);
+        }
+        if (firstOrder.guest?.firstName) {
+          setSelectedGuestName(`${firstOrder.guest.firstName} ${firstOrder.guest.lastName || ''}`.trim());
         }
         if (firstOrder.driverId) {
           const matchedDriver = drivers.find((d: any) => d.id === firstOrder.driverId);
@@ -662,8 +682,12 @@ export default function RestaurantPosView({
             } else {
               mergedItems.push({
                 ...i.product,
+                id: i.productId || i.id,
+                name: i.product?.name || i.name || 'Dish Item',
                 quantity: i.quantity,
                 sellingPrice: i.unitPrice,
+                taxRate: i.product?.taxRate ?? 5,
+                taxType: i.product?.taxType || 'EXCLUSIVE',
                 size: size,
                 cartItemId: cartItemId,
                 variantId: i.variantId,
@@ -998,11 +1022,14 @@ export default function RestaurantPosView({
         if (latestKot) {
           const floorName = latestKot.table?.floor?.name || orderData.table?.floor?.name;
           const floorMenuType = latestKot.table?.floor?.menuType || orderData.table?.floor?.menuType;
+          const activeRoomNumber = roomServiceRoomNo || preSelectedRoomNo;
           setKotData({
             kotNo: latestKot.kotNo,
             orderNo: orderData.orderNo,
-            tableNo: slotName || tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : orderType === 'ROOM_SERVICE' ? `Room ${roomServiceRoomNo || '?'}` : 'Counter'),
-            orderType: orderData.orderType,
+            tableNo: slotName || tableName || (orderType === 'ROOM_SERVICE' ? `Room ${activeRoomNumber || '?'}` : orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
+            orderType: orderData.orderType || orderType,
+            roomNumber: activeRoomNumber || undefined,
+            guestName: selectedGuestName || undefined,
             createdAt: latestKot.createdAt,
             items: latestKot.items.map((item: any) => ({
               name: item.itemName || item.name || item.product?.name || "Item",
@@ -1020,10 +1047,15 @@ export default function RestaurantPosView({
           // Always print directly if silent server printing is enabled, even for Save & KOT flow
           if (property?.enableDirectPrinting) {
             try {
+              const activeRoomNo = roomServiceRoomNo || preSelectedRoomNo;
+              const formattedTableNo = slotName || tableName || (orderType === 'ROOM_SERVICE' ? `Room ${activeRoomNo || '?'}` : orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter');
               const kotPrintData = {
                 kotNo: latestKot.kotNo,
                 orderNo: orderData.orderNo,
-                tableNo: tableName || (orderType === 'DELIVERY' ? 'Delivery' : orderType === 'PICKUP' ? 'Pick Up' : 'Counter'),
+                orderType: orderData.orderType || orderType,
+                tableNo: formattedTableNo,
+                roomNumber: activeRoomNo || undefined,
+                guestName: selectedGuestName || undefined,
                 items: latestKot.items.map((item: any) => ({
                   name: item.itemName || item.name || item.product?.name || "Item",
                   quantity: item.quantity,

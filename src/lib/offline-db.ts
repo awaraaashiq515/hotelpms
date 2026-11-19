@@ -11,7 +11,13 @@ export type OfflineActionType =
   | 'CREATE_ORDER'
   | 'UPDATE_ORDER_STATUS'
   | 'ADD_KOT'
-  | 'SETTLE_PAYMENT';
+  | 'SETTLE_PAYMENT'
+  | 'CHECK_IN'
+  | 'CHECK_OUT'
+  | 'CREATE_BOOKING'
+  | 'UPDATE_BOOKING'
+  | 'CREATE_EXPENSE'
+  | 'UPDATE_ROOM_STATUS';
 
 export interface OfflineAction {
   id?: number;
@@ -103,4 +109,27 @@ export async function markActionSynced(id: number): Promise<void> {
 export async function getPendingCount(): Promise<number> {
   const actions = await getPendingActions();
   return actions.length;
+}
+
+// ─── Factory Helper ────────────────────────────────────────────
+
+/**
+ * Build an OfflineAction object ready to pass to `queueOfflineAction`.
+ *
+ * Usage:
+ *   await queueOfflineAction(createOfflineAction('CHECK_IN', '/api/hotel/check-in', 'POST', { bookingId }));
+ */
+export function createOfflineAction(
+  type: OfflineActionType,
+  endpoint: string,
+  method: 'POST' | 'PUT' | 'PATCH',
+  payload: Record<string, unknown>
+): Omit<OfflineAction, 'id' | 'synced' | 'retries'> {
+  return {
+    type,
+    endpoint,
+    method,
+    payload,
+    timestamp: Date.now(),
+  };
 }

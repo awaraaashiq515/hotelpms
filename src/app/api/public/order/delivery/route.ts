@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 /**
  * Public API: Place a Home Delivery order.
@@ -173,9 +174,10 @@ export async function POST(request: NextRequest) {
       // 7. Create KOT (using virtual delivery table for reference)
       let kotTicket: any = null;
       if (newItemsForKot.length > 0) {
+        const kotNo = await getNextKotNumber(propertyId, tx);
         kotTicket = await tx.kotTicket.create({
           data: {
-            kotNo: `KOT-DEL-${Date.now()}`,
+            kotNo,
             orderId: order.id,
             propertyId,
             outletId: outlet.id,

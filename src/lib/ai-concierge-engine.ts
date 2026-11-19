@@ -210,13 +210,13 @@ export function processHotelConciergeQuery(
   }
 
   // 2. HOUSEKEEPING & AMENITIES
-  if (/(towel|towels|tauliya|bath|soap|shampoo|toiletr|water\s*bottle|mineral\s*water|pani|clean|cleaning|saaf|housekeeping|linen|bedsheet|pillow|takia|blanket|kambal|dental|shaving|brush|slippers|trash|dustbin)/i.test(q)) {
+  if (/(towel|towels|tauliya|bath|soap|shampoo|toiletr|clean|cleaning|saaf|housekeeping|linen|bedsheet|dental|shaving|brush|slippers|trash|dustbin|hair\s*dryer|dryer|body\s*wash|lotion)/i.test(q)) {
     let item = 'Housekeeping service';
     if (/(towel|tauliya)/i.test(q)) item = 'Fresh Bath Towels';
-    else if (/(water|pani)/i.test(q)) item = 'Complimentary Mineral Water';
     else if (/(clean|saaf|cleaning|sweep)/i.test(q)) item = 'Full Room Cleaning & Turn-Down';
-    else if (/(pillow|blanket|linen|bedsheet|takia|kambal)/i.test(q)) item = 'Extra Linens & Bedding';
-    else if (/(soap|shampoo|dental|toiletr|brush|kit)/i.test(q)) item = 'Toiletry & Dental Kit';
+    else if (/(soap|shampoo|dental|toiletr|brush|kit|body\s*wash|lotion)/i.test(q)) item = 'Toiletry & Dental Kit';
+    else if (/(slippers)/i.test(q)) item = 'In-Room Luxury Slippers';
+    else if (/(hair\s*dryer|dryer)/i.test(q)) item = 'High-Power Ionic Hair Dryer';
 
     const ticketNo = `HK-${roomNumber}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -231,6 +231,60 @@ export function processHotelConciergeQuery(
         status: 'PENDING'
       },
       quickReplies: ['Need Anything Else?', 'Check Delivery Status', 'Add Cleaning Instructions'],
+      sentiment: 'POSITIVE'
+    };
+  }
+
+  // 2B. DRINKING WATER & BEVERAGE REPLENISHMENT
+  if (/(water|bottle|mineral|pani|kettle|milk|sugar|tea\s*bag|coffee\s*sachet)/i.test(q)) {
+    const ticketNo = `HK-${roomNumber}-${Math.floor(100 + Math.random() * 900)}`;
+    return {
+      reply: `I have dispatched complimentary mineral water bottles and tea/coffee replenishment to Room ${roomNumber}. Our associate is on the way and will arrive in 5–8 minutes.`,
+      intent: 'HOUSEKEEPING',
+      action: {
+        type: 'HOUSEKEEPING_CREATED',
+        ticketNo,
+        title: 'Housekeeping: Mineral Water & Coffee Kit',
+        description: `Complimentary delivery to Room ${roomNumber} (${guestName})`,
+        status: 'PENDING'
+      },
+      quickReplies: ['Need Extra Water (4 bottles)', 'Ice Bucket 🧊', 'Hot Water in Flask'],
+      sentiment: 'POSITIVE'
+    };
+  }
+
+  // 2C. EXTRA BEDDING, PILLOWS, BLANKETS
+  if (/(pillow|takia|blanket|kambal|quilt|duvet|bedsheet|chadar|mattress|extra\s*bed)/i.test(q)) {
+    const ticketNo = `HK-${roomNumber}-${Math.floor(100 + Math.random() * 900)}`;
+    return {
+      reply: `I have placed a request for extra pillows and plush sanitized blankets for Room ${roomNumber}. Housekeeping will bring them to your room within 10 minutes.`,
+      intent: 'HOUSEKEEPING',
+      action: {
+        type: 'HOUSEKEEPING_CREATED',
+        ticketNo,
+        title: 'Housekeeping: Extra Bedding & Blanket',
+        description: `Delivering to Room ${roomNumber} (${guestName})`,
+        status: 'PENDING'
+      },
+      quickReplies: ['Soft Pillows', 'Warm Heavy Blanket', 'Turn-Down Service'],
+      sentiment: 'POSITIVE'
+    };
+  }
+
+  // 2D. IRON & LAUNDRY PRESSING
+  if (/(iron|ironing|press|istri|laundry|dry\s*clean|wash|dhobi|kapde|clothes)/i.test(q)) {
+    const ticketNo = `HK-${roomNumber}-${Math.floor(100 + Math.random() * 900)}`;
+    return {
+      reply: `I have scheduled an immediate housekeeping dispatch for Iron & Ironing Board / Laundry Bag to Room ${roomNumber}. Our housekeeping associate will deliver it within 8 to 10 minutes.`,
+      intent: 'HOUSEKEEPING',
+      action: {
+        type: 'HOUSEKEEPING_CREATED',
+        ticketNo,
+        title: 'Housekeeping: Iron & Laundry Kit',
+        description: `Delivering to Room ${roomNumber} (${guestName}) · Priority: Normal`,
+        status: 'PENDING'
+      },
+      quickReplies: ['Laundry Pricing Tariff', 'Express 2-Hr Pressing', 'Need Hangers Too'],
       sentiment: 'POSITIVE'
     };
   }
@@ -263,14 +317,14 @@ export function processHotelConciergeQuery(
   }
 
   // 4. ROOM SERVICE & DINING
-  if (/(food|eat|dinner|lunch|breakfast|room\s*service|menu|khana|chai|coffee|tea|snack|drink|beverage|hungry|chef|order|midnight)/i.test(q)) {
+  if (/(food|eat|dinner|lunch|breakfast|room\s*service|menu|khana|chai|coffee|tea|snack|drink|beverage|hungry|chef|order|midnight|biryani|pizza|burger|pasta|roti|dal|dessert|mithai)/i.test(q)) {
     return {
-      reply: `Our In-Room Dining is available 24/7! (${knowledge.roomServiceHours}).\n\n🔥 Today's Chef Specials:\n• Mughlai Dum Biryani (Vegetable / Chicken / Lamb)\n• Wood-Fired Margherita Pizza & Fettuccine Alfredo\n• Dal Makhani with Tandoori Butter Naan\n• Classic Club Sandwich with Crinkle Fries & Espresso\n\nWould you like me to open the digital dining menu or place a quick chef's special order for Room ${roomNumber}?`,
+      reply: `Our In-Room Dining is available 24/7! (${knowledge.roomServiceHours}).\n\n🍽️ You can browse our complete digital menu and place an order directly from your screen:\n\n🔥 Today's Chef Specials:\n• Mughlai Dum Biryani (Vegetable / Chicken / Lamb)\n• Wood-Fired Margherita Pizza & Fettuccine Alfredo\n• Dal Makhani with Tandoori Butter Naan\n• Classic Club Sandwich with Crinkle Fries & Espresso\n\nClick the "Open In-Room Dining Menu" button below to view all items and order directly to Room ${roomNumber}!`,
       intent: 'ROOM_SERVICE',
       action: {
         type: 'ROOM_SERVICE_MENU',
         title: '24/7 In-Room Dining Menu',
-        description: 'Menu ready on guest tablet · Dial 9 from room phone'
+        description: `Tap button below to browse all dishes & order directly to Room ${roomNumber}`
       },
       quickReplies: ['View Full Menu 📜', 'Order Dum Biryani 🍲', 'Tea / Coffee Set ☕', 'Breakfast Timings 🍳'],
       sentiment: 'POSITIVE'
@@ -384,7 +438,32 @@ export function processHotelConciergeQuery(
     };
   }
 
-  // 13. LOCAL RECOMMENDATIONS & SIGHTSEEING
+  // 13. LUGGAGE & PORTER ASSISTANCE
+  if (/(luggage|bag|bags|baggage|bellboy|porter|carry|heavy|saman)/i.test(q)) {
+    return {
+      reply: `A bellboy has been assigned to assist you with your luggage in Room ${roomNumber}. Our associate will be at your door within 3 to 5 minutes.`,
+      intent: 'TRANSPORT',
+      action: {
+        type: 'CAB_BOOKING_PREPARED',
+        title: 'Bellboy Assistance Dispatched',
+        description: `Luggage porter arriving at Room ${roomNumber} for ${guestName}`
+      },
+      quickReplies: ['Departure Luggage Pickup', 'Luggage Storage Desk', 'Airport Cab Needed'],
+      sentiment: 'POSITIVE'
+    };
+  }
+
+  // 14. WAKE-UP CALL
+  if (/(wake|wakeup|wake-up|alarm|uthana|call\s*me)/i.test(q)) {
+    return {
+      reply: `Your wake-up call has been noted for Room ${roomNumber}. Our front desk reception team will ring your room telephone at your desired wake-up time.`,
+      intent: 'FAQ',
+      quickReplies: ['Set 6:00 AM Call ⏰', 'Set 7:00 AM Call ⏰', 'Set 8:00 AM Call ⏰'],
+      sentiment: 'POSITIVE'
+    };
+  }
+
+  // 15. LOCAL RECOMMENDATIONS & SIGHTSEEING
   if (/(restaurant|nearby|places|visit|sightseeing|shopping|mall|market|attraction|tourism)/i.test(q)) {
     return {
       reply: `Here are the top attractions and dining spots near ${knowledge.hotelName}:\n\n🍽️ Top Dining:\n• The Spice Garden (500m) - Fine heritage Indian cuisine (4.8★)\n• Waterfront Grill (1.2 km) - Sunset lake-view lounge (4.7★)\n• Café Roma (400m) - Authentic stone-baked Italian (4.8★)\n\n🏛️ Sightseeing & Culture:\n• Heritage City Palace & Museum (3.5 km)\n• Sunset Point & Botanical Walk (2.0 km)\n• Grand Central Shopping Arcade (1.5 km)\n\nOur concierge desk can arrange VIP reservations and chauffeur cars. Would you like me to book a table or taxi?`,
@@ -394,21 +473,21 @@ export function processHotelConciergeQuery(
     };
   }
 
-  // 14. HINDI / HINGLISH QUERIES FALLBACK
+  // 16. HINDI / HINGLISH QUERIES FALLBACK
   if (/(chahiye|karo|bhejo|kahan|hai|kitne|baje|madad|theek|nahi|samajh|kardo)/i.test(q)) {
     return {
-      reply: `नमस्ते ${guestName}! मैंने आपकी रिक्वेस्ट नोट कर ली है। Room ${roomNumber} के लिए हमारी होटल टीम तत्पर है। क्या आप तौलिया, पानी, रूम की सफाई, या खाना मंगवाना चाहते हैं? बस बताइए, तुरंत अरेंज हो जाएगा!`,
+      reply: `नमस्ते ${guestName}! मैंने आपकी बात समझ ली है। Room ${roomNumber} के लिए हमारी होटल रिसेप्शन टीम तत्पर है। क्या आप तौलिया, पानी, रूम की सफाई, या खाना मंगवाना चाहते हैं? बस बताइए, तुरंत अरेंज हो जाएगा!`,
       intent: 'GENERAL_HINDI',
       quickReplies: ['तौलिया चाहिए 🛁', 'पानी की बोतल 💧', 'खाना मंगवाना है 🍲', 'AC ठीक करो ❄️'],
       sentiment: 'POSITIVE'
     };
   }
 
-  // DEFAULT
+  // DEFAULT / FALLBACK (Flags for manual staff reply from hotel reception console)
   return {
-    reply: `Thank you for reaching out, ${guestName}! I am here to assist you with anything you need during your stay in Room ${roomNumber}. I can arrange housekeeping, room service, laundry, spa appointments, airport taxis, or answer any questions about the hotel. What can I help you with?`,
+    reply: `Thank you for your message, ${guestName}! I have notified our Front Desk Duty Manager and Reception team for Room ${roomNumber}. Our on-duty receptionist is reviewing your message right now and will assist you manually.\n\nYou can also reach Front Desk by dialing 0.`,
     intent: 'GENERAL',
-    quickReplies: ['Room Service 🛎️', 'Housekeeping 🧹', 'Spa Booking 🧖', 'Airport Taxi 🚖'],
-    sentiment: 'NEUTRAL'
+    quickReplies: ['View Food Menu 🍽️', 'Housekeeping 🧹', 'Front Desk Contact ☎️', 'WiFi Details 📶'],
+    sentiment: 'URGENT'
   };
 }

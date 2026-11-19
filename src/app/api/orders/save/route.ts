@@ -4,6 +4,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
 import { createNotification } from '@/lib/notificationService';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 /**
  * Saves an open order (Dine-In) and generates a KOT for NEW items only.
@@ -233,7 +234,7 @@ export async function POST(request: NextRequest) {
       // 4. Generate KOT for the DIFFERENCE
       let kotTicket: any = null;
       if (newItemsForKot.length > 0) {
-        const kotNo = `KOT-${Date.now()}`
+        const kotNo = await getNextKotNumber(targetPropertyId, tx);
         
         let staffName = null;
         if (staffMemberId) {

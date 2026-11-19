@@ -203,19 +203,6 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
           <span>Backup</span>
         </button>
 
-        {/* Security Portal shortcut button */}
-        <button
-          onClick={() => {
-            const pCode = session?.propertyCode || selectedProperty?.code || selectedProperty?.propertyCode;
-            router.push(pCode ? `/security-portal/${pCode.toLowerCase()}` : '/security-portal');
-          }}
-          title="Open Security & Guest ID Verification Portal"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
-        >
-          <Shield size={13} className="text-cyan-400" />
-          <span>Security Portal</span>
-        </button>
-
         {/* Calendar indicator pill */}
         {isCalendar && (
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-black uppercase tracking-widest text-indigo-300">

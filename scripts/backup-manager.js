@@ -23,7 +23,22 @@ const DB_PATH          = path.join(PROJECT_DIR, 'prisma', 'dev.db');
 const BACKUP_FOLDER    = 'Hotel-PMS-Backups';
 const DESKTOP_BASE     = path.join(os.homedir(), 'Desktop', BACKUP_FOLDER);
 const BACKUP_LOG_PATH  = path.join(PROJECT_DIR, 'scripts', 'backup-log.json');
+const SETTINGS_PATH    = path.join(PROJECT_DIR, 'scripts', 'backup-settings.json');
 const MAX_BACKUPS_KEEP = 30;
+
+function getDesktopBase() {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) {
+      const s = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
+      if (s.customDesktopPath && s.customDesktopPath.trim()) {
+        const p = s.customDesktopPath.trim();
+        try { fs.mkdirSync(p, { recursive: true }); } catch (_) {}
+        return p;
+      }
+    }
+  } catch (_) {}
+  return DESKTOP_BASE;
+}
 
 // ─── Google Drive Detection (macOS) ───────────────────────────────────────────
 function findGoogleDriveFolder() {
@@ -189,11 +204,22 @@ function createBackupForProperty(prop) {
     result.recordsCount = exported.totalRecords;
     result.tablesCount  = exported.tablesCount;
 
-    // 1. Desktop dedicated folder: ~/Desktop/Hotel-PMS-Backups/<propertyCode>/<bkpName>
-    const propDir = path.join(DESKTOP_BASE, prop.code);
+    // 1. Desktop dedicated folder
+    const desktopBase = getDesktopBase();
+    const propDir = path.join(desktopBase, prop.code);
     fs.mkdirSync(propDir, { recursive: true });
     const desktopBkpPath = path.join(propDir, bkpName);
     fs.mkdirSync(desktopBkpPath, { recursive: true });
+
+    // Also write directly in custom folder if custom base is set
+    if (desktopBase !== DESKTOP_BASE) {
+      try {
+        const directBkpPath = path.join(desktopBase, bkpName);
+        fs.mkdirSync(directBkpPath, { recursive: true });
+        fs.writeFileSync(path.join(directBkpPath, 'hotel-data-backup.json'), exported.jsonStr, 'utf-8');
+        fs.copyFileSync(DB_PATH, path.join(directBkpPath, 'hotel-pms-data.db'));
+      } catch (_) {}
+    }
 
     // Save Primary JSON backup file
     fs.writeFileSync(path.join(desktopBkpPath, 'hotel-data-backup.json'), exported.jsonStr, 'utf-8');
@@ -299,46 +325,60 @@ function cleanOldBackups(dir) {
 
 function listBackups(propertyCode) {
   const backups = [];
-  const searchDir = propertyCode ? path.join(DESKTOP_BASE, propertyCode) : DESKTOP_BASE;
-  if (!fs.existsSync(searchDir)) return backups;
+  const desktopBase = getDesktopBase();
+  const searchDirs = [
+    propertyCode ? path.join(desktopBase, propertyCode) : desktopBase,
+    desktopBase,
+    propertyCode ? path.join(DESKTOP_BASE, propertyCode) : DESKTOP_BASE,
+    DESKTOP_BASE,
+  ];
 
-  try {
-    fs.readdirSync(searchDir)
-      .filter(f => f.startsWith('backup-') && fs.statSync(path.join(searchDir, f)).isDirectory())
-      .sort().reverse()
-      .forEach(entry => {
-        let info = {};
-        try { info = JSON.parse(fs.readFileSync(path.join(searchDir, entry, 'backup-info.json'), 'utf-8')); } catch (_) {}
-        backups.push({
-          name:           entry,
-          desktopPath:    path.join(searchDir, entry),
-          timestamp:      info.timestamp || entry,
-          dateStr:        info.backupDate   || '—',
-          timeStr:        info.backupTime   || '—',
-          dbSizeMB:       info.dbSizeMB     || '—',
-          hasGoogleDrive: !!(info.locations && info.locations.googleDrive),
+  const seen = new Set();
+  for (const searchDir of searchDirs) {
+    if (!fs.existsSync(searchDir)) continue;
+    try {
+      fs.readdirSync(searchDir)
+        .filter(f => f.startsWith('backup-') && fs.statSync(path.join(searchDir, f)).isDirectory())
+        .sort().reverse()
+        .forEach(entry => {
+          if (seen.has(entry)) return;
+          seen.add(entry);
+          let info = {};
+          try { info = JSON.parse(fs.readFileSync(path.join(searchDir, entry, 'backup-info.json'), 'utf-8')); } catch (_) {}
+          backups.push({
+            name:           entry,
+            desktopPath:    path.join(searchDir, entry),
+            timestamp:      info.timestamp || entry,
+            dateStr:        info.backupDate   || '—',
+            timeStr:        info.backupTime   || '—',
+            dbSizeMB:       info.dbSizeMB     || '—',
+            hasGoogleDrive: !!(info.locations && info.locations.googleDrive),
+          });
         });
-      });
-  } catch (_) {}
+    } catch (_) {}
+  }
   return backups;
 }
 
 function restoreBackup(backupName, propertyCode) {
   let srcDb = null;
-  if (propertyCode) {
-    const p = path.join(DESKTOP_BASE, propertyCode, backupName, 'hotel-pms-data.db');
-    if (fs.existsSync(p)) srcDb = p;
+  const desktopBase = getDesktopBase();
+  const candidates = [
+    propertyCode ? path.join(desktopBase, propertyCode, backupName, 'hotel-pms-data.db') : null,
+    path.join(desktopBase, backupName, 'hotel-pms-data.db'),
+    propertyCode ? path.join(DESKTOP_BASE, propertyCode, backupName, 'hotel-pms-data.db') : null,
+    path.join(DESKTOP_BASE, backupName, 'hotel-pms-data.db'),
+  ].filter(Boolean);
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) { srcDb = c; break; }
   }
+
   if (!srcDb) {
-    const direct = path.join(DESKTOP_BASE, backupName, 'hotel-pms-data.db');
-    if (fs.existsSync(direct)) srcDb = direct;
-  }
-  if (!srcDb) {
-    // Search subfolders
     try {
-      const subs = fs.readdirSync(DESKTOP_BASE);
+      const subs = fs.readdirSync(desktopBase);
       for (const sub of subs) {
-        const candidate = path.join(DESKTOP_BASE, sub, backupName, 'hotel-pms-data.db');
+        const candidate = path.join(desktopBase, sub, backupName, 'hotel-pms-data.db');
         if (fs.existsSync(candidate)) {
           srcDb = candidate;
           break;

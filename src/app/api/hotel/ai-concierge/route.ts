@@ -191,14 +191,14 @@ function processHotelRuleEngine(message: string, guestName: string, roomNumber: 
   }
 
   // 4. ROOM SERVICE & DINING
-  if (/(food|eat|dinner|lunch|breakfast|room\s*service|menu|khana|chai|coffee|tea|snack|drink|beverage|hungry|chef|order)/i.test(q)) {
+  if (/(food|eat|dinner|lunch|breakfast|room\s*service|menu|khana|chai|coffee|tea|snack|drink|beverage|hungry|chef|order|biryani|pizza|burger|pasta|roti|dal|dessert|mithai)/i.test(q)) {
     return {
-      reply: `Our In-Room Dining is available 24/7! ${knowledge.roomServiceHours}.\n\n🔥 Today's Chef Specials:\n• Mughlai Dum Biryani (Veg/Chicken/Mutton)\n• Gourmet Wood-Fired Pizza & Pasta\n• Dal Makhani with Tandoori Butter Naan\n• Continental Club Sandwich & Espresso\n\nWould you like me to send our digital interactive dining menu to your phone, or shall I have our F&B captain call Room ${roomNumber}?`,
+      reply: `Our In-Room Dining is available 24/7! ${knowledge.roomServiceHours}.\n\n🍽️ You can browse our complete digital menu and place an order directly from your screen:\n\n🔥 Today's Chef Specials:\n• Mughlai Dum Biryani (Veg/Chicken/Mutton)\n• Gourmet Wood-Fired Pizza & Pasta\n• Dal Makhani with Tandoori Butter Naan\n• Continental Club Sandwich & Espresso\n\nClick the "Open In-Room Dining Menu" button below to view all items and order directly to Room ${roomNumber}!`,
       intent: 'ROOM_SERVICE',
       action: {
         type: 'ROOM_SERVICE_MENU',
         title: '24/7 In-Room Dining Menu',
-        description: 'Menu link sent to guest terminal · Dial 9 for instant order'
+        description: `Tap button below to browse all dishes & order directly to Room ${roomNumber}`
       },
       quickReplies: ['View Full Menu 📜', 'Order Chef Special 🍲', 'Tea / Coffee Set ☕', 'Breakfast Timings 🍳'],
       sentiment: 'POSITIVE'
@@ -362,7 +362,7 @@ export async function GET(request: NextRequest) {
             }
           }
         },
-        take: 6,
+        take: 10,
         orderBy: { updatedAt: 'desc' }
       });
 
@@ -376,6 +376,8 @@ export async function GET(request: NextRequest) {
           return {
             id: `db-${res.id}`,
             room: roomNo,
+            roomId: roomObj?.id,
+            reservationId: res.id,
             roomType: roomType,
             guest: guestName,
             guestPhone: res.guest?.mobile || '+91 98000 00000',
@@ -385,7 +387,7 @@ export async function GET(request: NextRequest) {
             status: 'ACTIVE',
             lastMsg: 'Hello, I have checked in to my room.',
             time: 'Just now',
-            unreadCount: 1,
+            unreadCount: 0,
             history: [
               {
                 id: `msg-${Date.now()}-${idx}`,
@@ -397,13 +399,139 @@ export async function GET(request: NextRequest) {
           };
         });
 
-        // Merge DB sessions with default sessions (avoid duplicate rooms)
-        const roomNumbers = new Set(dbSessions.map(s => s.room));
-        const filteredDefaults = DEFAULT_SESSIONS.filter(s => !roomNumbers.has(s.room));
-        sessions = [...dbSessions, ...filteredDefaults];
+        // Keep only unique room sessions, preferring the latest reservation
+        const uniqueDbSessions: any[] = [];
+        const seenRooms = new Set<string>();
+        dbSessions.forEach((s) => {
+          if (!seenRooms.has(s.room)) {
+            seenRooms.add(s.room);
+            uniqueDbSessions.push(s);
+          }
+        });
+
+        const filteredDefaults = DEFAULT_SESSIONS.filter(s => !seenRooms.has(s.room));
+        sessions = [...uniqueDbSessions, ...filteredDefaults];
       }
     } catch (err) {
       // Prisma query fallback silently
+    }
+
+    // ── Load Real Messages from RoomPortalActivityLog ──────────────
+    let recentGuestMessages: any[] = [];
+    try {
+      const chatLogs = await prisma.roomPortalActivityLog.findMany({
+        where: {
+          action: { in: ['GUEST_MESSAGE', 'CONCIERGE_REPLY'] },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 300,
+      });
+
+      // Group logs by roomNumber
+      const roomLogsMap: Record<string, any[]> = {};
+      chatLogs.forEach((log) => {
+        let parsed: any = {};
+        try {
+          parsed = log.details ? JSON.parse(log.details) : {};
+        } catch {
+          parsed = { content: log.details };
+        }
+
+        const roomNo = parsed.roomNumber || '';
+        if (roomNo) {
+          if (!roomLogsMap[roomNo]) roomLogsMap[roomNo] = [];
+          roomLogsMap[roomNo].push({
+            id: parsed.id || log.id,
+            role: log.action === 'GUEST_MESSAGE' ? 'user' : 'assistant',
+            content: parsed.content || '',
+            time: parsed.time || new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            senderName: parsed.senderName || (log.action === 'GUEST_MESSAGE' ? 'Guest' : 'AI Concierge'),
+            action: parsed.action,
+            quickReplies: parsed.quickReplies,
+            isStaffReply: parsed.isStaffReply || false,
+            createdAt: log.createdAt,
+          });
+        }
+
+        if (log.action === 'GUEST_MESSAGE') {
+          recentGuestMessages.push({
+            id: parsed.id || log.id,
+            room: roomNo,
+            guest: parsed.senderName || 'Guest',
+            content: parsed.content || '',
+            time: parsed.time || new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            createdAt: log.createdAt,
+          });
+        }
+      });
+
+      // Merge real logs into sessions
+      sessions = sessions.map((sess) => {
+        const realMsgs = roomLogsMap[sess.room];
+        if (realMsgs && realMsgs.length > 0) {
+          const lastM = realMsgs[realMsgs.length - 1];
+          const hasUnread = lastM.role === 'user';
+          return {
+            ...sess,
+            history: realMsgs,
+            lastMsg: lastM.content.slice(0, 60),
+            time: lastM.time,
+            unreadCount: hasUnread ? 1 : 0,
+            status: 'ACTIVE' as const,
+          };
+        }
+        return sess;
+      });
+
+      // If there are roomLogs for a room not in sessions, dynamically add that session!
+      Object.keys(roomLogsMap).forEach((rNo) => {
+        const found = sessions.find((s) => s.room === rNo);
+        if (!found) {
+          const msgs = roomLogsMap[rNo];
+          const lastM = msgs[msgs.length - 1];
+          sessions.unshift({
+            id: `portal-room-${rNo}`,
+            room: rNo,
+            roomType: 'In-Room Guest',
+            guest: lastM.senderName || `Guest Room ${rNo}`,
+            guestPhone: '+91 98000 00000',
+            tier: 'Gold Loyalty',
+            checkIn: 'Today',
+            checkOut: 'Active',
+            status: 'ACTIVE',
+            lastMsg: lastM.content.slice(0, 60),
+            time: lastM.time,
+            unreadCount: lastM.role === 'user' ? 1 : 0,
+            history: msgs,
+          });
+        }
+      });
+
+      // Sort sessions: active rooms with real guest chat logs come FIRST!
+      sessions.sort((a, b) => {
+        const hasA = roomLogsMap[a.room]?.length || 0;
+        const hasB = roomLogsMap[b.room]?.length || 0;
+        if (hasA !== hasB) return hasB - hasA;
+
+        const lastA = a.history && a.history.length > 0 ? (a.history[a.history.length - 1] as any) : null;
+        const lastB = b.history && b.history.length > 0 ? (b.history[b.history.length - 1] as any) : null;
+        const timeA = lastA?.createdAt ? new Date(lastA.createdAt).getTime() : 0;
+        const timeB = lastB?.createdAt ? new Date(lastB.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      // Deduplicate sessions so each room only appears once
+      const finalUniqueSessions: any[] = [];
+      const finalSeenRooms = new Set<string>();
+      sessions.forEach((s) => {
+        if (!finalSeenRooms.has(s.room)) {
+          finalSeenRooms.add(s.room);
+          finalUniqueSessions.push(s);
+        }
+      });
+      sessions = finalUniqueSessions;
+    } catch (err) {
+      // ActivityLog query fallback silently
     }
 
     const stats = {
@@ -418,6 +546,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       sessions,
+      recentGuestMessages: recentGuestMessages.slice(-15),
       knowledge: DEFAULT_KNOWLEDGE,
       stats
     });
@@ -437,8 +566,96 @@ export async function POST(request: NextRequest) {
       roomNumber = '101', 
       propertyId, 
       language = 'en',
-      knowledgeSettings 
+      knowledgeSettings,
+      action: requestAction,
+      isStaffReply = false,
+      senderName = 'Front Desk'
     } = body;
+
+    if (!message || !message.trim()) {
+      return NextResponse.json({ success: false, message: 'Message is required' }, { status: 400 });
+    }
+
+    // ── Handle Staff Reply Directly from Hotel Portal ───────────
+    if (requestAction === 'STAFF_MESSAGE' || isStaffReply) {
+      const currentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const staffMsgObj = {
+        id: `msg-staff-${Date.now()}`,
+        role: 'assistant',
+        content: message.trim(),
+        time: currentTimeStr,
+        senderName: senderName || 'Front Desk Associate',
+        isStaffReply: true,
+        roomNumber: String(roomNumber),
+      };
+
+      try {
+        let targetRoomId: string | null = null;
+        let targetReservationId: string | null = null;
+        let targetPropertyId: string = propertyId || '';
+
+        // 1. Look up the latest guest message for this exact roomNumber
+        const latestGuestLog = await prisma.roomPortalActivityLog.findFirst({
+          where: {
+            action: 'GUEST_MESSAGE',
+            details: { contains: `"roomNumber":"${roomNumber}"` },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { roomId: true, reservationId: true, propertyId: true },
+        });
+
+        if (latestGuestLog) {
+          targetRoomId = latestGuestLog.roomId;
+          targetReservationId = latestGuestLog.reservationId;
+          targetPropertyId = targetPropertyId || latestGuestLog.propertyId;
+        }
+
+        // 2. Fallback to active checked-in reservation for this room
+        if (!targetRoomId || !targetReservationId) {
+          const activeReservation = await prisma.reservation.findFirst({
+            where: {
+              rooms: { some: { room: { roomNumber: String(roomNumber) } } },
+              status: { in: ['CHECKED_IN', 'CONFIRMED'] },
+            },
+            orderBy: { updatedAt: 'desc' },
+            select: { id: true, propertyId: true, assignedRoomId: true },
+          });
+
+          if (activeReservation) {
+            targetReservationId = targetReservationId || activeReservation.id;
+            targetPropertyId = targetPropertyId || activeReservation.propertyId;
+            targetRoomId = targetRoomId || activeReservation.assignedRoomId;
+          }
+        }
+
+        // 3. Fallback to any room record with this roomNumber
+        if (!targetRoomId) {
+          const roomRecord = await prisma.room.findFirst({
+            where: { roomNumber: String(roomNumber) },
+            select: { id: true, propertyId: true },
+          });
+          targetRoomId = roomRecord?.id || null;
+          targetPropertyId = targetPropertyId || roomRecord?.propertyId || 'default-property';
+        }
+
+        await prisma.roomPortalActivityLog.create({
+          data: {
+            propertyId: targetPropertyId || 'default-property',
+            roomId: targetRoomId,
+            reservationId: targetReservationId,
+            action: 'CONCIERGE_REPLY',
+            details: JSON.stringify(staffMsgObj),
+          },
+        });
+      } catch (err) {
+        console.warn('[Staff reply log error]:', err);
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: staffMsgObj,
+      });
+    }
 
     if (!message || !message.trim()) {
       return NextResponse.json({ success: false, message: 'Message is required' }, { status: 400 });

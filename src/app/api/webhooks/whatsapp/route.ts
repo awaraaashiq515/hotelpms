@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { withGeminiRetry } from '@/lib/gemini-retry';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 // GET: Meta Cloud API Webhook Verification Challenge
 export async function GET(req: NextRequest) {
@@ -638,7 +639,7 @@ async function executeOrderCreation(session: any, cart: CartItem[], propertyId: 
     }
 
     const orderNo = `WA-${Date.now().toString().slice(-6)}`;
-    const kotNo = `KOT-${Date.now().toString().slice(-4)}`;
+    const kotNo = await getNextKotNumber(propertyId);
 
     // Create POS Order and KOT Ticket sequentially to map KotItem to PosOrderItem
     const order = await prisma.$transaction(async (tx: any) => {

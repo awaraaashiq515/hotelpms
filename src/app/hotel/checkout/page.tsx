@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DoorOpen, CheckCircle2 } from 'lucide-react';
 import { CheckoutGuestCard } from '@/components/hotel/checkout/CheckoutGuestCard';
 import { CheckoutFilters } from '@/components/hotel/checkout/CheckoutFilters';
@@ -28,7 +29,11 @@ function isOverdue(expectedDate: string) {
   return new Date(expectedDate) < new Date();
 }
 
-export default function CheckoutPage() {
+function CheckoutListContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetBookingId = searchParams.get('bookingId') || searchParams.get('resId') || '';
+
   const [checkIns, setCheckIns] = useState<CheckInRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -67,6 +72,18 @@ export default function CheckoutPage() {
               : undefined,
           };
         });
+
+        // If a specific bookingId or resId was requested in URL query, auto-navigate to its detail page
+        if (targetBookingId) {
+          const matched = records.find(
+            (r) => r.reservation?.id === targetBookingId || r.reservation?.bookingNo === targetBookingId
+          );
+          if (matched) {
+            router.replace(`/hotel/checkout/${matched.id}?folioId=${matched.folioId}`);
+            return;
+          }
+        }
+
         setCheckIns(records);
       }
     } catch {
@@ -74,7 +91,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [targetBookingId, router]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -139,5 +156,20 @@ export default function CheckoutPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <div className="relative w-10 h-10">
+          <div className="absolute inset-0 border-4 border-orange-500/20 rounded-full" />
+          <div className="absolute inset-0 border-4 border-t-orange-500 rounded-full animate-spin" />
+        </div>
+      </div>
+    }>
+      <CheckoutListContent />
+    </Suspense>
   );
 }

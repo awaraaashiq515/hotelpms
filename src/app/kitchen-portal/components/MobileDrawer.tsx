@@ -9,6 +9,8 @@ interface MobileDrawerProps {
   propertyCode: string;
   activeStaffName: string;
   soundOn: boolean;
+  language?: 'hi' | 'en';
+  onLanguageChange?: (lang: 'hi' | 'en') => void;
   onClose: () => void;
   onOpenStaffModal: () => void;
   onToggleSound: () => void;
@@ -19,6 +21,8 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
   propertyCode,
   activeStaffName,
   soundOn,
+  language = 'hi',
+  onLanguageChange,
   onClose,
   onOpenStaffModal,
   onToggleSound,
@@ -66,6 +70,42 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
               Switch
             </button>
           </div>
+
+          {/* Language Selector (2 Options: Hindi / English) */}
+          {onLanguageChange && (
+            <div className="mt-3 p-3 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Language / भाषा</span>
+                <span className="text-xs font-black text-white">
+                  {language === 'hi' ? '🇮🇳 हिंदी (Hinglish)' : '🇬🇧 English'}
+                </span>
+              </div>
+              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-xl p-0.5 text-xs font-black">
+                <button
+                  type="button"
+                  onClick={() => onLanguageChange('hi')}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    language === 'hi'
+                      ? 'bg-amber-500 text-black shadow font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  हिंदी
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onLanguageChange('en')}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    language === 'en'
+                      ? 'bg-indigo-600 text-white shadow font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  English
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Audio Chime Setting */}
           <div className="mt-3 p-3 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">

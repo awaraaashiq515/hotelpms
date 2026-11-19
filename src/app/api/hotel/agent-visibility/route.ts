@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const prop = await prisma.property.findUnique({
-      where: { id: propertyId },
+      where: { id: propertyId || undefined },
       select: { id: true, name: true, agentVisibilityDays: true },
     });
 
@@ -99,7 +99,7 @@ export async function PATCH(request: NextRequest) {
 
     // 2. Also update property-wide default
     await prisma.property.update({
-      where: { id: propertyId },
+      where: { id: propertyId || undefined },
       data: { agentVisibilityDays: daysNum },
     });
 

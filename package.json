@@ -17,10 +17,14 @@
     "backup:list": "node scripts/backup-manager.js list",
     "backup:status": "node scripts/backup-manager.js status",
     "lint": "eslint",
-    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && electron electron/main.js\"",
-    "electron-build": "electron-builder --projectDir electron --config electron-builder.json --publish never",
-    "build-mac": "electron-builder --projectDir electron --config electron-builder.json --mac --publish never",
-    "build-win": "electron-builder --projectDir electron --config electron-builder.json --win --x64 --publish never"
+    "electron-dev": "concurrently \"next dev --webpack\" \"wait-on http://localhost:3000 && electron electron/main.js\"",
+    "electron-build": "npm run build && electron-builder --config electron-builder.json --publish never",
+    "build-mac": "npm run build && electron-builder --config electron-builder.json --mac --publish never",
+    "build-win": "npm run build && electron-builder --config electron-builder.json --win --x64 --publish never",
+    "offline:test": "OFFLINE_MODE=true next dev --webpack",
+    "offline:dev": "OFFLINE_MODE=true next dev --webpack",
+    "setup:offline": "node scripts/setup-offline.js",
+    "offline:backup": "node scripts/offline-backup.js backup"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

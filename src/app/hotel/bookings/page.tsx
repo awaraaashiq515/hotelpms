@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
+  DoorOpen,
   Sparkles, 
   Loader2, 
   Plus, 
@@ -77,6 +78,7 @@ const DEFAULT_SPA_PACKAGES = [
 
 // Separate inner component to use search params safely inside Suspense
 function BookingsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const paramRoomId = searchParams.get('roomId') || '';
   const paramArrival = searchParams.get('arr') || '';
@@ -1177,6 +1179,19 @@ function BookingsContent() {
                                   Check-In
                                 </button>
                               )}
+                              {b.status === 'CHECKED_IN' && (
+                                <Link
+                                  href={
+                                    b.checkIns?.[0]?.id
+                                      ? `/hotel/checkout/${b.checkIns[0].id}${b.folios?.[0]?.id ? `?folioId=${b.folios[0].id}` : ''}`
+                                      : `/hotel/checkout?bookingId=${b.id}`
+                                  }
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-black text-[10px] uppercase tracking-wider transition-all shadow-md shadow-rose-600/25 cursor-pointer whitespace-nowrap active:scale-95 border border-rose-400/30"
+                                  title="Check-Out Guest & Settle Bill"
+                                >
+                                  <DoorOpen size={11} className="text-white" /> Check-Out
+                                </Link>
+                              )}
                               {(b.status === 'CONFIRMED' || b.status === 'CHECKED_IN') && (
                                 <button
                                   type="button"
@@ -1782,6 +1797,16 @@ function BookingsContent() {
         onCheckIn={(b) => {
           setSelectedDrawerBooking(null);
           startCheckIn(b);
+        }}
+        onCheckOut={(b) => {
+          setSelectedDrawerBooking(null);
+          const ciId = b.checkIns?.[0]?.id;
+          const folId = b.folios?.[0]?.id;
+          if (ciId) {
+            router.push(`/hotel/checkout/${ciId}${folId ? `?folioId=${folId}` : ''}`);
+          } else {
+            router.push(`/hotel/checkout?bookingId=${b.id}`);
+          }
         }}
         onUpdated={() => {
           loadData();

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { getWTUserFromRequest } from '@/lib/walkie-talkie-auth';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 // ── GET — Fetch today's room service orders ────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -402,6 +403,60 @@ export async function PATCH(request: NextRequest) {
         ...(status ? { status } : {}),
       },
     });
+
+    // ── Generate KOT ticket for Kitchen Display when order is accepted/preparing ──
+    if (status === 'PREPARING' || status === 'CONFIRMED' || status === 'KOT_RUNNING') {
+      try {
+        const existingKot = await (prisma as any).kotTicket.findFirst({
+          where: { orderId: targetId }
+        });
+
+        if (!existingKot) {
+          const fullOrder = await prisma.posOrder.findUnique({
+            where: { id: targetId },
+            include: {
+              items: {
+                include: { product: true }
+              }
+            }
+          });
+
+          if (fullOrder && fullOrder.items && fullOrder.items.length > 0) {
+            const kotNo = await getNextKotNumber(fullOrder.propertyId);
+
+            await (prisma as any).kotTicket.create({
+              data: {
+                kotNo,
+                orderId: fullOrder.id,
+                propertyId: fullOrder.propertyId,
+                outletId: fullOrder.outletId,
+                tableNo: fullOrder.tableNo || 'Room Service',
+                status: 'NEW', // arrives in NEW ORDERS on Kitchen Display!
+                items: {
+                  create: fullOrder.items.map((it: any) => ({
+                    orderItemId: it.id,
+                    productId: it.productId,
+                    itemName: it.product?.name || 'Dish Item',
+                    quantity: it.quantity,
+                    status: 'NEW',
+                  }))
+                },
+                statusLogs: {
+                  create: {
+                    oldStatus: 'PENDING',
+                    newStatus: 'NEW',
+                    changedBy: (session as any)?.user?.name || (session as any)?.name || 'Front Desk',
+                    remarks: 'Order accepted by Front Desk and sent to Kitchen Display',
+                  }
+                }
+              }
+            });
+          }
+        }
+      } catch (kotErr) {
+        console.error('[Room Service] Failed to create KOT ticket for kitchen display:', kotErr);
+      }
+    }
 
     // Mark pending notification read
     try {

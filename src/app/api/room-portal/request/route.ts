@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
           orderNo,
           orderType: 'ROOM_SERVICE',
           tableNo: roomNumber ? `Room ${roomNumber}` : 'Room Service',
-          status: 'CONFIRMED',
+          status: 'PENDING',
           subtotal,
           taxAmount,
           discountAmount: 0,

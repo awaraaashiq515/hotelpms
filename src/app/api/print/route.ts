@@ -129,14 +129,38 @@ export async function POST(req: NextRequest) {
         }
 
         if (kotData) {
+            const rawType = (kotData.orderType || '').toUpperCase();
+            const tableStr = String(kotData.tableNo || '');
+            const isRoomService = rawType === 'ROOM_SERVICE' || !!kotData.roomNumber || tableStr.toLowerCase().startsWith('room');
+            const isTakeaway = rawType === 'TAKEAWAY' || rawType === 'PICKUP' || tableStr.toLowerCase().includes('pick') || tableStr.toLowerCase().includes('takeaway');
+            const isDelivery = rawType === 'DELIVERY' || tableStr.toLowerCase().includes('delivery');
+
+            let bannerTitle = 'DINE IN ORDER';
+            let destTitle = `TABLE: ${tableStr || 'WALK-IN'}`;
+
+            if (isRoomService) {
+              bannerTitle = 'ROOM SERVICE';
+              const rNum = kotData.roomNumber || tableStr.replace(/^Room\s*/i, '') || 'ROOM';
+              destTitle = `ROOM: ${rNum}`;
+            } else if (isTakeaway) {
+              bannerTitle = 'TAKEAWAY / PICKUP';
+              destTitle = 'COUNTER PICKUP';
+            } else if (isDelivery) {
+              bannerTitle = 'HOME DELIVERY';
+              destTitle = 'DELIVERY ORDER';
+            }
+
             data += ESC_POS.ALIGN_CENTER;
             data += ESC_POS.BOLD_ON;
             data += ESC_POS.DOUBLE_SIZE;
-            data += 'KOT\n';
+            data += 'KOT TICKET\n';
+            data += `*** ${bannerTitle} ***\n`;
+            data += `${destTitle}\n`;
             data += ESC_POS.NORMAL_SIZE;
             data += ESC_POS.BOLD_OFF;
-            data += `Order: ${kotData.orderNo}\n`;
-            data += `Table: ${kotData.tableNo || 'N/A'}\n`;
+            data += `Order: #${kotData.orderNo || ''}\n`;
+            if (kotData.kotNo) data += `KOT No: ${kotData.kotNo}\n`;
+            if (kotData.guestName) data += `Guest: ${kotData.guestName}\n`;
             data += '--------------------------------\n';
             data += ESC_POS.ALIGN_LEFT;
             data += 'QTY  ITEM\n';
@@ -162,25 +186,31 @@ export async function POST(req: NextRequest) {
         }
 
         if (hotelBill) {
+            const hGstin = hotelBill.hotelGstin || property?.taxDetails || (property as any)?.gstNumber || '02AABCG1234A1Z5';
+            const isB2b = Boolean(hotelBill.guestGstin || hotelBill.guestCompany);
+
             data += ESC_POS.ALIGN_CENTER;
             data += ESC_POS.BOLD_ON;
-            data += `${property?.name || 'HOTEL'}\n`;
+            data += `${property?.name || 'HOTEL PROPERTY'}\n`;
             data += ESC_POS.BOLD_OFF;
             if (property?.address) data += `${property.address}\n`;
-            if (property?.phone) data += `PH: ${property.phone}\n`;
-            if (property?.taxDetails) data += `GSTIN: ${property.taxDetails}\n`;
+            if (property?.phone) data += `Tel: ${property.phone}\n`;
+            data += `Hotel GSTIN: ${hGstin}\n`;
+            if (hotelBill.placeOfSupply) data += `Place of Supply: ${hotelBill.placeOfSupply}\n`;
             data += '--------------------------------\n';
             data += ESC_POS.ALIGN_CENTER;
             data += ESC_POS.BOLD_ON;
-            data += 'HOTEL BILL / GUEST INVOICE\n';
+            data += `${isB2b ? 'TAX INVOICE (B2B)' : 'TAX INVOICE'}\n`;
             data += ESC_POS.BOLD_OFF;
             data += '--------------------------------\n';
             data += ESC_POS.ALIGN_LEFT;
             data += `Invoice: ${hotelBill.invoiceNo || hotelBill.folioNo || 'N/A'}\n`;
+            if (hotelBill.guestCompany) data += `Company: ${hotelBill.guestCompany}\n`;
             if (hotelBill.guestName) data += `Guest:   ${hotelBill.guestName}\n`;
+            if (hotelBill.guestGstin) data += `Recipient GSTIN: ${hotelBill.guestGstin}\n`;
             if (hotelBill.roomNumber) data += `Room:    ${hotelBill.roomNumber}\n`;
             if (hotelBill.checkIn && hotelBill.checkOut) data += `Stay:    ${hotelBill.checkIn} - ${hotelBill.checkOut}\n`;
-            data += `Date:    ${new Date().toLocaleString()}\n`;
+            data += `Date:    ${new Date().toLocaleDateString('en-GB')}\n`;
             data += '--------------------------------\n';
             data += 'DESCRIPTION         QTY    AMOUNT\n';
             data += '--------------------------------\n';
@@ -197,20 +227,41 @@ export async function POST(req: NextRequest) {
               });
             }
             data += '--------------------------------\n';
+
+            // Print official SAC-wise GST Breakdown
+            if (Array.isArray(hotelBill.gstRows) && hotelBill.gstRows.length > 0) {
+              data += ESC_POS.ALIGN_CENTER;
+              data += ESC_POS.BOLD_ON;
+              data += 'GST TAX BREAKDOWN (SAC WISE)\n';
+              data += ESC_POS.BOLD_OFF;
+              data += ESC_POS.ALIGN_LEFT;
+              hotelBill.gstRows.forEach((row: any) => {
+                const sacCat = `SAC ${row.sac} (${(row.category || '').substring(0, 16)})`;
+                data += `${sacCat}\n`;
+                data += `  Taxable Value: Rs.${Number(row.taxable || 0).toFixed(2)}\n`;
+                if (row.cgstAmt > 0 || row.sgstAmt > 0) {
+                  data += `  CGST ${row.cgstRate}%: Rs.${Number(row.cgstAmt || 0).toFixed(2)} | SGST ${row.sgstRate}%: Rs.${Number(row.sgstAmt || 0).toFixed(2)}\n`;
+                } else if (row.igstAmt > 0) {
+                  data += `  IGST ${row.igstRate}%: Rs.${Number(row.igstAmt || 0).toFixed(2)}\n`;
+                }
+              });
+              data += '--------------------------------\n';
+            }
+
             data += ESC_POS.ALIGN_RIGHT;
             const subtotal = Number(hotelBill.subtotal || hotelBill.totalAmount || 0);
             const tax = Number(hotelBill.taxAmount || 0);
             const grandTotal = Number(hotelBill.grandTotal || hotelBill.totalAmount || (subtotal + tax));
-            data += `Subtotal: Rs.${subtotal.toFixed(2)}\n`;
-            if (tax > 0) data += `Tax/GST:  Rs.${tax.toFixed(2)}\n`;
+            data += `Taxable Net: Rs.${subtotal.toFixed(2)}\n`;
+            if (tax > 0) data += `Total GST:   Rs.${tax.toFixed(2)}\n`;
             data += ESC_POS.BOLD_ON;
-            data += `TOTAL:    Rs.${grandTotal.toFixed(2)}\n`;
+            data += `TOTAL:       Rs.${grandTotal.toFixed(2)}\n`;
             data += ESC_POS.BOLD_OFF;
             if (hotelBill.totalPayments !== undefined && Number(hotelBill.totalPayments) > 0) {
-              data += `Paid:     Rs.${Number(hotelBill.totalPayments).toFixed(2)}\n`;
+              data += `Paid:        Rs.${Number(hotelBill.totalPayments).toFixed(2)}\n`;
             }
             if (hotelBill.closingBalance !== undefined) {
-              data += `Balance:  Rs.${Number(hotelBill.closingBalance).toFixed(2)}\n`;
+              data += `Balance:     Rs.${Number(hotelBill.closingBalance).toFixed(2)}\n`;
             }
             data += '--------------------------------\n';
             data += ESC_POS.ALIGN_CENTER;

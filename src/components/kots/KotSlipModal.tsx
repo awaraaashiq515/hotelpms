@@ -15,6 +15,8 @@ export interface KotSlipData {
   orderNo?: string;
   tableNo?: string;
   roomId?: string;
+  roomNumber?: string;
+  guestName?: string;
   orderType?: string;
   createdAt: string;
   items: KotSlipItem[];
@@ -93,6 +95,26 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
     ? `${kot.floorName.toUpperCase()} ORDER`
     : null;
 
+  const rawType = (kot.orderType || '').toUpperCase();
+  const tableStr = String(kot.tableNo || '');
+  const isRoomService = rawType === 'ROOM_SERVICE' || !!kot.roomNumber || tableStr.toLowerCase().startsWith('room');
+  const isTakeaway = rawType === 'TAKEAWAY' || rawType === 'PICKUP' || tableStr.toLowerCase().includes('pick') || tableStr.toLowerCase().includes('takeaway');
+  const isDelivery = rawType === 'DELIVERY' || tableStr.toLowerCase().includes('delivery');
+
+  let orderTypeTitle = 'DINE IN ORDER';
+  let destTitle = kot.tableNo ? `TABLE ${kot.tableNo}` : 'TABLE DINE-IN';
+
+  if (isRoomService) {
+    orderTypeTitle = 'ROOM SERVICE ORDER';
+    const rNum = kot.roomNumber || tableStr.replace(/^Room\s*/i, '') || kot.roomId || 'ROOM';
+    destTitle = `ROOM ${rNum}`;
+  } else if (isTakeaway) {
+    orderTypeTitle = 'TAKEAWAY / PICKUP';
+    destTitle = 'COUNTER PICKUP';
+  } else if (isDelivery) {
+    orderTypeTitle = 'HOME DELIVERY ORDER';
+    destTitle = 'DELIVERY ORDER';
+  }
 
   const doBrowserPrint = () => {
     const printWindow = window.open('', '_blank', 'width=450,height=700');
@@ -138,13 +160,21 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
 
           <div class="double-line"></div>
 
+          <div style="border: 2px solid #000; padding: 2.5mm; text-align: center; margin: 3mm 0;">
+            <div style="font-size: 15px; font-weight: 900; letter-spacing: 1px;">*** ${orderTypeTitle} ***</div>
+            <div style="font-size: 22px; font-weight: 900; margin-top: 1mm;">${destTitle}</div>
+            ${kot.guestName ? `<div style="font-size: 11px; margin-top: 1mm;">GUEST: ${kot.guestName}</div>` : ''}
+          </div>
+
+          <div class="dashed-line"></div>
+
           <div class="header-info"><span>DATE:</span> <span>${(() => {
             const d = new Date(kot.createdAt);
             return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
           })()}</span></div>
           <div class="header-info"><span>KOT NO:</span> <span style="font-size: 20px;">${seqNum || kot.kotNo.replace(/\D/g, '').slice(-4)}</span></div>
           <div class="header-info"><span>TIME:</span> <span>${new Date(kot.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span></div>
-          <div class="header-info"><span>TABLE:</span> <span style="font-size: 18px;">${kot.tableNo || 'WALK-IN'}</span></div>
+          <div class="header-info"><span>DESTINATION:</span> <span style="font-size: 18px;">${destTitle}</span></div>
           ${kot.floorName ? `
           <div class="header-info"><span>SECTION:</span> <span style="font-size: 16px;">${kot.floorName}</span></div>
           ` : ''}
@@ -283,8 +313,8 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
           {/* Quick Info Row */}
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: 'Source', value: source },
-              { label: 'Type', value: kot.orderType || '—' },
+              { label: 'Destination', value: destTitle },
+              { label: 'Type', value: orderTypeTitle },
               { label: 'Time', value: new Date(kot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
               ...(kot.staffName ? [{ label: 'Staff', value: kot.staffName }] : [])
             ].map(({ label, value }) => (
@@ -293,6 +323,23 @@ export function KotSlipModal({ kot, onClose }: KotSlipModalProps) {
                 <p className="text-xs font-black truncate">{value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Prominent Order Type & Destination Banner */}
+          <div className={`mt-3 rounded-2xl p-3 text-center border ${
+            isRoomService
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg shadow-amber-500/10'
+              : isTakeaway
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              : isDelivery
+              ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+              : 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+          }`}>
+            <p className="text-[10px] font-black tracking-widest uppercase opacity-80">{orderTypeTitle}</p>
+            <p className="text-xl font-black tracking-wide mt-0.5">{destTitle}</p>
+            {kot.guestName && (
+              <p className="text-[11px] font-semibold text-gray-300 mt-0.5">Guest: {kot.guestName}</p>
+            )}
           </div>
 
           {banner && (

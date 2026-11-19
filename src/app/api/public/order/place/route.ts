@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 /**
  * Public API to place an order from a QR code scan.
@@ -210,9 +211,10 @@ export async function POST(request: NextRequest) {
       // 5. Generate KOT
       let kotTicket: any = null;
       if (newItemsForKot.length > 0) {
+        const kotNo = await getNextKotNumber(propertyId, tx);
         kotTicket = await (tx as any).kotTicket.create({
           data: {
-            kotNo: `KOT-QR-${Date.now()}`,
+            kotNo,
             orderId: order!.id,
             propertyId, outletId: outlet.id,
             restaurantTableId: tableId, tableNo: table.name,

@@ -32,6 +32,9 @@ export default function KitchenPortalPage() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffRoleInput, setStaffRoleInput] = useState('Executive Chef');
 
+  // 2-Option Language Selector (Hindi / English)
+  const [language, setLanguage] = useState<'hi' | 'en'>('hi');
+
   // Orders State
   const [orders, setOrders] = useState<KotTicket[]>([]);
   const [ordersFilter, setOrdersFilter] = useState<'ALL' | 'NEW' | 'PREPARING' | 'READY'>('ALL');
@@ -70,6 +73,19 @@ export default function KitchenPortalPage() {
   useEffect(() => {
     setupAudioUnlock();
     setSoundOn(isSoundEnabled());
+
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const tabParam = sp.get('tab');
+      if (tabParam === 'market' || tabParam === 'buy' || tabParam === 'le-liya') {
+        setActiveTab('market');
+      } else if (tabParam === 'store') {
+        setActiveTab('store');
+      } else if (tabParam === 'requests') {
+        setActiveTab('requests');
+      }
+    }
+
     const savedStaff = localStorage.getItem('kitchen_staff_name');
     if (savedStaff) {
       setActiveStaffName(savedStaff);
@@ -85,6 +101,11 @@ export default function KitchenPortalPage() {
         })
         .catch(() => { });
     }
+
+    const savedLang = localStorage.getItem('kitchen_portal_lang') as 'hi' | 'en' | null;
+    if (savedLang === 'hi' || savedLang === 'en') {
+      setLanguage(savedLang);
+    }
   }, []);
 
   const toggleSound = () => {
@@ -92,6 +113,13 @@ export default function KitchenPortalPage() {
     setSoundOn(next);
     setSoundEnabled(next);
     if (next) playNotificationSound('ding');
+  };
+
+  const handleLanguageChange = (newLang: 'hi' | 'en') => {
+    setLanguage(newLang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kitchen_portal_lang', newLang);
+    }
   };
 
   /* ─── Fetch Active Orders ─── */
@@ -428,12 +456,20 @@ export default function KitchenPortalPage() {
   };
 
   /* ─── Market Orders Handlers ─── */
-  const handleToggleMarketItem = async (orderId: string, itemId: string, isDone: boolean) => {
+  const handleToggleMarketItem = async (orderId: string, itemId: string, isDone: boolean, actualQty?: number) => {
     // Optimistic UI update
     setMarketOrders((prev) =>
       prev.map((ord) => {
         if (ord.id !== orderId) return ord;
-        const updatedItems = ord.items.map((it) => (it.id === itemId ? { ...it, isDone } : it));
+        const updatedItems = ord.items.map((it) =>
+          it.id === itemId
+            ? {
+                ...it,
+                isDone,
+                quantity: actualQty !== undefined ? actualQty : it.quantity,
+              }
+            : it
+        );
         const doneCount = updatedItems.filter((i) => i.isDone).length;
         return {
           ...ord,
@@ -453,6 +489,7 @@ export default function KitchenPortalPage() {
           orderId,
           itemId,
           isPurchased: isDone,
+          purchasedQty: actualQty,
           staffName: activeStaffName,
         }),
       });
@@ -636,6 +673,8 @@ export default function KitchenPortalPage() {
         soundOn={soundOn}
         activeTab={activeTab}
         loading={loading}
+        language={language}
+        onLanguageChange={handleLanguageChange}
         orderCounts={orderCounts}
         lowStockCount={stockMetrics.outOfStock + stockMetrics.lowStock}
         pendingRequestsCount={requests.filter((r) => r.status === 'PENDING').length}
@@ -709,6 +748,8 @@ export default function KitchenPortalPage() {
             activeStaffName={activeStaffName}
             orders={marketOrders}
             loading={marketLoading}
+            language={language}
+            onLanguageChange={handleLanguageChange}
             onRefresh={fetchMarketOrders}
             onToggleItemDone={handleToggleMarketItem}
             onReceiveOrderStock={handleReceiveOrderStock}
@@ -734,6 +775,8 @@ export default function KitchenPortalPage() {
         propertyCode={rawPropertyCode}
         activeStaffName={activeStaffName}
         soundOn={soundOn}
+        language={language}
+        onLanguageChange={handleLanguageChange}
         onClose={() => setMobileMenuOpen(false)}
         onOpenStaffModal={() => setShowStaffModal(true)}
         onToggleSound={toggleSound}

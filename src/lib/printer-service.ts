@@ -321,16 +321,40 @@ class PrinterService {
       feed: '\x0A'
     };
 
+    const rawType = (kotData.orderType || '').toUpperCase();
+    const tableStr = String(kotData.tableNo || '');
+    const isRoomService = rawType === 'ROOM_SERVICE' || !!kotData.roomNumber || tableStr.toLowerCase().startsWith('room');
+    const isTakeaway = rawType === 'TAKEAWAY' || rawType === 'PICKUP' || tableStr.toLowerCase().includes('pick') || tableStr.toLowerCase().includes('takeaway');
+    const isDelivery = rawType === 'DELIVERY' || tableStr.toLowerCase().includes('delivery');
+
+    let bannerTitle = 'DINE IN ORDER';
+    let destTitle = `TABLE: ${tableStr || 'WALK-IN'}`;
+
+    if (isRoomService) {
+      bannerTitle = 'ROOM SERVICE';
+      const rNum = kotData.roomNumber || tableStr.replace(/^Room\s*/i, '') || 'ROOM';
+      destTitle = `ROOM: ${rNum}`;
+    } else if (isTakeaway) {
+      bannerTitle = 'TAKEAWAY / PICKUP';
+      destTitle = 'COUNTER PICKUP';
+    } else if (isDelivery) {
+      bannerTitle = 'HOME DELIVERY';
+      destTitle = 'DELIVERY ORDER';
+    }
+
     const data = [
       esc.init,
       esc.center,
       esc.doubleSize,
       esc.boldOn,
-      'KOT\n',
+      'KOT TICKET\n',
+      `*** ${bannerTitle} ***\n`,
+      `${destTitle}\n`,
       esc.normalSize,
-      `Order: ${kotData.orderNo}\n`,
-      `Table: ${kotData.tableNo}\n`,
       esc.boldOff,
+      `Order: #${kotData.orderNo || ''}\n`,
+      ...(kotData.kotNo ? [`KOT No: ${kotData.kotNo}\n`] : []),
+      ...(kotData.guestName ? [`Guest: ${kotData.guestName}\n`] : []),
       '--------------------------------\n',
       esc.left,
       'QTY  ITEM\n',

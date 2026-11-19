@@ -8,12 +8,14 @@ import {
   Hotel, LogIn, RefreshCw,
   Bell, Lock, PhoneCall, Clock, MapPin, ChefHat, CheckCircle2,
   Sun, Moon, Sunset, Coffee, ArrowRight,
-  Crown,
+  Crown, MessageSquare,
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import KioskWrapper from '@/components/room-portal/KioskWrapper';
 import { RoomPortalData, RoomPortalConfig } from '@/components/room-portal/types';
 import { DEFAULT_DAILY_MEAL_SPREADS, DailyMealSpread } from '@/lib/daily-menus';
+import GuestConciergeChatModal from '@/components/room-portal/GuestConciergeChatModal';
+import { playNotificationSound, setupAudioUnlock } from '@/lib/notification-sound';
 
 interface ServiceCard {
   id: string;
@@ -28,6 +30,17 @@ interface ServiceCard {
 }
 
 const SERVICE_CARDS: ServiceCard[] = [
+  {
+    id: 'concierge-chat',
+    icon: MessageSquare,
+    label: 'AI Concierge',
+    sublabel: '24/7 Chat & Help',
+    href: '#chat',
+    gradient: 'linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(99,102,241,0.18) 100%)',
+    glow: 'rgba(139,92,246,0.45)',
+    emoji: '🤖',
+    showKey: null,
+  },
   {
     id: 'room-service',
     icon: UtensilsCrossed,
@@ -136,9 +149,12 @@ export default function RoomPortalDashboard() {
   const [error, setError] = useState('');
   const [time, setTime] = useState(new Date());
   const [token, setToken] = useState('');
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   // Live clock
   useEffect(() => {
+    setupAudioUnlock();
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
@@ -204,7 +220,26 @@ export default function RoomPortalDashboard() {
     };
     window.addEventListener('storage', handleStorage);
 
-    // 3. Fallback background poll (every 1 second for instant sync)
+    // 3. Concierge chat live sync channel
+    let conciergeChannel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      conciergeChannel = new BroadcastChannel('concierge_chat_channel');
+      conciergeChannel.onmessage = (event) => {
+        const payload = event.data;
+        if (payload?.type === 'STAFF_REPLY') {
+          playNotificationSound('lead');
+          setChatUnreadCount((prev) => prev + 1);
+          toast.info(`Hotel Reception: "${payload.message?.slice(0, 50) || 'New reply received'}"`, {
+            action: {
+              label: 'Open Chat',
+              onClick: () => setIsChatModalOpen(true),
+            },
+          });
+        }
+      };
+    }
+
+    // 4. Fallback background poll (every 1 second for instant sync)
     const interval = setInterval(() => {
       const t = localStorage.getItem('room_portal_token') || '';
       if (!t) return;
@@ -229,6 +264,7 @@ export default function RoomPortalDashboard() {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
       if (channel) channel.close();
+      if (conciergeChannel) conciergeChannel.close();
     };
   }, [fetchData]);
 
@@ -624,7 +660,15 @@ export default function RoomPortalDashboard() {
                 gap: '16px',
               }}>
                 {visibleCards.map((card) => (
-                  <ServiceCardButton key={card.id} card={card} router={router} />
+                  <ServiceCardButton 
+                    key={card.id} 
+                    card={card} 
+                    router={router} 
+                    onOpenChat={() => {
+                      setIsChatModalOpen(true);
+                      setChatUnreadCount(0);
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -645,6 +689,60 @@ export default function RoomPortalDashboard() {
               </div>
             )}
           </main>
+
+          {/* Floating AI Concierge Chat Button */}
+          <button
+            onClick={() => {
+              setIsChatModalOpen(true);
+              setChatUnreadCount(0);
+            }}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 9990,
+              padding: '12px 20px',
+              borderRadius: '30px',
+              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+              border: '1.5px solid rgba(255, 255, 255, 0.25)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 8px 30px rgba(139, 92, 246, 0.45)',
+              cursor: 'pointer',
+              fontWeight: 800,
+              fontSize: '13px',
+              letterSpacing: '0.5px',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>🤖</span>
+            <span>Chat with AI Concierge</span>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399' }} className="animate-pulse" />
+            {chatUnreadCount > 0 && (
+              <span style={{
+                background: '#ef4444',
+                color: 'white',
+                borderRadius: '50%',
+                padding: '2px 7px',
+                fontSize: '10px',
+                fontWeight: 900,
+              }}>
+                {chatUnreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* In-Room Guest Concierge Chat Modal */}
+          <GuestConciergeChatModal
+            isOpen={isChatModalOpen}
+            onClose={() => setIsChatModalOpen(false)}
+            guestName={`${guest.firstName} ${guest.lastName || ''}`.trim()}
+            roomNumber={room.roomNumber}
+            token={token}
+            hotelName={propertyName}
+          />
 
           {/* Footer hint */}
           <div style={{
@@ -678,13 +776,29 @@ function InfoBadge({ icon, label, value }: { icon: string; label: string; value:
   );
 }
 
-function ServiceCardButton({ card, router }: { card: ServiceCard; router: ReturnType<typeof useRouter> }) {
+function ServiceCardButton({ 
+  card, 
+  router, 
+  onOpenChat 
+}: { 
+  card: ServiceCard; 
+  router: ReturnType<typeof useRouter>; 
+  onOpenChat?: () => void;
+}) {
   const [pressed, setPressed] = useState(false);
+
+  const handleClick = () => {
+    if (card.id === 'concierge-chat' || card.href === '#chat') {
+      if (onOpenChat) onOpenChat();
+      return;
+    }
+    router.push(card.href);
+  };
 
   return (
     <button
       id={`service-card-${card.id}`}
-      onClick={() => router.push(card.href)}
+      onClick={handleClick}
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onTouchStart={() => setPressed(true)}

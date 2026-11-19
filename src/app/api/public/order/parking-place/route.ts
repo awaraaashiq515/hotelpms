@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getNextKotNumber } from '@/lib/kot-generator';
 
 export async function POST(request: NextRequest) {
   try {
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Create KOT
-      const kotNo = `KOT-PARK-${Date.now()}`;
+      const kotNo = await getNextKotNumber(propertyId, tx);
       const kotTicket = await tx.kotTicket.create({
         data: {
           kotNo,

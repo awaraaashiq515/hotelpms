@@ -9,6 +9,7 @@ import { NotificationBell } from '@/components/hotel/NotificationBell';
 import { RoomStatusTicker } from '@/components/hotel/navigation/RoomStatusTicker';
 import { HotelBackButton } from '@/components/hotel/navigation/HotelBackButton';
 import { HotelHeader } from '@/components/hotel/HotelHeader';
+import { HotelSubscriptionWarningBanner } from '@/components/hotel/HotelSubscriptionWarningBanner';
 import { setupAudioUnlock } from '@/lib/notification-sound';
 
 // Inner layout that can access sidebar context
@@ -103,14 +104,28 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   if (!session) return null;
 
   const isCalendar = pathname === '/hotel/calendar';
+  
+  // Full-screen display pages — no sidebar, no header
+  const isFullScreenDisplay =
+    pathname.startsWith('/hotel/pos/kitchen-display') ||
+    pathname.startsWith('/hotel/pos/bar-display') ||
+    pathname.startsWith('/hotel/pos/meal-display');
+
   const isPosTerminal = 
     pathname.startsWith('/hotel/pos/billing') ||
     pathname.startsWith('/hotel/pos/bar-pos') ||
     pathname.startsWith('/hotel/pos/cafe-pos') ||
-    pathname.startsWith('/hotel/pos/kitchen-display') ||
-    pathname.startsWith('/hotel/pos/bar-display') ||
     pathname.startsWith('/hotel/pos/tables');
   const isPosModule = pathname.startsWith('/hotel/pos');
+
+  // Full-screen display: render ONLY children, no sidebar / header
+  if (isFullScreenDisplay) {
+    return (
+      <div className="dark min-h-screen bg-[#080d1a] text-slate-100">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="dark min-h-screen flex bg-[#090d16] text-slate-100 selection:bg-indigo-600 selection:text-white print:bg-white print:text-black print:min-h-0 print:block">
@@ -123,6 +138,7 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
         {/* Portal Header */}
         <div className="print:hidden">
+          <HotelSubscriptionWarningBanner session={session} />
           <HotelHeader session={session} property={selectedProperty} />
         </div>
 

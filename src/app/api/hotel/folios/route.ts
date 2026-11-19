@@ -111,12 +111,12 @@ export async function GET(request: NextRequest) {
             include: {
               roomType: true,
               rooms: { include: { room: true } },
-              checkIns: true,
+              checkIns: { include: { room: true } },
               property: true,
             },
           },
           transactions: {
-            orderBy: { txnDate: 'desc' },
+            orderBy: { txnDate: 'asc' },
           },
           posOrders: {
             orderBy: { createdAt: 'desc' },
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
               outlet: { select: { name: true, type: true } },
               items: {
                 include: {
-                  product: { select: { name: true, isVeg: true } },
+                  product: true,
                 },
               },
             },
@@ -137,8 +137,14 @@ export async function GET(request: NextRequest) {
       }
 
       // Fetch any unlinked POS Orders for this room or guest during their stay
-      const roomNumber = folio.reservation?.rooms?.[0]?.room?.roomNumber;
-      const assignedRoomId = folio.reservation?.rooms?.[0]?.roomId;
+      const roomNumber =
+        folio.reservation?.rooms?.[0]?.room?.roomNumber ||
+        (folio.reservation as any)?.checkIns?.[0]?.room?.roomNumber ||
+        (folio.reservation as any)?.checkIns?.[0]?.roomNumber;
+      const assignedRoomId =
+        folio.reservation?.rooms?.[0]?.roomId ||
+        (folio.reservation as any)?.assignedRoomId ||
+        (folio.reservation as any)?.checkIns?.[0]?.roomId;
       const arrival = folio.reservation?.arrivalDate ? new Date(folio.reservation.arrivalDate) : undefined;
       const propertyId = folio.reservation?.propertyId;
 
@@ -159,7 +165,7 @@ export async function GET(request: NextRequest) {
             outlet: { select: { name: true, type: true } },
             items: {
               include: {
-                product: { select: { name: true, isVeg: true } },
+                product: true,
               },
             },
           },

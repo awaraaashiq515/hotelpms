@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse, getMultiTenantWhere } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
 import { createNotification } from '@/lib/notificationService'
+import { getNextKotNumber } from '@/lib/kot-generator'
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -378,7 +379,7 @@ export async function POST(request: NextRequest) {
       // 5. Create KOT Ticket ONLY if there are new items AND it's not a hold order
       let kotTicket: any = null;
       if (kotItemsToCreate.length > 0 && !body.holdOrder) {
-        const kotNo = `KOT-${Date.now()}`;
+        const kotNo = await getNextKotNumber(orderData.propertyId, tx);
         kotTicket = await (tx as any).kotTicket.create({
           data: {
             kotNo,
@@ -600,8 +601,12 @@ export async function GET(request: NextRequest) {
     const restaurantTableId = searchParams.get('restaurantTableId')
     const parkingSlotId = searchParams.get('parkingSlotId')
     const orderId = searchParams.get('orderId')
+    const roomId = searchParams.get('roomId')
+    const roomNo = searchParams.get('roomNo') || searchParams.get('room')
+    const bookingId = searchParams.get('bookingId')
+    const folioId = searchParams.get('folioId')
 
-    console.log('[API GET /api/pos-orders] query params:', { propertyIdParam, outletId, status, restaurantTableId, parkingSlotId, orderId });
+    console.log('[API GET /api/pos-orders] query params:', { propertyIdParam, outletId, status, restaurantTableId, parkingSlotId, orderId, roomId, roomNo, bookingId, folioId });
 
     const where: any = getMultiTenantWhere(session, propertyIdParam);
     console.log('[API GET /api/pos-orders] where after getMultiTenantWhere:', where);
@@ -640,11 +645,51 @@ export async function GET(request: NextRequest) {
     // Handle status filtering
     let statusFilter = undefined;
     if (status === 'in_progress') {
-      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] };
+      statusFilter = { in: ['OPEN', 'PENDING', 'PLACED', 'ACCEPTED', 'IN_KITCHEN', 'PREPARING', 'READY', 'SERVED', 'BILL_PRINTED', 'KOT_RUNNING', 'HOLD', 'PAYMENT_AWAITING_APPROVAL'] };
     } else if (status?.includes(',')) {
       statusFilter = { in: status.split(',') };
     } else if (status) {
       statusFilter = status;
+    }
+
+    // Room Service / In-Room Order matching: Match by roomId, tableNo ('Room 101' / '101'), folioId, or bookingId
+    let roomWhereClause: any = null;
+    if (roomId || roomNo || bookingId || folioId) {
+      const orList: any[] = [];
+      if (roomId) orList.push({ roomId });
+      if (folioId) orList.push({ folioId });
+      if (roomNo) {
+        orList.push({ tableNo: roomNo });
+        orList.push({ tableNo: `Room ${roomNo}` });
+        orList.push({ tableNo: `Room #${roomNo}` });
+        orList.push({ tableNo: `Room - ${roomNo}` });
+      }
+      if (bookingId) {
+        try {
+          const res = await prisma.reservation.findUnique({
+            where: { id: bookingId },
+            include: { folios: true, checkIns: true }
+          });
+          if (res?.folios?.length) {
+            const fIds = res.folios.map(f => f.id);
+            orList.push({ folioId: { in: fIds } });
+          }
+          if (res?.assignedRoomId) {
+            orList.push({ roomId: res.assignedRoomId });
+          }
+          if (res?.checkIns?.length) {
+            const cRoomIds = res.checkIns.map(c => c.roomId).filter(Boolean) as string[];
+            if (cRoomIds.length) {
+              orList.push({ roomId: { in: cRoomIds } });
+            }
+          }
+        } catch (e) {
+          console.warn('[API GET /api/pos-orders] Failed to lookup booking folios:', e);
+        }
+      }
+      if (orList.length > 0) {
+        roomWhereClause = { OR: orList };
+      }
     }
 
     const finalWhere = {
@@ -654,6 +699,7 @@ export async function GET(request: NextRequest) {
         ...(restaurantTableId ? { restaurantTableId } : {}),
         ...(parkingSlotId ? { parkingSlotId } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
+        ...(roomWhereClause || {}),
     };
 
     console.log('[API GET /api/pos-orders] finalWhere:', finalWhere);
@@ -676,8 +722,8 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: (orderId || restaurantTableId || parkingSlotId) ? undefined : 50 
-    })
+      take: (orderId || restaurantTableId || parkingSlotId || roomId || roomNo || folioId || bookingId) ? undefined : 50
+    });
 
     console.log('[API GET /api/pos-orders] orders found count:', orders.length);
 

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           organizationId = agent.property.organizationId;
           hasExplicitPropertyConstraint = true;
         }
-        agent.hotelRelations.forEach(r => {
+        agent.hotelRelations.forEach((r: any) => {
           relationsMap[r.propertyId] = { commissionRate: r.commissionRate, isBlocked: r.isBlocked };
           if (r.isBlocked) {
             blockedPropertyIds.push(r.propertyId);
@@ -94,6 +94,33 @@ export async function GET(request: NextRequest) {
     if (blockedPropertyIds.length > 0) {
       whereConditions.push({
         id: { notIn: blockedPropertyIds },
+      });
+    }
+
+    // 3. Organization Scoping:
+    // When agent is registered under a specific owner/hotel organization, show only properties
+    // belonging to their owner's organization (plus any allowed partner properties).
+    if (organizationId) {
+      if (allowedPartnerPropertyIds.length > 0) {
+        whereConditions.push({
+          OR: [
+            { organizationId: organizationId },
+            { id: { in: allowedPartnerPropertyIds } },
+          ],
+        });
+      } else {
+        whereConditions.push({
+          organizationId: organizationId,
+        });
+      }
+    } else {
+      // Unauthenticated / fallback: only show properties with active users (excludes dead/orphaned test orgs)
+      whereConditions.push({
+        organization: {
+          users: {
+            some: { isActive: true },
+          },
+        },
       });
     }
 

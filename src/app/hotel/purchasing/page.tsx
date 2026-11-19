@@ -15,20 +15,11 @@ import {
   UtensilsCrossed,
   MessageCircle,
   Truck,
-  Sparkles,
-  Building2,
-  Calendar,
-  Filter,
-  ArrowLeft,
-  Package,
-  Layers,
-  TrendingUp,
+  Store,
   Clock,
   Boxes,
-  ChevronRight,
-  ExternalLink,
-  Store,
-  DollarSign
+  ArrowRight,
+  Filter
 } from 'lucide-react';
 import { POList } from './components/POList';
 import {
@@ -46,11 +37,11 @@ import { toast } from 'sonner';
 
 export default function PurchasingPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'ORDERS' | 'KITCHEN_REQS'>('ORDERS');
+  const [activeTab, setActiveTab] = useState<'ORDERS' | 'MARKET' | 'KITCHEN_REQS'>('ORDERS');
   const [showForm, setShowForm] = useState(false);
   const [selectedPO, setSelectedPO] = useState<DetailedPO | null>(null);
 
-  // Form Pre-fill State (for Kitchen indent conversion)
+  // Form Pre-fill State (for Kitchen indent conversion or shop hub)
   const [formInitialItems, setFormInitialItems] = useState<POFormItem[]>([]);
   const [formInitialNotes, setFormInitialNotes] = useState('');
   const [formStockRequestIds, setFormStockRequestIds] = useState<string[]>([]);
@@ -75,13 +66,15 @@ export default function PurchasingPage() {
   const [hotelPhone, setHotelPhone] = useState<string>('');
   const [hotelAddress, setHotelAddress] = useState<string>('');
 
-  // Detect initial tab from query parameter e.g. ?tab=kitchen
+  // Detect initial tab from query parameter e.g. ?tab=kitchen or ?tab=market
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
       if (tabParam === 'kitchen' || tabParam === 'kitchen_reqs') {
         setActiveTab('KITCHEN_REQS');
+      } else if (tabParam === 'market' || tabParam === 'shop') {
+        setActiveTab('MARKET');
       }
     }
   }, []);
@@ -157,94 +150,83 @@ export default function PurchasingPage() {
           stockRes.data.map((p: any) => ({
             id: p.id,
             name: p.name,
+            category: p.category || 'General',
             unit: p.unit || 'Kg',
-            costPrice: Number(p.costPrice) || 0,
-            itemType: p.itemType || p.sku || 'F&B',
-            currentStock: Number(p.currentStock) || 0,
+            price: Number(p.costPrice || p.unitPrice) || 0,
           }))
         );
       }
 
-      if (Array.isArray(ordersData)) {
-        const mappedOrders: DetailedPO[] = ordersData.map((o: any) => {
-          let mappedStatus: DetailedPO['status'] = 'SENT';
-          if (o.status === 'PENDING') mappedStatus = 'SENT';
-          else if (o.status === 'ACCEPTED' || o.status === 'PROCESSING' || o.status === 'CONFIRMED')
-            mappedStatus = 'CONFIRMED';
-          else if (o.status === 'DELIVERED') mappedStatus = 'DELIVERED';
-          else if (o.status === 'CANCELLED') mappedStatus = 'CANCELLED';
-          else if (o.status === 'DRAFT') mappedStatus = 'DRAFT';
-
-          const createdDateStr = o.createdAt
-            ? new Date(o.createdAt).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
-
-          const formattedItems = Array.isArray(o.items)
-            ? o.items.map((i: any) => ({
-                id: i.id,
-                name: i.product?.name || i.name || 'Purchased Item',
-                description: i.product?.description || '',
-                quantity: i.quantity || 1,
-                unit: i.product?.unit || i.unit || 'units',
-                unitPrice: i.unitPrice || 0,
-                totalPrice: i.totalPrice || (i.quantity || 1) * (i.unitPrice || 0),
-              }))
-            : [];
+      if (ordersData.success && Array.isArray(ordersData.data)) {
+        const formatted: DetailedPO[] = ordersData.data.map((order: any) => {
+          let parsedComments: any = null;
+          let plainNotes = order.comments || '';
+          try {
+            if (order.comments && order.comments.startsWith('{')) {
+              parsedComments = JSON.parse(order.comments);
+              plainNotes = parsedComments.notes || '';
+            }
+          } catch {}
 
           return {
-            id: o.id,
-            poNumber: o.orderNo || `PO-${o.id.substring(0, 6).toUpperCase()}`,
-            vendorId: o.supplierId,
-            vendor: o.supplier?.name || 'Vendor',
-            vendorPhone: o.supplier?.phone || '',
-            vendorEmail: o.supplier?.email || '',
-            vendorCategory: o.supplier?.category || '',
-            vendorAddress: o.supplier?.address || '',
-            items: formattedItems,
-            totalAmount: o.totalAmount || 0,
-            status: mappedStatus,
-            createdAt: createdDateStr,
-            expectedDate: o.deliveryDate
-              ? new Date(o.deliveryDate).toISOString().split('T')[0]
-              : undefined,
-            notes: o.comments || '',
-            hotelName: o.property?.name || hotelName,
-            hotelPhone: o.property?.phone || hotelPhone,
-            assignedStaffName: o.buyerRestaurant || '',
-            assignedStaffPhone: o.buyerPhone || '',
+            id: order.id,
+            poNumber: order.orderNo || `PO-${order.id.substring(0, 6)}`,
+            date: order.createdAt ? order.createdAt.split('T')[0] : '',
+            expectedDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
+            vendor: order.supplier?.name || 'Local Market Vendor',
+            vendorPhone: order.supplier?.phone || '',
+            vendorCategory: order.supplier?.category || 'General Store',
+            vendorId: order.supplierId || '',
+            status: (order.status || 'PENDING') as DetailedPO['status'],
+            totalAmount: Number(order.totalAmount) || 0,
+            notes: plainNotes,
+            hotelName: order.property?.name || hotelName,
+            hotelPhone: order.property?.phone || hotelPhone,
+            hotelAddress: order.property?.address || hotelAddress,
+            assignedStaffName: order.assignedStaffName || parsedComments?.assignedStaffName || null,
+            assignedStaffPhone: order.assignedStaffPhone || parsedComments?.assignedStaffPhone || null,
+            items: (order.items || []).map((item: any) => ({
+              id: item.id,
+              name: item.name || 'Unnamed Item',
+              category: item.category || 'Kitchen & Grocery',
+              qty: Number(item.quantity) || 1,
+              unit: item.unit || 'Kg',
+              price: Number(item.unitPrice) || 0,
+              total: (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0),
+            })),
           };
         });
 
-        setOrders(mappedOrders);
+        setOrders(formatted);
       }
     } catch (err) {
-      console.error('Purchasing data fetch error:', err);
-      toast.error('Failed to load purchase orders');
+      console.warn('Failed to fetch purchasing data:', err);
     } finally {
       setLoading(false);
     }
-  }, [hotelName, hotelPhone]);
+  }, [hotelName, hotelPhone, hotelAddress]);
 
-  // Fetch kitchen staff requisitions
+  // Fetch Kitchen Requisitions
   const fetchKitchenRequests = useCallback(async () => {
     setReqsLoading(true);
     try {
-      const res = await fetch('/api/inventory/requests?department=KITCHEN');
+      const res = await fetch('/api/inventory/stock-requests?status=PENDING');
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setKitchenRequests(
           data.data.map((r: any) => ({
             id: r.id,
-            itemName: r.itemName,
-            requestedQty: r.requestedQty || 1,
-            unit: r.unit || 'units',
-            urgency: r.urgency || 'NORMAL',
+            itemId: r.itemId,
+            itemName: r.itemName || r.item?.name || 'Raw Material',
+            category: r.category || r.item?.category || 'Kitchen',
+            requestedQty: Number(r.requestedQty) || 1,
+            unit: r.unit || r.item?.unit || 'Kg',
+            priority: r.priority || 'NORMAL',
             status: r.status || 'PENDING',
-            requestedBy: r.requestedBy || 'Kitchen Staff',
-            department: r.department || 'KITCHEN',
-            remarks: r.remarks || '',
-            createdAt: r.createdAt,
-            currentStock: r.currentStock || 0,
+            department: r.department || 'Kitchen',
+            requestedBy: r.requestedBy || 'Head Chef',
+            notes: r.notes || '',
+            date: r.createdAt ? r.createdAt.split('T')[0] : '',
           }))
         );
       }
@@ -262,7 +244,6 @@ export default function PurchasingPage() {
 
   // Combined Filters (Search, Status, Vendor)
   const filteredOrders = orders.filter((o) => {
-    // 1. Status Filter
     if (statusFilter === 'PENDING') {
       if (o.status !== 'SENT' && o.status !== 'CONFIRMED' && o.status !== 'DRAFT') return false;
     } else if (statusFilter === 'DELIVERED') {
@@ -271,12 +252,10 @@ export default function PurchasingPage() {
       if (o.status !== 'CANCELLED') return false;
     }
 
-    // 2. Vendor Filter
     if (vendorFilter !== 'ALL' && o.vendorId !== vendorFilter) {
       return false;
     }
 
-    // 3. Search Query
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       const matchVendor = o.vendor.toLowerCase().includes(q);
@@ -289,7 +268,7 @@ export default function PurchasingPage() {
     return true;
   });
 
-  // Calculate Metrics
+  // Metrics
   const totalOrdersCount = orders.length;
   const totalOrdersValue = orders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
 
@@ -303,7 +282,7 @@ export default function PurchasingPage() {
 
   const pendingReqCount = kitchenRequests.filter((r) => r.status === 'PENDING').length;
 
-  // Approve / Confirm PO
+  // Approve PO
   const handleApprove = async (id: string) => {
     try {
       const res = await fetch('/api/b2b/orders', {
@@ -366,7 +345,7 @@ export default function PurchasingPage() {
     }
   };
 
-  // Create new Purchase Order & optionally open WhatsApp
+  // Create new PO
   const handleCreatePO = async (data: {
     vendorId: string;
     vendorName: string;
@@ -485,7 +464,7 @@ export default function PurchasingPage() {
     setActiveTab('ORDERS');
   };
 
-  // Quick Shop Order Execution (Kitchen Runner, Direct Inward or WhatsApp PO from Shop Hub)
+  // Quick Shop Order Execution from Shop Hub
   const handleQuickShopOrder = async (data: {
     vendorId: string;
     vendorName: string;
@@ -498,39 +477,31 @@ export default function PurchasingPage() {
     notes: string;
   }) => {
     try {
-      const resolvedPropId = propertyId || 'cmoy7oxso0002ay70x6zmbtvj';
-      const payload = {
-        propertyId: resolvedPropId,
-        supplierId: data.vendorId,
-        buyerRestaurant: data.assignToKitchenRunner ? 'Kitchen Staff / Runner' : hotelName,
-        buyerPhone: hotelPhone,
-        items: data.items.map((it) => ({
-          name: it.name,
-          quantity: it.qty,
-          unit: it.unit,
-          unitPrice: it.price || 0,
-        })),
-        totalAmount: data.totalAmount,
-        comments: data.notes,
-        status: data.receiveImmediately ? 'DELIVERED' : 'PENDING',
-        autoReceive: data.receiveImmediately,
-      };
-
       const res = await fetch('/api/b2b/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          propertyId,
+          supplierId: data.vendorId,
+          totalAmount: data.totalAmount,
+          comments: data.notes,
+          status: data.receiveImmediately ? 'DELIVERED' : 'PENDING',
+          autoReceive: data.receiveImmediately,
+          assignedStaffName: data.assignToKitchenRunner ? 'Kitchen Runner' : null,
+          items: data.items.map((i) => ({
+            name: i.name,
+            quantity: Number(i.qty) || 1,
+            unitPrice: Number(i.price) || 0,
+            unit: i.unit,
+          })),
+        }),
       });
 
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || 'Failed to create order');
-      }
+      if (!res.ok) throw new Error(json.error || 'Failed to place order');
 
       if (data.receiveImmediately) {
         toast.success('Stock Inward Successful! Items added directly to Hotel Inventory. 📦');
-      } else if (data.assignToKitchenRunner) {
-        toast.success('Sent to Kitchen Runner! 🏃‍♂️ Order is live on Kitchen Portal Market Buying List.');
       } else {
         toast.success(`Purchase Order created successfully for ${data.vendorName}!`);
       }
@@ -553,14 +524,13 @@ export default function PurchasingPage() {
           totalAmount: data.totalAmount,
           notes: data.notes,
         });
-        toast.success(`WhatsApp opened for ${data.vendorName}`);
       }
 
       fetchData();
       fetchKitchenRequests();
+      setActiveTab('ORDERS');
     } catch (err: any) {
-      console.error('Quick shop order error:', err);
-      toast.error(err.message || 'Failed to execute shop order');
+      toast.error(err.message || 'Failed to place order');
     }
   };
 
@@ -573,51 +543,47 @@ export default function PurchasingPage() {
     setFormInitialNotes(notes || '');
     setFormStockRequestIds([]);
     setShowForm(true);
+    setActiveTab('ORDERS');
   };
 
   return (
-    <div className="space-y-3.5 pb-16 max-w-[1440px] mx-auto px-2 sm:px-4 text-slate-100">
-      {/* 1. Sleek Compact Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 p-3 sm:p-3.5 rounded-xl border border-slate-800 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-            <ShoppingCart size={16} />
+    <div className="space-y-4 max-w-[1400px] mx-auto px-3 sm:px-5 pb-16 text-slate-100">
+      
+      {/* ── 1. Clean Simple Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <ShoppingCart size={20} />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-black text-white tracking-tight">
-                Purchasing & Stock Inward (GRN)
-              </h1>
-              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Truck size={11} /> Auto-Stock Inward
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
-              Order materials by shop, inward items directly to inventory, or dispatch POs via WhatsApp.
+            <h1 className="text-lg font-black text-white tracking-tight">
+              Purchasing & Stock Inward
+            </h1>
+            <p className="text-xs text-slate-400">
+              Create vendor purchase orders, receive incoming inventory, and track kitchen requests.
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => {
               fetchData();
               fetchKitchenRequests();
             }}
-            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition"
-            title="Refresh Orders & Indents"
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+            title="Refresh"
           >
-            <RefreshCw size={13} className={loading || reqsLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={loading || reqsLoading ? 'animate-spin' : ''} />
           </button>
 
           <Link
             href="/hotel/inventory"
-            className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 text-xs font-semibold flex items-center gap-1 border border-slate-700 transition"
-            title="View Real-Time Hotel Stock Inventory"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 text-xs font-semibold border border-slate-700 transition"
           >
-            <Boxes size={13} className="text-cyan-400" />
-            <span className="hidden md:inline">Live Stock</span>
+            <Boxes size={14} className="text-cyan-400" />
+            <span>Stock Inventory</span>
           </Link>
 
           <button
@@ -627,154 +593,138 @@ export default function PurchasingPage() {
               setFormStockRequestIds([]);
               setShowForm(true);
             }}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-md shadow-cyan-600/30 active:scale-95 cursor-pointer"
           >
-            <Truck size={13} />
-            <span>Direct Inward 📦</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setFormInitialItems([]);
-              setFormInitialNotes('');
-              setFormStockRequestIds([]);
-              setShowForm(!showForm);
-            }}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-sm active:scale-95"
-          >
-            <Plus size={13} />
-            <span>{showForm ? 'Close Form' : 'New PO'}</span>
+            <Plus size={16} />
+            <span>New Purchase Order</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Compact Performance / Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-        {/* Card 1: Total Orders */}
-        <div className="rounded-xl p-2.5 sm:p-3 bg-slate-900/70 border border-slate-800 shadow-sm flex items-center justify-between">
+      {/* ── 2. Simple Key Metrics Bar ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Total POs */}
+        <div className="rounded-xl p-3 bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Orders</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Orders</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-lg sm:text-xl font-black text-white font-mono">{totalOrdersCount}</span>
-              <span className="text-[11px] text-slate-400 font-mono">₹{totalOrdersValue.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-black text-white font-mono">{totalOrdersCount}</span>
+              <span className="text-xs text-slate-400 font-mono">₹{totalOrdersValue.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
-            <FileText size={13} />
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+            <FileText size={16} />
           </div>
         </div>
 
-        {/* Card 2: Awaiting Delivery / Pending */}
-        <div className="rounded-xl p-2.5 sm:p-3 bg-amber-950/15 border border-amber-500/20 shadow-sm flex items-center justify-between">
+        {/* Awaiting Delivery */}
+        <div className="rounded-xl p-3 bg-amber-950/20 border border-amber-500/20 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">Awaiting Delivery</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Awaiting Delivery</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-lg sm:text-xl font-black text-amber-300 font-mono">{pendingOrders.length}</span>
-              <span className="text-[11px] text-amber-400/80 font-mono">₹{totalPendingValue.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-black text-amber-300 font-mono">{pendingOrders.length}</span>
+              <span className="text-xs text-amber-400/80 font-mono">₹{totalPendingValue.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-            <Clock size={13} />
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Clock size={16} />
           </div>
         </div>
 
-        {/* Card 3: Stock Received & Added to Inventory */}
-        <div className="rounded-xl p-2.5 sm:p-3 bg-emerald-950/15 border border-emerald-500/20 shadow-sm flex items-center justify-between">
+        {/* Stock Received (Inwarded) */}
+        <div className="rounded-xl p-3 bg-emerald-950/20 border border-emerald-500/20 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">Stock Received (GRN)</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Stock Received (Inward)</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-lg sm:text-xl font-black text-emerald-300 font-mono">{deliveredOrders.length}</span>
-              <span className="text-[11px] text-emerald-400/80 font-mono">₹{totalDeliveredValue.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-black text-emerald-300 font-mono">{deliveredOrders.length}</span>
+              <span className="text-xs text-emerald-400/80 font-mono">₹{totalDeliveredValue.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={13} />
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={16} />
           </div>
         </div>
 
-        {/* Card 4: Kitchen Indents Pending */}
+        {/* Kitchen Indents */}
         <div
           onClick={() => setActiveTab('KITCHEN_REQS')}
-          className="rounded-xl p-2.5 sm:p-3 bg-orange-950/15 border border-orange-500/20 shadow-sm flex items-center justify-between cursor-pointer hover:border-orange-500/40 transition"
+          className="rounded-xl p-3 bg-orange-950/20 border border-orange-500/20 flex items-center justify-between cursor-pointer hover:border-orange-500/40 transition"
         >
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400 block">Kitchen Indents</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Kitchen Indents</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-lg sm:text-xl font-black text-orange-300 font-mono">{pendingReqCount}</span>
-              <span className="text-[11px] text-orange-400/80">Pending indents</span>
+              <span className="text-xl font-black text-orange-300 font-mono">{pendingReqCount}</span>
+              <span className="text-xs text-orange-400/80">Awaiting PO</span>
             </div>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
-            <UtensilsCrossed size={13} />
+          <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
+            <UtensilsCrossed size={16} />
           </div>
         </div>
       </div>
 
-      {/* 3. Interactive Shop & Store Procurement Hub (Box-by-Box Market Purchasing) */}
-      <ShopProcurementHub
-        vendors={vendors}
-        onQuickOrder={handleQuickShopOrder}
-        onOpenFullFormWithItems={handleOpenFullFormWithShopItems}
-        onAddVendorClick={() => {
-          setFormInitialItems([]);
-          setFormInitialNotes('');
-          setShowForm(true);
-        }}
-        onFilterByShop={(shopName) => {
-          // Keep search flexible
-        }}
-      />
-
-      {/* 4. Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5">
+      {/* ── 3. Simple Clean Tabs ── */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <button
           onClick={() => setActiveTab('ORDERS')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
             activeTab === 'ORDERS'
-              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-md'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/40 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
           }`}
         >
           <FileText size={15} />
-          <span>Purchase Orders & Goods Inward ({orders.length})</span>
+          <span>Purchase Orders & Inward ({orders.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('MARKET')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
+            activeTab === 'MARKET'
+              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+          }`}
+        >
+          <Store size={15} />
+          <span>Shop & Market Buying Hub 🏪</span>
         </button>
 
         <button
           onClick={() => setActiveTab('KITCHEN_REQS')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
             activeTab === 'KITCHEN_REQS'
-              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30 shadow-md'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-orange-500/15 text-orange-400 border border-orange-500/40 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
           }`}
         >
           <UtensilsCrossed size={15} />
-          <span>Kitchen Indents & Staff Needs</span>
+          <span>Kitchen Indents</span>
           {pendingReqCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-black animate-pulse">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-black">
               {pendingReqCount}
             </span>
           )}
         </button>
       </div>
 
-      {/* 5. Purchase Order Creation Form Drawer */}
+      {/* ── 4. Form Drawer (When New PO is clicked) ── */}
       {showForm && (
-        <div className="rounded-2xl bg-slate-900 border border-cyan-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
+        <div className="rounded-2xl bg-slate-900 border border-cyan-500/50 p-5 shadow-2xl space-y-4 animate-in fade-in">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
               <p className="text-base font-black text-white flex items-center gap-2">
-                <Truck size={18} className="text-emerald-400" />
-                <span>Create Purchase Order & Inward Stock</span>
+                <Truck size={18} className="text-cyan-400" />
+                <span>Create Purchase Order</span>
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                Items can be saved as pending PO or instantly inwarded to update hotel inventory immediately.
+                Add items to create a vendor PO or receive stock immediately to your inventory.
               </p>
             </div>
             <button
               onClick={() => setShowForm(false)}
-              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
 
@@ -796,19 +746,19 @@ export default function PurchasingPage() {
         </div>
       )}
 
-      {/* 6. Active Tab: ORDERS */}
+      {/* ── 5. Tab View: ORDERS (Clean Default View) ── */}
       {activeTab === 'ORDERS' && (
-        <div className="space-y-4">
-          {/* Filter & Search Bar */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/80">
-            {/* Status Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+        <div className="space-y-3.5">
+          {/* Filter Bar */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setStatusFilter('ALL')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
                   statusFilter === 'ALL'
-                    ? 'bg-cyan-500 text-black shadow-md'
+                    ? 'bg-cyan-500 text-black shadow-sm'
                     : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
                 }`}
               >
@@ -818,9 +768,9 @@ export default function PurchasingPage() {
               <button
                 type="button"
                 onClick={() => setStatusFilter('PENDING')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   statusFilter === 'PENDING'
-                    ? 'bg-amber-500 text-black shadow-md'
+                    ? 'bg-amber-500 text-black shadow-sm'
                     : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
                 }`}
               >
@@ -833,13 +783,13 @@ export default function PurchasingPage() {
               <button
                 type="button"
                 onClick={() => setStatusFilter('DELIVERED')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   statusFilter === 'DELIVERED'
-                    ? 'bg-emerald-500 text-black shadow-md'
+                    ? 'bg-emerald-500 text-black shadow-sm'
                     : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
                 }`}
               >
-                <span>Stock Inwarded (GRN)</span>
+                <span>Stock Received</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-black/20 text-[10px]">
                   {deliveredOrders.length}
                 </span>
@@ -848,9 +798,9 @@ export default function PurchasingPage() {
               <button
                 type="button"
                 onClick={() => setStatusFilter('CANCELLED')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
                   statusFilter === 'CANCELLED'
-                    ? 'bg-rose-500 text-black shadow-md'
+                    ? 'bg-rose-500 text-black shadow-sm'
                     : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
                 }`}
               >
@@ -858,17 +808,16 @@ export default function PurchasingPage() {
               </button>
             </div>
 
-            {/* Vendor Filter + Search Box */}
-            <div className="flex items-center gap-2.5 flex-1 lg:max-w-xl justify-end">
-              {/* Vendor Selector */}
+            {/* Vendor Selector & Search */}
+            <div className="flex items-center gap-2 flex-1 md:max-w-md justify-end">
               {vendors.length > 0 && (
-                <div className="w-48 shrink-0">
+                <div className="w-40 shrink-0">
                   <select
                     value={vendorFilter}
                     onChange={(e) => setVendorFilter(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-800/90 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    className="w-full h-9 px-2.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
                   >
-                    <option value="ALL">All Vendors ({vendors.length})</option>
+                    <option value="ALL">All Vendors</option>
                     {vendors.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name}
@@ -878,32 +827,31 @@ export default function PurchasingPage() {
                 </div>
               )}
 
-              {/* Search Box */}
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by PO #, vendor, phone or item..."
-                  className="w-full h-10 pl-9 pr-4 bg-slate-800/90 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+                  placeholder="Search PO #, vendor, item..."
+                  className="w-full h-9 pl-8 pr-7 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
                 />
                 {search && (
                   <button
                     onClick={() => setSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                   >
-                    <X size={13} />
+                    <X size={12} />
                   </button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* PO List Component */}
+          {/* Orders Table */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-500 rounded-2xl bg-slate-900/40 border border-slate-800">
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500 rounded-2xl bg-slate-900/40 border border-slate-800">
               <Loader2 size={24} className="animate-spin text-cyan-400" />
-              <span className="text-sm font-bold text-slate-400">Loading purchase orders & stock records...</span>
+              <span className="text-xs font-bold text-slate-400">Loading purchase orders...</span>
             </div>
           ) : (
             <POList
@@ -917,7 +865,36 @@ export default function PurchasingPage() {
         </div>
       )}
 
-      {/* 7. Active Tab: KITCHEN REQUISITIONS */}
+      {/* ── 6. Tab View: MARKET BUYING HUB (Separated into its own clean tab) ── */}
+      {activeTab === 'MARKET' && (
+        <div className="space-y-4">
+          <div className="bg-slate-900/70 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <Store size={16} className="text-emerald-400" />
+                <span>Shop-by-Shop Market Buying List</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Pick items by shop category (Chicken, Vegetables, Dairy, Grocery), adjust quantities, and generate PO or inward stock instantly.
+              </p>
+            </div>
+          </div>
+
+          <ShopProcurementHub
+            vendors={vendors}
+            onQuickOrder={handleQuickShopOrder}
+            onOpenFullFormWithItems={handleOpenFullFormWithShopItems}
+            onAddVendorClick={() => {
+              setFormInitialItems([]);
+              setFormInitialNotes('');
+              setShowForm(true);
+            }}
+            onFilterByShop={() => {}}
+          />
+        </div>
+      )}
+
+      {/* ── 7. Tab View: KITCHEN INDENTS ── */}
       {activeTab === 'KITCHEN_REQS' && (
         <KitchenRequisitionsList
           requests={kitchenRequests}
@@ -927,7 +904,7 @@ export default function PurchasingPage() {
         />
       )}
 
-      {/* 8. Full PO Details & Printable Slip Modal */}
+      {/* ── 8. PO Details & Printable Slip Modal ── */}
       <PODetailsModal
         isOpen={Boolean(selectedPO)}
         order={selectedPO}
