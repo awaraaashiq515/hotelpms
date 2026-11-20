@@ -86,20 +86,29 @@ export default function PurchasingPage() {
         const sessionRes = await fetch('/api/auth/session');
         const sessionData = await sessionRes.json();
 
+        let resolvedId = sessionData?.user?.propertyId || '';
+        let resolvedName = sessionData?.user?.propertyName || 'Grand Hotel';
+
         const propRes = await fetch('/api/setup/properties');
         const propData = await propRes.json();
 
-        if (propData.success && Array.isArray(propData.data) && propData.data.length > 0) {
+        const propList = Array.isArray(propData?.data) ? propData.data : (Array.isArray(propData) ? propData : []);
+        if (propList.length > 0) {
           const current =
-            propData.data.find((p: any) => p.id === sessionData.user?.propertyId) ||
-            propData.data[0];
+            (resolvedId && propList.find((p: any) => p.id === resolvedId)) ||
+            propList[0];
 
           if (current?.id) {
-            setPropertyId(current.id);
-            setHotelName(current.name || 'Grand Hotel');
+            resolvedId = current.id;
+            resolvedName = current.name || resolvedName;
             setHotelPhone(current.phone || '');
-            setHotelAddress(current.address || '');
+            setHotelAddress(current.address || current.city || '');
           }
+        }
+
+        if (resolvedId) {
+          setPropertyId(resolvedId);
+          setHotelName(resolvedName);
         }
       } catch (err) {
         console.warn('Failed to resolve property:', err);
@@ -114,18 +123,24 @@ export default function PurchasingPage() {
     setLoading(true);
     try {
       const [ordersRes, vendorsRes, staffRes, stockRes] = await Promise.all([
-        fetch('/api/b2b/orders'),
-        fetch('/api/hotel/vendor'),
+        fetch('/api/b2b/orders').then((r) => r.json()).catch(() => []),
+        fetch('/api/hotel/vendor').then((r) => r.json()).catch(() => ({ data: [] })),
         fetch('/api/staff-members').then((r) => r.json()).catch(() => ({ data: [] })),
         fetch('/api/inventory/stock-items').then((r) => r.json()).catch(() => ({ data: [] })),
       ]);
 
-      const ordersData = await ordersRes.json();
-      const vendorsData = await vendorsRes.json();
+      const ordersData = ordersRes;
+      const vendorsData = vendorsRes;
 
-      if (Array.isArray(vendorsData.data)) {
+      const rawVendors = Array.isArray(vendorsData?.data)
+        ? vendorsData.data
+        : Array.isArray(vendorsData)
+        ? vendorsData
+        : [];
+
+      if (rawVendors.length > 0) {
         setVendors(
-          vendorsData.data.map((v: any) => ({
+          rawVendors.map((v: any) => ({
             id: v.id,
             name: v.name,
             phone: v.phone || '',
@@ -157,48 +172,68 @@ export default function PurchasingPage() {
         );
       }
 
-      if (ordersData.success && Array.isArray(ordersData.data)) {
-        const formatted: DetailedPO[] = ordersData.data.map((order: any) => {
-          let parsedComments: any = null;
-          let plainNotes = order.comments || '';
-          try {
-            if (order.comments && order.comments.startsWith('{')) {
-              parsedComments = JSON.parse(order.comments);
-              plainNotes = parsedComments.notes || '';
-            }
-          } catch {}
+      const rawOrdersList = Array.isArray(ordersData)
+        ? ordersData
+        : Array.isArray(ordersData?.data)
+        ? ordersData.data
+        : [];
 
+      const formatted: DetailedPO[] = rawOrdersList.map((order: any) => {
+        let parsedComments: any = null;
+        let plainNotes = order.comments || '';
+        try {
+          if (order.comments && order.comments.startsWith('{')) {
+            parsedComments = JSON.parse(order.comments);
+            plainNotes = parsedComments.notes || '';
+          }
+        } catch {}
+
+        const rawItems = Array.isArray(order.items) ? order.items : [];
+        const mappedItems = rawItems.map((item: any) => {
+          const name = item.product?.name || item.name || 'Unnamed Item';
+          const category = item.product?.category || item.category || 'Kitchen & Grocery';
+          const unit = item.product?.unit || item.unit || 'Kg';
+          const qty = Number(item.quantity ?? item.qty) || 1;
+          const price = Number(item.unitPrice ?? item.price) || 0;
+          const total = Number(item.totalPrice ?? item.total) || qty * price;
           return {
-            id: order.id,
-            poNumber: order.orderNo || `PO-${order.id.substring(0, 6)}`,
-            date: order.createdAt ? order.createdAt.split('T')[0] : '',
-            expectedDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
-            vendor: order.supplier?.name || 'Local Market Vendor',
-            vendorPhone: order.supplier?.phone || '',
-            vendorCategory: order.supplier?.category || 'General Store',
-            vendorId: order.supplierId || '',
-            status: (order.status || 'PENDING') as DetailedPO['status'],
-            totalAmount: Number(order.totalAmount) || 0,
-            notes: plainNotes,
-            hotelName: order.property?.name || hotelName,
-            hotelPhone: order.property?.phone || hotelPhone,
-            hotelAddress: order.property?.address || hotelAddress,
-            assignedStaffName: order.assignedStaffName || parsedComments?.assignedStaffName || null,
-            assignedStaffPhone: order.assignedStaffPhone || parsedComments?.assignedStaffPhone || null,
-            items: (order.items || []).map((item: any) => ({
-              id: item.id,
-              name: item.name || 'Unnamed Item',
-              category: item.category || 'Kitchen & Grocery',
-              qty: Number(item.quantity) || 1,
-              unit: item.unit || 'Kg',
-              price: Number(item.unitPrice) || 0,
-              total: (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0),
-            })),
+            id: item.id,
+            name,
+            category,
+            unit,
+            quantity: qty,
+            unitPrice: price,
+            totalPrice: total,
+            qty,
+            price,
+            total,
+            description: item.product?.description || item.description || '',
           };
         });
 
-        setOrders(formatted);
-      }
+        return {
+          id: order.id,
+          poNumber: order.orderNo || `PO-${order.id.substring(0, 6)}`,
+          date: order.createdAt ? order.createdAt.split('T')[0] : '',
+          createdAt: order.createdAt || '',
+          expectedDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
+          vendor: order.supplier?.name || 'Local Market Vendor',
+          vendorPhone: order.supplier?.phone || '',
+          vendorCategory: order.supplier?.category || 'General Store',
+          vendorId: order.supplierId || '',
+          status: (order.status || 'PENDING') as DetailedPO['status'],
+          totalAmount: Number(order.totalAmount) || 0,
+          notes: plainNotes,
+          hotelName: order.property?.name || hotelName,
+          hotelPhone: order.property?.phone || hotelPhone,
+          hotelAddress: order.property?.address || hotelAddress,
+          assignedStaffName: order.assignedStaffName || parsedComments?.assignedStaffName || null,
+          assignedStaffPhone: order.assignedStaffPhone || parsedComments?.assignedStaffPhone || null,
+          items: mappedItems,
+        };
+      });
+
+      setOrders(formatted);
     } catch (err) {
       console.warn('Failed to fetch purchasing data:', err);
     } finally {
@@ -210,26 +245,27 @@ export default function PurchasingPage() {
   const fetchKitchenRequests = useCallback(async () => {
     setReqsLoading(true);
     try {
-      const res = await fetch('/api/inventory/stock-requests?status=PENDING');
+      const res = await fetch('/api/inventory/requests?status=PENDING');
       const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setKitchenRequests(
-          data.data.map((r: any) => ({
-            id: r.id,
-            itemId: r.itemId,
-            itemName: r.itemName || r.item?.name || 'Raw Material',
-            category: r.category || r.item?.category || 'Kitchen',
-            requestedQty: Number(r.requestedQty) || 1,
-            unit: r.unit || r.item?.unit || 'Kg',
-            priority: r.priority || 'NORMAL',
-            status: r.status || 'PENDING',
-            department: r.department || 'Kitchen',
-            requestedBy: r.requestedBy || 'Head Chef',
-            notes: r.notes || '',
-            date: r.createdAt ? r.createdAt.split('T')[0] : '',
-          }))
-        );
-      }
+      const rawReqs = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      setKitchenRequests(
+        rawReqs.map((r: any) => ({
+          id: r.id,
+          itemId: r.itemId || r.stockItemId,
+          itemName: r.itemName || r.stockItem?.name || 'Raw Material',
+          category: r.category || r.stockItem?.category || r.department || 'Kitchen',
+          requestedQty: Number(r.requestedQty) || 1,
+          unit: r.unit || r.stockItem?.unit || 'Kg',
+          urgency: (r.urgency || r.priority || 'NORMAL').toUpperCase() as any,
+          status: (r.status || 'PENDING').toUpperCase() as any,
+          department: r.department || 'Kitchen',
+          requestedBy: r.requestedBy || 'Head Chef',
+          remarks: r.remarks || r.notes || '',
+          notes: r.remarks || r.notes || '',
+          createdAt: r.createdAt || new Date().toISOString(),
+          currentStock: Number(r.stockItem?.currentStock) || 0,
+        }))
+      );
     } catch (err) {
       console.warn('Failed to load kitchen requests:', err);
     } finally {
@@ -362,7 +398,27 @@ export default function PurchasingPage() {
     assignedStaffPhone?: string;
   }) => {
     try {
-      const resolvedPropId = propertyId || 'cmoy7oxso0002ay70x6zmbtvj';
+      let resolvedPropId = propertyId;
+      if (!resolvedPropId) {
+        try {
+          const sRes = await fetch('/api/auth/session');
+          const sData = await sRes.json();
+          resolvedPropId = sData?.user?.propertyId || '';
+        } catch {}
+      }
+      if (!resolvedPropId) {
+        try {
+          const pRes = await fetch('/api/setup/properties');
+          const pData = await pRes.json();
+          const list = Array.isArray(pData?.data) ? pData.data : (Array.isArray(pData) ? pData : []);
+          if (list[0]?.id) resolvedPropId = list[0].id;
+        } catch {}
+      }
+
+      if (!resolvedPropId) {
+        toast.error('Could not identify active hotel property. Please reload.');
+        return;
+      }
 
       const res = await fetch('/api/b2b/orders', {
         method: 'POST',
@@ -477,11 +533,33 @@ export default function PurchasingPage() {
     notes: string;
   }) => {
     try {
+      let resolvedPropId = propertyId;
+      if (!resolvedPropId) {
+        try {
+          const sRes = await fetch('/api/auth/session');
+          const sData = await sRes.json();
+          resolvedPropId = sData?.user?.propertyId || '';
+        } catch {}
+      }
+      if (!resolvedPropId) {
+        try {
+          const pRes = await fetch('/api/setup/properties');
+          const pData = await pRes.json();
+          const list = Array.isArray(pData?.data) ? pData.data : (Array.isArray(pData) ? pData : []);
+          if (list[0]?.id) resolvedPropId = list[0].id;
+        } catch {}
+      }
+
+      if (!resolvedPropId) {
+        toast.error('Could not identify active hotel property. Please reload.');
+        return;
+      }
+
       const res = await fetch('/api/b2b/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          propertyId,
+          propertyId: resolvedPropId,
           supplierId: data.vendorId,
           totalAmount: data.totalAmount,
           comments: data.notes,

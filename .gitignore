@@ -52,6 +52,7 @@ dev_server.log
 # temporary scratch and agent folders
 /scratch/
 /.kilo/
+.vscode/
 
 venv/
 menu-scanner/backend/venv/
