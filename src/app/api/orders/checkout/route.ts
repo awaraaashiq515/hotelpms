@@ -4,7 +4,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { sendSMS, createNotification } from '@/lib/notificationService';
 import { processDriverRide } from '@/lib/driverOfferEngine';
-import { sendWhatsAppMessage, formatWhatsAppReceipt } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, formatWhatsAppReceipt, sendMetaWhatsAppTemplate } from '@/lib/whatsapp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -703,16 +703,32 @@ export async function POST(request: NextRequest) {
       const property = await prisma.property.findUnique({ where: { id: session.propertyId! } });
 
       if (guest?.mobile) {
-        // 1. WhatsApp Receipt
+        // 1. WhatsApp Receipt (Template first, then fallback to text)
         if (sendWhatsApp) {
-          const templateSetting = await prisma.systemSetting.findUnique({ where: { key: 'WHATSAPP_TEMPLATE_BILL' } });
-          const message = formatWhatsAppReceipt({ ...result, items }, property, templateSetting?.value);
-
-          sendWhatsAppMessage({
+          const dateStr = new Date().toLocaleDateString('en-GB');
+          sendMetaWhatsAppTemplate({
             mobile: guest.mobile,
-            message: message,
-            propertyId: session.propertyId!
-          }).catch(err => console.error('Failed to trigger WhatsApp:', err));
+            templateName: 'hotel_order_receipt',
+            parameters: [
+              guest.firstName || 'Customer',
+              property?.name || 'OrderMint',
+              result.orderNo,
+              dateStr,
+              result.grandTotal,
+            ],
+            buttonUrlParameter: result.orderNo,
+            propertyId: session.propertyId!,
+          }).then(async (tRes) => {
+            if (!tRes?.success) {
+              const templateSetting = await prisma.systemSetting.findUnique({ where: { key: 'WHATSAPP_TEMPLATE_BILL' } });
+              const message = formatWhatsAppReceipt({ ...result, items }, property, templateSetting?.value);
+              sendWhatsAppMessage({
+                mobile: guest.mobile!,
+                message: message,
+                propertyId: session.propertyId!
+              }).catch(err => console.error('Failed to trigger WhatsApp fallback:', err));
+            }
+          }).catch(err => console.error('Failed to trigger WhatsApp template:', err));
         }
 
         // 2. Standard SMS

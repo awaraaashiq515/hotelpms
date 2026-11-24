@@ -243,13 +243,18 @@ export async function GET(request: NextRequest) {
       },
       cash: {
         total: paidSettledInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0),
+        onGstInvoices: b2bInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0),
+        onSimpleInvoices: b2cInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0),
       },
       online: {
         total: paidSettledInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0),
+        onGstInvoices: b2bInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0),
+        onSimpleInvoices: b2cInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0),
       },
       due: {
         totalDueBalance: allInvoices.reduce((sum, inv) => sum + inv.dueBalance, 0),
       },
+      dueBalance: allInvoices.reduce((sum, inv) => sum + inv.dueBalance, 0),
     };
 
     return apiResponse({

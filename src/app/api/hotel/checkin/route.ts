@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { sendMetaWhatsAppTemplate } from '@/lib/whatsapp';
 
 function generateWiFiPassword(roomNumber: string): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -262,6 +263,35 @@ export async function POST(request: NextRequest) {
         status: 'OCCUPIED',
       },
     });
+
+    // Send WhatsApp Guest Portal & Wi-Fi Access Template
+    if (cleanMobile && cleanMobile.length >= 10) {
+      try {
+        const propInfo = await prisma.property.findUnique({
+          where: { id: propertyId },
+          select: { name: true, hotelWifiName: true, whatsAppEnabled: true },
+        });
+
+        const gName = `${existingGuest?.firstName || ''} ${existingGuest?.lastName || ''}`.trim() || 'Guest';
+        const wifiNet = propInfo?.hotelWifiName || 'OrderMint_Guest_WiFi';
+        const wifiPass = (walkInData as any)?.wifiPassword || generateWiFiPassword(room.roomNumber);
+
+        sendMetaWhatsAppTemplate({
+          mobile: cleanMobile,
+          templateName: 'guest_room_portal_access',
+          parameters: [
+            gName,
+            propInfo?.name || 'OrderMint Hotel',
+            room.roomNumber,
+            wifiNet,
+            wifiPass,
+          ],
+          propertyId,
+        }).catch((err) => console.error('[Checkin WhatsApp BG Error]:', err));
+      } catch (waErr) {
+        console.error('[Checkin WhatsApp Send Error]:', waErr);
+      }
+    }
 
     return apiResponse({ checkIn, folio }, 'Guest checked in successfully', 201);
   } catch (error) {

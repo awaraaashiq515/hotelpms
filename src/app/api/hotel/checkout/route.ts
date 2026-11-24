@@ -4,6 +4,7 @@ import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
 import { getNextInvoiceNumber } from '@/lib/hotel/invoice-sequence';
 import { computeRoomGst, computeFoodGst } from '@/lib/hotel/gst-service';
+import { sendMetaWhatsAppTemplate } from '@/lib/whatsapp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
     const checkIn = await prisma.checkIn.findUnique({
       where: { id: checkInId },
       include: {
+        guest: true,
         reservation: {
           include: {
             folios: {
@@ -28,7 +30,11 @@ export async function POST(request: NextRequest) {
             }
           }
         },
-        room: true,
+        room: {
+          include: {
+            property: true
+          }
+        },
       }
     });
 
@@ -283,6 +289,32 @@ export async function POST(request: NextRequest) {
         }
       }
     });
+
+    // Send Official WhatsApp Invoice Receipt with Download Button to Guest
+    const guestMobile = checkIn.guest?.mobile || '';
+    if (guestMobile && guestMobile.replace(/[^0-9]/g, '').length >= 10) {
+      try {
+        const guestName = `${checkIn.guest?.firstName || ''} ${checkIn.guest?.lastName || ''}`.trim() || 'Guest';
+        const hotelName = checkIn.room?.property?.name || 'OrderMint Hotel';
+        const dateStr = new Date().toLocaleDateString('en-GB');
+
+        sendMetaWhatsAppTemplate({
+          mobile: guestMobile,
+          templateName: 'hotel_order_receipt',
+          parameters: [
+            guestName,
+            hotelName,
+            invoice.invoiceNo,
+            dateStr,
+            grandTotal,
+          ],
+          buttonUrlParameter: invoice.invoiceNo,
+          propertyId,
+        }).catch((err) => console.error('[Checkout WhatsApp Invoice BG Error]:', err));
+      } catch (waErr) {
+        console.error('[Checkout WhatsApp Error]:', waErr);
+      }
+    }
 
     return apiResponse({ checkOut, closingBalance, invoice }, 'Guest checked out successfully and Tax Invoice generated');
   } catch (error) {

@@ -150,6 +150,112 @@ export async function sendWhatsAppMessage({
   }
 }
 
+// Function to send Official Meta Cloud API Approved Template
+export async function sendMetaWhatsAppTemplate({
+  mobile,
+  templateName,
+  parameters = [],
+  buttonUrlParameter,
+  propertyId,
+  languageCode = 'en',
+}: {
+  mobile: string;
+  templateName: string;
+  parameters?: (string | number)[];
+  buttonUrlParameter?: string;
+  propertyId?: string;
+  languageCode?: string;
+}) {
+  try {
+    let property: any = null;
+    if (propertyId) {
+      property = await prisma.property.findUnique({
+        where: { id: propertyId },
+      });
+    }
+
+    const masterConfigs = await prisma.systemSetting.findMany({
+      where: { key: { in: ['META_ACCESS_TOKEN', 'META_PHONE_ID'] } },
+    });
+    const masterMap = masterConfigs.reduce((acc, c) => ({ ...acc, [c.key]: c.value }), {} as Record<string, string>);
+
+    const metaToken = property?.metaAccessToken || masterMap['META_ACCESS_TOKEN'] || process.env.META_ACCESS_TOKEN;
+    const metaPhoneId = property?.metaPhoneId || masterMap['META_PHONE_ID'] || process.env.META_PHONE_ID;
+
+    if (!metaToken || !metaPhoneId) {
+      console.warn('[Meta WhatsApp] Credentials not configured for Property:', propertyId);
+      return { success: false, error: 'Meta credentials not configured' };
+    }
+
+    let cleanMobile = mobile.replace(/[^0-9]/g, '');
+    if (cleanMobile.length === 10) {
+      cleanMobile = `91${cleanMobile}`;
+    }
+
+    const url = `https://graph.facebook.com/v20.0/${metaPhoneId}/messages`;
+
+    const components: any[] = [];
+    if (parameters.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: parameters.map((val) => ({
+          type: 'text',
+          text: String(val ?? ''),
+        })),
+      });
+    }
+
+    if (buttonUrlParameter) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [
+          {
+            type: 'text',
+            text: String(buttonUrlParameter),
+          },
+        ],
+      });
+    }
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: cleanMobile,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        ...(components.length > 0 ? { components } : {}),
+      },
+    };
+
+    console.log('[Meta WhatsApp] Sending Template:', templateName, 'to:', cleanMobile);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${metaToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('[Meta WhatsApp] Template Dispatch Error:', data);
+      return { success: false, error: data.error?.message || 'Meta API error', data };
+    }
+
+    console.log('[Meta WhatsApp] Successfully Sent Template:', templateName);
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('[Meta WhatsApp] Send Template Exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // Function to send AuthKey WhatsApp Approved Template
 // Uses authkey.io API with wid (WhatsApp Template ID)
 export async function sendAuthKeyWhatsAppTemplate({

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
-import { sendAuthKeyWhatsAppTemplate, sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendAuthKeyWhatsAppTemplate, sendWhatsAppMessage, sendMetaWhatsAppTemplate } from '@/lib/whatsapp';
 import { maskAadhaar } from '@/lib/hotel/security-utils';
 import { checkRoomAvailability } from '@/server/services/availability.service';
 
@@ -588,12 +588,29 @@ export async function POST(request: NextRequest) {
               roomPrice: roomPriceStr,
             });
           } else {
-            // Uses Property credentials or Super Admin Master Meta Gateway
-            await sendWhatsAppMessage({
+            // Send Official Meta Cloud API Approved Template: hotel_booking_confirmation
+            const resWa = await sendMetaWhatsAppTemplate({
               mobile: guestMobile,
-              message,
+              templateName: 'hotel_booking_confirmation',
+              parameters: [
+                guestName,
+                property.name || 'OrderMint Hotel',
+                reservation.bookingNo,
+                roomType?.name || 'Standard Room',
+                new Date(reservation.arrivalDate).toLocaleDateString('en-GB'),
+                new Date(reservation.departureDate).toLocaleDateString('en-GB'),
+              ],
               propertyId: property.id,
             });
+
+            // Fallback to text message if template fails or not yet approved
+            if (!resWa.success) {
+              await sendWhatsAppMessage({
+                mobile: guestMobile,
+                message,
+                propertyId: property.id,
+              });
+            }
           }
         } catch (waErr) {
           console.error('[WhatsApp Send Error]:', waErr);

@@ -93,8 +93,9 @@ export type SimpleFilterType =
   | 'ALL_NORMAL'
   | 'DUE';
 
-function fmt(n: number) {
-  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function fmt(n: number | undefined | null) {
+  const val = typeof n === 'number' && !isNaN(n) ? n : 0;
+  return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function fmtDate(d: string) {
@@ -375,12 +376,12 @@ export default function HotelInvoicesPage() {
 
     const summaryCards = summary
       ? [
-          { label: 'Total Billed', value: `Rs. ${summary.totalInvoiced.toLocaleString()}` },
-          { label: 'GST Bills Total', value: `Rs. ${summary.b2b.totalAmount.toLocaleString()}` },
-          { label: 'Cash Collected', value: `Rs. ${summary.cash.total.toLocaleString()}` },
-          { label: 'Online Collected', value: `Rs. ${summary.online.total.toLocaleString()}` },
-          { label: 'Total GST Tax', value: `Rs. ${summary.totalTaxCollected.toLocaleString()}` },
-          { label: 'Balance Due', value: `Rs. ${summary.dueBalance.toLocaleString()}` },
+          { label: 'Total Billed', value: `Rs. ${(summary.totalInvoiced ?? 0).toLocaleString()}` },
+          { label: 'GST Bills Total', value: `Rs. ${(summary.b2b?.totalAmount ?? 0).toLocaleString()}` },
+          { label: 'Cash Collected', value: `Rs. ${(summary.cash?.total ?? 0).toLocaleString()}` },
+          { label: 'Online Collected', value: `Rs. ${(summary.online?.total ?? 0).toLocaleString()}` },
+          { label: 'Total GST Tax', value: `Rs. ${(summary.totalTaxCollected ?? 0).toLocaleString()}` },
+          { label: 'Balance Due', value: `Rs. ${(summary.dueBalance ?? (summary as any).due?.totalDueBalance ?? 0).toLocaleString()}` },
         ]
       : [];
 
@@ -606,9 +607,9 @@ export default function HotelInvoicesPage() {
               <span className="text-[9px] font-black uppercase tracking-wider">Pending Due</span>
               <Clock size={12} />
             </div>
-            <p className="text-base font-black text-rose-400">{fmt(summary.dueBalance)}</p>
+            <p className="text-base font-black text-rose-400">{fmt(summary.dueBalance ?? (summary as any).due?.totalDueBalance ?? 0)}</p>
             <p className="text-[9px] text-rose-500/80 font-medium">
-              {summary.dueBalance <= 0 ? 'All settled' : 'Unpaid balance'}
+              {(summary.dueBalance ?? (summary as any).due?.totalDueBalance ?? 0) <= 0 ? 'All settled' : 'Unpaid balance'}
             </p>
           </div>
         </div>
