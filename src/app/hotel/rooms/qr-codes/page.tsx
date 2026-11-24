@@ -169,7 +169,7 @@ export default function RoomQRCodesPage() {
 
   // Generate QR URL for a room
   const getRoomQRUrl = (room: Room) => {
-    const base = origin || 'http://localhost:3000';
+    const base = origin || process.env.NEXT_PUBLIC_APP_URL || '';
     const propCode = (property?.code || 'HOTEL').toLowerCase();
 
     if (portalMode === 'door-concierge') {

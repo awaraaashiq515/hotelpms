@@ -292,9 +292,8 @@ export default function HotelBackupPage() {
     d.setDate(d.getDate() - 90);
     return d.toISOString().split('T')[0];
   });
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([
-    'reservations', 'pos_orders', 'invoices', 'accounting', 'housekeeping', 'attendance', 'audit_logs'
-  ]);
+  // H12: Nothing pre-selected by default to prevent accidental data loss
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, { label: string; count: number; warning: string }>>({});
   const [loadingCounts, setLoadingCounts] = useState(false);
   const [purging, setPurging] = useState(false);

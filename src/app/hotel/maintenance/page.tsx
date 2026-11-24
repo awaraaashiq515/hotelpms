@@ -2186,7 +2186,7 @@ export default function MaintenancePage() {
                   if (!newTicket.title.trim()) return;
 
                   const ticketId = Date.now().toString();
-                  const mock: MaintenanceTicket = {
+                  const optimisticTicket: MaintenanceTicket = {
                     id: ticketId,
                     title: newTicket.title,
                     description: newTicket.description,
@@ -2213,7 +2213,7 @@ export default function MaintenancePage() {
                     // Fallback
                   }
 
-                  setTickets(prev => [mock, ...prev]);
+                  setTickets(prev => [optimisticTicket, ...prev]);
 
                   // 2. If part replacement was enabled
                   if (ticketPartNeeded && ticketPartData.partName.trim()) {

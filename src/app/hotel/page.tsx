@@ -1520,13 +1520,18 @@ export default function HotelDashboard() {
     }
   }, [departmentsWithRestaurant, activeDept]);
 
-  // Greeting based on time
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
-  const greetingEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
+  // Greeting based on property timezone (Asia/Kolkata) (M5)
+  const kolkataHour = parseInt(
+    new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }).format(new Date()),
+    10
+  );
+  const greeting = kolkataHour < 12 ? 'Good Morning' : kolkataHour < 17 ? 'Good Afternoon' : 'Good Evening';
+  const greetingEmoji = kolkataHour < 12 ? '🌅' : kolkataHour < 17 ? '☀️' : '🌙';
 
   const hotelName = property?.name || session?.organizationName || 'Your Hotel';
-  const userName  = session?.fullName || session?.name || 'Admin';
+  const userName = session?.role === 'HOTEL_RECEPTIONIST'
+    ? (session?.fullName || 'Reception Desk')
+    : (session?.fullName || session?.name || 'Hotel Admin');
 
   return (
     <div className="pb-4 max-w-[1500px] mx-auto select-none">
@@ -1554,7 +1559,7 @@ export default function HotelDashboard() {
             </span>
             <span className="text-slate-600 hidden sm:inline">·</span>
             <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-              {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+              {new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' })}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold text-emerald-400"
               style={{ background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.20)' }}>
@@ -1581,7 +1586,7 @@ export default function HotelDashboard() {
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-black text-amber-300"
               style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)' }}>
               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-              Premium
+              All-Inclusive Enterprise
             </span>
           </div>
 

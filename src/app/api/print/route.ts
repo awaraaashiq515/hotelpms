@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (hotelBill) {
-            const hGstin = hotelBill.hotelGstin || property?.taxDetails || (property as any)?.gstNumber || '02AABCG1234A1Z5';
+            const hGstin = hotelBill.hotelGstin || property?.taxDetails || (property as any)?.gstNumber || 'Not Registered / Pending in Settings';
             const isB2b = Boolean(hotelBill.guestGstin || hotelBill.guestCompany);
 
             data += ESC_POS.ALIGN_CENTER;

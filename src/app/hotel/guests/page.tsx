@@ -51,6 +51,17 @@ interface Guest {
   _count?: { checkIns: number; reservations: number };
 }
 
+function getGuestPaymentsReceived(reservations?: ReservationItem[]) {
+  if (!reservations || reservations.length === 0) return 0;
+  return reservations.reduce((sum, r) => {
+    const total = Number(r.totalAmount) || 0;
+    const due = r.dueAmount !== undefined && r.dueAmount !== null ? Number(r.dueAmount) : 0;
+    const advance = Number(r.advanceAmount) || 0;
+    const paid = Math.max(0, advance > 0 && due > 0 ? advance : total - due);
+    return sum + (isNaN(paid) ? 0 : paid);
+  }, 0);
+}
+
 const SEGMENT_CONFIG: Record<string, { label: string; color: string; icon: string; bg: string }> = {
   VIP:         { label: 'VIP', color: 'text-amber-400', icon: '👑', bg: 'bg-amber-500/15 border-amber-500/30' },
   CORPORATE:   { label: 'Corporate', color: 'text-blue-400', icon: '🏢', bg: 'bg-blue-500/15 border-blue-500/30' },
@@ -340,8 +351,8 @@ export default function GuestsPage() {
       .sort((a, b) => {
         const aStays = a.reservations?.length || a._count?.checkIns || 0;
         const bStays = b.reservations?.length || b._count?.checkIns || 0;
-        const aSpent = a.reservations?.reduce((sum, r) => sum + (r.totalAmount || 0), 0) || 0;
-        const bSpent = b.reservations?.reduce((sum, r) => sum + (r.totalAmount || 0), 0) || 0;
+        const aSpent = getGuestPaymentsReceived(a.reservations);
+        const bSpent = getGuestPaymentsReceived(b.reservations);
 
         if (sortBy === 'stays') return bStays - aStays;
         if (sortBy === 'spending') return bSpent - aSpent;
@@ -356,7 +367,7 @@ export default function GuestsPage() {
   const corporateCount = guests.filter((g) => g.segment === 'CORPORATE').length;
   const totalStays = guests.reduce((sum, g) => sum + (g.reservations?.length || g._count?.checkIns || 0), 0);
   const totalRevenue = guests.reduce(
-    (sum, g) => sum + (g.reservations?.reduce((resSum, r) => resSum + (r.totalAmount || 0), 0) || 0),
+    (sum, g) => sum + getGuestPaymentsReceived(g.reservations),
     0
   );
 
@@ -371,7 +382,7 @@ export default function GuestsPage() {
       g.segment,
       g.idType && g.idNumber ? `${g.idType}: ${g.idNumber}` : 'Pending',
       g.reservations?.length || g._count?.checkIns || 0,
-      `Rs. ${(g.reservations?.reduce((sum, r) => sum + (r.totalAmount || 0), 0) || 0).toLocaleString('en-IN')}`,
+      `Rs. ${getGuestPaymentsReceived(g.reservations).toLocaleString('en-IN')}`,
       g.address || g.nationality || '—',
     ]);
 
@@ -410,7 +421,7 @@ export default function GuestsPage() {
       g.idType || '',
       g.idNumber || '',
       g.reservations?.length || g._count?.checkIns || 0,
-      g.reservations?.reduce((sum, r) => sum + (r.totalAmount || 0), 0) || 0,
+      getGuestPaymentsReceived(g.reservations),
       g.address || '',
       new Date(g.createdAt).toISOString().split('T')[0],
     ]);
@@ -518,7 +529,7 @@ export default function GuestsPage() {
             <Bed size={16} />
           </div>
           <p className="text-2xl md:text-3xl font-black text-indigo-300">{totalStays}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Total In-House Bookings</p>
+          <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Checked-Out Guest Visits</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-slate-900/40 border border-emerald-500/30 shadow-sm">
@@ -676,8 +687,7 @@ export default function GuestsPage() {
             const seg = SEGMENT_CONFIG[guest.segment] || SEGMENT_CONFIG.REGULAR;
             const initials = `${(guest.firstName || 'G')[0]}${(guest.lastName || '')[0] || ''}`.toUpperCase();
             const totalStaysCount = guest.reservations?.length || guest._count?.checkIns || 0;
-            const totalSpentAmount =
-              guest.reservations?.reduce((sum, r) => sum + (r.totalAmount || 0), 0) || 0;
+            const totalSpentAmount = getGuestPaymentsReceived(guest.reservations);
             const lastStay = guest.reservations?.[0];
 
             return (

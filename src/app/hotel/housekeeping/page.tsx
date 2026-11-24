@@ -191,9 +191,9 @@ export default function HousekeepingInspectionPage() {
       }
 
       // Format Arrival & Departure Dates / Times
-      let arrivalTime = 'Unknown';
-      let arrivalDate = '-';
-      let departureDate = '-';
+      let arrivalTime = '—';
+      let arrivalDate = '—';
+      let departureDate = '—';
 
       if (matchingRes?.arrivalDate) {
         const arr = new Date(matchingRes.arrivalDate);
@@ -220,10 +220,15 @@ export default function HousekeepingInspectionPage() {
       const doNotDisturb = dndMap[room.id] ?? false;
 
       // Condition from room housekeepingStatus
+      // Occupied stay-over rooms auto-require daily cleaning ('Dirty') unless already inspected
       let condition = 'Clean';
-      if (room.housekeepingStatus?.toUpperCase() === 'DIRTY') condition = 'Dirty';
-      else if (room.housekeepingStatus?.toUpperCase() === 'OUT_OF_ORDER') condition = 'Out of Order';
-      else if (room.housekeepingStatus?.toUpperCase() === 'INSPECTED') condition = 'Inspected';
+      if (room.housekeepingStatus?.toUpperCase() === 'DIRTY' || (isOccupied && room.housekeepingStatus?.toUpperCase() !== 'INSPECTED')) {
+        condition = 'Dirty';
+      } else if (room.housekeepingStatus?.toUpperCase() === 'OUT_OF_ORDER') {
+        condition = 'Out of Order';
+      } else if (room.housekeepingStatus?.toUpperCase() === 'INSPECTED') {
+        condition = 'Inspected';
+      }
 
       return {
         id: room.id,

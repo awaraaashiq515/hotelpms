@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getCanonicalHotelStatus, getHotelBusinessDate } from '@/lib/hotel/room-status-service';
+import { maskAadhaar } from '@/lib/hotel/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,18 +58,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Determine currency symbol based on property
     const currency = property?.country === 'SA' ? 'SAR' : '₹';
 
-    // 2. Fetch All Rooms for Property
-    const rooms = await prisma.room.findMany({
-      where: { propertyId },
-      include: {
-        roomType: true,
-      },
-      orderBy: { roomNumber: 'asc' }
-    });
-    const totalRooms = rooms.length;
+    // 2. Fetch canonical status (single source of truth for occupancy, room statuses, counts)
+    const canonical = await getCanonicalHotelStatus(propertyId);
+    const { todayStart, todayEnd, dateString } = getHotelBusinessDate();
+    const now = new Date();
 
     // 3. Fetch All Relevant Reservations
     const allReservations = await prisma.reservation.findMany({
@@ -83,6 +79,10 @@ export async function GET(request: NextRequest) {
         checkIns: {
           where: { status: 'ACTIVE' },
           take: 1
+        },
+        folios: {
+          where: { status: 'OPEN' },
+          take: 1
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     const rawEnquiries = await prisma.enquiry.findMany({
       orderBy: { createdAt: 'desc' },
       take: 50,
-    });
+    }).catch(() => []);
 
     const queries = rawEnquiries.map((enq) => ({
       id: enq.id,
@@ -106,39 +106,22 @@ export async function GET(request: NextRequest) {
       type: 'Queries',
     }));
 
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
     // Helpers
-    const isSameDay = (d1: Date, d2: Date) => {
-      return d1.getFullYear() === d2.getFullYear() &&
-             d1.getMonth() === d2.getMonth() &&
-             d1.getDate() === d2.getDate();
-    };
-
-    // 4. Categorize Reservations
-    const arrivals: any[] = [];
-    const departures: any[] = [];
-    const stayovers: any[] = [];
-    const inHouse: any[] = [];
-    const balanceDue: any[] = [];
-    const cancelled: any[] = [];
-
-    let totalActiveRevenue = 0;
-    let totalActiveNights = 0;
-
-    allReservations.forEach((res) => {
+    const formatReservationItem = (res: any) => {
       const arr = new Date(res.arrivalDate);
       const dep = new Date(res.departureDate);
-      const isArrToday = isSameDay(arr, now);
-      const isDepToday = isSameDay(dep, now);
-
-      const assignedRoomNo = res.rooms?.[0]?.room?.roomNumber || res.roomType?.name || 'Unassigned';
+      const assignedRoomNo =
+        res.rooms?.[0]?.room?.roomNumber ||
+        res.checkIns?.[0]?.room?.roomNumber ||
+        res.roomType?.name ||
+        'Unassigned';
       const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
       const ratePerNight = res.rooms?.[0]?.ratePerNight || Math.round(res.totalAmount / nights);
 
-      const formatted = {
+      const openFolio = res.folios?.[0];
+      const dueAmount = openFolio?.closingBalance !== undefined ? openFolio.closingBalance : (res.dueAmount || 0);
+
+      return {
         id: res.id,
         guestId: res.guestId,
         guestName: res.guest ? `${((res.guest as any).name || (res.guest.firstName || '') + ' ' + (res.guest.lastName || '')).trim()}` || 'Guest' : 'Guest',
@@ -146,15 +129,16 @@ export async function GET(request: NextRequest) {
         guestLastName: res.guest?.lastName || '',
         guestMobile: res.guest?.mobile || '',
         guestEmail: res.guest?.email || '',
-        guestAddress: res.guest?.address || res.guest?.billingAddress || res.billingAddress || '',
+        guestAddress: res.guest?.address || (res.guest as any)?.billingAddress || res.billingAddress || '',
         guestIdType: res.guest?.idType || 'Aadhaar Card',
-        guestIdNumber: res.guest?.idNumber || 'Verified ID',
+        guestIdNumber: maskAadhaar(res.guest?.idNumber),
         guestNationality: res.guest?.nationality || 'Indian',
         companyName: res.companyName || res.guest?.companyName || '',
         gstNumber: res.gstNumber || res.guest?.gstNumber || '',
         reservationNumber: res.bookingNo,
+        bookingNo: res.bookingNo,
         unitNumber: assignedRoomNo,
-        assignedRoomId: res.assignedRoomId || res.rooms?.[0]?.roomId,
+        assignedRoomId: res.checkIns?.[0]?.roomId || res.assignedRoomId || res.rooms?.[0]?.roomId,
         roomTypeName: res.roomType?.name || 'Standard Room',
         status: res.status,
         arrivalDate: res.arrivalDate,
@@ -168,61 +152,60 @@ export async function GET(request: NextRequest) {
         spaPackageCost: res.spaPackageCost || 0,
         poolAccess: res.poolAccess || false,
         poolPackage: res.poolPackage || 'NONE',
-        totalAmount: res.totalAmount,
-        advanceAmount: res.advanceAmount,
-        dueAmount: res.dueAmount,
+        totalAmount: openFolio?.totalCharges || res.totalAmount || 0,
+        advanceAmount: res.advanceAmount || 0,
+        dueAmount,
         notes: res.addOnNotes || '',
         source: res.companyName || 'Direct Walk-in',
         createdAt: res.createdAt,
       };
+    };
 
-      if (res.status === 'CANCELLED') {
-        cancelled.push(formatted);
-        return;
-      }
+    const arrivals = canonical.arrivalsToday.map(formatReservationItem);
+    const departures = canonical.departuresToday.map(formatReservationItem);
+    const inHouse = canonical.activeReservations.map(formatReservationItem);
+    const overdue = canonical.overdueDepartures.map(formatReservationItem);
 
-      // Check-in status
-      if (res.status === 'CHECKED_IN') {
-        inHouse.push(formatted);
-        totalActiveRevenue += res.totalAmount || 0;
-        const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
-        totalActiveNights += nights;
+    // Stayovers
+    const stayovers = allReservations
+      .filter((r) => {
+        if (r.status !== 'CHECKED_IN') return false;
+        const dep = new Date(r.departureDate);
+        return dep > todayEnd;
+      })
+      .map(formatReservationItem);
 
-        if (isDepToday || dep <= now) {
-          departures.push(formatted);
-        } else {
-          stayovers.push(formatted);
-        }
-      } else if (res.status === 'CONFIRMED' || res.status === 'PENDING') {
-        // Pending arrivals
-        if (isArrToday || arr <= now) {
-          arrivals.push(formatted);
-        } else {
-          arrivals.push(formatted);
-        }
-      }
+    // Balance Due list
+    const balanceDue = allReservations
+      .filter((r) => r.status !== 'CHECKED_OUT' && r.status !== 'CANCELLED' && (r.dueAmount > 0 || (r.folios?.[0]?.closingBalance && r.folios[0].closingBalance > 0)))
+      .map(formatReservationItem);
 
-      if ((res.dueAmount && res.dueAmount > 0) && res.status !== 'CHECKED_OUT') {
-        balanceDue.push(formatted);
-      }
+    // Active revenue & ADR
+    let totalActiveRevenue = 0;
+    let totalActiveNights = 0;
+    canonical.activeReservations.forEach((r) => {
+      const arr = new Date(r.arrivalDate);
+      const dep = new Date(r.departureDate);
+      const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
+      totalActiveRevenue += r.totalAmount || 0;
+      totalActiveNights += nights;
     });
 
-    // Units currently occupied
-    const occupiedCount = inHouse.length;
-    const occupancyPercent = totalRooms > 0 ? Math.min(100, Math.round((occupiedCount / totalRooms) * 100)) : 0;
-    const averageDailyRate = totalActiveNights > 0 ? Math.round(totalActiveRevenue / totalActiveNights) : (totalRooms > 0 ? 3500 : 0);
+    const averageDailyRate = totalActiveNights > 0
+      ? Math.round(totalActiveRevenue / totalActiveNights)
+      : (canonical.summary.totalRooms > 0 ? 3500 : 0);
 
-    // 5. Today's Activity Data
-    // Sales: Reservations created or active today
+    // Sales: Recent created or confirmed bookings
     const sales = allReservations
-      .filter(r => r.status !== 'CANCELLED')
+      .filter((r) => r.status !== 'CANCELLED')
       .slice(0, 10)
-      .map(r => {
+      .map((r) => {
         const arr = new Date(r.arrivalDate);
         const dep = new Date(r.departureDate);
         const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
-        const guestName = r.guest ? `${((r.guest as any).name || (r.guest.firstName || '') + ' ' + (r.guest.lastName || '')).trim()}` || 'Guest' : 'Guest';
-        const assignedRoomNo = r.rooms?.[0]?.room?.roomNumber || r.roomType?.name || 'Unassigned';
+        const guestName = r.guest
+          ? `${r.guest.firstName || ''} ${r.guest.lastName || ''}`.trim() || 'Guest'
+          : 'Guest';
         return {
           id: r.id,
           guestName,
@@ -232,146 +215,75 @@ export async function GET(request: NextRequest) {
           nights,
           source: r.companyName || 'Direct',
           type: 'Sales' as const,
-          booking: {
-            id: r.id,
-            bookingNo: r.bookingNo,
-            reservationNumber: r.bookingNo,
-            guestId: r.guestId,
-            guestName,
-            guestFirstName: r.guest?.firstName || '',
-            guestLastName: r.guest?.lastName || '',
-            guestMobile: r.guest?.mobile || '',
-            guestEmail: r.guest?.email || '',
-            guestAddress: r.guest?.address || (r.guest as any)?.billingAddress || r.billingAddress || '',
-            guestIdType: r.guest?.idType || 'Aadhaar Card',
-            guestIdNumber: r.guest?.idNumber || 'Verified ID',
-            guestNationality: r.guest?.nationality || 'Indian',
-            companyName: r.companyName || r.guest?.companyName || 'Direct Front Desk',
-            gstNumber: r.gstNumber || r.guest?.gstNumber || '',
-            unitNumber: assignedRoomNo,
-            assignedRoomId: r.assignedRoomId || r.rooms?.[0]?.roomId,
-            roomTypeName: r.roomType?.name || 'Standard Room',
-            status: r.status,
-            arrivalDate: r.arrivalDate,
-            departureDate: r.departureDate,
-            nights,
-            ratePerNight: r.rooms?.[0]?.ratePerNight || Math.round(r.totalAmount / nights),
-            adults: r.adults || 1,
-            children: r.children || 0,
-            mealPlan: r.mealPlan || 'RO',
-            totalAmount: r.totalAmount,
-            advanceAmount: r.advanceAmount,
-            dueAmount: r.dueAmount,
-            notes: r.addOnNotes || '',
-            addOnNotes: r.addOnNotes || '',
-            source: r.companyName || 'Direct',
-            createdAt: r.createdAt,
-            guest: r.guest,
-            roomType: r.roomType,
-            rooms: r.rooms,
-          }
+          booking: formatReservationItem(r),
         };
       });
 
-    const cancellationItems = cancelled.map(c => {
-      const arr = new Date(c.arrivalDate);
-      const dep = new Date(c.departureDate);
-      const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
-      return {
-        id: c.id,
-        guestName: c.guestName,
-        revenue: c.totalAmount,
-        currency,
-        checkInDate: arr.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-        nights,
-        source: c.source,
-        type: 'Cancellation' as const,
-        booking: {
-          ...c,
-          bookingNo: c.reservationNumber,
-        }
-      };
-    });
+    const cancellationItems = allReservations
+      .filter((r) => r.status === 'CANCELLED')
+      .map((c) => {
+        const arr = new Date(c.arrivalDate);
+        const dep = new Date(c.departureDate);
+        const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
+        const guestName = c.guest
+          ? `${c.guest.firstName || ''} ${c.guest.lastName || ''}`.trim() || 'Guest'
+          : 'Guest';
+        return {
+          id: c.id,
+          guestName,
+          revenue: c.totalAmount,
+          currency,
+          checkInDate: arr.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          nights,
+          source: c.companyName || 'Direct',
+          type: 'Cancellation' as const,
+          booking: formatReservationItem(c),
+        };
+      });
 
-    // 6. Dynamic 14 Days Outlook
+    // 14 Days Outlook
     const outlookDays: any[] = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const totalRooms = canonical.summary.totalRooms || 1;
 
     for (let i = 0; i < 14; i++) {
-      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const targetDate = new Date(todayStart.getTime() + i * 24 * 60 * 60 * 1000);
       const targetDayStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
-      const targetDayEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+      const targetDayEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
 
-      // Count bookings active on targetDate
       let bookedUnits = 0;
       let projectedRev = 0;
       const dayBookings: any[] = [];
 
-      allReservations.forEach(r => {
-        if (r.status === 'CANCELLED') return;
-        const arr = new Date(r.arrivalDate);
-        const dep = new Date(r.departureDate);
-        // Active if arrival <= targetDayEnd and departure >= targetDayStart
-        if (arr <= targetDayEnd && dep >= targetDayStart) {
-          bookedUnits++;
-          const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
-          projectedRev += Math.round(r.totalAmount / nights);
+      if (i === 0) {
+        // Today strictly matches canonical occupied count!
+        bookedUnits = canonical.summary.occupiedCount;
+        projectedRev = totalActiveRevenue;
+        canonical.activeReservations.forEach((r) => dayBookings.push(formatReservationItem(r)));
+      } else {
+        allReservations.forEach((r) => {
+          if (r.status === 'CANCELLED') return;
+          const arr = new Date(r.arrivalDate);
+          const dep = new Date(r.departureDate);
+          if (arr <= targetDayEnd && dep > targetDayStart) {
+            bookedUnits++;
+            const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / (1000 * 60 * 60 * 24)));
+            projectedRev += Math.round(r.totalAmount / nights);
+            dayBookings.push(formatReservationItem(r));
+          }
+        });
+      }
 
-          const assignedRoomNo = r.rooms?.[0]?.room?.roomNumber || r.roomType?.name || 'Unassigned';
-          const ratePerNight = r.rooms?.[0]?.ratePerNight || Math.round(r.totalAmount / nights);
-
-          dayBookings.push({
-            id: r.id,
-            guestId: r.guestId,
-            guestName: r.guest ? `${((r.guest as any).name || (r.guest.firstName || '') + ' ' + (r.guest.lastName || '')).trim()}` || 'Guest' : 'Guest',
-            guestFirstName: r.guest?.firstName || '',
-            guestLastName: r.guest?.lastName || '',
-            guestMobile: r.guest?.mobile || '',
-            guestEmail: r.guest?.email || '',
-            guestAddress: r.guest?.address || r.guest?.billingAddress || r.billingAddress || '',
-            guestIdType: r.guest?.idType || 'Aadhaar Card',
-            guestIdNumber: r.guest?.idNumber || 'Verified ID',
-            guestNationality: r.guest?.nationality || 'Indian',
-            companyName: r.companyName || r.guest?.companyName || '',
-            gstNumber: r.gstNumber || r.guest?.gstNumber || '',
-            reservationNumber: r.bookingNo,
-            bookingNo: r.bookingNo,
-            unitNumber: assignedRoomNo,
-            assignedRoomId: r.assignedRoomId || r.rooms?.[0]?.roomId,
-            roomTypeName: r.roomType?.name || 'Standard Room',
-            status: r.status,
-            arrivalDate: r.arrivalDate,
-            departureDate: r.departureDate,
-            nights,
-            ratePerNight,
-            adults: r.adults || 1,
-            children: r.children || 0,
-            mealPlan: r.mealPlan || 'RO',
-            totalAmount: r.totalAmount,
-            advanceAmount: r.advanceAmount,
-            dueAmount: r.dueAmount,
-            notes: r.addOnNotes || '',
-            source: r.companyName || 'Direct Front Desk',
-            createdAt: r.createdAt,
-            rooms: r.rooms,
-            roomType: r.roomType,
-            guest: r.guest,
-          });
-        }
-      });
-
-      // Avoid exceeding total rooms
-      const effectiveTotal = Math.max(totalRooms, 1);
-      const effectiveBooked = Math.min(bookedUnits, effectiveTotal);
-      const occRate = Math.round((effectiveBooked / effectiveTotal) * 100);
+      const effectiveBooked = Math.min(bookedUnits, totalRooms);
+      const occRate = Math.round((effectiveBooked / totalRooms) * 100);
 
       outlookDays.push({
         date: `${targetDate.getDate()} ${monthNames[targetDate.getMonth()]}`,
         dayName: dayNames[targetDate.getDay()],
         fullDate: targetDate.toISOString().split('T')[0],
         bookedUnits: effectiveBooked,
-        totalUnits: effectiveTotal,
+        totalUnits: totalRooms,
         occupancyRate: occRate,
         projectedRevenue: projectedRev > 0 ? projectedRev : (effectiveBooked * averageDailyRate),
         currency,
@@ -394,16 +306,24 @@ export async function GET(request: NextRequest) {
         currency,
       },
       stats: {
-        arrivals: arrivals.length,
-        departures: departures.length,
-        unitsBooked: occupiedCount,
-        occupancyPercent,
+        arrivals: canonical.summary.arrivalsTodayCount,
+        departures: canonical.summary.departuresTodayCount,
+        overdue: canonical.summary.overdueDeparturesCount,
+        stayovers: canonical.summary.stayoversCount,
+        unitsBooked: canonical.summary.occupiedCount,
+        occupancyPercent: canonical.summary.occupancyPct,
+        vacantUnits: canonical.summary.vacantCount,
+        cleanUnits: canonical.summary.vacantCleanCount,
+        dirtyUnits: canonical.summary.vacantDirtyCount,
+        maintenanceUnits: canonical.summary.maintenanceCount,
         averageDailyRate,
         currency,
+        businessDate: dateString,
       },
       reservations: {
         arrivals,
         departures,
+        overdue,
         stayovers,
         inHouse,
         balanceDue,
@@ -413,19 +333,23 @@ export async function GET(request: NextRequest) {
         sales,
         cancellations: cancellationItems,
         queries,
-        bookedTodayCount: allReservations.filter(r => isSameDay(new Date(r.createdAt), now)).length,
+        bookedTodayCount: allReservations.filter((r) => {
+          const c = new Date(r.createdAt);
+          return c >= todayStart && c <= todayEnd;
+        }).length,
         unitNights: totalActiveNights,
         todayRevenue: totalActiveRevenue,
       },
       outlook: outlookDays,
-      roomsList: rooms.map(r => ({
+      roomsList: canonical.rooms.map((r) => ({
         id: r.id,
         roomNumber: r.roomNumber,
         status: r.status,
-        roomTypeName: r.roomType?.name || 'Standard',
+        housekeepingStatus: r.housekeepingStatus,
+        roomTypeName: r.roomTypeName,
         roomTypeId: r.roomTypeId,
-        baseRate: r.roomType?.baseRate || 3000,
-      }))
+        baseRate: r.baseRate,
+      })),
     });
   } catch (error) {
     console.error('Error in operations-dashboard API:', error);

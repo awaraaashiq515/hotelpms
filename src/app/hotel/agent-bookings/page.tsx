@@ -213,9 +213,11 @@ export default function AgentBookingsPage() {
   const pending   = bookings.filter(b => b.status === 'PENDING').length;
   const confirmed = bookings.filter(b => b.status === 'CONFIRMED').length;
   const checkedIn = bookings.filter(b => b.status === 'CHECKED_IN').length;
-  const totalComm = bookings.reduce((s, b) => s + b.commission, 0);
-  const commPaid  = bookings.filter(b => b.commissionPaid).reduce((s, b) => s + b.commission, 0);
-  const totalRev  = bookings.reduce((s, b) => s + b.totalAmount, 0);
+  // H11: Exclude cancelled bookings from Total Revenue and Commission Due
+  const activeBookings = bookings.filter(b => b.status !== 'CANCELLED');
+  const totalComm = activeBookings.reduce((s, b) => s + b.commission, 0);
+  const commPaid  = activeBookings.filter(b => b.commissionPaid).reduce((s, b) => s + b.commission, 0);
+  const totalRev  = activeBookings.reduce((s, b) => s + b.totalAmount, 0);
 
   const filtered = bookings.filter(b => {
     const q = search.toLowerCase();

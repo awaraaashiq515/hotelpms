@@ -255,14 +255,14 @@ export default function SecurityVerifyPage() {
 
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                   <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
-                    Payment Status
+                    Front Desk Clearance
                   </p>
                   <p
                     className={`font-bold mt-0.5 text-xs ${
                       (res?.dueAmount ?? 0) > 0 ? 'text-amber-400' : 'text-emerald-400'
                     }`}
                   >
-                    {(res?.dueAmount ?? 0) > 0 ? `₹${res?.dueAmount} Due` : 'Fully Paid / Clear'}
+                    {(res?.dueAmount ?? 0) > 0 ? 'Collect At Reception' : 'Verified & Cleared'}
                   </p>
                 </div>
               </div>

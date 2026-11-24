@@ -45,6 +45,8 @@ model Property {
   city                          String?
   state                         String?
   country                       String?
+  timezone                      String                   @default("Asia/Kolkata")
+  businessDate                  DateTime?
   checkInTime                   String?
   checkOutTime                  String?
   createdAt                     DateTime                 @default(now())
@@ -385,6 +387,8 @@ model RoomType {
   rooms               Room[]
   channelRoomMappings ChannelRoomMapping[]
   property            Property             @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, code])
 }
 
 model Room {
@@ -409,6 +413,8 @@ model Room {
   reservationRooms   ReservationRoom[]
   roomType           RoomType            @relation(fields: [roomTypeId], references: [id])
   property           Property            @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, roomNumber])
 }
 
 model Reservation {
@@ -528,6 +534,11 @@ model FolioTransaction {
   debitAmount  Float    @default(0)
   creditAmount Float    @default(0)
   taxAmount    Float    @default(0)
+  cgst         Float    @default(0)
+  sgst         Float    @default(0)
+  igst         Float    @default(0)
+  taxable      Float    @default(0)
+  sacCode      String?
   netAmount    Float
   folio        Folio    @relation(fields: [folioId], references: [id])
 }
@@ -834,6 +845,11 @@ model InvoiceItem {
   qty         Float
   unitPrice   Float
   taxAmount   Float    @default(0)
+  cgst        Float    @default(0)
+  sgst        Float    @default(0)
+  igst        Float    @default(0)
+  taxable     Float    @default(0)
+  sacCode     String?
   totalAmount Float
   hsnCode     String?
   status      String   @default("NORMAL")
@@ -1692,6 +1708,7 @@ model RoomPortalSession {
   lastActivity  DateTime  @default(now())
   loginAt       DateTime  @default(now())
   logoutAt      DateTime?
+  expiresAt     DateTime?
   createdAt     DateTime  @default(now())
   tablet        Tablet?   @relation(fields: [tabletId], references: [id])
 
@@ -3575,4 +3592,180 @@ model OfflineSyncQueue {
 
   @@index([synced])
   @@index([timestamp])
+}
+
+// ─────────────────────────────────────────────────────────────
+// ROOM BLOCKS (WP-0.2: Out of Order / Maintenance / Blocks)
+// ─────────────────────────────────────────────────────────────
+model RoomBlock {
+  id         String   @id @default(cuid())
+  propertyId String
+  roomId     String
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  status     String   @default("ACTIVE") // ACTIVE, RELEASED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([roomId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// DOUBLE-ENTRY LEDGER (WP-0.5: Cash Book, Day Book, General Ledger)
+// ─────────────────────────────────────────────────────────────
+model JournalEntry {
+  id          String        @id @default(cuid())
+  propertyId  String
+  entryNumber String        @unique
+  date        DateTime      @default(now())
+  source      String        // FOLIO, POS, EXPENSE, PAYROLL, MANUAL
+  refId       String?       // Folio ID, POS Order ID, Expense ID, etc.
+  description String?
+  isBalanced  Boolean       @default(true)
+  lines       JournalLine[]
+  createdAt   DateTime      @default(now())
+
+  @@index([propertyId])
+  @@index([date])
+  @@index([source])
+}
+
+model JournalLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  accountName    String?
+  debit          Float        @default(0) // in rupees or paise
+  credit         Float        @default(0)
+  description    String?
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// APPROVAL WORKFLOWS (WP-0.6: Discounts, Comps, Overrides)
+// ─────────────────────────────────────────────────────────────
+model ApprovalRequest {
+  id            String    @id @default(cuid())
+  propertyId    String
+  type          String    // DISCOUNT, COMPLIMENTARY, VOID, PRICE_OVERRIDE
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  requestedBy   String
+  approvedBy    String?
+  rejectedBy    String?
+  refModule     String    // FOLIO, POS, ROOM
+  refId         String?   // folioId or posOrderId
+  discountPct   Float?
+  discountAmt   Float?
+  reason        String
+  pinVerified   Boolean   @default(false)
+  actionedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// INVOICE SERIES & CREDIT/DEBIT NOTES (WP-0.4)
+// ─────────────────────────────────────────────────────────────
+model InvoiceSeries {
+  id         String   @id @default(cuid())
+  propertyId String
+  fy         String   // e.g. "2026-27"
+  prefix     String   @default("INV")
+  nextNumber Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([propertyId, fy, prefix])
+}
+
+model CreditNote {
+  id           String   @id @default(cuid())
+  propertyId   String
+  creditNoteNo String   @unique
+  invoiceId    String
+  folioId      String?
+  guestId      String?
+  amount       Float
+  taxAmount    Float    @default(0)
+  reason       String
+  status       String   @default("ISSUED") // ISSUED, CANCELLED
+  createdAt    DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([invoiceId])
+}
+
+model DebitNote {
+  id          String   @id @default(cuid())
+  propertyId  String
+  debitNoteNo String   @unique
+  invoiceId   String
+  folioId     String?
+  guestId     String?
+  amount      Float
+  taxAmount   Float    @default(0)
+  reason      String
+  status      String   @default("ISSUED")
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([invoiceId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// NIGHT AUDIT RUNS (WP-0.8: Real, Idempotent Night Audit)
+// ─────────────────────────────────────────────────────────────
+model NightAuditRun {
+  id           String           @id @default(cuid())
+  propertyId   String
+  businessDate String           // YYYY-MM-DD
+  status       String           @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, FAILED
+  startedAt    DateTime         @default(now())
+  completedAt  DateTime?
+  performedBy  String?
+  summary      String?          // JSON summary of room revenue, tax, payments, no-shows
+  steps        NightAuditStep[]
+
+  @@unique([propertyId, businessDate])
+}
+
+model NightAuditStep {
+  id        String        @id @default(cuid())
+  runId     String
+  stepIndex Int
+  stepName  String
+  status    String        @default("PENDING") // PENDING, RUNNING, SUCCESS, FAILED, SKIPPED
+  message   String?
+  details   String?       // JSON details
+  createdAt DateTime      @default(now())
+  run       NightAuditRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BACKUP RUNS (WP-0.12: Server Backups & Verification)
+// ─────────────────────────────────────────────────────────────
+model BackupRun {
+  id          String    @id @default(cuid())
+  propertyId  String?
+  backupType  String    @default("AUTO") // AUTO, MANUAL
+  status      String    @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  fileName    String
+  fileSize    Int
+  storageUrl  String?
+  checksum    String?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+
+  @@index([propertyId])
+  @@index([startedAt])
 }

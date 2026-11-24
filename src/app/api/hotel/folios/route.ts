@@ -202,8 +202,43 @@ export async function GET(request: NextRequest) {
 
       const combinedPosOrders = [...folio.posOrders, ...additionalPosOrders];
 
+      // Reconcile POS Orders with folio transactions
+      const existingPosTxns = folio.transactions.filter(
+        (t) => t.debitAmount > 0 && (t.sourceModule === 'POS' || t.sourceModule === 'ROOM_SERVICE')
+      );
+
+      // Identify any orders not yet recorded as a debit transaction
+      const unpostedOrders = combinedPosOrders.filter((o) => {
+        return !existingPosTxns.some(
+          (t) => t.sourceRefId === o.id || (o.orderNo && t.description?.includes(o.orderNo))
+        );
+      });
+
+      const unpostedPosTotal = unpostedOrders.reduce((sum, o) => sum + (Number(o.grandTotal) || 0), 0);
+
+      const virtualPosTxns = unpostedOrders.map((o) => ({
+        id: `pos-${o.id}`,
+        folioId: folio.id,
+        txnType: 'DEBIT' as const,
+        sourceModule: o.tableNo?.toLowerCase().includes('room') ? 'ROOM_SERVICE' : 'POS',
+        sourceRefId: o.id,
+        description: `${o.outlet?.name || 'Restaurant'} — Order #${o.orderNo}`,
+        debitAmount: Number(o.grandTotal) || 0,
+        creditAmount: 0,
+        taxAmount: Number(o.taxAmount) || 0,
+        netAmount: Number(o.grandTotal) || 0,
+        txnDate: o.createdAt ? new Date(o.createdAt).toISOString() : new Date().toISOString(),
+      }));
+
+      const allTransactions = [...folio.transactions, ...virtualPosTxns];
+      const recalculatedTotalCharges = (folio.totalCharges || 0) + unpostedPosTotal;
+      const recalculatedClosingBalance = Math.max(0, recalculatedTotalCharges - (folio.totalPayments || 0));
+
       const enrichedFolio = {
         ...folio,
+        totalCharges: recalculatedTotalCharges,
+        closingBalance: recalculatedClosingBalance,
+        transactions: allTransactions,
         posOrders: combinedPosOrders,
         spaBookings,
         laundryRequests,

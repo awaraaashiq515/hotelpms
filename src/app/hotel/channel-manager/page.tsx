@@ -256,6 +256,7 @@ export default function ChannelManagerPage() {
             const isConnected = c.status === 'CONNECTED';
             const isPaused = c.status === 'PAUSED';
             const isDisconnected = c.status === 'DISCONNECTED';
+            const isStale = (c as any).isStale || (isConnected && (!c.lastSyncAt || (Date.now() - new Date(c.lastSyncAt).getTime() > 60 * 60 * 1000)));
 
             const markupPct = Math.round((c.rateMultiplier - 1) * 100);
 
@@ -280,7 +281,9 @@ export default function ChannelManagerPage() {
                           <h3 className="text-base font-black text-white">{c.name}</h3>
                           <span
                             className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                              isConnected
+                              isStale
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : isConnected
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 : isPaused
                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
@@ -289,14 +292,23 @@ export default function ChannelManagerPage() {
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
-                                isConnected ? 'bg-emerald-400 animate-pulse' : isPaused ? 'bg-amber-400' : 'bg-slate-500'
+                                isStale
+                                  ? 'bg-amber-400 animate-pulse'
+                                  : isConnected
+                                  ? 'bg-emerald-400 animate-pulse'
+                                  : isPaused
+                                  ? 'bg-amber-400'
+                                  : 'bg-slate-500'
                               }`}
                             />
-                            {c.status}
+                            {isStale ? 'STALE (>1h)' : c.status}
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          Provider: <span className="text-slate-300">{c.channelManagerProvider}</span> · Sync: {timeAgo(c.lastSyncAt)}
+                          Provider: <span className="text-slate-300">{c.channelManagerProvider || 'OTA 2-Way API'}</span> · Sync:{' '}
+                          <span className={isStale ? 'text-amber-400 font-bold' : 'text-slate-300'}>
+                            {timeAgo(c.lastSyncAt)} {isStale ? '(Needs Sync)' : ''}
+                          </span>
                         </p>
                       </div>
                     </div>

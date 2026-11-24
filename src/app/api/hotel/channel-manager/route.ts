@@ -196,7 +196,8 @@ export async function GET(request: NextRequest) {
       }).catch(() => []),
     ]);
 
-    // Compute actual channel statistics from real reservations
+    // Compute actual channel statistics from real reservations & real sync health
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
     const enrichedChannels = channels.map((c) => {
       const channelRes = reservations.filter((r) => {
         if (r.status === 'CANCELLED') return false;
@@ -208,9 +209,12 @@ export async function GET(request: NextRequest) {
 
       const actualBookings = channelRes.length;
       const actualRevenue = channelRes.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+      const isStale = c.status === 'CONNECTED' && (!c.lastSyncAt || new Date(c.lastSyncAt).getTime() < oneHourAgo);
 
       return {
         ...c,
+        isStale,
+        health: isStale ? 'STALE' : (c.status === 'CONNECTED' ? 'HEALTHY' : c.status),
         totalBookingsReceived: actualBookings > 0 ? actualBookings : (c.totalBookingsReceived || 0),
         totalRevenueGenerated: actualRevenue > 0 ? actualRevenue : (c.totalRevenueGenerated || 0),
       };

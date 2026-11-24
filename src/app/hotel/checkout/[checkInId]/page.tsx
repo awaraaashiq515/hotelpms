@@ -387,7 +387,7 @@ function CheckoutDetailContent() {
 
       const gstDetails = computeGstBreakdown(folioToPrint, nights);
       const prop = folioToPrint.reservation?.property;
-      const propertyGstin = prop?.taxDetails || (folioToPrint.reservation?.property as any)?.taxDetails || '02AABCG1234A1Z5';
+      const propertyGstin = prop?.taxDetails || (folioToPrint.reservation?.property as any)?.taxDetails || 'Not Registered / Pending in Settings';
       const guestGstin = folioToPrint.reservation?.gstNumber || folioToPrint.guest?.gstNumber || '';
 
       const hotelBillPayload = {
@@ -1763,13 +1763,62 @@ function CheckoutDetailContent() {
               <h3 className="font-black text-white text-sm">Bill Summary</h3>
             </div>
 
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/50">
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <TrendingUp size={11} className="text-red-400" /> Total Charges
-                </div>
-                <span className="text-sm font-black text-red-400">{fmt(folio.totalCharges)}</span>
+            <div className="space-y-2.5 mb-4">
+              {/* Room Stay */}
+              <div className="flex items-center justify-between py-1.5 text-xs border-b border-slate-800/40">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <Bed size={12} className="text-sky-400" /> Room Stay ({nights} Night{nights !== 1 ? 's' : ''})
+                </span>
+                <span className="font-bold text-slate-200">
+                  {fmt(
+                    folio.transactions
+                      .filter((t) => t.debitAmount > 0 && !['POS', 'ROOM_SERVICE', 'GST'].includes(t.sourceModule))
+                      .reduce((sum, t) => sum + t.debitAmount, 0) || Number(folio.reservation?.totalAmount || 0)
+                  )}
+                </span>
               </div>
+
+              {/* Restaurant / Room Service POS Orders */}
+              {((totalPosSpend > 0) || folio.transactions.some(t => t.debitAmount > 0 && ['POS', 'ROOM_SERVICE'].includes(t.sourceModule))) && (
+                <div className="flex items-center justify-between py-1.5 text-xs border-b border-slate-800/40">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <UtensilsCrossed size={12} className="text-amber-400" /> Restaurant & Food Orders {posOrdersList.length > 0 ? `(${posOrdersList.length})` : ''}
+                  </span>
+                  <span className="font-bold text-amber-300">
+                    {fmt(
+                      totalPosSpend > 0
+                        ? totalPosSpend
+                        : folio.transactions
+                            .filter((t) => t.debitAmount > 0 && ['POS', 'ROOM_SERVICE'].includes(t.sourceModule))
+                            .reduce((sum, t) => sum + t.debitAmount, 0)
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Laundry Services (if any) */}
+              {totalLaundrySpend > 0 && (
+                <div className="flex items-center justify-between py-1.5 text-xs border-b border-slate-800/40">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Shirt size={12} className="text-sky-400" /> Laundry Services
+                  </span>
+                  <span className="font-bold text-sky-300">
+                    {fmt(totalLaundrySpend)}
+                  </span>
+                </div>
+              )}
+
+              {/* Spa Services (if any) */}
+              {totalSpaSpend > 0 && (
+                <div className="flex items-center justify-between py-1.5 text-xs border-b border-slate-800/40">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-purple-400" /> Spa Services
+                  </span>
+                  <span className="font-bold text-purple-300">
+                    {fmt(totalSpaSpend)}
+                  </span>
+                </div>
+              )}
 
               {/* GST breakdown in summary (if posted) */}
               {gstPosted && folio.transactions
@@ -1777,7 +1826,7 @@ function CheckoutDetailContent() {
                 .map((t) => (
                   <div key={t.id} className="flex items-center justify-between py-1 px-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
                     <div className="flex items-center gap-1.5 text-xs text-amber-400">
-                      <Percent size={10} /> GST (incl.)
+                      <Percent size={10} /> GST Tax (incl.)
                     </div>
                     <span className="text-xs font-bold text-amber-400">{fmt(t.debitAmount)}</span>
                   </div>
@@ -1794,12 +1843,23 @@ function CheckoutDetailContent() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/50">
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              {/* Total Bill Amount */}
+              <div className="flex items-center justify-between py-2 border-t border-b border-slate-700/60 bg-slate-800/25 px-2.5 rounded-xl">
+                <div className="flex items-center gap-1.5 text-xs font-black text-white">
+                  <TrendingUp size={12} className="text-red-400" /> Total Bill Amount
+                </div>
+                <span className="text-base font-black text-red-400">{fmt(folio.totalCharges)}</span>
+              </div>
+
+              {/* Total Paid */}
+              <div className="flex items-center justify-between py-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-400">
                   <TrendingDown size={11} className="text-emerald-400" /> Total Paid
                 </div>
                 <span className="text-sm font-black text-emerald-400">{fmt(folio.totalPayments)}</span>
               </div>
+
+              {/* Balance Due */}
               <div
                 className={`flex items-center justify-between py-3 px-3 rounded-xl ${
                   isSettled

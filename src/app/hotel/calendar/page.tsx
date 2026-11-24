@@ -766,7 +766,7 @@ export default function HotelCalendarPage() {
                             : 'text-slate-400'
                         }`}
                       >
-                        {stat.rate},00%
+                        {stat.rate}%
                       </div>
                     </th>
                   );
@@ -847,7 +847,7 @@ export default function HotelCalendarPage() {
                                   </span>
                                   <div className="flex items-center gap-1 justify-center">
                                     <span className="text-[9px] text-emerald-400 font-bold font-mono">
-                                      {currency} {effectiveRate.toLocaleString('en-IN')},00
+                                      {currency} {effectiveRate.toLocaleString('en-IN')}
                                     </span>
                                     <span className="text-[8px] bg-emerald-500/20 text-emerald-300 font-extrabold px-1 rounded">
                                       -{discountPercent}%

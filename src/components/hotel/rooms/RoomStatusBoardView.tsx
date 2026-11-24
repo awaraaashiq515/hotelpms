@@ -307,7 +307,7 @@ export default function RoomStatusBoardView() {
             className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer"
           >
             <Plus size={15} />
-            <span>+ Book Room</span>
+            <span>Book Room</span>
           </button>
 
           {/* Auto Refresh Toggle */}

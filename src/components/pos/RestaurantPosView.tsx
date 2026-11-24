@@ -2586,7 +2586,7 @@ Total Amount: ₹${grandTotal.toFixed(2)}
                               <div className={`w-3.5 h-3.5 border-2 border-current rounded-sm flex items-center justify-center bg-white shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${product.isVeg === false ? 'text-rose-600' : 'text-emerald-600'}`}>
                                 <div className="w-1.5 h-1.5 rounded-full bg-current" />
                               </div>
-                              <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: isColored ? cardColor.text : darkText, transition: transitionStr('color'), opacity: theme === 'light' ? 0.7 : 0.6 }}>HSN {product.hsnCode || '2106'}</span>
+                              <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: isColored ? cardColor.text : darkText, transition: transitionStr('color'), opacity: theme === 'light' ? 0.7 : 0.6 }}>SAC {product.hsnCode || '996331'}</span>
                             </div>
                             <div className="text-right">
                               <p className="text-[7px] font-black uppercase opacity-40 leading-none mb-0.5">Price</p>

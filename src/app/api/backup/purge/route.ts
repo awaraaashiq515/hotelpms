@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { getSession } from '@/lib/session';
 
 const PROJECT_DIR = process.cwd();
 const DB_PATH     = path.join(PROJECT_DIR, 'prisma', 'dev.db');
@@ -94,6 +95,12 @@ const PURGE_CATEGORIES: Record<string, {
 
 // ── GET /api/backup/purge → Return categories + record counts ─────────────────
 export async function GET(req: NextRequest) {
+  // H12: Strict role permission — Owner / Admin only
+  const session = await getSession();
+  if (!session || !['HOTEL_ADMIN', 'SUPER_ADMIN', 'RESTAURANTS_ADMIN'].includes(session.role)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Data purge requires Hotel Owner/Admin permissions.' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const beforeDate = searchParams.get('before');   // ISO date string
   const propCode   = searchParams.get('propertyCode') || '';
@@ -138,12 +145,23 @@ export async function GET(req: NextRequest) {
 // ── POST /api/backup/purge → Execute purge ────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    // H12: Strict role permission — Owner / Admin only
+    const session = await getSession();
+    if (!session || !['HOTEL_ADMIN', 'SUPER_ADMIN', 'RESTAURANTS_ADMIN'].includes(session.role)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Data purge requires Hotel Owner/Admin permissions.' }, { status: 403 });
+    }
+
     const body = await req.json().catch(() => ({}));
-    const { beforeDate, selectedCategories, propertyCode } = body as {
+    const { beforeDate, selectedCategories, propertyCode, confirmKeyword } = body as {
       beforeDate: string;
       selectedCategories: string[];
       propertyCode?: string;
+      confirmKeyword?: string;
     };
+
+    if (String(confirmKeyword).trim().toUpperCase() !== 'PURGE') {
+      return NextResponse.json({ success: false, error: 'Typed confirmation PURGE is strictly required to delete data.' }, { status: 400 });
+    }
 
     if (!beforeDate) {
       return NextResponse.json({ success: false, error: 'beforeDate is required' }, { status: 400 });

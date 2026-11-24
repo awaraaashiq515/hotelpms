@@ -103,10 +103,10 @@ export function ReportCard({
           onClick={() => onPreview(report.id)}
           disabled={generating}
           className="h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-colors disabled:opacity-40"
-          title="Table mein dekho"
+          title="View in table"
         >
           <Eye size={11} />
-          <span>Dekho</span>
+          <span>View</span>
         </button>
 
         <button

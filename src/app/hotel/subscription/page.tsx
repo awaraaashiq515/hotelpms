@@ -208,8 +208,16 @@ export default function MySubscriptionPage() {
   };
 
   const daysLeft = data ? getDaysLeft(data.packageEndDate) : null;
-  const planColor = data?.packageName ? (PLAN_COLORS[data.packageName] || '#8b5cf6') : '#64748b';
-  const hasPackage = !!data?.packageName;
+  const displayPackageName = (data?.packageName === 'Enterprise' || data?.packageName === 'All-Inclusive Enterprise' || data?.packageName === 'Premium')
+    ? 'All-Inclusive Enterprise'
+    : (data?.packageName || 'All-Inclusive Enterprise');
+  const planColor = displayPackageName ? (PLAN_COLORS[displayPackageName] || PLAN_COLORS['Enterprise'] || '#8b5cf6') : '#64748b';
+  const hasPackage = Boolean(data && data.packageName);
+
+  const validActiveFeatures = (data?.packageFeatures || []).filter(k => ALL_FEATURE_KEYS.includes(k));
+  const activeFeaturesCount = validActiveFeatures.length > 0
+    ? Math.min(validActiveFeatures.length, ALL_FEATURE_KEYS.length)
+    : ALL_FEATURE_KEYS.length;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6 space-y-6" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -232,7 +240,7 @@ export default function MySubscriptionPage() {
         <div className="flex items-center justify-center py-24">
           <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-400 rounded-full animate-spin" />
         </div>
-      ) : !hasPackage ? (
+      ) : !data || !hasPackage ? (
         /* ── NO PLAN STATE ── */
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-24 h-24 rounded-3xl bg-slate-800 border border-white/10 flex items-center justify-center mb-6 shadow-xl">
@@ -348,14 +356,14 @@ export default function MySubscriptionPage() {
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Current Plan</p>
-                <h2 className="text-2xl font-extrabold text-white">{data.packageName}</h2>
+                <h2 className="text-2xl font-extrabold text-white">{displayPackageName}</h2>
               </div>
             </div>
 
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-white/5 rounded-2xl p-3 text-center">
-                <p className="text-lg font-extrabold" style={{ color: planColor }}>{data.packageFeatures.length}</p>
+                <p className="text-lg font-extrabold" style={{ color: planColor }}>{activeFeaturesCount}</p>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Features</p>
               </div>
               <div className="bg-white/5 rounded-2xl p-3 text-center">
@@ -398,7 +406,7 @@ export default function MySubscriptionPage() {
                 <p className="font-extrabold text-white text-sm">Feature Access</p>
               </div>
               <span className="text-[11px] font-bold text-violet-300 bg-violet-500/15 px-3 py-1 rounded-full">
-                {data.packageFeatures.length} / {ALL_FEATURE_KEYS.length} features
+                {activeFeaturesCount} / {ALL_FEATURE_KEYS.length} features
               </span>
             </div>
 

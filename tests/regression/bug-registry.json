@@ -1,0 +1,912 @@
+[
+  {
+    "id": "BKG-07",
+    "severity": "Critical",
+    "module": "Bookings",
+    "title": "Same room can be sold twice for overlapping dates (no double-booking prevention)",
+    "whatHappensNow": "Two concurrent POST /bookings requests for the same room and dates both succeed, creating two active reservations for one room.",
+    "fixNeeded": "PostgreSQL exclusion constraint on (roomId, daterange) + Serializable transaction in availability check. HTTP 409 on second request.",
+    "wp": "WP-0.2",
+    "tests": ["tests/integration/bookings.availability.spec.ts"]
+  },
+  {
+    "id": "ROOM-08",
+    "severity": "Critical",
+    "module": "Rooms",
+    "title": "Duplicate room numbers allowed within same property",
+    "whatHappensNow": "Creating two rooms with the same number in one property succeeds silently.",
+    "fixNeeded": "@@unique([propertyId, number]) constraint on Room model. API returns 409 on duplicate.",
+    "wp": "WP-0.3",
+    "tests": ["tests/integration/rooms.validation.spec.ts"]
+  },
+  {
+    "id": "TAX-01",
+    "severity": "Critical",
+    "module": "GST / Tax",
+    "title": "GST computed but CGST/SGST/IGST not stored per line; discount applied after tax instead of before",
+    "whatHappensNow": "Invoice shows a single tax amount. No CGST/SGST breakdown on folio lines. Discount reduces tax base incorrectly.",
+    "fixNeeded": "Add CGST, SGST, IGST, taxable, sacCode columns to FolioTransaction and InvoiceItem. Compute GST after discount on taxable base.",
+    "wp": "WP-0.4",
+    "tests": ["tests/unit/gst.spec.ts", "tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "BKG-03",
+    "severity": "Critical",
+    "module": "Bookings / GST",
+    "title": "GST slab not applied correctly at booking creation for different tariff bands",
+    "whatHappensNow": "New booking for ₹8,000/night room shows 5% GST instead of 18%. Tariff threshold logic not wired to booking creation.",
+    "fixNeeded": "Call computeRoomGst() at booking creation; store rate on FolioTransaction.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "FOL-04",
+    "severity": "Critical",
+    "module": "Folio",
+    "title": "Folio charges do not carry CGST/SGST/IGST breakdown",
+    "whatHappensNow": "FolioTransaction has a single taxAmount field. CGST/SGST/IGST split is computed at display time (and incorrectly) rather than stored.",
+    "fixNeeded": "Add cgst, sgst, igst, taxable, sacCode to FolioTransaction. Store on write.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "ACC-01",
+    "severity": "Critical",
+    "module": "Accounting / Ledger",
+    "title": "Payments do not create journal entries — Cash Book is empty",
+    "whatHappensNow": "Recording a folio payment updates the folio balance but writes no JournalEntry. Cash Book shows no entries.",
+    "fixNeeded": "Create JournalEntry + JournalLine (balanced debit/credit) on every payment, charge, refund, discount, void in a transaction.",
+    "wp": "WP-0.5",
+    "tests": ["tests/integration/ledger.posting.spec.ts"]
+  },
+  {
+    "id": "ACC-02",
+    "severity": "Critical",
+    "module": "Accounting / Ledger",
+    "title": "Day Book and Ledger show no data — ledger tables not populated",
+    "whatHappensNow": "accounts/day-book and accounts/ledger pages query JournalEntry which does not exist in schema; pages show empty.",
+    "fixNeeded": "Implement JournalEntry / JournalLine model and populate from all money-moving actions.",
+    "wp": "WP-0.5",
+    "tests": ["tests/integration/ledger.posting.spec.ts"]
+  },
+  {
+    "id": "RPT-02",
+    "severity": "Critical",
+    "module": "Reports",
+    "title": "GST report shows figures that do not match issued invoices",
+    "whatHappensNow": "GST summary on reports page is computed ad-hoc from FolioTransaction amounts, not from issued Invoice records. Figures mismatch actual invoices.",
+    "fixNeeded": "GST report and GSTR-1 export must read only from Invoice records with status=ISSUED.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/reports.spec.ts"]
+  },
+  {
+    "id": "NA-01",
+    "severity": "Critical",
+    "module": "Night Audit",
+    "title": "Night audit is not idempotent — running twice posts double room charges",
+    "whatHappensNow": "POST /api/hotel/night-audit with RUN_ALL action checks if a charge was posted 'today' using a string match on description, not an idempotency key. Timing or description variation causes duplicate postings.",
+    "fixNeeded": "NightAuditRun table with (propertyId, auditDate) unique key. Each step writes NightAuditStep. Room charge posts only if no ROOM_RENT FolioTransaction exists for that room and that business date.",
+    "wp": "WP-0.8",
+    "tests": ["tests/integration/nightaudit.spec.ts"]
+  },
+  {
+    "id": "ROOMP-01",
+    "severity": "Critical",
+    "module": "Room Portal",
+    "title": "Room portal QR token does not expire at checkout — ex-guest can still access the portal",
+    "whatHappensNow": "RoomPortalSession token has no expiry tied to checkout. After checkout the portal still shows the ex-guest's data.",
+    "fixNeeded": "On checkout: set RoomPortalSession.isActive=false and logoutAt=now(). Portal middleware returns 403 if isActive=false.",
+    "wp": "WP-0.11",
+    "tests": ["tests/integration/portal.token.spec.ts"]
+  },
+  {
+    "id": "SEC-01",
+    "severity": "Critical",
+    "module": "Security / RBAC",
+    "title": "Receptionist can access payroll, backup, settings and revenue APIs — no RBAC enforcement",
+    "whatHappensNow": "No middleware.ts; API routes check role by name ad-hoc. A receptionist can call GET /api/hotel/payroll or /api/hotel/backup and get data.",
+    "fixNeeded": "requirePermission(session, permission) in every protected route. middleware.ts blocks route access by role. Receptionist cannot access payroll, backup, revenue, settings, users, AI keys.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "ROLE-02",
+    "severity": "Critical",
+    "module": "Security / RBAC",
+    "title": "Role permissions from DB not loaded into session — permission array always empty",
+    "whatHappensNow": "Session.permissions is optional and never populated from RolePermission table. All permission checks fall back to role-name string comparison.",
+    "fixNeeded": "On login, query RolePermission JOIN Permission for the user's role; embed permissions[] in JWT.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "BI-01",
+    "severity": "Critical",
+    "module": "Business Intelligence / Analytics",
+    "title": "Analytics dashboard shows hardcoded/demo metrics not from real data",
+    "whatHappensNow": "Analytics page shows static occupancy percentage and revenue figures that do not change with real bookings.",
+    "fixNeeded": "All analytics KPIs (Occupancy %, ADR, RevPAR, Revenue) must come from real DB queries. Show empty state when no data.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "BE-01",
+    "severity": "Critical",
+    "module": "Booking Engine",
+    "title": "Booking engine preview link points to localhost:3000",
+    "whatHappensNow": "hotel/booking-engine/page.tsx has href='http://localhost:3000/book'. Clicking it in production opens localhost.",
+    "fixNeeded": "Replace with NEXT_PUBLIC_APP_URL/book/[propertySlug].",
+    "wp": "WP-0.13",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "CTR-01",
+    "severity": "Critical",
+    "module": "POS / Counter Payments",
+    "title": "Counter Payments total includes room-posted orders — inflated cash figure",
+    "whatHappensNow": "Counter Payments page sums all PAID orders including those posted to room folios. Cash/UPI figures are overstated.",
+    "fixNeeded": "Filter: exclude PosOrders where folioId IS NOT NULL (room-posted) from counter payment totals.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "BAK-01",
+    "severity": "Critical",
+    "module": "Backup",
+    "title": "Backup copies SQLite to Desktop — not a real server backup; fails in cloud hosting",
+    "whatHappensNow": "npm run backup:start writes to ~/Desktop and local backups/ directory. Vercel hosting has no persistent disk; backups are lost on each deploy.",
+    "fixNeeded": "Server-side pg_dump (or SQLite dump) → compress → encrypt → upload to S3/R2/GCS. Record BackupRun in DB.",
+    "wp": "WP-0.12",
+    "tests": ["tests/integration/backup.spec.ts"]
+  },
+  {
+    "id": "ROOM-04",
+    "severity": "Critical",
+    "module": "Rooms",
+    "title": "Room can be created with negative or zero base rate",
+    "whatHappensNow": "POST /api/hotel/room-types accepts baseRate: 0 or baseRate: -500 without error.",
+    "fixNeeded": "Zod validator: baseRate must be a positive integer (paise). API returns 400 on invalid.",
+    "wp": "WP-0.3",
+    "tests": ["tests/integration/rooms.validation.spec.ts"]
+  },
+  {
+    "id": "ROOM-10",
+    "severity": "Critical",
+    "module": "Rooms",
+    "title": "Room category code is not unique per property — duplicate codes cause data confusion",
+    "whatHappensNow": "Two RoomTypes can have the same code within the same property.",
+    "fixNeeded": "@@unique([propertyId, code]) on RoomType model.",
+    "wp": "WP-0.3",
+    "tests": ["tests/integration/rooms.validation.spec.ts"]
+  },
+  {
+    "id": "FOL-07",
+    "severity": "Critical",
+    "module": "Folio / Discount",
+    "title": "Over-limit discount applied instantly without admin approval",
+    "whatHappensNow": "A receptionist can apply a 50% discount even when property.maxStaffDiscountPercent = 10. No approval gate exists in the API.",
+    "fixNeeded": "Discount service checks limit; if exceeded, creates ApprovalRequest(PENDING) and returns 202 instead of applying immediately.",
+    "wp": "WP-0.6",
+    "tests": ["tests/integration/discount.approval.spec.ts"]
+  },
+  {
+    "id": "FOL-08",
+    "severity": "Critical",
+    "module": "Folio",
+    "title": "Invoice can be re-issued / mutated after ISSUED status — breaking audit trail",
+    "whatHappensNow": "No immutability check on Invoice status. PATCH /invoices can change amounts on an issued invoice.",
+    "fixNeeded": "Any write to an Invoice with status=ISSUED is rejected with 409. Changes require a CreditNote.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "DISP-03",
+    "severity": "Critical",
+    "module": "Displays",
+    "title": "Customer display (order-display) shows guest names and room numbers for room service orders",
+    "whatHappensNow": "Kitchen/bar display shows full guest name and room number for room service KOTs. Privacy violation — kitchen staff should only see the KOT number and items.",
+    "fixNeeded": "For ROOM_SERVICE order type: show only KOT number and items, no guest name or room number on the public-facing display.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "DISC-01",
+    "severity": "Critical",
+    "module": "Discount Approvals",
+    "title": "Over-limit discount request never reaches admin queue — admin sees nothing",
+    "whatHappensNow": "Even if approval logic were triggered, there is no ApprovalRequest table, no admin notification, and no approval inbox in the UI.",
+    "fixNeeded": "Create ApprovalRequest model. Notify admin via in-app Notification + WhatsApp. Admin can approve/reject from /hotel/discounts page.",
+    "wp": "WP-0.6",
+    "tests": ["tests/integration/discount.approval.spec.ts"]
+  },
+  {
+    "id": "ADM-03",
+    "severity": "Critical",
+    "module": "Admin / Dashboard",
+    "title": "Hotel dashboard KPIs (revenue, occupancy, ADR) not from real data",
+    "whatHappensNow": "Dashboard metrics are either hardcoded or pulled from incomplete queries that don't reflect actual bookings and payments.",
+    "fixNeeded": "Single metrics.service.ts computes Occupancy%, ADR, RevPAR, Total Revenue from canonical sources. All dashboard widgets use it.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "ADM-09",
+    "severity": "Critical",
+    "module": "Admin / Backup",
+    "title": "No backup status or alert in admin panel — owner does not know if backup is stale",
+    "whatHappensNow": "No BackupRun record exists. Admin backup page shows only a manual trigger button.",
+    "fixNeeded": "BackupRun table. Admin panel shows last successful backup time. Alert if > 26 hours since last success.",
+    "wp": "WP-0.12",
+    "tests": ["tests/integration/backup.spec.ts"]
+  },
+  {
+    "id": "TZ-01",
+    "severity": "High",
+    "module": "Timezone",
+    "title": "Business date computed in UTC, not IST — midnight-to-6am bookings go to wrong day",
+    "whatHappensNow": "Most routes use new Date() + setHours(0,0,0,0) which is UTC midnight (5:30am IST). Night audit posts charges to wrong date for stays arriving or departing at night.",
+    "fixNeeded": "Create lib/time.ts with businessDate(tz) using Intl.DateTimeFormat. All date computations use this. Property.timezone field added.",
+    "wp": "WP-0.1",
+    "tests": ["tests/unit/time.spec.ts"]
+  },
+  {
+    "id": "INF-01",
+    "severity": "High",
+    "module": "Infrastructure",
+    "title": "NEXT_PUBLIC_APP_URL is localhost:3000 in .env — QR codes and booking links broken in production",
+    "whatHappensNow": ".env has NEXT_PUBLIC_APP_URL=http://localhost:3000. All generated URLs (QR, booking engine, guest portal) use this in production.",
+    "fixNeeded": "Set NEXT_PUBLIC_APP_URL=https://ordermintpms.tech in production. Use this everywhere instead of hardcoded localhost.",
+    "wp": "WP-0.13",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "FOL-02",
+    "severity": "High",
+    "module": "Folio",
+    "title": "Folio closing balance can go negative without warning",
+    "whatHappensNow": "Payment greater than the folio balance is accepted silently, resulting in a negative closing balance shown as a 'credit'.",
+    "fixNeeded": "Validate payment amount <= folio.closingBalance + advance. Return 400 if overpayment detected without intent (refund path).",
+    "wp": "WP-0.1",
+    "tests": ["tests/unit/money.spec.ts"]
+  },
+  {
+    "id": "BAK-02",
+    "severity": "High",
+    "module": "Backup",
+    "title": "Receptionist can trigger backup download — unauthorized access to full DB",
+    "whatHappensNow": "Backup page and backup API have no role check. Any logged-in user can trigger a DB backup.",
+    "fixNeeded": "requirePermission(session, 'backup.run') on backup API. Only OWNER and SUPER_ADMIN roles have this permission.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "REV-01",
+    "severity": "High",
+    "module": "Revenue",
+    "title": "Revenue dashboard only shows one source (room) — POS, spa, banquet not included",
+    "whatHappensNow": "Revenue API sums FolioTransactions for ROOM_RENT only. POS revenue, spa charges and banquet are excluded.",
+    "fixNeeded": "metrics.service.ts aggregates all revenue sources: room rent + POS settled + spa + banquet + extras.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/reports.spec.ts"]
+  },
+  {
+    "id": "HDR-01",
+    "severity": "High",
+    "module": "Hotel Dashboard / Reports",
+    "title": "Daily report page shows static placeholder data",
+    "whatHappensNow": "hotel/night-audit/daily-report shows values that do not update with real hotel activity.",
+    "fixNeeded": "daily-report API reads from DayClosing or computes from canonical sources for the requested business date.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/reports.spec.ts"]
+  },
+  {
+    "id": "CM-01",
+    "severity": "High",
+    "module": "Channel Manager",
+    "title": "Channel manager shows 'connected' status but is not actually syncing with any OTA",
+    "whatHappensNow": "ChannelConnection records exist in DB but channel-manager/sync endpoint returns fake success without calling any CM API.",
+    "fixNeeded": "Show real connection status (never connected by default). Hide 'Simulate OTA Sync' button outside dev.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "IOT-01",
+    "severity": "High",
+    "module": "Smart Hotel / IoT",
+    "title": "Smart Hotel dashboard shows fake device states",
+    "whatHappensNow": "smart-hotel page shows device toggle UIs with mock on/off states. No TTLock or real IoT integration.",
+    "fixNeeded": "Show empty state / 'Not configured' until TTLock API is integrated. Remove fake device data.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "BNQ-01",
+    "severity": "High",
+    "module": "Banquet",
+    "title": "Banquet page shows hardcoded event list with 'Sharma Wedding Reception' placeholder",
+    "whatHappensNow": "Banquet page has a hardcoded event list in the UI state. API for banquet bookings does not exist.",
+    "fixNeeded": "Implement BanquetBooking model and API. Banquet page reads from DB. Empty state when no events.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "DC-01",
+    "severity": "High",
+    "module": "Day Closing",
+    "title": "Day closing opening cash can be set to any value including negative",
+    "whatHappensNow": "Opening cash field accepts negative values. No validation.",
+    "fixNeeded": "Zod validator: openingCash >= 0. Early check-in/out time validation added.",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "POS-02",
+    "severity": "High",
+    "module": "POS",
+    "title": "POS 'Post to Room' picker does not check room availability / active check-in",
+    "whatHappensNow": "Room selection in room-charge flow does not validate that the selected room has an active check-in. Charges can be posted to vacant rooms.",
+    "fixNeeded": "POST /api/hotel/post-to-room validates roomId has an ACTIVE CheckIn. Returns 400 if room is not occupied.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "FOL-09",
+    "severity": "High",
+    "module": "Folio",
+    "title": "Multiple open folios can exist for one reservation — balance confusion",
+    "whatHappensNow": "No uniqueness check on Folio(reservationId, status=OPEN). Multiple concurrent requests can create two OPEN folios for one reservation.",
+    "fixNeeded": "@@unique([reservationId]) or upsert pattern on folio open. At most one OPEN folio per reservation.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "BKG-11",
+    "severity": "High",
+    "module": "Bookings / Ledger",
+    "title": "Advance payment on booking does not post to ledger",
+    "whatHappensNow": "Reservation.advanceAmount is updated but no FolioTransaction credit or JournalEntry is created.",
+    "fixNeeded": "On advance payment: create FolioTransaction (CREDIT) + JournalEntry (balanced) in one DB transaction.",
+    "wp": "WP-0.5",
+    "tests": ["tests/integration/ledger.posting.spec.ts"]
+  },
+  {
+    "id": "AGT-01",
+    "severity": "High",
+    "module": "Agents",
+    "title": "Agent KYC fields accept unvalidated data — invalid GST/PAN can be saved",
+    "whatHappensNow": "Agent creation accepts any string in gstNumber and pan fields without format validation.",
+    "fixNeeded": "Zod validators for GSTIN (15-char + checksum) and PAN (10-char alphanumeric format).",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "AIC-01",
+    "severity": "High",
+    "module": "AI Concierge",
+    "title": "AI Concierge API key (Gemini) accessible to receptionist role",
+    "whatHappensNow": "AI concierge settings page shows and allows editing of Gemini API key. No role check on the settings page or API.",
+    "fixNeeded": "requirePermission(session, 'settings.ai') on AI settings API. Only OWNER can read/write AI keys.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "KYC-01",
+    "severity": "High",
+    "module": "KYC / Guest",
+    "title": "Indian mobile number not validated — 7-digit or non-Indian numbers accepted",
+    "whatHappensNow": "Guest mobile field accepts any string. 7-digit numbers, letters, and non-Indian formats are saved.",
+    "fixNeeded": "Zod: mobile.regex(/^[6-9]\\d{9}$/) for Indian mobile. Aadhaar: 12 digits + Verhoeff checksum.",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "CO-02",
+    "severity": "High",
+    "module": "Checkout",
+    "title": "Checkout does not check for outstanding folio balance before allowing checkout",
+    "whatHappensNow": "Guest can be checked out even when folio closingBalance > 0. No settlement required.",
+    "fixNeeded": "Checkout API validates folio.closingBalance == 0 (or advance covers it). Returns 400 with balance amount if unsettled.",
+    "wp": "WP-0.8",
+    "tests": ["tests/integration/nightaudit.spec.ts"]
+  },
+  {
+    "id": "LOY-01",
+    "severity": "High",
+    "module": "Loyalty",
+    "title": "Loyalty points can be manually adjusted by any user without approval",
+    "whatHappensNow": "Any staff with access to loyalty page can add or deduct points without audit or approval.",
+    "fixNeeded": "Points adjustment above threshold requires ApprovalRequest. All adjustments logged in LoyaltyLog with userId.",
+    "wp": "WP-0.6",
+    "tests": ["tests/integration/discount.approval.spec.ts"]
+  },
+  {
+    "id": "POS-03",
+    "severity": "High",
+    "module": "POS",
+    "title": "Complimentary order (100% discount) does not require manager approval",
+    "whatHappensNow": "POS allows marking an order as complimentary (0 charge) without any approval or PIN.",
+    "fixNeeded": "Complimentary order creates ApprovalRequest or requires manager PIN verification.",
+    "wp": "WP-0.6",
+    "tests": ["tests/integration/discount.approval.spec.ts"]
+  },
+  {
+    "id": "RS-01",
+    "severity": "High",
+    "module": "Room Service",
+    "title": "Room service GST not computed as F&B GST — wrong SAC code on folio",
+    "whatHappensNow": "Room service charges posted to folio use room SAC code (996311) instead of F&B SAC code (996331).",
+    "fixNeeded": "Room service and restaurant charges use computeFoodGst() with SAC 996331.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "HSN-01",
+    "severity": "High",
+    "module": "GST / HSN",
+    "title": "HSN/SAC code summary in reports is incorrect — wrong codes per line type",
+    "whatHappensNow": "GST report groups all charges under a single SAC code. F&B and room charges should use different codes.",
+    "fixNeeded": "Every FolioTransaction and InvoiceItem stores sacCode. Report groups by sacCode.",
+    "wp": "WP-0.4",
+    "tests": ["tests/unit/gst.spec.ts"]
+  },
+  {
+    "id": "SPA-01",
+    "severity": "High",
+    "module": "Spa",
+    "title": "Spa admin page accessible to all hotel roles — no permission check",
+    "whatHappensNow": "hotel/spa page has no role check. Kitchen staff can access spa booking and pricing settings.",
+    "fixNeeded": "requirePermission(session, 'spa.view') on spa API. Only OWNER, GM, FRONT_DESK roles.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "ROOM-05",
+    "severity": "High",
+    "module": "Rooms",
+    "title": "Room discount percentage accepts values over 100 and negative values",
+    "whatHappensNow": "Room.discount field accepts -10 or 150. No validation.",
+    "fixNeeded": "Zod: discount between 0 and 100 inclusive.",
+    "wp": "WP-0.3",
+    "tests": ["tests/integration/rooms.validation.spec.ts"]
+  },
+  {
+    "id": "ADM-04",
+    "severity": "High",
+    "module": "Accounting",
+    "title": "Expense records do not post to accounting voucher/ledger",
+    "whatHappensNow": "Creating an Expense record does not create a Voucher or JournalEntry. The Day Book does not show expenses.",
+    "fixNeeded": "Expense creation posts a JournalEntry (Dr: Expense account, Cr: Cash/Bank account).",
+    "wp": "WP-0.5",
+    "tests": ["tests/integration/ledger.posting.spec.ts"]
+  },
+  {
+    "id": "ADM-05",
+    "severity": "High",
+    "module": "Night Audit",
+    "title": "Night audit does not roll the business date — same date shown next morning",
+    "whatHappensNow": "After night audit completes, Property.businessDate is not incremented. Night audit can be run multiple times on same date.",
+    "fixNeeded": "NightAuditRun records (propertyId, auditDate) unique. Last step increments Property.businessDate +1 day.",
+    "wp": "WP-0.8",
+    "tests": ["tests/integration/nightaudit.spec.ts"]
+  },
+  {
+    "id": "ADM-08",
+    "severity": "High",
+    "module": "Admin",
+    "title": "Manager PIN for instant discount approval is 4 digits and stored in plaintext",
+    "whatHappensNow": "Property.managerDiscountPin default is '1234' stored as plain text. 4 digits is too short.",
+    "fixNeeded": "Minimum 6 digits; hash with argon2 before storing. Lockout after 5 consecutive failures.",
+    "wp": "WP-0.6",
+    "tests": ["tests/integration/discount.approval.spec.ts"]
+  },
+  {
+    "id": "ADM-10",
+    "severity": "High",
+    "module": "Admin / Settings",
+    "title": "'Simulate OTA Sync' and 'Test Email Booking' buttons visible in production",
+    "whatHappensNow": "These debug buttons appear in the production UI for all users.",
+    "fixNeeded": "Show only when NODE_ENV=development or APP_ENV=staging.",
+    "wp": "WP-0.13",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "DASH-01",
+    "severity": "Medium",
+    "module": "Dashboard",
+    "title": "Dashboard clock shows UTC time, not IST",
+    "whatHappensNow": "Live clock on hotel dashboard ticks in UTC.",
+    "fixNeeded": "Use Intl.DateTimeFormat with Asia/Kolkata to display IST.",
+    "wp": "WP-0.1",
+    "tests": ["tests/unit/time.spec.ts"]
+  },
+  {
+    "id": "ROOM-01",
+    "severity": "Medium",
+    "module": "Rooms",
+    "title": "Room status board does not refresh automatically",
+    "whatHappensNow": "Room board requires manual page refresh to see status changes.",
+    "fixNeeded": "Poll /api/hotel/rooms/board every 60s or use socket.io push.",
+    "wp": "WP-0.3",
+    "tests": []
+  },
+  {
+    "id": "ROOM-06",
+    "severity": "Medium",
+    "module": "Rooms",
+    "title": "Room category (RoomType) has no Edit button — categories cannot be modified",
+    "whatHappensNow": "Room types can be created but not edited after creation.",
+    "fixNeeded": "Add Edit button on RoomType list. PATCH /api/hotel/room-types/[id] endpoint.",
+    "wp": "WP-0.3",
+    "tests": ["tests/integration/rooms.validation.spec.ts"]
+  },
+  {
+    "id": "BKG-06",
+    "severity": "Medium",
+    "module": "Bookings",
+    "title": "Booking form does not show real-time availability — blocked rooms still selectable",
+    "whatHappensNow": "Room dropdown in booking form lists all rooms regardless of existing reservations for the selected dates.",
+    "fixNeeded": "Availability API filters out rooms with overlapping RESERVED or CHECKED_IN bookings.",
+    "wp": "WP-0.2",
+    "tests": ["tests/integration/bookings.availability.spec.ts"]
+  },
+  {
+    "id": "FOL-01",
+    "severity": "Medium",
+    "module": "Folio",
+    "title": "Folio number sequence not guaranteed unique under concurrent creation",
+    "whatHappensNow": "Folio number is generated from count+1 without locking. Concurrent check-ins can produce duplicate folio numbers.",
+    "fixNeeded": "Use DB sequence or upsert pattern with unique constraint on folioNo.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "CHK-01",
+    "severity": "Medium",
+    "module": "Checkin",
+    "title": "Early check-in time earlier than property check-in time is accepted without flag",
+    "whatHappensNow": "No comparison with property.checkInTime during check-in creation.",
+    "fixNeeded": "Warn (not block) if checkin time is before property.checkInTime. Log early check-in in AuditLog.",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "INV-03",
+    "severity": "Medium",
+    "module": "Invoices",
+    "title": "Invoice PDF does not show CGST/SGST breakdown — fails compliance",
+    "whatHappensNow": "Invoice PDF groups all tax as a single 'GST' line.",
+    "fixNeeded": "After WP-0.4 stores CGST/SGST/IGST per line, PDF renders them separately.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "PUR-01",
+    "severity": "Medium",
+    "module": "Purchasing",
+    "title": "Purchase order total can be zero or negative — no validation",
+    "whatHappensNow": "PO form accepts totalAmount <= 0.",
+    "fixNeeded": "Zod: PO total must be > 0. Each line item qty > 0 and rate > 0.",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "HR-01",
+    "severity": "Medium",
+    "module": "HR",
+    "title": "HR dashboard KPIs (attendance rate, leave balance) not computed from real data",
+    "whatHappensNow": "HR page shows placeholder percentages.",
+    "fixNeeded": "Compute from Attendance, LeaveRequest, StaffMember tables. Show empty state when no data.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "KOT-01",
+    "severity": "Medium",
+    "module": "KOT",
+    "title": "KOT number sequence is global — two properties can generate same KOT number",
+    "whatHappensNow": "KotTicket.kotNo uses a global counter. Multi-property setups duplicate KOT numbers.",
+    "fixNeeded": "Per-property KOT sequence: kotNo format = {propertyCode}-{YYYYMMDD}-{seq}.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "MOD-01",
+    "severity": "Medium",
+    "module": "POS / KOT",
+    "title": "Order modification after KOT is sent does not create a void/reprint KOT",
+    "whatHappensNow": "Editing a KOT item after sending shows no cancel/void indication on the kitchen display.",
+    "fixNeeded": "Modification creates a new VOID KOT for cancelled items and a NEW KOT for added items.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "TBL-01",
+    "severity": "Medium",
+    "module": "POS / Tables",
+    "title": "Table status does not update when order is settled — table remains OCCUPIED",
+    "whatHappensNow": "After order payment, table status stays OCCUPIED. Waiter must manually reset.",
+    "fixNeeded": "On order settlement (PAID status): set table.status = VACANT.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "CTR-02",
+    "severity": "Medium",
+    "module": "POS / Counter",
+    "title": "Counter payment shift totals include void/cancelled orders",
+    "whatHappensNow": "DayClosing totals include orders with status=CANCELLED in cash totals.",
+    "fixNeeded": "Filter: exclude CANCELLED and VOID orders from all counter payment aggregations.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "LOY-02",
+    "severity": "Medium",
+    "module": "Loyalty",
+    "title": "Loyalty points tier thresholds not configurable — hardcoded in UI",
+    "whatHappensNow": "Silver/Gold/Platinum tier thresholds are hardcoded in the loyalty page component.",
+    "fixNeeded": "Move to MembershipPlan configuration table. Admin can set thresholds.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "RPT-01",
+    "severity": "Medium",
+    "module": "Reports",
+    "title": "Report date range filter defaults to current browser date, not hotel business date",
+    "whatHappensNow": "Date pickers default to new Date() (UTC wall clock) instead of IST business date.",
+    "fixNeeded": "Default to getHotelBusinessDate() in IST.",
+    "wp": "WP-0.1",
+    "tests": ["tests/unit/time.spec.ts"]
+  },
+  {
+    "id": "BKG-01",
+    "severity": "Medium",
+    "module": "Bookings",
+    "title": "Booking wizard default date is UTC midnight, shows wrong date at night in India",
+    "whatHappensNow": "New booking form defaults arrivalDate to new Date() which after midnight UTC shows yesterday's IST date.",
+    "fixNeeded": "Use businessDate() from lib/time.ts as default.",
+    "wp": "WP-0.1",
+    "tests": ["tests/unit/time.spec.ts"]
+  },
+  {
+    "id": "AGT-02",
+    "severity": "Medium",
+    "module": "Agents",
+    "title": "Agent can be created without KYC document upload — no validation",
+    "whatHappensNow": "Agent creation succeeds even with empty document fields.",
+    "fixNeeded": "requirePermission(session, 'agents.kyc.view'). Block receptionist from agent KYC management.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "BIKE-01",
+    "severity": "Medium",
+    "module": "Bike Rental",
+    "title": "Bike rental portal has no link to hotel PMS — revenue not posted to folio",
+    "whatHappensNow": "Bike rental is a standalone portal; charges cannot be posted to a hotel guest folio.",
+    "fixNeeded": "Add 'Post to Room' option in bike rental checkout that calls /api/hotel/post-to-room.",
+    "wp": "WP-0.10",
+    "tests": []
+  },
+  {
+    "id": "CONS-01",
+    "severity": "Medium",
+    "module": "Concierge / Requests",
+    "title": "Guest concierge requests (housekeeping, room service) not linked to active reservation",
+    "whatHappensNow": "HousekeepingTask has no reservationId — cannot filter tasks by current guest's stay.",
+    "fixNeeded": "Add reservationId to HousekeepingTask (optional). Link room service orders to active CheckIn.",
+    "wp": "WP-0.10",
+    "tests": []
+  },
+  {
+    "id": "DISP-02",
+    "severity": "Medium",
+    "module": "Displays",
+    "title": "Bar display shows UTC timestamp — wrong time visible to customers",
+    "whatHappensNow": "Bar display clock renders toLocaleString() without timezone spec, shows UTC in some browsers.",
+    "fixNeeded": "Use Intl.DateTimeFormat with Asia/Kolkata for all customer-facing displays.",
+    "wp": "WP-0.1",
+    "tests": ["tests/unit/time.spec.ts"]
+  },
+  {
+    "id": "BNQ-02",
+    "severity": "Medium",
+    "module": "Banquet",
+    "title": "Banquet advance payment cannot be posted to accounting",
+    "whatHappensNow": "No BanquetBooking model — no way to record advance and post to ledger.",
+    "fixNeeded": "After WP-0.9 adds BanquetBooking, wire advance payment to ledger via ledger.service.ts.",
+    "wp": "WP-0.9",
+    "tests": []
+  },
+  {
+    "id": "ADM-02",
+    "severity": "Medium",
+    "module": "Admin / Multi-property",
+    "title": "Multi-property user defaults to wrong hotel after login",
+    "whatHappensNow": "A user with access to two properties always lands on the first property in DB, not their last-used or assigned property.",
+    "fixNeeded": "Property switcher persists last selection in localStorage. Session defaults to it on next login.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "ADM-07",
+    "severity": "Medium",
+    "module": "Admin / Discounts",
+    "title": "Discount approval inbox in admin panel does not exist",
+    "whatHappensNow": "No /hotel/discounts page or component shows pending approval requests.",
+    "fixNeeded": "Build ApprovalRequest inbox at /hotel/discounts. Show PENDING, APPROVED, REJECTED with timestamps.",
+    "wp": "WP-0.6",
+    "tests": ["tests/integration/discount.approval.spec.ts"]
+  },
+  {
+    "id": "ADM-06",
+    "severity": "Medium",
+    "module": "Admin / Validation",
+    "title": "Settings page GSTIN field has no format validation",
+    "whatHappensNow": "Any string can be saved as property GSTIN, including invalid ones.",
+    "fixNeeded": "Zod: GSTIN regex ^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$ + checksum.",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "BKG-05",
+    "severity": "Low",
+    "module": "Bookings",
+    "title": "Booking with checkOut before checkIn is accepted",
+    "whatHappensNow": "No server-side check that arrivalDate < departureDate.",
+    "fixNeeded": "Zod: departureDate > arrivalDate. API returns 400.",
+    "wp": "WP-0.2",
+    "tests": ["tests/integration/bookings.availability.spec.ts"]
+  },
+  {
+    "id": "BKG-08",
+    "severity": "Low",
+    "module": "Bookings",
+    "title": "Same-day arrival and departure (0-night stay) is accepted",
+    "whatHappensNow": "arrivalDate == departureDate creates a 0-night booking with ₹0 room charge.",
+    "fixNeeded": "Minimum 1 night. Zod: nights >= 1.",
+    "wp": "WP-0.2",
+    "tests": ["tests/integration/bookings.availability.spec.ts"]
+  },
+  {
+    "id": "BKG-09",
+    "severity": "Low",
+    "module": "Bookings / KYC",
+    "title": "Booking guest phone number accepts 7-digit or international formats",
+    "whatHappensNow": "Guest mobile saved on booking has no format validation.",
+    "fixNeeded": "Zod: mobile.regex(/^[6-9]\\d{9}$/).",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "BKG-10",
+    "severity": "Low",
+    "module": "Bookings",
+    "title": "Cancelled booking room is not released back to availability",
+    "whatHappensNow": "Cancelling a booking updates status to CANCELLED but room remains blocked in the availability query.",
+    "fixNeeded": "Availability query excludes CANCELLED and NO_SHOW statuses.",
+    "wp": "WP-0.2",
+    "tests": ["tests/integration/bookings.availability.spec.ts"]
+  },
+  {
+    "id": "FOL-03",
+    "severity": "Low",
+    "module": "Folio",
+    "title": "Folio PDF does not show property logo",
+    "whatHappensNow": "hotel-print-utils.ts does not embed property.logoUrl in the PDF header.",
+    "fixNeeded": "Fetch property.logoUrl (base64 or URL) and embed in PDF.",
+    "wp": "WP-0.4",
+    "tests": []
+  },
+  {
+    "id": "FOL-06",
+    "severity": "Low",
+    "module": "Folio",
+    "title": "Folio transaction description truncated to 50 chars — loses detail",
+    "whatHappensNow": "FolioTransaction.description has no length validation; some descriptions are truncated in UI.",
+    "fixNeeded": "Allow up to 255 chars. Migrate schema if needed.",
+    "wp": "WP-0.4",
+    "tests": []
+  },
+  {
+    "id": "INV-02",
+    "severity": "Low",
+    "module": "Invoices",
+    "title": "Invoice number does not reset per financial year",
+    "whatHappensNow": "Invoice numbers are sequential without FY prefix. 1001 from FY 2025-26 looks the same as 1001 from FY 2026-27.",
+    "fixNeeded": "InvoiceSeries(propertyId, fy, prefix, next). Format: GST-26-27-0001.",
+    "wp": "WP-0.4",
+    "tests": ["tests/integration/gst.invoice.spec.ts"]
+  },
+  {
+    "id": "INV-04",
+    "severity": "Low",
+    "module": "Invoices",
+    "title": "Invoice list page does not filter by date range",
+    "whatHappensNow": "hotel/billing/invoices shows all invoices with no date filter.",
+    "fixNeeded": "Add date-range filter. API supports startDate/endDate query params.",
+    "wp": "WP-0.4",
+    "tests": []
+  },
+  {
+    "id": "UI-01",
+    "severity": "Low",
+    "module": "UI",
+    "title": "Indian rupee symbol ₹ renders as ? on some Android/Windows devices",
+    "whatHappensNow": "Font does not include the ₹ glyph on some system fonts.",
+    "fixNeeded": "Use CSS font-family with Noto Sans or include ₹ in the web font.",
+    "wp": "WP-0.1",
+    "tests": []
+  },
+  {
+    "id": "UI-02",
+    "severity": "Low",
+    "module": "UI",
+    "title": "Mobile viewport broken on some hotel module pages",
+    "whatHappensNow": "hotel/night-audit and hotel/accounts pages overflow horizontally on mobile.",
+    "fixNeeded": "Add overflow-x-hidden and responsive table wrappers.",
+    "wp": "WP-0.1",
+    "tests": []
+  },
+  {
+    "id": "DC-02",
+    "severity": "Low",
+    "module": "Day Closing",
+    "title": "Day closing can be run twice for the same shift",
+    "whatHappensNow": "No uniqueness check on DayClosing(shiftId). Two closings for same shift are accepted.",
+    "fixNeeded": "@@unique([shiftId]) on DayClosing or status check before creation.",
+    "wp": "WP-0.10",
+    "tests": ["tests/integration/pos.spec.ts"]
+  },
+  {
+    "id": "EXP-01",
+    "severity": "Low",
+    "module": "Expenses",
+    "title": "Expense attachment URL not validated — any string accepted as attachment",
+    "whatHappensNow": "Expense.attachmentUrl stores any input string without URL validation.",
+    "fixNeeded": "Zod: attachmentUrl.url() or only accept paths from /api/upload.",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "MNT-01",
+    "severity": "Low",
+    "module": "Maintenance",
+    "title": "Maintenance ticket falls back to mock data when API returns empty array",
+    "whatHappensNow": "hotel/maintenance/page.tsx creates a mock MaintenanceTicket when API returns [].",
+    "fixNeeded": "Show empty state component instead of mock data.",
+    "wp": "WP-0.9",
+    "tests": ["tests/integration/demo-data.spec.ts"]
+  },
+  {
+    "id": "HK-01",
+    "severity": "Low",
+    "module": "Housekeeping",
+    "title": "Housekeeping task priority dropdown has no default — empty priority saves to DB",
+    "whatHappensNow": "Priority field is not set in task creation form; NULL is saved.",
+    "fixNeeded": "Default priority to 'NORMAL'. Zod enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'].",
+    "wp": "WP-0.14",
+    "tests": ["tests/unit/validators.spec.ts"]
+  },
+  {
+    "id": "ADM-01",
+    "severity": "Low",
+    "module": "Admin",
+    "title": "Super Admin panel accessible via direct URL without 2FA",
+    "whatHappensNow": "/admin/* pages check role===SUPER_ADMIN in JWT but have no 2FA gate.",
+    "fixNeeded": "Super admin actions require TOTP confirmation (Phase 1 WP-1.11).",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  },
+  {
+    "id": "ADM-11",
+    "severity": "Low",
+    "module": "Admin",
+    "title": "Audit log does not capture IP address for all write operations",
+    "whatHappensNow": "AuditLog rows are created for some actions but ip field is never populated.",
+    "fixNeeded": "Extract client IP from request headers (x-forwarded-for) and store in AuditLog.ip.",
+    "wp": "WP-0.7",
+    "tests": ["tests/integration/rbac.spec.ts"]
+  }
+]

@@ -115,14 +115,11 @@ const NAV_GROUPS: NavGroup[] = [
     color: 'text-sky-400',
     items: [
       { name: 'Bookings',           path: '/hotel/bookings',        icon: PlusCircle },
-      { name: 'Room QR Standees',   path: '/hotel/rooms/qr-codes',  icon: QrCode, badge: 'SCAN', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
-      { name: 'Guest Portal',       path: '/guest-portal',          icon: Globe, badge: 'PORTAL', badgeColor: 'bg-indigo-500/20 text-indigo-300', target: '_blank' },
-      { name: 'Customers & Guests', path: '/hotel/guests',          icon: Users, badge: 'KYC', badgeColor: 'bg-rose-500/20 text-rose-300' },
-      { name: 'Agent Bookings',     path: '/hotel/agent-bookings', icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
       { name: 'Availability',       path: '/hotel/calendar',       icon: Calendar },
-      { name: 'Security Portal',    path: '/security-portal',      icon: Shield, badge: 'VERIFY', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
       { name: 'Check-out',          path: '/hotel/checkout',       icon: DoorOpen },
+      { name: 'Agent Bookings',     path: '/hotel/agent-bookings', icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
       { name: 'Email Bookings',     path: '/hotel/email-bookings', icon: ScrollText },
+      { name: 'Security Portal',    path: '/security-portal',      icon: Shield, badge: 'VERIFY', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
     ],
   },
   {
@@ -166,7 +163,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Purchase Orders',      path: '/hotel/purchasing',             icon: ShoppingCart,    badge: 'WHATSAPP', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { name: 'Kitchen Indents',      path: '/hotel/purchasing?tab=kitchen', icon: UtensilsCrossed, badge: 'CHEF',     badgeColor: 'bg-amber-500/20 text-amber-300' },
-      { name: 'Kitchen Staff App',    path: '/kitchen-portal',               icon: ChefHat,         badge: 'STAFF',    badgeColor: 'bg-orange-500/20 text-orange-300' },
       { name: 'Inventory & Stock',    path: '/hotel/inventory',              icon: Package },
       { name: 'Vendor Management',    path: '/hotel/vendor',                 icon: Building2 },
     ],
@@ -199,10 +195,8 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Night Audit',        path: '/hotel/night-audit',      icon: Moon },
       { name: 'Daily Audit Report', path: '/hotel/night-audit/daily-report', icon: BarChart3, badge: 'NEW', badgeColor: 'bg-amber-500/20 text-amber-300' },
       { name: 'Expenses',           path: '/hotel/expenses',         icon: Banknote },
-      { name: 'New Expense',        path: '/hotel/expenses/new',     icon: PlusCircle },
       { name: 'Expense Categories', path: '/hotel/expenses/categories', icon: Layers },
       { name: 'Accounting Hub',     path: '/hotel/accounts',         icon: BookOpen },
-      { name: 'New Voucher',        path: '/hotel/vouchers/new',      icon: PlusCircle },
       { name: 'Vouchers List',      path: '/hotel/vouchers',          icon: Receipt },
       { name: 'Cash Book',          path: '/hotel/accounts/cash-book', icon: Banknote },
       { name: 'Day Book',           path: '/hotel/accounts/day-book', icon: BookOpen },
@@ -217,7 +211,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Customer Directory', path: '/hotel/guests',          icon: Users, badge: 'KYC', badgeColor: 'bg-rose-500/20 text-rose-300' },
       { name: 'Guest Portal',       path: '/guest-portal',          icon: Globe, badge: 'GUEST', badgeColor: 'bg-indigo-500/20 text-indigo-300', target: '_blank' },
-      { name: 'Room QR Standees',   path: '/hotel/rooms/qr-codes',  icon: QrCode, badge: 'PRINT', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { name: 'Guest CRM',          path: '/hotel/crm',             icon: Heart, badge: 'CRM', badgeColor: 'bg-purple-500/20 text-purple-300' },
       { name: 'Loyalty & Rewards',  path: '/hotel/loyalty',          icon: Crown },
       { name: 'Travel Agents',      path: '/hotel/agents',           icon: Handshake, badge: 'NEW', badgeColor: 'bg-violet-500/20 text-violet-300' },
@@ -246,7 +239,6 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Staff & Team',       path: '/hotel/staff',                     icon: Users },
       { name: 'Attendance Reports', path: '/hotel/reports/attendance',        icon: ScrollText },
       { name: 'HR & Leaves Hub',    path: '/hotel/hr',                        icon: Calendar },
-      { name: 'Hotel Payroll',      path: '/hotel/payroll',                   icon: IndianRupee },
     ],
   },
 
@@ -270,6 +262,7 @@ export const HotelSidebar: React.FC = () => {
   const [hasRestaurant, setHasRestaurant] = React.useState(false);
   const [restaurantCode, setRestaurantCode] = React.useState<string | null>(null);
   const [isOwnerOrAdmin, setIsOwnerOrAdmin] = React.useState(false);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
 
   // Detect if user is Hotel Admin/Owner, Super Admin, or has attached restaurant
   React.useEffect(() => {
@@ -278,6 +271,7 @@ export const HotelSidebar: React.FC = () => {
       .then(sessData => {
         if (!sessData?.authenticated) return;
         const u = sessData.user;
+        setUserRole(u?.role || null);
         if (u?.role === 'HOTEL_ADMIN' || u?.role === 'SUPER_ADMIN' || u?.role === 'RESTAURANTS_ADMIN') {
           setIsOwnerOrAdmin(true);
         }
@@ -343,14 +337,34 @@ export const HotelSidebar: React.FC = () => {
     ],
   } : null;
 
-  // Merge static groups + dynamic restaurant group
+  // Merge static groups + dynamic restaurant group, filtered by user role (H1)
   const allNavGroups = React.useMemo(() => {
-    if (restaurantNavGroup) {
-      return [...NAV_GROUPS, restaurantNavGroup];
+    const base = restaurantNavGroup ? [...NAV_GROUPS, restaurantNavGroup] : NAV_GROUPS;
+
+    if (userRole === 'HOTEL_RECEPTIONIST') {
+      return base
+        .filter((g) => g.label !== 'Settings') // Completely hide Settings for receptionist
+        .map((g) => {
+          if (g.label === 'Finance & Accounting') {
+            return {
+              ...g,
+              items: g.items.filter((item) =>
+                ['Folios & Billing', 'Invoices', 'Night Audit', 'Daily Audit Report'].includes(item.name)
+              ),
+            };
+          }
+          if (g.label === 'Staff & GPS Attendance') {
+            return {
+              ...g,
+              items: g.items.filter((item) => !item.name.includes('Payroll')),
+            };
+          }
+          return g;
+        });
     }
-    return NAV_GROUPS;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restaurantCode]);
+
+    return base;
+  }, [restaurantNavGroup, userRole]);
 
   const toggleGroup = (label: string) => {
     setCollapsedGroups(prev => {
@@ -361,10 +375,29 @@ export const HotelSidebar: React.FC = () => {
     });
   };
 
-  const isActive = (path: string) => {
-    const cleanPath = path.split('?')[0];
-    if (cleanPath === '/hotel') return pathname === '/hotel';
-    return pathname === cleanPath || pathname.startsWith(cleanPath + '/');
+  const isActive = (navPath: string) => {
+    const [cleanNavPath, navQuery] = navPath.split('?');
+    if (cleanNavPath === '/hotel') return pathname === '/hotel';
+
+    const currentPath = pathname || '';
+    if (currentPath !== cleanNavPath && !currentPath.startsWith(cleanNavPath + '/')) {
+      return false;
+    }
+
+    if (navQuery) {
+      if (typeof window === 'undefined') return false;
+      const navParams = new URLSearchParams(navQuery);
+      const currentParams = new URLSearchParams(window.location.search);
+      for (const [k, v] of navParams.entries()) {
+        if (currentParams.get(k) !== v) return false;
+      }
+      return true;
+    } else {
+      if (typeof window !== 'undefined' && window.location.search && window.location.search.includes('tab=')) {
+        return false;
+      }
+      return currentPath === cleanNavPath;
+    }
   };
 
   const handleLogout = async () => {

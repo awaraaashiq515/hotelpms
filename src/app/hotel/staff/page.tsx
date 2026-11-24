@@ -593,9 +593,11 @@ function StaffPortalContent() {
   }).length;
   const leave   = staffMembers.filter(s => getStaffAttendanceStatus(s) === 'LEAVE').length;
 
-  const outOfRange = locRows.filter(r => r.isOutOfRange);
-  const trackingCount = locRows.filter(r => r.isTracking).length;
-  const farthest = locRows.reduce<LocRow | null>((b, r) => {
+  // Only track location for staff members who are actively on duty / on shift
+  const onDutyLocRows = locRows.filter(r => r.isTracking);
+  const outOfRange = onDutyLocRows.filter(r => r.isOutOfRange);
+  const trackingCount = onDutyLocRows.length;
+  const farthest = onDutyLocRows.reduce<LocRow | null>((b, r) => {
     if (r.distanceFromBase === null) return b;
     if (!b || r.distanceFromBase > (b.distanceFromBase ?? 0)) return r;
     return b;
@@ -690,7 +692,9 @@ function StaffPortalContent() {
           </div>
           <p className="text-3xl font-black text-violet-300">{trackingCount}</p>
           <p className="text-[10.5px] text-slate-400 font-medium mt-1">
-            {outOfRange.length > 0 ? (
+            {trackingCount === 0 ? (
+              '0 Active on Shift'
+            ) : outOfRange.length > 0 ? (
               <span className="text-rose-400 font-bold">🚨 {outOfRange.length} Out of Hotel</span>
             ) : (
               'All Within Hotel Range'

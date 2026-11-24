@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Settings, Building2, Clock, Star, Percent, Utensils,
-  XCircle, MessageSquare, Phone, Globe, Users, Shield,
+  XCircle, MessageSquare, Phone, Globe, Users, Shield, ShieldAlert,
   Save, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Hotel, ExternalLink, Key, Lock, Heart, IndianRupee,
   Mail, Eye, EyeOff, Sparkles,
 } from 'lucide-react';
@@ -171,6 +172,9 @@ export default function HotelSettingsPage() {
   const [demoClearMode, setDemoClearMode] = useState<'bookings' | 'all'>('bookings');
   const [demoMsg, setDemoMsg] = useState<string | null>(null);
 
+  // User role access check (H1, H10)
+  const [userRole, setUserRole] = useState<string | null>(null);
+
   const loadDemoDataInfo = () => {
     fetch('/api/hotel/demo-data')
       .then(r => r.json())
@@ -182,6 +186,15 @@ export default function HotelSettingsPage() {
 
   // Fetch settings on mount
   useEffect(() => {
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(d => {
+        if (d.authenticated) {
+          setUserRole(d.user?.role || null);
+        }
+      })
+      .catch(() => {});
+
     loadDemoDataInfo();
     fetch('/api/setup/properties/current')
       .then(r => r.json())
@@ -335,6 +348,27 @@ export default function HotelSettingsPage() {
       setSyncingGmail(false);
     }
   };
+
+  // H1 & H10: Strict access restriction — Receptionist role cannot view or edit Hotel Settings
+  if (userRole === 'HOTEL_RECEPTIONIST') {
+    return (
+      <div className="max-w-2xl py-12 px-6 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+          <ShieldAlert size={32} />
+        </div>
+        <h2 className="text-xl font-black text-white">Access Denied: Owner & GM Only</h2>
+        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+          Hotel Settings, tax slabs, system configurations, and credentials are restricted to the General Manager and Property Owners.
+        </p>
+        <Link
+          href="/hotel/bookings"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all"
+        >
+          Return to Bookings
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-10 max-w-3xl">
@@ -643,7 +677,7 @@ export default function HotelSettingsPage() {
                   <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400 mb-1">Guest Portal URL</p>
                   <div className="flex items-center gap-2">
                     <code className="text-xs text-emerald-300 font-mono flex-1">
-                      {typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/guest-portal
+                      {typeof window !== 'undefined' ? `${window.location.origin}/guest-portal` : '/guest-portal'}
                     </code>
                     <a
                       href="/guest-portal"

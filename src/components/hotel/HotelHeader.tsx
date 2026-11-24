@@ -194,14 +194,16 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
         </button>
 
         {/* Backup & Restore shortcut button */}
-        <button
-          onClick={() => router.push('/hotel/backup')}
-          title="Open Data Backup & Restore"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
-        >
-          <ShieldCheck size={13} className="text-emerald-400" />
-          <span>Backup</span>
-        </button>
+        {session?.role !== 'HOTEL_RECEPTIONIST' && (
+          <button
+            onClick={() => router.push('/hotel/backup')}
+            title="Open Data Backup & Restore"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            <ShieldCheck size={13} className="text-emerald-400" />
+            <span>Backup</span>
+          </button>
+        )}
 
         {/* Calendar indicator pill */}
         {isCalendar && (
@@ -249,7 +251,9 @@ export const HotelHeader: React.FC<HotelHeaderProps> = ({ session: propSession, 
             </div>
             <div className="hidden md:block text-left">
               <p className="text-xs font-bold text-slate-200 leading-none">{session?.fullName || session?.email || 'User'}</p>
-              <p className="text-[9px] font-medium text-slate-500 mt-0.5 uppercase tracking-wider">{session?.role || 'Admin'}</p>
+              <p className="text-[9px] font-medium text-slate-400 mt-0.5 uppercase tracking-wider">
+                {session?.role === 'HOTEL_RECEPTIONIST' ? 'Receptionist' : (session?.role || 'Staff')}
+              </p>
             </div>
             <ChevronDown size={12} className="text-slate-500" />
           </div>

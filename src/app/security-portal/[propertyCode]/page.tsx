@@ -1276,9 +1276,6 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
                       <span style={S.badge(BOOKING_STATUS_COLOR[b.status]?.rgb || '148,163,184')}>
                         {BOOKING_STATUS_COLOR[b.status]?.label || b.status}
                       </span>
-                      {(b.dueAmount ?? 0) > 0 && (
-                        <span style={S.badge('239,68,68')}>Due ₹{b.dueAmount.toLocaleString('en-IN')}</span>
-                      )}
                       {expandedBooking === b.id ? <ChevronUp size={14} color="#475569" /> : <ChevronDown size={14} color="#475569" />}
                     </div>
                   </div>
@@ -1290,8 +1287,8 @@ export default function SecurityPortalPage({ params }: { params: Promise<{ prope
                           ['Nights', `${nights(b.arrivalDate, b.departureDate)}`, <Clock size={11} />],
                           ['Meal Plan', b.mealPlan || 'RO', <Utensils size={11} />],
                           ['Pool Access', b.poolAccess ? 'Yes' : 'No', <Waves size={11} />],
-                          ['Total', `₹${b.totalAmount?.toLocaleString('en-IN')}`, <CreditCard size={11} />],
-                          ['Advance', `₹${b.advanceAmount?.toLocaleString('en-IN')}`, <CreditCard size={11} />],
+                          ['Gate Access', b.status === 'CHECKED_IN' ? 'In-House Guest' : 'Check-In Required', <CheckCircle size={11} />],
+                          ['Vehicle / Notes', b.addOnNotes || 'None', <FileText size={11} />],
                         ].map(([l, v, icon]) => (
                           <div key={String(l)} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 10px' }}>
                             <div style={{ fontSize: 10, color: '#475569', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
@@ -1652,11 +1649,6 @@ function BookingRow({ r, highlight }: { r: Reservation; highlight?: string }) {
         }}>
           {BOOKING_STATUS_COLOR[r.status]?.label || r.status}
         </span>
-        {(r.dueAmount ?? 0) > 0 && (
-          <span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>
-            Due ₹{r.dueAmount.toLocaleString('en-IN')}
-          </span>
-        )}
       </div>
     </div>
   )
@@ -1711,8 +1703,8 @@ function ScanResultCard({ result, onRescan }: { result: ScanResult; onRescan: ()
                   ['Guests', `${r.adults} Adult${r.adults > 1 ? 's' : ''}${r.children > 0 ? ` + ${r.children} Child` : ''}`, <Users size={11} />],
                   ['Meal Plan', r.mealPlan || 'RO', <Utensils size={11} />],
                   ['Pool', r.poolAccess ? '✓ Yes' : '—', <Waves size={11} />],
-                  ['Total', `₹${r.totalAmount?.toLocaleString('en-IN')}`, <CreditCard size={11} />],
-                  ['Due', `₹${r.dueAmount?.toLocaleString('en-IN')}`, <CreditCard size={11} />],
+                  ['Gate Clearance', r.status === 'CHECKED_IN' ? '✓ In-House' : 'Report to Reception', <CheckCircle size={11} />],
+                  ['Security Status', 'Access Granted', <Lock size={11} />],
                 ].map(([l, v, icon]) => (
                   <div key={String(l)} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '8px 10px' }}>
                     <div style={{ fontSize: 9, color: '#475569', display: 'flex', alignItems: 'center', gap: 3, marginBottom: 2 }}>

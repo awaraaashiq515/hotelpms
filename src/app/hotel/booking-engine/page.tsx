@@ -35,7 +35,7 @@ export default function BookingEnginePage() {
           <h1 className="text-2xl font-black text-white">Booking Engine</h1>
           <p className="text-xs text-slate-500 mt-0.5">Direct booking website · Rate plans · Promo codes</p>
         </div>
-        <a href="http://localhost:3000/book" target="_blank" rel="noreferrer"
+        <a href="/book" target="_blank" rel="noreferrer"
           className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black uppercase tracking-wider">
           <Globe size={12} /> Preview Booking Site
         </a>

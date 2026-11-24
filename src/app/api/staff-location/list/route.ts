@@ -24,35 +24,51 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all staff users for this property
-    const staffUsers = await prisma.user.findMany({
-      where: { propertyId, isActive: true },
-      select: {
-        id: true,
-        fullName: true,
-        designation: true,
-        phone: true,
-        wtStatus: true,
-        staffLocationPings: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          select: {
-            id: true,
-            lat: true,
-            lng: true,
-            distanceFromBase: true,
-            isOutOfRange: true,
-            createdAt: true,
+    // Fetch today's active attendances (on shift & not clocked out)
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [staffUsers, activeAttendances] = await Promise.all([
+      prisma.user.findMany({
+        where: { propertyId, isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          designation: true,
+          phone: true,
+          wtStatus: true,
+          staffLocationPings: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: {
+              id: true,
+              lat: true,
+              lng: true,
+              distanceFromBase: true,
+              isOutOfRange: true,
+              createdAt: true,
+            },
           },
         },
-      },
-      orderBy: { fullName: 'asc' },
-    });
+        orderBy: { fullName: 'asc' },
+      }),
+      prisma.attendance.findMany({
+        where: {
+          propertyId,
+          clockIn: { gte: startOfToday },
+          clockOut: null,
+        },
+        select: { userId: true },
+      }),
+    ]);
+
+    const activeUserIds = new Set(activeAttendances.map((a: any) => a.userId).filter(Boolean));
 
     // Shape response — attach latestPing and history
     const result = (staffUsers as any[]).map((u: any) => {
       const pings = u.staffLocationPings as any[];
       const latest = pings[0] || null;
+      const isOnShift = activeUserIds.has(u.id);
       return {
         userId: u.id,
         fullName: u.fullName,
@@ -63,7 +79,8 @@ export async function GET(_request: NextRequest) {
         lastSeen: latest?.createdAt || null,
         distanceFromBase: latest?.distanceFromBase ?? null,
         isOutOfRange: latest?.isOutOfRange ?? false,
-        isTracking: !!latest,
+        isOnShift,
+        isTracking: isOnShift && !!latest,
         history: pings,
       };
     });

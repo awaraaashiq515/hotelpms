@@ -12,8 +12,10 @@ export function LiveClock({ className = '', showSeconds = true }: LiveClockProps
   useEffect(() => {
     const update = () => {
       setTime(new Date().toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: true,
         ...(showSeconds ? { second: '2-digit' } : {}),
       }));
     };

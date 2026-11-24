@@ -363,50 +363,7 @@ export default function RoomPortalLogin() {
                 }}
               />
 
-              {/* Quick Select Checked-In Rooms */}
-              {activeRooms.length > 0 && (
-                <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                  <span
-                    style={{
-                      color: 'rgb(148,163,184)',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      display: 'block',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    ⚡ Tap to Open Instantly:
-                  </span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                    {activeRooms.map((rm) => (
-                      <button
-                        key={rm}
-                        type="button"
-                        onClick={() => {
-                          setRoomNumber(rm);
-                          handleOpenPortal(rm);
-                        }}
-                        style={{
-                          padding: '9px 18px',
-                          borderRadius: '14px',
-                          background: roomNumber === rm ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(99,102,241,0.15)',
-                          border: roomNumber === rm ? '1px solid #818cf8' : '1px solid rgba(99,102,241,0.35)',
-                          color: 'white',
-                          fontSize: '14px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s',
-                          boxShadow: roomNumber === rm ? '0 4px 14px rgba(99,102,241,0.4)' : 'none',
-                        }}
-                      >
-                        Room {rm}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* H13: Never display a public list of occupied rooms on tablet login */}
             </div>
 
             {error && <ErrorMessage message={error} />}

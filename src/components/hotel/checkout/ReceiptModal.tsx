@@ -701,7 +701,7 @@ export default function ReceiptModal({ folio, nights, invoiceNo, autoPrint = tru
 
   // Compute full GST breakdown and tax values
   const gstDetails = computeGstBreakdown(folio, nights);
-  const hotelGstin = property?.taxDetails || (folio.reservation?.property as any)?.taxDetails || '02AABCG1234A1Z5';
+  const hotelGstin = property?.taxDetails || (folio.reservation?.property as any)?.taxDetails || 'Not Registered / Pending in Settings';
   const guestGstin = folio.reservation?.gstNumber || folio.guest?.gstNumber || '';
   const isB2B = Boolean(guestGstin || folio.reservation?.companyName || folio.guest?.companyName);
 
@@ -843,7 +843,7 @@ export default function ReceiptModal({ folio, nights, invoiceNo, autoPrint = tru
 
       // Compute full GST breakdown
       const gstDetails = computeGstBreakdown(folio, nights);
-      const propertyGstin = property?.taxDetails || (folio.reservation?.property as any)?.taxDetails || '02AABCG1234A1Z5';
+      const propertyGstin = property?.taxDetails || (folio.reservation?.property as any)?.taxDetails || 'Not Registered / Pending in Settings';
       const guestGstin = folio.reservation?.gstNumber || folio.guest?.gstNumber || '';
 
       const hotelBillPayload = {
@@ -1077,10 +1077,10 @@ export default function ReceiptModal({ folio, nights, invoiceNo, autoPrint = tru
                             {mealPlan === 'CP'
                               ? 'CP (Breakfast Included)'
                               : mealPlan === 'MAP'
-                              ? 'MAP (Bfast + Dinner Included)'
-                              : mealPlan === 'AP'
-                              ? 'AP (All Meals Included)'
-                              : 'EP (Room Only)'}
+                                ? 'MAP (Bfast + Dinner Included)'
+                                : mealPlan === 'AP'
+                                  ? 'AP (All Meals Included)'
+                                  : 'EP (Room Only)'}
                           </span>
                         </div>
                         <div className="info-block">
@@ -1121,25 +1121,45 @@ export default function ReceiptModal({ folio, nights, invoiceNo, autoPrint = tru
                   </thead>
                   <tbody>
                     {folio.transactions.map((txn) => {
-                      const isRoom = txn.sourceModule === 'HMS' || txn.description?.toLowerCase().includes('room');
+                      const isRoom = txn.sourceModule === 'HMS' || txn.sourceModule === 'ROOM_RENT' || txn.description?.toLowerCase().includes('room');
                       const isPos = txn.sourceModule === 'POS' || txn.sourceModule === 'ROOM_SERVICE';
                       const isGst = txn.sourceModule === 'GST';
                       const sacCode = isRoom ? '996311' : isPos ? '996331' : isGst ? 'TAX' : '9963';
+                      const mealPlanText = isRoom && (folio.reservation as any)?.mealPlan ? ` [Plan: ${(folio.reservation as any).mealPlan}]` : '';
+
                       return (
-                        <tr key={txn.id}>
-                          <td>{fmtDate(txn.txnDate)}</td>
-                          <td style={{ fontWeight: 700, fontSize: '10px', color: '#475569' }}>{sacCode}</td>
-                          <td style={{ textTransform: 'uppercase', fontSize: '9px', fontWeight: 'bold' }}>
-                            {txn.sourceModule}
-                          </td>
-                          <td>{txn.description || 'Transaction Charge'}</td>
-                          <td className="amount debit">
-                            {txn.debitAmount > 0 ? fmt(txn.debitAmount) : '—'}
-                          </td>
-                          <td className="amount credit">
-                            {txn.creditAmount > 0 ? fmt(txn.creditAmount) : '—'}
-                          </td>
-                        </tr>
+                        <React.Fragment key={txn.id}>
+                          <tr>
+                            <td>{fmtDate(txn.txnDate)}</td>
+                            <td style={{ fontWeight: 700, fontSize: '10px', color: '#475569' }}>{sacCode}</td>
+                            <td style={{ textTransform: 'uppercase', fontSize: '9px', fontWeight: 'bold' }}>
+                              {txn.sourceModule}
+                            </td>
+                            <td>{txn.description}{mealPlanText}</td>
+                            <td className="amount debit">
+                              {txn.debitAmount > 0 ? fmt(txn.debitAmount) : '—'}
+                            </td>
+                            <td className="amount credit">
+                              {txn.creditAmount > 0 ? fmt(txn.creditAmount) : '—'}
+                            </td>
+                          </tr>
+                          {txn.taxAmount > 0 && !isGst && (
+                            <tr style={{ background: '#f8fafc', fontSize: '11px', color: '#64748b' }}>
+                              <td>{fmtDate(txn.txnDate)}</td>
+                              <td style={{ fontWeight: 700, fontSize: '10px', color: '#94a3b8' }}>9963</td>
+                              <td style={{ textTransform: 'uppercase', fontSize: '9px', fontWeight: 'bold', color: '#d97706' }}>
+                                GST TAX
+                              </td>
+                              <td style={{ fontStyle: 'italic' }}>
+                                Applicable CGST + SGST on {txn.description}
+                              </td>
+                              <td className="amount debit" style={{ color: '#d97706' }}>
+                                {fmt(txn.taxAmount)}
+                              </td>
+                              <td className="amount credit">—</td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                     {folio.transactions.length === 0 && (

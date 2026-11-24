@@ -271,7 +271,8 @@ export async function GET(request: NextRequest) {
 
       if (isRoom) {
         sourceCategory = 'ROOM_SERVICE';
-        sourceBadge = `Room ${roomNumber || 'RS'}`;
+        const cleanRoom = (roomNumber || 'RS').replace(/^Room\s+/i, '').trim();
+        sourceBadge = `Room ${cleanRoom}`;
         sourceLocation = room?.floor ? `${room.floor} Floor` : 'Guest Room Service';
         roomServiceCount++;
       } else if (
@@ -281,11 +282,9 @@ export async function GET(request: NextRequest) {
         (kot.table?.floor?.menuType || '').toUpperCase() === 'BAR'
       ) {
         sourceCategory = 'BAR';
-        sourceBadge = kot.table?.name
-          ? `Table ${kot.table.name} (Bar)`
-          : kot.tableNo
-          ? `Bar Table ${kot.tableNo}`
-          : 'Bar Lounge Counter';
+        const rawTable = kot.table?.name || kot.tableNo || '';
+        const cleanTable = rawTable.replace(/^(Table|Bar Table)\s+/i, '').trim();
+        sourceBadge = cleanTable ? `Table ${cleanTable} (Bar)` : 'Bar Lounge Counter';
         sourceLocation = kot.table?.floor?.name || 'Bar & Lounge';
         barCount++;
       } else if (isTakeaway) {
@@ -298,11 +297,9 @@ export async function GET(request: NextRequest) {
         takeawayCount++;
       } else {
         sourceCategory = 'RESTAURANT';
-        sourceBadge = kot.table?.name
-          ? `Table ${kot.table.name}`
-          : kot.tableNo
-          ? `Table ${kot.tableNo}`
-          : 'Dining Table';
+        const rawTable = kot.table?.name || kot.tableNo || '';
+        const cleanTable = rawTable.replace(/^Table\s+/i, '').trim();
+        sourceBadge = cleanTable ? `Table ${cleanTable}` : 'Dining Table';
         sourceLocation = kot.table?.floor?.name || 'Restaurant Floor';
         restaurantCount++;
       }

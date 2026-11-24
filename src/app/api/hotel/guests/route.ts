@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { maskAadhaar } from '@/lib/hotel/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,7 +77,12 @@ export async function GET(request: NextRequest) {
       prisma.guest.count({ where }),
     ]);
 
-    return NextResponse.json({ success: true, data: guests, total, page, limit });
+    const sanitizedGuests = guests.map((g) => ({
+      ...g,
+      idNumber: maskAadhaar(g.idNumber),
+    }));
+
+    return NextResponse.json({ success: true, data: sanitizedGuests, total, page, limit });
   } catch (error) {
     return apiError(error);
   }

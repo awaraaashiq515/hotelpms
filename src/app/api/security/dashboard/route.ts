@@ -2,6 +2,16 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getCanonicalHotelStatus } from '@/lib/hotel/room-status-service';
+
+function maskPhone(phone?: string | null) {
+  if (!phone) return '—';
+  const clean = phone.replace(/\D/g, '');
+  if (clean.length >= 4) {
+    return '••••••' + clean.slice(-4);
+  }
+  return '••••••';
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,26 +45,14 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Property not found'), 404);
     }
 
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    const today = now.toISOString().split('T')[0];
+    // Single source of truth for hotel status and security gate counts
+    const canonical = await getCanonicalHotelStatus(propertyId);
 
-    const [rooms, reservations, maintenanceTickets, checkIns] = await Promise.all([
+    const [rooms, maintenanceTickets, checkIns] = await Promise.all([
       prisma.room.findMany({
         where: { propertyId },
         select: { id: true, roomNumber: true, status: true, housekeepingStatus: true, floor: true },
         orderBy: { roomNumber: 'asc' },
-      }),
-
-      prisma.reservation.findMany({
-        where: { propertyId },
-        include: {
-          guest: { select: { firstName: true, lastName: true, mobile: true } },
-          roomType: { select: { name: true } },
-          rooms: { include: { room: { select: { roomNumber: true } } } },
-        },
-        orderBy: { arrivalDate: 'asc' },
       }),
 
       prisma.maintenanceTicket.findMany({
@@ -74,53 +72,59 @@ export async function GET(request: NextRequest) {
       }).catch(() => []),
     ]);
 
-    // Stats
-    const totalRooms = rooms.length;
-    const occupiedRooms = rooms.filter((r) => r.status === 'OCCUPIED').length;
-    const availableRooms = rooms.filter((r) => r.status === 'AVAILABLE').length;
-    const maintenanceRooms = rooms.filter((r) => r.status === 'MAINTENANCE').length;
+    // Sanitize guest records (mask phone numbers and hide folio financials from gate security)
+    const sanitizeRes = (resList: any[]) =>
+      resList.map((r) => ({
+        id: r.id,
+        bookingNo: r.bookingNo,
+        status: r.status,
+        arrivalDate: r.arrivalDate,
+        departureDate: r.departureDate,
+        adults: r.adults,
+        children: r.children,
+        totalAmount: 0,
+        advanceAmount: 0,
+        dueAmount: 0,
+        guest: {
+          firstName: r.guest?.firstName || 'Guest',
+          lastName: r.guest?.lastName || '',
+          mobile: maskPhone(r.guest?.mobile),
+        },
+        roomType: { name: r.roomType?.name || 'Standard' },
+        rooms: r.rooms,
+      }));
 
-    const todayArrivals = reservations.filter(
-      (r) =>
-        new Date(r.arrivalDate).toISOString().split('T')[0] === today &&
-        (r.status === 'CONFIRMED' || r.status === 'PENDING')
-    );
-
-    const todayDepartures = reservations.filter(
-      (r) =>
-        new Date(r.departureDate).toISOString().split('T')[0] === today &&
-        r.status === 'CHECKED_IN'
-    );
-
-    const inHouseGuests = reservations.filter((r) => r.status === 'CHECKED_IN');
-
-    const overdueCheckouts = reservations.filter(
-      (r) => r.status === 'CHECKED_IN' && new Date(r.departureDate) < todayStart
-    );
-
-    const pendingPayments = reservations.filter(
-      (r) => (r.dueAmount ?? 0) > 0 && r.status !== 'CANCELLED' && r.status !== 'CHECKED_OUT'
-    );
+    const sanitizedCheckIns = checkIns.map((ci) => ({
+      id: ci.id,
+      checkedInAt: ci.checkedInAt,
+      expectedCheckoutAt: ci.expectedCheckoutAt,
+      guest: {
+        firstName: ci.guest?.firstName || 'Guest',
+        lastName: ci.guest?.lastName || '',
+        mobile: maskPhone(ci.guest?.mobile),
+      },
+      room: ci.room,
+    }));
 
     return apiResponse({
-      // Room stats
-      totalRooms,
-      occupiedRooms,
-      availableRooms,
-      maintenanceRooms,
+      // Room stats - matched across all PMS screens
+      totalRooms: canonical.summary.totalRooms,
+      occupiedRooms: canonical.summary.occupiedCount,
+      availableRooms: canonical.summary.vacantCount,
+      maintenanceRooms: canonical.summary.maintenanceCount,
 
       // Guest stats
-      inHouseCount: inHouseGuests.length,
-      todayArrivalsCount: todayArrivals.length,
-      todayDeparturesCount: todayDepartures.length,
-      overdueCount: overdueCheckouts.length,
-      pendingPaymentsCount: pendingPayments.length,
+      inHouseCount: canonical.summary.occupiedCount,
+      todayArrivalsCount: canonical.arrivalsToday.length,
+      todayDeparturesCount: canonical.departuresToday.length,
+      overdueCount: canonical.overdueDepartures.length,
+      pendingPaymentsCount: 0,
 
       // Lists
-      todayArrivals: todayArrivals.slice(0, 10),
-      todayDepartures: todayDepartures.slice(0, 10),
-      overdueCheckouts: overdueCheckouts.slice(0, 10),
-      inHouseGuests: checkIns,
+      todayArrivals: sanitizeRes(canonical.arrivalsToday.slice(0, 15)),
+      todayDepartures: sanitizeRes(canonical.departuresToday.slice(0, 15)),
+      overdueCheckouts: sanitizeRes(canonical.overdueDepartures.slice(0, 15)),
+      inHouseGuests: sanitizedCheckIns,
       maintenanceAlerts: maintenanceTickets,
 
       // Rooms grid

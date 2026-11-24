@@ -82,6 +82,12 @@ export async function GET(
       null;
     const floor = reservation.rooms?.[0]?.room?.floor || null;
 
+    // Mask sensitive KYC & phone info for security verification
+    const rawMobile = reservation.guest?.mobile || '';
+    const maskedMobile = rawMobile.length >= 4 ? '••••••' + rawMobile.slice(-4) : '••••••';
+    const rawIdNum = reservation.guest?.idNumber || '';
+    const maskedIdNum = rawIdNum.length >= 4 ? '••••-••••-' + rawIdNum.slice(-4) : 'VERIFIED';
+
     return NextResponse.json({
       success: true,
       data: {
@@ -94,9 +100,10 @@ export async function GET(
           departureDate: reservation.departureDate,
           adults: reservation.adults,
           children: reservation.children,
-          totalAmount: reservation.totalAmount,
-          advanceAmount: reservation.advanceAmount,
-          dueAmount: reservation.dueAmount,
+          totalAmount: 0,
+          advanceAmount: 0,
+          dueAmount: 0,
+          paymentStatus: (reservation.dueAmount ?? 0) <= 0 ? 'CLEARED' : 'PENDING_FRONT_DESK',
           mealPlan: reservation.mealPlan,
           poolAccess: reservation.poolAccess,
           poolPackage: reservation.poolPackage,
@@ -108,7 +115,14 @@ export async function GET(
           checkInTime: reservation.checkIns?.[0]?.checkedInAt || null,
           expectedCheckout: reservation.checkIns?.[0]?.expectedCheckoutAt || reservation.departureDate,
         },
-        guest: reservation.guest,
+        guest: reservation.guest
+          ? {
+              ...reservation.guest,
+              mobile: maskedMobile,
+              idNumber: maskedIdNum,
+              email: reservation.guest.email ? '••••@••••' : null,
+            }
+          : null,
         property: reservation.property,
       },
     });

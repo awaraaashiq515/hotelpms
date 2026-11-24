@@ -629,9 +629,10 @@ function PortalQRModal({
   portal: PortalCredential;
   onClose: () => void;
 }) {
-  const fullUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${portal.urlPath}`
-    : `http://localhost:3000${portal.urlPath}`;
+  const baseUrl = typeof window !== 'undefined'
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_APP_URL || '');
+  const fullUrl = `${baseUrl}${portal.urlPath}`;
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fullUrl)}&margin=10`;
 
@@ -1259,14 +1260,15 @@ export default function SpaPage() {
                     Share or embed this URL in room tablets so guests can browse therapies and schedule appointments.
                   </p>
                   <span className="inline-block mt-2 font-mono text-[10px] text-pink-300 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-                    http://localhost:3000/room-portal/dashboard/spa
+                    {typeof window !== 'undefined' ? `${window.location.origin}/room-portal/dashboard/spa` : '/room-portal/dashboard/spa'}
                   </span>
                 </div>
 
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText('http://localhost:3000/room-portal/dashboard/spa');
+                      const url = typeof window !== 'undefined' ? `${window.location.origin}/room-portal/dashboard/spa` : '/room-portal/dashboard/spa';
+                      navigator.clipboard.writeText(url);
                       toast.success('Spa Booking URL copied!');
                     }}
                     className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5"

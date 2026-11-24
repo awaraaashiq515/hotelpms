@@ -105,6 +105,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // C11: Date validation
+    const ciDate = new Date(checkIn);
+    const coDate = new Date(checkOut);
+    if (isNaN(ciDate.getTime()) || isNaN(coDate.getTime())) {
+      return NextResponse.json({ success: false, message: 'Valid checkIn and checkOut dates are required.' }, { status: 400 });
+    }
+    if (coDate <= ciDate) {
+      return NextResponse.json({ success: false, message: 'Check-out date must be strictly after check-in date.' }, { status: 400 });
+    }
+
     const agent = await prisma.travelAgent.findUnique({ where: { id: agentId } });
     if (!agent) {
       return NextResponse.json({ success: false, message: 'Agent not found.' }, { status: 404 });
@@ -119,6 +129,33 @@ export async function POST(request: NextRequest) {
     }
     if (!targetPropertyId) {
       return NextResponse.json({ success: false, message: 'propertyId is required.' }, { status: 400 });
+    }
+
+    // C11: Live inventory check per room type
+    const totalInventory = await prisma.room.count({
+      where: {
+        propertyId: targetPropertyId,
+        ...(roomType ? { roomType: { name: { contains: roomType } } } : {}),
+        status: { notIn: ['OUT_OF_ORDER', 'MAINTENANCE'] }
+      }
+    });
+    if (totalInventory > 0) {
+      const activeOverlap = await prisma.reservation.count({
+        where: {
+          propertyId: targetPropertyId,
+          status: { notIn: ['CANCELLED', 'CHECKED_OUT'] },
+          AND: [
+            { arrivalDate: { lt: coDate } },
+            { departureDate: { gt: ciDate } }
+          ]
+        }
+      });
+      if (activeOverlap >= totalInventory) {
+        return NextResponse.json({
+          success: false,
+          message: `Inventory error: Hotel has only ${totalInventory} rooms for ${roomType}, and ${activeOverlap} are already booked for these dates.`
+        }, { status: 400 });
+      }
     }
 
     // Check hotel-specific relation (block status & custom commission rate)

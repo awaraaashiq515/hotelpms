@@ -11,17 +11,40 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const propertyIdParam = searchParams.get('propertyId');
     const type = searchParams.get('type'); // 'ALL' | 'B2B' | 'B2C'
-    const paymentModeParam = searchParams.get('paymentMode'); // 'ALL' | 'CASH' | 'ONLINE' | 'BANK_TRANSFER' | 'UNPAID'
-    const statusParam = searchParams.get('status'); // 'ALL' | 'PAID' | 'PARTIAL' | 'DUE'
+    const statusParam = searchParams.get('status'); // 'ALL' | 'PAID' | 'PARTIAL' | 'DUE' | 'COMPLIMENTARY' | 'PROFORMA'
     const search = searchParams.get('search')?.trim().toLowerCase();
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
 
     const propertyWhere = getMultiTenantWhere(session, propertyIdParam);
 
-    // Fetch all folios for this property
-    const folios = await prisma.folio.findMany({
+    // 1. Fetch Official Settled Invoices from DB
+    const dbInvoices = await prisma.invoice.findMany({
       where: {
+        ...propertyWhere,
+      },
+      include: {
+        guest: true,
+        folio: {
+          include: {
+            guest: true,
+            reservation: {
+              include: {
+                roomType: true,
+                rooms: { include: { room: true } },
+              }
+            },
+            transactions: true,
+          }
+        },
+        items: true,
+      },
+      orderBy: { invoiceDate: 'desc' }
+    });
+
+    // 2. Fetch Active Open Folios (In-house guests who have NOT checked out yet)
+    // These are labeled strictly as PROFORMA / ESTIMATES (H7)
+    const openFolios = await prisma.folio.findMany({
+      where: {
+        status: 'OPEN',
         reservation: propertyWhere,
       },
       include: {
@@ -30,295 +53,211 @@ export async function GET(request: NextRequest) {
           include: {
             roomType: true,
             rooms: { include: { room: true } },
-            checkIns: {
-              orderBy: { checkedInAt: 'desc' },
-              take: 1,
-            },
-            property: true,
-          },
+          }
         },
-        transactions: {
-          orderBy: { txnDate: 'desc' },
-        },
-        posOrders: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            outlet: { select: { name: true, type: true } },
-            items: {
-              include: {
-                product: { select: { name: true } },
-              },
-            },
-          },
-        },
+        transactions: true,
       },
-      orderBy: { folioNo: 'desc' },
+      orderBy: { folioNo: 'desc' }
     });
 
-    // Map and enrich each folio into a standardized Hotel Invoice Record
-    const mappedInvoices = folios.map((folio, idx) => {
-      const reservation = folio.reservation;
-      const guest = folio.guest;
-      const transactions = folio.transactions || [];
+    // Format DB Invoices
+    const formattedSettledInvoices = dbInvoices.map((inv) => {
+      const reservation = inv.folio?.reservation;
+      const guest = inv.guest || inv.folio?.guest;
+      const items = inv.items || [];
 
-      // Uniform sequential invoice numbering: INV-431298-1, INV-431298-2, INV-431298-3...
-      const invoiceNo = `INV-431298-${idx + 1}`;
-
-      // 1. Identify B2B vs B2C
       const gstNumber = (reservation?.gstNumber || guest?.gstNumber || '').trim().toUpperCase();
       const companyName = (reservation?.companyName || guest?.companyName || '').trim();
-      const billingAddress = (reservation?.billingAddress || guest?.billingAddress || guest?.address || '').trim();
       const isB2B = Boolean(gstNumber || companyName);
 
-      // 2. Compute Tax Breakdown (GST debits)
-      const gstTransactions = transactions.filter(
-        (t) => t.sourceModule === 'GST' || t.taxAmount > 0 || (t.description && t.description.toLowerCase().includes('gst'))
-      );
-      const totalTax = gstTransactions.reduce((sum, t) => sum + (t.debitAmount || t.taxAmount || 0), 0);
-      const totalDebitCharges = transactions.reduce((sum, t) => sum + (t.debitAmount || 0), 0) || folio.totalCharges;
-      const totalPaid = transactions.reduce((sum, t) => sum + (t.creditAmount || 0), 0) || folio.totalPayments;
-      const taxableAmount = Math.max(0, totalDebitCharges - totalTax);
+      const isComplimentary = inv.paymentStatus === 'COMPLIMENTARY' || Boolean(reservation?.waiveBill || reservation?.isOwnerGuest);
+
+      const totalTax = isComplimentary ? 0 : (inv.taxAmount || items.reduce((s, it) => s + (it.taxAmount || 0), 0));
       const cgst = Math.round((totalTax / 2) * 100) / 100;
       const sgst = Math.round((totalTax / 2) * 100) / 100;
 
-      // 3. Payment Mode & Settlements breakdown
-      const creditTransactions = transactions.filter((t) => t.txnType === 'CREDIT' || t.creditAmount > 0);
-      const detectedModes: string[] = [];
+      const taxableAmount = isComplimentary ? 0 : (inv.subtotal || Math.max(0, inv.totalAmount - totalTax));
+      const totalAmount = isComplimentary ? 0 : inv.totalAmount;
+
+      const creditTransactions = inv.folio?.transactions.filter((t) => t.txnType === 'CREDIT' || t.creditAmount > 0) || [];
       let cashPaid = 0;
       let onlinePaid = 0;
-      let bankTransferPaid = 0;
-
-      creditTransactions.forEach((txn) => {
-        const desc = (txn.description || '').toUpperCase();
-        if (desc.includes('CASH')) {
-          detectedModes.push('CASH');
-          cashPaid += txn.creditAmount;
-        } else if (desc.includes('UPI')) {
-          detectedModes.push('UPI');
-          onlinePaid += txn.creditAmount;
-        } else if (desc.includes('CARD')) {
-          detectedModes.push('CARD');
-          onlinePaid += txn.creditAmount;
-        } else if (desc.includes('BANK_TRANSFER') || desc.includes('BANK TRANSFER') || desc.includes('NEFT') || desc.includes('RTGS')) {
-          detectedModes.push('BANK_TRANSFER');
-          bankTransferPaid += txn.creditAmount;
-        } else if (desc.includes('ONLINE')) {
-          detectedModes.push('ONLINE');
-          onlinePaid += txn.creditAmount;
-        } else {
-          // Default fallback
-          detectedModes.push('CASH');
-          cashPaid += txn.creditAmount;
-        }
+      creditTransactions.forEach((t) => {
+        const desc = (t.description || '').toUpperCase();
+        if (desc.includes('CASH')) cashPaid += t.creditAmount;
+        else onlinePaid += t.creditAmount;
       });
 
-      const uniqueModes = Array.from(new Set(detectedModes));
-      let primaryPaymentMode: 'CASH' | 'ONLINE' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'SPLIT' | 'UNPAID' = 'UNPAID';
-
-      if (totalPaid <= 0) {
-        primaryPaymentMode = 'UNPAID';
-      } else if (uniqueModes.length > 1) {
-        primaryPaymentMode = 'SPLIT';
-      } else if (uniqueModes.length === 1) {
-        primaryPaymentMode = uniqueModes[0] as any;
-      } else {
-        primaryPaymentMode = 'CASH';
-      }
-
-      // Balance & Payment Status
-      const dueBalance = Math.max(0, totalDebitCharges - totalPaid);
-      let paymentStatus: 'PAID' | 'PARTIAL' | 'DUE' = 'DUE';
-      if (dueBalance <= 0 && totalDebitCharges > 0) {
-        paymentStatus = 'PAID';
-      } else if (totalPaid > 0 && dueBalance > 0) {
-        paymentStatus = 'PARTIAL';
-      } else if (totalDebitCharges === 0 && totalPaid === 0) {
-        paymentStatus = 'PAID';
-      }
-
-      // 4. Exact Category Classification
-      let invoiceCategory: 'B2B_GST_CASH' | 'B2B_GST_ONLINE' | 'B2B_GST_SPLIT' | 'B2C_RETAIL_CASH' | 'B2C_RETAIL_ONLINE' | 'B2C_RETAIL_SPLIT' | 'UNPAID_DUE' = 'UNPAID_DUE';
-      
-      if (paymentStatus === 'DUE' && totalPaid === 0) {
-        invoiceCategory = 'UNPAID_DUE';
-      } else if (isB2B) {
-        if (cashPaid > 0 && onlinePaid === 0 && bankTransferPaid === 0) {
-          invoiceCategory = 'B2B_GST_CASH';
-        } else if (cashPaid === 0 && (onlinePaid > 0 || bankTransferPaid > 0)) {
-          invoiceCategory = 'B2B_GST_ONLINE';
-        } else {
-          invoiceCategory = 'B2B_GST_SPLIT';
-        }
-      } else {
-        if (cashPaid > 0 && onlinePaid === 0 && bankTransferPaid === 0) {
-          invoiceCategory = 'B2C_RETAIL_CASH';
-        } else if (cashPaid === 0 && (onlinePaid > 0 || bankTransferPaid > 0)) {
-          invoiceCategory = 'B2C_RETAIL_ONLINE';
-        } else {
-          invoiceCategory = 'B2C_RETAIL_SPLIT';
-        }
-      }
-
-      const activeCheckIn = reservation?.checkIns?.[0];
       const room = reservation?.rooms?.[0]?.room;
-      const invoiceDate = activeCheckIn?.checkedInAt || reservation?.arrivalDate || new Date().toISOString();
 
       return {
-        id: folio.id,
-        folioId: folio.id,
-        invoiceNo,
-        folioNo: folio.folioNo,
+        id: inv.id,
+        folioId: inv.folioId || inv.id,
+        invoiceNo: inv.invoiceNo,
+        folioNo: inv.folio?.folioNo || 'FOLIO-SETTLED',
         bookingNo: reservation?.bookingNo || '—',
-        invoiceDate,
+        invoiceDate: inv.invoiceDate.toISOString(),
         guestId: guest?.id,
-        guestName: `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'Walk-in Guest',
+        guestName: `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'Guest Customer',
         guestMobile: guest?.mobile || '—',
         guestEmail: guest?.email || '—',
         roomNumber: room?.roomNumber || '—',
         roomTypeName: reservation?.roomType?.name || 'Standard',
-        arrivalDate: reservation?.arrivalDate || invoiceDate,
-        departureDate: reservation?.departureDate || invoiceDate,
+        arrivalDate: reservation?.arrivalDate || inv.invoiceDate,
+        departureDate: reservation?.departureDate || inv.invoiceDate,
         isB2B,
         companyName: companyName || null,
         gstNumber: gstNumber || null,
-        billingAddress: billingAddress || null,
+        billingAddress: reservation?.billingAddress || guest?.billingAddress || guest?.address || null,
         taxableAmount,
         cgst,
         sgst,
         totalTax,
         subtotal: taxableAmount,
-        totalAmount: totalDebitCharges,
-        totalPaid,
-        dueBalance,
-        paymentStatus,
-        paymentMode: primaryPaymentMode,
-        paymentModesList: uniqueModes,
-        cashPaid,
-        onlinePaid: onlinePaid + bankTransferPaid,
-        invoiceCategory,
-        folioStatus: folio.status,
-        rawFolio: folio,
+        totalAmount,
+        totalPaid: isComplimentary ? 0 : (cashPaid + onlinePaid),
+        dueBalance: isComplimentary ? 0 : Math.max(0, totalAmount - (cashPaid + onlinePaid)),
+        paymentStatus: inv.paymentStatus,
+        paymentMode: cashPaid > 0 && onlinePaid > 0 ? 'SPLIT' : cashPaid > 0 ? 'CASH' : onlinePaid > 0 ? 'ONLINE' : 'UNPAID',
+        cashPaid: isComplimentary ? 0 : cashPaid,
+        onlinePaid: isComplimentary ? 0 : onlinePaid,
+        invoiceCategory: isB2B ? 'B2B_GST_SETTLED' : 'B2C_RETAIL_SETTLED',
+        folioStatus: 'CLOSED',
+        isProforma: false,
+        isComplimentary,
       };
     });
 
-    // ── Global KPI Calculations (Across all invoices of property) ─────────────
-    const totalInvoiced = mappedInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const totalTaxCollected = mappedInvoices.reduce((sum, inv) => sum + inv.totalTax, 0);
-    const totalCgstCollected = mappedInvoices.reduce((sum, inv) => sum + inv.cgst, 0);
-    const totalSgstCollected = mappedInvoices.reduce((sum, inv) => sum + inv.sgst, 0);
+    // Format Open Folios as PROFORMA / INTERIM BILLS (H7)
+    const formattedOpenFolios = openFolios.map((folio) => {
+      const reservation = folio.reservation;
+      const guest = folio.guest;
+      const isComplimentary = Boolean(reservation?.waiveBill || reservation?.isOwnerGuest);
 
-    const b2bInvoices = mappedInvoices.filter((inv) => inv.isB2B);
-    const b2bTotalAmount = b2bInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const b2bTotalCount = b2bInvoices.length;
+      const gstNumber = (reservation?.gstNumber || guest?.gstNumber || '').trim().toUpperCase();
+      const companyName = (reservation?.companyName || guest?.companyName || '').trim();
+      const isB2B = Boolean(gstNumber || companyName);
 
-    const b2cInvoices = mappedInvoices.filter((inv) => !inv.isB2B);
-    const b2cTotalAmount = b2cInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const b2cTotalCount = b2cInvoices.length;
+      const debitTransactions = folio.transactions.filter((t) => t.txnType === 'DEBIT') || [];
+      const creditTransactions = folio.transactions.filter((t) => t.txnType === 'CREDIT') || [];
 
-    const totalCashCollected = mappedInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0);
-    const cashOnGstInvoices = b2bInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0);
-    const cashOnSimpleInvoices = b2cInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0);
+      const totalCharges = isComplimentary ? 0 : debitTransactions.reduce((s, t) => s + (t.debitAmount || 0), 0);
+      const totalPaid = isComplimentary ? 0 : creditTransactions.reduce((s, t) => s + (t.creditAmount || 0), 0);
+      const dueBalance = isComplimentary ? 0 : Math.max(0, totalCharges - totalPaid);
 
-    const totalOnlineCollected = mappedInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0);
-    const onlineOnGstInvoices = b2bInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0);
-    const onlineOnSimpleInvoices = b2cInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0);
-    const totalDueBalance = mappedInvoices.reduce((sum, inv) => sum + inv.dueBalance, 0);
+      const totalTax = isComplimentary ? 0 : debitTransactions.reduce((s, t) => s + (t.taxAmount || 0), 0);
+      const cgst = Math.round((totalTax / 2) * 100) / 100;
+      const sgst = Math.round((totalTax / 2) * 100) / 100;
+      const taxableAmount = Math.max(0, totalCharges - totalTax);
+
+      const room = reservation?.rooms?.[0]?.room;
+
+      return {
+        id: folio.id,
+        folioId: folio.id,
+        invoiceNo: `PROFORMA-${folio.folioNo}`,
+        folioNo: folio.folioNo,
+        bookingNo: reservation?.bookingNo || '—',
+        invoiceDate: reservation?.arrivalDate || new Date().toISOString(),
+        guestId: guest?.id,
+        guestName: `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'In-House Guest',
+        guestMobile: guest?.mobile || '—',
+        guestEmail: guest?.email || '—',
+        roomNumber: room?.roomNumber || '—',
+        roomTypeName: reservation?.roomType?.name || 'Standard',
+        arrivalDate: reservation?.arrivalDate,
+        departureDate: reservation?.departureDate,
+        isB2B,
+        companyName: companyName || null,
+        gstNumber: gstNumber || null,
+        billingAddress: reservation?.billingAddress || guest?.billingAddress || guest?.address || null,
+        taxableAmount,
+        cgst,
+        sgst,
+        totalTax,
+        subtotal: taxableAmount,
+        totalAmount: totalCharges,
+        totalPaid,
+        dueBalance,
+        paymentStatus: isComplimentary ? 'COMPLIMENTARY' : 'PROFORMA',
+        paymentMode: totalPaid > 0 ? 'PARTIAL' : 'UNPAID',
+        cashPaid: 0,
+        onlinePaid: totalPaid,
+        invoiceCategory: 'PROFORMA_INTERIM_BILL',
+        folioStatus: 'OPEN',
+        isProforma: true,
+        isComplimentary,
+      };
+    });
+
+    const allInvoices = [...formattedSettledInvoices, ...formattedOpenFolios];
+
+    // Filter by type
+    let filtered = allInvoices;
+    if (type === 'B2B') filtered = filtered.filter((i) => i.isB2B);
+    if (type === 'B2C') filtered = filtered.filter((i) => !i.isB2B);
+
+    if (statusParam && statusParam !== 'ALL') {
+      filtered = filtered.filter((i) => i.paymentStatus === statusParam);
+    }
+
+    if (search) {
+      filtered = filtered.filter(
+        (i) =>
+          i.guestName.toLowerCase().includes(search) ||
+          i.invoiceNo.toLowerCase().includes(search) ||
+          i.folioNo.toLowerCase().includes(search) ||
+          i.bookingNo.toLowerCase().includes(search)
+      );
+    }
+
+    // Revenue KPIs strictly exclude complimentary / waived stays! (C5)
+    const paidSettledInvoices = formattedSettledInvoices.filter((i) => !i.isComplimentary);
+    const totalInvoiced = paidSettledInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const totalTaxCollected = paidSettledInvoices.reduce((sum, inv) => sum + inv.totalTax, 0);
+    const totalCgstCollected = paidSettledInvoices.reduce((sum, inv) => sum + inv.cgst, 0);
+    const totalSgstCollected = paidSettledInvoices.reduce((sum, inv) => sum + inv.sgst, 0);
+
+    const b2bInvoices = paidSettledInvoices.filter((inv) => inv.isB2B);
+    const b2cInvoices = paidSettledInvoices.filter((inv) => !inv.isB2B);
 
     const summary = {
       totalInvoiced,
-      totalInvoicesCount: mappedInvoices.length,
+      totalInvoicesCount: paidSettledInvoices.length,
       totalTaxCollected,
       totalCgstCollected,
       totalSgstCollected,
+      complimentaryStaysCount: allInvoices.filter((i) => i.isComplimentary).length,
+      proformaCount: formattedOpenFolios.length,
       b2b: {
-        count: b2bTotalCount,
-        totalAmount: b2bTotalAmount,
-        cashPaid: cashOnGstInvoices,
-        onlinePaid: onlineOnGstInvoices,
+        count: b2bInvoices.length,
+        totalAmount: b2bInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+        cashPaid: b2bInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0),
+        onlinePaid: b2bInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0),
       },
       b2c: {
-        count: b2cTotalCount,
-        totalAmount: b2cTotalAmount,
-        cashPaid: cashOnSimpleInvoices,
-        onlinePaid: onlineOnSimpleInvoices,
+        count: b2cInvoices.length,
+        totalAmount: b2cInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+        cashPaid: b2cInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0),
+        onlinePaid: b2cInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0),
       },
       cash: {
-        total: totalCashCollected,
-        onGstInvoices: cashOnGstInvoices,
-        onSimpleInvoices: cashOnSimpleInvoices,
+        total: paidSettledInvoices.reduce((sum, inv) => sum + inv.cashPaid, 0),
       },
       online: {
-        total: totalOnlineCollected,
-        onGstInvoices: onlineOnGstInvoices,
-        onSimpleInvoices: onlineOnSimpleInvoices,
+        total: paidSettledInvoices.reduce((sum, inv) => sum + inv.onlinePaid, 0),
       },
-      dueBalance: totalDueBalance,
+      due: {
+        totalDueBalance: allInvoices.reduce((sum, inv) => sum + inv.dueBalance, 0),
+      },
     };
-
-    // ── Apply Query Filters for List Output ────────────────────────────────────
-    let filtered = mappedInvoices;
-
-    // Type Filter (B2B vs B2C)
-    if (type === 'B2B') {
-      filtered = filtered.filter((inv) => inv.isB2B);
-    } else if (type === 'B2C') {
-      filtered = filtered.filter((inv) => !inv.isB2B);
-    }
-
-    // Payment Mode Filter (including specific GST + Payment combinations)
-    if (paymentModeParam === 'CASH') {
-      filtered = filtered.filter((inv) => inv.cashPaid > 0);
-    } else if (paymentModeParam === 'CASH_GST') {
-      filtered = filtered.filter((inv) => inv.isB2B && inv.cashPaid > 0);
-    } else if (paymentModeParam === 'CASH_SIMPLE') {
-      filtered = filtered.filter((inv) => !inv.isB2B && inv.cashPaid > 0);
-    } else if (paymentModeParam === 'ONLINE') {
-      filtered = filtered.filter((inv) => inv.onlinePaid > 0);
-    } else if (paymentModeParam === 'ONLINE_GST') {
-      filtered = filtered.filter((inv) => inv.isB2B && inv.onlinePaid > 0);
-    } else if (paymentModeParam === 'ONLINE_SIMPLE') {
-      filtered = filtered.filter((inv) => !inv.isB2B && inv.onlinePaid > 0);
-    } else if (paymentModeParam === 'UNPAID') {
-      filtered = filtered.filter((inv) => inv.paymentStatus === 'DUE');
-    }
-
-    // Status Filter
-    if (statusParam && statusParam !== 'ALL') {
-      filtered = filtered.filter((inv) => inv.paymentStatus === statusParam);
-    }
-
-    // Date Range Filter
-    if (startDate) {
-      const start = new Date(startDate);
-      filtered = filtered.filter((inv) => new Date(inv.invoiceDate) >= start);
-    }
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      filtered = filtered.filter((inv) => new Date(inv.invoiceDate) <= end);
-    }
-
-    // Search Query
-    if (search) {
-      filtered = filtered.filter((inv) => {
-        return (
-          inv.invoiceNo.toLowerCase().includes(search) ||
-          inv.folioNo.toLowerCase().includes(search) ||
-          inv.bookingNo.toLowerCase().includes(search) ||
-          inv.guestName.toLowerCase().includes(search) ||
-          inv.guestMobile.toLowerCase().includes(search) ||
-          (inv.companyName && inv.companyName.toLowerCase().includes(search)) ||
-          (inv.gstNumber && inv.gstNumber.toLowerCase().includes(search)) ||
-          inv.roomNumber.toLowerCase().includes(search)
-        );
-      });
-    }
 
     return apiResponse({
       invoices: filtered,
       summary,
     });
   } catch (error) {
+    console.error('Invoices API error:', error);
     return apiError(error);
   }
 }

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Unauthorized or no property selected'), 401);
     }
 
-    // Using Raw SQL to fetch the full property record to bypass stale Prisma client field filtering
+    // Using Raw SQL to fetch the full property record
     const properties: any[] = await (prisma as any).$queryRawUnsafe(
       'SELECT * FROM "Property" WHERE "id" = $1 LIMIT 1',
       propertyId
@@ -33,7 +33,19 @@ export async function GET(request: NextRequest) {
       return apiError(new Error('Property not found'), 404);
     }
 
-    const property = properties[0];
+    const property = { ...properties[0] };
+
+    // Security fix (H10): Never send sensitive secrets, tokens or plain passwords to the browser
+    property.hasGmailPassword = Boolean(property.gmailAppPassword);
+    property.gmailAppPassword = property.gmailAppPassword ? '••••••••••••••••' : '';
+    if (property.posTerminalPin) {
+      property.hasPosPin = true;
+      property.posTerminalPin = '••••';
+    }
+    if (property.metaAccessToken) property.metaAccessToken = '••••••••';
+    if (property.twilioAuthToken) property.twilioAuthToken = '••••••••';
+    if (property.whatsAppApiKey) property.whatsAppApiKey = '••••••••';
+
     return apiResponse(property);
   } catch (error) {
     console.error('[API Error]:', error);

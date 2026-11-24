@@ -109,13 +109,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // H13: Privacy fix — Never expose list of occupied rooms or guest names publicly
     return NextResponse.json({
       success: true,
       property: prop,
-      activeRooms: Array.from(roomNumbers).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true })
-      ),
-      roomCheckInfo,
+      activeRooms: [],
     });
   } catch (error) {
     return NextResponse.json({ success: false, activeRooms: [], property: null });

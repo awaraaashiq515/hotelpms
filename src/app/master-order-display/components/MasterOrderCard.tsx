@@ -145,7 +145,7 @@ export const MasterOrderCard: React.FC<MasterOrderCardProps> = ({
 
           {/* Primary Destination (Big & Clear for TV Display) */}
           <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-1.5 truncate">
-            {ticket.sourceBadge}
+            {ticket.sourceBadge?.replace(/^Room\s+Room\s+/i, 'Room ').replace(/^Table\s+Table\s+/i, 'Table ')}
           </h2>
           <p className="text-xs text-slate-400 font-medium truncate">
             {ticket.sourceLocation}

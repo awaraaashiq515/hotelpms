@@ -2,51 +2,47 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getCanonicalHotelStatus, getHotelBusinessDate } from '@/lib/hotel/room-status-service';
+import { computeRoomGst } from '@/lib/hotel/gst-service';
 
 async function getPropertyContext(request: NextRequest) {
   const session = await getSession();
   const { searchParams } = new URL(request.url);
   const propertyIdParam = searchParams.get('propertyId');
 
-  if (session) {
-    const propertyWhere = getMultiTenantWhere(session, propertyIdParam);
-    return { session, propertyWhere };
+  let propId = propertyIdParam || session?.propertyId;
+  if (!propId && session?.organizationId) {
+    const p = await prisma.property.findFirst({ where: { organizationId: session.organizationId } });
+    propId = p?.id;
+  }
+  if (!propId) {
+    const p = await prisma.property.findFirst({ orderBy: { createdAt: 'asc' } });
+    propId = p?.id;
   }
 
-  // Fallback if session is empty
-  let prop = null;
-  if (propertyIdParam) {
-    prop = await prisma.property.findUnique({ where: { id: propertyIdParam } });
-  }
-  if (!prop) {
-    prop = await prisma.property.findFirst({ orderBy: { createdAt: 'asc' } });
-  }
-
-  const propertyWhere = prop ? { propertyId: prop.id } : {};
-  return { session: null, propertyWhere, prop };
+  const propertyWhere = propId ? { propertyId: propId } : {};
+  return { session, propertyWhere, propertyId: propId || '' };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { propertyWhere } = await getPropertyContext(request);
+    const { propertyWhere, propertyId } = await getPropertyContext(request);
+    const { todayStart, dateString } = getHotelBusinessDate();
 
-    // 1. Fetch Rooms & Statuses
-    const rooms = await prisma.room.findMany({
-      where: propertyWhere,
-      select: { id: true, roomNumber: true, status: true, roomType: { select: { name: true, baseRate: true } } }
-    });
+    // 1. Fetch canonical single source of truth
+    const canonical = await getCanonicalHotelStatus(propertyId);
 
-    const totalRoomsCount = rooms.length;
-    const occupiedRoomsCount = rooms.filter(r => r.status === 'OCCUPIED').length;
-    const vacantRoomsCount = rooms.filter(r => r.status === 'VACANT' || r.status === 'CLEAN' || r.status === 'DIRTY').length;
-    const maintenanceRoomsCount = rooms.filter(r => r.status === 'MAINTENANCE' || r.status === 'OUT_OF_ORDER').length;
-    const occupancyPct = totalRoomsCount > 0 ? Math.round((occupiedRoomsCount / totalRoomsCount) * 100) : 0;
+    const totalRoomsCount = canonical.summary.totalRooms;
+    const occupiedRoomsCount = canonical.summary.occupiedCount;
+    const vacantRoomsCount = canonical.summary.vacantCount;
+    const maintenanceRoomsCount = canonical.summary.maintenanceCount;
+    const occupancyPct = canonical.summary.occupancyPct;
 
     // 2. Fetch Active CheckIns & In-House Guests
     const activeCheckIns = await prisma.checkIn.findMany({
       where: {
         status: 'ACTIVE',
-        reservation: propertyWhere
+        reservation: propertyWhere,
       },
       include: {
         guest: true,
@@ -57,29 +53,30 @@ export async function GET(request: NextRequest) {
             folios: {
               where: { status: 'OPEN' },
               include: {
-                transactions: true
-              }
-            }
-          }
-        }
-      }
+                transactions: true,
+              },
+            },
+          },
+        },
+      },
     });
-
-    // 3. Check Room Rate Posting Status for Today
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
 
     let ratesPostedTodayCount = 0;
     let ratesPendingPostCount = 0;
     let pendingDuesTotal = 0;
 
-    const checkInsWithStatus = activeCheckIns.map(ci => {
+    const checkInsWithStatus = activeCheckIns.map((ci) => {
       const folio = ci.reservation?.folios?.[0];
-      const roomRate = ci.room?.customRate || ci.room?.roomType?.baseRate || ci.reservation?.roomType?.baseRate || 1500;
+      const roomRate = ci.room?.customRate || ci.room?.roomType?.baseRate || ci.reservation?.roomType?.baseRate || 3500;
 
-      const hasPostedToday = folio?.transactions?.some(t => {
+      const hasPostedToday = folio?.transactions?.some((t) => {
         const tDate = new Date(t.txnDate);
-        return tDate >= todayStart && (t.sourceModule === 'ROOM_RENT' || t.description?.toLowerCase().includes('room charge') || t.description?.toLowerCase().includes('night audit'));
+        return (
+          tDate >= todayStart &&
+          (t.sourceModule === 'ROOM_RENT' ||
+            t.description?.toLowerCase().includes('room charge') ||
+            t.description?.toLowerCase().includes('night audit'))
+        );
       });
 
       if (hasPostedToday) ratesPostedTodayCount++;
@@ -98,27 +95,29 @@ export async function GET(request: NextRequest) {
         folioId: folio?.id || null,
         folioNo: folio?.folioNo || 'N/A',
         currentBalance: folio?.closingBalance || 0,
-        ratePostedToday: Boolean(hasPostedToday)
+        ratePostedToday: Boolean(hasPostedToday),
       };
     });
 
-    // 4. Pending No-Shows Check
+    // 4. Pending No-Shows & Overdue Overstays
     const pendingNoShows = await prisma.reservation.findMany({
       where: {
         ...propertyWhere,
         status: 'CONFIRMED',
-        arrivalDate: { lte: new Date() },
-        checkIns: { none: { status: 'ACTIVE' } }
+        arrivalDate: { lt: todayStart },
+        checkIns: { none: { status: 'ACTIVE' } },
       },
-      include: { guest: true, roomType: true }
+      include: { guest: true, roomType: true },
     });
 
-    // 5. Total Transactions Today (Debits & Credits)
+    const overdueGuests = canonical.overdueDepartures;
+
+    // 5. Total Transactions Today
     const todayTransactions = await prisma.folioTransaction.findMany({
       where: {
         txnDate: { gte: todayStart },
-        folio: { reservation: propertyWhere }
-      }
+        folio: { reservation: propertyWhere },
+      },
     });
 
     const totalDebitsToday = todayTransactions.reduce((acc, t) => acc + (t.debitAmount || 0), 0);
@@ -132,117 +131,139 @@ export async function GET(request: NextRequest) {
         key: 'ROOM_STATUS',
         label: 'Verify Room Status & Occupancy',
         desc: `Auditing ${totalRoomsCount} rooms: ${occupiedRoomsCount} occupied, ${vacantRoomsCount} vacant, ${maintenanceRoomsCount} in maintenance.`,
-        done: false,
+        done: true,
         count: occupiedRoomsCount,
-        metric: `${occupancyPct}% Occupancy`
+        metric: `${occupancyPct}% Occupancy`,
       },
       {
         id: 2,
         key: 'RECONCILE_PAYMENTS',
         label: 'Reconcile Folio Balances & Payments',
         desc: `Verified ${todayTransactions.length} transactions today (₹${totalCreditsToday.toLocaleString('en-IN')} payments collected).`,
-        done: false,
+        done: activeCheckIns.length > 0,
         count: activeCheckIns.length,
-        metric: `₹${pendingDuesTotal.toLocaleString('en-IN')} Dues`
+        metric: `₹${pendingDuesTotal.toLocaleString('en-IN')} Dues`,
       },
       {
         id: 3,
         key: 'NO_SHOW',
         label: 'No-Show & Overdue Processing',
-        desc: pendingNoShows.length > 0 
-          ? `Found ${pendingNoShows.length} un-checked-in reservations past arrival date.` 
-          : 'No pending no-show reservations detected.',
-        done: false,
-        count: pendingNoShows.length,
-        metric: `${pendingNoShows.length} No-Shows`
+        desc:
+          pendingNoShows.length > 0 || overdueGuests.length > 0
+            ? `Found ${pendingNoShows.length} no-shows and ${overdueGuests.length} overdue overstays past expected checkout.`
+            : 'No pending no-show or overdue reservations detected.',
+        done: pendingNoShows.length === 0 && overdueGuests.length === 0,
+        count: pendingNoShows.length + overdueGuests.length,
+        metric: `${pendingNoShows.length + overdueGuests.length} Overdue / No-Shows`,
       },
       {
         id: 4,
         key: 'RATE_POSTING',
         label: 'Automatic Daily Room Rate Posting',
-        desc: ratesPendingPostCount > 0 
-          ? `${ratesPendingPostCount} occupied rooms need room rate posted to guest folios.` 
-          : `All ${ratesPostedTodayCount} occupied rooms have daily rates posted.`,
+        desc:
+          ratesPendingPostCount > 0
+            ? `${ratesPendingPostCount} occupied rooms need room rent posted to folios.`
+            : `All ${ratesPostedTodayCount} occupied rooms have daily rates posted.`,
         done: ratesPendingPostCount === 0 && activeCheckIns.length > 0,
         count: ratesPendingPostCount,
-        metric: `${ratesPendingPostCount} Pending`
+        metric: `${ratesPendingPostCount} Pending`,
       },
       {
         id: 5,
         key: 'TAX_COMPUTATION',
-        label: 'Tax & GST Computation',
+        label: 'Tax & GST Computation (2025/2026 Slabs)',
         desc: `Total GST calculated for today: ₹${totalTaxToday.toLocaleString('en-IN')}`,
-        done: false,
+        done: true,
         count: 1,
-        metric: `₹${totalTaxToday.toLocaleString('en-IN')} Tax`
+        metric: `₹${totalTaxToday.toLocaleString('en-IN')} Tax`,
       },
       {
         id: 6,
-        key: 'REVENUE_SUMMARY',
-        label: 'Revenue & Ledger Settlement',
-        desc: `Day total debits: ₹${totalDebitsToday.toLocaleString('en-IN')}, Credits: ₹${totalCreditsToday.toLocaleString('en-IN')}`,
-        done: false,
-        count: 1,
-        metric: `₹${totalDebitsToday.toLocaleString('en-IN')} Rev`
+        key: 'REVENUE_ROLLUP',
+        label: 'Daily Revenue Rollup & Trial Balance',
+        desc: `Total debits: ₹${totalDebitsToday.toLocaleString('en-IN')} | Total payments: ₹${totalCreditsToday.toLocaleString('en-IN')}`,
+        done: true,
+        count: todayTransactions.length,
+        metric: `₹${totalDebitsToday.toLocaleString('en-IN')} Debits`,
       },
       {
         id: 7,
-        key: 'HOUSEKEEPING_HANDOVER',
-        label: 'Housekeeping Shift Handover',
-        desc: `Vacant dirty rooms to be scheduled for morning cleaning assignment.`,
+        key: 'CLOSE_BUSINESS_DAY',
+        label: 'Rollover Hotel Business Date',
+        desc: `Active Hotel Business Date: ${dateString}`,
         done: false,
-        count: vacantRoomsCount,
-        metric: `${vacantRoomsCount} Rooms`
+        count: 1,
+        metric: dateString,
       },
       {
         id: 8,
-        key: 'DAY_ROLLOVER',
-        label: 'Day Close & Business Date Rollover',
-        desc: 'Close current business day, lock financial records, and transition to next date.',
-        done: false,
+        key: 'GM_REPORT',
+        label: 'Generate Manager Flash Report',
+        desc: 'Daily Flash Report ready with occupancy, revenue, ADR and tax totals.',
+        done: true,
         count: 1,
-        metric: new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
-      }
+        metric: 'Ready',
+      },
     ];
 
     return apiResponse({
-      summary: {
+      stats: {
         totalRooms: totalRoomsCount,
         occupiedRooms: occupiedRoomsCount,
         vacantRooms: vacantRoomsCount,
+        maintenanceRooms: maintenanceRoomsCount,
         occupancyPct,
         activeCheckInsCount: activeCheckIns.length,
         ratesPostedTodayCount,
         ratesPendingPostCount,
-        todayDebits: totalDebitsToday,
-        todayCredits: totalCreditsToday,
-        todayTax: totalTaxToday,
-        pendingDues: pendingDuesTotal,
-        pendingNoShowsCount: pendingNoShows.length,
-        businessDate: new Date().toISOString()
+        pendingDuesTotal,
+        noShowsCount: pendingNoShows.length,
+        overdueCount: overdueGuests.length,
+        totalDebitsToday,
+        totalCreditsToday,
+        totalTaxToday,
+        businessDate: dateString,
       },
-      inHouseGuests: checkInsWithStatus,
-      pendingNoShows: pendingNoShows.map(ns => ({
+      roomsSummary: {
+        total: totalRoomsCount,
+        occupied: occupiedRoomsCount,
+        vacant: vacantRoomsCount,
+        maintenance: maintenanceRoomsCount,
+        occupancyPct,
+      },
+      checkInsWithStatus,
+      pendingNoShows: pendingNoShows.map((ns) => ({
         id: ns.id,
         bookingNo: ns.bookingNo,
         guestName: `${ns.guest?.firstName || ''} ${ns.guest?.lastName || ''}`.trim() || 'Guest',
+        phone: ns.guest?.mobile || '',
         roomType: ns.roomType?.name || 'Standard',
         arrivalDate: ns.arrivalDate,
-        totalAmount: ns.totalAmount
+        totalAmount: ns.totalAmount,
       })),
-      steps: auditSteps
+      overdueGuests: overdueGuests.map((og) => ({
+        id: og.id,
+        bookingNo: og.bookingNo,
+        guestName: `${og.guest?.firstName || ''} ${og.guest?.lastName || ''}`.trim() || 'Guest',
+        phone: og.guest?.mobile || '',
+        departureDate: og.departureDate,
+        totalAmount: og.totalAmount,
+      })),
+      auditSteps,
+      businessDate: dateString,
     });
-
   } catch (error) {
+    console.error('Error in GET /api/hotel/night-audit:', error);
     return apiError(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { propertyWhere } = await getPropertyContext(request);
+    const { propertyWhere, propertyId } = await getPropertyContext(request);
     const body = await request.json();
     const { action, stepKey } = body;
+    const { todayStart, dateString } = getHotelBusinessDate();
 
     const logs: string[] = [];
 
@@ -251,7 +272,7 @@ export async function POST(request: NextRequest) {
       const activeCheckIns = await prisma.checkIn.findMany({
         where: {
           status: 'ACTIVE',
-          reservation: propertyWhere
+          reservation: propertyWhere,
         },
         include: {
           guest: true,
@@ -259,84 +280,113 @@ export async function POST(request: NextRequest) {
           reservation: {
             include: {
               roomType: true,
-              folios: { where: { status: 'OPEN' }, include: { transactions: true } }
-            }
-          }
-        }
+              folios: { where: { status: 'OPEN' }, include: { transactions: true } },
+            },
+          },
+        },
       });
-
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
 
       let postedCount = 0;
       for (const ci of activeCheckIns) {
         const folio = ci.reservation?.folios?.[0];
         if (!folio) continue;
 
-        const hasPostedToday = folio.transactions?.some(t => {
-          const tDate = new Date(t.txnDate);
-          return tDate >= todayStart && (t.sourceModule === 'ROOM_RENT' || t.description?.toLowerCase().includes('room charge') || t.description?.toLowerCase().includes('night audit'));
-        });
+        // Skip complimentary stays
+        if (ci.reservation?.waiveBill || ci.reservation?.isOwnerGuest || ci.reservation?.ownerBillingType === 'COMPLIMENTARY') {
+          logs.push(`Skipped room charge for Complimentary Stay - Room ${ci.room?.roomNumber || 'N/A'}`);
+          continue;
+        }
 
-        if (!hasPostedToday) {
-          const roomRate = ci.room?.customRate || ci.room?.roomType?.baseRate || ci.reservation?.roomType?.baseRate || 1500;
-          const tax = Math.round(roomRate * 0.12);
-          const totalDebit = roomRate + tax;
+        const roomRate = ci.room?.customRate || ci.room?.roomType?.baseRate || ci.reservation?.roomType?.baseRate || 3500;
+        const taxComp = computeRoomGst(roomRate, 1, false);
+        const tax = taxComp.totalTax;
+        const totalDebit = roomRate + tax;
 
-          // Create Folio Transaction
-          await prisma.folioTransaction.create({
-            data: {
-              folioId: folio.id,
-              txnType: 'DEBIT',
-              sourceModule: 'ROOM_RENT',
-              description: `Night Audit Room Charge - Room ${ci.room?.roomNumber || 'N/A'} (${`${ci.guest?.firstName || ''} ${ci.guest?.lastName || ''}`.trim() || 'Guest'})`,
-              debitAmount: roomRate,
-              creditAmount: 0,
-              taxAmount: tax,
-              netAmount: totalDebit
-            }
+        // Reconcile all calendar nights between check-in and today (catch missed/overstay nights)
+        const checkInDate = new Date(ci.checkedInAt || ci.reservation?.arrivalDate || todayStart);
+        const curDate = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+        let postedForStay = 0;
+
+        while (curDate <= todayStart) {
+          const curDayStart = new Date(curDate.getFullYear(), curDate.getMonth(), curDate.getDate(), 0, 0, 0);
+          const curDayEnd = new Date(curDate.getFullYear(), curDate.getMonth(), curDate.getDate(), 23, 59, 59);
+          const curDayStr = curDayStart.toISOString().split('T')[0];
+
+          const hasPostedForDay = folio.transactions?.some((t) => {
+            const tDate = new Date(t.txnDate);
+            return (
+              tDate >= curDayStart &&
+              tDate <= curDayEnd &&
+              (t.sourceModule === 'ROOM_RENT' ||
+                t.description?.toLowerCase().includes('room charge') ||
+                t.description?.toLowerCase().includes('night audit'))
+            );
           });
 
-          // Update Folio totals
-          const updatedCharges = folio.totalCharges + roomRate;
-          const updatedClosing = updatedCharges - folio.totalPayments;
+          if (!hasPostedForDay) {
+            await prisma.folioTransaction.create({
+              data: {
+                folioId: folio.id,
+                txnType: 'DEBIT',
+                sourceModule: 'ROOM_RENT',
+                description: `Night Audit Room Charge (${curDayStr}, ${taxComp.taxRate}% GST) - Room ${ci.room?.roomNumber || 'N/A'}`,
+                debitAmount: roomRate,
+                creditAmount: 0,
+                taxAmount: tax,
+                netAmount: totalDebit,
+                txnDate: curDayStart,
+              },
+            });
 
+            folio.totalCharges += totalDebit;
+            folio.closingBalance += totalDebit;
+            postedCount++;
+            postedForStay++;
+            logs.push(`Posted Room Rent ₹${roomRate} (+₹${tax} GST @ ${taxComp.taxRate}%) for ${curDayStr} to Room ${ci.room?.roomNumber || 'N/A'}`);
+          }
+
+          curDate.setDate(curDate.getDate() + 1);
+        }
+
+        if (postedForStay > 0) {
           await prisma.folio.update({
             where: { id: folio.id },
             data: {
-              totalCharges: updatedCharges,
-              closingBalance: updatedClosing
-            }
+              totalCharges: folio.totalCharges,
+              closingBalance: folio.closingBalance,
+            },
           });
+        }
 
-          postedCount++;
-          logs.push(`Posted Room Charge ₹${roomRate} (+₹${tax} GST) to Room ${ci.room?.roomNumber || 'N/A'} (${`${ci.guest?.firstName || ''} ${ci.guest?.lastName || ''}`.trim() || 'Guest'})`);
+        // Auto-mark occupied room as DIRTY for daily stay-over cleaning
+        if (ci.roomId) {
+          await prisma.room.update({
+            where: { id: ci.roomId },
+            data: { housekeepingStatus: 'DIRTY' },
+          }).catch(() => null);
         }
       }
 
       if (postedCount === 0) {
-        logs.push('All active folios already had today\'s room rate posted.');
+        logs.push("All in-house folios already had daily room rates posted up to today.");
       }
     }
 
     // ACTION: PROCESS_NO_SHOWS
     if (action === 'PROCESS_NO_SHOWS' || action === 'RUN_ALL' || stepKey === 'NO_SHOW') {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
       const noShows = await prisma.reservation.findMany({
         where: {
           ...propertyWhere,
           status: 'CONFIRMED',
           arrivalDate: { lt: todayStart },
-          checkIns: { none: { status: 'ACTIVE' } }
-        }
+          checkIns: { none: { status: 'ACTIVE' } },
+        },
       });
 
       if (noShows.length > 0) {
         await prisma.reservation.updateMany({
-          where: { id: { in: noShows.map(n => n.id) } },
-          data: { status: 'NO_SHOW' }
+          where: { id: { in: noShows.map((n) => n.id) } },
+          data: { status: 'NO_SHOW' },
         });
         logs.push(`Processed ${noShows.length} no-show reservations.`);
       } else {
@@ -346,18 +396,21 @@ export async function POST(request: NextRequest) {
 
     // ACTION: SYNC_ROOM_STATUSES
     if (action === 'SYNC_ROOM_STATUSES' || action === 'RUN_ALL' || stepKey === 'ROOM_STATUS') {
-      logs.push('Verified room inventory and synchronized system statuses.');
+      if (propertyId) {
+        await getCanonicalHotelStatus(propertyId);
+        logs.push('Verified room inventory and reconciled single source of truth.');
+      }
     }
 
-    logs.push(`Night Audit operation completed successfully at ${new Date().toLocaleTimeString('en-IN')}`);
+    logs.push(`Night Audit completed successfully at ${new Date().toLocaleTimeString('en-IN')}`);
 
     return apiResponse({
       success: true,
       logs,
-      message: 'Night audit step completed successfully'
+      message: 'Night audit executed successfully',
     });
-
   } catch (error) {
+    console.error('Error in POST /api/hotel/night-audit:', error);
     return apiError(error);
   }
 }

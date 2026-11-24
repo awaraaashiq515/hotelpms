@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GuestFlow Regression Report</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #0f172a; color: #e2e8f0; }
+  h1, h2, h3 { color: #f1f5f9; }
+  .score { font-size: 3rem; font-weight: bold; color: #22c55e; }
+  .summary { display: flex; gap: 20px; margin: 20px 0; }
+  .stat { background: #1e293b; padding: 16px 24px; border-radius: 8px; text-align: center; }
+  .stat .n { font-size: 2rem; font-weight: bold; }
+  .stat .l { font-size: 0.8rem; color: #94a3b8; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 30px 0; }
+  th { background: #1e293b; padding: 8px 12px; text-align: left; color: #94a3b8; font-size: 0.8rem; }
+  td { padding: 6px 12px; border-bottom: 1px solid #1e293b; font-size: 0.85rem; }
+  tr:hover td { background: #1e293b44; }
+  .PASS { color: #22c55e; }
+  .FAIL { color: #ef4444; }
+  .NO-TEST { color: #64748b; }
+  .PENDING { color: #f59e0b; }
+  .Critical td:first-child { border-left: 3px solid #ef4444; }
+  .High td:first-child { border-left: 3px solid #f97316; }
+  .Medium td:first-child { border-left: 3px solid #eab308; }
+  .Low td:first-child { border-left: 3px solid #94a3b8; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; background: #1e293b; }
+</style>
+</head>
+<body>
+<h1>🏨 GuestFlow PMS Regression Report</h1>
+<p style="color:#94a3b8">Generated: 2026-11-21T09:34:50.513Z</p>
+
+<div class="score">92<span style="font-size:1.5rem">/100</span></div>
+<p style="color:#94a3b8">Target: 70+ after Phase 0 | Baseline: 22/100 (21 Nov 2026 audit)</p>
+
+<div class="summary">
+  <div class="stat"><div class="n" style="color:#22c55e">68</div><div class="l">PASS</div></div>
+  <div class="stat"><div class="n" style="color:#ef4444">0</div><div class="l">FAIL</div></div>
+  <div class="stat"><div class="n" style="color:#64748b">23</div><div class="l">NO TEST</div></div>
+  <div class="stat"><div class="n" style="color:#f59e0b">0</div><div class="l">PENDING</div></div>
+  <div class="stat"><div class="n">91</div><div class="l">TOTAL BUGS</div></div>
+</div>
+
+<h2>Bug Status</h2>
+<table>
+<thead><tr><th>Bug ID</th><th>Severity</th><th>Status</th><th>Module</th><th>Title</th><th>WP</th></tr></thead>
+<tbody>
+
+<tr class="Critical">
+  <td><code>BKG-07</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings</td>
+  <td style="max-width:400px">Same room can be sold twice for overlapping dates (no double-booking prevention)</td>
+  <td><span class="badge">WP-0.2</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ROOM-08</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Rooms</td>
+  <td style="max-width:400px">Duplicate room numbers allowed within same property</td>
+  <td><span class="badge">WP-0.3</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>TAX-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>GST / Tax</td>
+  <td style="max-width:400px">GST computed but CGST/SGST/IGST not stored per line; discount applied after tax instead of before</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>BKG-03</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings / GST</td>
+  <td style="max-width:400px">GST slab not applied correctly at booking creation for different tariff bands</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>FOL-04</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Folio charges do not carry CGST/SGST/IGST breakdown</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ACC-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Accounting / Ledger</td>
+  <td style="max-width:400px">Payments do not create journal entries — Cash Book is empty</td>
+  <td><span class="badge">WP-0.5</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ACC-02</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Accounting / Ledger</td>
+  <td style="max-width:400px">Day Book and Ledger show no data — ledger tables not populated</td>
+  <td><span class="badge">WP-0.5</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>RPT-02</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Reports</td>
+  <td style="max-width:400px">GST report shows figures that do not match issued invoices</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>NA-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Night Audit</td>
+  <td style="max-width:400px">Night audit is not idempotent — running twice posts double room charges</td>
+  <td><span class="badge">WP-0.8</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ROOMP-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Room Portal</td>
+  <td style="max-width:400px">Room portal QR token does not expire at checkout — ex-guest can still access the portal</td>
+  <td><span class="badge">WP-0.11</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>SEC-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Security / RBAC</td>
+  <td style="max-width:400px">Receptionist can access payroll, backup, settings and revenue APIs — no RBAC enforcement</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ROLE-02</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Security / RBAC</td>
+  <td style="max-width:400px">Role permissions from DB not loaded into session — permission array always empty</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>BI-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Business Intelligence / Analytics</td>
+  <td style="max-width:400px">Analytics dashboard shows hardcoded/demo metrics not from real data</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>BE-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Booking Engine</td>
+  <td style="max-width:400px">Booking engine preview link points to localhost:3000</td>
+  <td><span class="badge">WP-0.13</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>CTR-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>POS / Counter Payments</td>
+  <td style="max-width:400px">Counter Payments total includes room-posted orders — inflated cash figure</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>BAK-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Backup</td>
+  <td style="max-width:400px">Backup copies SQLite to Desktop — not a real server backup; fails in cloud hosting</td>
+  <td><span class="badge">WP-0.12</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ROOM-04</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Rooms</td>
+  <td style="max-width:400px">Room can be created with negative or zero base rate</td>
+  <td><span class="badge">WP-0.3</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ROOM-10</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Rooms</td>
+  <td style="max-width:400px">Room category code is not unique per property — duplicate codes cause data confusion</td>
+  <td><span class="badge">WP-0.3</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>FOL-07</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Folio / Discount</td>
+  <td style="max-width:400px">Over-limit discount applied instantly without admin approval</td>
+  <td><span class="badge">WP-0.6</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>FOL-08</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Invoice can be re-issued / mutated after ISSUED status — breaking audit trail</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>DISP-03</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Displays</td>
+  <td style="max-width:400px">Customer display (order-display) shows guest names and room numbers for room service orders</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>DISC-01</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Discount Approvals</td>
+  <td style="max-width:400px">Over-limit discount request never reaches admin queue — admin sees nothing</td>
+  <td><span class="badge">WP-0.6</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ADM-03</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Admin / Dashboard</td>
+  <td style="max-width:400px">Hotel dashboard KPIs (revenue, occupancy, ADR) not from real data</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Critical">
+  <td><code>ADM-09</code></td>
+  <td><span class="badge">🔴 Critical</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Admin / Backup</td>
+  <td style="max-width:400px">No backup status or alert in admin panel — owner does not know if backup is stale</td>
+  <td><span class="badge">WP-0.12</span></td>
+</tr>
+<tr class="High">
+  <td><code>TZ-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Timezone</td>
+  <td style="max-width:400px">Business date computed in UTC, not IST — midnight-to-6am bookings go to wrong day</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="High">
+  <td><code>INF-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Infrastructure</td>
+  <td style="max-width:400px">NEXT_PUBLIC_APP_URL is localhost:3000 in .env — QR codes and booking links broken in production</td>
+  <td><span class="badge">WP-0.13</span></td>
+</tr>
+<tr class="High">
+  <td><code>FOL-02</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Folio closing balance can go negative without warning</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="High">
+  <td><code>BAK-02</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Backup</td>
+  <td style="max-width:400px">Receptionist can trigger backup download — unauthorized access to full DB</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="High">
+  <td><code>REV-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Revenue</td>
+  <td style="max-width:400px">Revenue dashboard only shows one source (room) — POS, spa, banquet not included</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="High">
+  <td><code>HDR-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Hotel Dashboard / Reports</td>
+  <td style="max-width:400px">Daily report page shows static placeholder data</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="High">
+  <td><code>CM-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Channel Manager</td>
+  <td style="max-width:400px">Channel manager shows 'connected' status but is not actually syncing with any OTA</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="High">
+  <td><code>IOT-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Smart Hotel / IoT</td>
+  <td style="max-width:400px">Smart Hotel dashboard shows fake device states</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="High">
+  <td><code>BNQ-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Banquet</td>
+  <td style="max-width:400px">Banquet page shows hardcoded event list with 'Sharma Wedding Reception' placeholder</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="High">
+  <td><code>DC-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Day Closing</td>
+  <td style="max-width:400px">Day closing opening cash can be set to any value including negative</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="High">
+  <td><code>POS-02</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>POS</td>
+  <td style="max-width:400px">POS 'Post to Room' picker does not check room availability / active check-in</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="High">
+  <td><code>FOL-09</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Multiple open folios can exist for one reservation — balance confusion</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="High">
+  <td><code>BKG-11</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings / Ledger</td>
+  <td style="max-width:400px">Advance payment on booking does not post to ledger</td>
+  <td><span class="badge">WP-0.5</span></td>
+</tr>
+<tr class="High">
+  <td><code>AGT-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Agents</td>
+  <td style="max-width:400px">Agent KYC fields accept unvalidated data — invalid GST/PAN can be saved</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="High">
+  <td><code>AIC-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>AI Concierge</td>
+  <td style="max-width:400px">AI Concierge API key (Gemini) accessible to receptionist role</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="High">
+  <td><code>KYC-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>KYC / Guest</td>
+  <td style="max-width:400px">Indian mobile number not validated — 7-digit or non-Indian numbers accepted</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="High">
+  <td><code>CO-02</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Checkout</td>
+  <td style="max-width:400px">Checkout does not check for outstanding folio balance before allowing checkout</td>
+  <td><span class="badge">WP-0.8</span></td>
+</tr>
+<tr class="High">
+  <td><code>LOY-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Loyalty</td>
+  <td style="max-width:400px">Loyalty points can be manually adjusted by any user without approval</td>
+  <td><span class="badge">WP-0.6</span></td>
+</tr>
+<tr class="High">
+  <td><code>POS-03</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>POS</td>
+  <td style="max-width:400px">Complimentary order (100% discount) does not require manager approval</td>
+  <td><span class="badge">WP-0.6</span></td>
+</tr>
+<tr class="High">
+  <td><code>RS-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Room Service</td>
+  <td style="max-width:400px">Room service GST not computed as F&B GST — wrong SAC code on folio</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="High">
+  <td><code>HSN-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>GST / HSN</td>
+  <td style="max-width:400px">HSN/SAC code summary in reports is incorrect — wrong codes per line type</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="High">
+  <td><code>SPA-01</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Spa</td>
+  <td style="max-width:400px">Spa admin page accessible to all hotel roles — no permission check</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="High">
+  <td><code>ROOM-05</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Rooms</td>
+  <td style="max-width:400px">Room discount percentage accepts values over 100 and negative values</td>
+  <td><span class="badge">WP-0.3</span></td>
+</tr>
+<tr class="High">
+  <td><code>ADM-04</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Accounting</td>
+  <td style="max-width:400px">Expense records do not post to accounting voucher/ledger</td>
+  <td><span class="badge">WP-0.5</span></td>
+</tr>
+<tr class="High">
+  <td><code>ADM-05</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Night Audit</td>
+  <td style="max-width:400px">Night audit does not roll the business date — same date shown next morning</td>
+  <td><span class="badge">WP-0.8</span></td>
+</tr>
+<tr class="High">
+  <td><code>ADM-08</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Admin</td>
+  <td style="max-width:400px">Manager PIN for instant discount approval is 4 digits and stored in plaintext</td>
+  <td><span class="badge">WP-0.6</span></td>
+</tr>
+<tr class="High">
+  <td><code>ADM-10</code></td>
+  <td><span class="badge">🟠 High</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Admin / Settings</td>
+  <td style="max-width:400px">'Simulate OTA Sync' and 'Test Email Booking' buttons visible in production</td>
+  <td><span class="badge">WP-0.13</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>DASH-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Dashboard</td>
+  <td style="max-width:400px">Dashboard clock shows UTC time, not IST</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>ROOM-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Rooms</td>
+  <td style="max-width:400px">Room status board does not refresh automatically</td>
+  <td><span class="badge">WP-0.3</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>ROOM-06</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Rooms</td>
+  <td style="max-width:400px">Room category (RoomType) has no Edit button — categories cannot be modified</td>
+  <td><span class="badge">WP-0.3</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>BKG-06</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings</td>
+  <td style="max-width:400px">Booking form does not show real-time availability — blocked rooms still selectable</td>
+  <td><span class="badge">WP-0.2</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>FOL-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Folio number sequence not guaranteed unique under concurrent creation</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>CHK-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Checkin</td>
+  <td style="max-width:400px">Early check-in time earlier than property check-in time is accepted without flag</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>INV-03</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Invoices</td>
+  <td style="max-width:400px">Invoice PDF does not show CGST/SGST breakdown — fails compliance</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>PUR-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Purchasing</td>
+  <td style="max-width:400px">Purchase order total can be zero or negative — no validation</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>HR-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>HR</td>
+  <td style="max-width:400px">HR dashboard KPIs (attendance rate, leave balance) not computed from real data</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>KOT-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>KOT</td>
+  <td style="max-width:400px">KOT number sequence is global — two properties can generate same KOT number</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>MOD-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>POS / KOT</td>
+  <td style="max-width:400px">Order modification after KOT is sent does not create a void/reprint KOT</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>TBL-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>POS / Tables</td>
+  <td style="max-width:400px">Table status does not update when order is settled — table remains OCCUPIED</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>CTR-02</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>POS / Counter</td>
+  <td style="max-width:400px">Counter payment shift totals include void/cancelled orders</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>LOY-02</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Loyalty</td>
+  <td style="max-width:400px">Loyalty points tier thresholds not configurable — hardcoded in UI</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>RPT-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Reports</td>
+  <td style="max-width:400px">Report date range filter defaults to current browser date, not hotel business date</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>BKG-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings</td>
+  <td style="max-width:400px">Booking wizard default date is UTC midnight, shows wrong date at night in India</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>AGT-02</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Agents</td>
+  <td style="max-width:400px">Agent can be created without KYC document upload — no validation</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>BIKE-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Bike Rental</td>
+  <td style="max-width:400px">Bike rental portal has no link to hotel PMS — revenue not posted to folio</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>CONS-01</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Concierge / Requests</td>
+  <td style="max-width:400px">Guest concierge requests (housekeeping, room service) not linked to active reservation</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>DISP-02</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Displays</td>
+  <td style="max-width:400px">Bar display shows UTC timestamp — wrong time visible to customers</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>BNQ-02</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Banquet</td>
+  <td style="max-width:400px">Banquet advance payment cannot be posted to accounting</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>ADM-02</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Admin / Multi-property</td>
+  <td style="max-width:400px">Multi-property user defaults to wrong hotel after login</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>ADM-07</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Admin / Discounts</td>
+  <td style="max-width:400px">Discount approval inbox in admin panel does not exist</td>
+  <td><span class="badge">WP-0.6</span></td>
+</tr>
+<tr class="Medium">
+  <td><code>ADM-06</code></td>
+  <td><span class="badge">🟡 Medium</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Admin / Validation</td>
+  <td style="max-width:400px">Settings page GSTIN field has no format validation</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="Low">
+  <td><code>BKG-05</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings</td>
+  <td style="max-width:400px">Booking with checkOut before checkIn is accepted</td>
+  <td><span class="badge">WP-0.2</span></td>
+</tr>
+<tr class="Low">
+  <td><code>BKG-08</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings</td>
+  <td style="max-width:400px">Same-day arrival and departure (0-night stay) is accepted</td>
+  <td><span class="badge">WP-0.2</span></td>
+</tr>
+<tr class="Low">
+  <td><code>BKG-09</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings / KYC</td>
+  <td style="max-width:400px">Booking guest phone number accepts 7-digit or international formats</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="Low">
+  <td><code>BKG-10</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Bookings</td>
+  <td style="max-width:400px">Cancelled booking room is not released back to availability</td>
+  <td><span class="badge">WP-0.2</span></td>
+</tr>
+<tr class="Low">
+  <td><code>FOL-03</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Folio PDF does not show property logo</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Low">
+  <td><code>FOL-06</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Folio</td>
+  <td style="max-width:400px">Folio transaction description truncated to 50 chars — loses detail</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Low">
+  <td><code>INV-02</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Invoices</td>
+  <td style="max-width:400px">Invoice number does not reset per financial year</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Low">
+  <td><code>INV-04</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Invoices</td>
+  <td style="max-width:400px">Invoice list page does not filter by date range</td>
+  <td><span class="badge">WP-0.4</span></td>
+</tr>
+<tr class="Low">
+  <td><code>UI-01</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>UI</td>
+  <td style="max-width:400px">Indian rupee symbol ₹ renders as ? on some Android/Windows devices</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="Low">
+  <td><code>UI-02</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>UI</td>
+  <td style="max-width:400px">Mobile viewport broken on some hotel module pages</td>
+  <td><span class="badge">WP-0.1</span></td>
+</tr>
+<tr class="Low">
+  <td><code>DC-02</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Day Closing</td>
+  <td style="max-width:400px">Day closing can be run twice for the same shift</td>
+  <td><span class="badge">WP-0.10</span></td>
+</tr>
+<tr class="Low">
+  <td><code>EXP-01</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Expenses</td>
+  <td style="max-width:400px">Expense attachment URL not validated — any string accepted as attachment</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="Low">
+  <td><code>MNT-01</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="PASS">✅ PASS</td>
+  <td>Maintenance</td>
+  <td style="max-width:400px">Maintenance ticket falls back to mock data when API returns empty array</td>
+  <td><span class="badge">WP-0.9</span></td>
+</tr>
+<tr class="Low">
+  <td><code>HK-01</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Housekeeping</td>
+  <td style="max-width:400px">Housekeeping task priority dropdown has no default — empty priority saves to DB</td>
+  <td><span class="badge">WP-0.14</span></td>
+</tr>
+<tr class="Low">
+  <td><code>ADM-01</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Admin</td>
+  <td style="max-width:400px">Super Admin panel accessible via direct URL without 2FA</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+<tr class="Low">
+  <td><code>ADM-11</code></td>
+  <td><span class="badge">⚪ Low</span></td>
+  <td class="NO-TEST">⬜ NO-TEST</td>
+  <td>Admin</td>
+  <td style="max-width:400px">Audit log does not capture IP address for all write operations</td>
+  <td><span class="badge">WP-0.7</span></td>
+</tr>
+</tbody>
+</table>
+
+<footer style="color:#475569;font-size:0.75rem;margin-top:40px">
+Generated by scripts/regression-report.mjs | OrderMint PMS / GuestFlow
+</footer>
+</body>
+</html>

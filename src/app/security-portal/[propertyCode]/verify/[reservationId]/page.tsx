@@ -199,8 +199,8 @@ export default async function VerifyPage({ params }: Params) {
                 { label: 'Guests', value: `${reservation.adults} Adult${reservation.adults > 1 ? 's' : ''}${reservation.children > 0 ? ` + ${reservation.children} Child` : ''}`, icon: '👥' },
                 { label: 'Meal Plan', value: reservation.mealPlan || 'RO', icon: '🍽️' },
                 { label: 'Pool Access', value: reservation.poolAccess ? '✓ Included' : 'Not Included', icon: '🏊' },
-                { label: 'Total Amount', value: `₹${reservation.totalAmount?.toLocaleString('en-IN')}`, icon: '💳' },
-                { label: 'Due Amount', value: reservation.dueAmount > 0 ? `₹${reservation.dueAmount?.toLocaleString('en-IN')}` : 'Fully Paid', icon: '💰' },
+                { label: 'Gate Clearance', value: reservation.status === 'CHECKED_IN' ? '✓ In-House' : 'Reception Required', icon: '🛡️' },
+                { label: 'Security Status', value: 'Verified Guest', icon: '🔒' },
               ].map((item) => (
                 <div
                   key={item.label}

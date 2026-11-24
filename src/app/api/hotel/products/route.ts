@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
           sellingPrice: 290,
           unit: 'Portion',
           isVeg: true,
-          hsnCode: '2106',
+          hsnCode: '996331',
           description: 'Triple decker grilled veg club sandwich',
           isActive: true,
         },

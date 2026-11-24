@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { validateDiscount } from '@/lib/validators/indian';
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,6 +90,10 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return apiError(new Error('Room ID is required'), 400);
+    }
+
+    if (discount !== undefined && discount !== null && !validateDiscount(Number(discount))) {
+      return apiError(new Error('Discount percentage must be between 0 and 100.'), 400);
     }
 
     const room = await prisma.room.update({
@@ -197,6 +202,10 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return apiError(new Error('Room ID is required'), 400);
+    }
+
+    if (discount !== undefined && discount !== null && !validateDiscount(Number(discount))) {
+      return apiError(new Error('Discount percentage must be between 0 and 100.'), 400);
     }
 
     const room = await prisma.room.findUnique({

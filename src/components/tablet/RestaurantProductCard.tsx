@@ -56,7 +56,7 @@ export function RestaurantProductCard({
       >
         <div className="flex justify-between items-start">
           <span className="text-[8px] font-black uppercase opacity-40" style={{ color: palette.textSub }}>
-            {product.hsnCode || '2106'}
+            SAC {product.hsnCode || '996331'}
           </span>
           <div className="text-right">
             <span className="block text-[6px] font-black uppercase opacity-30 leading-none mb-0.5" style={{ color: palette.textSub }}>

@@ -71,13 +71,12 @@ export const HotelAdminSidebar: React.FC = () => {
       subItems: [
         { name: 'All Rooms', path: `${p}/hoteladmin/rooms` },
         { name: 'Occupancy Board', path: `${p}/hoteladmin/rooms?view=board` },
-        { name: 'Room QR Standees', path: '/hotel/rooms/qr-codes' },
       ],
     },
     // ── Guest Self-Service & QR ──
     {
       name: 'Guest Portal & QR',
-      path: '/hotel/rooms/qr-codes',
+      path: '/guest-portal',
       icon: QrCode,
       subItems: [
         { name: 'Room QR Standees (Print)', path: '/hotel/rooms/qr-codes' },
@@ -208,7 +207,6 @@ export const HotelAdminSidebar: React.FC = () => {
         { name: 'Purchase Orders (WhatsApp)', path: '/hotel/purchasing' },
         { name: 'Kitchen Indents', path: '/hotel/purchasing?tab=kitchen' },
         { name: 'Vendor Directory', path: '/hotel/vendor' },
-        { name: 'Kitchen Staff App', path: '/kitchen-portal' },
       ],
     },
     // ── Settings ──

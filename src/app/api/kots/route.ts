@@ -3,6 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { apiError, apiResponse, getMultiTenantWhere } from '@/lib/api-utils'
 import { getSession } from '@/lib/session'
 
+function isBarItem(product: any, itemName?: string): boolean {
+  if (product?.menuType === 'BAR') return true;
+  const cat = String(product?.category?.name || product?.category || '').toLowerCase();
+  const name = String(product?.name || itemName || '').toLowerCase();
+  const barKeywords = [
+    'liquor', 'bar', 'alcohol', 'beer', 'wine', 'vodka', 'whiskey', 'whisky',
+    'rum', 'gin', 'scotch', 'tequila', 'cocktail', 'mocktail', 'absolut', 'drinks', 'beverage'
+  ];
+  return barKeywords.some((kw) => cat.includes(kw) || name.includes(kw));
+}
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
@@ -30,12 +41,16 @@ export async function GET(request: NextRequest) {
       dateFilter = { createdAt: { gte: start, lte: end } }
     }
 
+    // H18: Exclude billed/paid orders from lingering on active kitchen screens
     const kots = await (prisma as any).kotTicket.findMany({
       where: {
         ...where,
         ...(outletId ? { outletId } : {}),
-        ...(status ? { status } : { status: { not: 'PRINTED_ONLY' } }),
+        ...(status ? { status } : { status: { notIn: ['PRINTED_ONLY', 'SERVED', 'CANCELLED'] } }),
         ...(date ? dateFilter : {}),
+        order: {
+          status: { notIn: ['PAID', 'CLOSED', 'COMPLETED', 'CANCELLED'] },
+        },
       },
       include: {
         order: {
@@ -45,6 +60,8 @@ export async function GET(request: NextRequest) {
             tableNo: true,
             roomId: true,
             preparationTime: true,
+            createdAt: true,
+            status: true,
           }
         },
         table: {
@@ -52,7 +69,7 @@ export async function GET(request: NextRequest) {
         },
         items: {
           include: {
-            product: { select: { name: true, menuType: true } }
+            product: { select: { name: true, menuType: true, category: true } }
           }
         }
       },
@@ -65,15 +82,21 @@ export async function GET(request: NextRequest) {
 
     let filteredKots = kots;
 
-    if (menuType) {
+    // M12: Intelligent routing — drinks/liquor to Bar Display, food to Kitchen Display
+    if (menuType === 'BAR') {
+      filteredKots = kots.map((kot: any) => ({
+        ...kot,
+        items: (kot.items || []).filter((item: any) => isBarItem(item.product, item.itemName))
+      })).filter((kot: any) => kot.items.length > 0);
+    } else if (excludeMenuType === 'BAR') {
+      filteredKots = kots.map((kot: any) => ({
+        ...kot,
+        items: (kot.items || []).filter((item: any) => !isBarItem(item.product, item.itemName))
+      })).filter((kot: any) => kot.items.length > 0);
+    } else if (menuType) {
       filteredKots = kots.map((kot: any) => ({
         ...kot,
         items: (kot.items || []).filter((item: any) => item.product?.menuType === menuType)
-      })).filter((kot: any) => kot.items.length > 0);
-    } else if (excludeMenuType) {
-      filteredKots = kots.map((kot: any) => ({
-        ...kot,
-        items: (kot.items || []).filter((item: any) => item.product?.menuType !== excludeMenuType)
       })).filter((kot: any) => kot.items.length > 0);
     }
 

@@ -103,8 +103,9 @@ export const WebsiteFooter = () => {
         <p>© 2024 GuestFlow Solutions Inc. All Rights Reserved.</p>
 
         <div className="flex gap-8">
-          <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+          <Link href="/cookies" className="hover:text-white transition-colors">Cookie Policy</Link>
         </div>
       </div>
     </footer>

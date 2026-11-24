@@ -26,7 +26,13 @@
     "offline:test": "OFFLINE_MODE=true next dev --webpack",
     "offline:dev": "OFFLINE_MODE=true next dev --webpack",
     "setup:offline": "node scripts/setup-offline.js",
-    "offline:backup": "node scripts/offline-backup.js backup"
+    "offline:backup": "node scripts/offline-backup.js backup",
+    "test": "npm run test:all",
+    "test:unit": "TEST_DB=1 vitest run tests/unit",
+    "test:int": "TEST_DB=1 vitest run tests/integration",
+    "test:regression": "mkdir -p tests/reports && TEST_DB=1 vitest run --reporter=json --outputFile=tests/reports/vitest-results.json tests/unit tests/integration tests/regression && node scripts/regression-report.mjs",
+    "test:all": "npm run test:regression",
+    "test:report": "node scripts/regression-report.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",
@@ -91,6 +97,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/socket.io": "^3.0.2",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.12",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^41.3.0",
@@ -98,9 +106,11 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "prisma": "^5.22.0",
+    "supertest": "^7.3.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5",
+    "vitest": "^4.1.12",
     "wait-on": "^9.0.5"
   },
   "prisma": {

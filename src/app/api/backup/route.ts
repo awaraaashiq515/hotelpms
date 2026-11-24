@@ -555,7 +555,21 @@ export async function GET(req: NextRequest) {
   const gdrive = findGoogleDriveFolder();
   const settings = loadBackupSettings();
   const effectiveDesktopBase = getEffectiveDesktopBase(settings);
-  const backups = listBackupsForProperty(prop.code);
+  let activeBackups = listBackupsForProperty(prop.code);
+
+  // C12: If no backup has ever been taken, automatically create initial daily backup snapshot
+  if (activeBackups.length === 0) {
+    try {
+      createBackupForProperty(prop);
+      activeBackups = listBackupsForProperty(prop.code);
+    } catch (_) {}
+  }
+
+  const latestBackup = activeBackups[0] || null;
+  const dbFileSize = fs.existsSync(DB_PATH) ? (fs.statSync(DB_PATH).size / 1024 / 1024).toFixed(2) + ' MB' : '0 MB';
+  const isOlderThan24h = latestBackup?.timestamp
+    ? (Date.now() - new Date(latestBackup.timestamp).getTime()) > 24 * 60 * 60 * 1000
+    : false;
 
   let logs: any[] = [];
   try {
@@ -585,11 +599,14 @@ export async function GET(req: NextRequest) {
       googleDriveDetected: !!gdrive,
       googleDriveEmail:    gdrive?.email || null,
       googleDrivePath:     gdrive ? path.join(gdrive.path, prop.code) : null,
-      totalBackups:        backups.length,
+      latestSnapshot:      latestBackup ? `${latestBackup.dateStr} at ${latestBackup.timeStr}` : 'Never',
+      lastBackupAt:        latestBackup?.timestamp || null,
+      needsBackupAlert:    isOlderThan24h,
+      totalBackups:        activeBackups.length,
       dbExists:            fs.existsSync(DB_PATH),
-      dbSizeMB:            backups[0]?.jsonSize || (fs.existsSync(DB_PATH) ? (fs.statSync(DB_PATH).size / 1024 / 1024).toFixed(2) + ' MB' : '0 MB'),
+      dbSizeMB:            dbFileSize,
     },
-    backups,
+    backups: activeBackups,
     recentLogs: logs.slice(0, 10),
     pathSettings: {
       ...settings,

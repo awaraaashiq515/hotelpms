@@ -1025,7 +1025,7 @@ function BookingsContent() {
                                 {b.isOwnerGuest && (
                                   <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded-md border border-amber-500/30 whitespace-nowrap">
                                     <Crown size={10} className="text-amber-400" />
-                                    <span>OWNER VIP {b.ownerVipCode ? `• PIN: ${b.ownerVipCode}` : ''}</span>
+                                    <span>OWNER VIP {b.ownerVipCode ? '• PIN: ••••' : ''}</span>
                                   </span>
                                 )}
                               </div>
@@ -1132,7 +1132,7 @@ function BookingsContent() {
                               {kycBadge}
                               {hasIdDetails && (
                                 <span className="text-[9px] font-mono text-slate-400 truncate max-w-full block" title={`${b.guest.idType}: ${b.guest.idNumber}`}>
-                                  {b.guest.idType}: {b.guest.idNumber}
+                                  {b.guest.idType}: {b.guest.idNumber && String(b.guest.idNumber).length >= 8 ? `XXXX-XXXX-${String(b.guest.idNumber).slice(-4)}` : b.guest.idNumber}
                                 </span>
                               )}
                             </div>

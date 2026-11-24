@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getCanonicalHotelStatus, getHotelBusinessDate } from '@/lib/hotel/room-status-service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,9 +25,12 @@ export async function GET(request: NextRequest) {
       propertyId = where.propertyId;
     }
 
+    if (!propertyId) {
+      return apiError(new Error('No active property found.'), 400);
+    }
+
+    const { todayStart, todayEnd } = getHotelBusinessDate();
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
     let periodStart: Date;
     let periodEnd: Date = todayEnd;
@@ -36,12 +40,10 @@ export async function GET(request: NextRequest) {
       periodStart = todayStart;
       daysInPeriod = 1;
     } else if (timeRange === '7d') {
-      periodStart = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-      periodStart.setHours(0, 0, 0, 0);
+      periodStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
       daysInPeriod = 7;
     } else if (timeRange === '30d') {
-      periodStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
-      periodStart.setHours(0, 0, 0, 0);
+      periodStart = new Date(todayStart.getTime() - 29 * 24 * 60 * 60 * 1000);
       daysInPeriod = 30;
     } else if (timeRange === 'month') {
       periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
@@ -58,106 +60,122 @@ export async function GET(request: NextRequest) {
       }
       daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)));
     } else {
-      periodStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
-      periodStart.setHours(0, 0, 0, 0);
+      periodStart = new Date(todayStart.getTime() - 29 * 24 * 60 * 60 * 1000);
       daysInPeriod = 30;
     }
 
-    // Previous period for growth comparison
     const periodDurationMs = periodEnd.getTime() - periodStart.getTime();
     const prevPeriodEnd = new Date(periodStart.getTime() - 1);
     const prevPeriodStart = new Date(prevPeriodEnd.getTime() - periodDurationMs);
 
     // Parallel DB queries
     const [
-      rooms,
-      roomTypes,
+      canonical,
       reservations,
-      payments,
+      folioTransactions,
       posOrders,
       housekeepingTasks,
       maintenanceTickets,
       guests,
       feedbacks,
     ] = await Promise.all([
-      prisma.room.findMany({ where, include: { roomType: true } }),
-      prisma.roomType.findMany({ where }),
+      getCanonicalHotelStatus(propertyId),
       prisma.reservation.findMany({
-        where,
+        where: { propertyId },
         include: {
           guest: true,
           roomType: true,
           rooms: { include: { room: true } },
+          folios: { include: { transactions: true } },
         },
         orderBy: { arrivalDate: 'desc' },
       }).catch(() => []),
-      prisma.payment.findMany({
-        where,
-        orderBy: { paymentDate: 'desc' },
+      prisma.folioTransaction.findMany({
+        where: {
+          folio: { reservation: { propertyId } },
+        },
       }).catch(() => []),
       prisma.posOrder.findMany({
-        where: { ...where, status: { notIn: ['CANCELLED', 'VOID'] } },
+        where: { propertyId, status: { notIn: ['CANCELLED', 'VOID'] } },
         select: { id: true, grandTotal: true, createdAt: true, orderType: true },
       }).catch(() => []),
       prisma.housekeepingTask.findMany({
-        where,
+        where: { propertyId },
         orderBy: { scheduledAt: 'desc' },
       }).catch(() => []),
       prisma.maintenanceTicket.findMany({
-        where,
+        where: { propertyId },
         orderBy: { openedAt: 'desc' },
       }).catch(() => []),
       prisma.guest.findMany({
-        where: propertyId
-          ? { reservations: { some: { propertyId } } }
-          : session.organizationId
-          ? { organizationId: session.organizationId }
-          : {},
+        where: { reservations: { some: { propertyId } } },
       }).catch(() => []),
       prisma.tableFeedback.findMany({
-        where,
+        where: { propertyId },
       }).catch(() => []),
     ]);
 
-    const totalRooms = rooms.length || 1;
-    const occupiedRooms = rooms.filter((r) => r.status === 'OCCUPIED').length;
-    const vacantCleanRooms = rooms.filter((r) => r.status === 'AVAILABLE' && r.housekeepingStatus === 'CLEAN').length;
-    const vacantDirtyRooms = rooms.filter((r) => r.housekeepingStatus === 'DIRTY').length;
-    const outOfOrderRooms = rooms.filter((r) => r.status === 'OUT_OF_ORDER' || r.maintenanceStatus === 'UNDER_MAINTENANCE').length;
-    const inspectionPendingRooms = rooms.filter((r) => r.housekeepingStatus === 'INSPECTION_PENDING' || r.housekeepingStatus === 'IN_PROGRESS').length;
-    const occupancyPct = Math.round((occupiedRooms / totalRooms) * 100);
+    const totalRooms = canonical.summary.totalRooms || 1;
+    const occupiedRooms = canonical.summary.occupiedCount;
+    const vacantCleanRooms = canonical.summary.vacantCleanCount;
+    const vacantDirtyRooms = canonical.summary.vacantDirtyCount;
+    const outOfOrderRooms = canonical.summary.maintenanceCount;
+    const inspectionPendingRooms = canonical.summary.inProgressCount;
+    const occupancyPct = canonical.summary.occupancyPct;
 
-    // Filter by period
-    const periodPayments = payments.filter((p) => {
-      const pd = new Date(p.paymentDate);
-      return pd >= periodStart && pd <= periodEnd;
-    });
-    const periodRevenue = periodPayments.reduce((s, p) => s + (p.amount || 0), 0);
+    // Filter paid reservations (excluding complimentary stays) (C5)
+    const paidReservations = reservations.filter(
+      (r) => !r.waiveBill && !r.isOwnerGuest && r.ownerBillingType !== 'COMPLIMENTARY' && r.status !== 'CANCELLED'
+    );
 
-    const prevPayments = payments.filter((p) => {
-      const pd = new Date(p.paymentDate);
-      return pd >= prevPeriodStart && pd <= prevPeriodEnd;
+    const periodReservations = paidReservations.filter((r) => {
+      const rd = new Date(r.arrivalDate || r.createdAt);
+      return rd >= periodStart && rd <= periodEnd;
     });
-    const prevRevenue = prevPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+    const prevReservations = paidReservations.filter((r) => {
+      const rd = new Date(r.arrivalDate || r.createdAt);
+      return rd >= prevPeriodStart && rd <= prevPeriodEnd;
+    });
+
+    // Compute period revenue from folio transactions & paid reservations
+    const periodPayments = folioTransactions.filter((t) => {
+      const td = new Date(t.txnDate);
+      return td >= periodStart && td <= periodEnd && t.txnType === 'CREDIT';
+    });
+
+    const periodDebitCharges = folioTransactions.filter((t) => {
+      const td = new Date(t.txnDate);
+      return td >= periodStart && td <= periodEnd && t.txnType === 'DEBIT';
+    });
+
+    let periodRevenue = periodPayments.reduce((s, p) => s + (p.creditAmount || 0), 0);
+    if (periodRevenue === 0 && periodReservations.length > 0) {
+      periodRevenue = periodReservations.reduce((s, r) => s + (r.advanceAmount || r.totalAmount || 0), 0);
+    }
+
+    const prevPayments = folioTransactions.filter((t) => {
+      const td = new Date(t.txnDate);
+      return td >= prevPeriodStart && td <= prevPeriodEnd && t.txnType === 'CREDIT';
+    });
+    let prevRevenue = prevPayments.reduce((s, p) => s + (p.creditAmount || 0), 0);
+    if (prevRevenue === 0 && prevReservations.length > 0) {
+      prevRevenue = prevReservations.reduce((s, r) => s + (r.advanceAmount || r.totalAmount || 0), 0);
+    }
 
     const growthVsPrevPeriod = prevRevenue > 0
       ? Math.round(((periodRevenue - prevRevenue) / prevRevenue) * 100)
       : (periodRevenue > 0 ? 100 : 0);
 
-    // Pos & Ancillary
+    // F&B Pos revenue
     const periodPos = posOrders.filter((o) => {
       const od = new Date(o.createdAt);
       return od >= periodStart && od <= periodEnd;
     });
     const ancillaryRevenue = periodPos.reduce((s, o) => s + (o.grandTotal || 0), 0);
-    const roomRevenue = Math.max(0, periodRevenue - ancillaryRevenue) || (periodRevenue * 0.85);
+    const roomRevenue = Math.max(0, periodRevenue - ancillaryRevenue);
 
-    // Period Reservations
-    const periodReservations = reservations.filter((r) => {
-      const rd = new Date(r.arrivalDate || r.createdAt);
-      return rd >= periodStart && rd <= periodEnd;
-    });
-
+    // Stay Nights & ADR
     const totalBookings = periodReservations.length;
     let totalStayNights = 0;
     periodReservations.forEach((r) => {
@@ -167,18 +185,18 @@ export async function GET(request: NextRequest) {
       totalStayNights += nights;
     });
 
-    const avgLengthOfStay = totalBookings > 0 ? Number((totalStayNights / totalBookings).toFixed(1)) : 1.6;
+    const avgLengthOfStay = totalBookings > 0 ? Number((totalStayNights / totalBookings).toFixed(1)) : 0;
     const avgBookingValue = totalBookings > 0 ? Math.round(periodRevenue / totalBookings) : 0;
 
     const totalAvailableRoomNights = totalRooms * daysInPeriod;
-    const roomNightsSold = totalStayNights > 0 ? totalStayNights : (occupiedRooms * daysInPeriod);
+    const roomNightsSold = totalStayNights;
 
-    const adr = roomNightsSold > 0 ? Math.round(roomRevenue / roomNightsSold) : 3400;
-    const revpar = totalAvailableRoomNights > 0 ? Math.round(roomRevenue / totalAvailableRoomNights) : Math.round((adr * occupancyPct) / 100);
-    const trevpar = totalAvailableRoomNights > 0 ? Math.round(periodRevenue / totalAvailableRoomNights) : revpar;
+    const adr = roomNightsSold > 0 ? Math.round(roomRevenue / roomNightsSold) : 0;
+    const revpar = totalAvailableRoomNights > 0 ? Math.round(roomRevenue / totalAvailableRoomNights) : 0;
+    const trevpar = totalAvailableRoomNights > 0 ? Math.round(periodRevenue / totalAvailableRoomNights) : 0;
     const goppar = Math.round(trevpar * 0.65);
 
-    // Repeat Guests Rate
+    // Repeat Guests Rate (Real calculation)
     const guestBookingCounts: Record<string, number> = {};
     reservations.forEach((r) => {
       if (r.guestId) {
@@ -186,108 +204,91 @@ export async function GET(request: NextRequest) {
       }
     });
     const repeatGuestCount = Object.values(guestBookingCounts).filter((c) => c > 1).length;
-    const totalUniqueGuests = Object.keys(guestBookingCounts).length || guests.length || 1;
-    const repeatGuestRate = Math.min(100, Math.round((repeatGuestCount / totalUniqueGuests) * 100)) || 22;
+    const totalUniqueGuests = Object.keys(guestBookingCounts).length;
+    const repeatGuestRate = totalUniqueGuests > 0 ? Math.round((repeatGuestCount / totalUniqueGuests) * 100) : 0;
 
-    // Satisfaction score
-    const validRatings = feedbacks.map((f: any) => f.rating || f.overallRating).filter(Boolean);
+    // Real Satisfaction score
+    const validRatings = feedbacks
+      .map((f: any) => f.rating || f.overallRating)
+      .filter((r) => typeof r === 'number' && r > 0);
     const avgRating = validRatings.length > 0
       ? Number((validRatings.reduce((s: number, r: number) => s + r, 0) / validRatings.length).toFixed(1))
-      : 4.8;
+      : null;
 
-    // Housekeeping Efficiency
+    // Real Housekeeping Efficiency
     const completedTasks = housekeepingTasks.filter((t) => t.status === 'COMPLETED').length;
-    const totalTasks = housekeepingTasks.length || 1;
-    const housekeepingEfficiencyPct = Math.round((completedTasks / totalTasks) * 100) || 94;
+    const totalTasks = housekeepingTasks.length;
+    const housekeepingEfficiencyPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : null;
 
-    // Maintenance Resolved
+    // Real Maintenance Resolved
     const resolvedMaintenance = maintenanceTickets.filter((m) => m.status === 'RESOLVED' || m.status === 'CLOSED').length;
-    const totalMaintenance = maintenanceTickets.length || 1;
-    const maintenanceResolvedPct = Math.round((resolvedMaintenance / totalMaintenance) * 100) || 88;
+    const totalMaintenance = maintenanceTickets.length;
+    const maintenanceResolvedPct = totalMaintenance > 0 ? Math.round((resolvedMaintenance / totalMaintenance) * 100) : null;
 
-    // ── Daily Trends Series ──
-    const trendsCount = Math.min(30, daysInPeriod);
-    const trends: {
-      date: string;
-      dayLabel: string;
-      occupancy: number;
-      revenue: number;
-      roomRevenue: number;
-      ancillaryRevenue: number;
-      adr: number;
-      revpar: number;
-      bookings: number;
-    }[] = [];
+    // Real Channel Distribution
+    const channelCounts: Record<string, { bookings: number; revenue: number }> = {};
+    periodReservations.forEach((r) => {
+      const src = r.companyName || 'Direct / Walk-In';
+      if (!channelCounts[src]) channelCounts[src] = { bookings: 0, revenue: 0 };
+      channelCounts[src].bookings++;
+      channelCounts[src].revenue += r.totalAmount || 0;
+    });
 
-    for (let i = trendsCount - 1; i >= 0; i--) {
-      const d = new Date(periodEnd.getTime() - i * 24 * 60 * 60 * 1000);
-      const dStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
-      const dEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+    const channelColors = ['#10B981', '#3B82F6', '#EC4899', '#6366F1', '#8B5CF6'];
+    const channelDistribution = Object.entries(channelCounts).map(([channel, val], idx) => ({
+      channel,
+      bookings: val.bookings,
+      revenue: val.revenue,
+      sharePct: periodRevenue > 0 ? Math.round((val.revenue / periodRevenue) * 100) : 0,
+      avgAdr: val.bookings > 0 ? Math.round(val.revenue / val.bookings) : 0,
+      color: channelColors[idx % channelColors.length],
+    }));
 
-      const dayPayments = payments.filter((p) => {
-        const pd = new Date(p.paymentDate);
-        return pd >= dStart && pd <= dEnd;
+    // Real Nationality Distribution
+    const natCounts: Record<string, number> = {};
+    periodReservations.forEach((r) => {
+      const nat = r.guest?.nationality || 'Indian';
+      natCounts[nat] = (natCounts[nat] || 0) + 1;
+    });
+    const nationalities = Object.entries(natCounts).map(([country, count]) => ({
+      country,
+      code: country === 'Indian' || country === 'India' ? 'IN' : 'INT',
+      count,
+      percentage: totalBookings > 0 ? Math.round((count / totalBookings) * 100) : 100,
+    }));
+
+    // Honest AI Business Insights (C8)
+    const aiInsights: any[] = [];
+    if (totalBookings >= 3) {
+      aiInsights.push({
+        id: '1',
+        category: 'REVENUE',
+        title: 'Current Revenue & Channel Overview',
+        description: `Recorded ${totalBookings} stays generating ₹${periodRevenue.toLocaleString('en-IN')} in total revenue with an ADR of ₹${adr.toLocaleString('en-IN')}.`,
+        impact: 'POSITIVE',
+        actionPrompt: 'Maintain optimal room rates across high-demand dates.',
       });
-      const dayRev = dayPayments.reduce((s, p) => s + (p.amount || 0), 0);
-
-      const dayPos = posOrders.filter((o) => {
-        const od = new Date(o.createdAt);
-        return od >= dStart && od <= dEnd;
-      });
-      const dayAnc = dayPos.reduce((s, o) => s + (o.grandTotal || 0), 0);
-      const dayRoom = Math.max(0, dayRev - dayAnc);
-
-      const dayRes = reservations.filter((r) => {
-        const arr = new Date(r.arrivalDate);
-        const dep = new Date(r.departureDate);
-        return arr <= dEnd && dep >= dStart && r.status !== 'CANCELLED';
-      });
-
-      const dayOccRooms = Math.min(totalRooms, Math.max(dayRes.length, (i === 0 ? occupiedRooms : Math.round(occupiedRooms * 0.9))));
-      const dayOccupancy = totalRooms > 0 ? Math.round((dayOccRooms / totalRooms) * 100) : 0;
-      const dayAdr = dayOccRooms > 0 ? Math.round((dayRoom || (dayOccRooms * adr)) / dayOccRooms) : adr;
-      const dayRevpar = totalRooms > 0 ? Math.round((dayRoom || (dayOccRooms * adr)) / totalRooms) : 0;
-
-      trends.push({
-        date: d.toISOString().split('T')[0],
-        dayLabel: `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${d.getDate()}`,
-        occupancy: dayOccupancy || Math.min(100, Math.round(occupancyPct + (i % 2 === 0 ? 4 : -3))),
-        revenue: Math.round(dayRev || (dayOccRooms * adr)),
-        roomRevenue: Math.round(dayRoom || (dayOccRooms * (adr * 0.9))),
-        ancillaryRevenue: Math.round(dayAnc),
-        adr: dayAdr || adr,
-        revpar: dayRevpar || revpar,
-        bookings: dayRes.length || (i % 3 === 0 ? 4 : 2),
+      if (repeatGuestRate > 0) {
+        aiInsights.push({
+          id: '2',
+          category: 'GUEST',
+          title: 'Guest Retention',
+          description: `Repeat guest rate is currently at ${repeatGuestRate}% with an average stay length of ${avgLengthOfStay} nights.`,
+          impact: 'POSITIVE',
+          actionPrompt: 'Continue guest recognition for repeat clients.',
+        });
+      }
+    } else {
+      aiInsights.push({
+        id: '1',
+        category: 'REVENUE',
+        title: 'Awaiting Live Property Data',
+        description: 'Not enough data yet. Automated AI yield trends and performance insights will appear as more reservations and check-outs are recorded.',
+        impact: 'NEUTRAL',
+        actionPrompt: 'Record check-ins and room service orders to populate analytics.',
       });
     }
 
-    // ── Guest Segmentation ──
-    const guestSegments = [
-      { type: 'Corporate & Business', count: Math.round(totalBookings * 0.38) || 45, percentage: 38, revenue: Math.round(periodRevenue * 0.42) || 210000, color: '#6366F1' },
-      { type: 'Leisure & Couples', count: Math.round(totalBookings * 0.32) || 38, percentage: 32, revenue: Math.round(periodRevenue * 0.30) || 150000, color: '#10B981' },
-      { type: 'Families & Groups', count: Math.round(totalBookings * 0.20) || 24, percentage: 20, revenue: Math.round(periodRevenue * 0.21) || 105000, color: '#F59E0B' },
-      { type: 'Solo Travelers', count: Math.round(totalBookings * 0.10) || 12, percentage: 10, revenue: Math.round(periodRevenue * 0.07) || 35000, color: '#EC4899' },
-    ];
-
-    // ── Nationality Distribution ──
-    const nationalities = [
-      { country: 'India', code: 'IN', count: Math.round(totalBookings * 0.72) || 86, percentage: 72 },
-      { country: 'United States', code: 'US', count: Math.round(totalBookings * 0.11) || 13, percentage: 11 },
-      { country: 'United Kingdom', code: 'GB', count: Math.round(totalBookings * 0.07) || 8, percentage: 7 },
-      { country: 'United Arab Emirates', code: 'AE', count: Math.round(totalBookings * 0.06) || 7, percentage: 6 },
-      { country: 'Other International', code: 'INT', count: Math.round(totalBookings * 0.04) || 5, percentage: 4 },
-    ];
-
-    // ── Channel Distribution ──
-    const channelDistribution = [
-      { channel: 'Direct Web Booking', bookings: Math.round(totalBookings * 0.36) || 43, revenue: Math.round(periodRevenue * 0.38) || 190000, sharePct: 38, avgAdr: Math.round(adr * 1.05), color: '#10B981' },
-      { channel: 'Booking.com OTA', bookings: Math.round(totalBookings * 0.28) || 33, revenue: Math.round(periodRevenue * 0.27) || 135000, sharePct: 27, avgAdr: Math.round(adr * 0.96), color: '#3B82F6' },
-      { channel: 'MakeMyTrip / Goibibo', bookings: Math.round(totalBookings * 0.18) || 21, revenue: Math.round(periodRevenue * 0.17) || 85000, sharePct: 17, avgAdr: Math.round(adr * 0.94), color: '#EC4899' },
-      { channel: 'Front Desk Walk-in', bookings: Math.round(totalBookings * 0.11) || 13, revenue: Math.round(periodRevenue * 0.11) || 55000, sharePct: 11, avgAdr: Math.round(adr * 1.02), color: '#6366F1' },
-      { channel: 'Corporate Travel Agents', bookings: Math.round(totalBookings * 0.07) || 8, revenue: Math.round(periodRevenue * 0.07) || 35000, sharePct: 7, avgAdr: Math.round(adr * 0.98), color: '#8B5CF6' },
-    ];
-
-    // ── Operations Metrics ──
     const operations = {
       totalRooms,
       occupiedRooms,
@@ -297,46 +298,11 @@ export async function GET(request: NextRequest) {
       inspectionPendingRooms,
       housekeepingTasksTotal: totalTasks,
       housekeepingTasksCompleted: completedTasks,
-      housekeepingAvgMinutes: 28,
+      housekeepingAvgMinutes: null,
       maintenanceTicketsTotal: totalMaintenance,
       maintenanceTicketsOpen: totalMaintenance - resolvedMaintenance,
       maintenanceTicketsResolved: resolvedMaintenance,
     };
-
-    // ── AI Automated Business Insights ──
-    const aiInsights = [
-      {
-        id: '1',
-        category: 'REVENUE' as const,
-        title: 'Direct Channel Growth & Commission Savings',
-        description: `Direct website bookings generated 38% of total revenue. Zero commission on direct bookings saved an estimated ₹${Math.round(periodRevenue * 0.38 * 0.16).toLocaleString('en-IN')} in OTA fees.`,
-        impact: 'POSITIVE' as const,
-        actionPrompt: 'Boost direct loyalty perks to capture more repeat guests.',
-      },
-      {
-        id: '2',
-        category: 'OCCUPANCY' as const,
-        title: 'Weekend vs Weekday Yield Gap',
-        description: `Weekend occupancy reached an impressive peak, driving ADR up by 18%. Weekday compression can be improved with corporate packages.`,
-        impact: 'NEUTRAL' as const,
-        actionPrompt: 'Activate 10% weekday corporate dynamic rule.',
-      },
-      {
-        id: '3',
-        category: 'GUEST' as const,
-        title: 'High Repeat Guest Loyalty',
-        description: `Repeat guests represent ${repeatGuestRate}% of total arrivals, with an average length of stay of ${avgLengthOfStay} nights and top satisfaction of ${avgRating}/5.`,
-        impact: 'POSITIVE' as const,
-        actionPrompt: 'Launch targeted VIP loyalty rewards for top corporate spenders.',
-      },
-      {
-        id: '4',
-        category: 'OPERATIONS' as const,
-        title: 'Housekeeping Turnaround Efficiency',
-        description: `Housekeeping achieved a ${housekeepingEfficiencyPct}% on-time completion rate with an average room cleaning duration of 28 minutes.`,
-        impact: 'POSITIVE' as const,
-      },
-    ];
 
     const kpis = {
       occupancyPct,
@@ -352,7 +318,7 @@ export async function GET(request: NextRequest) {
       avgBookingValue,
       repeatGuestRate,
       guestSatisfactionScore: avgRating,
-      totalReviews: validRatings.length || 64,
+      totalReviews: validRatings.length,
       housekeepingEfficiencyPct,
       maintenanceResolvedPct,
       growthVsPrevPeriod,
@@ -360,15 +326,15 @@ export async function GET(request: NextRequest) {
 
     return apiResponse({
       kpis,
-      trends,
-      guestSegments,
+      trends: [],
+      guestSegments: [],
       nationalities,
       channelDistribution,
       operations,
       aiInsights,
-      timeRange,
     });
   } catch (error) {
+    console.error('Analytics API error:', error);
     return apiError(error);
   }
 }

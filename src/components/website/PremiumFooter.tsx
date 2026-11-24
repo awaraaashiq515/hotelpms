@@ -32,9 +32,9 @@ export function PremiumFooter() {
       { name: 'Support', href: '/contact' },
     ],
     Legal: [
-      { name: 'Privacy Policy', href: '/contact' },
-      { name: 'Terms of Service', href: '/contact' },
-      { name: 'Cookie Policy', href: '/contact' },
+      { name: 'Privacy Policy', href: '/privacy' },
+      { name: 'Terms of Service', href: '/terms' },
+      { name: 'Cookie Policy', href: '/cookies' },
     ],
   };
 

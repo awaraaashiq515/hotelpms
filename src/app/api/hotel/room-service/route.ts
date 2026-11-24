@@ -240,34 +240,33 @@ export async function POST(request: NextRequest) {
         const room = await tx.room.findFirst({
           where: { propertyId, roomNumber: String(roomNumber) }
         });
-        if (room) {
-          const resRoom = await tx.reservationRoom.findFirst({
-            where: { roomId: room.id },
-            include: { reservation: { include: { folios: true } } },
-            orderBy: { id: 'desc' }
-          });
-          if (resRoom?.reservation) {
-            resolvedGuestId = resolvedGuestId || resRoom.reservation.guestId;
-            if (resRoom.reservation.folios && resRoom.reservation.folios.length > 0) {
-              resolvedFolioId = resRoom.reservation.folios[0].id;
-            } else {
-              // Create a folio for this reservation if missing
-              const newFolio = await tx.folio.create({
-                data: {
-                  reservationId: resRoom.reservation.id,
-                  guestId: resRoom.reservation.guestId,
-                  folioNo: `FOL-${resRoom.reservation.bookingNo || Date.now()}`,
-                  status: 'OPEN',
-                  openingBalance: 0,
-                  totalCharges: 0,
-                  totalPayments: 0,
-                  closingBalance: 0
-                }
-              });
-              resolvedFolioId = newFolio.id;
-            }
-          }
+        if (!room) {
+          throw new Error(`Room ${roomNumber} not found.`);
         }
+
+        // C9 & C15: Strictly verify active stay and open folio — never post to previous occupants or vacant rooms
+        const activeCheckIn = await tx.checkIn.findFirst({
+          where: {
+            roomId: room.id,
+            status: 'ACTIVE',
+          },
+          include: {
+            reservation: {
+              include: {
+                folios: {
+                  where: { status: 'OPEN' },
+                },
+              },
+            },
+          },
+        });
+
+        if (!activeCheckIn || !activeCheckIn.reservation?.folios?.[0]) {
+          throw new Error(`Cannot charge to Room ${roomNumber}: Room does not have an active guest with an open folio.`);
+        }
+
+        resolvedGuestId = activeCheckIn.guestId;
+        resolvedFolioId = activeCheckIn.reservation.folios[0].id;
       }
 
       const posOrder = await tx.posOrder.create({

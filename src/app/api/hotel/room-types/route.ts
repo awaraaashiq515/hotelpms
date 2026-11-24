@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError, getMultiTenantWhere, resolveAdminProperty } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { validatePositiveAmount } from '@/lib/validators/indian';
 
 export async function GET(request: NextRequest) {
   try {
@@ -77,6 +78,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate } = body;
+
+    if (!validatePositiveAmount(Number(baseRate))) {
+      return apiError(new Error('Base rate must be a strictly positive number (> 0).'), 400);
+    }
 
     const roomType = await prisma.roomType.create({
       data: {

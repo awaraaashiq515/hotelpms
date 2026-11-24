@@ -533,8 +533,9 @@ export function ReservationDetailDrawer({
 
   const totalFoodBill = foodData?.summary?.totalRestaurantBill || 0;
   const foodOrdersCount = foodData?.summary?.totalOrdersCount || 0;
-  const grandCombinedTotal = (Number(booking.totalAmount) || 0) + totalFoodBill;
-  const netDueBalance = (Number(booking.dueAmount) || 0) + totalFoodBill;
+  // All balance dues come from the folio / booking ledger directly (H2)
+  const grandCombinedTotal = Number(booking.totalAmount) || 0;
+  const netDueBalance = Number(booking.dueAmount) || 0;
 
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
@@ -783,7 +784,12 @@ export function ReservationDetailDrawer({
                   <Shield className="w-3 h-3 text-sky-400" />
                   <span>
                     {booking.guest?.idType || booking.guestIdType || 'ID'}:{' '}
-                    <strong>{booking.guest?.idNumber || booking.guestIdNumber || 'Verified'}</strong>
+                    <strong>{(() => {
+                      const rawId = String(booking.guest?.idNumber || booking.guestIdNumber || '');
+                      if (!rawId) return 'Verified';
+                      const clean = rawId.replace(/[\s-]/g, '');
+                      return clean.length >= 8 ? `XXXX-XXXX-${clean.slice(-4)}` : rawId;
+                    })()}</strong>
                   </span>
                 </div>
               )}

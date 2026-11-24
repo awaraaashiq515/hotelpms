@@ -16,6 +16,11 @@ export async function PUT(
 
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
+    // Restrict Settings to Owner / GM / Admins (H1, H10)
+    if (session.role === 'HOTEL_RECEPTIONIST') {
+      return apiError(new Error('Access Denied: Receptionist role is not authorized to edit Property Settings.'), 403);
+    }
+
     const body = await request.json();
     console.log('Incoming Payload:', body);
     const { name, brandName, logoUrl, city, state, country, address, phone, email, bookingEmail, gmailAppPassword, bookingEmailParserApiKey, starRating, hotelCategory, checkInTime, checkOutTime, taxDetails, posAutoLockTimeout, posLockScreenMessage, posLockScreenBgUrl, posTerminalPin, thermalPrinterName, enableDirectPrinting, restaurantPosEnabled, showRestaurantInQrMenu, barPosEnabled, showBarInQrMenu, cafePosEnabled, showCafeInQrMenu, deliveryEnabled, showDeliveryInQrMenu, upiId, upiName, upiLimit, upiId2, upiName2, upiLimit2, whatsAppEnabled, whatsAppProvider, metaAccessToken, metaPhoneId, metaVerifyToken, twilioAccountSid, twilioAuthToken, twilioFromNumber, whatsAppApiKey, whatsAppInstanceId, whatsAppTemplate, whatsAppWelcomeMessage, targetShiftHours, latitude, longitude, guestPortalEnabled, guestPortalPasswordMode, guestPortalDefaultPassword, hotelWifiName, hotelWifiPassword, breakfastTimings, poolTimings, gymTimings, checkoutPolicy, restaurantRoomChargingEnabled } = body;
@@ -38,8 +43,11 @@ export async function PUT(
     } else if (email !== undefined) {
       updateData.bookingEmail = email ? String(email).trim() : null;
     }
-    if (gmailAppPassword !== undefined) {
+    if (gmailAppPassword !== undefined && gmailAppPassword !== '••••••••••••••••') {
       updateData.gmailAppPassword = gmailAppPassword ? String(gmailAppPassword).replace(/\s+/g, '') : null;
+    }
+    if (posTerminalPin !== undefined && posTerminalPin !== '••••') {
+      updateData.posTerminalPin = posTerminalPin ? String(posTerminalPin).trim() : null;
     }
     if (bookingEmailParserApiKey !== undefined) {
       updateData.bookingEmailParserApiKey = bookingEmailParserApiKey ? String(bookingEmailParserApiKey).trim() : null;
@@ -184,6 +192,11 @@ export async function GET(
     const { id } = await params;
     const session = await getSession();
     if (!session) return apiError(new Error('Unauthorized'), 401);
+
+    // Restrict Settings to Owner / GM / Admins (H1, H10)
+    if (session.role === 'HOTEL_RECEPTIONIST') {
+      return apiError(new Error('Access Denied: Receptionist role is not authorized to edit Property Settings.'), 403);
+    }
 
     const property = await prisma.property.findUnique({
       where: { id },

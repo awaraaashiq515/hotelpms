@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse, apiError } from '@/lib/api-utils';
 import { getSession } from '@/lib/session';
+import { getNextInvoiceNumber } from '@/lib/hotel/invoice-sequence';
+import { computeRoomGst, computeFoodGst } from '@/lib/hotel/gst-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,12 +43,14 @@ export async function POST(request: NextRequest) {
 
     const finalAmountPaid = Number(paymentAmount);
 
-    // Auto-reconcile: find any completed POS orders for this guest not yet linked to folio
+    // Auto-reconcile: find any completed or pending POS / room service orders for this guest or room not yet linked to folio
     const unlinkedOrders = await prisma.posOrder.findMany({
       where: {
-        guestId: checkIn.guestId,
         folioId: null,
-        status: { in: ['PAID', 'COMPLETED', 'CLOSED'] }
+        OR: [
+          { guestId: checkIn.guestId },
+          ...(checkIn.roomId ? [{ roomId: checkIn.roomId }] : []),
+        ],
       },
       include: {
         outlet: { select: { name: true } }
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
             description: `${order.outlet?.name || 'Restaurant'} – Order #${order.orderNo}`,
             debitAmount: order.grandTotal,
             creditAmount: 0,
-            taxAmount: order.taxAmount,
+            taxAmount: order.taxAmount || 0,
             netAmount: order.grandTotal,
           }
         });
@@ -126,9 +130,9 @@ export async function POST(request: NextRequest) {
       include: { transactions: true }
     });
 
-    const totalCharges = freshFolio?.transactions.reduce((sum: number, t: any) => sum + t.debitAmount, 0) || 0;
-    const totalPayments = freshFolio?.transactions.reduce((sum: number, t: any) => sum + t.creditAmount, 0) || 0;
-    const closingBalance = totalCharges - totalPayments;
+    const totalCharges = freshFolio?.transactions.reduce((sum: number, t: any) => sum + (t.debitAmount || 0), 0) || 0;
+    const totalPayments = freshFolio?.transactions.reduce((sum: number, t: any) => sum + (t.creditAmount || 0), 0) || 0;
+    const closingBalance = Math.max(0, totalCharges - totalPayments);
 
     // 1. Close the Folio
     await prisma.folio.update({
@@ -174,12 +178,115 @@ export async function POST(request: NextRequest) {
       where: { id: checkIn.roomId },
       data: {
         status: 'AVAILABLE',
-        housekeepingStatus: 'DIRTY', // Housekeeping needs to clean it now
+        housekeepingStatus: 'DIRTY',
       }
     });
 
-    return apiResponse({ checkOut, closingBalance }, 'Guest checked out successfully');
+    // Deactivate & expire active Room Portal tokens for this guest and room (WP-0.11 / ROOMP-01)
+    await prisma.roomPortalSession.updateMany({
+      where: {
+        roomId: checkIn.roomId,
+        guestId: checkIn.guestId,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        logoutAt: new Date(),
+        expiresAt: new Date(),
+      },
+    });
+
+    // 6. Generate official GST Tax Invoice upon checkout settlement
+    const isComplimentary = Boolean(
+      checkIn.reservation.waiveBill ||
+      checkIn.reservation.isOwnerGuest ||
+      checkIn.reservation.ownerBillingType === 'COMPLIMENTARY'
+    );
+
+    const propertyId = checkIn.room.propertyId;
+    const invoiceNo = await getNextInvoiceNumber(propertyId);
+
+    let subtotal = 0;
+    let taxAmount = 0;
+    const invoiceItems: any[] = [];
+
+    if (isComplimentary) {
+      invoiceItems.push({
+        description: `Complimentary / Hosted Stay - Room ${checkIn.room.roomNumber}`,
+        qty: 1,
+        unitPrice: 0,
+        taxAmount: 0,
+        totalAmount: 0,
+        hsnCode: '996311',
+        status: 'COMPLIMENTARY',
+      });
+    } else {
+      // Check if property is specified premises (has room tariff > 7500)
+      const maxRoom = await prisma.room.findFirst({
+        where: { propertyId },
+        orderBy: { customRate: 'desc' },
+        include: { roomType: true },
+      });
+      const highestTariff = Math.max(maxRoom?.customRate || 0, maxRoom?.roomType?.baseRate || 0);
+      const isSpecifiedPremises = highestTariff > 7500;
+
+      const debits = freshFolio?.transactions.filter((t: any) => t.txnType === 'DEBIT') || [];
+      for (const txn of debits) {
+        if (txn.sourceModule === 'POS') {
+          const fTax = computeFoodGst(txn.debitAmount, isSpecifiedPremises);
+          subtotal += txn.debitAmount;
+          taxAmount += fTax.totalTax;
+          invoiceItems.push({
+            description: txn.description || 'F&B Restaurant / Room Service',
+            qty: 1,
+            unitPrice: txn.debitAmount,
+            taxAmount: fTax.totalTax,
+            totalAmount: txn.debitAmount + fTax.totalTax,
+            hsnCode: fTax.sacCode,
+          });
+        } else {
+          // Room Accommodation
+          const rTax = computeRoomGst(txn.debitAmount, 1, false);
+          subtotal += txn.debitAmount;
+          taxAmount += rTax.totalTax;
+          invoiceItems.push({
+            description: txn.description || `Room Accommodation - Room ${checkIn.room.roomNumber}`,
+            qty: 1,
+            unitPrice: txn.debitAmount,
+            taxAmount: rTax.totalTax,
+            totalAmount: txn.debitAmount + rTax.totalTax,
+            hsnCode: rTax.sacCode,
+          });
+        }
+      }
+    }
+
+    const grandTotal = isComplimentary ? 0 : Math.round((subtotal + taxAmount) * 100) / 100;
+    const paymentStatus = isComplimentary
+      ? 'COMPLIMENTARY'
+      : (closingBalance <= 0 ? 'PAID' : 'DUE');
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        propertyId,
+        invoiceNo,
+        guestId: checkIn.guestId,
+        folioId: folio.id,
+        subtotal: isComplimentary ? 0 : subtotal,
+        taxAmount: isComplimentary ? 0 : taxAmount,
+        totalAmount: grandTotal,
+        paymentStatus,
+        invoiceStatus: 'SETTLED',
+        invoiceDate: new Date(),
+        items: {
+          create: invoiceItems
+        }
+      }
+    });
+
+    return apiResponse({ checkOut, closingBalance, invoice }, 'Guest checked out successfully and Tax Invoice generated');
   } catch (error) {
+    console.error('Checkout error:', error);
     return apiError(error);
   }
 }
