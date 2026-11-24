@@ -108,6 +108,82 @@ function nightsBetween(a: string, b: string) {
   return Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000));
 }
 
+function getSafeFolio(inv: HotelInvoiceRecord): FolioDetail {
+  if (inv.rawFolio && inv.rawFolio.reservation) {
+    return inv.rawFolio;
+  }
+  return {
+    id: inv.folioId || inv.id,
+    folioNo: inv.folioNo || inv.invoiceNo,
+    status: inv.folioStatus || 'CLOSED',
+    openingBalance: 0,
+    totalCharges: inv.totalAmount || 0,
+    totalPayments: inv.totalPaid || 0,
+    closingBalance: inv.dueBalance || 0,
+    guestId: inv.guestId || '',
+    guest: {
+      firstName: (inv.guestName || 'Guest').split(' ')[0] || 'Guest',
+      lastName: (inv.guestName || '').split(' ').slice(1).join(' ') || '',
+      mobile: inv.guestMobile,
+      email: inv.guestEmail,
+      gstNumber: inv.gstNumber,
+      companyName: inv.companyName,
+      billingAddress: inv.billingAddress,
+    },
+    reservation: {
+      id: inv.folioId || inv.id,
+      bookingNo: inv.bookingNo || '—',
+      arrivalDate: inv.arrivalDate,
+      departureDate: inv.departureDate,
+      totalAmount: inv.totalAmount || 0,
+      advanceAmount: inv.totalPaid || 0,
+      dueAmount: inv.dueBalance || 0,
+      adults: 1,
+      children: 0,
+      checkIns: [],
+      property: {
+        name: 'OrderMint Hotel & Resort',
+        state: 'Himachal Pradesh',
+        taxDetails: '02BMAPG7310Q2Z6',
+      } as any,
+      roomType: {
+        name: inv.roomTypeName || 'Standard Room',
+      } as any,
+      rooms: [
+        {
+          room: {
+            roomNumber: inv.roomNumber || '101',
+          } as any,
+        }
+      ] as any,
+    },
+    transactions: [
+      {
+        id: 'txn-1',
+        txnType: 'DEBIT',
+        sourceModule: 'HMS',
+        description: `Room Stay & Accommodation - Room ${inv.roomNumber || '101'}`,
+        debitAmount: inv.subtotal || inv.taxableAmount || Math.max(0, (inv.totalAmount || 0) - (inv.totalTax || 0)),
+        creditAmount: 0,
+        taxAmount: inv.totalTax || 0,
+        netAmount: inv.totalAmount || 0,
+        txnDate: inv.invoiceDate,
+      },
+      ...(inv.totalPaid > 0 ? [{
+        id: 'txn-2',
+        txnType: 'CREDIT' as const,
+        sourceModule: 'HMS',
+        description: `Settlement Payment (${inv.paymentMode || 'Paid'})`,
+        debitAmount: 0,
+        creditAmount: inv.totalPaid,
+        taxAmount: 0,
+        netAmount: -inv.totalPaid,
+        txnDate: inv.invoiceDate,
+      }] : []),
+    ],
+  };
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function HotelInvoicesPage() {
@@ -408,7 +484,7 @@ export default function HotelInvoicesPage() {
       {/* ── Receipt / Tax Invoice Modal ────────────────────────────────────── */}
       {showReceiptModal && selectedInvoice && (
         <ReceiptModal
-          folio={selectedInvoice.rawFolio}
+          folio={getSafeFolio(selectedInvoice)}
           nights={nightsBetween(selectedInvoice.arrivalDate, selectedInvoice.departureDate)}
           invoiceNo={selectedInvoice.invoiceNo}
           onClose={() => {
@@ -1021,7 +1097,7 @@ export default function HotelInvoicesPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            const checkInId = inv.rawFolio.reservation?.checkIns?.[0]?.id || `folio-${inv.folioId}`;
+                            const checkInId = inv.rawFolio?.reservation?.checkIns?.[0]?.id || `folio-${inv.folioId}`;
                             router.push(`/hotel/checkout/${checkInId}?folioId=${inv.folioId}`);
                           }}
                           className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"

@@ -22,14 +22,17 @@ export async function GET(request: NextRequest) {
         ...propertyWhere,
       },
       include: {
+        property: true,
         guest: true,
         folio: {
           include: {
             guest: true,
             reservation: {
               include: {
+                property: true,
                 roomType: true,
                 rooms: { include: { room: true } },
+                checkIns: { include: { room: true } },
               }
             },
             transactions: true,
@@ -51,8 +54,10 @@ export async function GET(request: NextRequest) {
         guest: true,
         reservation: {
           include: {
+            property: true,
             roomType: true,
             rooms: { include: { room: true } },
+            checkIns: { include: { room: true } },
           }
         },
         transactions: true,
@@ -125,6 +130,14 @@ export async function GET(request: NextRequest) {
         folioStatus: 'CLOSED',
         isProforma: false,
         isComplimentary,
+        rawFolio: inv.folio ? {
+          ...inv.folio,
+          guest: inv.folio.guest || guest,
+          reservation: inv.folio.reservation ? {
+            ...inv.folio.reservation,
+            property: inv.folio.reservation.property || inv.property,
+          } : null,
+        } : null,
       };
     });
 
@@ -187,6 +200,7 @@ export async function GET(request: NextRequest) {
         folioStatus: 'OPEN',
         isProforma: true,
         isComplimentary,
+        rawFolio: folio,
       };
     });
 

@@ -545,7 +545,21 @@ export interface GstBreakdownRow {
   totalAmount: number;
 }
 
-export function computeGstBreakdown(folio: FolioDetail, nights: number) {
+export function computeGstBreakdown(folio: FolioDetail | any, nights: number = 1) {
+  if (!folio) {
+    return {
+      rows: [],
+      isInterState: false,
+      totalTaxable: 0,
+      totalCgst: 0,
+      totalSgst: 0,
+      totalIgst: 0,
+      grandTax: 0,
+      taxInWords: 'Zero Rupees Only',
+      placeOfSupply: '02 - Himachal Pradesh',
+    };
+  }
+
   const stayTxns = folio.transactions?.filter(
     (t) => t.debitAmount > 0 && t.sourceModule !== 'POS' && t.sourceModule !== 'ROOM_SERVICE' && t.sourceModule !== 'GST'
   ) || [];
@@ -694,23 +708,23 @@ export function computeGstBreakdown(folio: FolioDetail, nights: number) {
 
 export default function ReceiptModal({ folio, nights, invoiceNo, autoPrint = true, onClose }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
-  const property = folio.reservation?.property;
-  const displayInvoiceNo = invoiceNo || `INV-${folio.folioNo.replace(/\D/g, '') || '1'}`;
+  const property = folio?.reservation?.property;
+  const displayInvoiceNo = invoiceNo || `INV-${folio?.folioNo?.replace(/\D/g, '') || '1'}`;
   const [printing, setPrinting] = useState(false);
   const autoPrintedRef = useRef(false);
 
   // Compute full GST breakdown and tax values
   const gstDetails = computeGstBreakdown(folio, nights);
-  const hotelGstin = property?.taxDetails || (folio.reservation?.property as any)?.taxDetails || 'Not Registered / Pending in Settings';
-  const guestGstin = folio.reservation?.gstNumber || folio.guest?.gstNumber || '';
-  const isB2B = Boolean(guestGstin || folio.reservation?.companyName || folio.guest?.companyName);
+  const hotelGstin = property?.taxDetails || (folio?.reservation?.property as any)?.taxDetails || 'Not Registered / Pending in Settings';
+  const guestGstin = folio?.reservation?.gstNumber || folio?.guest?.gstNumber || '';
+  const isB2B = Boolean(guestGstin || folio?.reservation?.companyName || folio?.guest?.companyName);
 
   // Safe resolution of Room Number and details
   const roomNumber =
-    folio.reservation?.rooms?.[0]?.room?.roomNumber ||
-    (folio.reservation as any)?.checkIns?.[0]?.room?.roomNumber ||
+    folio?.reservation?.rooms?.[0]?.room?.roomNumber ||
+    (folio?.reservation as any)?.checkIns?.[0]?.room?.roomNumber ||
     (folio as any)?.room?.roomNumber ||
-    (folio.reservation as any)?.assignedRoom?.roomNumber ||
+    (folio?.reservation as any)?.assignedRoom?.roomNumber ||
     '101';
 
   const roomTypeName =

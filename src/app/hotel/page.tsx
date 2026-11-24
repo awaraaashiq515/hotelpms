@@ -1055,7 +1055,9 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-amber-500/40',
     modules: [
       // ── Front Desk & Guest Arrival (Daily) ──
+      { name: 'Check-In Terminal',        href: '/hotel/checkin',              icon: DoorOpen,        category: 'FRONT_DESK' },
       { name: 'Check-Out Terminal',       href: '/hotel/checkout',             icon: DoorOpen,        category: 'FRONT_DESK' },
+      { name: 'Invoices & Billing',       href: '/hotel/invoices',             icon: Receipt,         category: 'FRONT_DESK' },
       { name: 'Room Availability Matrix', href: '/hotel/calendar',             icon: Calendar,        category: 'FRONT_DESK' },
       { name: 'Bookings Manager',         href: '/hotel/bookings',             icon: PlusCircle,      category: 'FRONT_DESK' },
       { name: 'Customers & Guests',       href: '/hotel/guests',               icon: Users,           category: 'FRONT_DESK' },
@@ -1113,6 +1115,7 @@ const DEPARTMENTS = [
     modules: [
       { name: 'Check-In Terminal',     href: '/hotel/checkin',              icon: DoorOpen },
       { name: 'Check-Out Terminal',    href: '/hotel/checkout',             icon: DoorOpen },
+      { name: 'Invoices & Billing',    href: '/hotel/invoices',             icon: Receipt },
       { name: 'Room Door QR Placards', href: '/hotel/rooms/qr-codes',       icon: QrCode },
       { name: 'Operations Dashboard',  href: '/hotel/operations-dashboard', icon: LayoutGrid },
       { name: 'Bookings Manager',      href: '/hotel/bookings',             icon: PlusCircle },
@@ -1214,7 +1217,7 @@ const DEPARTMENTS = [
     cardBorder: 'border-slate-800 hover:border-amber-500/40',
     modules: [
       { name: 'Folios & Billing',    href: '/hotel/billing',                 icon: Receipt },
-      { name: 'Invoices Registry',   href: '/hotel/billing/invoices',        icon: ScrollText },
+      { name: 'Invoices & Tax Bills', href: '/hotel/invoices',               icon: ScrollText },
       { name: 'Night Audit Console', href: '/hotel/night-audit',             icon: Moon },
       { name: 'Daily Audit Report',  href: '/hotel/night-audit/daily-report', icon: BarChart3 },
       { name: 'Discount Approvals',  href: '/hotel/discounts',               icon: ShieldAlert },
