@@ -65,4 +65,7 @@ wt-settings.json
 scripts/backup-log.json
 scripts/backup-settings.json
 tsconfig.check.json
+*.jks
+android/keystore.properties
+android/local.properties
 

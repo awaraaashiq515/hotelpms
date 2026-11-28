@@ -177,6 +177,7 @@ export function HotelBackButton({ className = '' }: { className?: string }) {
           })}
         </nav>
       </div>
+      <div id="hotel-page-header-actions" className="flex items-center gap-2 flex-wrap" />
     </div>
   );
 }

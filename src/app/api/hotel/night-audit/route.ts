@@ -206,24 +206,32 @@ export async function GET(request: NextRequest) {
       },
     ];
 
+    const summaryData = {
+      totalRooms: totalRoomsCount,
+      occupiedRooms: occupiedRoomsCount,
+      vacantRooms: vacantRoomsCount,
+      maintenanceRooms: maintenanceRoomsCount,
+      occupancyPct,
+      activeCheckInsCount: activeCheckIns.length,
+      ratesPostedTodayCount,
+      ratesPendingPostCount,
+      pendingDues: pendingDuesTotal,
+      pendingDuesTotal,
+      todayDebits: totalDebitsToday,
+      totalDebitsToday,
+      todayCredits: totalCreditsToday,
+      totalCreditsToday,
+      todayTax: totalTaxToday,
+      totalTaxToday,
+      pendingNoShowsCount: pendingNoShows.length,
+      noShowsCount: pendingNoShows.length,
+      overdueCount: overdueGuests.length,
+      businessDate: dateString,
+    };
+
     return apiResponse({
-      stats: {
-        totalRooms: totalRoomsCount,
-        occupiedRooms: occupiedRoomsCount,
-        vacantRooms: vacantRoomsCount,
-        maintenanceRooms: maintenanceRoomsCount,
-        occupancyPct,
-        activeCheckInsCount: activeCheckIns.length,
-        ratesPostedTodayCount,
-        ratesPendingPostCount,
-        pendingDuesTotal,
-        noShowsCount: pendingNoShows.length,
-        overdueCount: overdueGuests.length,
-        totalDebitsToday,
-        totalCreditsToday,
-        totalTaxToday,
-        businessDate: dateString,
-      },
+      summary: summaryData,
+      stats: summaryData,
       roomsSummary: {
         total: totalRoomsCount,
         occupied: occupiedRoomsCount,
@@ -231,6 +239,7 @@ export async function GET(request: NextRequest) {
         maintenance: maintenanceRoomsCount,
         occupancyPct,
       },
+      inHouseGuests: checkInsWithStatus,
       checkInsWithStatus,
       pendingNoShows: pendingNoShows.map((ns) => ({
         id: ns.id,
@@ -249,6 +258,7 @@ export async function GET(request: NextRequest) {
         departureDate: og.departureDate,
         totalAmount: og.totalAmount,
       })),
+      steps: auditSteps,
       auditSteps,
       businessDate: dateString,
     });

@@ -89,6 +89,9 @@ export default function WebsiteSettingsPage() {
       const json = await res.json();
       if (json.success) {
         setSettings(json.data);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('website-settings-updated'));
+        }
         alert('Settings updated successfully!');
       } else {
         alert('Failed to update settings: ' + (json.message || 'Unknown error'));
@@ -317,7 +320,7 @@ export default function WebsiteSettingsPage() {
                            headers: { 'Content-Type': 'application/json' },
                            body: JSON.stringify(newSettings),
                          });
-                         if (saveRes.ok) alert('Logo uploaded successfully!');
+                         if (saveRes.ok) { if (typeof window !== 'undefined') window.dispatchEvent(new Event('website-settings-updated')); alert('Logo uploaded successfully!'); }
                        }
                      } catch (err: any) {
                        alert(`Error: ${err.message}`);
@@ -410,7 +413,7 @@ export default function WebsiteSettingsPage() {
                            headers: { 'Content-Type': 'application/json' },
                            body: JSON.stringify(newSettings),
                          });
-                         if (saveRes.ok) alert('Scrolled logo uploaded successfully!');
+                         if (saveRes.ok) { if (typeof window !== 'undefined') window.dispatchEvent(new Event('website-settings-updated')); alert('Scrolled logo uploaded successfully!'); }
                        }
                      } catch (err: any) {
                        alert(`Error: ${err.message}`);

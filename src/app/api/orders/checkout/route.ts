@@ -449,7 +449,7 @@ export async function POST(request: NextRequest) {
       await createNotification({
         propertyId: session.propertyId!,
         title: isPayLater ? 'Credit Bill Generated' : 'Payment Received',
-        message: isPayLater 
+        message: isPayLater
           ? `Invoice ${invoice.invoiceNo} generated (Pay Later). Amount: ₹${grandTotal.toFixed(2)}`
           : `Payment of ₹${grandTotal.toFixed(2)} received for Invoice ${invoice.invoiceNo}`,
         type: 'PAYMENT',
@@ -705,7 +705,7 @@ export async function POST(request: NextRequest) {
       if (guest?.mobile) {
         // 1. WhatsApp Receipt (Template first, then fallback to text)
         if (sendWhatsApp) {
-          const dateStr = new Date().toLocaleDateString('en-GB');
+          const totalAmountFormatted = Number(result.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
           sendMetaWhatsAppTemplate({
             mobile: guest.mobile,
             templateName: 'hotel_order_receipt',
@@ -713,8 +713,8 @@ export async function POST(request: NextRequest) {
               guest.firstName || 'Customer',
               property?.name || 'OrderMint',
               result.orderNo,
-              dateStr,
-              result.grandTotal,
+              totalAmountFormatted,
+              'Paid',
             ],
             buttonUrlParameter: result.orderNo,
             propertyId: session.propertyId!,

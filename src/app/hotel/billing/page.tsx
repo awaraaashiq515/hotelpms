@@ -25,7 +25,8 @@ import {
   CalendarDays,
   ShoppingBag,
   Link,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Percent
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -38,6 +39,15 @@ function BillingContent() {
   const [selectedFolio, setSelectedFolio] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'CUSTOM'>('ALL');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+
+  // Billing-time GST Selection state
+  const [gstRate, setGstRate] = useState<number>(0);
+  const [currentAppliedGstRate, setCurrentAppliedGstRate] = useState<number>(0);
+  const [gstPosted, setGstPosted] = useState<boolean>(false);
+  const [addingGst, setAddingGst] = useState<boolean>(false);
   
   // Modals state
   const [showPostModal, setShowPostModal] = useState(false);
@@ -109,6 +119,22 @@ function BillingContent() {
         setSelectedFolio(data.data);
         // Pre-fill payment amount with current closing balance
         setPaymentAmount(Math.max(0, data.data.closingBalance).toString());
+
+        const gstTxn = data.data.transactions?.find(
+          (t: any) => t.sourceModule === 'GST'
+        );
+        if (gstTxn) {
+          setGstPosted(true);
+          const match = gstTxn.description?.match(/GST\s*@\s*(\d+(?:\.\d+)?)%/i);
+          const parsedRate = match?.[1] ? Number(match[1]) : 18;
+          setGstRate(parsedRate);
+          setCurrentAppliedGstRate(parsedRate);
+        } else {
+          setGstPosted(false);
+          setCurrentAppliedGstRate(0);
+          const catGst = data.data.reservation?.roomType?.gstRate;
+          setGstRate(catGst !== undefined && catGst !== null ? Number(catGst) : 0);
+        }
       } else {
         toast.error(data.message || 'Failed to fetch folio details');
       }
@@ -394,12 +420,86 @@ function BillingContent() {
     }
   };
 
+  const gstTxns = selectedFolio?.transactions?.filter((t: any) => t.sourceModule === 'GST') || [];
+  const existingGstAmount = gstTxns.reduce((sum: number, t: any) => sum + (Number(t.debitAmount) || 0), 0);
+  const baseChargesForGst = Math.max(0, (selectedFolio?.totalCharges ?? 0) - existingGstAmount);
+
+  const handleApplyBillingGst = async (overrideRate?: number) => {
+    const rateToApply = overrideRate !== undefined ? overrideRate : gstRate;
+    if (!selectedFolio) return;
+    setAddingGst(true);
+    try {
+      if (gstPosted || gstTxns.length > 0) {
+        await fetch(`/api/hotel/folios?folioId=${selectedFolio.id}&sourceModule=GST`, {
+          method: 'DELETE',
+        });
+      }
+
+      if (rateToApply > 0) {
+        const newGstAmount = Math.round(baseChargesForGst * rateToApply) / 100;
+        const res = await fetch('/api/hotel/folios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folioId: selectedFolio.id,
+            txnType: 'DEBIT',
+            description: `GST @ ${rateToApply}% on Room Charges (CGST ${rateToApply / 2}% + SGST ${rateToApply / 2}%)`,
+            amount: newGstAmount,
+            taxAmount: newGstAmount,
+            sourceModule: 'GST',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success(`GST @${rateToApply}% (₹${newGstAmount}) applied to bill`);
+          setGstPosted(true);
+          setCurrentAppliedGstRate(rateToApply);
+          setGstRate(rateToApply);
+        } else {
+          toast.error(data.message || 'Failed to apply GST');
+        }
+      } else {
+        toast.success('GST removed from bill (0% applied)');
+        setGstPosted(false);
+        setCurrentAppliedGstRate(0);
+        setGstRate(0);
+      }
+
+      await loadFolios();
+    } catch {
+      toast.error('Network error updating GST');
+    } finally {
+      setAddingGst(false);
+    }
+  };
+
   const filteredFolios = folios.filter((f) => {
     const q = searchQuery.toLowerCase();
     const guestName = `${f.guest.firstName} ${f.guest.lastName || ''}`.toLowerCase();
     const folioNo = f.folioNo.toLowerCase();
     const roomNo = f.reservation?.rooms?.[0]?.room?.roomNumber?.toLowerCase() || '';
-    return guestName.includes(q) || folioNo.includes(q) || roomNo.includes(q);
+    if (!(guestName.includes(q) || folioNo.includes(q) || roomNo.includes(q))) return false;
+
+    if (dateFilter !== 'ALL') {
+      const arrival = f.reservation?.arrivalDate ? new Date(f.reservation.arrivalDate) : null;
+      const departure = f.reservation?.departureDate ? new Date(f.reservation.departureDate) : arrival;
+      if (dateFilter === 'TODAY') {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        if (arrival && departure) {
+          if (departure < todayStart || arrival > todayEnd) return false;
+        }
+      } else if (dateFilter === 'CUSTOM') {
+        const startBound = filterStartDate ? new Date(`${filterStartDate}T00:00:00.000`) : null;
+        const endBound = filterEndDate ? new Date(`${filterEndDate}T23:59:59.999`) : null;
+        if (arrival && departure) {
+          if (startBound && departure < startBound) return false;
+          if (endBound && arrival > endBound) return false;
+        }
+      }
+    }
+    return true;
   });
 
   return (
@@ -432,6 +532,52 @@ function BillingContent() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
               />
+            </div>
+
+            {/* Date Selection Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
+                {[
+                  { id: 'ALL', label: 'All Dates' },
+                  { id: 'TODAY', label: 'Today' },
+                  { id: 'CUSTOM', label: 'Custom' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDateFilter(opt.id as any)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                      dateFilter === opt.id
+                        ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {dateFilter === 'CUSTOM' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">From</label>
+                    <input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-[11px] focus:outline-none focus:border-indigo-500 [color-scheme:dark]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">To</label>
+                    <input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-[11px] focus:outline-none focus:border-indigo-500 [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* List */}
@@ -811,6 +957,20 @@ function BillingContent() {
                     onChange={(e) => setTaxAmount(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"
                   />
+                  {txnType === 'DEBIT' && Number(amount) > 0 && (
+                    <div className="flex items-center gap-1 mt-1.5">
+                      {[0, 5, 12, 18].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setTaxAmount(String(Math.round((Number(amount) * r)) / 100))}
+                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-indigo-600/30 text-[10px] font-bold text-slate-300 border border-slate-700"
+                        >
+                          {r}%
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -981,6 +1141,51 @@ function BillingContent() {
                   <span className={`text-base font-black ${selectedFolio.closingBalance > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     ₹{selectedFolio.closingBalance.toFixed(2)}
                   </span>
+                </div>
+              </div>
+
+              {/* GST Selection at Time of Billing */}
+              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <Percent size={12} /> GST Selection (Billing Time)
+                  </span>
+                  {gstPosted && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      Applied: {currentAppliedGstRate}%
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[0, 5, 12, 18, 28].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => setGstRate(rate)}
+                      className={`py-1.5 rounded-lg text-[11px] font-black border transition-all ${
+                        gstRate === rate
+                          ? 'bg-amber-500/25 border-amber-500 text-amber-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[10px] text-slate-400">
+                    {gstRate > 0
+                      ? `GST @${gstRate}% = ₹${(Math.round(baseChargesForGst * gstRate) / 100).toFixed(2)}`
+                      : 'No GST (0%)'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={addingGst || (gstPosted && gstRate === currentAppliedGstRate) || (!gstPosted && gstRate === 0)}
+                    onClick={() => handleApplyBillingGst()}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black transition-all disabled:opacity-40"
+                  >
+                    {addingGst ? 'Updating...' : gstPosted ? (gstRate === 0 ? 'Remove GST' : `Update to ${gstRate}%`) : `Apply ${gstRate}% GST`}
+                  </button>
                 </div>
               </div>
 
@@ -1165,15 +1370,15 @@ function BillingContent() {
                 <div className="totals-section">
                   <div className="total-line">
                     <span className="detail-label">Total Room Rent & Service Charges:</span>
-                    <span className="detail-val">₹{selectedFolio.totalCharges.toFixed(2)}</span>
+                    <span className="detail-val">₹{baseChargesForGst.toFixed(2)}</span>
                   </div>
                   <div className="total-line">
-                    <span className="detail-label">CGST (9%):</span>
-                    <span className="detail-val">₹{(selectedFolio.totalCharges * 0.09).toFixed(2)}</span>
+                    <span className="detail-label">CGST ({(currentAppliedGstRate || gstRate) / 2}%):</span>
+                    <span className="detail-val">₹{(existingGstAmount / 2).toFixed(2)}</span>
                   </div>
                   <div className="total-line">
-                    <span className="detail-label">SGST (9%):</span>
-                    <span className="detail-val">₹{(selectedFolio.totalCharges * 0.09).toFixed(2)}</span>
+                    <span className="detail-label">SGST ({(currentAppliedGstRate || gstRate) / 2}%):</span>
+                    <span className="detail-val">₹{(existingGstAmount / 2).toFixed(2)}</span>
                   </div>
                   <div className="total-line">
                     <span className="detail-label">Total Payments & Deposits:</span>

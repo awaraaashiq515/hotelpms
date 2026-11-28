@@ -86,8 +86,29 @@ export default function NightAuditPage() {
     try {
       const res = await fetch('/api/hotel/night-audit');
       const result = await res.json();
-      if (result.success) {
-        setData(result.data);
+      if (result.success && result.data) {
+        const d = result.data;
+        const rawSummary = d.summary || d.stats || {};
+        setData({
+          summary: {
+            totalRooms: rawSummary.totalRooms || 0,
+            occupiedRooms: rawSummary.occupiedRooms || 0,
+            vacantRooms: rawSummary.vacantRooms || 0,
+            occupancyPct: rawSummary.occupancyPct || 0,
+            activeCheckInsCount: rawSummary.activeCheckInsCount || 0,
+            ratesPostedTodayCount: rawSummary.ratesPostedTodayCount || 0,
+            ratesPendingPostCount: rawSummary.ratesPendingPostCount || 0,
+            todayDebits: rawSummary.todayDebits ?? rawSummary.totalDebitsToday ?? 0,
+            todayCredits: rawSummary.todayCredits ?? rawSummary.totalCreditsToday ?? 0,
+            todayTax: rawSummary.todayTax ?? rawSummary.totalTaxToday ?? 0,
+            pendingDues: rawSummary.pendingDues ?? rawSummary.pendingDuesTotal ?? 0,
+            pendingNoShowsCount: rawSummary.pendingNoShowsCount ?? rawSummary.noShowsCount ?? (d.pendingNoShows?.length || 0),
+            businessDate: rawSummary.businessDate || d.businessDate || '',
+          },
+          inHouseGuests: d.inHouseGuests || d.checkInsWithStatus || [],
+          pendingNoShows: d.pendingNoShows || [],
+          steps: d.steps || d.auditSteps || [],
+        });
       } else {
         toast.error(result.message || 'Failed to load night audit data.');
       }
@@ -293,15 +314,15 @@ export default function NightAuditPage() {
       </div>
 
       {/* Live Financial & Operational KPI Widgets */}
-      {data && (
+      {data?.summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Total Day Revenue</p>
               <IndianRupee size={16} className="text-emerald-400 opacity-60" />
             </div>
-            <p className="text-2xl font-black text-white mt-1.5">{fmt(data.summary.todayDebits)}</p>
-            <p className="text-[10px] text-slate-400 mt-1">₹{data.summary.todayTax.toLocaleString('en-IN')} Tax Included</p>
+            <p className="text-2xl font-black text-white mt-1.5">{fmt(data.summary?.todayDebits || 0)}</p>
+            <p className="text-[10px] text-slate-400 mt-1">₹{(data.summary?.todayTax || 0).toLocaleString('en-IN')} Tax Included</p>
           </div>
 
           <div className="rounded-2xl border border-sky-500/20 bg-sky-950/20 p-4 relative overflow-hidden">
@@ -309,8 +330,8 @@ export default function NightAuditPage() {
               <p className="text-[9px] font-black uppercase tracking-widest text-sky-400">Occupancy & Rooms</p>
               <BedDouble size={16} className="text-sky-400 opacity-60" />
             </div>
-            <p className="text-2xl font-black text-white mt-1.5">{data.summary.occupancyPct}%</p>
-            <p className="text-[10px] text-slate-400 mt-1">{data.summary.occupiedRooms} Occupied / {data.summary.totalRooms} Total</p>
+            <p className="text-2xl font-black text-white mt-1.5">{data.summary?.occupancyPct || 0}%</p>
+            <p className="text-[10px] text-slate-400 mt-1">{data.summary?.occupiedRooms || 0} Occupied / {data.summary?.totalRooms || 0} Total</p>
           </div>
 
           <div className="rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 relative overflow-hidden">
@@ -319,10 +340,10 @@ export default function NightAuditPage() {
               <Receipt size={16} className="text-amber-400 opacity-60" />
             </div>
             <p className="text-2xl font-black text-white mt-1.5">
-              {data.summary.ratesPostedTodayCount} / {data.summary.activeCheckInsCount}
+              {data.summary?.ratesPostedTodayCount || 0} / {data.summary?.activeCheckInsCount || 0}
             </p>
             <p className="text-[10px] text-slate-400 mt-1">
-              {data.summary.ratesPendingPostCount > 0 ? `${data.summary.ratesPendingPostCount} Pending Room Charges` : 'All Room Charges Posted'}
+              {(data.summary?.ratesPendingPostCount || 0) > 0 ? `${data.summary.ratesPendingPostCount} Pending Room Charges` : 'All Room Charges Posted'}
             </p>
           </div>
 
@@ -331,7 +352,7 @@ export default function NightAuditPage() {
               <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Outstanding Dues</p>
               <Users size={16} className="text-indigo-400 opacity-60" />
             </div>
-            <p className="text-2xl font-black text-white mt-1.5">{fmt(data.summary.pendingDues)}</p>
+            <p className="text-2xl font-black text-white mt-1.5">{fmt(data.summary?.pendingDues || 0)}</p>
             <p className="text-[10px] text-slate-400 mt-1">Across In-House Guest Folios</p>
           </div>
         </div>
@@ -493,11 +514,11 @@ export default function NightAuditPage() {
                 <p className="text-[10px] text-slate-400 mt-0.5">Live status of daily room charges for occupied rooms</p>
               </div>
               <span className="text-xs font-black text-indigo-400">
-                {data.summary.ratesPostedTodayCount} of {data.summary.activeCheckInsCount} Posted
+                {data.summary?.ratesPostedTodayCount || 0} of {data.summary?.activeCheckInsCount || 0} Posted
               </span>
             </div>
 
-            {data.inHouseGuests.length === 0 ? (
+            {(data.inHouseGuests || []).length === 0 ? (
               <div className="py-16 text-center text-slate-500">
                 <BedDouble size={36} className="mx-auto mb-2 opacity-40" />
                 <p className="text-xs font-bold">No active in-house guests found.</p>
@@ -512,7 +533,7 @@ export default function NightAuditPage() {
                   <span className="text-right">Action / Status</span>
                 </div>
 
-                {data.inHouseGuests.map(g => (
+                {(data.inHouseGuests || []).map(g => (
                   <div key={g.checkInId} className="grid grid-cols-6 px-6 py-3.5 items-center text-xs">
                     <div>
                       <span className="font-black text-white">Room {g.roomNumber}</span>
@@ -564,14 +585,14 @@ export default function NightAuditPage() {
               <p className="text-[10px] text-slate-400 mt-0.5">Reservations past arrival date without check-in completion</p>
             </div>
 
-            {data.pendingNoShows.length === 0 ? (
+            {(data.pendingNoShows || []).length === 0 ? (
               <div className="py-16 text-center text-slate-500">
                 <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500/40" />
                 <p className="text-xs font-bold text-slate-400">No overdue no-show reservations detected.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-800/60">
-                {data.pendingNoShows.map(ns => (
+                {(data.pendingNoShows || []).map(ns => (
                   <div key={ns.id} className="flex items-center justify-between px-6 py-4">
                     <div>
                       <span className="font-black text-white text-xs">{ns.guestName}</span>
@@ -654,19 +675,19 @@ export default function NightAuditPage() {
 
               <div className="grid">
                 <div className="box">
-                  <div className="box-val">{fmt(data.summary.todayDebits)}</div>
+                  <div className="box-val">{fmt(data.summary?.todayDebits || 0)}</div>
                   <div className="box-lbl">Total Day Revenue</div>
                 </div>
                 <div className="box">
-                  <div className="box-val">{data.summary.occupancyPct}%</div>
+                  <div className="box-val">{data.summary?.occupancyPct || 0}%</div>
                   <div className="box-lbl">Occupancy Rate</div>
                 </div>
                 <div className="box">
-                  <div className="box-val">{data.summary.occupiedRooms} / {data.summary.totalRooms}</div>
+                  <div className="box-val">{data.summary?.occupiedRooms || 0} / {data.summary?.totalRooms || 0}</div>
                   <div className="box-lbl">Occupied Rooms</div>
                 </div>
                 <div className="box">
-                  <div className="box-val">{fmt(data.summary.todayCredits)}</div>
+                  <div className="box-val">{fmt(data.summary?.todayCredits || 0)}</div>
                   <div className="box-lbl">Payments Collected</div>
                 </div>
               </div>
@@ -708,7 +729,7 @@ export default function NightAuditPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.inHouseGuests.map(g => (
+                    {(data.inHouseGuests || []).map(g => (
                       <tr key={g.checkInId}>
                         <td>Room {g.roomNumber}</td>
                         <td>{g.guestName}</td>

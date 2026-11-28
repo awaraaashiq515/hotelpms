@@ -230,8 +230,56 @@ export async function GET(request: NextRequest) {
         txnDate: o.createdAt ? new Date(o.createdAt).toISOString() : new Date().toISOString(),
       }));
 
-      const allTransactions = [...folio.transactions, ...virtualPosTxns];
-      const recalculatedTotalCharges = (folio.totalCharges || 0) + unpostedPosTotal;
+      // Check if there is any HMS Room Rent debit transaction
+      const existingHmsDebits = folio.transactions.filter(
+        (t) => t.debitAmount > 0 && !['POS', 'ROOM_SERVICE', 'PAYMENT'].includes(t.sourceModule || '')
+      );
+      const hmsDebitTotal = existingHmsDebits.reduce((sum, t) => sum + (Number(t.debitAmount) || 0), 0);
+
+      // If no HMS debit exists, derive Room Rent from reservation.totalAmount or room rate * nights
+      const resObj = folio.reservation as any;
+      const arrDate = resObj?.arrivalDate;
+      const depDate = resObj?.departureDate;
+      const nights = arrDate && depDate
+        ? Math.max(1, Math.round((new Date(depDate).getTime() - new Date(arrDate).getTime()) / (1000 * 60 * 60 * 24)))
+        : 1;
+      const rawResTotal = Number(resObj?.totalAmount || 0);
+      const fallbackRate = Number(resObj?.rooms?.[0]?.ratePerNight || resObj?.roomType?.baseRate || 0);
+      const reservationTotal = rawResTotal > 0
+        ? rawResTotal
+        : (!resObj?.isOwnerGuest && fallbackRate > 0 ? fallbackRate * nights : 0);
+
+      let virtualRoomRentTxn: any[] = [];
+      let virtualRoomRentTotal = 0;
+
+      if (hmsDebitTotal === 0 && reservationTotal > 0) {
+        const rn =
+          resObj?.rooms?.[0]?.room?.roomNumber ||
+          resObj?.checkIns?.[0]?.room?.roomNumber ||
+          'Room';
+        virtualRoomRentTotal = reservationTotal;
+        virtualRoomRentTxn = [{
+          id: `virtual-room-rent-${folio.id}`,
+          folioId: folio.id,
+          txnType: 'DEBIT' as const,
+          sourceModule: 'HMS',
+          sourceRefId: folio.reservationId,
+          description: `Room Rent — ${rn} (${nights} Night${nights !== 1 ? 's' : ''})`,
+          debitAmount: reservationTotal,
+          creditAmount: 0,
+          taxAmount: 0,
+          netAmount: reservationTotal,
+          txnDate: arrDate ? new Date(arrDate).toISOString() : new Date().toISOString(),
+        }];
+      }
+
+      // If folio.totalCharges in DB is 0 but reservation has totalAmount, use reservation total as base
+      const baseCharges = (folio.totalCharges || 0) > 0
+        ? (folio.totalCharges || 0)
+        : virtualRoomRentTotal;
+
+      const allTransactions = [...virtualRoomRentTxn, ...folio.transactions, ...virtualPosTxns];
+      const recalculatedTotalCharges = baseCharges + unpostedPosTotal;
       const recalculatedClosingBalance = Math.max(0, recalculatedTotalCharges - (folio.totalPayments || 0));
 
       const enrichedFolio = {

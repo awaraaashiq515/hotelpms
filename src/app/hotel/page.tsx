@@ -1673,6 +1673,16 @@ export default function HotelDashboard() {
               <PlusCircle size={13} />
               <span>New Booking</span>
             </Link>
+
+            {/* Room Orders */}
+            <Link
+              href="/hotel/pos/room-orders"
+              className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-xs font-black text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 transition-all duration-200 active:scale-95 flex-shrink-0 shadow-sm"
+              title="Room Orders & In-Room Dining"
+            >
+              <ConciergeBell size={13} className="text-emerald-400" />
+              <span>Room Orders</span>
+            </Link>
           </div>
         </div>
 

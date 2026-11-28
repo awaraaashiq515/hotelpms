@@ -1,112 +1,45 @@
 import Imap from 'imap';
 import { simpleParser, ParsedMail } from 'mailparser';
 import { prisma } from '@/lib/prisma';
+import { parseEmailBookingDetails } from '@/lib/email-booking-parser';
 
-interface ParsedBookingData {
-  guestName: string | null;
-  guestEmail: string | null;
-  guestPhone: string | null;
-  checkIn: Date | null;
-  checkOut: Date | null;
-  amount: number | null;
-  source: string;
-}
-
-function detectSource(subject: string, text: string): string {
-  const content = `${subject} ${text}`.toLowerCase();
-  if (content.includes('agoda')) return 'Agoda';
-  if (content.includes('booking.com')) return 'Booking.com';
-  if (content.includes('airbnb')) return 'Airbnb';
-  if (content.includes('makemytrip') || content.includes('mmt')) return 'MakeMyTrip';
-  if (content.includes('goibibo')) return 'Goibibo';
-  if (content.includes('expedia')) return 'Expedia';
-  if (content.includes('trivago')) return 'Trivago';
-  return 'Direct';
-}
-
-function parseBookingData(subject: string, text: string): ParsedBookingData {
-  const source = detectSource(subject, text);
-  
-  let guestName: string | null = null;
-  // Use [A-Za-z ] instead of [A-Za-z\s] to prevent matching across lines
-  const firstNameMatch = text.match(/(?:First\s+Name|Customer\s+First\s+Name)\s*[:*]*\s*([A-Za-z ]+)/i);
-  const lastNameMatch = text.match(/(?:Last\s+Name|Customer\s+Last\s+Name)\s*[:*]*\s*([A-Za-z ]+)/i);
-  if (firstNameMatch?.[1]) {
-    guestName = firstNameMatch[1].trim();
-    if (lastNameMatch?.[1]) {
-      guestName += ' ' + lastNameMatch[1].trim();
-    }
-  }
-  if (!guestName || guestName.toLowerCase().includes('details')) {
-    const nameMatch = text.match(/(?:Customer\s+Name|Guest\s+Name|Guest\s+1|Booked\s+By)\s*[:*]*\s*([A-Za-z ]+)/i);
-    if (nameMatch?.[1]) guestName = nameMatch[1].trim();
-  }
-  if (!guestName || guestName.toLowerCase().includes('details')) {
-    const dearMatch = text.match(/Dear\s+([A-Za-z ]{3,40})/i);
-    if (dearMatch?.[1]) guestName = dearMatch[1].trim();
-  }
-  if (!guestName) {
-    guestName = 'Unknown Guest';
-  }
-
-  let guestEmail: string | null = null;
-  const emailMatch = text.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g);
-  if (emailMatch) {
-    const filtered = emailMatch.filter(e => !e.includes('agoda') && !e.includes('booking.com') && !e.includes('noreply') && !e.includes('vedika') && !e.includes('indeed'));
-    if (filtered.length > 0) guestEmail = filtered[0];
-  }
-
-  let guestPhone: string | null = null;
-  const phoneMatch = text.match(/(?:phone|mobile|contact|tel)\s*[:*]*\s*([+]?[\d\s\-()]{8,20})/i);
-  if (phoneMatch?.[1]) {
-    guestPhone = phoneMatch[1].replace(/[\s\-()]/g, '').trim();
-  }
-
-  let checkIn: Date | null = null;
-  let checkOut: Date | null = null;
-
-  // Use word boundaries for \bfrom\b and \bto\b, and literal space inside character set to avoid matching newlines
-  const checkInMatch = text.match(/(?:check[-_]in|arrival|\bfrom\b)(?:\s+date|\s+time)?\s*[:*]*\s*([A-Za-z0-9 ,\-\/\.]{6,25})/i);
-  if (checkInMatch?.[1]) {
-    const d = new Date(checkInMatch[1].trim());
-    if (!isNaN(d.getTime())) checkIn = d;
-  }
-  const checkOutMatch = text.match(/(?:check[-_]out|departure|\bto\b)(?:\s+date|\s+time)?\s*[:*]*\s*([A-Za-z0-9 ,\-\/\.]{6,25})/i);
-  if (checkOutMatch?.[1]) {
-    const d = new Date(checkOutMatch[1].trim());
-    if (!isNaN(d.getTime())) checkOut = d;
-  }
-
-  let amount: number | null = null;
-  // Handle optional middle words like (incl. taxes & fees) or newlines before currency
-  const amountPatterns = [
-    /(?:net\s+rate|total\s+amount|grand\s+total|total\s+charged\s+amount|room\s+rate)[\s\S]*?(?:inr|rs\.?|₹|\$|usd|eur)?[\s]*([0-9,]+(?:\.[0-9]{1,2})?)/i,
-    /INR\s+([0-9,]+(?:\.[0-9]{1,2})?)/i
-  ];
-  for (const p of amountPatterns) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      const val = parseFloat(m[1].replace(/,/g, ''));
-      if (!isNaN(val) && val > 0) {
-        amount = val;
-        break;
-      }
-    }
-  }
-
-  return { guestName, guestEmail, guestPhone, checkIn, checkOut, amount, source: source || 'Direct' };
+function parseBookingData(subject: string, rawText: string) {
+  const parsed = parseEmailBookingDetails(subject, rawText);
+  return {
+    guestName: parsed.guestName,
+    guestEmail: parsed.guestEmail,
+    guestPhone: parsed.guestPhone,
+    checkIn: parsed.checkIn,
+    checkOut: parsed.checkOut,
+    amount: parsed.amount,
+    source: parsed.source,
+  };
 }
 
 function isBookingEmail(subject: string, text: string): boolean {
   const content = `${subject} ${text}`.toLowerCase();
+  const otaNames = [
+    'agoda', 'booking.com', 'airbnb', 'makemytrip', 'mmt', 'goibibo',
+    'expedia', 'yatra', 'easemytrip', 'cleartrip', 'trivago', 'travelguru'
+  ];
+  const hasOta = otaNames.some(ota => content.includes(ota));
+
   const bookingKeywords = [
     'booking confirmation', 'reservation confirmed', 'booking confirmed',
-    'your reservation', 'booking details', 'stay details',
+    'new reservation', 'your reservation', 'booking details', 'stay details',
     'check-in details', 'check in confirmation', 'hotel booking',
     'room confirmation', 'new booking', 'booking id', 'reservation id',
-    'hotel reservation', 'booking reference',
+    'hotel reservation', 'booking reference', 'booking cancelled',
+    'stay voucher', 'guest itinerary', 'reservation voucher', 'voucher id',
+    'reservation notification', 'check-in voucher'
   ];
-  return bookingKeywords.some(k => content.includes(k));
+  const hasKeyword = bookingKeywords.some(k => content.includes(k));
+
+  if (hasKeyword) return true;
+  if (hasOta && (content.includes('booking') || content.includes('reservation') || content.includes('check-in') || content.includes('guest') || content.includes('voucher'))) {
+    return true;
+  }
+  return false;
 }
 
 export async function syncGmailForProperty(propertyId: string): Promise<{ synced: number; errors: string[] }> {
@@ -164,90 +97,154 @@ export async function syncGmailForProperty(propertyId: string): Promise<{ synced
         const dateStr = `${sinceDate.getDate()}-${months[sinceDate.getMonth()]}-${sinceDate.getFullYear()}`;
         console.log('[DEBUG] IMAP Search DateStr:', dateStr);
 
-        const searchCriteria = [
-          'UNSEEN',
-          ['SINCE', dateStr],
-          ['OR', ['SUBJECT', 'Agoda'],
-          ['OR', ['SUBJECT', 'Booking.com'],
-          ['OR', ['SUBJECT', 'Airbnb'],
-          ['OR', ['SUBJECT', 'Reservation'],
-          ['OR', ['SUBJECT', 'Booking'], ['SUBJECT', 'Confirm']]]]]]
-        ];
-
-        imap.search(searchCriteria as any, async (searchErr, uids) => {
-          console.log('[DEBUG] IMAP search results - UIDs:', uids, 'Error:', searchErr);
-          if (searchErr || !uids || uids.length === 0) {
+        const executeFetch = (uids: number[]) => {
+          if (!uids || uids.length === 0) {
             imap.end();
-            return resolve({ synced: 0, errors: searchErr ? [searchErr.message] : [] });
+            return resolve({ synced: 0, errors: [] });
           }
 
-          const fetch = imap.fetch(uids, { bodies: '' });
-          const emailPromises: Promise<void>[] = [];
+          // Process the most recent 50 emails
+          const uidsToFetch = uids.slice(-50);
+          console.log(`[DEBUG] Fetching ${uidsToFetch.length} emails in one batch...`);
+
+          // ── PHASE 1: Collect ALL raw email bodies into memory (no DB calls yet) ──
+          interface RawEmail {
+            subject: string;
+            text: string;
+            sender: string;
+            date: Date | null;
+          }
+          const rawEmails: RawEmail[] = [];
+          const streamPromises: Promise<void>[] = [];
+
+          const fetch = imap.fetch(uidsToFetch, { bodies: '', markSeen: false });
 
           fetch.on('message', (msg) => {
-            const emailPromise = new Promise<void>((resEmail) => {
+            const streamDone = new Promise<void>((resStream) => {
               msg.on('body', (stream) => {
-                simpleParser(stream as any, async (parseErr, parsed: ParsedMail) => {
-                  if (parseErr) { resEmail(); return; }
+                simpleParser(stream as any, (parseErr, parsed: ParsedMail) => {
+                  if (!parseErr) {
+                    const htmlStr = typeof parsed.html === 'string' ? parsed.html : '';
+                    rawEmails.push({
+                      subject: parsed.subject || '',
+                      text: parsed.text || htmlStr.replace(/<[^>]*>/g, ' ') || '',
+                      sender: typeof parsed.from?.value?.[0]?.address === 'string'
+                        ? parsed.from.value[0].address
+                        : '',
+                      date: parsed.date || null,
+                    });
+                  }
+                  resStream();
+                });
+              });
+            });
+            streamPromises.push(streamDone);
+          });
 
-                  const subject = parsed.subject || '';
-                  const htmlStr = typeof parsed.html === 'string' ? parsed.html : '';
-                  const text = parsed.text || htmlStr.replace(/<[^>]*>/g, ' ') || '';
-                  const sender = typeof parsed.from?.value?.[0]?.address === 'string' 
-                    ? parsed.from.value[0].address 
-                    : '';
+          fetch.once('end', async () => {
+            // Wait for all IMAP streams to finish parsing
+            await Promise.all(streamPromises);
+            console.log(`[DEBUG] All ${rawEmails.length} emails parsed. Processing booking matches in parallel...`);
 
-                  const matched = isBookingEmail(subject, text);
-                  console.log('[DEBUG] Processing email:', subject, 'from:', sender, 'isBookingEmail:', matched);
+            // ── PHASE 2: Filter booking emails & run all DB operations in parallel ──
+            const bookingEmails = rawEmails.filter(e => isBookingEmail(e.subject, e.text));
+            console.log(`[DEBUG] ${bookingEmails.length} booking emails found out of ${rawEmails.length}`);
 
-                  if (!matched) { resEmail(); return; }
+            const dbResults = await Promise.all(
+              bookingEmails.map(async (email) => {
+                const { subject, text, sender } = email;
+                const booking = parseBookingData(subject, text);
 
-                  // Check if already exists
-                  const existing = await prisma.emailBooking.findFirst({
+                console.log('[DEBUG] Processing booking email:', subject, 'from:', sender, 'guest:', booking.guestName);
+
+                // Extract booking reference ID (e.g. NH7HTNANMDH4A, GOKDVPT9G8FZYG, BK-984712)
+                const bookingRefMatch = (subject + ' ' + text).match(
+                  /(?:Booking\s+ID|Reservation\s+ID|Booking\s+Ref|Voucher\s+ID|#)\s*[:#]*\s*([A-Za-z0-9-]{6,25})/i
+                );
+                const bookingRef = bookingRefMatch?.[1];
+
+                // Deduplication: 1. By booking reference ID
+                let existing = null;
+                if (bookingRef) {
+                  existing = await prisma.emailBooking.findFirst({
+                    where: {
+                      propertyId: property.id,
+                      OR: [
+                        { subject: { contains: bookingRef } },
+                        { body: { contains: bookingRef } },
+                      ]
+                    }
+                  });
+                }
+
+                // Deduplication: 2. Fallback by subject + sender + guestName/checkIn
+                if (!existing) {
+                  existing = await prisma.emailBooking.findFirst({
                     where: {
                       propertyId: property.id,
                       subject,
                       sender,
+                      ...(booking.guestName && booking.guestName !== 'Unknown Guest'
+                        ? { guestName: booking.guestName }
+                        : {}),
+                      ...(booking.checkIn ? { checkIn: booking.checkIn } : {}),
                     }
                   });
+                }
 
-                  console.log('[DEBUG] Checked existing for', subject, 'Exists:', !!existing);
-
-                  if (existing) { resEmail(); return; }
-
-                  const booking = parseBookingData(subject, text);
-
-                  try {
-                    await prisma.emailBooking.create({
-                      data: {
-                        propertyId: property.id,
-                        sender,
-                        subject,
-                        body: text.slice(0, 5000),
-                        guestName: booking.guestName,
-                        guestEmail: booking.guestEmail,
-                        guestPhone: booking.guestPhone,
-                        checkIn: booking.checkIn,
-                        checkOut: booking.checkOut,
-                        amount: booking.amount,
-                        source: booking.source,
-                        status: 'PENDING',
-                      }
-                    });
-                    syncedCount++;
-                  } catch (dbErr: any) {
-                    errors.push(`DB error: ${dbErr.message}`);
+                // Update stale record if we now have a real guest name
+                if (existing) {
+                  if (
+                    existing.guestName === 'Unknown Guest' &&
+                    booking.guestName &&
+                    booking.guestName !== 'Unknown Guest'
+                  ) {
+                    try {
+                      await prisma.emailBooking.update({
+                        where: { id: existing.id },
+                        data: {
+                          guestName: booking.guestName,
+                          guestEmail: booking.guestEmail || existing.guestEmail,
+                          guestPhone: booking.guestPhone || existing.guestPhone,
+                          checkIn: booking.checkIn || existing.checkIn,
+                          checkOut: booking.checkOut || existing.checkOut,
+                          amount: booking.amount || existing.amount,
+                          source: booking.source || existing.source,
+                        }
+                      });
+                    } catch { /* ignore */ }
                   }
+                  return false; // already exists
+                }
 
-                  resEmail();
-                });
-              });
-            });
-            emailPromises.push(emailPromise);
-          });
+                // New record — create it
+                try {
+                  await prisma.emailBooking.create({
+                    data: {
+                      propertyId: property.id,
+                      sender,
+                      subject,
+                      body: text.slice(0, 5000),
+                      guestName: booking.guestName,
+                      guestEmail: booking.guestEmail,
+                      guestPhone: booking.guestPhone,
+                      checkIn: booking.checkIn,
+                      checkOut: booking.checkOut,
+                      amount: booking.amount,
+                      source: booking.source,
+                      status: 'PENDING',
+                    }
+                  });
+                  return true; // synced
+                } catch (dbErr: any) {
+                  errors.push(`DB error: ${dbErr.message}`);
+                  return false;
+                }
+              })
+            );
 
-          fetch.once('end', async () => {
-            await Promise.all(emailPromises);
+            syncedCount = dbResults.filter(r => r === true).length;
+            console.log(`[DEBUG] Sync complete. ${syncedCount} new bookings saved.`);
             imap.end();
             resolve({ synced: syncedCount, errors });
           });
@@ -257,6 +254,28 @@ export async function syncGmailForProperty(propertyId: string): Promise<{ synced
             imap.end();
             resolve({ synced: syncedCount, errors });
           });
+        };
+
+        // Search: Search ALL recent emails within last 30 days (both SEEN and UNSEEN)
+        // so no booking emails are skipped if already opened on mobile/web!
+        const searchCriteria = [
+          ['SINCE', dateStr]
+        ];
+
+        imap.search(searchCriteria as any, (searchErr, uids) => {
+          if (searchErr || !uids || uids.length === 0) {
+            // Fallback: search ALL without date filter
+            imap.search(['ALL'], (allErr, allUids) => {
+              if (allErr || !allUids || allUids.length === 0) {
+                imap.end();
+                return resolve({ synced: 0, errors: searchErr ? [searchErr.message] : [] });
+              }
+              executeFetch(allUids);
+            });
+            return;
+          }
+          console.log(`[DEBUG] Found ${uids.length} emails since ${dateStr}.`);
+          executeFetch(uids);
         });
       });
     });

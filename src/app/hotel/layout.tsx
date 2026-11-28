@@ -21,14 +21,18 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
 
+  const isPublicInvoice = pathname?.startsWith('/hotel/invoices/') && pathname !== '/hotel/invoices';
+
   // Auto-collapse sidebar to the side across all hotel pages for a clean, full-width layout
   useEffect(() => {
+    if (isPublicInvoice) return;
     setupAudioUnlock();
     setIsOpen(false);
-  }, [pathname, setIsOpen]);
+  }, [pathname, setIsOpen, isPublicInvoice]);
 
   // Force dark mode on html tag for hotel dashboard
   useEffect(() => {
+    if (isPublicInvoice) return;
     const html = document.documentElement;
     const hadDark = html.classList.contains('dark');
     html.classList.add('dark');
@@ -38,9 +42,13 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
         html.classList.remove('dark');
       }
     };
-  }, []);
+  }, [isPublicInvoice]);
 
   useEffect(() => {
+    if (isPublicInvoice) {
+      setLoading(false);
+      return;
+    }
     // 1. Fetch Session
     fetch('/api/auth/session')
       .then((res) => res.json())
@@ -86,6 +94,10 @@ function HotelLayoutInner({ children }: { children: React.ReactNode }) {
         setLoading(false);
       });
   }, [router]);
+
+  if (isPublicInvoice) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (

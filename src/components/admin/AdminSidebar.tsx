@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,6 +38,26 @@ export const AdminSidebar = () => {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { isOpen, close } = useSidebar();
+  const [websiteSettings, setWebsiteSettings] = useState<any>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = () => {
+      fetch(`/api/website/settings?_t=${Date.now()}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.data) {
+            setWebsiteSettings(d.data);
+            setLogoFailed(false);
+          }
+        })
+        .catch(() => {});
+    };
+
+    loadSettings();
+    window.addEventListener('website-settings-updated', loadSettings);
+    return () => window.removeEventListener('website-settings-updated', loadSettings);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -88,11 +108,30 @@ export const AdminSidebar = () => {
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="p-8 flex items-center justify-between border-b border-slate-800/50 bg-slate-950/20">
-          <div className="flex flex-col">
-            <span className="text-3xl font-black text-white tracking-tighter uppercase leading-none">GuestFlow</span>
-            <span className="text-pos-primary text-xs font-bold tracking-[0.2em] mt-1 uppercase">Admin Panel</span>
-            <span className="text-[10px] font-bold tracking-widest mt-2 opacity-50 uppercase">POS · by Ritchie</span>
+        <div className="p-6 flex items-center justify-between border-b border-slate-800/50 bg-slate-950/30">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700/60 flex items-center justify-center overflow-hidden shrink-0">
+              {!logoFailed && (websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) ? (
+                <img
+                  src={websiteSettings.logoUrl || websiteSettings.logoScrolledUrl}
+                  alt={websiteSettings?.hotelName || 'Logo'}
+                  className="w-full h-full object-contain p-1"
+                  onError={() => setLogoFailed(true)}
+                />
+              ) : (
+                <span className="text-pos-primary font-black text-xl italic">
+                  {websiteSettings?.hotelName ? websiteSettings.hotelName.trim().charAt(0).toUpperCase() : 'A'}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xl font-black text-white tracking-tighter uppercase leading-none truncate max-w-[130px]">
+                {websiteSettings?.hotelName || 'GuestFlow'}
+              </span>
+              <span className="text-pos-primary text-[10px] font-bold tracking-[0.2em] mt-1 uppercase truncate">
+                {websiteSettings?.tagline || 'Admin Panel'}
+              </span>
+            </div>
           </div>
           <button onClick={close} className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors">
             <X size={20} />

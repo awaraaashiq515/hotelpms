@@ -29,6 +29,7 @@ export const HotelAdminSidebar: React.FC = () => {
   const { isOpen, close } = useSidebar();
   const [session, setSession] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
+  const [websiteSettings, setWebsiteSettings] = useState<any>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const propertyCode = (params?.propertyCode as string) || '';
@@ -42,6 +43,11 @@ export const HotelAdminSidebar: React.FC = () => {
     fetch('/api/setup/properties/current')
       .then(r => r.json())
       .then(d => { if (d.success) setProperty(d.data); })
+      .catch(() => {});
+
+    fetch(`/api/website/settings?_t=${Date.now()}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setWebsiteSettings(d.data); })
       .catch(() => {});
   }, []);
 
@@ -265,10 +271,10 @@ export const HotelAdminSidebar: React.FC = () => {
           <div className={`px-5 py-5 border-b border-slate-800/60 bg-amber-500/5 ${!isOpen && 'flex justify-center px-0'}`}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center overflow-hidden shrink-0">
-                {property?.logoUrl ? (
+                {(property?.logoUrl || websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) ? (
                   <img
-                    src={property.logoUrl}
-                    alt={property?.name || 'Hotel'}
+                    src={property?.logoUrl || websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl}
+                    alt={property?.name || websiteSettings?.hotelName || 'Hotel'}
                     className="w-full h-full object-contain p-0.5"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
@@ -279,10 +285,10 @@ export const HotelAdminSidebar: React.FC = () => {
               {isOpen && (
                 <div className="min-w-0">
                   <p className="text-sm font-black text-white truncate">
-                    {property?.name || 'Hotel Admin'}
+                    {property?.brandName || property?.name || websiteSettings?.hotelName || 'Hotel Admin'}
                   </p>
                   <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest">
-                    🏨 Hotel Admin Portal
+                    🏨 {websiteSettings?.tagline || 'Hotel Admin Portal'}
                   </p>
                 </div>
               )}

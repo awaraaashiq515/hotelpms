@@ -25,7 +25,8 @@ import {
   HeartHandshake,
   UtensilsCrossed,
   ChefHat,
-  MessageSquare
+  MessageSquare,
+  Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -34,6 +35,19 @@ import {
   isSoundEnabled,
   setSoundEnabled
 } from '@/lib/notification-sound';
+
+// Helper: derive guest name from email address if guestName is 'Unknown Guest'
+function resolveEmailGuestName(name: string | null | undefined, email: string | null | undefined): string {
+  if (name && name !== 'Unknown Guest' && name.trim().length > 0) return name;
+  if (email) {
+    const local = email.split('@')[0];
+    const cleaned = local.replace(/\d+$/, '').replace(/[._-]/g, ' ').trim();
+    const parts = cleaned.split(' ').filter((p: string) => p.length > 1);
+    if (parts.length >= 2) return parts.map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+    if (parts.length === 1 && parts[0].length > 2) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+  }
+  return 'OTA Guest';
+}
 
 interface AgentBooking {
   id: string;
@@ -93,13 +107,28 @@ interface GuestMessageAlert {
   time: string;
 }
 
+interface EmailBookingAlert {
+  id: string;
+  guestName: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  amount?: number | null;
+  source: string;
+  subject: string;
+  body?: string | null;
+  createdAt: string;
+}
+
 export const AdminAgentBookingFloatingAlert: React.FC = () => {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [pendingBookings, setPendingBookings] = useState<AgentBooking[]>([]);
   const [pendingOrders, setPendingOrders] = useState<RoomOrder[]>([]);
   const [pendingMessages, setPendingMessages] = useState<GuestMessageAlert[]>([]);
-  const [activeTab, setActiveTab] = useState<'orders' | 'messages' | 'agent'>('orders');
+  const [pendingEmailBookings, setPendingEmailBookings] = useState<EmailBookingAlert[]>([]);
+  const [activeTab, setActiveTab] = useState<'orders' | 'messages' | 'agent' | 'email'>('orders');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -114,6 +143,9 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
 
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
   const isFirstMessagesLoadRef = useRef(true);
+
+  const knownEmailBookingIdsRef = useRef<Set<string>>(new Set());
+  const isFirstEmailLoadRef = useRef(true);
 
   useEffect(() => {
     setMounted(true);
@@ -297,6 +329,65 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
     } catch {}
   }, [handleNewGuestMessage]);
 
+  const fetchPendingEmailBookings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/hotel/email-bookings?status=PENDING');
+      if (!res.ok) return;
+
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const bookings: EmailBookingAlert[] = json.data;
+
+        // Check for newly arrived email/OTA bookings
+        if (!isFirstEmailLoadRef.current) {
+          const newBookings = bookings.filter(b => !knownEmailBookingIdsRef.current.has(b.id));
+
+          if (newBookings.length > 0) {
+            playNotificationSound('agent_booking', 1.4);
+            setIsExpanded(true);
+            setIsDismissed(false);
+            setActiveTab('email');
+
+            const latest = newBookings[0];
+            toast.info(`📬 New ${latest.source || 'OTA'} Booking Received!`, {
+              description: `${resolveEmailGuestName(latest.guestName, latest.guestEmail)} • ₹${Number(latest.amount || 0).toLocaleString()} • ${latest.subject}`,
+              duration: 10000,
+              action: {
+                label: 'View & Allot Room',
+                onClick: () => router.push('/hotel/email-bookings'),
+              },
+            });
+
+            const originalTitle = document.title;
+            document.title = `(1) 📬 New ${latest.source || 'OTA'} Booking! - Hotel PMS`;
+            setTimeout(() => {
+              document.title = originalTitle;
+            }, 10000);
+          }
+        }
+
+        bookings.forEach(b => knownEmailBookingIdsRef.current.add(b.id));
+        setPendingEmailBookings(bookings);
+        isFirstEmailLoadRef.current = false;
+      }
+    } catch {}
+  }, [router]);
+
+  // Background Gmail IMAP auto-syncer: runs silently every ~40 seconds
+  const autoSyncGmailRef = useRef<number>(0);
+  const triggerAutoGmailSync = useCallback(async () => {
+    const now = Date.now();
+    if (now - autoSyncGmailRef.current < 40000) return;
+    autoSyncGmailRef.current = now;
+    try {
+      const res = await fetch('/api/hotel/email-bookings/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.synced > 0) {
+        fetchPendingEmailBookings();
+      }
+    } catch {}
+  }, [fetchPendingEmailBookings]);
+
   const handleQuickSendStaffReply = async (roomNumber: string, messageText: string, alertId: string) => {
     try {
       await fetch('/api/hotel/ai-concierge', {
@@ -336,6 +427,8 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
     fetchPendingBookings();
     fetchPendingOrders();
     fetchPendingMessages();
+    fetchPendingEmailBookings();
+    triggerAutoGmailSync();
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'hotel_room_service_order_placed') {
@@ -367,6 +460,8 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
       fetchPendingBookings();
       fetchPendingOrders();
       fetchPendingMessages();
+      fetchPendingEmailBookings();
+      triggerAutoGmailSync();
     }, 6000);
 
     return () => {
@@ -374,18 +469,20 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
       if (bc) bc.close();
       clearInterval(interval);
     };
-  }, [fetchPendingBookings, fetchPendingOrders, fetchPendingMessages, handleNewGuestMessage]);
+  }, [fetchPendingBookings, fetchPendingOrders, fetchPendingMessages, fetchPendingEmailBookings, triggerAutoGmailSync, handleNewGuestMessage]);
 
   // Adjust default tab when items update
   useEffect(() => {
-    if (pendingMessages.length > 0 && pendingOrders.length === 0) {
+    if (pendingMessages.length > 0 && pendingOrders.length === 0 && pendingEmailBookings.length === 0) {
       setActiveTab('messages');
-    } else if (pendingOrders.length > 0 && pendingMessages.length === 0 && pendingBookings.length === 0) {
+    } else if (pendingOrders.length > 0 && pendingMessages.length === 0 && pendingBookings.length === 0 && pendingEmailBookings.length === 0) {
       setActiveTab('orders');
+    } else if (pendingEmailBookings.length > 0 && pendingOrders.length === 0 && pendingMessages.length === 0 && pendingBookings.length === 0) {
+      setActiveTab('email');
     } else if (pendingBookings.length > 0 && pendingOrders.length === 0 && pendingMessages.length === 0) {
       setActiveTab('agent');
     }
-  }, [pendingOrders.length, pendingBookings.length, pendingMessages.length]);
+  }, [pendingOrders.length, pendingBookings.length, pendingMessages.length, pendingEmailBookings.length]);
 
   // Quick confirm agent booking
   const handleQuickConfirmBooking = async (e: React.MouseEvent, bookingId: string, guestName: string) => {
@@ -449,7 +546,7 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
     }
   };
 
-  const totalCount = pendingBookings.length + pendingOrders.length + pendingMessages.length;
+  const totalCount = pendingBookings.length + pendingOrders.length + pendingMessages.length + pendingEmailBookings.length;
 
   if (!mounted || totalCount === 0 || isDismissed) {
     return null;
@@ -458,6 +555,7 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
   const latestBooking = pendingBookings[0];
   const latestOrder = pendingOrders[0];
   const latestMessage = pendingMessages[0];
+  const latestEmail = pendingEmailBookings[0];
 
   const content = (
     <div className="fixed bottom-5 right-5 z-[9999] max-w-sm sm:max-w-md w-full animate-in fade-in slide-in-from-bottom-5 duration-300 pointer-events-auto">
@@ -475,6 +573,7 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
           <span className="text-xs font-black tracking-wide">
             {totalCount} New Alert{totalCount === 1 ? '' : 's'}
             {pendingOrders.length > 0 && ` (${pendingOrders.length} Orders)`}
+            {pendingEmailBookings.length > 0 && ` (${pendingEmailBookings.length} OTA / Email)`}
             {pendingMessages.length > 0 && ` (${pendingMessages.length} Messages)`}
             {pendingBookings.length > 0 && ` (${pendingBookings.length} Agents)`}
           </span>
@@ -487,12 +586,12 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
         <div className="relative rounded-2xl bg-[#090d19]/95 border-2 border-violet-500/40 shadow-[0_20px_50px_rgba(124,58,237,0.25)] backdrop-blur-xl overflow-hidden text-slate-100 ring-1 ring-white/10">
           
           {/* Top Decorative Glowing Bar */}
-          <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-emerald-500 to-indigo-500 animate-pulse" />
+          <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-cyan-500 to-indigo-500 animate-pulse" />
 
           {/* Header */}
           <div className="px-4 py-2.5 bg-violet-950/40 border-b border-violet-500/20 flex items-center justify-between gap-2">
             {/* Tab switchers if multiple types exist */}
-            {(Number(pendingOrders.length > 0) + Number(pendingMessages.length > 0) + Number(pendingBookings.length > 0)) > 1 ? (
+            {(Number(pendingOrders.length > 0) + Number(pendingMessages.length > 0) + Number(pendingBookings.length > 0) + Number(pendingEmailBookings.length > 0)) > 1 ? (
               <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-xl border border-slate-700/60 overflow-x-auto no-scrollbar">
                 {pendingOrders.length > 0 && (
                   <button
@@ -506,6 +605,20 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
                   >
                     <UtensilsCrossed size={12} className="text-amber-400" />
                     <span>Orders ({pendingOrders.length})</span>
+                  </button>
+                )}
+                {pendingEmailBookings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('email')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      activeTab === 'email'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Mail size={12} className="text-cyan-400" />
+                    <span>OTA / Email ({pendingEmailBookings.length})</span>
                   </button>
                 )}
                 {pendingMessages.length > 0 && (
@@ -542,12 +655,16 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                   activeTab === 'orders' 
                     ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' 
+                    : activeTab === 'email'
+                    ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300'
                     : activeTab === 'messages'
                     ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
                     : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300'
                 }`}>
                   {activeTab === 'orders' ? (
                     <UtensilsCrossed size={14} className="animate-bounce" />
+                  ) : activeTab === 'email' ? (
+                    <Mail size={14} className="animate-bounce text-cyan-300" />
                   ) : activeTab === 'messages' ? (
                     <MessageSquare size={14} className="animate-bounce" />
                   ) : (
@@ -559,6 +676,8 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
                     <span className="text-xs font-black uppercase tracking-wider text-slate-200">
                       {activeTab === 'orders' 
                         ? 'Room Order Alert' 
+                        : activeTab === 'email'
+                        ? 'OTA / Email Booking Alert'
                         : activeTab === 'messages'
                         ? 'Guest Message Alert'
                         : (latestBooking?.roomType?.includes('[GROUP]') ? 'Group Enquiry' : 'Agent Booking')}
@@ -571,6 +690,8 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
                   <p className="text-[10px] text-slate-400 font-medium">
                     {activeTab === 'orders'
                       ? `${pendingOrders.length} active room order awaiting kitchen / prep`
+                      : activeTab === 'email'
+                      ? `${pendingEmailBookings.length} pending email / OTA bookings awaiting room allotment`
                       : activeTab === 'messages'
                       ? `${pendingMessages.length} active guest message awaiting reply`
                       : `${pendingBookings.length} booking awaiting front-desk confirmation`}
@@ -886,6 +1007,100 @@ export const AdminAgentBookingFloatingAlert: React.FC = () => {
                   title="Open Agent Bookings Portal"
                 >
                   <span>View All</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 3: EMAIL & OTA BOOKINGS ── */}
+          {activeTab === 'email' && latestEmail && (
+            <div className="p-4 space-y-3 animate-in fade-in duration-200">
+              {/* OTA Channel & Reference Banner */}
+              <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shrink-0">
+                    <Mail size={13} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black uppercase px-2 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        {latestEmail.source || 'OTA Booking'}
+                      </span>
+                      <span className="text-[9px] text-slate-400 truncate font-mono">
+                        {latestEmail.guestEmail || 'Incoming Booking'}
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] font-medium text-slate-300 truncate mt-0.5" title={latestEmail.subject}>
+                      {latestEmail.subject}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Total</span>
+                  <span className="text-xs font-black text-emerald-400 font-mono">
+                    ₹{Number(latestEmail.amount || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Guest & Stay Details */}
+              <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-800/80 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-black text-white leading-tight">
+                      {resolveEmailGuestName(latestEmail.guestName, latestEmail.guestEmail)}
+                    </h4>
+                    <p className="text-[11px] font-semibold text-cyan-300 mt-0.5">
+                      Source: {latestEmail.source || 'Direct Email'}
+                    </p>
+                  </div>
+                  {latestEmail.guestPhone && (
+                    <div className="text-right shrink-0">
+                      <span className="text-[9px] text-slate-400 block font-semibold uppercase">Phone</span>
+                      <span className="text-xs font-bold text-slate-200 font-mono">{latestEmail.guestPhone}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stay Dates */}
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px] text-slate-300">
+                  <span className="flex items-center gap-1 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60 font-semibold">
+                    <Calendar size={10} className="text-cyan-400" />
+                    {latestEmail.checkIn ? new Date(latestEmail.checkIn).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Pending Check-In'}
+                    {' → '}
+                    {latestEmail.checkOut ? new Date(latestEmail.checkOut).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A'}
+                  </span>
+                  <span className="text-[10px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-bold">
+                    Room Allotment Pending
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push('/hotel/email-bookings');
+                    setIsExpanded(false);
+                  }}
+                  className="flex-1 h-9 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-600/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Mail size={14} />
+                  <span>Review &amp; Allot Room</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push('/hotel/bookings');
+                    setIsExpanded(false);
+                  }}
+                  className="h-9 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                  title="View in Reservations Desk"
+                >
+                  <span>Bookings</span>
                   <ChevronRight size={13} />
                 </button>
               </div>

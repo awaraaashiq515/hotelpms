@@ -154,6 +154,10 @@ function CheckoutDetailContent() {
         } else {
           setGstPosted(false);
           setCurrentAppliedGstRate(0);
+          const categoryGst = res.data.reservation?.roomType?.gstRate;
+          if (categoryGst !== undefined && categoryGst !== null) {
+            setGstRate(Number(categoryGst));
+          }
         }
 
         // Check if discount already posted in this folio
@@ -1771,9 +1775,13 @@ function CheckoutDetailContent() {
                 </span>
                 <span className="font-bold text-slate-200">
                   {fmt(
-                    folio.transactions
-                      .filter((t) => t.debitAmount > 0 && !['POS', 'ROOM_SERVICE', 'GST'].includes(t.sourceModule))
-                      .reduce((sum, t) => sum + t.debitAmount, 0) || Number(folio.reservation?.totalAmount || 0)
+                    (() => {
+                      const hmsTotal = folio.transactions
+                        .filter((t: any) => t.debitAmount > 0 && !['POS', 'ROOM_SERVICE', 'GST'].includes(t.sourceModule))
+                        .reduce((sum: number, t: any) => sum + t.debitAmount, 0);
+                      if (hmsTotal > 0) return hmsTotal;
+                      return Number((folio.reservation as any)?.totalAmount || 0);
+                    })()
                   )}
                 </span>
               </div>

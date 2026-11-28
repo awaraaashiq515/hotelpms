@@ -13,6 +13,20 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type'); // 'ALL' | 'B2B' | 'B2C'
     const statusParam = searchParams.get('status'); // 'ALL' | 'PAID' | 'PARTIAL' | 'DUE' | 'COMPLIMENTARY' | 'PROFORMA'
     const search = searchParams.get('search')?.trim().toLowerCase();
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+
+    const startBound = startDateParam ? new Date(`${startDateParam}T00:00:00.000`) : null;
+    const endBound = endDateParam ? new Date(`${endDateParam}T23:59:59.999`) : null;
+    const isWithinDateRange = (dateInput: string | Date | null | undefined) => {
+      if (!startBound && !endBound) return true;
+      if (!dateInput) return false;
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return false;
+      if (startBound && d < startBound) return false;
+      if (endBound && d > endBound) return false;
+      return true;
+    };
 
     const propertyWhere = getMultiTenantWhere(session, propertyIdParam);
 
@@ -204,7 +218,10 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const allInvoices = [...formattedSettledInvoices, ...formattedOpenFolios];
+    const dateFilteredSettled = formattedSettledInvoices.filter((i) => isWithinDateRange(i.invoiceDate));
+    const dateFilteredOpen = formattedOpenFolios.filter((i) => isWithinDateRange(i.invoiceDate));
+
+    const allInvoices = [...dateFilteredSettled, ...dateFilteredOpen];
 
     // Filter by type
     let filtered = allInvoices;
@@ -226,7 +243,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Revenue KPIs strictly exclude complimentary / waived stays! (C5)
-    const paidSettledInvoices = formattedSettledInvoices.filter((i) => !i.isComplimentary);
+    const paidSettledInvoices = dateFilteredSettled.filter((i) => !i.isComplimentary);
     const totalInvoiced = paidSettledInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
     const totalTaxCollected = paidSettledInvoices.reduce((sum, inv) => sum + inv.totalTax, 0);
     const totalCgstCollected = paidSettledInvoices.reduce((sum, inv) => sum + inv.cgst, 0);
@@ -242,7 +259,7 @@ export async function GET(request: NextRequest) {
       totalCgstCollected,
       totalSgstCollected,
       complimentaryStaysCount: allInvoices.filter((i) => i.isComplimentary).length,
-      proformaCount: formattedOpenFolios.length,
+      proformaCount: dateFilteredOpen.length,
       b2b: {
         count: b2bInvoices.length,
         totalAmount: b2bInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),

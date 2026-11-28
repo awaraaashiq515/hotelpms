@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -40,6 +41,11 @@ export default function PurchasingPage() {
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'MARKET' | 'KITCHEN_REQS'>('ORDERS');
   const [showForm, setShowForm] = useState(false);
   const [selectedPO, setSelectedPO] = useState<DetailedPO | null>(null);
+  const [headerActionsTarget, setHeaderActionsTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setHeaderActionsTarget(document.getElementById('hotel-page-header-actions'));
+  }, []);
 
   // Form Pre-fill State (for Kitchen indent conversion or shop hub)
   const [formInitialItems, setFormInitialItems] = useState<POFormItem[]>([]);
@@ -624,119 +630,123 @@ export default function PurchasingPage() {
     setActiveTab('ORDERS');
   };
 
+  const actionButtons = (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => {
+          fetchData();
+          fetchKitchenRequests();
+        }}
+        className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+        title="Refresh"
+      >
+        <RefreshCw size={14} className={loading || reqsLoading ? 'animate-spin' : ''} />
+      </button>
+
+      <Link
+        href="/hotel/inventory"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 text-xs font-semibold border border-slate-700 transition"
+      >
+        <Boxes size={13} className="text-cyan-400" />
+        <span>Stock Inventory</span>
+      </Link>
+
+      <button
+        onClick={() => {
+          setFormInitialItems([]);
+          setFormInitialNotes('');
+          setFormStockRequestIds([]);
+          setShowForm(true);
+        }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-md shadow-cyan-600/30 active:scale-95 cursor-pointer"
+      >
+        <Plus size={14} />
+        <span>New Purchase Order</span>
+      </button>
+    </div>
+  );
+
   return (
-    <div className="space-y-4 max-w-[1400px] mx-auto px-3 sm:px-5 pb-16 text-slate-100">
-      
-      {/* ── 1. Clean Simple Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-            <ShoppingCart size={20} />
+    <div className="space-y-3 max-w-[1400px] mx-auto px-2 sm:px-4 pb-16 text-slate-100">
+      {headerActionsTarget && createPortal(actionButtons, headerActionsTarget)}
+
+      {/* ── 1. Clean Compact Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-900/90 px-3.5 py-2.5 rounded-xl border border-slate-800 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <ShoppingCart size={16} />
           </div>
           <div>
-            <h1 className="text-lg font-black text-white tracking-tight">
+            <h1 className="text-sm sm:text-base font-black text-white tracking-tight leading-tight">
               Purchasing & Stock Inward
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-[11px] text-slate-400 leading-snug">
               Create vendor purchase orders, receive incoming inventory, and track kitchen requests.
             </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              fetchData();
-              fetchKitchenRequests();
-            }}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-            title="Refresh"
-          >
-            <RefreshCw size={15} className={loading || reqsLoading ? 'animate-spin' : ''} />
-          </button>
-
-          <Link
-            href="/hotel/inventory"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 text-xs font-semibold border border-slate-700 transition"
-          >
-            <Boxes size={14} className="text-cyan-400" />
-            <span>Stock Inventory</span>
-          </Link>
-
-          <button
-            onClick={() => {
-              setFormInitialItems([]);
-              setFormInitialNotes('');
-              setFormStockRequestIds([]);
-              setShowForm(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-md shadow-cyan-600/30 active:scale-95 cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>New Purchase Order</span>
-          </button>
-        </div>
+        {!headerActionsTarget && actionButtons}
       </div>
 
-      {/* ── 2. Simple Key Metrics Bar ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* ── 2. Compact Key Metrics Bar ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
         {/* Total POs */}
-        <div className="rounded-xl p-3 bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+        <div className="rounded-lg px-3 py-2 bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Orders</span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-xl font-black text-white font-mono">{totalOrdersCount}</span>
-              <span className="text-xs text-slate-400 font-mono">₹{totalOrdersValue.toLocaleString('en-IN')}</span>
+            <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Total Orders</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-white font-mono">{totalOrdersCount}</span>
+              <span className="text-[11px] text-slate-400 font-mono">₹{totalOrdersValue.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
-            <FileText size={16} />
+          <div className="w-7 h-7 rounded-md bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+            <FileText size={14} />
           </div>
         </div>
 
         {/* Awaiting Delivery */}
-        <div className="rounded-xl p-3 bg-amber-950/20 border border-amber-500/20 flex items-center justify-between">
+        <div className="rounded-lg px-3 py-2 bg-amber-950/20 border border-amber-500/20 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Awaiting Delivery</span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-xl font-black text-amber-300 font-mono">{pendingOrders.length}</span>
-              <span className="text-xs text-amber-400/80 font-mono">₹{totalPendingValue.toLocaleString('en-IN')}</span>
+            <span className="text-[9.5px] font-bold uppercase tracking-wider text-amber-400">Awaiting Delivery</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-amber-300 font-mono">{pendingOrders.length}</span>
+              <span className="text-[11px] text-amber-400/80 font-mono">₹{totalPendingValue.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-            <Clock size={16} />
+          <div className="w-7 h-7 rounded-md bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Clock size={14} />
           </div>
         </div>
 
         {/* Stock Received (Inwarded) */}
-        <div className="rounded-xl p-3 bg-emerald-950/20 border border-emerald-500/20 flex items-center justify-between">
+        <div className="rounded-lg px-3 py-2 bg-emerald-950/20 border border-emerald-500/20 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Stock Received (Inward)</span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-xl font-black text-emerald-300 font-mono">{deliveredOrders.length}</span>
-              <span className="text-xs text-emerald-400/80 font-mono">₹{totalDeliveredValue.toLocaleString('en-IN')}</span>
+            <span className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-400">Stock Received (Inward)</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-emerald-300 font-mono">{deliveredOrders.length}</span>
+              <span className="text-[11px] text-emerald-400/80 font-mono">₹{totalDeliveredValue.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={16} />
+          <div className="w-7 h-7 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={14} />
           </div>
         </div>
 
         {/* Kitchen Indents */}
         <div
           onClick={() => setActiveTab('KITCHEN_REQS')}
-          className="rounded-xl p-3 bg-orange-950/20 border border-orange-500/20 flex items-center justify-between cursor-pointer hover:border-orange-500/40 transition"
+          className="rounded-lg px-3 py-2 bg-orange-950/20 border border-orange-500/20 flex items-center justify-between cursor-pointer hover:border-orange-500/40 transition"
         >
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Kitchen Indents</span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-xl font-black text-orange-300 font-mono">{pendingReqCount}</span>
-              <span className="text-xs text-orange-400/80">Awaiting PO</span>
+            <span className="text-[9.5px] font-bold uppercase tracking-wider text-orange-400">Kitchen Indents</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-orange-300 font-mono">{pendingReqCount}</span>
+              <span className="text-[11px] text-orange-400/80">Awaiting PO</span>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
-            <UtensilsCrossed size={16} />
+          <div className="w-7 h-7 rounded-md bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
+            <UtensilsCrossed size={14} />
           </div>
         </div>
       </div>

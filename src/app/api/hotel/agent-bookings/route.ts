@@ -68,7 +68,90 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: bookings });
+    // Attach assigned room info from linked Reservation (if allotted) and notes
+    const reservationIds = bookings.map((b) => b.reservationId).filter(Boolean) as string[];
+    const reservationsById: Record<string, any> = {};
+    const roomsById: Record<string, any> = {};
+
+    // Collect room IDs from notes as well
+    const notesRoomIdsByBookingId: Record<string, string[]> = {};
+    const allCollectedRoomIds = new Set<string>();
+
+    for (const b of bookings) {
+      if (b.notes) {
+        const m = b.notes.match(/\[ALLOTTED_ROOM_IDS:\s*([^\]]+)\]/i);
+        if (m) {
+          const ids = m[1].split(',').map((x: string) => x.trim()).filter(Boolean);
+          notesRoomIdsByBookingId[b.id] = ids;
+          ids.forEach((id: string) => allCollectedRoomIds.add(id));
+        }
+      }
+    }
+
+    if (reservationIds.length > 0) {
+      const linkedReservations = await prisma.reservation.findMany({
+        where: { id: { in: reservationIds } },
+        select: {
+          id: true,
+          bookingNo: true,
+          assignedRoomId: true,
+          rooms: {
+            select: {
+              roomId: true,
+            },
+          },
+        },
+      });
+
+      for (const r of linkedReservations) {
+        if (r.assignedRoomId) allCollectedRoomIds.add(r.assignedRoomId);
+        if (r.rooms) {
+          for (const rm of r.rooms) {
+            if (rm.roomId) allCollectedRoomIds.add(rm.roomId);
+          }
+        }
+        reservationsById[r.id] = r;
+      }
+    }
+
+    if (allCollectedRoomIds.size > 0) {
+      const fetchedRooms = await prisma.room.findMany({
+        where: { id: { in: Array.from(allCollectedRoomIds) } },
+        select: {
+          id: true,
+          roomNumber: true,
+          floor: true,
+          status: true,
+          roomType: { select: { id: true, name: true } },
+        },
+      });
+      for (const rm of fetchedRooms) {
+        roomsById[rm.id] = rm;
+      }
+    }
+
+    const enrichedBookings = bookings.map((b) => {
+      const res = b.reservationId ? reservationsById[b.reservationId] : null;
+      const resRoomIds: string[] = res?.rooms?.map((rm: any) => rm.roomId).filter(Boolean) || [];
+      const primaryResRoomId: string[] = res?.assignedRoomId ? [res.assignedRoomId] : [];
+      const noteRoomIds: string[] = notesRoomIdsByBookingId[b.id] || [];
+
+      // Combine unique room IDs maintaining order
+      const combinedIds = Array.from(new Set([...noteRoomIds, ...resRoomIds, ...primaryResRoomId])).filter(Boolean);
+      const assignedRooms = combinedIds.map((id) => roomsById[id]).filter(Boolean);
+      const primaryRoom = assignedRooms[0] || (res?.assignedRoomId ? roomsById[res.assignedRoomId] : null);
+
+      return {
+        ...b,
+        assignedRoomId: primaryRoom?.id || null,
+        assignedRoom: primaryRoom || null,
+        assignedRoomIds: assignedRooms.map((r) => r.id),
+        assignedRooms,
+        bookingNo: res?.bookingNo || null,
+      };
+    });
+
+    return NextResponse.json({ success: true, data: enrichedBookings });
   } catch (error) {
     return apiError(error);
   }
@@ -271,6 +354,8 @@ export async function PATCH(request: NextRequest) {
       spaServiceType,
       isAgentEdit,
       requireApproval,
+      assignedRoomId,
+      assignedRoomIds: inputRoomIds,
     } = body;
 
     if (!id) {
@@ -316,6 +401,206 @@ export async function PATCH(request: NextRequest) {
       const parsedTotal = Number(totalAmount) || 0;
       updateData.totalAmount = parsedTotal;
       updateData.commission = (parsedTotal * (booking.agent.commissionRate || 10)) / 100;
+    }
+
+    // Handle Room Allotment (assignedRoomId or assignedRoomIds) from hotel front desk
+    const rawRoomIds = inputRoomIds ?? (assignedRoomId ? [assignedRoomId] : undefined);
+    const finalRoomIds: string[] = Array.isArray(rawRoomIds)
+      ? rawRoomIds.filter(Boolean)
+      : rawRoomIds ? [rawRoomIds] : [];
+
+    if (finalRoomIds.length > 0) {
+      // Calculate how many rooms were requested by agent
+      let requestedCount = 1;
+      const effectiveRoomType = (updateData.roomType || booking.roomType || '');
+      const mParen = effectiveRoomType.match(/\((\d+)\s*Rooms?\)/i);
+      if (mParen) {
+        requestedCount = Math.max(1, parseInt(mParen[1], 10));
+      } else {
+        const mX = effectiveRoomType.match(/^(\d+)x\s+/i);
+        if (mX) {
+          requestedCount = Math.max(1, parseInt(mX[1], 10));
+        } else {
+          const notesText = (booking.notes || '') + ' ' + (updateData.notes || '');
+          const mNotes = notesText.match(/\[ROOMS:\s*(\d+)x/i) || notesText.match(/(\d+)\s*Rooms?/i);
+          if (mNotes) requestedCount = Math.max(1, parseInt(mNotes[1], 10));
+        }
+      }
+
+      if (finalRoomIds.length > requestedCount) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Cannot allot ${finalRoomIds.length} rooms. Agent requested only ${requestedCount} room(s).`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const targetRooms = await prisma.room.findMany({
+        where: { id: { in: finalRoomIds } },
+        include: {
+          roomType: true,
+          property: { select: { organizationId: true } },
+        },
+      });
+      if (targetRooms.length === 0) {
+        return NextResponse.json({ success: false, message: 'Selected rooms not found.' }, { status: 404 });
+      }
+
+      // Check overlapping reservations for any of these rooms
+      const conflictRes = await prisma.reservation.findFirst({
+        where: {
+          propertyId: booking.propertyId,
+          id: booking.reservationId ? { not: booking.reservationId } : undefined,
+          status: { notIn: ['CANCELLED', 'CHECKED_OUT'] },
+          OR: [
+            { assignedRoomId: { in: finalRoomIds } },
+            { rooms: { some: { roomId: { in: finalRoomIds } } } },
+          ],
+          AND: [
+            { arrivalDate: { lt: booking.checkOut } },
+            { departureDate: { gt: booking.checkIn } },
+          ],
+        },
+        select: { id: true, bookingNo: true },
+      });
+      if (conflictRes) {
+        return NextResponse.json(
+          { success: false, message: `One or more selected rooms are already reserved (${conflictRes.bookingNo}) for these dates.` },
+          { status: 400 }
+        );
+      }
+
+      const primaryRoom = targetRooms[0];
+      const finalResStatus =
+        (updateData.status || booking.status) === 'CHECKED_IN'
+          ? 'CHECKED_IN'
+          : (updateData.status || booking.status) === 'COMPLETED'
+          ? 'CHECKED_OUT'
+          : 'CONFIRMED';
+
+      const nightsCount = Math.max(
+        1,
+        Math.round((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / 86400000)
+      );
+      const ratePerRoom = ((updateData.totalAmount ?? booking.totalAmount) / targetRooms.length) / nightsCount;
+
+      if (booking.reservationId) {
+        await prisma.reservation.update({
+          where: { id: booking.reservationId },
+          data: {
+            assignedRoomId: primaryRoom.id,
+            roomTypeId: primaryRoom.roomTypeId,
+            status: finalResStatus,
+          },
+        });
+        await prisma.reservationRoom.deleteMany({
+          where: { reservationId: booking.reservationId },
+        });
+        await prisma.reservationRoom.createMany({
+          data: targetRooms.map((rm) => ({
+            reservationId: booking.reservationId!,
+            roomId: rm.id,
+            ratePerNight: ratePerRoom,
+            adults: Math.max(1, Math.floor(booking.adults / targetRooms.length)),
+            children: Math.floor(booking.children / targetRooms.length),
+          })),
+        });
+      } else {
+        // Find or create Guest record
+        const nameParts = (booking.guestName || 'Guest').trim().split(/\s+/);
+        const firstName = nameParts[0] || 'Guest';
+        const lastName = nameParts.slice(1).join(' ') || '-';
+        const orgId = primaryRoom.property?.organizationId || session?.organizationId;
+
+        let guest = booking.guestPhone && orgId
+          ? await prisma.guest.findFirst({
+              where: { organizationId: orgId, mobile: booking.guestPhone },
+            })
+          : null;
+
+        if (!guest) {
+          if (!orgId) {
+            return NextResponse.json({ success: false, message: 'Organization not found for property.' }, { status: 400 });
+          }
+          guest = await prisma.guest.create({
+            data: {
+              organizationId: orgId,
+              firstName,
+              lastName,
+              mobile: booking.guestPhone || null,
+              email: booking.guestEmail || null,
+              nationality: booking.guestNationality || 'Indian',
+            },
+          });
+        }
+
+        const bookingNo = `AGT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+        const createdRes = await prisma.reservation.create({
+          data: {
+            propertyId: booking.propertyId,
+            guestId: guest.id,
+            bookingNo,
+            arrivalDate: booking.checkIn,
+            departureDate: booking.checkOut,
+            adults: booking.adults,
+            children: booking.children,
+            roomTypeId: primaryRoom.roomTypeId,
+            assignedRoomId: primaryRoom.id,
+            status: finalResStatus,
+            totalAmount: updateData.totalAmount ?? booking.totalAmount,
+            dueAmount: updateData.totalAmount ?? booking.totalAmount,
+            rooms: {
+              create: targetRooms.map((rm) => ({
+                roomId: rm.id,
+                ratePerNight: ratePerRoom,
+                adults: Math.max(1, Math.floor(booking.adults / targetRooms.length)),
+                children: Math.floor(booking.children / targetRooms.length),
+              })),
+            },
+          },
+        });
+        updateData.reservationId = createdRes.id;
+      }
+
+      // Update notes with allotted room numbers tag so all room numbers are clearly saved & visible
+      const existingNotes = updateData.notes !== undefined ? updateData.notes : (booking.notes || '');
+      const cleanedNotes = existingNotes
+        .replace(/\[ALLOTTED_ROOM_IDS:[^\]]+\]\s*/gi, '')
+        .replace(/\[ALLOTTED_ROOMS:[^\]]+\]\s*/gi, '')
+        .trim();
+      const allotmentTag = `[ALLOTTED_ROOM_IDS: ${targetRooms.map((r) => r.id).join(',')}]\n[ALLOTTED_ROOMS: ${targetRooms.map((r) => r.roomNumber).join(', ')}]`;
+      updateData.notes = cleanedNotes ? `${cleanedNotes}\n${allotmentTag}` : allotmentTag;
+
+      if (finalResStatus === 'CHECKED_IN') {
+        await prisma.room.updateMany({
+          where: { id: { in: targetRooms.map((r) => r.id) } },
+          data: { status: 'OCCUPIED' },
+        });
+      }
+    } else if (status === 'CANCELLED' && booking.reservationId) {
+      await prisma.reservation.update({
+        where: { id: booking.reservationId },
+        data: { status: 'CANCELLED' },
+      }).catch(() => {});
+    } else if (status === 'CHECKED_IN' && booking.reservationId) {
+      await prisma.reservation.update({
+        where: { id: booking.reservationId },
+        data: { status: 'CHECKED_IN' },
+      }).catch(() => null);
+      const resRooms = await prisma.reservationRoom.findMany({
+        where: { reservationId: booking.reservationId },
+        select: { roomId: true },
+      });
+      const roomIdsToOccupy = resRooms.map((r) => r.roomId).filter(Boolean) as string[];
+      if (roomIdsToOccupy.length > 0) {
+        await prisma.room.updateMany({
+          where: { id: { in: roomIdsToOccupy } },
+          data: { status: 'OCCUPIED' },
+        }).catch(() => {});
+      }
     }
 
     const updated = await prisma.agentBooking.update({ where: { id }, data: updateData });

@@ -34,6 +34,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Pencil,
+  Download,
+  RotateCcw,
+  Banknote,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -85,7 +88,19 @@ export function ReservationDetailDrawer({
   const [availableRooms, setAvailableRooms] = useState<any[]>(roomsList || []);
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [upgradeCost, setUpgradeCost] = useState<number | string>(0);
+  const [upgradedBy, setUpgradedBy] = useState('');
+  const [upgradeReason, setUpgradeReason] = useState('Guest Request');
   const [upgrading, setUpgrading] = useState(false);
+
+  // Refund Modal State
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundAmount, setRefundAmount] = useState<number | string>('');
+  const [refundMethod, setRefundMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER'>('UPI');
+  const [refundReason, setRefundReason] = useState('Advance Overpayment / Adjustment');
+  const [customRefundReason, setCustomRefundReason] = useState('');
+  const [refundProcessedBy, setRefundProcessedBy] = useState('');
+  const [refundRefNo, setRefundRefNo] = useState('');
+  const [refunding, setRefunding] = useState(false);
 
   // Guest Details Edit State
   const [isEditingGuest, setIsEditingGuest] = useState(false);
@@ -94,6 +109,7 @@ export function ReservationDetailDrawer({
   const [editMobile, setEditMobile] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [savingGuest, setSavingGuest] = useState(false);
+  const [showKycFullView, setShowKycFullView] = useState(false);
 
   const handleSaveGuest = async () => {
     if (!booking?.id) return;
@@ -204,9 +220,15 @@ export function ReservationDetailDrawer({
       setNewArrDate(arrIso);
       setSelectedRoomId('');
       setUpgradeCost(0);
+      setUpgradedBy('');
+      setUpgradeReason('Guest Request');
       setShowExtendPanel(false);
       setShowUpgradePanel(false);
       setShowRestaurantModal(false);
+      setShowRefundModal(false);
+      setRefundAmount('');
+      setRefundRefNo('');
+      setCustomRefundReason('');
       setBanner(null);
       fetchFoodData();
     }
@@ -403,6 +425,10 @@ export function ReservationDetailDrawer({
       setBanner({ type: 'error', text: 'Please select a room to upgrade/transfer to.' });
       return;
     }
+    if (!upgradedBy.trim()) {
+      setBanner({ type: 'error', text: 'Please enter Staff Name (who is upgrading/changing the room).' });
+      return;
+    }
 
     setUpgrading(true);
     try {
@@ -413,11 +439,13 @@ export function ReservationDetailDrawer({
           id: booking.id,
           assignedRoomId: selectedRoomId,
           upgradeCharge: Number(upgradeCost) || 0,
+          upgradedBy: upgradedBy.trim(),
+          upgradeReason: upgradeReason.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setBanner({ type: 'success', text: '✓ Room upgraded / assigned successfully!' });
+        setBanner({ type: 'success', text: `✓ Room upgraded successfully by ${upgradedBy.trim()}!` });
         setShowUpgradePanel(false);
         setTimeout(() => setBanner(null), 3500);
         onUpdated?.();
@@ -429,6 +457,71 @@ export function ReservationDetailDrawer({
       setBanner({ type: 'error', text: 'Network connection error.' });
     } finally {
       setUpgrading(false);
+    }
+  };
+
+  // Submit Payment Refund
+  const handleProcessRefund = async () => {
+    const amt = Number(refundAmount);
+    const paid = Number(booking.advanceAmount) || 0;
+    const total = Number(booking.totalAmount) || 0;
+    if (!amt || amt <= 0) {
+      setBanner({ type: 'error', text: 'Please enter a valid refund amount greater than 0.' });
+      return;
+    }
+    if (paid > 0 && amt > paid) {
+      setBanner({ type: 'error', text: `Refund amount (₹${amt.toLocaleString('en-IN')}) cannot exceed paid advance amount (₹${paid.toLocaleString('en-IN')}).` });
+      return;
+    }
+    if (paid === 0 && total > 0 && amt > total) {
+      setBanner({ type: 'error', text: `Refund amount (₹${amt.toLocaleString('en-IN')}) cannot exceed total booking charges (₹${total.toLocaleString('en-IN')}).` });
+      return;
+    }
+    if (!refundProcessedBy.trim()) {
+      setBanner({ type: 'error', text: 'Please enter Staff Name (who is processing this refund).' });
+      return;
+    }
+
+    setRefunding(true);
+    try {
+      const finalReason = customRefundReason.trim()
+        ? `${refundReason} — ${customRefundReason.trim()}`
+        : refundReason;
+
+      const res = await fetch('/api/hotel/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: booking.id,
+          refundData: {
+            amount: amt,
+            paymentMode: refundMethod,
+            reason: finalReason,
+            processedBy: refundProcessedBy.trim(),
+            referenceNo: refundRefNo.trim() || undefined,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({
+          type: 'success',
+          text: `✓ Refund of ${currency}${amt.toLocaleString('en-IN')} processed successfully!`,
+        });
+        setShowRefundModal(false);
+        setRefundAmount('');
+        setRefundRefNo('');
+        setCustomRefundReason('');
+        setTimeout(() => setBanner(null), 4000);
+        onUpdated?.();
+      } else {
+        setBanner({ type: 'error', text: data.message || 'Failed to process refund.' });
+      }
+    } catch (err) {
+      console.error(err);
+      setBanner({ type: 'error', text: 'Network connection error processing refund.' });
+    } finally {
+      setRefunding(false);
     }
   };
 
@@ -847,10 +940,9 @@ export function ReservationDetailDrawer({
                   )}
                 </div>
                 <div className="flex items-center gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                  <a
-                    href={booking.guest.documents[0].documentUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setShowKycFullView(true)}
                     className="relative group rounded-lg overflow-hidden border border-slate-700 w-16 h-12 shrink-0 bg-black flex items-center justify-center cursor-pointer"
                     title="Click to view full size"
                   >
@@ -862,19 +954,18 @@ export function ReservationDetailDrawer({
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <Eye className="w-3.5 h-3.5 text-white" />
                     </div>
-                  </a>
+                  </button>
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-bold text-slate-200 block truncate">
                       {booking.guest.documents[0].documentType || 'Identity Proof'}
                     </span>
-                    <a
-                      href={booking.guest.documents[0].documentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[10px] text-indigo-400 hover:underline font-semibold flex items-center gap-1 mt-0.5"
+                    <button
+                      type="button"
+                      onClick={() => setShowKycFullView(true)}
+                      className="text-[10px] text-indigo-400 hover:underline font-semibold flex items-center gap-1 mt-0.5 cursor-pointer"
                     >
                       View Full Size Document ↗
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -959,6 +1050,54 @@ export function ReservationDetailDrawer({
                     onChange={(e) => setUpgradeCost(Math.max(0, Number(e.target.value)))}
                     className="w-full bg-[#1e293b] border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#00b894]"
                     placeholder="0"
+                  />
+                </div>
+
+                {/* Staff Name who is upgrading (Requested by user) */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-300 uppercase flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                      <User className="w-3 h-3" /> Upgraded By (Staff Name) *
+                    </span>
+                    <span className="text-rose-400 text-[10px] font-bold">Required</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={upgradedBy}
+                    onChange={(e) => setUpgradedBy(e.target.value)}
+                    placeholder="Enter staff / receptionist name who upgraded room..."
+                    className="w-full bg-[#1e293b] border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#00b894] placeholder:text-slate-500"
+                  />
+                </div>
+
+                {/* Upgrade Reason / Remarks */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase flex items-center justify-between">
+                    <span>Upgrade Reason / Remarks</span>
+                    <span className="text-slate-500 lowercase">select quick tag or type</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {['VIP Upgrade', 'Guest Request', 'Room Maintenance', 'Complimentary', 'Paid Surcharge'].map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => setUpgradeReason(chip)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                          upgradeReason === chip
+                            ? 'bg-[#00b894] text-white shadow-xs'
+                            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                        }`}
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={upgradeReason}
+                    onChange={(e) => setUpgradeReason(e.target.value)}
+                    placeholder="e.g. Guest requested high floor / AC breakdown in previous room"
+                    className="w-full bg-[#1e293b] border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#00b894] placeholder:text-slate-500"
                   />
                 </div>
 
@@ -1195,7 +1334,21 @@ export function ReservationDetailDrawer({
 
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Advance Paid:</span>
-              <strong className="text-emerald-400 font-medium">{currency} {(Number(booking.advanceAmount) || 0).toLocaleString('en-IN')}</strong>
+              <div className="flex items-center gap-2">
+                <strong className="text-emerald-400 font-medium">{currency} {(Number(booking.advanceAmount) || 0).toLocaleString('en-IN')}</strong>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRefundAmount(Number(booking.advanceAmount) || 0);
+                    setShowRefundModal(true);
+                  }}
+                  className="text-[10px] font-bold text-rose-300 hover:text-white bg-rose-600/25 hover:bg-rose-600/40 border border-rose-500/40 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 shadow-xs"
+                  title="Issue / Process refund"
+                >
+                  <RotateCcw className="w-2.5 h-2.5 text-rose-400" />
+                  <span>Refund</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-1 border-t border-slate-800">
@@ -1284,17 +1437,17 @@ export function ReservationDetailDrawer({
         </div>
 
         {/* Action Buttons */}
-        <div className="pt-4 border-t border-slate-800 space-y-2 mt-4">
-          {/* Quick Action Grid: Extend Stay & Upgrade Room buttons */}
-          <div className="grid grid-cols-2 gap-2">
+        <div className="pt-4 border-t border-slate-800 space-y-2.5 mt-4">
+          {/* Quick Action Grid: Extend Stay, Upgrade Room, and Issue Refund buttons */}
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
                 setShowExtendPanel(!showExtendPanel);
                 setShowUpgradePanel(false);
               }}
-              className="py-2 px-2.5 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              className="py-2 px-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
             >
-              <CalendarPlus className="w-3.5 h-3.5 text-sky-400" />
+              <CalendarPlus className="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span>Extend Stay</span>
             </button>
             <button
@@ -1302,10 +1455,20 @@ export function ReservationDetailDrawer({
                 setShowUpgradePanel(!showUpgradePanel);
                 setShowExtendPanel(false);
               }}
-              className="py-2 px-2.5 rounded-xl border border-[#00b894]/30 bg-[#00b894]/10 hover:bg-[#00b894]/20 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              className="py-2 px-1.5 rounded-xl border border-[#00b894]/30 bg-[#00b894]/10 hover:bg-[#00b894]/20 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#00b894]" />
-              <span>Upgrade Room</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#00b894] shrink-0" />
+              <span>Upgrade</span>
+            </button>
+            <button
+              onClick={() => {
+                setRefundAmount(Number(booking.advanceAmount) || 0);
+                setShowRefundModal(true);
+              }}
+              className="py-2 px-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span>Refund</span>
             </button>
           </div>
 
@@ -1326,6 +1489,26 @@ export function ReservationDetailDrawer({
             <div className="flex items-center gap-1">
               <span className="font-bold text-amber-400">{currency} {totalFoodBill.toLocaleString('en-IN')}</span>
               <ChevronRight className="w-3.5 h-3.5 text-amber-400/70" />
+            </div>
+          </button>
+
+          {/* Issue / Process Refund Prominent Bar */}
+          <button
+            onClick={() => {
+              setRefundAmount(Number(booking.advanceAmount) || 0);
+              setShowRefundModal(true);
+            }}
+            className="w-full py-2.5 px-3 rounded-xl border border-rose-500/40 bg-gradient-to-r from-rose-950/40 to-slate-900/90 hover:from-rose-900/50 hover:to-slate-800 text-rose-300 text-xs font-bold flex items-center justify-between transition-all cursor-pointer shadow-sm group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform shrink-0">
+                <RotateCcw className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-white font-bold">Issue Payment Refund (रिफंड)</span>
+            </div>
+            <div className="flex items-center gap-1 font-mono text-[11px] text-rose-400 font-bold">
+              <span>Paid: {currency} {(Number(booking.advanceAmount) || 0).toLocaleString('en-IN')}</span>
+              <ChevronRight className="w-3.5 h-3.5 text-rose-400/70" />
             </div>
           </button>
 
@@ -1368,6 +1551,222 @@ export function ReservationDetailDrawer({
           )}
         </div>
       </div>
+
+      {/* ── ISSUE REFUND MODAL ── */}
+      {showRefundModal && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setShowRefundModal(false)}
+        >
+          <div
+            className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>Issue Payment Refund</span>
+                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                      #{bookingNo}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Guest: <span className="text-slate-200 font-medium">{guestName}</span> • Room {roomNo}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRefundModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Financial Balance Summary */}
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase">Total Bill</span>
+                  <span className="font-bold text-white text-sm">{currency} {(Number(booking.totalAmount) || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="border-x border-slate-800 px-2">
+                  <span className="text-[10px] text-emerald-400 block uppercase font-semibold">Advance Paid</span>
+                  <span className="font-bold text-emerald-400 text-sm">{currency} {(Number(booking.advanceAmount) || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block uppercase">Balance Due</span>
+                  <span className={`font-bold text-sm ${netDueBalance > 0 ? 'text-amber-400' : 'text-slate-300'}`}>
+                    {currency} {netDueBalance.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Refund Amount */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="text-rose-400">Refund Amount ({currency}) *</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    Max Refundable: <strong className="text-emerald-400">{currency} {((Number(booking.advanceAmount) || Number(booking.totalAmount) || 0)).toLocaleString('en-IN')}</strong>
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={Number(booking.advanceAmount) || Number(booking.totalAmount) || undefined}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  placeholder="Enter refund amount in ₹..."
+                  className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-2.5 text-base font-bold text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500 placeholder:text-slate-500"
+                />
+
+                {/* Quick preset buttons */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {(Number(booking.advanceAmount) || 0) > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setRefundAmount(Number(booking.advanceAmount) || 0)}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold cursor-pointer transition-colors"
+                    >
+                      Full Advance ({currency} {(Number(booking.advanceAmount) || 0).toLocaleString('en-IN')})
+                    </button>
+                  ) : null}
+                  {[500, 1000, 2000, 5000].map((val) => {
+                    if (val < (Number(booking.advanceAmount) || 0)) {
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setRefundAmount(val)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold cursor-pointer transition-colors"
+                        >
+                          {currency} {val.toLocaleString('en-IN')}
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </div>
+
+              {/* Payment Mode */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider block">
+                  Refund Payment Method *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'UPI', label: 'UPI / GPay' },
+                    { id: 'CASH', label: 'Cash' },
+                    { id: 'CARD', label: 'Card' },
+                    { id: 'BANK_TRANSFER', label: 'Bank Transfer' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setRefundMethod(m.id as any)}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                        refundMethod === m.id
+                          ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-sm'
+                          : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Staff Name (Mandatory audit) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-amber-300">Processed By (Staff Name) *</span>
+                  </label>
+                  <span className="text-rose-400 text-[10px] font-bold">Required</span>
+                </div>
+                <input
+                  type="text"
+                  value={refundProcessedBy}
+                  onChange={(e) => setRefundProcessedBy(e.target.value)}
+                  placeholder="Enter staff / receptionist name..."
+                  className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-rose-500 placeholder:text-slate-500"
+                />
+              </div>
+
+              {/* Refund Reason */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider block">
+                  Refund Reason *
+                </label>
+                <select
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-rose-500"
+                >
+                  <option value="Guest Cancellation / Advance Return">Guest Cancellation / Advance Return</option>
+                  <option value="Advance Overpayment / Adjustment">Advance Overpayment / Adjustment</option>
+                  <option value="Early Check-Out / Unused Stay">Early Check-Out / Unused Stay</option>
+                  <option value="Service Issue / Guest Compensation">Service Issue / Guest Compensation</option>
+                  <option value="Security Deposit / Caution Money Return">Security Deposit / Caution Money Return</option>
+                  <option value="Other">Other / Custom Reason</option>
+                </select>
+
+                <input
+                  type="text"
+                  value={customRefundReason}
+                  onChange={(e) => setCustomRefundReason(e.target.value)}
+                  placeholder="Additional notes / explanation for this refund (optional)..."
+                  className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-rose-500 placeholder:text-slate-500"
+                />
+              </div>
+
+              {/* Reference / UTR Number (Optional) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase block">
+                  Transaction Reference / UTR # (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={refundRefNo}
+                  onChange={(e) => setRefundRefNo(e.target.value)}
+                  placeholder="e.g. UPI Ref / Bank UTR / Receipt No."
+                  className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-rose-500 placeholder:text-slate-500 font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/60 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleProcessRefund}
+                disabled={refunding || !refundAmount || Number(refundAmount) <= 0}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 transition-all cursor-pointer"
+              >
+                {refunding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                <span>{refunding ? 'Processing Refund...' : `Confirm Refund of ${currency} ${Number(refundAmount || 0).toLocaleString('en-IN')}`}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRefundModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── RESTAURANT & FOOD BILL MODAL ── */}
       {showRestaurantModal && (
@@ -1598,6 +1997,58 @@ export function ReservationDetailDrawer({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full View KYC Document Lightbox */}
+      {showKycFullView && booking?.guest?.documents?.[0]?.documentUrl && (
+        <div
+          className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150"
+          onClick={() => setShowKycFullView(false)}
+        >
+          <div
+            className="w-full max-w-5xl flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/70"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+              <ShieldCheck size={15} className="text-emerald-400" />
+              <span>{booking.guest.documents[0].documentType || booking.guest.idType || 'KYC Document'}</span>
+              {booking.guest.idNumber && (
+                <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
+                  {booking.guest.idNumber}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={booking.guest.documents[0].documentUrl}
+                download={`kyc-${(booking.guest.firstName || 'guest').toLowerCase()}.jpg`}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition"
+              >
+                <Download size={13} />
+                <span>Download</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowKycFullView(false)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600/80 border border-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                title="Close Full View"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="relative max-w-5xl max-h-[82vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={booking.guest.documents[0].documentUrl}
+              alt="KYC Document Full View"
+              className="max-w-full max-h-[82vh] object-contain rounded-xl border border-slate-700/70 shadow-2xl bg-black/50"
+            />
           </div>
         </div>
       )}

@@ -10,16 +10,20 @@ import {
 interface CategoryAddModalProps {
   onClose: () => void;
   onSave: (payload: any) => Promise<void>;
+  initialData?: any | null;
 }
 
-export default function CategoryAddModal({ onClose, onSave }: CategoryAddModalProps) {
-  const [newTypeName, setNewTypeName] = useState('');
-  const [newTypeCode, setNewTypeCode] = useState('');
-  const [newTypeRate, setNewTypeRate] = useState('');
-  const [newTypeOccupancy, setNewTypeOccupancy] = useState('2');
-  const [baseOccupancy, setBaseOccupancy] = useState('2');
-  const [extraAdultRate, setExtraAdultRate] = useState('500');
-  const [extraChildRate, setExtraChildRate] = useState('250');
+export default function CategoryAddModal({ onClose, onSave, initialData }: CategoryAddModalProps) {
+  const [newTypeName, setNewTypeName] = useState(initialData?.name || '');
+  const [newTypeCode, setNewTypeCode] = useState(initialData?.code || '');
+  const [newTypeRate, setNewTypeRate] = useState(initialData?.baseRate !== undefined ? String(initialData.baseRate) : '');
+  const [newTypeOccupancy, setNewTypeOccupancy] = useState(initialData?.maxOccupancy !== undefined ? String(initialData.maxOccupancy) : '2');
+  const [baseOccupancy, setBaseOccupancy] = useState(initialData?.baseOccupancy !== undefined ? String(initialData.baseOccupancy) : '2');
+  const [extraAdultRate, setExtraAdultRate] = useState(initialData?.extraAdultRate !== undefined ? String(initialData.extraAdultRate) : '500');
+  const [extraChildRate, setExtraChildRate] = useState(initialData?.extraChildRate !== undefined ? String(initialData.extraChildRate) : '250');
+  const [gstRate, setGstRate] = useState<string>(
+    initialData?.gstRate !== undefined && initialData?.gstRate !== null ? String(initialData.gstRate) : ''
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +31,7 @@ export default function CategoryAddModal({ onClose, onSave }: CategoryAddModalPr
     setSubmitting(true);
     try {
       const payload = {
+        ...(initialData?.id ? { id: initialData.id } : {}),
         name: newTypeName,
         code: newTypeCode.toUpperCase().trim(),
         baseRate: Number(newTypeRate),
@@ -34,6 +39,7 @@ export default function CategoryAddModal({ onClose, onSave }: CategoryAddModalPr
         baseOccupancy: Number(baseOccupancy || 2),
         extraAdultRate: Number(extraAdultRate || 0),
         extraChildRate: Number(extraChildRate || 0),
+        gstRate: gstRate === '' ? null : Number(gstRate),
       };
       await onSave(payload);
     } finally {
@@ -60,7 +66,7 @@ export default function CategoryAddModal({ onClose, onSave }: CategoryAddModalPr
             <Coins size={12} /> Rate Management
           </span>
           <h2 className="text-xl font-black text-white leading-none">
-            Register Room Category
+            {initialData ? 'Edit Room Category' : 'Register Room Category'}
           </h2>
         </div>
 
@@ -115,6 +121,38 @@ export default function CategoryAddModal({ onClose, onSave }: CategoryAddModalPr
               <option value="5">5 Guests</option>
               <option value="6">6 Guests</option>
             </select>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Default GST Rate (%)
+            </label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {[
+                { label: 'Auto Slab', val: '' },
+                { label: '0% GST', val: '0' },
+                { label: '5% GST', val: '5' },
+                { label: '12% GST', val: '12' },
+                { label: '18% GST', val: '18' },
+                { label: '28% GST', val: '28' },
+              ].map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setGstRate(opt.val)}
+                  className={`py-2 px-2 rounded-xl border text-[11px] font-bold transition-all ${
+                    gstRate === opt.val
+                      ? 'bg-indigo-600/25 border-indigo-500 text-indigo-300 shadow-sm'
+                      : 'bg-slate-955 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1.5">
+              Optional: Pre-sets GST rate for this category (can also be changed or added at billing time).
+            </p>
           </div>
         </div>
 
@@ -195,7 +233,7 @@ export default function CategoryAddModal({ onClose, onSave }: CategoryAddModalPr
                 <Loader2 className="animate-spin" size={12} /> Saving Category
               </>
             ) : (
-              'Create Category'
+              initialData ? 'Update Category' : 'Create Category'
             )}
           </button>
         </div>

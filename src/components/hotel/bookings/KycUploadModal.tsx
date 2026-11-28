@@ -18,6 +18,8 @@ import {
   QrCode,
   Smartphone,
   Copy,
+  Download,
+  Maximize2,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
@@ -41,6 +43,7 @@ export function KycUploadModal({
   const [documentUrl, setDocumentUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fullViewOpen, setFullViewOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [origin, setOrigin] = useState('');
 
@@ -66,6 +69,7 @@ export function KycUploadModal({
       setPreviewUrl(existingDoc || null);
       setSelectedFile(null);
       setUploadSuccess(false);
+      setFullViewOpen(false);
     }
 
     return () => {
@@ -505,17 +509,20 @@ export function KycUploadModal({
                 <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                   <Eye size={13} className="text-indigo-400" /> Document Preview
                 </span>
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1 font-bold"
+                <button
+                  type="button"
+                  onClick={() => setFullViewOpen(true)}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-bold cursor-pointer"
                 >
-                  Full View <ExternalLink size={10} />
-                </a>
+                  Full View <Maximize2 size={10} />
+                </button>
               </div>
 
-              <div className="max-h-48 rounded-xl overflow-hidden border border-slate-700/60 bg-black/40 flex items-center justify-center">
+              <div
+                onClick={() => setFullViewOpen(true)}
+                className="max-h-48 rounded-xl overflow-hidden border border-slate-700/60 bg-black/40 flex items-center justify-center cursor-zoom-in hover:border-indigo-500/50 transition-colors"
+                title="Click to open Full View"
+              >
                 <img
                   src={previewUrl}
                   alt="KYC Document Preview"
@@ -591,6 +598,58 @@ export function KycUploadModal({
           </button>
         </div>
       </div>
+
+      {/* Full View Lightbox */}
+      {fullViewOpen && previewUrl && (
+        <div
+          className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150"
+          onClick={() => setFullViewOpen(false)}
+        >
+          <div
+            className="w-full max-w-5xl flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/70"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+              <ShieldCheck size={15} className="text-indigo-400" />
+              <span>{idType}</span>
+              {idNumber && (
+                <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
+                  {idNumber}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={previewUrl}
+                download={`kyc-${(booking?.guest?.name || 'guest').toLowerCase().replace(/\s+/g, '-')}.jpg`}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition"
+              >
+                <Download size={13} />
+                <span>Download</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setFullViewOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600/80 border border-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                title="Close Full View"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="relative max-w-5xl max-h-[82vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewUrl}
+              alt="KYC Document Full View"
+              className="max-w-full max-h-[82vh] object-contain rounded-xl border border-slate-700/70 shadow-2xl bg-black/50"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

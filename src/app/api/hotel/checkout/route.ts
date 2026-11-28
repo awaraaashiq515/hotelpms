@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
         guest: true,
         reservation: {
           include: {
+            roomType: true,
             folios: {
               where: { status: 'OPEN' }
             }
@@ -237,31 +238,54 @@ export async function POST(request: NextRequest) {
       const isSpecifiedPremises = highestTariff > 7500;
 
       const debits = freshFolio?.transactions.filter((t: any) => t.txnType === 'DEBIT') || [];
+      const hasExplicitGstTxn = debits.some((t: any) => t.sourceModule === 'GST');
+      const categoryGstRate = checkIn.reservation.roomType?.gstRate;
+
       for (const txn of debits) {
-        if (txn.sourceModule === 'POS') {
+        if (txn.sourceModule === 'GST') {
+          taxAmount += txn.debitAmount;
+          invoiceItems.push({
+            description: txn.description || 'GST Tax',
+            qty: 1,
+            unitPrice: 0,
+            taxAmount: txn.debitAmount,
+            totalAmount: txn.debitAmount,
+            hsnCode: '996311',
+          });
+        } else if (txn.sourceModule === 'POS') {
           const fTax = computeFoodGst(txn.debitAmount, isSpecifiedPremises);
           subtotal += txn.debitAmount;
-          taxAmount += fTax.totalTax;
+          if (!hasExplicitGstTxn) {
+            taxAmount += fTax.totalTax;
+          }
           invoiceItems.push({
             description: txn.description || 'F&B Restaurant / Room Service',
             qty: 1,
             unitPrice: txn.debitAmount,
-            taxAmount: fTax.totalTax,
-            totalAmount: txn.debitAmount + fTax.totalTax,
+            taxAmount: hasExplicitGstTxn ? 0 : fTax.totalTax,
+            totalAmount: txn.debitAmount + (hasExplicitGstTxn ? 0 : fTax.totalTax),
             hsnCode: fTax.sacCode,
           });
         } else {
-          // Room Accommodation
-          const rTax = computeRoomGst(txn.debitAmount, 1, false);
+          // Room Accommodation / Other
+          let itemTax = 0;
+          if (!hasExplicitGstTxn) {
+            if (categoryGstRate !== null && categoryGstRate !== undefined) {
+              itemTax = Math.round(((txn.debitAmount * Number(categoryGstRate)) / 100) * 100) / 100;
+            } else {
+              const rTax = computeRoomGst(txn.debitAmount, 1, false);
+              itemTax = rTax.totalTax;
+            }
+          }
           subtotal += txn.debitAmount;
-          taxAmount += rTax.totalTax;
+          taxAmount += itemTax;
           invoiceItems.push({
             description: txn.description || `Room Accommodation - Room ${checkIn.room.roomNumber}`,
             qty: 1,
             unitPrice: txn.debitAmount,
-            taxAmount: rTax.totalTax,
-            totalAmount: txn.debitAmount + rTax.totalTax,
-            hsnCode: rTax.sacCode,
+            taxAmount: itemTax,
+            totalAmount: txn.debitAmount + itemTax,
+            hsnCode: '996311',
           });
         }
       }
@@ -296,7 +320,7 @@ export async function POST(request: NextRequest) {
       try {
         const guestName = `${checkIn.guest?.firstName || ''} ${checkIn.guest?.lastName || ''}`.trim() || 'Guest';
         const hotelName = checkIn.room?.property?.name || 'OrderMint Hotel';
-        const dateStr = new Date().toLocaleDateString('en-GB');
+        const totalAmountFormatted = Number(grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
         sendMetaWhatsAppTemplate({
           mobile: guestMobile,
@@ -305,8 +329,8 @@ export async function POST(request: NextRequest) {
             guestName,
             hotelName,
             invoice.invoiceNo,
-            dateStr,
-            grandTotal,
+            totalAmountFormatted,
+            'Paid',
           ],
           buttonUrlParameter: invoice.invoiceNo,
           propertyId,

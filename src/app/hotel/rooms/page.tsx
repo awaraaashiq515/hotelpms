@@ -62,6 +62,7 @@ function HotelRoomsContent() {
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
+  const [editingType, setEditingType] = useState<any | null>(null);
 
   // Load rooms and room types
   const loadData = (isSilent = false) => {
@@ -140,22 +141,29 @@ function HotelRoomsContent() {
   };
 
   const handleCreateRoomTypeSubmit = async (payload: any) => {
+    const isEdit = !!payload.id;
     try {
       const res = await fetch('/api/hotel/room-types', {
-        method: 'POST',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
-        setRoomTypes([...roomTypes, data.data].sort((a, b) => a.name.localeCompare(b.name)));
+        if (isEdit) {
+          setRoomTypes(roomTypes.map((t) => (t.id === payload.id ? data.data : t)));
+          toast.success('Room Category updated successfully');
+        } else {
+          setRoomTypes([...roomTypes, data.data].sort((a, b) => a.name.localeCompare(b.name)));
+          toast.success('Room Category created successfully');
+        }
         setShowAddType(false);
-        toast.success('Room Category created successfully');
+        setEditingType(null);
       } else {
-        toast.error(data.message || 'Failed to create room category');
+        toast.error(data.message || `Failed to ${isEdit ? 'update' : 'create'} room category`);
       }
     } catch (err) {
-      toast.error('Error creating room category');
+      toast.error(`Error ${isEdit ? 'updating' : 'creating'} room category`);
     }
   };
 
@@ -615,6 +623,9 @@ function HotelRoomsContent() {
                           <span className="text-[10px] text-emerald-400 font-medium mt-0.5">
                             Extra Adult: ₹{extraAdRate}/nt{extraChRate > 0 ? ` · Child: ₹${extraChRate}/nt` : ''}
                           </span>
+                          <span className="text-[10px] text-amber-400 font-bold mt-0.5">
+                            GST: {type.gstRate !== null && type.gstRate !== undefined ? `${type.gstRate}%` : 'Auto Slab'}
+                          </span>
                         </div>
                       </td>
                       <td className="p-5">
@@ -623,17 +634,29 @@ function HotelRoomsContent() {
                         </span>
                       </td>
                       <td className="p-5 pr-6 text-right">
-                        {roomsAssigned === 0 ? (
+                        <div className="inline-flex items-center gap-2">
                           <button
-                            onClick={() => handleDeleteRoomType(type.id)}
-                            className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-all border border-rose-500/20"
-                            title="Delete Category"
+                            onClick={() => {
+                              setEditingType(type);
+                              setShowAddType(true);
+                            }}
+                            className="p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 transition-all border border-indigo-500/20"
+                            title="Edit Category"
                           >
-                            <Trash2 size={13} />
+                            <Pencil size={13} />
                           </button>
-                        ) : (
-                          <span className="text-[9px] text-slate-500 font-black uppercase tracking-wider bg-slate-950 border border-slate-900 px-3 py-1 rounded-lg">In Active Use</span>
-                        )}
+                          {roomsAssigned === 0 ? (
+                            <button
+                              onClick={() => handleDeleteRoomType(type.id)}
+                              className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-all border border-rose-500/20"
+                              title="Delete Category"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          ) : (
+                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-wider bg-slate-950 border border-slate-900 px-3 py-1 rounded-lg">In Active Use</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -644,10 +667,14 @@ function HotelRoomsContent() {
         </div>
       )}
 
-      {/* Overlay Modal: Add Room Category */}
+      {/* Overlay Modal: Add / Edit Room Category */}
       {showAddType && (
         <CategoryAddModal 
-          onClose={() => setShowAddType(false)} 
+          initialData={editingType}
+          onClose={() => {
+            setShowAddType(false);
+            setEditingType(null);
+          }} 
           onSave={handleCreateRoomTypeSubmit} 
         />
       )}

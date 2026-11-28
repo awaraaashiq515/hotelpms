@@ -19,10 +19,14 @@ export async function GET() {
           storyTitle: 'Our Mission – Redefining POS for the Modern Era',
         },
       });
-      return apiResponse(newSettings);
+      const res = apiResponse(newSettings);
+      res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return res;
     }
     
-    return apiResponse(settings);
+    const res = apiResponse(settings);
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res;
   } catch (error) {
     return apiError(error);
   }
@@ -56,10 +60,32 @@ export async function PUT(req: NextRequest) {
         where: { id: settings.id },
         data: updateData,
       });
+
+      // Synchronize logo and brand name across all properties
+      if (updateData.logoUrl !== undefined) {
+        await prisma.property.updateMany({
+          data: { logoUrl: updateData.logoUrl || null }
+        }).catch(() => null);
+      }
+      if (updateData.hotelName) {
+        await prisma.property.updateMany({
+          data: { brandName: updateData.hotelName }
+        }).catch(() => null);
+      }
     } else {
       settings = await prisma.websiteSettings.create({
         data: body,
       });
+      if (body.logoUrl) {
+        await prisma.property.updateMany({
+          data: { logoUrl: body.logoUrl }
+        }).catch(() => null);
+      }
+      if (body.hotelName) {
+        await prisma.property.updateMany({
+          data: { brandName: body.hotelName }
+        }).catch(() => null);
+      }
     }
     
     // Force a fresh fetch of the settings to ensure consistency

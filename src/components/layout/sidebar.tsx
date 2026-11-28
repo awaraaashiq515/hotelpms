@@ -19,7 +19,15 @@ export const Sidebar: React.FC = () => {
   const [barPosEnabled, setBarPosEnabled] = useState(false);
   const [cafePosEnabled, setCafePosEnabled] = useState(false);
   const [property, setProperty] = useState<any>(null);
+  const [websiteSettings, setWebsiteSettings] = useState<any>(null);
   const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch(`/api/website/settings?_t=${Date.now()}`)
+      .then(res => res.json())
+      .then(d => { if (d.success && d.data) setWebsiteSettings(d.data); })
+      .catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     const fetchUnreadCount = () => {
@@ -245,28 +253,33 @@ export const Sidebar: React.FC = () => {
         {/* Branding Area */}
         <div className={`px-6 py-6 border-b border-white/5 bg-black/10 ${!isOpen && 'flex justify-center px-0'}`}>
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 overflow-hidden">
-                {property?.logoUrl ? (
+             <div className="w-10 h-10 bg-pos-primary rounded-xl flex items-center justify-center shadow-lg shadow-pos-primary/20 overflow-hidden shrink-0">
+                {(property?.logoUrl || websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) ? (
                   <img 
-                    src={property.logoUrl} 
-                    alt={property?.name || 'Logo'} 
+                    src={property?.logoUrl || websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl} 
+                    alt={property?.name || websiteSettings?.hotelName || 'Logo'} 
                     className="w-full h-full object-contain p-0.5"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <span className="text-white font-black text-2xl italic">O</span>
+                  <span className="text-white font-black text-2xl italic">
+                    {(property?.name || websiteSettings?.hotelName || 'O').charAt(0).toUpperCase()}
+                  </span>
                 )}
              </div>
              {isOpen && (
                 <div>
                    <p className="text-2xl font-black text-white tracking-tighter uppercase leading-none">
-                     {property?.name ? (
-                       <>{property.name.split(' ')[0]}<span className="text-pos-primary font-light">{property.name.split(' ').slice(1).join(' ')}</span></>
-                     ) : (
-                       <>Order<span className="text-pos-primary font-light">Mint</span></>
-                     )}
+                     {(() => {
+                       const name = property?.name || websiteSettings?.hotelName || 'OrderMint';
+                       return (
+                         <>{name.split(' ')[0]}<span className="text-pos-primary font-light"> {name.split(' ').slice(1).join(' ')}</span></>
+                       );
+                     })()}
                    </p>
-                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">POS System</p>
+                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                     {websiteSettings?.tagline || 'POS System'}
+                   </p>
                 </div>
              )}
           </div>

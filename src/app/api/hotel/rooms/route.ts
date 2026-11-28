@@ -92,10 +92,6 @@ export async function PUT(request: NextRequest) {
       return apiError(new Error('Room ID is required'), 400);
     }
 
-    if (discount !== undefined && discount !== null && !validateDiscount(Number(discount))) {
-      return apiError(new Error('Discount percentage must be between 0 and 100.'), 400);
-    }
-
     const room = await prisma.room.update({
       where: { id },
       data: {
@@ -202,10 +198,6 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return apiError(new Error('Room ID is required'), 400);
-    }
-
-    if (discount !== undefined && discount !== null && !validateDiscount(Number(discount))) {
-      return apiError(new Error('Discount percentage must be between 0 and 100.'), 400);
     }
 
     const room = await prisma.room.findUnique({

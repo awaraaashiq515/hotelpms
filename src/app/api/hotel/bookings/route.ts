@@ -77,10 +77,27 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Fetch linked agent bookings if any
+    const resIds = reservations.map((r) => r.id);
+    const linkedAgentBookings = resIds.length > 0
+      ? await prisma.agentBooking.findMany({
+          where: { reservationId: { in: resIds } },
+          include: { agent: true },
+        })
+      : [];
+
+    const agentBookingByResId: Record<string, any> = {};
+    for (const ab of linkedAgentBookings) {
+      if (ab.reservationId) {
+        agentBookingByResId[ab.reservationId] = ab;
+      }
+    }
+
     const sanitized = reservations.map((r) => {
       const isComplimentary = Boolean(r.waiveBill || r.isOwnerGuest || r.ownerBillingType === 'COMPLIMENTARY');
       const openFolio = r.folios?.find((f) => f.status === 'OPEN');
       const realDue = isComplimentary ? 0 : (openFolio?.closingBalance !== undefined ? openFolio.closingBalance : r.dueAmount);
+      const linkedAb = agentBookingByResId[r.id];
 
       return {
         ...r,
@@ -92,6 +109,8 @@ export async function GET(request: NextRequest) {
               idNumber: maskAadhaar(r.guest.idNumber),
             }
           : null,
+        agentBooking: linkedAb || null,
+        agent: linkedAb?.agent || null,
       };
     });
 
@@ -163,7 +182,7 @@ export async function POST(request: NextRequest) {
       isOwnerGuest = false,
       ownerVipCode = null,
       ownerName = null,
-      ownerBillingType = 'COMPLIMENTARY',
+      ownerBillingType = null,
       waiveBill = false,
       checkInImmediately = false,
     } = body;
@@ -317,7 +336,7 @@ export async function POST(request: NextRequest) {
     // Generate unique Booking No
     const bookingNo = `RES-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
 
-    const effectiveWaiveBill = Boolean(waiveBill || isOwnerGuest || ownerBillingType === 'COMPLIMENTARY');
+    const effectiveWaiveBill = Boolean(waiveBill || (isOwnerGuest && ownerBillingType === 'COMPLIMENTARY'));
     const total = effectiveWaiveBill ? 0 : Number(totalAmount || 0);
     const advance = effectiveWaiveBill ? 0 : Number(advanceAmount || 0);
     const due = effectiveWaiveBill ? 0 : Math.max(0, total - advance);
@@ -404,7 +423,7 @@ export async function POST(request: NextRequest) {
         isOwnerGuest: Boolean(isOwnerGuest),
         ownerVipCode: ownerVipCode ? String(ownerVipCode).trim() : null,
         ownerName: ownerName ? String(ownerName).trim() : null,
-        ownerBillingType: ownerBillingType || 'COMPLIMENTARY',
+        ownerBillingType: isOwnerGuest ? (ownerBillingType || 'COMPLIMENTARY') : null,
         waiveBill: effectiveWaiveBill,
         wifiPassword: wifiPassword || null,
         wifiStatus: wifiStatus || 'ACTIVE',
@@ -596,7 +615,7 @@ export async function POST(request: NextRequest) {
                 guestName,
                 property.name || 'OrderMint Hotel',
                 reservation.bookingNo,
-                roomType?.name || 'Standard Room',
+                reservation.roomType?.name || 'Standard Room',
                 new Date(reservation.arrivalDate).toLocaleDateString('en-GB'),
                 new Date(reservation.departureDate).toLocaleDateString('en-GB'),
               ],
@@ -638,6 +657,9 @@ export async function PATCH(request: NextRequest) {
       assignedRoomId,
       roomTypeId,
       upgradeCharge,
+      upgradedBy,
+      upgradeReason,
+      refundData,
       arrivalDate,
       departureDate, 
       extraCharge, 
@@ -673,6 +695,19 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) {
       return apiError(new Error('Reservation ID is required'), 400);
+    }
+
+    // Fetch existing reservation for reference & auditing
+    const existingRes = await prisma.reservation.findUnique({
+      where: { id },
+      include: {
+        rooms: { include: { room: true } },
+        roomType: true,
+        folios: { where: { status: 'OPEN' } },
+      }
+    });
+    if (!existingRes) {
+      return apiError(new Error('Reservation not found'), 404);
     }
 
     // Build update data — only update fields that are provided
@@ -725,30 +760,89 @@ export async function PATCH(request: NextRequest) {
       if (targetRoom) {
         updateData.roomTypeId = targetRoom.roomTypeId;
       }
+
+      // Record room upgrade audit log with staff name and reason
+      const oldRoomNumber = existingRes.rooms?.[0]?.room?.roomNumber || existingRes.assignedRoomId || 'Unassigned';
+      const newRoomNumber = targetRoom?.roomNumber || assignedRoomId;
+      const staffWhoUpgraded = upgradedBy ? String(upgradedBy).trim() : null;
+      const reasonText = upgradeReason ? String(upgradeReason).trim() : null;
+      const surchargeText = Number(upgradeCharge) > 0 ? `₹${Number(upgradeCharge).toLocaleString('en-IN')}` : 'Complimentary (₹0)';
+
+      if (staffWhoUpgraded || oldRoomNumber !== newRoomNumber) {
+        const upgradeAuditEntry = `[ROOM UPGRADE: Room ${oldRoomNumber} ➔ Room ${newRoomNumber}${staffWhoUpgraded ? ` by ${staffWhoUpgraded}` : ''}${reasonText ? ` | Reason: ${reasonText}` : ''} | Surcharge: ${surchargeText} on ${new Date().toLocaleString('en-IN')}]`;
+        const baseNotes = updateData.addOnNotes !== undefined ? updateData.addOnNotes : (existingRes.addOnNotes || '');
+        updateData.addOnNotes = (baseNotes ? baseNotes + '\n' : '') + upgradeAuditEntry;
+      }
     } else if (roomTypeId) {
       updateData.roomTypeId = roomTypeId;
     }
 
     // Handle room upgrade extra charge
     if (upgradeCharge && Number(upgradeCharge) > 0) {
-      const currentRes = await prisma.reservation.findUnique({ where: { id } });
-      if (currentRes) {
-        updateData.totalAmount = (currentRes.totalAmount || 0) + Number(upgradeCharge);
-        updateData.dueAmount = Math.max(0, (currentRes.dueAmount || 0) + Number(upgradeCharge));
+      const curTotal = updateData.totalAmount !== undefined ? updateData.totalAmount : (existingRes.totalAmount || 0);
+      const curDue = updateData.dueAmount !== undefined ? updateData.dueAmount : (existingRes.dueAmount || 0);
+      updateData.totalAmount = curTotal + Number(upgradeCharge);
+      updateData.dueAmount = Math.max(0, curDue + Number(upgradeCharge));
+    }
+
+    // Handle refund processing
+    if (refundData && Number(refundData.amount) > 0) {
+      const refundAmt = Math.round(Number(refundData.amount));
+      const curAdvance = existingRes.advanceAmount || 0;
+      const newAdvance = Math.max(0, curAdvance - refundAmt);
+      const curTotal = updateData.totalAmount !== undefined ? updateData.totalAmount : (existingRes.totalAmount || 0);
+      const newDue = Math.max(0, curTotal - newAdvance);
+
+      updateData.advanceAmount = newAdvance;
+      updateData.dueAmount = newDue;
+
+      const staffName = refundData.processedBy ? String(refundData.processedBy).trim() : 'Staff';
+      const method = refundData.paymentMode || 'CASH';
+      const reason = refundData.reason || 'Guest Refund';
+      const refNo = refundData.referenceNo ? ` | Ref: ${refundData.referenceNo}` : '';
+      const refundAudit = `[REFUND PROCESSED: ₹${refundAmt.toLocaleString('en-IN')} via ${method} by ${staffName} on ${new Date().toLocaleString('en-IN')}. Reason: ${reason}${refNo}]`;
+
+      const curNotes = updateData.addOnNotes !== undefined ? updateData.addOnNotes : (existingRes.addOnNotes || '');
+      updateData.addOnNotes = (curNotes ? curNotes + '\n' : '') + refundAudit;
+
+      // Record in Folio
+      const openFolio = existingRes.folios?.[0] || await prisma.folio.findFirst({
+        where: { reservationId: id }
+      });
+
+      if (openFolio) {
+        await prisma.folioTransaction.create({
+          data: {
+            folioId: openFolio.id,
+            txnType: 'DEBIT',
+            sourceModule: 'HMS',
+            description: `Refund: ₹${refundAmt} via ${method} (Processed by: ${staffName}, Reason: ${reason})`,
+            debitAmount: refundAmt,
+            creditAmount: 0,
+            netAmount: refundAmt,
+          }
+        }).catch((err) => console.error('Error creating folio refund transaction:', err));
+
+        await prisma.folio.update({
+          where: { id: openFolio.id },
+          data: {
+            totalPayments: { decrement: refundAmt },
+            closingBalance: { increment: refundAmt },
+          }
+        }).catch((err) => console.error('Error updating folio for refund:', err));
       }
     }
 
     // Handle stay extension: update departure date + recalc amounts
     if (departureDate) {
-      const reservation = await prisma.reservation.findUnique({ where: { id } });
-      if (!reservation) return apiError(new Error('Reservation not found'), 404);
-
       updateData.departureDate = new Date(departureDate);
 
       // Add extra charge to total & due amounts
       if (extraCharge && Number(extraCharge) > 0) {
-        updateData.totalAmount = (reservation.totalAmount || 0) + Number(extraCharge);
-        updateData.dueAmount = Math.max(0, (reservation.dueAmount || 0) + Number(extraCharge));
+        const curTot = updateData.totalAmount !== undefined ? updateData.totalAmount : (existingRes.totalAmount || 0);
+        const curDue = updateData.dueAmount !== undefined ? updateData.dueAmount : (existingRes.dueAmount || 0);
+        updateData.totalAmount = curTot + Number(extraCharge);
+        updateData.dueAmount = Math.max(0, curDue + Number(extraCharge));
       }
     }
 
@@ -839,12 +933,14 @@ export async function PATCH(request: NextRequest) {
             where: { reservationId: id, status: 'OPEN' }
           });
           if (openFolio) {
+            const upgradeStaffTag = upgradedBy ? ` (By: ${upgradedBy})` : '';
+            const upgradeReasonTag = upgradeReason ? ` - ${upgradeReason}` : '';
             await prisma.folioTransaction.create({
               data: {
                 folioId: openFolio.id,
                 txnType: 'DEBIT',
                 sourceModule: 'HMS',
-                description: `Room Upgrade Surcharge`,
+                description: `Room Upgrade Surcharge${upgradeStaffTag}${upgradeReasonTag}`,
                 debitAmount: Number(upgradeCharge),
                 creditAmount: 0,
                 netAmount: Number(upgradeCharge),

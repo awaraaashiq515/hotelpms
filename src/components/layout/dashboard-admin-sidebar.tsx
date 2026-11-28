@@ -14,6 +14,7 @@ export const DashboardAdminSidebar: React.FC = () => {
   const params = useParams();
   const { isOpen, close } = useSidebar();
   const [session, setSession] = useState<any>(null);
+  const [websiteSettings, setWebsiteSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
@@ -26,6 +27,19 @@ export const DashboardAdminSidebar: React.FC = () => {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    const loadWebsiteSettings = () => {
+      fetch(`/api/website/settings?_t=${Date.now()}`)
+        .then(res => res.json())
+        .then(d => { if (d.success && d.data) setWebsiteSettings(d.data); })
+        .catch(() => {});
+    };
+
+    loadWebsiteSettings();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('website-settings-updated', loadWebsiteSettings);
+      return () => window.removeEventListener('website-settings-updated', loadWebsiteSettings);
+    }
   }, []);
 
   const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
@@ -255,12 +269,30 @@ export const DashboardAdminSidebar: React.FC = () => {
           {/* Admin Branding Area */}
           <div className={`px-6 py-5 border-b border-slate-800/60 bg-slate-950/30 ${!isOpen && 'flex justify-center px-0'}`}>
             <div className="flex items-center gap-3">
-              <div className={`p-2 bg-pos-primary/10 rounded-lg ${!isOpen && 'p-1.5'}`}>
-                <ShieldCheck className="text-pos-primary" size={isOpen ? 24 : 20} />
+              <div className={`w-10 h-10 rounded-xl bg-slate-900 border border-slate-700/60 flex items-center justify-center overflow-hidden shrink-0 ${!isOpen && 'w-8 h-8'}`}>
+                {(websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) ? (
+                  <img
+                    src={websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl}
+                    alt={websiteSettings?.hotelName || 'Logo'}
+                    className="w-full h-full object-contain p-1"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <ShieldCheck className="text-pos-primary" size={isOpen ? 24 : 20} />
+                )}
               </div>
               {isOpen && (
-                <div>
-                  <p className="text-2xl font-black text-white tracking-tighter uppercase">Order<span className="text-pos-primary font-light">Mint</span></p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-black text-white tracking-tight uppercase truncate">
+                    {websiteSettings?.hotelName ? (
+                      <>
+                        <span>{websiteSettings.hotelName.split(' ')[0]}</span>{' '}
+                        <span className="text-pos-primary font-light">{websiteSettings.hotelName.split(' ').slice(1).join(' ')}</span>
+                      </>
+                    ) : (
+                      <>Order<span className="text-pos-primary font-light">Mint</span></>
+                    )}
+                  </p>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{session?.role?.replace('_', ' ') || 'Management'}</p>
                 </div>
               )}

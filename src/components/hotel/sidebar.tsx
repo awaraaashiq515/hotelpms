@@ -263,6 +263,27 @@ export const HotelSidebar: React.FC = () => {
   const [restaurantCode, setRestaurantCode] = React.useState<string | null>(null);
   const [isOwnerOrAdmin, setIsOwnerOrAdmin] = React.useState(false);
   const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [websiteSettings, setWebsiteSettings] = React.useState<any>(null);
+  const [logoFailed, setLogoFailed] = React.useState(false);
+
+  // Load website & branding settings from Super Admin
+  React.useEffect(() => {
+    const loadSettings = () => {
+      fetch(`/api/website/settings?_t=${Date.now()}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.data) {
+            setWebsiteSettings(d.data);
+            setLogoFailed(false);
+          }
+        })
+        .catch(() => {});
+    };
+
+    loadSettings();
+    window.addEventListener('website-settings-updated', loadSettings);
+    return () => window.removeEventListener('website-settings-updated', loadSettings);
+  }, []);
 
   // Detect if user is Hotel Admin/Owner, Super Admin, or has attached restaurant
   React.useEffect(() => {
@@ -421,17 +442,37 @@ export const HotelSidebar: React.FC = () => {
     >
       {/* ── Brand ── */}
       <div className="px-4 py-5 border-b border-slate-800/60 bg-gradient-to-b from-slate-900/80 to-transparent flex items-center justify-between shrink-0">
-        <Link href="/hotel/operations-dashboard" className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
-          <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
-            <span className="text-white font-black text-lg italic">H</span>
+        <Link href="/hotel" className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity">
+          <div className="w-10 h-10 bg-slate-900 border border-slate-700/60 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden shrink-0">
+            {!logoFailed && (websiteSettings?.logoUrl || websiteSettings?.logoScrolledUrl) ? (
+              <img
+                src={websiteSettings.logoUrl || websiteSettings.logoScrolledUrl}
+                alt={websiteSettings?.hotelName || 'Logo'}
+                className="w-full h-full object-contain p-1"
+                onError={() => setLogoFailed(true)}
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                <span className="text-white font-black text-lg italic">
+                  {websiteSettings?.hotelName ? websiteSettings.hotelName.trim().charAt(0).toUpperCase() : 'H'}
+                </span>
+              </div>
+            )}
           </div>
           {isOpen && (
-            <div className="min-w-0">
-              <p className="text-sm font-black text-white tracking-tight leading-none">
-                Guest<span className="text-indigo-400 font-light">Flow</span> <span className="text-violet-400 text-xs font-black">AI</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-white tracking-tight leading-none truncate">
+                {websiteSettings?.hotelName ? (
+                  <>
+                    <span>{websiteSettings.hotelName.split(' ')[0]}</span>{' '}
+                    <span className="text-indigo-400 font-light">{websiteSettings.hotelName.split(' ').slice(1).join(' ')}</span>
+                  </>
+                ) : (
+                  <>Guest<span className="text-indigo-400 font-light">Flow</span> <span className="text-violet-400 text-xs font-black">AI</span></>
+                )}
               </p>
-              <p className="text-[9px] text-indigo-300/70 font-bold uppercase tracking-widest mt-1">
-                Hotel PMS
+              <p className="text-[9px] text-indigo-300/70 font-bold uppercase tracking-widest mt-1 truncate">
+                {websiteSettings?.tagline || 'Hotel PMS'}
               </p>
             </div>
           )}

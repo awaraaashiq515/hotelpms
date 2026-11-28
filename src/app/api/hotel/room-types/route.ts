@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       return apiError(new Error('No property context found.'), 400);
     }
 
-    const { name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate } = body;
+    const { name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate, gstRate } = body;
 
     if (!validatePositiveAmount(Number(baseRate))) {
       return apiError(new Error('Base rate must be a strictly positive number (> 0).'), 400);
@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
         baseOccupancy: baseOccupancy !== undefined ? Number(baseOccupancy) : 2,
         extraAdultRate: extraAdultRate !== undefined ? Number(extraAdultRate) : 0,
         extraChildRate: extraChildRate !== undefined ? Number(extraChildRate) : 0,
+        gstRate: gstRate !== undefined && gstRate !== null && gstRate !== '' ? Number(gstRate) : null,
       },
     });
 
@@ -138,7 +139,7 @@ export async function PUT(request: NextRequest) {
     if (!session) return apiError(new Error('Unauthorized'), 401);
 
     const body = await request.json();
-    const { id, name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate } = body;
+    const { id, name, code, baseRate, maxOccupancy, baseOccupancy, extraAdultRate, extraChildRate, gstRate } = body;
 
     if (!id) {
       return apiError(new Error('Room Type ID is required'), 400);
@@ -154,6 +155,7 @@ export async function PUT(request: NextRequest) {
         baseOccupancy: baseOccupancy !== undefined ? Number(baseOccupancy) : undefined,
         extraAdultRate: extraAdultRate !== undefined ? Number(extraAdultRate) : undefined,
         extraChildRate: extraChildRate !== undefined ? Number(extraChildRate) : undefined,
+        gstRate: gstRate === null || gstRate === '' ? null : gstRate !== undefined ? Number(gstRate) : undefined,
       },
       include: { rooms: true },
     });

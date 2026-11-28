@@ -8,7 +8,7 @@ import {
   Clock, AlertCircle, RefreshCw, IndianRupee,
   User, Building2, Smartphone, Banknote,
   Globe, Tag, ArrowUpRight, Bed, Percent,
-  Layers, Check, Sparkles, HelpCircle,
+  Layers, Check, Sparkles, HelpCircle, CalendarDays,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import ReceiptModal, { FolioDetail } from '@/components/hotel/checkout/ReceiptModal';
@@ -196,12 +196,21 @@ export default function HotelInvoicesPage() {
   const [gstFilter, setGstFilter] = useState<'ALL' | 'WITH_GST' | 'WITHOUT_GST'>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'CASH' | 'ONLINE' | 'SPLIT' | 'UNPAID'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'DUE'>('ALL');
-  const [datePreset, setDatePreset] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
+  const [datePreset, setDatePreset] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM'>('ALL');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [search, setSearch] = useState('');
 
   // Selected Invoice for Full Receipt Modal View
   const [selectedInvoice, setSelectedInvoice] = useState<HotelInvoiceRecord | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+
+  const toLocalDateStr = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // Load Invoices
   const fetchInvoices = useCallback(async () => {
@@ -210,17 +219,20 @@ export default function HotelInvoicesPage() {
       const params = new URLSearchParams();
 
       if (datePreset === 'TODAY') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = toLocalDateStr(new Date());
         params.set('startDate', today);
         params.set('endDate', today);
       } else if (datePreset === 'WEEK') {
         const d = new Date();
         d.setDate(d.getDate() - 7);
-        params.set('startDate', d.toISOString().split('T')[0]);
+        params.set('startDate', toLocalDateStr(d));
       } else if (datePreset === 'MONTH') {
         const d = new Date();
         d.setDate(d.getDate() - 30);
-        params.set('startDate', d.toISOString().split('T')[0]);
+        params.set('startDate', toLocalDateStr(d));
+      } else if (datePreset === 'CUSTOM') {
+        if (customStartDate) params.set('startDate', customStartDate);
+        if (customEndDate) params.set('endDate', customEndDate);
       }
 
       const res = await fetch(`/api/hotel/invoices?${params.toString()}`);
@@ -236,7 +248,7 @@ export default function HotelInvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [datePreset]);
+  }, [datePreset, customStartDate, customEndDate]);
 
   useEffect(() => {
     fetchInvoices();
@@ -280,6 +292,8 @@ export default function HotelInvoicesPage() {
     setPaymentFilter('ALL');
     setStatusFilter('ALL');
     setDatePreset('ALL');
+    setCustomStartDate('');
+    setCustomEndDate('');
     setSearch('');
   };
 
@@ -774,10 +788,10 @@ export default function HotelInvoicesPage() {
             </select>
           </div>
 
-          {/* 4. Date Presets */}
+          {/* 4. Date Selection */}
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
-              <Clock size={11} className="text-orange-400" /> Date Period
+              <CalendarDays size={11} className="text-orange-400" /> Date Selection
             </label>
             <div className="flex items-center bg-slate-800/60 border border-slate-700/40 rounded-xl p-0.5">
               {[
@@ -785,10 +799,19 @@ export default function HotelInvoicesPage() {
                 { id: 'TODAY', label: 'Today' },
                 { id: 'WEEK', label: '7D' },
                 { id: 'MONTH', label: '30D' },
+                { id: 'CUSTOM', label: 'Custom' },
               ].map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => setDatePreset(p.id as any)}
+                  type="button"
+                  onClick={() => {
+                    setDatePreset(p.id as any);
+                    if (p.id === 'CUSTOM' && !customStartDate && !customEndDate) {
+                      const today = toLocalDateStr(new Date());
+                      setCustomStartDate(today);
+                      setCustomEndDate(today);
+                    }
+                  }}
                   className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all ${
                     datePreset === p.id
                       ? 'bg-orange-500/25 text-orange-300 shadow-sm'
@@ -827,6 +850,46 @@ export default function HotelInvoicesPage() {
           </div>
         </div>
 
+        {/* Custom Date Range Picker Row */}
+        {datePreset === 'CUSTOM' && (
+          <div className="pt-2 border-t border-slate-800/40 flex flex-wrap items-center gap-3">
+            <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
+              <CalendarDays size={12} /> Select Date Range:
+            </span>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">From</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-white text-xs font-bold focus:outline-none focus:border-orange-500/60 [color-scheme:dark]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">To</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-white text-xs font-bold focus:outline-none focus:border-orange-500/60 [color-scheme:dark]"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                  setDatePreset('ALL');
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/40"
+              >
+                Clear Dates
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Active Filters Bar */}
         {isAnyFilterActive && (
           <div className="pt-2 border-t border-slate-800/40 flex items-center gap-2 flex-wrap text-xs">
@@ -847,6 +910,21 @@ export default function HotelInvoicesPage() {
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[10px] font-bold">
                 Status: {statusFilter}
                 <button onClick={() => setStatusFilter('ALL')} className="hover:text-white">✕</button>
+              </span>
+            )}
+            {datePreset !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 text-[10px] font-bold">
+                Date: {datePreset === 'CUSTOM' ? `${customStartDate || '...'} to ${customEndDate || '...'}` : datePreset}
+                <button
+                  onClick={() => {
+                    setDatePreset('ALL');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                  }}
+                  className="hover:text-white"
+                >
+                  ✕
+                </button>
               </span>
             )}
             {search && (

@@ -55,11 +55,11 @@ interface AgentStats {
 }
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:    { label: 'Pending Review', color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/30' },
-  CONFIRMED:  { label: 'Confirmed',      color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
-  CHECKED_IN: { label: 'Checked In',     color: 'text-sky-400',     bg: 'bg-sky-500/10 border-sky-500/30' },
-  COMPLETED:  { label: 'Completed',      color: 'text-indigo-400',  bg: 'bg-indigo-500/10 border-indigo-500/30' },
-  CANCELLED:  { label: 'Cancelled',      color: 'text-rose-400',    bg: 'bg-rose-500/10 border-rose-500/30' },
+  PENDING: { label: 'Pending Review', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+  CONFIRMED: { label: 'Confirmed', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
+  CHECKED_IN: { label: 'Checked In', color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/30' },
+  COMPLETED: { label: 'Completed', color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/30' },
+  CANCELLED: { label: 'Cancelled', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/30' },
 };
 
 function StarRating({ count = 0 }: { count?: number }) {
@@ -201,7 +201,7 @@ export default function AgentPortal() {
         refreshAgent(parsedAgent.id);
         setView('home');
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   // ── Load Hotels (only after login) ─────────────────────────────────────────
@@ -213,7 +213,7 @@ export default function AgentPortal() {
       const res = await fetch(url);
       const j = await res.json();
       if (j.success) setHotels(j.data || []);
-    } catch {}
+    } catch { }
     setLoadingHotels(false);
   };
 
@@ -235,7 +235,7 @@ export default function AgentPortal() {
         try {
           localStorage.setItem('agent_info', JSON.stringify(j.data));
           if (j.stats) localStorage.setItem('agent_stats', JSON.stringify(j.stats));
-        } catch (_) {}
+        } catch (_) { }
         toast.success(`Welcome back, ${j.data.name}! 👋`);
         loadHotels(j.data.id);
         setView('home');
@@ -295,7 +295,7 @@ export default function AgentPortal() {
     try {
       localStorage.removeItem('agent_info');
       localStorage.removeItem('agent_stats');
-    } catch (_) {}
+    } catch (_) { }
     setView('auth');
     setAuthMode('login');
   };
@@ -313,9 +313,9 @@ export default function AgentPortal() {
         try {
           localStorage.setItem('agent_info', JSON.stringify(j.data));
           if (j.stats) localStorage.setItem('agent_stats', JSON.stringify(j.stats));
-        } catch (_) {}
+        } catch (_) { }
       }
-    } catch {}
+    } catch { }
   };
 
   // ── Availability Data Loader ──────────────────────────────────────────────
@@ -858,15 +858,13 @@ export default function AgentPortal() {
           {/* Home Tab Bar: Hotels | Local Services */}
           <div className="flex gap-1 bg-[#090f1e] border border-slate-800 rounded-2xl p-1">
             <button onClick={() => setHomeTab('hotels')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black transition-all ${
-                homeTab === 'hotels' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
-              }`}>
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black transition-all ${homeTab === 'hotels' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                }`}>
               <Building2 size={15} /> Hotels
             </button>
             <button onClick={() => setHomeTab('local')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black transition-all ${
-                homeTab === 'local' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
-              }`}>
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black transition-all ${homeTab === 'local' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                }`}>
               <Map size={15} /> Local Services
             </button>
           </div>
@@ -895,249 +893,245 @@ export default function AgentPortal() {
 
           {/* Hotels Tab Content */}
           {homeTab === 'hotels' && (
-          <>
-          {/* Location Filter & Search Hub */}
-          <div className="space-y-3 bg-[#090f1e] border border-slate-800 rounded-3xl p-4 sm:p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <MapPin size={18} className="text-violet-400" />
-                  <h2 className="text-base font-black text-white">Find Hotels by Location</h2>
+            <>
+              {/* Location Filter & Search Hub */}
+              <div className="space-y-3 bg-[#090f1e] border border-slate-800 rounded-3xl p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <MapPin size={18} className="text-violet-400" />
+                      <h2 className="text-base font-black text-white">Find Hotels by Location</h2>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Select a destination city or search hotel properties below
+                    </p>
+                  </div>
+
+                  {/* Location Select Dropdown */}
+                  {uniqueLocations.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-400 hidden sm:inline">Destination:</span>
+                      <select
+                        value={selectedLocation}
+                        onChange={(e) => setSelectedLocation(e.target.value)}
+                        className="bg-[#050a14] border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                      >
+                        <option value="ALL">All Destinations ({hotels.length})</option>
+                        {uniqueLocations.map((loc) => (
+                          <option key={loc} value={loc}>
+                            {loc} ({locationStats[loc] || 0})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Select a destination city or search hotel properties below
-                </p>
-              </div>
 
-              {/* Location Select Dropdown */}
-              {uniqueLocations.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 hidden sm:inline">Destination:</span>
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="bg-[#050a14] border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer"
-                  >
-                    <option value="ALL">All Destinations ({hotels.length})</option>
-                    {uniqueLocations.map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc} ({locationStats[loc] || 0})
-                      </option>
-                    ))}
-                  </select>
+                {/* Search Input */}
+                <div className="relative">
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={hotelSearch}
+                    onChange={(e) => setHotelSearch(e.target.value)}
+                    placeholder="Search hotel by name, city, state or address..."
+                    className="w-full bg-[#050a14] border border-slate-800 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-white focus:outline-none focus:border-violet-500 placeholder-slate-600 transition-colors"
+                  />
+                  {hotelSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setHotelSearch('')}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+                      title="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Search Input */}
-            <div className="relative">
-              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                value={hotelSearch}
-                onChange={(e) => setHotelSearch(e.target.value)}
-                placeholder="Search hotel by name, city, state or address..."
-                className="w-full bg-[#050a14] border border-slate-800 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-white focus:outline-none focus:border-violet-500 placeholder-slate-600 transition-colors"
-              />
-              {hotelSearch && (
-                <button
-                  type="button"
-                  onClick={() => setHotelSearch('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
-                  title="Clear search"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Location Tabs / Pills Bar */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setSelectedLocation('ALL')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all ${
-                  selectedLocation === 'ALL'
-                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30 border border-violet-500'
-                    : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
-                }`}
-              >
-                <Building2 size={13} className={selectedLocation === 'ALL' ? 'text-white' : 'text-slate-500'} />
-                <span>All Locations</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
-                  selectedLocation === 'ALL' ? 'bg-violet-800 text-violet-100' : 'bg-slate-800 text-slate-400'
-                }`}>
-                  {hotels.length}
-                </span>
-              </button>
-
-              {uniqueLocations.map((loc) => {
-                const count = locationStats[loc] || 0;
-                const isSelected = selectedLocation.toLowerCase() === loc.toLowerCase();
-                return (
+                {/* Location Tabs / Pills Bar */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
                   <button
-                    key={loc}
                     type="button"
-                    onClick={() => setSelectedLocation(loc)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 border border-violet-500'
+                    onClick={() => setSelectedLocation('ALL')}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all ${selectedLocation === 'ALL'
+                        ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30 border border-violet-500'
                         : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
-                    }`}
+                      }`}
                   >
-                    <MapPin size={13} className={isSelected ? 'text-white' : 'text-violet-400'} />
-                    <span>{loc}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
-                      isSelected ? 'bg-violet-900 text-white' : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {count}
+                    <Building2 size={13} className={selectedLocation === 'ALL' ? 'text-white' : 'text-slate-500'} />
+                    <span>All Locations</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${selectedLocation === 'ALL' ? 'bg-violet-800 text-violet-100' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                      {hotels.length}
                     </span>
                   </button>
-                );
-              })}
-            </div>
 
-            {/* Active filter summary line if city or search is active */}
-            {(selectedLocation !== 'ALL' || hotelSearch) && (
-              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60 text-slate-400">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span>Showing <b className="text-white">{filteredHotels.length}</b> hotel{filteredHotels.length === 1 ? '' : 's'}</span>
-                  {selectedLocation !== 'ALL' && (
-                    <span>in <span className="text-violet-300 font-bold">📍 {selectedLocation}</span></span>
-                  )}
-                  {hotelSearch && (
-                    <span>matching "<span className="text-slate-200 font-bold">{hotelSearch}</span>"</span>
+                  {uniqueLocations.map((loc) => {
+                    const count = locationStats[loc] || 0;
+                    const isSelected = selectedLocation.toLowerCase() === loc.toLowerCase();
+                    return (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => setSelectedLocation(loc)}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all ${isSelected
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 border border-violet-500'
+                            : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+                          }`}
+                      >
+                        <MapPin size={13} className={isSelected ? 'text-white' : 'text-violet-400'} />
+                        <span>{loc}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-violet-900 text-white' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active filter summary line if city or search is active */}
+                {(selectedLocation !== 'ALL' || hotelSearch) && (
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60 text-slate-400">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span>Showing <b className="text-white">{filteredHotels.length}</b> hotel{filteredHotels.length === 1 ? '' : 's'}</span>
+                      {selectedLocation !== 'ALL' && (
+                        <span>in <span className="text-violet-300 font-bold">📍 {selectedLocation}</span></span>
+                      )}
+                      {hotelSearch && (
+                        <span>matching "<span className="text-slate-200 font-bold">{hotelSearch}</span>"</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedLocation('ALL'); setHotelSearch(''); }}
+                      className="text-violet-400 hover:text-violet-300 font-bold text-[11px] underline underline-offset-2 cursor-pointer ml-auto"
+                    >
+                      Reset filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Hotels Grid */}
+              {loadingHotels ? (
+                <div className="h-48 flex items-center justify-center">
+                  <Loader2 className="animate-spin text-violet-500" size={36} />
+                </div>
+              ) : filteredHotels.length === 0 ? (
+                <div className="py-16 text-center border-2 border-dashed border-slate-800 rounded-3xl bg-[#090f1e]/40 p-8 space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mx-auto text-violet-400">
+                    <MapPin size={32} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-lg font-black text-white">
+                      {selectedLocation !== 'ALL'
+                        ? `No hotels found in "${selectedLocation}"`
+                        : 'No hotels found matching your search'}
+                    </p>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      Try selecting another destination city or clearing filters to view all available hotels.
+                    </p>
+                  </div>
+                  {(selectedLocation !== 'ALL' || hotelSearch) && (
+                    <button
+                      onClick={() => { setSelectedLocation('ALL'); setHotelSearch(''); }}
+                      className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-black text-white transition-all shadow-lg shadow-violet-600/30"
+                    >
+                      Show All Hotels ({hotels.length})
+                    </button>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedLocation('ALL'); setHotelSearch(''); }}
-                  className="text-violet-400 hover:text-violet-300 font-bold text-[11px] underline underline-offset-2 cursor-pointer ml-auto"
-                >
-                  Reset filters
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Hotels Grid */}
-          {loadingHotels ? (
-            <div className="h-48 flex items-center justify-center">
-              <Loader2 className="animate-spin text-violet-500" size={36} />
-            </div>
-          ) : filteredHotels.length === 0 ? (
-            <div className="py-16 text-center border-2 border-dashed border-slate-800 rounded-3xl bg-[#090f1e]/40 p-8 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mx-auto text-violet-400">
-                <MapPin size={32} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-lg font-black text-white">
-                  {selectedLocation !== 'ALL'
-                    ? `No hotels found in "${selectedLocation}"`
-                    : 'No hotels found matching your search'}
-                </p>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Try selecting another destination city or clearing filters to view all available hotels.
-                </p>
-              </div>
-              {(selectedLocation !== 'ALL' || hotelSearch) && (
-                <button
-                  onClick={() => { setSelectedLocation('ALL'); setHotelSearch(''); }}
-                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-black text-white transition-all shadow-lg shadow-violet-600/30"
-                >
-                  Show All Hotels ({hotels.length})
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {filteredHotels.map(hotel => (
-                <div key={hotel.id} onClick={() => openHotel(hotel)}
-                  className="group bg-[#090f1e] border border-slate-800 rounded-3xl overflow-hidden cursor-pointer hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-900/20 transition-all duration-300">
-                  {/* Banner */}
-                  <div className="h-28 bg-gradient-to-br from-violet-900/40 to-slate-900 flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(139,92,246,0.15)_0%,_transparent_70%)]" />
-                    {hotel.logoUrl ? (
-                      <img src={hotel.logoUrl} alt={hotel.name} className="h-16 w-auto object-contain" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/40 to-indigo-600/40 border border-violet-500/30 flex items-center justify-center">
-                        <span className="text-2xl font-black text-violet-300">{hotel.name[0]}</span>
-                      </div>
-                    )}
-                    <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-xl text-[10px] font-black border ${hotel.availableRooms > 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'}`}>
-                      {hotel.availableRooms > 0 ? `${hotel.availableRooms} Available` : 'Fully Booked'}
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-sm font-black text-white group-hover:text-violet-200">{hotel.name}</h3>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-300">
-                            <MapPin size={10} className="text-violet-400" />
-                            {[hotel.city, hotel.state].filter(Boolean).join(', ') || 'Location Unspecified'}
-                          </span>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {filteredHotels.map(hotel => (
+                    <div key={hotel.id} onClick={() => openHotel(hotel)}
+                      className="group bg-[#090f1e] border border-slate-800 rounded-3xl overflow-hidden cursor-pointer hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-900/20 transition-all duration-300">
+                      {/* Banner */}
+                      <div className="h-28 bg-gradient-to-br from-violet-900/40 to-slate-900 flex items-center justify-center relative overflow-hidden">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(139,92,246,0.15)_0%,_transparent_70%)]" />
+                        {hotel.logoUrl ? (
+                          <img src={hotel.logoUrl} alt={hotel.name} className="h-16 w-auto object-contain" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/40 to-indigo-600/40 border border-violet-500/30 flex items-center justify-center">
+                            <span className="text-2xl font-black text-violet-300">{hotel.name[0]}</span>
+                          </div>
+                        )}
+                        <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-xl text-[10px] font-black border ${hotel.availableRooms > 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'}`}>
+                          {hotel.availableRooms > 0 ? `${hotel.availableRooms} Available` : 'Fully Booked'}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <StarRating count={hotel.starRating || 0} />
-                        <CategoryBadge cat={hotel.hotelCategory} />
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="text-sm font-black text-white group-hover:text-violet-200">{hotel.name}</h3>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-300">
+                                <MapPin size={10} className="text-violet-400" />
+                                {[hotel.city, hotel.state].filter(Boolean).join(', ') || 'Location Unspecified'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <StarRating count={hotel.starRating || 0} />
+                            <CategoryBadge cat={hotel.hotelCategory} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="bg-slate-900/80 rounded-xl p-2">
+                            <p className="text-base font-black text-white">{hotel.totalRooms}</p>
+                            <p className="text-[8px] text-slate-500 uppercase font-bold">Total</p>
+                          </div>
+                          <div className="bg-emerald-950/40 rounded-xl p-2 border border-emerald-500/10">
+                            <p className="text-base font-black text-emerald-400">{hotel.availableRooms}</p>
+                            <p className="text-[8px] text-emerald-600 uppercase font-bold">Available</p>
+                          </div>
+                          <div className="bg-rose-950/30 rounded-xl p-2 border border-rose-500/10">
+                            <p className="text-base font-black text-rose-400">{hotel.occupiedRooms}</p>
+                            <p className="text-[8px] text-rose-600 uppercase font-bold">Occupied</p>
+                          </div>
+                        </div>
+                        {hotel.roomTypes.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {hotel.roomTypes.slice(0, 3).map(rt => (
+                              <span key={rt.name} className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
+                                {rt.name} · ₹{rt.baseRate.toLocaleString('en-IN')}
+                              </span>
+                            ))}
+                            {hotel.roomTypes.length > 3 && <span className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-500">+{hotel.roomTypes.length - 3}</span>}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-800 gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openHotel(hotel, 'calendar');
+                            }}
+                            className="flex-1 py-2 px-3 rounded-xl bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 text-[11px] font-black transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <Calendar size={13} className="text-violet-400" />
+                            <span>1-Month Calendar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openHotel(hotel, 'floormap');
+                            }}
+                            className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition-all flex items-center gap-1"
+                          >
+                            <Building2 size={13} />
+                            <span>Live Rooms</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-slate-900/80 rounded-xl p-2">
-                        <p className="text-base font-black text-white">{hotel.totalRooms}</p>
-                        <p className="text-[8px] text-slate-500 uppercase font-bold">Total</p>
-                      </div>
-                      <div className="bg-emerald-950/40 rounded-xl p-2 border border-emerald-500/10">
-                        <p className="text-base font-black text-emerald-400">{hotel.availableRooms}</p>
-                        <p className="text-[8px] text-emerald-600 uppercase font-bold">Available</p>
-                      </div>
-                      <div className="bg-rose-950/30 rounded-xl p-2 border border-rose-500/10">
-                        <p className="text-base font-black text-rose-400">{hotel.occupiedRooms}</p>
-                        <p className="text-[8px] text-rose-600 uppercase font-bold">Occupied</p>
-                      </div>
-                    </div>
-                    {hotel.roomTypes.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {hotel.roomTypes.slice(0, 3).map(rt => (
-                          <span key={rt.name} className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
-                            {rt.name} · ₹{rt.baseRate.toLocaleString('en-IN')}
-                          </span>
-                        ))}
-                        {hotel.roomTypes.length > 3 && <span className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-500">+{hotel.roomTypes.length - 3}</span>}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800 gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openHotel(hotel, 'calendar');
-                        }}
-                        className="flex-1 py-2 px-3 rounded-xl bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 text-[11px] font-black transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                      >
-                        <Calendar size={13} className="text-violet-400" />
-                        <span>1-Month Calendar</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openHotel(hotel, 'floormap');
-                        }}
-                        className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition-all flex items-center gap-1"
-                      >
-                        <Building2 size={13} />
-                        <span>Live Rooms</span>
-                      </button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-          </>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1207,11 +1201,10 @@ export default function AgentPortal() {
               <button
                 type="button"
                 onClick={() => setHotelDetailTab('calendar')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${
-                  hotelDetailTab === 'calendar'
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${hotelDetailTab === 'calendar'
                     ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30'
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                }`}
+                  }`}
               >
                 <Calendar size={14} />
                 <span>1-Month Room Availability Calendar</span>
@@ -1223,11 +1216,10 @@ export default function AgentPortal() {
               <button
                 type="button"
                 onClick={() => setHotelDetailTab('floormap')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${
-                  hotelDetailTab === 'floormap'
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${hotelDetailTab === 'floormap'
                     ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30'
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                }`}
+                  }`}
               >
                 <Building2 size={14} />
                 <span>Live Floor Map</span>
@@ -1240,18 +1232,16 @@ export default function AgentPortal() {
                   <button
                     type="button"
                     onClick={() => setCalendarViewMode('list')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      calendarViewMode === 'list' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${calendarViewMode === 'list' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <List size={13} /> Day List / Matrix
                   </button>
                   <button
                     type="button"
                     onClick={() => setCalendarViewMode('grid')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      calendarViewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${calendarViewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <CalendarDays size={13} /> Month Grid
                   </button>
@@ -1320,24 +1310,22 @@ export default function AgentPortal() {
                     return (
                       <div
                         key={day.date}
-                        className={`bg-[#090f1e] border rounded-2xl transition-all overflow-hidden ${
-                          isSoldOut
+                        className={`bg-[#090f1e] border rounded-2xl transition-all overflow-hidden ${isSoldOut
                             ? 'border-slate-800/60 opacity-70'
                             : day.isToday
-                            ? 'border-violet-500/60 shadow-lg shadow-violet-950/30'
-                            : 'border-slate-800 hover:border-violet-500/30'
-                        }`}
+                              ? 'border-violet-500/60 shadow-lg shadow-violet-950/30'
+                              : 'border-slate-800 hover:border-violet-500/30'
+                          }`}
                       >
                         <div className="p-3.5 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
                           {/* Date Block */}
                           <div className="flex items-center gap-3 min-w-[150px]">
-                            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-black shrink-0 ${
-                              day.isToday
+                            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-black shrink-0 ${day.isToday
                                 ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
                                 : day.isWeekend
-                                ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-500/20'
-                                : 'bg-slate-900 text-white border border-slate-800'
-                            }`}>
+                                  ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-500/20'
+                                  : 'bg-slate-900 text-white border border-slate-800'
+                              }`}>
                               <span className="text-sm leading-none">{day.day}</span>
                               <span className="text-[9px] uppercase tracking-wider opacity-80">{day.month}</span>
                             </div>
@@ -1358,9 +1346,8 @@ export default function AgentPortal() {
                           <div className="flex-1 min-w-[180px]">
                             <div className="flex items-center justify-between text-xs mb-1.5">
                               <span className="font-bold flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                  isSoldOut ? 'bg-rose-500' : isFew ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
-                                }`} />
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${isSoldOut ? 'bg-rose-500' : isFew ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
+                                  }`} />
                                 <span className={isSoldOut ? 'text-rose-400 font-black' : isFew ? 'text-amber-300 font-bold' : 'text-emerald-300 font-bold'}>
                                   {isSoldOut ? 'Sold Out' : `${day.availableRooms} of ${day.totalRooms} Rooms Free`}
                                 </span>
@@ -1372,13 +1359,12 @@ export default function AgentPortal() {
                             {/* Progress bar */}
                             <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden">
                               <div
-                                className={`h-full transition-all rounded-full ${
-                                  isSoldOut
+                                className={`h-full transition-all rounded-full ${isSoldOut
                                     ? 'bg-rose-500 w-full'
                                     : isFew
-                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-                                    : 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                                }`}
+                                      ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                                      : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                                  }`}
                                 style={{
                                   width: `${Math.min(100, Math.round((day.bookedRooms / (day.totalRooms || 1)) * 100))}%`,
                                 }}
@@ -1424,11 +1410,10 @@ export default function AgentPortal() {
                                   day.nextDate
                                 );
                               }}
-                              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md ${
-                                isSoldOut
+                              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md ${isSoldOut
                                   ? 'bg-slate-800/80 text-slate-600 cursor-not-allowed border border-slate-700/60'
                                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-900/30 active:scale-95 cursor-pointer'
-                              }`}
+                                }`}
                             >
                               <Plus size={13} />
                               <span>{isSoldOut ? 'Sold Out' : 'Book Date'}</span>
@@ -1444,11 +1429,10 @@ export default function AgentPortal() {
                               return (
                                 <div
                                   key={rt.id || rt.name}
-                                  className={`rounded-xl p-2.5 border flex items-center justify-between gap-2 ${
-                                    rtAvail
+                                  className={`rounded-xl p-2.5 border flex items-center justify-between gap-2 ${rtAvail
                                       ? 'bg-[#090f1e] border-slate-800 hover:border-violet-500/40'
                                       : 'bg-slate-900/30 border-slate-900 opacity-60'
-                                  }`}
+                                    }`}
                                 >
                                   <div>
                                     <p className="font-bold text-white text-[11px]">{rt.name}</p>
@@ -1463,11 +1447,10 @@ export default function AgentPortal() {
                                     type="button"
                                     disabled={!rtAvail}
                                     onClick={() => triggerBooking(rt.name, rt.baseRate, '', day.date, day.nextDate)}
-                                    className={`px-2 py-1 rounded-lg text-[10px] font-black ${
-                                      rtAvail
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-black ${rtAvail
                                         ? 'bg-violet-600/30 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 cursor-pointer'
                                         : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                                    }`}
+                                      }`}
                                   >
                                     {rtAvail ? 'Select →' : 'Full'}
                                   </button>
@@ -1495,13 +1478,12 @@ export default function AgentPortal() {
                       return (
                         <div
                           key={day.date}
-                          className={`rounded-2xl p-2.5 border flex flex-col justify-between transition-all min-h-[95px] ${
-                            isSoldOut
+                          className={`rounded-2xl p-2.5 border flex flex-col justify-between transition-all min-h-[95px] ${isSoldOut
                               ? 'bg-rose-950/10 border-rose-500/10 opacity-60'
                               : day.isToday
-                              ? 'bg-violet-950/30 border-violet-500/50 shadow-md shadow-violet-950/40'
-                              : 'bg-slate-900/60 border-slate-800/80 hover:border-violet-500/40 hover:bg-slate-900'
-                          }`}
+                                ? 'bg-violet-950/30 border-violet-500/50 shadow-md shadow-violet-950/40'
+                                : 'bg-slate-900/60 border-slate-800/80 hover:border-violet-500/40 hover:bg-slate-900'
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className={`text-xs font-black ${day.isToday ? 'text-violet-300' : 'text-white'}`}>
@@ -1515,9 +1497,8 @@ export default function AgentPortal() {
                           </div>
 
                           <div className="space-y-0.5 my-1">
-                            <div className={`text-[10px] font-bold ${
-                              isSoldOut ? 'text-rose-400' : isFew ? 'text-amber-400' : 'text-emerald-400'
-                            }`}>
+                            <div className={`text-[10px] font-bold ${isSoldOut ? 'text-rose-400' : isFew ? 'text-amber-400' : 'text-emerald-400'
+                              }`}>
                               {isSoldOut ? '0 Free' : `${day.availableRooms} Free`}
                             </div>
                             <div className="text-[11px] font-black text-white">
@@ -1538,11 +1519,10 @@ export default function AgentPortal() {
                                 day.nextDate
                               );
                             }}
-                            className={`w-full py-1 rounded-lg text-[9px] font-black text-center transition-all ${
-                              isSoldOut
+                            className={`w-full py-1 rounded-lg text-[9px] font-black text-center transition-all ${isSoldOut
                                 ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
                                 : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-sm'
-                            }`}
+                              }`}
                           >
                             {isSoldOut ? 'Full' : 'Book'}
                           </button>
@@ -1603,73 +1583,13 @@ export default function AgentPortal() {
                 </div>
               )}
 
-              {/* Floor Filter */}
-              {!loadingRooms && Object.keys(roomsByFloor).length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-                  <span className="text-[10px] font-black text-slate-500 uppercase shrink-0">Floor:</span>
-                  <button onClick={() => setSelectedFloor('ALL')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedFloor === 'ALL' ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>All</button>
-                  {Object.keys(roomsByFloor).map(fl => (
-                    <button key={fl} onClick={() => setSelectedFloor(fl)} className={`px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition-all ${selectedFloor === fl ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>Floor {fl}</button>
-                  ))}
-                </div>
-              )}
-
-              {/* Floor Rooms */}
-              {loadingRooms ? (
-                <div className="h-48 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" size={32} /></div>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2"><Building2 size={14} className="text-violet-400" /> Live Room Status — Floor Map</h3>
-                  {Object.entries(roomsByFloor).filter(([fl]) => selectedFloor === 'ALL' || selectedFloor === fl).map(([fl, rooms]) => {
-                    const avail = rooms.filter((r: any) => r.status === 'AVAILABLE').length;
-                    const isExp = expandedFloors[fl] !== false;
-                    return (
-                      <div key={fl} className="bg-[#090f1e] border border-slate-800 rounded-2xl overflow-hidden">
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-900/50 transition-colors"
-                          onClick={() => setExpandedFloors(p => ({ ...p, [fl]: !isExp }))}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl bg-violet-900/40 border border-violet-500/20 flex items-center justify-center">
-                              <span className="text-xs font-black text-violet-300">{fl}</span>
-                            </div>
-                            <div className="text-left">
-                              <p className="text-sm font-black text-white">Floor {fl}</p>
-                              <p className="text-[10px] text-slate-500">{rooms.length} rooms</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">{avail} free</span>
-                            <span className="text-[9px] font-bold text-rose-400 bg-rose-950/40 border border-rose-500/20 px-2 py-0.5 rounded-full">{rooms.length - avail} busy</span>
-                            {isExp ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
-                          </div>
-                        </button>
-                        {isExp && (
-                          <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                            {rooms.map((r: any) => {
-                              const isAvail = r.status === 'AVAILABLE';
-                              const isOcc = r.status === 'OCCUPIED';
-                              return (
-                                <div key={r.id} onClick={() => isAvail && triggerBooking(r.roomType?.name, r.customRate || r.roomType?.baseRate, `Room ${r.roomNumber} (Floor ${r.floor || fl})`)}
-                                  className={`rounded-xl border p-3 transition-all ${isAvail ? 'bg-emerald-950/20 border-emerald-500/30 cursor-pointer hover:border-emerald-400 hover:bg-emerald-950/40' : isOcc ? 'bg-rose-950/10 border-rose-500/10 opacity-70' : 'bg-slate-900/40 border-slate-800 opacity-50'}`}>
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-sm font-black text-white">#{r.roomNumber}</span>
-                                    {r.isVIP && <span className="text-[7px] font-black px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/20">VIP</span>}
-                                  </div>
-                                  <p className="text-[9px] text-slate-400 font-bold truncate">{r.roomType?.name}</p>
-                                  <p className="text-[10px] font-black text-violet-300 mt-0.5">₹{(r.customRate || r.roomType?.baseRate || 0).toLocaleString('en-IN')}</p>
-                                  <div className={`mt-1.5 text-[8px] font-black px-1.5 py-0.5 rounded-full inline-block ${isAvail ? 'bg-emerald-500/20 text-emerald-300' : isOcc ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-700 text-slate-400'}`}>
-                                    {isAvail ? '✓ AVAILABLE' : isOcc ? '● OCCUPIED' : r.status}
-                                  </div>
-                                  {isAvail && <p className="text-[7px] text-emerald-500 mt-1 font-bold">Tap to Book →</p>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {/* Note: Room numbers are allotted by the hotel front desk */}
+              <div className="rounded-2xl border border-violet-500/20 bg-violet-950/20 px-4 py-3 flex items-center gap-3">
+                <Building2 size={16} className="text-violet-400 shrink-0" />
+                <p className="text-[11px] text-slate-300">
+                  <span className="font-bold text-white">Category-Only Booking:</span> Select your preferred room category above. Specific room numbers will be allotted by the hotel front desk upon confirmation.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -1839,11 +1759,10 @@ export default function AgentPortal() {
                         key={cnt}
                         type="button"
                         onClick={() => handleSetQuickRoomCount(cnt)}
-                        className={`py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                          bookingForm.numberOfRooms === cnt
+                        className={`py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${bookingForm.numberOfRooms === cnt
                             ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30 border border-violet-400/50'
                             : 'bg-[#050a14] border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
-                        }`}
+                          }`}
                       >
                         {cnt} {cnt === 1 ? 'Room' : 'Rooms'}
                       </button>
@@ -1860,11 +1779,10 @@ export default function AgentPortal() {
                       return (
                         <div
                           key={rt.name}
-                          className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                            qty > 0
+                          className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${qty > 0
                               ? 'bg-violet-950/20 border-violet-500/40'
                               : 'bg-[#050a14] border-slate-800/80 hover:border-slate-700'
-                          }`}
+                            }`}
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -1939,12 +1857,11 @@ export default function AgentPortal() {
                     Room Amount (₹){' '}
                     {bookingForm.totalAmount && agent
                       ? `→ Commission: ₹${(
-                          (Number(bookingForm.totalAmount) *
-                            ((selectedHotel as any)?.commissionRate ?? agent.commissionRate)) /
-                          100
-                        ).toFixed(0)} (${
-                          (selectedHotel as any)?.commissionRate ?? agent.commissionRate
-                        }%)`
+                        (Number(bookingForm.totalAmount) *
+                          ((selectedHotel as any)?.commissionRate ?? agent.commissionRate)) /
+                        100
+                      ).toFixed(0)} (${(selectedHotel as any)?.commissionRate ?? agent.commissionRate
+                      }%)`
                       : ''}
                   </label>
                   <div className="relative">
@@ -2313,108 +2230,108 @@ export default function AgentPortal() {
                 </div>
               ) : (
                 bookingsList.map(b => {
-                const cfg = STATUS_STYLE[b.status] || STATUS_STYLE.PENDING;
-                const nights = Math.max(1, Math.ceil((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000));
-                return (
-                  <div key={b.id} className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-black text-white">{b.guestName}</p>
-                          {b.notes?.includes('[GROUP_TRIP_DATA:') && (
-                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-300 border border-violet-500/40 flex items-center gap-1">
-                              <Users size={10} /> Group Trip ({b.adults} Pax)
+                  const cfg = STATUS_STYLE[b.status] || STATUS_STYLE.PENDING;
+                  const nights = Math.max(1, Math.ceil((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000));
+                  return (
+                    <div key={b.id} className="bg-[#090f1e] border border-slate-800 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-white">{b.guestName}</p>
+                            {b.notes?.includes('[GROUP_TRIP_DATA:') && (
+                              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-300 border border-violet-500/40 flex items-center gap-1">
+                                <Users size={10} /> Group Trip ({b.adults} Pax)
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500">{b.guestPhone || 'No phone'} · {b.adults}A {b.children ? `${b.children}C` : ''}</p>
+                        </div>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                      </div>
+                      {((b as any).includePoolAccess || (b as any).includeSpaPackage) && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {(b as any).includePoolAccess && (
+                            <span className="text-[9px] font-bold text-sky-400 bg-sky-950/40 border border-sky-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Waves size={10} /> Pool Access ({(b as any).poolPassCount || 1} Pass)
+                            </span>
+                          )}
+                          {(b as any).includeSpaPackage && (
+                            <span className="text-[9px] font-bold text-pink-400 bg-pink-950/40 border border-pink-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Sparkles size={10} /> Spa: {(b as any).spaServiceType || 'Wellness Package'}
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-500">{b.guestPhone || 'No phone'} · {b.adults}A {b.children ? `${b.children}C` : ''}</p>
+                      )}
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        {[
+                          { label: 'Check-In', value: new Date(b.checkIn).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) },
+                          { label: 'Nights', value: String(nights) },
+                          { label: 'Room', value: b.roomType },
+                          { label: 'Amount', value: `₹${b.totalAmount.toLocaleString('en-IN')}` },
+                        ].map(s => (
+                          <div key={s.label} className="bg-slate-900 rounded-xl p-2">
+                            <p className="text-[8px] text-slate-500 uppercase font-bold">{s.label}</p>
+                            <p className="font-black text-white text-[11px] truncate">{s.value}</p>
+                          </div>
+                        ))}
                       </div>
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-                    </div>
-                    {((b as any).includePoolAccess || (b as any).includeSpaPackage) && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {(b as any).includePoolAccess && (
-                          <span className="text-[9px] font-bold text-sky-400 bg-sky-950/40 border border-sky-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
-                            <Waves size={10} /> Pool Access ({(b as any).poolPassCount || 1} Pass)
-                          </span>
-                        )}
-                        {(b as any).includeSpaPackage && (
-                          <span className="text-[9px] font-bold text-pink-400 bg-pink-950/40 border border-pink-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
-                            <Sparkles size={10} /> Spa: {(b as any).spaServiceType || 'Wellness Package'}
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between bg-slate-900 rounded-xl px-3 py-2">
+                        <span className="text-[10px] text-slate-500 font-bold">Your Commission</span>
+                        <span className={`text-sm font-black ${b.commissionPaid ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          ₹{b.commission.toLocaleString('en-IN')} {b.commissionPaid ? '✓ Credited' : '(Pending)'}
+                        </span>
                       </div>
-                    )}
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      {[
-                        { label: 'Check-In', value: new Date(b.checkIn).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) },
-                        { label: 'Nights', value: String(nights) },
-                        { label: 'Room', value: b.roomType },
-                        { label: 'Amount', value: `₹${b.totalAmount.toLocaleString('en-IN')}` },
-                      ].map(s => (
-                        <div key={s.label} className="bg-slate-900 rounded-xl p-2">
-                          <p className="text-[8px] text-slate-500 uppercase font-bold">{s.label}</p>
-                          <p className="font-black text-white text-[11px] truncate">{s.value}</p>
-                        </div>
-                      ))}
+
+                      {/* Action Bar: Proof Images & Edit Booking */}
+                      {(() => {
+                        const kyc = parseKycFromNotes(b.notes);
+                        const docCount = kyc.docs.length;
+                        return (
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBookingForProof(b)}
+                              className="px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                              title="View or upload customer ID proof images"
+                            >
+                              <CreditCard size={13} className="text-violet-400" />
+                              <span>Customer Proof Images</span>
+                              {docCount > 0 ? (
+                                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full font-black">
+                                  {docCount}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded-full font-black">
+                                  + Add
+                                </span>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMasterInvoiceBooking(b)}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                              title="View Master Tax Invoice, Member Manifest & WhatsApp Bill"
+                            >
+                              <FileText size={13} className="text-emerald-400" />
+                              <span>Master Bill & Manifest</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBookingForEdit(b)}
+                              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                              title="Edit booking (will be sent for hotel approval)"
+                            >
+                              <Edit3 size={13} className="text-indigo-400" />
+                              <span>Edit Booking</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
-                    <div className="flex items-center justify-between bg-slate-900 rounded-xl px-3 py-2">
-                      <span className="text-[10px] text-slate-500 font-bold">Your Commission</span>
-                      <span className={`text-sm font-black ${b.commissionPaid ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        ₹{b.commission.toLocaleString('en-IN')} {b.commissionPaid ? '✓ Credited' : '(Pending)'}
-                      </span>
-                    </div>
-
-                    {/* Action Bar: Proof Images & Edit Booking */}
-                    {(() => {
-                      const kyc = parseKycFromNotes(b.notes);
-                      const docCount = kyc.docs.length;
-                      return (
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBookingForProof(b)}
-                            className="px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                            title="View or upload customer ID proof images"
-                          >
-                            <CreditCard size={13} className="text-violet-400" />
-                            <span>Customer Proof Images</span>
-                            {docCount > 0 ? (
-                              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full font-black">
-                                {docCount}
-                              </span>
-                            ) : (
-                              <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded-full font-black">
-                                + Add
-                              </span>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setSelectedMasterInvoiceBooking(b)}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                            title="View Master Tax Invoice, Member Manifest & WhatsApp Bill"
-                          >
-                            <FileText size={13} className="text-emerald-400" />
-                            <span>Master Bill & Manifest</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBookingForEdit(b)}
-                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                            title="Edit booking (will be sent for hotel approval)"
-                          >
-                            <Edit3 size={13} className="text-indigo-400" />
-                            <span>Edit Booking</span>
-                          </button>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                );
-              }))}
+                  );
+                }))}
             </div>
           )}
 
@@ -2458,9 +2375,8 @@ export default function AgentPortal() {
             {/* 1. Hotels */}
             <button
               onClick={() => { setSelectedHotel(null); setHomeTab('hotels'); setView('home'); }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'home' && homeTab === 'hotels' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
-              }`}
+              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${view === 'home' && homeTab === 'hotels' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+                }`}
             >
               <Building2 size={17} />
               <span className="text-[9px] mt-0.5">Hotels</span>
@@ -2469,9 +2385,8 @@ export default function AgentPortal() {
             {/* 2. Local Services (Buses, Taxis, Bikes, Sightseeing) */}
             <button
               onClick={() => { setSelectedHotel(null); setHomeTab('local'); setView('home'); }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'home' && homeTab === 'local' ? 'text-sky-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
-              }`}
+              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${view === 'home' && homeTab === 'local' ? 'text-sky-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+                }`}
             >
               <Bus size={17} />
               <span className="text-[9px] mt-0.5">Local</span>
@@ -2491,9 +2406,8 @@ export default function AgentPortal() {
             {/* 4. My Bookings */}
             <button
               onClick={() => { setView('dashboard'); setDashTab('bookings'); refreshAgent(); }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'dashboard' && dashTab === 'bookings' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
-              }`}
+              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${view === 'dashboard' && dashTab === 'bookings' ? 'text-violet-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+                }`}
             >
               <Bed size={17} />
               <span className="text-[9px] mt-0.5">Bookings</span>
@@ -2502,9 +2416,8 @@ export default function AgentPortal() {
             {/* 5. Commission */}
             <button
               onClick={() => { setView('dashboard'); setDashTab('commission'); refreshAgent(); }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-                view === 'dashboard' && dashTab === 'commission' ? 'text-emerald-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
-              }`}
+              className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all ${view === 'dashboard' && dashTab === 'commission' ? 'text-emerald-400 font-black' : 'text-slate-500 hover:text-slate-300 font-bold'
+                }`}
             >
               <IndianRupee size={17} />
               <span className="text-[9px] mt-0.5">Earnings</span>

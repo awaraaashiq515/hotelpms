@@ -383,6 +383,7 @@ model RoomType {
   baseOccupancy       Int                  @default(2)
   extraAdultRate      Float                @default(0)
   extraChildRate      Float                @default(0)
+  gstRate             Float?
   reservations        Reservation[]
   rooms               Room[]
   channelRoomMappings ChannelRoomMapping[]

@@ -7,7 +7,7 @@ import {
   BadgeCheck, AlertCircle, Calendar, Users,
   ArrowUpRight, Sparkles, TrendingUp, Wallet,
   ChevronDown, Building2, Volume2, VolumeX, Bell, CreditCard,
-  Shield, Check,
+  Shield, Check, BedDouble,
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import Link from 'next/link';
@@ -33,6 +33,22 @@ interface AgentBooking {
   specialRequests?: string;
   includePoolAccess?: boolean;
   includeSpaPackage?: boolean;
+  reservationId?: string | null;
+  bookingNo?: string | null;
+  assignedRoomId?: string | null;
+  assignedRoomIds?: string[];
+  assignedRoom?: {
+    id: string;
+    roomNumber: string;
+    floor?: string | number | null;
+    roomType?: { id: string; name: string } | null;
+  } | null;
+  assignedRooms?: Array<{
+    id: string;
+    roomNumber: string;
+    floor?: string | number | null;
+    roomType?: { id: string; name: string } | null;
+  }>;
   createdAt: string;
   agent: {
     id: string;
@@ -46,16 +62,27 @@ interface AgentBooking {
 }
 
 const STATUS: Record<string, { label: string; color: string; bg: string; border: string; dot: string; icon: React.ElementType }> = {
-  PENDING:    { label: 'Pending Review', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   dot: 'bg-amber-400',   icon: Clock },
-  CONFIRMED:  { label: 'Confirmed',      color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: 'bg-emerald-400', icon: CheckCircle2 },
-  CHECKED_IN: { label: 'Checked In',     color: 'text-sky-400',     bg: 'bg-sky-500/10',     border: 'border-sky-500/30',     dot: 'bg-sky-400',     icon: BadgeCheck },
-  COMPLETED:  { label: 'Completed',      color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  border: 'border-indigo-500/30',  dot: 'bg-indigo-400',  icon: Star },
-  CANCELLED:  { label: 'Cancelled',      color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/30',    dot: 'bg-rose-400',    icon: AlertCircle },
+  PENDING: { label: 'Pending Review', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', dot: 'bg-amber-400', icon: Clock },
+  CONFIRMED: { label: 'Confirmed', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: 'bg-emerald-400', icon: CheckCircle2 },
+  CHECKED_IN: { label: 'Checked In', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/30', dot: 'bg-sky-400', icon: BadgeCheck },
+  COMPLETED: { label: 'Completed', color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/30', dot: 'bg-indigo-400', icon: Star },
+  CANCELLED: { label: 'Cancelled', color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/30', dot: 'bg-rose-400', icon: AlertCircle },
 };
 
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function fmtShort(d: string) { return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); }
 function nights(ci: string, co: string) { return Math.max(1, Math.round((new Date(co).getTime() - new Date(ci).getTime()) / 86400000)); }
+
+function extractRequestedRoomCount(roomType: string, notes?: string): number {
+  if (!roomType) return 1;
+  const mParen = roomType.match(/\((\d+)\s*Rooms?\)/i);
+  if (mParen) return Math.max(1, parseInt(mParen[1], 10));
+  const mX = roomType.match(/^(\d+)x\s+/i);
+  if (mX) return Math.max(1, parseInt(mX[1], 10));
+  const mNotes = notes?.match(/\[ROOMS:\s*(\d+)x/i) || notes?.match(/\[ROOM_COUNT:\s*(\d+)\]/i);
+  if (mNotes) return Math.max(1, parseInt(mNotes[1], 10));
+  return 1;
+}
 
 function Row({ label, val, highlight }: { label: string; val?: string | number; highlight?: boolean }) {
   return (
@@ -75,6 +102,24 @@ export default function AgentBookingsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabledState] = useState(true);
   const [selectedBookingForProof, setSelectedBookingForProof] = useState<AgentBooking | null>(null);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<Record<string, string[]>>({});
+
+  const getBookingSelectedRooms = (b: AgentBooking): string[] => {
+    if (selectedRoomIds[b.id] !== undefined) {
+      return selectedRoomIds[b.id];
+    }
+    if (b.assignedRooms && b.assignedRooms.length > 0) {
+      return b.assignedRooms.map((r) => r.id);
+    }
+    if (b.assignedRoomIds && b.assignedRoomIds.length > 0) {
+      return b.assignedRoomIds;
+    }
+    if (b.assignedRoomId) {
+      return [b.assignedRoomId];
+    }
+    return [];
+  };
 
   // Room Calendar Visibility Permission
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
@@ -88,6 +133,7 @@ export default function AgentBookingsPage() {
     setupAudioUnlock();
     setSoundEnabledState(isSoundEnabled());
     load();
+    loadRooms();
     loadVisibility();
 
     // Auto-polling every 12 seconds so new agent & group bookings ring the front desk bell in real-time
@@ -97,6 +143,18 @@ export default function AgentBookingsPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const loadRooms = async () => {
+    try {
+      const res = await fetch('/api/hotel/rooms');
+      const j = await res.json();
+      if (j.success && Array.isArray(j.data)) {
+        setRooms(j.data);
+      } else if (Array.isArray(j.rooms)) {
+        setRooms(j.rooms);
+      }
+    } catch (_) {}
+  };
+
   const loadVisibility = async () => {
     try {
       const res = await fetch('/api/hotel/agent-visibility');
@@ -104,7 +162,7 @@ export default function AgentBookingsPage() {
       if (j.success && j.agentVisibilityDays) {
         setHotelVisibilityDays(j.agentVisibilityDays);
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleQuickChangeVisibility = async (newDays: number) => {
@@ -172,19 +230,25 @@ export default function AgentBookingsPage() {
     }
   };
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: string, roomIds?: string[]) => {
     setUpdating(id);
     try {
       const res = await fetch('/api/hotel/agent-bookings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({
+          id,
+          status,
+          ...(roomIds && roomIds.length > 0 ? { assignedRoomIds: roomIds, assignedRoomId: roomIds[0] } : {}),
+        }),
       });
       const data = await res.json();
       if (data.success) {
         playNotificationSound('success');
         const msgs: Record<string, string> = {
-          CONFIRMED: 'Booking confirmed successfully!',
+          CONFIRMED: roomIds && roomIds.length > 0
+            ? `Booking confirmed & ${roomIds.length} room(s) allotted!`
+            : 'Booking confirmed successfully!',
           CANCELLED: 'Booking rejected.',
           CHECKED_IN: 'Guest checked in!',
           COMPLETED: 'Stay marked as completed!',
@@ -194,6 +258,59 @@ export default function AgentBookingsPage() {
       } else toast.error(data.message || 'Update failed.');
     } catch { toast.error('Connection error.'); }
     finally { setUpdating(null); }
+  };
+
+  const allotRooms = async (id: string, roomIds: string[]) => {
+    if (!roomIds || roomIds.length === 0) {
+      toast.error('Please select at least one room number first.');
+      return;
+    }
+    setUpdating(id + '_r');
+    try {
+      const res = await fetch('/api/hotel/agent-bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, assignedRoomIds: roomIds, assignedRoomId: roomIds[0] }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        playNotificationSound('success');
+        toast.success(`${roomIds.length} room(s) allotted successfully!`);
+        load(true);
+      } else {
+        toast.error(data.message || 'Failed to allot room.');
+      }
+    } catch {
+      toast.error('Connection error.');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleAutoAllot = (b: AgentBooking, requestedCount: number) => {
+    const matchingAvailable = rooms.filter((r) => {
+      const isAvail = r.status === 'AVAILABLE' || !r.status;
+      const matchesType = r.roomType?.name && b.roomType.toLowerCase().includes(r.roomType.name.toLowerCase());
+      return isAvail && matchesType;
+    });
+
+    const otherAvailable = rooms.filter((r) => {
+      const isAvail = r.status === 'AVAILABLE' || !r.status;
+      const matchesType = r.roomType?.name && b.roomType.toLowerCase().includes(r.roomType.name.toLowerCase());
+      return isAvail && !matchesType;
+    });
+
+    const candidateRooms = [...matchingAvailable, ...otherAvailable];
+    const chosen = candidateRooms.slice(0, requestedCount);
+    const chosenIds = chosen.map((r) => r.id);
+
+    if (chosenIds.length === 0) {
+      toast.error('No available rooms found to auto-allot.');
+      return;
+    }
+
+    setSelectedRoomIds((prev) => ({ ...prev, [b.id]: chosenIds }));
+    toast.success(`Selected ${chosenIds.length} free room(s): #${chosen.map((r) => r.roomNumber).join(', #')}`);
   };
 
   const markCommPaid = async (id: string) => {
@@ -210,14 +327,14 @@ export default function AgentBookingsPage() {
     finally { setUpdating(null); }
   };
 
-  const pending   = bookings.filter(b => b.status === 'PENDING').length;
+  const pending = bookings.filter(b => b.status === 'PENDING').length;
   const confirmed = bookings.filter(b => b.status === 'CONFIRMED').length;
   const checkedIn = bookings.filter(b => b.status === 'CHECKED_IN').length;
   // H11: Exclude cancelled bookings from Total Revenue and Commission Due
   const activeBookings = bookings.filter(b => b.status !== 'CANCELLED');
   const totalComm = activeBookings.reduce((s, b) => s + b.commission, 0);
-  const commPaid  = activeBookings.filter(b => b.commissionPaid).reduce((s, b) => s + b.commission, 0);
-  const totalRev  = activeBookings.reduce((s, b) => s + b.totalAmount, 0);
+  const commPaid = activeBookings.filter(b => b.commissionPaid).reduce((s, b) => s + b.commission, 0);
+  const totalRev = activeBookings.reduce((s, b) => s + b.totalAmount, 0);
 
   const filtered = bookings.filter(b => {
     const q = search.toLowerCase();
@@ -241,11 +358,10 @@ export default function AgentBookingsPage() {
         <div className="flex items-center gap-2 self-start flex-wrap">
           <button
             onClick={toggleSound}
-            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-              soundEnabled
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-sm'
-                : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
-            }`}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${soundEnabled
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-sm'
+              : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+              }`}
             title={soundEnabled ? 'Front Desk Chime Active (Click to mute/test)' : 'Sound Muted (Click to enable)'}
           >
             {soundEnabled ? <Volume2 size={14} className="text-emerald-400 animate-pulse" /> : <VolumeX size={14} />}
@@ -350,11 +466,10 @@ export default function AgentBookingsPage() {
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
-                  statusFilter === s
-                    ? s === 'ALL' ? 'bg-slate-700 text-white' : `${STATUS[s]?.bg} ${STATUS[s]?.color} border ${STATUS[s]?.border}`
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === s
+                  ? s === 'ALL' ? 'bg-slate-700 text-white' : `${STATUS[s]?.bg} ${STATUS[s]?.color} border ${STATUS[s]?.border}`
+                  : 'text-slate-500 hover:text-slate-300'
+                  }`}
               >
                 {s === 'ALL' ? 'All' : STATUS[s]?.label.split(' ')[0]}
                 {s === 'PENDING' && pending > 0 && (
@@ -424,6 +539,22 @@ export default function AgentBookingsPage() {
                         <span className="flex items-center gap-1"><Calendar size={9} /> {fmtShort(b.checkIn)} → {fmtShort(b.checkOut)} <span className="text-slate-600">({n}N)</span></span>
                         <span className="flex items-center gap-1"><Users size={9} /> {b.adults}A{b.children > 0 ? `+${b.children}C` : ''}</span>
                         <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[9px] font-bold text-slate-300">{b.roomType}</span>
+                        {b.assignedRooms && b.assignedRooms.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-300">
+                            <BedDouble size={9} />
+                            {b.assignedRooms.length === 1
+                              ? `Room #${b.assignedRooms[0].roomNumber}`
+                              : `${b.assignedRooms.length} Rooms: #${b.assignedRooms.map((r) => r.roomNumber).join(', #')}`}
+                          </span>
+                        ) : b.assignedRoom ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-300">
+                            <BedDouble size={9} /> Room #{b.assignedRoom.roomNumber}
+                          </span>
+                        ) : b.status !== 'CANCELLED' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-[9px] font-bold text-amber-300">
+                            <BedDouble size={9} /> Room Not Allotted
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -450,6 +581,17 @@ export default function AgentBookingsPage() {
                         <Row label="Check-out"   val={fmtDate(b.checkOut)} />
                         <Row label="Nights"      val={`${n}N`} />
                         <Row label="Room Type"   val={b.roomType} />
+                        <Row
+                          label={extractRequestedRoomCount(b.roomType, b.notes) > 1 ? "Allotted Rooms" : "Allotted Room"}
+                          val={
+                            b.assignedRooms && b.assignedRooms.length > 0
+                              ? `#${b.assignedRooms.map((r) => r.roomNumber).join(', #')}`
+                              : b.assignedRoom
+                              ? `#${b.assignedRoom.roomNumber} (${b.assignedRoom.roomType?.name || 'Room'})`
+                              : 'Not Allotted Yet'
+                          }
+                          highlight={Boolean(b.assignedRooms?.length || b.assignedRoom)}
+                        />
                         <Row label="Guests"      val={`${b.adults}A${b.children > 0 ? ` + ${b.children}C` : ''}`} />
                         {b.guestNationality && <Row label="Nationality" val={b.guestNationality} />}
                         {b.includePoolAccess && <Row label="Pool" val="✓ Included" highlight />}
@@ -461,9 +603,9 @@ export default function AgentBookingsPage() {
                     <div className="space-y-3">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Agent & Notes</p>
                       <div className="space-y-1.5 text-xs">
-                        <Row label="Agent"     val={b.agent?.name} />
-                        <Row label="Code"      val={b.agent?.agentCode} />
-                        <Row label="Phone"     val={b.agent?.phone} />
+                        <Row label="Agent" val={b.agent?.name} />
+                        <Row label="Code" val={b.agent?.agentCode} />
+                        <Row label="Phone" val={b.agent?.phone} />
                         {b.agent?.companyName && <Row label="Company" val={b.agent.companyName} />}
                         <Row label="Commission" val={`₹${b.commission.toLocaleString()} @ ${b.agent?.commissionRate}%`} />
                         <Row label="Comm Status" val={b.commissionPaid ? '✓ Paid' : '⏳ Pending'} highlight={b.commissionPaid} />
@@ -509,19 +651,277 @@ export default function AgentBookingsPage() {
 
                     {/* Actions */}
                     <div className="space-y-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</p>
-                      {b.status === 'PENDING' && (
-                        <>
-                          <button id={`confirm-${b.id}`} onClick={() => updateStatus(b.id, 'CONFIRMED')} disabled={!!busy}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black transition-all">
-                            {busy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Confirm Booking ✓
-                          </button>
-                          <button id={`reject-${b.id}`} onClick={() => updateStatus(b.id, 'CANCELLED')} disabled={!!busy}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-700/40 bg-rose-900/20 hover:bg-rose-800/40 disabled:opacity-50 text-rose-400 text-xs font-bold transition-all">
-                            <X size={12} /> Reject Booking
-                          </button>
-                        </>
-                      )}
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Room Allotment & Actions</p>
+
+                      {b.status !== 'CANCELLED' && b.status !== 'COMPLETED' && (() => {
+                        const requestedCount = extractRequestedRoomCount(b.roomType, b.notes);
+                        const curSelectedIds = getBookingSelectedRooms(b);
+                        const selectedRoomsData = curSelectedIds
+                          .map((id) => rooms.find((r) => r.id === id) || (b.assignedRooms?.find((r) => r.id === id)))
+                          .filter(Boolean);
+
+                        const sortedRooms = [...rooms].sort((a, r2) => {
+                          const aMatch = b.roomType.toLowerCase().includes((a.roomType?.name || '').toLowerCase()) ? 0 : 1;
+                          const bMatch = b.roomType.toLowerCase().includes((r2.roomType?.name || '').toLowerCase()) ? 0 : 1;
+                          if (aMatch !== bMatch) return aMatch - bMatch;
+                          return String(a.roomNumber).localeCompare(String(r2.roomNumber), undefined, { numeric: true });
+                        });
+
+                        const isAllotmentComplete = curSelectedIds.length >= requestedCount;
+                        const initialAllottedIds = b.assignedRooms?.map((r) => r.id) || (b.assignedRoomId ? [b.assignedRoomId] : []);
+                        const hasChanges = JSON.stringify([...curSelectedIds].sort()) !== JSON.stringify([...initialAllottedIds].sort());
+
+                        return (
+                          <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                <BedDouble size={13} className="text-emerald-400" />
+                                <span>Room Allotment ({curSelectedIds.length}/{requestedCount})</span>
+                              </label>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                                isAllotmentComplete
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              }`}>
+                                {requestedCount} {requestedCount === 1 ? 'Room' : 'Rooms'} Requested
+                              </span>
+                            </div>
+
+                            {/* Quick Action Buttons */}
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleAutoAllot(b, requestedCount)}
+                                className="flex-1 py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/35 border border-indigo-500/30 text-indigo-300 text-[10px] font-black flex items-center justify-center gap-1 transition-all cursor-pointer"
+                              >
+                                <Sparkles size={11} className="text-indigo-400" />
+                                <span>Auto-Select {requestedCount} Free</span>
+                              </button>
+                              {curSelectedIds.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRoomIds((prev) => ({ ...prev, [b.id]: [] }))}
+                                  className="py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-rose-900/30 text-slate-400 hover:text-rose-300 text-[10px] font-bold border border-slate-700 transition-all cursor-pointer"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Selected Rooms Chips */}
+                            {curSelectedIds.length > 0 && (
+                              <div className="space-y-1.5 bg-[#090f1e] p-2.5 rounded-lg border border-slate-800">
+                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                                  <span>Selected Rooms ({curSelectedIds.length}):</span>
+                                  {isAllotmentComplete ? (
+                                    <span className="text-emerald-400 font-black">✓ Ready</span>
+                                  ) : (
+                                    <span className="text-amber-400">Need {requestedCount - curSelectedIds.length} more</span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {selectedRoomsData.map((rm: any, idx) => (
+                                    <span
+                                      key={rm.id || idx}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 text-[10px] font-black"
+                                    >
+                                      <span>#{rm.roomNumber}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedRoomIds((prev) => ({
+                                            ...prev,
+                                            [b.id]: (prev[b.id] ?? curSelectedIds).filter((id) => id !== rm.id),
+                                          }));
+                                        }}
+                                        className="text-emerald-400 hover:text-rose-400 font-bold ml-0.5 cursor-pointer"
+                                        title="Remove room"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dropdown to add / choose room */}
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                                <span>{requestedCount > 1 ? '+ Add / Select Room Number' : 'Select Room'}</span>
+                                <span className={isAllotmentComplete ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                                  {curSelectedIds.length} / {requestedCount} Allotted
+                                </span>
+                              </label>
+                              <select
+                                value=""
+                                disabled={curSelectedIds.length >= requestedCount && requestedCount > 1}
+                                onChange={(e) => {
+                                  const rId = e.target.value;
+                                  if (!rId) return;
+                                  const curr = selectedRoomIds[b.id] ?? curSelectedIds;
+                                  if (requestedCount === 1) {
+                                    setSelectedRoomIds((prev) => ({ ...prev, [b.id]: [rId] }));
+                                    return;
+                                  }
+                                  if (curr.includes(rId)) return;
+                                  if (curr.length >= requestedCount) {
+                                    toast.error(`Agent requested exactly ${requestedCount} room(s). You cannot select more.`);
+                                    return;
+                                  }
+                                  setSelectedRoomIds((prev) => ({ ...prev, [b.id]: [...curr, rId] }));
+                                }}
+                                className="w-full px-2.5 py-2 rounded-lg bg-[#090f1e] border border-slate-700 text-xs font-semibold text-white focus:outline-none focus:border-emerald-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <option value="">
+                                  {curSelectedIds.length >= requestedCount && requestedCount > 1
+                                    ? `✓ All ${requestedCount} of ${requestedCount} Rooms Selected`
+                                    : `-- Choose Room Number to Add (${curSelectedIds.length}/${requestedCount}) --`}
+                                </option>
+                                {sortedRooms.map((rm) => {
+                                  const isSelected = curSelectedIds.includes(rm.id);
+                                  const isMatch = rm.roomType?.name && b.roomType.toLowerCase().includes(rm.roomType.name.toLowerCase());
+                                  return (
+                                    <option key={rm.id} value={rm.id} disabled={isSelected}>
+                                      {isSelected ? '✓ ' : isMatch ? '★ ' : ''}Room #{rm.roomNumber} — {rm.roomType?.name || 'Room'} ({rm.status})
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+
+                            {/* Quick Click Room Chips (Available / Matching Rooms) */}
+                            <div className="space-y-1 pt-1">
+                              <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                                <span>Quick Pick Free Rooms:</span>
+                                {curSelectedIds.length >= requestedCount && (
+                                  <span className="text-emerald-400 font-bold">✓ Target Reached ({requestedCount})</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto no-scrollbar p-1 rounded bg-[#090f1e]/60 border border-slate-800/80">
+                                {sortedRooms.map((rm) => {
+                                  const isSelected = curSelectedIds.includes(rm.id);
+                                  const isOccupied = rm.status === 'OCCUPIED';
+                                  const isMatch = rm.roomType?.name && b.roomType.toLowerCase().includes(rm.roomType.name.toLowerCase());
+                                  const isFull = curSelectedIds.length >= requestedCount && !isSelected;
+                                  return (
+                                    <button
+                                      key={rm.id}
+                                      type="button"
+                                      disabled={isOccupied || isFull}
+                                      onClick={() => {
+                                        const curr = selectedRoomIds[b.id] ?? curSelectedIds;
+                                        if (requestedCount === 1) {
+                                          setSelectedRoomIds((prev) => ({ ...prev, [b.id]: isSelected ? [] : [rm.id] }));
+                                          return;
+                                        }
+                                        if (isSelected) {
+                                          setSelectedRoomIds((prev) => ({ ...prev, [b.id]: curr.filter((id) => id !== rm.id) }));
+                                        } else {
+                                          if (curr.length >= requestedCount) {
+                                            toast.error(`Limit reached! Agent requested exactly ${requestedCount} rooms.`);
+                                            return;
+                                          }
+                                          setSelectedRoomIds((prev) => ({ ...prev, [b.id]: [...curr, rm.id] }));
+                                        }
+                                      }}
+                                      className={`px-2 py-1 rounded text-[10px] font-black transition-all cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-emerald-500 text-black shadow-sm'
+                                          : isOccupied
+                                          ? 'bg-slate-900/40 text-slate-600 border border-slate-800 line-through cursor-not-allowed'
+                                          : isFull
+                                          ? 'bg-slate-900/50 text-slate-600 border border-slate-800 opacity-40 cursor-not-allowed'
+                                          : isMatch
+                                          ? 'bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/50'
+                                          : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                                      }`}
+                                      title={
+                                        isFull
+                                          ? `Target reached (${requestedCount} rooms selected)`
+                                          : `Room #${rm.roomNumber} - ${rm.roomType?.name || 'Room'} (${rm.status})`
+                                      }
+                                    >
+                                      #{rm.roomNumber}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Update Button for confirmed/in-house bookings */}
+                            {b.status !== 'PENDING' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (curSelectedIds.length !== requestedCount) {
+                                    toast.error(`Agent requested exactly ${requestedCount} rooms. You have selected ${curSelectedIds.length}.`);
+                                    return;
+                                  }
+                                  allotRooms(b.id, curSelectedIds);
+                                }}
+                                disabled={!!busy || curSelectedIds.length !== requestedCount || !hasChanges}
+                                className="w-full py-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 disabled:opacity-40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <BedDouble size={12} />
+                                <span>{curSelectedIds.length > 0 ? `Update Allotted Rooms (${curSelectedIds.length}/${requestedCount})` : 'Allot Rooms'}</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {b.status === 'PENDING' && (() => {
+                        const curSelectedIds = getBookingSelectedRooms(b);
+                        const requestedCount = extractRequestedRoomCount(b.roomType, b.notes);
+                        const isExact = curSelectedIds.length === requestedCount;
+                        return (
+                          <>
+                            <button
+                              id={`confirm-${b.id}`}
+                              onClick={() => {
+                                if (curSelectedIds.length === 0) {
+                                  toast.error(`Please allot all ${requestedCount} requested room(s) before confirming.`);
+                                  return;
+                                }
+                                if (curSelectedIds.length < requestedCount) {
+                                  toast.error(`Agent requested ${requestedCount} rooms, but only ${curSelectedIds.length} are selected. Please select ${requestedCount - curSelectedIds.length} more.`);
+                                  return;
+                                }
+                                if (curSelectedIds.length > requestedCount) {
+                                  toast.error(`Agent requested ${requestedCount} rooms, but ${curSelectedIds.length} are selected. Please remove ${curSelectedIds.length - requestedCount}.`);
+                                  return;
+                                }
+                                updateStatus(b.id, 'CONFIRMED', curSelectedIds);
+                              }}
+                              disabled={!!busy}
+                              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-xs font-black transition-all cursor-pointer shadow-lg ${
+                                isExact
+                                  ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/30 ring-2 ring-emerald-400/30'
+                                  : 'bg-slate-700 hover:bg-slate-600 opacity-90'
+                              }`}
+                            >
+                              {busy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                              <span>
+                                {isExact
+                                  ? `Confirm & Allot Exactly ${requestedCount} ${requestedCount === 1 ? 'Room' : 'Rooms'} ✓`
+                                  : curSelectedIds.length > 0
+                                  ? `Confirm Booking (${curSelectedIds.length}/${requestedCount} Rooms Selected)`
+                                  : `Confirm Booking (Needs ${requestedCount} Rooms)`}
+                              </span>
+                            </button>
+                            <button
+                              id={`reject-${b.id}`}
+                              onClick={() => updateStatus(b.id, 'CANCELLED')}
+                              disabled={!!busy}
+                              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-700/40 bg-rose-900/20 hover:bg-rose-800/40 disabled:opacity-50 text-rose-400 text-xs font-bold transition-all cursor-pointer"
+                            >
+                              <X size={12} /> Reject Booking
+                            </button>
+                          </>
+                        );
+                      })()}
                       {b.status === 'CONFIRMED' && (
                         <button id={`checkin-${b.id}`} onClick={() => updateStatus(b.id, 'CHECKED_IN')} disabled={!!busy}
                           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-black transition-all">

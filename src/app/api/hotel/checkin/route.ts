@@ -276,6 +276,8 @@ export async function POST(request: NextRequest) {
         const wifiNet = propInfo?.hotelWifiName || 'OrderMint_Guest_WiFi';
         const wifiPass = (walkInData as any)?.wifiPassword || generateWiFiPassword(room.roomNumber);
 
+        const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://ordermintpms.tech'}/guest/room/${room.roomNumber}`;
+
         sendMetaWhatsAppTemplate({
           mobile: cleanMobile,
           templateName: 'guest_room_portal_access',
@@ -285,6 +287,7 @@ export async function POST(request: NextRequest) {
             room.roomNumber,
             wifiNet,
             wifiPass,
+            portalUrl,
           ],
           propertyId,
         }).catch((err) => console.error('[Checkin WhatsApp BG Error]:', err));

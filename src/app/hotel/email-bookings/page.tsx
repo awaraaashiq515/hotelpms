@@ -4,11 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { 
-  Mail, 
-  User, 
-  Calendar as CalendarIcon, 
-  CheckCircle2, 
+import {
+  Mail,
+  User,
+  Calendar as CalendarIcon,
+  CheckCircle2,
   XCircle,
   Import,
   RefreshCw,
@@ -27,6 +27,25 @@ import {
   ExternalLink,
   Settings,
 } from 'lucide-react';
+import {
+  parseEmailBookingDetails,
+  matchRoomTypeFromCategory,
+  getAvailableRoomsForCategory,
+} from '@/lib/email-booking-parser';
+
+// Client-side helper: derive a readable name from email address when guestName is unknown
+// e.g. priya.miller69@example.com → "Priya Miller"
+function resolveGuestName(name: string | null | undefined, email: string | null | undefined): string {
+  if (name && name !== 'Unknown Guest' && name.trim().length > 0) return name;
+  if (email) {
+    const local = email.split('@')[0];
+    const cleaned = local.replace(/\d+$/, '').replace(/[._-]/g, ' ').trim();
+    const parts = cleaned.split(' ').filter((p: string) => p.length > 1);
+    if (parts.length >= 2) return parts.map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+    if (parts.length === 1 && parts[0].length > 2) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+  }
+  return 'Unknown Guest';
+}
 
 export default function EmailBookingsPage() {
   const [emailBookings, setEmailBookings] = useState<any[]>([]);
@@ -44,7 +63,7 @@ export default function EmailBookingsPage() {
   const [configPassword, setConfigPassword] = useState('');
   const [showConfigPass, setShowConfigPass] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
-  
+
   // Room Types, Rooms and Import Form state
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -90,7 +109,32 @@ export default function EmailBookingsPage() {
     fetchEmailBookings();
     fetchRoomTypes();
     fetchRooms();
+
+    // Auto-poll every 12 seconds so newly received email bookings appear in real-time without refreshing
+    const timer = setInterval(() => {
+      fetchEmailBookings(true);
+    }, 12000);
+
+    return () => clearInterval(timer);
   }, []);
+
+  // Auto-sync in background on mount if Gmail credentials are ready
+  useEffect(() => {
+    if (property?.bookingEmail && property?.gmailAppPassword) {
+      fetch('/api/hotel/email-bookings/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId: property.id }),
+      })
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.synced > 0) {
+            fetchEmailBookings(true);
+          }
+        })
+        .catch(() => { });
+    }
+  }, [property?.id, property?.bookingEmail, property?.gmailAppPassword]);
 
   const fetchProperty = async () => {
     try {
@@ -130,8 +174,8 @@ export default function EmailBookingsPage() {
     }
   };
 
-  const fetchEmailBookings = async () => {
-    setLoading(true);
+  const fetchEmailBookings = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/hotel/email-bookings');
       const json = await res.json();
@@ -141,7 +185,7 @@ export default function EmailBookingsPage() {
     } catch (err) {
       console.error('Failed to fetch email bookings', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -227,42 +271,59 @@ export default function EmailBookingsPage() {
   };
 
   const handleOpenImport = (booking: any) => {
-    const formatDate = (dateStr: string | null) => {
-      if (!dateStr) return '';
-      const d = new Date(dateStr);
+    const formatDate = (dateVal: string | Date | null) => {
+      if (!dateVal) return '';
+      const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
       if (isNaN(d.getTime())) return '';
       return d.toISOString().split('T')[0];
     };
 
+    const parsed = parseEmailBookingDetails(
+      booking.subject || '',
+      booking.body || '',
+      booking.guestName,
+      booking.guestEmail,
+      booking.guestPhone
+    );
+
+    const matchedRT = matchRoomTypeFromCategory(parsed.roomCategory, roomTypes);
+    const selectedRoomTypeId = matchedRT?.id || roomTypes[0]?.id || '';
+    const checkInVal = formatDate(parsed.checkIn || booking.checkIn);
+    const checkOutVal = formatDate(parsed.checkOut || booking.checkOut);
+    const availableRooms = getAvailableRoomsForCategory(selectedRoomTypeId, rooms, [], checkInVal, checkOutVal);
+    const autoRoom = availableRooms.find((r: any) => r.isReady) || availableRooms[0];
+
     setImportForm({
       id: booking.id,
-      guestName: booking.guestName || '',
-      guestEmail: booking.guestEmail || '',
-      guestPhone: booking.guestPhone || '',
-      checkIn: formatDate(booking.checkIn),
-      checkOut: formatDate(booking.checkOut),
-      amount: booking.amount !== null ? String(booking.amount) : '',
-      roomTypeId: roomTypes[0]?.id || '',
-      assignedRoomId: '',
-      adults: 2,
-      children: 0,
-      source: booking.source || 'Direct'
+      guestName: resolveGuestName(parsed.guestName || booking.guestName, parsed.guestEmail || booking.guestEmail),
+      guestEmail: parsed.guestEmail || booking.guestEmail || '',
+      guestPhone: parsed.guestPhone || booking.guestPhone || '',
+      checkIn: checkInVal,
+      checkOut: checkOutVal,
+      amount: parsed.amount !== null ? String(parsed.amount) : (booking.amount !== null ? String(booking.amount) : ''),
+      roomTypeId: selectedRoomTypeId,
+      assignedRoomId: autoRoom?.id || '',
+      adults: parsed.adults || 2,
+      children: parsed.children || 0,
+      source: parsed.source || booking.source || 'Direct',
+      detectedRoomCategory: parsed.roomCategory || '',
+      roomsCount: parsed.roomsCount || 1,
     });
-    // Reset add-ons
+    // Auto-fill add-ons from email
     setAddOns({
-      mealPlan: 'RO',
+      mealPlan: parsed.mealPlan || 'RO',
       poolAccess: false,
       poolPackage: 'DAY_PASS',
       poolPassCost: '',
       spaPackage: 'NONE',
       spaPackageCost: '',
-      addOnNotes: '',
+      addOnNotes: parsed.specialRequests || '',
       gstNumber: '',
       companyName: '',
       billingAddress: '',
       discountType: 'PERCENTAGE',
       discountValue: '',
-      advanceAmount: '',
+      advanceAmount: parsed.isPrepaid && (parsed.amount || booking.amount) ? String(parsed.amount || booking.amount) : '',
     });
     setShowGstSection(false);
     setShowAddOnsSection(true);
@@ -362,7 +423,7 @@ export default function EmailBookingsPage() {
     'Direct': '#10b981',
   };
 
-  const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   return (
     <div style={{ background: 'linear-gradient(135deg, #0a0a0f 0%, #0d1117 50%, #0a0a1a 100%)', minHeight: '100vh', padding: '2rem' }}>
@@ -618,7 +679,7 @@ export default function EmailBookingsPage() {
                     {booking.source || 'Direct'}
                   </span>
                 </div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{booking.guestName || 'Unknown Guest'}</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{resolveGuestName(booking.guestName, booking.guestEmail)}</div>
                 <div style={{ color: '#64748b', fontSize: '0.72rem' }}>{booking.sender}</div>
               </div>
 
@@ -704,7 +765,7 @@ export default function EmailBookingsPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {[
-                    { label: 'Guest Name', value: selectedBooking.guestName, icon: <User size={13} /> },
+                    { label: 'Guest Name', value: resolveGuestName(selectedBooking.guestName, selectedBooking.guestEmail), icon: <User size={13} /> },
                     { label: 'Email', value: selectedBooking.guestEmail, icon: <Mail size={13} /> },
                     { label: 'Phone', value: selectedBooking.guestPhone, icon: <Phone size={13} /> },
                     { label: 'Amount', value: selectedBooking.amount ? `₹${Number(selectedBooking.amount).toLocaleString('en-IN')}` : null, icon: <DollarSign size={13} /> },
@@ -760,392 +821,392 @@ export default function EmailBookingsPage() {
         <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Import Reservation Editor" maxWidth="4xl" className="!max-h-[94vh]">
           {/* ── 2-Column Master Layout ── */}
           <form onSubmit={handleConfirmImport} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
 
-            {/* ── LEFT: Guest & Room Details ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* ── LEFT: Guest & Room Details ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-              {/* Row 1: Name + Source */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Guest Name</label>
-                  <input type="text" required value={importForm.guestName} onChange={e => setImportForm({ ...importForm, guestName: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Booking Source</label>
-                  <select value={importForm.source} onChange={e => setImportForm({ ...importForm, source: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
-                    <option value="Agoda">Agoda</option>
-                    <option value="Booking.com">Booking.com</option>
-                    <option value="Airbnb">Airbnb</option>
-                    <option value="MakeMyTrip">MakeMyTrip</option>
-                    <option value="Goibibo">Goibibo</option>
-                    <option value="Expedia">Expedia</option>
-                    <option value="Trivago">Trivago</option>
-                    <option value="Direct">Direct / Other</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 2: Email + Phone */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Email</label>
-                  <input type="email" value={importForm.guestEmail} onChange={e => setImportForm({ ...importForm, guestEmail: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Phone</label>
-                  <input type="text" value={importForm.guestPhone} onChange={e => setImportForm({ ...importForm, guestPhone: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-              </div>
-
-              {/* Row 3: Check-In + Check-Out */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Check-In Date</label>
-                  <input type="date" required value={importForm.checkIn} onChange={e => setImportForm({ ...importForm, checkIn: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Check-Out Date</label>
-                  <input type="date" required value={importForm.checkOut} onChange={e => setImportForm({ ...importForm, checkOut: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-              </div>
-
-              {/* Row 4: Room Type + Adults + Children */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Room Type</label>
-                  <select required value={importForm.roomTypeId} onChange={e => setImportForm({ ...importForm, roomTypeId: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
-                    {roomTypes.map((rt: any) => (
-                      <option key={rt.id} value={rt.id}>{rt.name} (₹{rt.baseRate})</option>
-                    ))}
-                    {roomTypes.length === 0 && <option value="">-- No Room Types --</option>}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Adults</label>
-                  <input type="number" min="1" required value={importForm.adults} onChange={e => setImportForm({ ...importForm, adults: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Children</label>
-                  <input type="number" min="0" required value={importForm.children} onChange={e => setImportForm({ ...importForm, children: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
-                </div>
-              </div>
-
-              {/* Row 5: Assign Room + Amount */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Assign Room (Optional)</label>
-                  <select value={importForm.assignedRoomId} onChange={e => setImportForm({ ...importForm, assignedRoomId: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
-                    <option value="">Auto-Assign Later</option>
-                    {rooms.filter((r: any) => r.roomTypeId === importForm.roomTypeId).map((r: any) => (
-                      <option key={r.id} value={r.id}>Room {r.roomNumber} ({r.status === 'AVAILABLE' ? '✓ Available' : '✗ Occupied'})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Booking Amount (INR)</label>
-                  <input type="number" required value={importForm.amount} onChange={e => setImportForm({ ...importForm, amount: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#10b981', fontWeight: 700, fontSize: '0.85rem' }} />
-                </div>
-              </div>
-
-            </div>{/* end LEFT col */}
-
-            {/* ── RIGHT: Add-Ons, GST, Discount ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-
-            {/* ─── 🎁 Hotel Services & Add-Ons ─── */}
-            <div style={{ borderRadius: '12px', border: '1px solid #1e293b', overflow: 'hidden' }}>
-              <button
-                type="button"
-                onClick={() => setShowAddOnsSection(p => !p)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#0f172a', border: 'none', cursor: 'pointer' }}
-              >
-                <span style={{ color: '#a5b4fc', fontSize: '0.8rem', fontWeight: 800 }}>🎁 Hotel Services & Add-Ons</span>
-                <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{showAddOnsSection ? '▲ collapse' : '▼ expand'}</span>
-              </button>
-              {showAddOnsSection && (
-                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#090d16' }}>
-
-                  {/* Meal Plan */}
+                {/* Row 1: Name + Source */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>🍽️ Meal Plan</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
-                      {[
-                        { val: 'RO', label: 'Room Only', sub: 'RO' },
-                        { val: 'CP', label: 'Breakfast', sub: 'CP' },
-                        { val: 'MAP', label: 'Half Board', sub: 'MAP' },
-                        { val: 'AP', label: 'Full Board', sub: 'AP' },
-                        { val: 'FB', label: 'All Inclusive', sub: 'FB' },
-                      ].map(opt => (
-                        <button
-                          key={opt.val}
-                          type="button"
-                          onClick={() => setAddOns(a => ({ ...a, mealPlan: opt.val }))}
-                          style={{
-                            padding: '8px 4px',
-                            borderRadius: '8px',
-                            border: addOns.mealPlan === opt.val ? '2px solid #6366f1' : '1px solid #1e293b',
-                            background: addOns.mealPlan === opt.val ? '#1e1b4b' : '#0f172a',
-                            color: addOns.mealPlan === opt.val ? '#a5b4fc' : '#64748b',
-                            fontSize: '0.6rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            textAlign: 'center',
-                            lineHeight: 1.3
-                          }}
-                        >
-                          <div style={{ fontSize: '0.72rem', marginBottom: '1px' }}>{opt.sub}</div>
-                          <div>{opt.label}</div>
-                        </button>
-                      ))}
-                    </div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Guest Name</label>
+                    <input type="text" required value={importForm.guestName} onChange={e => setImportForm({ ...importForm, guestName: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
                   </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Booking Source</label>
+                    <select value={importForm.source} onChange={e => setImportForm({ ...importForm, source: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
+                      <option value="Agoda">Agoda</option>
+                      <option value="Booking.com">Booking.com</option>
+                      <option value="Airbnb">Airbnb</option>
+                      <option value="MakeMyTrip">MakeMyTrip</option>
+                      <option value="Goibibo">Goibibo</option>
+                      <option value="Expedia">Expedia</option>
+                      <option value="Trivago">Trivago</option>
+                      <option value="Direct">Direct / Other</option>
+                    </select>
+                  </div>
+                </div>
 
-                  {/* Pool & Spa */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {/* Pool */}
-                    <div style={{ background: '#0f172a', border: `1px solid ${addOns.poolAccess ? '#0891b2' : '#1e293b'}`, borderRadius: '10px', padding: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addOns.poolAccess ? '10px' : '0' }}>
-                        <span style={{ color: addOns.poolAccess ? '#38bdf8' : '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>🏊 Pool Access</span>
-                        <button
-                          type="button"
-                          onClick={() => setAddOns(a => ({ ...a, poolAccess: !a.poolAccess }))}
-                          style={{ width: '36px', height: '20px', borderRadius: '999px', border: 'none', background: addOns.poolAccess ? '#0284c7' : '#334155', cursor: 'pointer', position: 'relative', transition: 'all 0.2s' }}
-                        >
-                          <div style={{ position: 'absolute', top: '3px', width: '14px', height: '14px', borderRadius: '50%', background: '#fff', transition: 'all 0.2s', left: addOns.poolAccess ? '19px' : '3px' }} />
-                        </button>
+                {/* Row 2: Email + Phone */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Email</label>
+                    <input type="email" value={importForm.guestEmail} onChange={e => setImportForm({ ...importForm, guestEmail: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Phone</label>
+                    <input type="text" value={importForm.guestPhone} onChange={e => setImportForm({ ...importForm, guestPhone: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
+                  </div>
+                </div>
+
+                {/* Row 3: Check-In + Check-Out */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Check-In Date</label>
+                    <input type="date" required value={importForm.checkIn} onChange={e => setImportForm({ ...importForm, checkIn: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Check-Out Date</label>
+                    <input type="date" required value={importForm.checkOut} onChange={e => setImportForm({ ...importForm, checkOut: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
+                  </div>
+                </div>
+
+                {/* Row 4: Room Type + Adults + Children */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Room Type</label>
+                    <select required value={importForm.roomTypeId} onChange={e => setImportForm({ ...importForm, roomTypeId: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
+                      {roomTypes.map((rt: any) => (
+                        <option key={rt.id} value={rt.id}>{rt.name} (₹{rt.baseRate})</option>
+                      ))}
+                      {roomTypes.length === 0 && <option value="">-- No Room Types --</option>}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Adults</label>
+                    <input type="number" min="1" required value={importForm.adults} onChange={e => setImportForm({ ...importForm, adults: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Children</label>
+                    <input type="number" min="0" required value={importForm.children} onChange={e => setImportForm({ ...importForm, children: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }} />
+                  </div>
+                </div>
+
+                {/* Row 5: Assign Room + Amount */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Assign Room (Optional)</label>
+                    <select value={importForm.assignedRoomId} onChange={e => setImportForm({ ...importForm, assignedRoomId: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
+                      <option value="">Auto-Assign Later</option>
+                      {rooms.filter((r: any) => r.roomTypeId === importForm.roomTypeId).map((r: any) => (
+                        <option key={r.id} value={r.id}>Room {r.roomNumber} ({r.status === 'AVAILABLE' ? '✓ Available' : '✗ Occupied'})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Booking Amount (INR)</label>
+                    <input type="number" required value={importForm.amount} onChange={e => setImportForm({ ...importForm, amount: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#10b981', fontWeight: 700, fontSize: '0.85rem' }} />
+                  </div>
+                </div>
+
+              </div>{/* end LEFT col */}
+
+              {/* ── RIGHT: Add-Ons, GST, Discount ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+
+                {/* ─── 🎁 Hotel Services & Add-Ons ─── */}
+                <div style={{ borderRadius: '12px', border: '1px solid #1e293b', overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddOnsSection(p => !p)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#0f172a', border: 'none', cursor: 'pointer' }}
+                  >
+                    <span style={{ color: '#a5b4fc', fontSize: '0.8rem', fontWeight: 800 }}>🎁 Hotel Services & Add-Ons</span>
+                    <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{showAddOnsSection ? '▲ collapse' : '▼ expand'}</span>
+                  </button>
+                  {showAddOnsSection && (
+                    <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#090d16' }}>
+
+                      {/* Meal Plan */}
+                      <div>
+                        <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>🍽️ Meal Plan</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                          {[
+                            { val: 'RO', label: 'Room Only', sub: 'RO' },
+                            { val: 'CP', label: 'Breakfast', sub: 'CP' },
+                            { val: 'MAP', label: 'Half Board', sub: 'MAP' },
+                            { val: 'AP', label: 'Full Board', sub: 'AP' },
+                            { val: 'FB', label: 'All Inclusive', sub: 'FB' },
+                          ].map(opt => (
+                            <button
+                              key={opt.val}
+                              type="button"
+                              onClick={() => setAddOns(a => ({ ...a, mealPlan: opt.val }))}
+                              style={{
+                                padding: '8px 4px',
+                                borderRadius: '8px',
+                                border: addOns.mealPlan === opt.val ? '2px solid #6366f1' : '1px solid #1e293b',
+                                background: addOns.mealPlan === opt.val ? '#1e1b4b' : '#0f172a',
+                                color: addOns.mealPlan === opt.val ? '#a5b4fc' : '#64748b',
+                                fontSize: '0.6rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                textAlign: 'center',
+                                lineHeight: 1.3
+                              }}
+                            >
+                              <div style={{ fontSize: '0.72rem', marginBottom: '1px' }}>{opt.sub}</div>
+                              <div>{opt.label}</div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      {addOns.poolAccess && (
-                        <>
-                          <select
-                            value={addOns.poolPackage}
-                            onChange={e => setAddOns(a => ({ ...a, poolPackage: e.target.value }))}
-                            style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#fff', fontSize: '0.72rem', marginBottom: '6px' }}
-                          >
-                            <option value="DAY_PASS">Day Pass</option>
-                            <option value="WEEKLY">Weekly</option>
-                            <option value="COMPLIMENTARY">Complimentary</option>
-                          </select>
-                          <input
-                            type="number"
-                            placeholder="Pass Cost (₹)"
-                            value={addOns.poolPassCost}
-                            onChange={e => setAddOns(a => ({ ...a, poolPassCost: e.target.value }))}
-                            style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#38bdf8', fontSize: '0.72rem', fontWeight: 700 }}
-                          />
-                        </>
-                      )}
-                    </div>
 
-                    {/* Spa */}
-                    <div style={{ background: '#0f172a', border: `1px solid ${addOns.spaPackage !== 'NONE' ? '#a855f7' : '#1e293b'}`, borderRadius: '10px', padding: '12px' }}>
-                      <label style={{ display: 'block', color: addOns.spaPackage !== 'NONE' ? '#c084fc' : '#64748b', fontSize: '0.75rem', fontWeight: 700, marginBottom: '8px' }}>🛁 Spa Package</label>
-                      <select
-                        value={addOns.spaPackage}
-                        onChange={e => setAddOns(a => ({ ...a, spaPackage: e.target.value }))}
-                        style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#fff', fontSize: '0.72rem', marginBottom: addOns.spaPackage !== 'NONE' ? '6px' : '0' }}
-                      >
-                        <option value="NONE">No Spa</option>
-                        <option value="BASIC">Basic (₹500–800)</option>
-                        <option value="PREMIUM">Premium (₹1,000–1,500)</option>
-                        <option value="LUXURY">Luxury (₹2,000+)</option>
-                      </select>
-                      {addOns.spaPackage !== 'NONE' && (
+                      {/* Pool & Spa */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {/* Pool */}
+                        <div style={{ background: '#0f172a', border: `1px solid ${addOns.poolAccess ? '#0891b2' : '#1e293b'}`, borderRadius: '10px', padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addOns.poolAccess ? '10px' : '0' }}>
+                            <span style={{ color: addOns.poolAccess ? '#38bdf8' : '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>🏊 Pool Access</span>
+                            <button
+                              type="button"
+                              onClick={() => setAddOns(a => ({ ...a, poolAccess: !a.poolAccess }))}
+                              style={{ width: '36px', height: '20px', borderRadius: '999px', border: 'none', background: addOns.poolAccess ? '#0284c7' : '#334155', cursor: 'pointer', position: 'relative', transition: 'all 0.2s' }}
+                            >
+                              <div style={{ position: 'absolute', top: '3px', width: '14px', height: '14px', borderRadius: '50%', background: '#fff', transition: 'all 0.2s', left: addOns.poolAccess ? '19px' : '3px' }} />
+                            </button>
+                          </div>
+                          {addOns.poolAccess && (
+                            <>
+                              <select
+                                value={addOns.poolPackage}
+                                onChange={e => setAddOns(a => ({ ...a, poolPackage: e.target.value }))}
+                                style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#fff', fontSize: '0.72rem', marginBottom: '6px' }}
+                              >
+                                <option value="DAY_PASS">Day Pass</option>
+                                <option value="WEEKLY">Weekly</option>
+                                <option value="COMPLIMENTARY">Complimentary</option>
+                              </select>
+                              <input
+                                type="number"
+                                placeholder="Pass Cost (₹)"
+                                value={addOns.poolPassCost}
+                                onChange={e => setAddOns(a => ({ ...a, poolPassCost: e.target.value }))}
+                                style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#38bdf8', fontSize: '0.72rem', fontWeight: 700 }}
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        {/* Spa */}
+                        <div style={{ background: '#0f172a', border: `1px solid ${addOns.spaPackage !== 'NONE' ? '#a855f7' : '#1e293b'}`, borderRadius: '10px', padding: '12px' }}>
+                          <label style={{ display: 'block', color: addOns.spaPackage !== 'NONE' ? '#c084fc' : '#64748b', fontSize: '0.75rem', fontWeight: 700, marginBottom: '8px' }}>🛁 Spa Package</label>
+                          <select
+                            value={addOns.spaPackage}
+                            onChange={e => setAddOns(a => ({ ...a, spaPackage: e.target.value }))}
+                            style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#fff', fontSize: '0.72rem', marginBottom: addOns.spaPackage !== 'NONE' ? '6px' : '0' }}
+                          >
+                            <option value="NONE">No Spa</option>
+                            <option value="BASIC">Basic (₹500–800)</option>
+                            <option value="PREMIUM">Premium (₹1,000–1,500)</option>
+                            <option value="LUXURY">Luxury (₹2,000+)</option>
+                          </select>
+                          {addOns.spaPackage !== 'NONE' && (
+                            <input
+                              type="number"
+                              placeholder="Spa Cost (₹)"
+                              value={addOns.spaPackageCost}
+                              onChange={e => setAddOns(a => ({ ...a, spaPackageCost: e.target.value }))}
+                              style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#c084fc', fontSize: '0.72rem', fontWeight: 700 }}
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Add-On Notes */}
+                      <div>
+                        <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>💬 Special Requests / Notes</label>
+                        <textarea
+                          value={addOns.addOnNotes}
+                          onChange={e => setAddOns(a => ({ ...a, addOnNotes: e.target.value }))}
+                          placeholder="e.g. Anniversary decoration, late check-out, airport pickup at 6pm, baby cot needed..."
+                          rows={2}
+                          style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0', fontSize: '0.8rem', resize: 'vertical', fontFamily: 'inherit' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ─── 🏢 Corporate / GST Billing ─── */}
+                <div style={{ borderRadius: '12px', border: '1px solid #1e293b', overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowGstSection(p => !p)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#0f172a', border: 'none', cursor: 'pointer' }}
+                  >
+                    <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 800 }}>🏢 Corporate / GST Billing <span style={{ color: '#64748b', fontWeight: 400 }}>(optional)</span></span>
+                    <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{showGstSection ? '▲ collapse' : '▼ expand'}</span>
+                  </button>
+                  {showGstSection && (
+                    <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', background: '#090d16' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div>
+                          <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>GST Number (GSTIN)</label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            placeholder="e.g. 22AAAAA0000A1Z5"
+                            value={addOns.gstNumber}
+                            onChange={e => setAddOns(a => ({ ...a, gstNumber: e.target.value.toUpperCase() }))}
+                            style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fbbf24', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.05em', fontFamily: 'monospace' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Company Name</label>
+                          <input
+                            type="text"
+                            placeholder="Company / Organization"
+                            value={addOns.companyName}
+                            onChange={e => setAddOns(a => ({ ...a, companyName: e.target.value }))}
+                            style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Billing Address</label>
+                        <textarea
+                          placeholder="Full billing address for GST invoice"
+                          value={addOns.billingAddress}
+                          onChange={e => setAddOns(a => ({ ...a, billingAddress: e.target.value }))}
+                          rows={2}
+                          style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0', fontSize: '0.8rem', resize: 'vertical', fontFamily: 'inherit' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ─── 💸 Discount & Payment ─── */}
+                {(() => {
+                  const base = Number(importForm.amount) || 0;
+                  const poolCost = addOns.poolAccess ? (Number(addOns.poolPassCost) || 0) : 0;
+                  const spaCost = addOns.spaPackage !== 'NONE' ? (Number(addOns.spaPackageCost) || 0) : 0;
+                  const subTotal = base + poolCost + spaCost;
+                  const discVal = Number(addOns.discountValue) || 0;
+                  const discAmt = addOns.discountType === 'PERCENTAGE'
+                    ? Math.round((subTotal * discVal) / 100)
+                    : discVal;
+                  const finalTotal = Math.max(0, subTotal - discAmt);
+                  const advance = Number(addOns.advanceAmount) || 0;
+                  const due = Math.max(0, finalTotal - advance);
+
+                  return (
+                    <div style={{ background: '#0a0f1e', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ color: '#f59e0b', fontSize: '0.8rem', fontWeight: 800, marginBottom: '2px' }}>💸 Discount & Payment</div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', border: '1px solid #1e293b', borderRadius: '8px', overflow: 'hidden' }}>
+                          {(['PERCENTAGE', 'FIXED'] as const).map(dt => (
+                            <button
+                              key={dt}
+                              type="button"
+                              onClick={() => setAddOns(a => ({ ...a, discountType: dt }))}
+                              style={{ padding: '8px 14px', border: 'none', background: addOns.discountType === dt ? '#f59e0b' : '#0f172a', color: addOns.discountType === dt ? '#000' : '#94a3b8', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              {dt === 'PERCENTAGE' ? '% Off' : '₹ Fixed'}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           type="number"
-                          placeholder="Spa Cost (₹)"
-                          value={addOns.spaPackageCost}
-                          onChange={e => setAddOns(a => ({ ...a, spaPackageCost: e.target.value }))}
-                          style={{ width: '100%', padding: '6px 8px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#c084fc', fontSize: '0.72rem', fontWeight: 700 }}
+                          min="0"
+                          placeholder={addOns.discountType === 'PERCENTAGE' ? 'Discount % (e.g. 10)' : 'Discount ₹ (e.g. 500)'}
+                          value={addOns.discountValue}
+                          onChange={e => setAddOns(a => ({ ...a, discountValue: e.target.value }))}
+                          style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}
                         />
-                      )}
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Advance Paid (₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Amount received in advance"
+                          value={addOns.advanceAmount}
+                          onChange={e => setAddOns(a => ({ ...a, advanceAmount: e.target.value }))}
+                          style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#10b981', fontWeight: 700, fontSize: '0.85rem' }}
+                        />
+                      </div>
+
+                      {/* Live Breakdown */}
+                      <div style={{ background: '#0d1117', borderRadius: '10px', padding: '12px 14px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                          <span>Room Amount</span><span>₹{base.toLocaleString('en-IN')}</span>
+                        </div>
+                        {poolCost > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                            <span>+ Pool Pass</span><span>₹{poolCost.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        {spaCost > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c084fc' }}>
+                            <span>+ Spa ({addOns.spaPackage})</span><span>₹{spaCost.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        {discAmt > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
+                            <span>− Discount {addOns.discountType === 'PERCENTAGE' ? `(${addOns.discountValue}%)` : '(Fixed)'}</span>
+                            <span>−₹{discAmt.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        <div style={{ borderTop: '1px solid #1e293b', marginTop: '4px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 800, fontSize: '0.9rem' }}>
+                          <span>Final Total</span><span>₹{finalTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                        {advance > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b' }}>
+                            <span>Due Amount</span><span>₹{due.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  );
+                })()}
 
-                  {/* Add-On Notes */}
-                  <div>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>💬 Special Requests / Notes</label>
-                    <textarea
-                      value={addOns.addOnNotes}
-                      onChange={e => setAddOns(a => ({ ...a, addOnNotes: e.target.value }))}
-                      placeholder="e.g. Anniversary decoration, late check-out, airport pickup at 6pm, baby cot needed..."
-                      rows={2}
-                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0', fontSize: '0.8rem', resize: 'vertical', fontFamily: 'inherit' }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>{/* end RIGHT col */}
+            </div>{/* end 2-col master grid */}
 
-            {/* ─── 🏢 Corporate / GST Billing ─── */}
-            <div style={{ borderRadius: '12px', border: '1px solid #1e293b', overflow: 'hidden' }}>
+            {/* ── Full-width Cancel / Confirm ── */}
+            <div style={{ display: 'flex', gap: '10px', paddingTop: '16px', borderTop: '1px solid #1e293b', marginTop: '4px' }}>
               <button
                 type="button"
-                onClick={() => setShowGstSection(p => !p)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#0f172a', border: 'none', cursor: 'pointer' }}
+                onClick={() => setIsImportModalOpen(false)}
+                style={{ flex: 1, background: '#1e293b', color: '#94a3b8', border: 'none', borderRadius: '12px', padding: '14px', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer' }}
               >
-                <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 800 }}>🏢 Corporate / GST Billing <span style={{ color: '#64748b', fontWeight: 400 }}>(optional)</span></span>
-                <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{showGstSection ? '▲ collapse' : '▼ expand'}</span>
+                Cancel
               </button>
-              {showGstSection && (
-                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', background: '#090d16' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>GST Number (GSTIN)</label>
-                      <input
-                        type="text"
-                        maxLength={15}
-                        placeholder="e.g. 22AAAAA0000A1Z5"
-                        value={addOns.gstNumber}
-                        onChange={e => setAddOns(a => ({ ...a, gstNumber: e.target.value.toUpperCase() }))}
-                        style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fbbf24', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.05em', fontFamily: 'monospace' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Company Name</label>
-                      <input
-                        type="text"
-                        placeholder="Company / Organization"
-                        value={addOns.companyName}
-                        onChange={e => setAddOns(a => ({ ...a, companyName: e.target.value }))}
-                        style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Billing Address</label>
-                    <textarea
-                      placeholder="Full billing address for GST invoice"
-                      value={addOns.billingAddress}
-                      onChange={e => setAddOns(a => ({ ...a, billingAddress: e.target.value }))}
-                      rows={2}
-                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0', fontSize: '0.8rem', resize: 'vertical', fontFamily: 'inherit' }}
-                    />
-                  </div>
-                </div>
-              )}
+              <button
+                type="submit"
+                disabled={actionLoading}
+                style={{ flex: 3, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '12px', padding: '14px', fontWeight: 800, fontSize: '0.9rem', cursor: actionLoading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px #10b98130' }}
+              >
+                {actionLoading ? '⏳ Processing...' : '✓ Confirm & Save Reservation'}
+              </button>
             </div>
-
-            {/* ─── 💸 Discount & Payment ─── */}
-            {(() => {
-              const base = Number(importForm.amount) || 0;
-              const poolCost = addOns.poolAccess ? (Number(addOns.poolPassCost) || 0) : 0;
-              const spaCost = addOns.spaPackage !== 'NONE' ? (Number(addOns.spaPackageCost) || 0) : 0;
-              const subTotal = base + poolCost + spaCost;
-              const discVal = Number(addOns.discountValue) || 0;
-              const discAmt = addOns.discountType === 'PERCENTAGE'
-                ? Math.round((subTotal * discVal) / 100)
-                : discVal;
-              const finalTotal = Math.max(0, subTotal - discAmt);
-              const advance = Number(addOns.advanceAmount) || 0;
-              const due = Math.max(0, finalTotal - advance);
-
-              return (
-                <div style={{ background: '#0a0f1e', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ color: '#f59e0b', fontSize: '0.8rem', fontWeight: 800, marginBottom: '2px' }}>💸 Discount & Payment</div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', border: '1px solid #1e293b', borderRadius: '8px', overflow: 'hidden' }}>
-                      {(['PERCENTAGE', 'FIXED'] as const).map(dt => (
-                        <button
-                          key={dt}
-                          type="button"
-                          onClick={() => setAddOns(a => ({ ...a, discountType: dt }))}
-                          style={{ padding: '8px 14px', border: 'none', background: addOns.discountType === dt ? '#f59e0b' : '#0f172a', color: addOns.discountType === dt ? '#000' : '#94a3b8', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}
-                        >
-                          {dt === 'PERCENTAGE' ? '% Off' : '₹ Fixed'}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder={addOns.discountType === 'PERCENTAGE' ? 'Discount % (e.g. 10)' : 'Discount ₹ (e.g. 500)'}
-                      value={addOns.discountValue}
-                      onChange={e => setAddOns(a => ({ ...a, discountValue: e.target.value }))}
-                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Advance Paid (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Amount received in advance"
-                      value={addOns.advanceAmount}
-                      onChange={e => setAddOns(a => ({ ...a, advanceAmount: e.target.value }))}
-                      style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#10b981', fontWeight: 700, fontSize: '0.85rem' }}
-                    />
-                  </div>
-
-                  {/* Live Breakdown */}
-                  <div style={{ background: '#0d1117', borderRadius: '10px', padding: '12px 14px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
-                      <span>Room Amount</span><span>₹{base.toLocaleString('en-IN')}</span>
-                    </div>
-                    {poolCost > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
-                        <span>+ Pool Pass</span><span>₹{poolCost.toLocaleString('en-IN')}</span>
-                      </div>
-                    )}
-                    {spaCost > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c084fc' }}>
-                        <span>+ Spa ({addOns.spaPackage})</span><span>₹{spaCost.toLocaleString('en-IN')}</span>
-                      </div>
-                    )}
-                    {discAmt > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
-                        <span>− Discount {addOns.discountType === 'PERCENTAGE' ? `(${addOns.discountValue}%)` : '(Fixed)'}</span>
-                        <span>−₹{discAmt.toLocaleString('en-IN')}</span>
-                      </div>
-                    )}
-                    <div style={{ borderTop: '1px solid #1e293b', marginTop: '4px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 800, fontSize: '0.9rem' }}>
-                      <span>Final Total</span><span>₹{finalTotal.toLocaleString('en-IN')}</span>
-                    </div>
-                    {advance > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b' }}>
-                        <span>Due Amount</span><span>₹{due.toLocaleString('en-IN')}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            </div>{/* end RIGHT col */}
-          </div>{/* end 2-col master grid */}
-
-          {/* ── Full-width Cancel / Confirm ── */}
-          <div style={{ display: 'flex', gap: '10px', paddingTop: '16px', borderTop: '1px solid #1e293b', marginTop: '4px' }}>
-            <button
-              type="button"
-              onClick={() => setIsImportModalOpen(false)}
-              style={{ flex: 1, background: '#1e293b', color: '#94a3b8', border: 'none', borderRadius: '12px', padding: '14px', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={actionLoading}
-              style={{ flex: 3, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '12px', padding: '14px', fontWeight: 800, fontSize: '0.9rem', cursor: actionLoading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px #10b98130' }}
-            >
-              {actionLoading ? '⏳ Processing...' : '✓ Confirm & Save Reservation'}
-            </button>
-          </div>
-        </form>
+          </form>
         </Modal>
       )}
 
