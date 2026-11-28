@@ -308,6 +308,10 @@ export default function EmailBookingsPage() {
       source: parsed.source || booking.source || 'Direct',
       detectedRoomCategory: parsed.roomCategory || '',
       roomsCount: parsed.roomsCount || 1,
+      grossAmount: parsed.grossAmount || 0,
+      netPayout: parsed.netPayout || 0,
+      paymentMode: parsed.paymentMode || '',
+      isPrepaid: parsed.isPrepaid || false,
     });
     // Auto-fill add-ons from email
     setAddOns({
@@ -645,20 +649,36 @@ export default function EmailBookingsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {filteredBookings.map(booking => (
+          {filteredBookings.map(booking => {
+            const parsed = parseEmailBookingDetails(
+              booking.subject || '',
+              booking.body || '',
+              booking.guestName,
+              booking.guestEmail,
+              booking.guestPhone
+            );
+            const displayCheckIn = parsed.checkIn || booking.checkIn;
+            const displayCheckOut = parsed.checkOut || booking.checkOut;
+            const displayGross = parsed.grossAmount ?? parsed.amount ?? booking.amount;
+            const displayPayout = parsed.netPayout;
+            const nights = displayCheckIn && displayCheckOut
+              ? Math.max(1, Math.round((new Date(displayCheckOut).getTime() - new Date(displayCheckIn).getTime()) / 86400000))
+              : null;
+
+            return (
             <div
               key={booking.id}
               onClick={() => setSelectedBooking(booking)}
               style={{
                 background: '#0d1117',
                 border: '1px solid #1e293b',
-                borderLeft: `4px solid ${sourceColors[booking.source] || '#6366f1'}`,
+                borderLeft: `4px solid ${sourceColors[parsed.source || booking.source] || '#6366f1'}`,
                 borderRadius: '14px',
                 padding: '16px 20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr auto',
+                gridTemplateColumns: '1.3fr 1fr 1fr auto',
                 alignItems: 'center',
                 gap: '16px',
               }}
@@ -666,9 +686,9 @@ export default function EmailBookingsPage() {
               onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e293b')}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '5px' }}>
                   <span style={{
-                    background: sourceColors[booking.source] || '#6366f1',
+                    background: sourceColors[parsed.source || booking.source] || '#6366f1',
                     color: '#fff',
                     borderRadius: '6px',
                     padding: '2px 8px',
@@ -676,25 +696,63 @@ export default function EmailBookingsPage() {
                     fontWeight: 800,
                     letterSpacing: '0.05em',
                   }}>
-                    {booking.source || 'Direct'}
+                    {parsed.source || booking.source || 'Direct'}
                   </span>
+                  {parsed.roomCategory && (
+                    <span style={{
+                      background: '#1e293b',
+                      color: '#38bdf8',
+                      border: '1px solid #0284c740',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                    }}>
+                      {parsed.roomCategory}{parsed.roomsCount > 1 ? ` (${parsed.roomsCount})` : ''} • {parsed.mealPlan}
+                    </span>
+                  )}
+                  {parsed.isPrepaid && (
+                    <span style={{
+                      background: '#10b98120',
+                      color: '#34d399',
+                      border: '1px solid #10b98140',
+                      borderRadius: '6px',
+                      padding: '2px 7px',
+                      fontSize: '0.62rem',
+                      fontWeight: 800,
+                    }}>
+                      PREPAID
+                    </span>
+                  )}
                 </div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{resolveGuestName(booking.guestName, booking.guestEmail)}</div>
-                <div style={{ color: '#64748b', fontSize: '0.72rem' }}>{booking.sender}</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>
+                  {resolveGuestName(parsed.guestName || booking.guestName, parsed.guestEmail || booking.guestEmail)}
+                </div>
+                <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: '2px' }}>
+                  {parsed.guestPhone || booking.guestPhone ? `${parsed.guestPhone || booking.guestPhone} • ` : ''}
+                  {parsed.guestEmail || booking.guestEmail || booking.sender}
+                </div>
               </div>
 
               <div>
-                <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 600, marginBottom: '2px' }}>STAY</div>
+                <div style={{ color: '#94a3b8', fontSize: '0.68rem', fontWeight: 600, marginBottom: '2px' }}>
+                  STAY {nights ? `(${nights}N)` : ''} • {parsed.adults} ADULTS{parsed.children ? `, ${parsed.children} CH` : ''}
+                </div>
                 <div style={{ color: '#e2e8f0', fontSize: '0.82rem', fontWeight: 600 }}>
-                  {fmt(booking.checkIn)} → {fmt(booking.checkOut)}
+                  {fmt(displayCheckIn)} → {fmt(displayCheckOut)}
                 </div>
               </div>
 
               <div>
-                <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 600, marginBottom: '2px' }}>AMOUNT</div>
-                <div style={{ color: '#10b981', fontSize: '1rem', fontWeight: 800 }}>
-                  {booking.amount ? `₹${booking.amount.toLocaleString('en-IN')}` : '—'}
+                <div style={{ color: '#94a3b8', fontSize: '0.68rem', fontWeight: 600, marginBottom: '2px' }}>TOTAL / PAYOUT</div>
+                <div style={{ color: '#10b981', fontSize: '0.98rem', fontWeight: 800 }}>
+                  {displayGross ? `₹${Number(displayGross).toLocaleString('en-IN')}` : '—'}
                 </div>
+                {displayPayout && (
+                  <div style={{ color: '#38bdf8', fontSize: '0.72rem', fontWeight: 700, marginTop: '1px' }}>
+                    Net Payout: ₹{Number(displayPayout).toLocaleString('en-IN')}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -718,7 +776,8 @@ export default function EmailBookingsPage() {
                 {booking.status === 'REJECTED' && <span style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 700 }}>✗ Rejected</span>}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -763,25 +822,41 @@ export default function EmailBookingsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <p style={{ color: '#64748b', fontSize: '0.65rem', fontWeight: 700, margin: 0, textTransform: 'uppercase' }}>👤 Booking Details</p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {[
-                    { label: 'Guest Name', value: resolveGuestName(selectedBooking.guestName, selectedBooking.guestEmail), icon: <User size={13} /> },
-                    { label: 'Email', value: selectedBooking.guestEmail, icon: <Mail size={13} /> },
-                    { label: 'Phone', value: selectedBooking.guestPhone, icon: <Phone size={13} /> },
-                    { label: 'Amount', value: selectedBooking.amount ? `₹${Number(selectedBooking.amount).toLocaleString('en-IN')}` : null, icon: <DollarSign size={13} /> },
-                    { label: 'Check-In', value: fmt(selectedBooking.checkIn), icon: <CalendarIcon size={13} /> },
-                    { label: 'Check-Out', value: fmt(selectedBooking.checkOut), icon: <CalendarIcon size={13} /> },
-                  ].map(field => (
-                    <div key={field.label} style={{ background: '#0d1117', border: '1px solid #1e293b', borderRadius: '10px', padding: '10px 12px' }}>
-                      <div style={{ color: '#475569', fontSize: '0.6rem', fontWeight: 700, display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '4px' }}>
-                        {field.icon} {field.label}
-                      </div>
-                      <div style={{ color: field.value ? '#e2e8f0' : '#334155', fontSize: '0.82rem', fontWeight: 700 }}>
-                        {field.value || '—'}
-                      </div>
+                {(() => {
+                  const parsed = parseEmailBookingDetails(
+                    selectedBooking.subject || '',
+                    selectedBooking.body || '',
+                    selectedBooking.guestName,
+                    selectedBooking.guestEmail,
+                    selectedBooking.guestPhone
+                  );
+                  const gross = parsed.grossAmount ?? parsed.amount ?? selectedBooking.amount;
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {[
+                        { label: 'Guest Name', value: resolveGuestName(parsed.guestName || selectedBooking.guestName, parsed.guestEmail || selectedBooking.guestEmail), icon: <User size={13} /> },
+                        { label: 'Email', value: parsed.guestEmail || selectedBooking.guestEmail, icon: <Mail size={13} /> },
+                        { label: 'Phone', value: parsed.guestPhone || selectedBooking.guestPhone, icon: <Phone size={13} /> },
+                        { label: 'Gross Total', value: gross ? `₹${Number(gross).toLocaleString('en-IN')}` : null, icon: <DollarSign size={13} /> },
+                        { label: 'Hotel Net Payout', value: parsed.netPayout ? `₹${Number(parsed.netPayout).toLocaleString('en-IN')}` : null, icon: <DollarSign size={13} />, highlight: true },
+                        { label: 'Payment Mode', value: parsed.paymentMode || (parsed.isPrepaid ? 'Prepaid / Paid Online' : 'Pay at Hotel'), icon: <Clock size={13} /> },
+                        { label: 'Check-In', value: fmt((parsed.checkIn || selectedBooking.checkIn) as any), icon: <CalendarIcon size={13} /> },
+                        { label: 'Check-Out', value: fmt((parsed.checkOut || selectedBooking.checkOut) as any), icon: <CalendarIcon size={13} /> },
+                        { label: 'Room Category', value: parsed.roomCategory ? `${parsed.roomCategory}${parsed.roomsCount > 1 ? ` (${parsed.roomsCount} Rooms)` : ''}` : null, icon: <Sparkles size={13} /> },
+                        { label: 'Guests & Meal', value: `${parsed.adults} Adults${parsed.children ? `, ${parsed.children} Ch` : ''} • ${parsed.mealPlan}`, icon: <User size={13} /> },
+                      ].map(field => (
+                        <div key={field.label} style={{ background: (field as any).highlight ? '#10b98112' : '#0d1117', border: `1px solid ${(field as any).highlight ? '#10b98140' : '#1e293b'}`, borderRadius: '10px', padding: '10px 12px' }}>
+                          <div style={{ color: (field as any).highlight ? '#34d399' : '#475569', fontSize: '0.6rem', fontWeight: 700, display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '4px' }}>
+                            {field.icon} {field.label}
+                          </div>
+                          <div style={{ color: field.value ? ((field as any).highlight ? '#34d399' : '#e2e8f0') : '#334155', fontSize: '0.82rem', fontWeight: 700 }}>
+                            {field.value || '—'}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
                 {selectedBooking.status === 'PENDING' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
@@ -880,8 +955,15 @@ export default function EmailBookingsPage() {
                 {/* Row 4: Room Type + Adults + Children */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Room Type</label>
-                    <select required value={importForm.roomTypeId} onChange={e => setImportForm({ ...importForm, roomTypeId: e.target.value })}
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>
+                      Room Type {importForm.detectedRoomCategory ? `(${importForm.detectedRoomCategory})` : ''}
+                    </label>
+                    <select required value={importForm.roomTypeId} onChange={e => {
+                      const nextId = e.target.value;
+                      const nextRooms = getAvailableRoomsForCategory(nextId, rooms, [], importForm.checkIn, importForm.checkOut);
+                      const nextAuto = nextRooms.find((r: any) => r.isReady) || nextRooms[0];
+                      setImportForm({ ...importForm, roomTypeId: nextId, assignedRoomId: nextAuto?.id || '' });
+                    }}
                       style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '0.82rem' }}>
                       {roomTypes.map((rt: any) => (
                         <option key={rt.id} value={rt.id}>{rt.name} (₹{rt.baseRate})</option>
@@ -914,7 +996,23 @@ export default function EmailBookingsPage() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>Booking Amount (INR)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <label style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Booking Amount (INR)</label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {importForm.grossAmount > 0 && (
+                          <button type="button" onClick={() => setImportForm({ ...importForm, amount: String(importForm.grossAmount) })}
+                            style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: '4px', padding: '1px 6px', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>
+                            Gross ₹{Number(importForm.grossAmount).toLocaleString('en-IN')}
+                          </button>
+                        )}
+                        {importForm.netPayout > 0 && (
+                          <button type="button" onClick={() => setImportForm({ ...importForm, amount: String(importForm.netPayout) })}
+                            style={{ background: '#10b98120', color: '#34d399', border: '1px solid #10b98140', borderRadius: '4px', padding: '1px 6px', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>
+                            Payout ₹{Number(importForm.netPayout).toLocaleString('en-IN')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <input type="number" required value={importForm.amount} onChange={e => setImportForm({ ...importForm, amount: e.target.value })}
                       style={{ width: '100%', padding: '10px 12px', background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', color: '#10b981', fontWeight: 700, fontSize: '0.85rem' }} />
                   </div>

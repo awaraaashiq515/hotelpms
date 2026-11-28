@@ -170,6 +170,10 @@ function BookingsContent() {
     roomsCount: 1,
     addOnNotes: '',
     isPrepaid: false,
+    grossAmount: 0,
+    netPayout: 0,
+    commissionAmount: 0,
+    paymentMode: '',
   });
 
   const [bookings, setBookings] = useState<any[]>([]);
@@ -447,6 +451,10 @@ function BookingsContent() {
       roomsCount: parsed.roomsCount || 1,
       addOnNotes: parsed.specialRequests || '',
       isPrepaid: parsed.isPrepaid || false,
+      grossAmount: parsed.grossAmount || 0,
+      netPayout: parsed.netPayout || 0,
+      commissionAmount: parsed.commissionAmount || 0,
+      paymentMode: parsed.paymentMode || '',
     });
     setSelectedEmailBooking(null);
     setImportEmailModalBooking(bookingRow);
@@ -2683,11 +2691,25 @@ function BookingsContent() {
                   <span className="text-sm font-bold text-white">{selectedEmailBooking.guestName || 'OTA Guest'}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Total Tariff</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Total Amount (Gross)</span>
                   <span className="text-sm font-bold text-emerald-400 font-mono">
-                    ₹{Number(selectedEmailBooking.totalAmount || 0).toLocaleString('en-IN')}
+                    ₹{Number(selectedEmailBooking.parsedEmailDetails?.grossAmount || selectedEmailBooking.totalAmount || 0).toLocaleString('en-IN')}
                   </span>
                 </div>
+                {selectedEmailBooking.parsedEmailDetails?.netPayout && (
+                  <div className="col-span-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-emerald-300 block">Hotel Net Payout (Payable to Hotel)</span>
+                      <span className="text-[11px] text-slate-400">
+                        {selectedEmailBooking.parsedEmailDetails?.paymentMode || (selectedEmailBooking.parsedEmailDetails?.isPrepaid ? 'Prepaid' : 'Pay at Hotel')}
+                        {selectedEmailBooking.parsedEmailDetails?.commissionAmount ? ` • Comm: ₹${Number(selectedEmailBooking.parsedEmailDetails.commissionAmount).toLocaleString('en-IN')}` : ''}
+                      </span>
+                    </div>
+                    <span className="text-base font-black text-emerald-300 font-mono">
+                      ₹{Number(selectedEmailBooking.parsedEmailDetails.netPayout).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Phone / Mobile</span>
                   <span className="text-xs font-semibold text-slate-200 font-mono">
@@ -2993,6 +3015,45 @@ function BookingsContent() {
                     </div>
                   );
                 })()}
+
+                {/* Financial Breakdown Banner (Gross vs Net Payout) */}
+                {(emailImportForm.grossAmount > 0 || emailImportForm.netPayout > 0) && (
+                  <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-emerald-300 block">
+                        Email Payout Breakdown {emailImportForm.paymentMode ? `(${emailImportForm.paymentMode})` : ''}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-3 text-slate-200 font-mono">
+                        {emailImportForm.grossAmount > 0 && (
+                          <span>Gross Total: <strong className="text-white">₹{Number(emailImportForm.grossAmount).toLocaleString('en-IN')}</strong></span>
+                        )}
+                        {emailImportForm.netPayout > 0 && (
+                          <span>Hotel Net Payout: <strong className="text-emerald-300">₹{Number(emailImportForm.netPayout).toLocaleString('en-IN')}</strong></span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {emailImportForm.grossAmount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEmailImportForm({ ...emailImportForm, amount: String(emailImportForm.grossAmount) })}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold border border-slate-700 cursor-pointer"
+                        >
+                          Use Gross (₹{Number(emailImportForm.grossAmount).toLocaleString('en-IN')})
+                        </button>
+                      )}
+                      {emailImportForm.netPayout > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEmailImportForm({ ...emailImportForm, amount: String(emailImportForm.netPayout) })}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 text-[10px] font-bold border border-emerald-500/40 cursor-pointer"
+                        >
+                          Use Net Payout (₹{Number(emailImportForm.netPayout).toLocaleString('en-IN')})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Meal Plan, Total & Advance */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

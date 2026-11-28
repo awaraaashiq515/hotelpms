@@ -5,6 +5,12 @@ export interface ParsedEmailDetails {
   checkIn: Date | null;
   checkOut: Date | null;
   amount: number | null;
+  grossAmount: number | null;
+  netPayout: number | null;
+  roomCharges: number | null;
+  taxAmount: number | null;
+  commissionAmount: number | null;
+  paymentMode: string | null;
   source: string;
   roomCategory: string | null;
   roomsCount: number;
@@ -34,6 +40,11 @@ function parseFlexibleDate(raw: string): Date | null {
   if (!raw) return null;
   const cleaned = raw
     .replace(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s*/i, '')
+    // Handle apostrophe short year like "28 May '26" -> "28 May 2026"
+    .replace(/'(\d{2})\b/g, '20$1')
+    // Strip trailing time like "12:00 PM" or "(2 Nights)"
+    .replace(/\(\d+\s*Nights?\)/gi, '')
+    .replace(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
   const d = new Date(cleaned);
@@ -45,6 +56,14 @@ function parseFlexibleDate(raw: string): Date | null {
     return d2;
   }
   return null;
+}
+
+function toTitleCase(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export function deriveNameFromEmail(email: string | null | undefined): string | null {
@@ -78,6 +97,16 @@ export function parseEmailBookingDetails(
       : null;
 
   if (!guestName) {
+    // Goibibo Hotelier Voucher: "PRIMARY GUEST DETAILS PRASHANT SHINDE"
+    const primaryDetailsMatch = text.match(
+      /PRIMARY\s+GUEST\s+DETAILS\s+([A-Za-z ]{3,45}?)(?=\s+(?:BOOKING|CHECK-IN|CHECKIN|gotribe|PHONE|EMAIL)|$)/i
+    );
+    if (primaryDetailsMatch?.[1]) {
+      guestName = toTitleCase(primaryDetailsMatch[1]);
+    }
+  }
+
+  if (!guestName) {
     const primaryNameMatch = text.match(
       /(?:Primary\s+guest|Customer|Booked\s+By|Guest\s+Name|Guest)\s*[:*]\s*([A-Za-z ]+?)(?:\s+(?:Guest\s+Email|Email|Phone|Mobile|Contact|Hotel|Check[-_]in|Arrival|Stay|Nights|Room|Rate)|$)/i
     );
@@ -88,17 +117,22 @@ export function parseEmailBookingDetails(
         !candidate.toLowerCase().includes('email') &&
         candidate.length > 2
       ) {
-        guestName = candidate;
+        guestName = toTitleCase(candidate);
       }
     }
   }
 
   if (!guestName || guestName.toLowerCase().includes('details')) {
-    const firstNameMatch = text.match(/(?:First\s+Name|Customer\s+First\s+Name)\s*[:*]*\s*([A-Za-z ]+)/i);
-    const lastNameMatch = text.match(/(?:Last\s+Name|Customer\s+Last\s+Name)\s*[:*]*\s*([A-Za-z ]+)/i);
+    const firstNameMatch = text.match(
+      /(?:Customer\s+First\s+Name|First\s+Name)\s*[:*]*\s*([A-Za-z ]+?)(?=\s+(?:Customer\s+Last\s+Name|Last\s+Name|Check[-_]in|$))/i
+    );
+    const lastNameMatch = text.match(
+      /(?:Customer\s+Last\s+Name|Last\s+Name)\s*[:*]*\s*([A-Za-z ]+?)(?=\s+(?:Check[-_]in|Other\s+Guests|Room|$))/i
+    );
     if (firstNameMatch?.[1]) {
       guestName = firstNameMatch[1].trim();
       if (lastNameMatch?.[1]) guestName += ' ' + lastNameMatch[1].trim();
+      guestName = toTitleCase(guestName);
     }
   }
 
@@ -179,35 +213,62 @@ export function parseEmailBookingDetails(
 
   if (!checkIn) {
     const checkInMatch = text.match(
-      /(?:check[-_]in|arrival)(?:\s+date|\s+time)?\s*[:*]+\s*([A-Za-z0-9 ,\-\/\.]{6,28}?)(?=\s+(?:check[-_]out|departure|nights|room|hotel|guest|$))/i
+      /(?:check[-_]in|arrival)(?:\s+date|\s+time)?\s*[:*]*\s*([A-Za-z0-9 ',\-\/\.]{6,30}?)(?=\s+(?:check[-_]out|departure|nights|room|hotel|guest|12:00|11:00|$))/i
     );
     if (checkInMatch?.[1]) checkIn = parseFlexibleDate(checkInMatch[1]);
   }
 
   if (!checkOut) {
     const checkOutMatch = text.match(
-      /(?:check[-_]out|departure)(?:\s+date|\s+time)?\s*[:*]+\s*([A-Za-z0-9 ,\-\/\.]{6,28}?)(?=\s+(?:nights|room|hotel|guest|occupancy|rate|meal|$))/i
+      /(?:check[-_]out|departure)(?:\s+date|\s+time)?\s*[:*]*\s*([A-Za-z0-9 ',\-\/\.]{6,30}?)(?=\s*(?:\(|nights|room|hotel|guest|occupancy|rate|meal|total|11:00|12:00|$))/i
     );
     if (checkOutMatch?.[1]) checkOut = parseFlexibleDate(checkOutMatch[1]);
   }
 
-  // 5. Amount
-  let amount: number | null = null;
-  const amountPatterns = [
-    /(?:booking\s+amount|total\s+amount|sell\s+inclusive\s+amount|net\s+rate|grand\s+total|total\s+charged\s+amount|room\s+charges|room\s+rate)\s*[:*]*\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
-    /INR\s+([0-9,]+(?:\.[0-9]{1,2})?)/i,
-    /(?:inr|rs\.?|₹)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
-  ];
-  for (const p of amountPatterns) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      const val = parseFloat(m[1].replace(/,/g, ''));
-      if (!isNaN(val) && val > 0) {
-        amount = val;
-        break;
+  // 5. Financial Breakdown (Priority-ordered so Room Charges never shadows Total Amount or Net Payout!)
+  const extractMoney = (patterns: RegExp[]): number | null => {
+    for (const p of patterns) {
+      const m = text.match(p);
+      if (m?.[1]) {
+        const val = parseFloat(m[1].replace(/,/g, ''));
+        if (!isNaN(val) && val > 0) return val;
       }
     }
-  }
+    return null;
+  };
+
+  const grossAmount = extractMoney([
+    /(?:total\s+amount|booking\s+amount|sell\s+inclusive\s+amount|reference\s+sell\s+rate(?:\s*\([^)]*\))?|property\s+gross\s+charges(?:\s*\([^)]*\))?|grand\s+total|total\s+charged\s+amount)\s*[:*]*\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  ]);
+
+  const netPayout = extractMoney([
+    /(?:amount\s+payable\s+to\s+hotel|net\s+payable\s+to\s+hotel|payable\s+to\s+property(?:\s*\([^)]*\))?|payable\s+to\s+hotel|net\s+payout|hotel\s+payout)\s*[:*]*\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+    /net\s+rate(?:\s*\([^)]*\))?\s*[:*]*\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  ]);
+
+  const roomCharges = extractMoney([
+    /(?:room\s+charges|room\s+rate)\s*[:*]*\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  ]);
+
+  const taxAmount = extractMoney([
+    /taxes(?:\s*\([^)]*\))?\s*[:*]*\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  ]);
+
+  const commissionAmount = extractMoney([
+    /(?:^|\s)commission\s*[:*]+\s*(?:inr|rs\.?|₹|\$|usd|eur)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  ]);
+
+  const fallbackAmount = extractMoney([
+    /INR\s+([0-9,]+(?:\.[0-9]{1,2})?)/i,
+    /(?:inr|rs\.?|₹)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  ]);
+
+  const amount = grossAmount ?? netPayout ?? roomCharges ?? fallbackAmount;
+
+  const paymentModeMatch = text.match(
+    /(?:Payment\s+type|Payment\s+mode|Payment\s+model)\s*[:*]+\s*([A-Za-z0-9@() \-]+?)(?=\s+(?:Special\s+request|Please\s+note|Sent\s+with|$))/i
+  );
+  const paymentMode = paymentModeMatch?.[1]?.trim() || null;
 
   // 6. Room Category & Room Count
   let roomCategory: string | null = null;
@@ -219,6 +280,17 @@ export function parseEmailBookingDetails(
   );
   if (roomTypeMatch?.[1]) {
     roomCategory = roomTypeMatch[1].trim();
+  }
+
+  // e.g. "1 x Premium Room" (Goibibo Hotelier Voucher)
+  if (!roomCategory) {
+    const xRoomMatch = text.match(
+      /(\d+)\s*x\s*([A-Za-z0-9 \-\/&]+?)(?=\s+\d+\s*Adults|\s+Inclusions|\s+Rate|$)/i
+    );
+    if (xRoomMatch?.[2]) {
+      roomsCount = Math.max(1, parseInt(xRoomMatch[1], 10) || 1);
+      roomCategory = xRoomMatch[2].trim();
+    }
   }
 
   // e.g. "Room: 1 Standard Room for 2 adults, with breakfast included"
@@ -273,7 +345,7 @@ export function parseEmailBookingDetails(
   }
 
   // 10. Prepaid check
-  const isPrepaid = /prepaid|pay@mmt|agoda\s+collect|pre-paid|already\s+paid/i.test(text);
+  const isPrepaid = /prepaid|paid\s+online|pay@mmt|agoda\s+collect|pre-paid|already\s+paid/i.test(text);
 
   return {
     guestName,
@@ -282,6 +354,12 @@ export function parseEmailBookingDetails(
     checkIn,
     checkOut,
     amount,
+    grossAmount,
+    netPayout,
+    roomCharges,
+    taxAmount,
+    commissionAmount,
+    paymentMode,
     source: source || 'Direct',
     roomCategory,
     roomsCount,
